@@ -19,8 +19,8 @@ interface ManifestNode {
   id: number; name: string; kind: 'pixel' | 'group';
   visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
   locks: { transparency: boolean; pixels: boolean; position: boolean };
-  mask: { enabled: boolean; default: number; tiles?: number[] } | null;
-  tiles?: number[];
+  mask: { enabled: boolean; default: number; tiles?: Sparse } | null;
+  tiles?: Sparse;
   children?: ManifestNode[];
 }
 
@@ -170,25 +170,24 @@ function assembleImage(tile: (tx: number, ty: number) => Uint8Array | null, rect
   return out;
 }
 
-function tileAt(e: Engine, ids: number[] | undefined, tx: number, ty: number): Uint8Array | null {
-  const id = ids?.[ty * e.tiles_x() + tx];
+// Manifest v3 tile list: [tx, ty, id] with signed tile coordinates; tiles outside the canvas are not exported.
+type Sparse = [number, number, number][];
+
+const tileMap = (ids: Sparse | undefined) => new Map((ids ?? []).map(([tx, ty, id]) => [`${tx},${ty}`, id]));
+
+function tileAt(e: Engine, map: Map<string, number>, tx: number, ty: number): Uint8Array | null {
+  const id = map.get(`${tx},${ty}`);
   return id ? e.tile_bytes(BigInt(id)) : null;
 }
 
 // Bounding rect (document pixel space, cropped to the canvas) of the non-empty tiles in `ids`, or null if none.
-function tileBounds(e: Engine, ids: number[] | undefined, w: number, h: number): Rect | null {
-  if (!ids) return null;
-  const txN = e.tiles_x(), tyN = e.tiles_y();
+function tileBounds(ids: Sparse | undefined, w: number, h: number): Rect | null {
+  const txN = Math.ceil(w / 256), tyN = Math.ceil(h / 256);
   let minTx = Infinity, minTy = Infinity, maxTx = -1, maxTy = -1;
-  for (let ty = 0; ty < tyN; ty++) {
-    for (let tx = 0; tx < txN; tx++) {
-      if (ids[ty * txN + tx]) {
-        if (tx < minTx) minTx = tx;
-        if (ty < minTy) minTy = ty;
-        if (tx > maxTx) maxTx = tx;
-        if (ty > maxTy) maxTy = ty;
-      }
-    }
+  for (const [tx, ty] of ids ?? []) {
+    if (tx < 0 || ty < 0 || tx >= txN || ty >= tyN) continue;
+    minTx = Math.min(minTx, tx); minTy = Math.min(minTy, ty);
+    maxTx = Math.max(maxTx, tx); maxTy = Math.max(maxTy, ty);
   }
   if (maxTx < 0) return null;
   return { left: minTx * 256, top: minTy * 256, right: Math.min((maxTx + 1) * 256, w), bottom: Math.min((maxTy + 1) * 256, h) };
@@ -197,10 +196,11 @@ function tileBounds(e: Engine, ids: number[] | undefined, w: number, h: number):
 // ag-psd writes a zero-size rect and no channel data for a mask/layer with no imageData (psdWriter.js getLayerChannels/getMaskChannels).
 function maskFields(e: Engine, n: ManifestNode, w: number, h: number) {
   if (!n.mask) return {};
-  const rect = tileBounds(e, n.mask.tiles, w, h);
+  const rect = tileBounds(n.mask.tiles, w, h);
   const base = { defaultColor: n.mask.default, disabled: !n.mask.enabled };
   if (!rect) return { mask: { top: 0, left: 0, ...base } };
-  const gray = assembleImage((tx, ty) => tileAt(e, n.mask!.tiles, tx, ty), rect, 1, n.mask.default);
+  const map = tileMap(n.mask.tiles);
+  const gray = assembleImage((tx, ty) => tileAt(e, map, tx, ty), rect, 1, n.mask.default);
   const rw = rect.right - rect.left, rh = rect.bottom - rect.top;
   const rgba = new Uint8ClampedArray(rw * rh * 4);
   for (let i = 0; i < rw * rh; i++) {
@@ -217,9 +217,10 @@ function exportNode(e: Engine, n: ManifestNode, w: number, h: number): Layer {
     ...maskFields(e, n, w, h),
   };
   if (n.kind === 'group') return { ...common, children: (n.children ?? []).map(c => exportNode(e, c, w, h)) };
-  const rect = tileBounds(e, n.tiles, w, h);
+  const rect = tileBounds(n.tiles, w, h);
   if (!rect) return { ...common, top: 0, left: 0 };
-  const data = assembleImage((tx, ty) => tileAt(e, n.tiles, tx, ty), rect, 4, 0);
+  const map = tileMap(n.tiles);
+  const data = assembleImage((tx, ty) => tileAt(e, map, tx, ty), rect, 4, 0);
   const rw = rect.right - rect.left, rh = rect.bottom - rect.top;
   return { ...common, top: rect.top, left: rect.left, imageData: { width: rw, height: rh, data: new Uint8ClampedArray(data.buffer) } };
 }

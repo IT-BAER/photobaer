@@ -152,10 +152,11 @@ function tileLoop(w: number, h: number, fn: (tx: number, ty: number) => void) {
   for (let ty = 0; ty < Math.ceil(h / 256); ty++) for (let tx = 0; tx < Math.ceil(w / 256); tx++) fn(tx, ty);
 }
 
-interface TileNode { id: number; tiles?: number[]; children?: TileNode[] }
+type Sparse = [number, number, number][];
+interface TileNode { id: number; tiles?: Sparse; children?: TileNode[] }
 
-function nodeTiles(e: Engine, id: number): number[] | undefined {
-  const walk = (nodes: TileNode[]): number[] | undefined => {
+function nodeTiles(e: Engine, id: number): Sparse | undefined {
+  const walk = (nodes: TileNode[]): Sparse | undefined => {
     for (const n of nodes) {
       if (n.id === id) return n.tiles;
       const t = n.children && walk(n.children);
@@ -167,8 +168,8 @@ function nodeTiles(e: Engine, id: number): number[] | undefined {
 }
 
 // A tile's raw RGBA8 bytes, or null (transparent) for a missing tile id.
-function layerTile(e: Engine, ids: number[] | undefined, tx: number, ty: number): Uint8Array | null {
-  const id = ids?.[ty * e.tiles_x() + tx];
+function layerTile(e: Engine, ids: Sparse | undefined, tx: number, ty: number): Uint8Array | null {
+  const id = ids?.find(t => t[0] === tx && t[1] === ty)?.[2];
   return id ? e.tile_bytes(BigInt(id)) : null;
 }
 

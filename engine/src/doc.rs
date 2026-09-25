@@ -151,14 +151,6 @@ impl Pixels {
         }
     }
 
-    fn mask_const(depth: u8, value: u32) -> Pixels {
-        if depth == 8 {
-            Pixels::Mask8(vec![value as u8; TILE_PIXELS].into_boxed_slice())
-        } else {
-            Pixels::Mask16(vec![value as u16; TILE_PIXELS].into_boxed_slice())
-        }
-    }
-
     fn inverted(&self) -> Pixels {
         match self {
             Pixels::U8(d) => {
@@ -1365,23 +1357,13 @@ impl Document {
         let max = max_value(depth) as f32;
         if target == Target::Mask {
             let value = if depth == 8 { r as u32 } else { r as u32 * 257 };
-            let m = self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
+            self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
             let area = match self.selected_tiles() {
                 Some(a) => a,
                 None => {
-                    if m.default == value {
-                        let m = self.node_mut(id)?.mask.as_mut().expect("checked");
-                        m.tiles.clear();
-                        return Ok(());
-                    }
-                    let px = Arc::new(Pixels::mask_const(depth, value));
-                    let tile_id = self.alloc_tile_id();
-                    let area = self.whole_layer(&self.node(id)?.mask.as_ref().expect("checked").tiles);
                     let m = self.node_mut(id)?.mask.as_mut().expect("checked");
+                    m.default = value;
                     m.tiles.clear();
-                    for (tx, ty) in area {
-                        m.tiles.put(tx, ty, Some(Tile { id: tile_id, px: px.clone() }));
-                    }
                     return Ok(());
                 }
             };
@@ -1985,6 +1967,17 @@ impl Document {
         }
         if dx == 0 && dy == 0 {
             return Ok(());
+        }
+        // The shifted tiles must stay within the coordinates a manifest may store.
+        let node = self.node(id)?;
+        let mask_coords = node.mask.as_ref().map_or(Vec::new(), |m| m.tiles.coords());
+        let lim = MAX_TILE_COORD as i64;
+        let fits = |t: i32, d: i32| {
+            let lo = (t as i64 * TILE as i64 + d as i64).div_euclid(TILE as i64);
+            lo >= -lim && lo + 1 <= lim
+        };
+        if !node.pixel_tiles()?.coords().into_iter().chain(mask_coords).all(|(tx, ty)| fits(tx, dx) && fits(ty, dy)) {
+            return Err("offset moves the layer too far".into());
         }
         let src = self.node(id)?.pixel_tiles()?.clone();
         let moved = self.shift_tiles(&src, dx, dy, None);
@@ -4745,6 +4738,27 @@ mod tests {
         d.offset_layer(1, 0, 0).unwrap();
         set(&mut d, 1, r#"{"locks":{"position":true}}"#);
         assert_eq!(d.offset_layer(1, 1, 0).unwrap_err(), "layer position is locked");
+    }
+
+    #[test]
+    fn a_filled_mask_keeps_its_value_where_offset_layer_shifts_in_new_area() {
+        let mut d = Document::new(512, 256, 8).unwrap();
+        d.add_mask(1, true).unwrap();
+        d.fill(1, Target::Mask, 0, 0, 0, 255).unwrap();
+        d.offset_layer(1, 100, 0).unwrap();
+        let m = d.node(1).unwrap().mask.as_ref().unwrap();
+        let at = |tx, ty| m.tiles.get(tx, ty).map_or(vec![m.default as u8; MASK_BYTES_U8], |t| t.px.to_bytes());
+        assert!(at(0, 0).iter().all(|&v| v == 0), "the shifted-in column stays hidden");
+    }
+
+    #[test]
+    fn offset_layer_refuses_offsets_the_manifest_cannot_store() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        d.set_tile_rgba8(1, 0, 0, &vec![255u8; TILE_BYTES_U8]).unwrap();
+        assert!(d.offset_layer(1, i32::MAX, 0).is_err());
+        assert!(d.offset_layer(1, 0, -((MAX_TILE_COORD as i32 + 1) * TILE as i32)).is_err());
+        d.offset_layer(1, (MAX_TILE_COORD as i32 - 1) * TILE as i32, 0).unwrap();
+        assert!(Document::from_manifest(&d.manifest()).is_ok(), "a stored offset reopens");
     }
 
     #[test]
