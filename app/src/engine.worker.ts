@@ -3,15 +3,23 @@ import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
 import { packProject, unpackProject, tileIds } from './project.ts';
 
+export interface LayerNode {
+  id: number; name: string; kind: 'pixel' | 'group';
+  visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
+  locks: { transparency: boolean; pixels: boolean; position: boolean };
+  mask: { enabled: boolean; default: number } | null;
+  children?: LayerNode[];
+}
 export interface DocInfo {
   docId: number; version: number; name: string;
   width: number; height: number; depth: number; maxLevel: number;
   undoLabel: string | null; redoLabel: string | null;
+  layers: LayerNode[];
 }
 export type AutosaveState = 'off' | 'other-tab' | 'idle' | 'saving' | 'saved' | 'error';
 export type WorkerEvent = { event: 'autosave'; state: AutosaveState; detail?: string };
 
-// A new document has one pixel layer with node id 1; the layer API arrives with the panel (M1 task 3).
+// A new document has one pixel layer with node id 1.
 const BACKGROUND = 1;
 
 let eng: Engine | null = null;
@@ -42,7 +50,31 @@ function info(): DocInfo | null {
     docId, version, name,
     width: eng.width(), height: eng.height(), depth: eng.depth(), maxLevel: eng.max_level(),
     undoLabel: history.undoLabel, redoLabel: history.redoLabel,
+    layers: JSON.parse(eng.layers_json()),
   };
+}
+
+function nextName(prefix: string): string {
+  const used = new Set<string>();
+  const walk = (nodes: LayerNode[]) => { for (const n of nodes) { used.add(n.name); if (n.children) walk(n.children); } };
+  walk(JSON.parse(need().layers_json()));
+  for (let i = 1; ; i++) if (!used.has(`${prefix} ${i}`)) return `${prefix} ${i}`;
+}
+
+function propsLabel(props: Record<string, unknown>): string {
+  const keys = Object.keys(props);
+  if (keys.length !== 1) return 'Layer Properties';
+  switch (keys[0]) {
+    case 'name': return 'Rename Layer';
+    case 'visible': return props.visible ? 'Show Layer' : 'Hide Layer';
+    case 'opacity': return 'Opacity';
+    case 'fill': return 'Fill Opacity';
+    case 'blend': return 'Blend Mode';
+    case 'clipping': return props.clipping ? 'Create Clipping Mask' : 'Release Clipping Mask';
+    case 'locks': return 'Lock Layer';
+    case 'mask_enabled': return props.mask_enabled ? 'Enable Layer Mask' : 'Disable Layer Mask';
+    default: return 'Layer Properties';
+  }
 }
 
 function need() {
@@ -170,10 +202,77 @@ const api = {
     return adopt(e, file.name.replace(/\.[^.]+$/, ''));
   },
 
-  command(op: 'fill' | 'invert', rgba?: [number, number, number, number]) {
+  command(op: 'fill' | 'invert', id: number, target: 'pixels' | 'mask', rgba?: [number, number, number, number]) {
     const e = need();
-    if (op === 'fill') history.run('Fill', () => e.fill(BACKGROUND, 'pixels', ...rgba!));
-    else history.run('Invert', () => e.invert(BACKGROUND, 'pixels'));
+    if (op === 'fill') history.run('Fill', () => e.fill(id, target, ...rgba!));
+    else history.run('Invert', () => e.invert(id, target));
+    return changed();
+  },
+
+  addLayer(above: number, name?: string) {
+    const e = need();
+    let created = 0;
+    history.run('New Layer', () => { created = e.add_layer(name ?? nextName('Layer'), above); });
+    return { ...changed(), created };
+  },
+
+  addGroup(above: number, name?: string) {
+    const e = need();
+    let created = 0;
+    history.run('New Group', () => { created = e.add_group(name ?? nextName('Group'), above); });
+    return { ...changed(), created };
+  },
+
+  groupNodes(ids: number[]) {
+    const e = need();
+    let created = 0;
+    history.run('Group Layers', () => { created = e.group_nodes(Uint32Array.from(ids)); });
+    return { ...changed(), created };
+  },
+
+  ungroup(id: number) {
+    const e = need();
+    history.run('Ungroup Layers', () => e.ungroup(id));
+    return changed();
+  },
+
+  deleteNode(id: number) {
+    const e = need();
+    history.run('Delete Layer', () => e.delete_node(id));
+    return changed();
+  },
+
+  duplicateNode(id: number) {
+    const e = need();
+    let created = 0;
+    history.run('Duplicate Layer', () => { created = e.duplicate_node(id); });
+    return { ...changed(), created };
+  },
+
+  moveNode(id: number, parent: number, index: number) {
+    const e = need();
+    history.run('Layer Order', () => e.move_node(id, parent, index));
+    return changed();
+  },
+
+  setProps(id: number, props: Partial<{
+    name: string; visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
+    locks: Partial<{ transparency: boolean; pixels: boolean; position: boolean }>; mask_enabled: boolean;
+  }>) {
+    const e = need();
+    history.run(propsLabel(props), () => e.set_props(id, JSON.stringify(props)));
+    return changed();
+  },
+
+  addMask(id: number, reveal: boolean) {
+    const e = need();
+    history.run('Add Layer Mask', () => e.add_mask(id, reveal));
+    return changed();
+  },
+
+  deleteMask(id: number) {
+    const e = need();
+    history.run('Delete Layer Mask', () => e.delete_mask(id));
     return changed();
   },
 
