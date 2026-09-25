@@ -38,7 +38,14 @@ test('layer opacity and an offset layer that sticks out of the canvas are render
 
 test('features the engine cannot render yet are skipped with a reason', async () => {
   const img = image(W, H, pattern);
-  const r = await checkPsd('d.psd', psd([{ name: 'bg', imageData: img }, { name: 'mul', imageData: img, blendMode: 'multiply' }], img));
+  const r = await checkPsd('d.psd', psd([{ name: 'bg', imageData: img }, { name: 'adj', adjustment: { type: 'invert' } }], img));
   assert.equal(r.status, 'skip');
-  assert.match(r.reason!, /blend mode multiply/);
+  assert.match(r.reason!, /adjustment/);
+});
+
+test('a PSB file is skipped, not failed', async () => {
+  const img = image(W, H, pattern);
+  const r = await checkPsd('e.psb', writePsdUint8Array({ width: W, height: H, children: [{ name: 'bg', imageData: img }], imageData: img }, { psb: true }));
+  assert.equal(r.status, 'skip', JSON.stringify(r));
+  assert.match(r.reason!, /PSB/);
 });

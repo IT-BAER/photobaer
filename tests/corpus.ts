@@ -3,7 +3,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { initializeCanvas, readPsd, type Layer, type Psd } from 'ag-psd';
-import init, { Engine } from '../app/src/engine-pkg/photobaer_engine.js';
+import init from '../app/src/engine-pkg/photobaer_engine.js';
+import { importPsd } from '../app/src/psd.ts';
 import { deltaE2000, srgbToLab } from './deltaE.ts';
 
 export const LIMITS = { mean: 1, max: 5 };
@@ -20,53 +21,29 @@ export function unsupported(psd: Psd): string | null {
   if (psd.colorMode !== 3) return `color mode ${psd.colorMode}`;
   if ((psd.bitsPerChannel ?? 8) !== 8) return `${psd.bitsPerChannel}-bit`;
   if (!psd.imageData) return 'no composite image';
-  for (const l of psd.children ?? []) {
-    const name = `layer "${l.name}"`;
-    if (l.children) return `${name}: group`;
-    if (l.blendMode && l.blendMode !== 'normal') return `${name}: blend mode ${l.blendMode}`;
-    if (l.clipping) return `${name}: clipping mask`;
-    if ((l.fillOpacity ?? 1) !== 1) return `${name}: fill opacity`;
-    for (const k of ['mask', 'realMask', 'vectorMask', 'filterMask', 'effects', 'text', 'adjustment', 'placedLayer', 'vectorFill', 'vectorStroke', 'blendingRanges', 'knockout'] as const) {
-      if (l[k] !== undefined && l[k] !== false) return `${name}: ${k}`;
-    }
-  }
-  return null;
-}
-
-function place(e: Engine, id: number, l: Layer, w: number, h: number) {
-  const img = l.imageData;
-  if (!img || img.width === 0 || img.height === 0) return;
-  const left = l.left ?? 0, top = l.top ?? 0;
-  const x0 = Math.max(0, left), x1 = Math.min(w, left + img.width);
-  const y0 = Math.max(0, top), y1 = Math.min(h, top + img.height);
-  if (x0 >= x1 || y0 >= y1) return;
-  for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y1 - 1) / 256); ty++) {
-    for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x1 - 1) / 256); tx++) {
-      const buf = new Uint8Array(256 * 256 * 4);
-      const cx0 = Math.max(x0, tx * 256), cx1 = Math.min(x1, tx * 256 + 256);
-      for (let y = Math.max(y0, ty * 256); y < Math.min(y1, ty * 256 + 256); y++) {
-        const s = ((y - top) * img.width + (cx0 - left)) * 4;
-        buf.set(img.data.subarray(s, s + (cx1 - cx0) * 4), ((y - ty * 256) * 256 + (cx0 - tx * 256)) * 4);
+  const walk = (layers: Layer[]): string | null => {
+    for (const l of layers) {
+      const name = `layer "${l.name}"`;
+      for (const k of ['effects', 'adjustment', 'filterMask', 'vectorMask', 'realMask', 'blendingRanges', 'knockout'] as const) {
+        if (l[k] !== undefined && l[k] !== false) return `${name}: ${k}`;
       }
-      e.set_tile_rgba8(id, tx, ty, buf);
+      if (l.children) { const r = walk(l.children); if (r) return r; }
     }
-  }
+    return null;
+  };
+  return walk(psd.children ?? []);
 }
 
 // Both images are compared over white, because transparent pixels have no defined color.
 export async function checkPsd(file: string, bytes: Uint8Array): Promise<Result> {
   await initEngine();
+  if (bytes[4] === 0 && bytes[5] === 2) return { file, status: 'skip', reason: 'PSB' };
   const psd = readPsd(bytes, { useImageData: true, skipThumbnail: true });
   const why = unsupported(psd);
   if (why) return { file, status: 'skip', reason: why };
   const { width: w, height: h } = psd;
-  const e = new Engine(w, h, 8);
+  const { engine: e } = importPsd(bytes);
   try {
-    (psd.children ?? []).forEach((l, i) => {
-      const id = i === 0 ? 1 : e.add_layer(l.name ?? '', 0);
-      e.set_props(id, JSON.stringify({ visible: !l.hidden, opacity: l.opacity ?? 1 }));
-      place(e, id, l, w, h);
-    });
     const ref = psd.imageData!.data;
     const white = (c: number, a: number) => Math.round(c * a / 255 + 255 * (1 - a / 255));
     let sum = 0, max = 0;

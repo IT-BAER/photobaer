@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { inflateSync } from 'node:zlib';
+import { readFileSync } from 'node:fs';
+import { readPsd, writePsdUint8Array } from 'ag-psd';
 
 // Screenshot of the canvas centre pixel as [r, g, b]. In a 1x1 PNG every row filter leaves the only
 // pixel unchanged, so the inflated bytes are the filter byte followed by the raw pixel.
@@ -41,3 +43,32 @@ for (const renderer of ['default', 'webgl2']) {
     expect(errors).toEqual([]);
   });
 }
+
+test('open a layered PSD and save it back as PSD', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  // The download fallback instead of the native save dialog, which Playwright cannot drive.
+  await page.addInitScript(() => { delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker; });
+  const px = (w: number, h: number, c: number[]) => ({ width: w, height: h, data: new Uint8ClampedArray(Array.from({ length: w * h }, () => c).flat()) });
+  const psd = writePsdUint8Array({
+    width: 300, height: 200, imageData: px(300, 200, [255, 0, 0, 255]),
+    children: [
+      { name: 'bg', imageData: px(300, 200, [255, 255, 255, 255]) },
+      { name: 'grp', children: [{ name: 'red', imageData: px(300, 200, [255, 0, 0, 255]), blendMode: 'multiply' }] },
+    ],
+  });
+  await page.goto('/');
+  // ponytail: the UI accepts files before the worker has booted; wait for boot until the UI gates it.
+  await expect(page.getByText('Autosave on')).toBeVisible();
+  await page.locator('input[type=file]').setInputFiles({ name: 'layers.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: Buffer.from(psd) });
+  await expect(page.getByText('300 × 200 px, 8-bit')).toBeVisible();
+  await expect.poll(() => centerPixel(page)).toEqual([255, 0, 0]);
+
+  await page.getByRole('button', { name: 'File' }).click();
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByText('Save as PSD…').click()]);
+  expect(download.suggestedFilename()).toBe('layers.psd');
+  const saved = readPsd(readFileSync(await download.path()), { skipLayerImageData: true, skipCompositeImageData: true });
+  expect(saved.children?.map(l => l.name)).toEqual(['bg', 'grp']);
+  expect(saved.children?.[1].children?.[0]).toMatchObject({ name: 'red', blendMode: 'multiply' });
+  expect(errors).toEqual([]);
+});

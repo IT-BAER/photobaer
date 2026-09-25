@@ -21,7 +21,8 @@
         "image/png": [".png"],
         "image/jpeg": [".jpg", ".jpeg"],
         "image/webp": [".webp"],
-        "application/x-photobaer": [".pbaer"]
+        "application/x-photobaer": [".pbaer"],
+        "image/vnd.adobe.photoshop": [".psd"]
       }
     }
   ],

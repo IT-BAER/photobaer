@@ -73,7 +73,33 @@ export function App() {
     }
   }
 
-  const open = (f: File) => run(`Opening ${f.name}…`, () => client.call('openFile', f));
+  async function open(f: File) {
+    setMenu(null);
+    setBusy(`Opening ${f.name}…`);
+    try {
+      const d = await client.call('openFile', f);
+      show(d);
+      if (d.warnings.length) setError(`Opened with warnings: ${d.warnings.join('; ')}`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function savePsd() {
+    setMenu(null);
+    const d = docRef.current;
+    if (!d) return;
+    setBusy('Saving PSD…');
+    try {
+      await saveBlob(await client.call('savePsd'), `${d.name}.psd`, 'image/vnd.adobe.photoshop', 'psd');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function exportAs(mime: 'image/png' | 'image/jpeg' | 'image/webp', ext: string) {
     setMenu(null);
@@ -118,6 +144,7 @@ export function App() {
       { label: 'New…', keys: 'Alt+Ctrl+N', run: () => { setMenu(null); newDialog.current?.showModal(); } },
       { label: 'Open…', keys: 'Ctrl+O', run: () => { setMenu(null); fileInput.current?.click(); } },
       { label: 'Save project…', keys: 'Ctrl+S', run: saveProject, off: !has },
+      { label: 'Save as PSD…', run: savePsd, off: !has },
       { label: 'Export PNG…', run: () => exportAs('image/png', 'png'), off: !has },
       { label: 'Export JPEG…', run: () => exportAs('image/jpeg', 'jpg'), off: !has },
       { label: 'Export WebP…', run: () => exportAs('image/webp', 'webp'), off: !has },
@@ -242,7 +269,7 @@ export function App() {
               <button onClick={() => newDialog.current?.showModal()}>New image</button>
               <button onClick={() => fileInput.current?.click()}>Open…</button>
             </div>
-            <p>Or drop a PNG, JPEG, WebP or .pbaer file here.</p>
+            <p>Or drop a PNG, JPEG, WebP, PSD or .pbaer file here.</p>
           </div>
         )}
         {busy && <div className="busy">{busy}</div>}
@@ -256,7 +283,7 @@ export function App() {
         <span>{AUTOSAVE_TEXT[autosave]}</span>
         <span>{renderer}</span>
       </footer>
-      <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.pbaer"
+      <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.pbaer,.psd"
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) open(f); }} />
       <dialog ref={newDialog}>
         <form onSubmit={createNew}>

@@ -2,6 +2,7 @@ import init, { Engine } from './engine-pkg/photobaer_engine.js';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
 import { packProject, unpackProject, tileIds } from './project.ts';
+import { importPsd, exportPsd } from './psd.ts';
 
 export interface LayerNode {
   id: number; name: string; kind: 'pixel' | 'group';
@@ -16,6 +17,7 @@ export interface DocInfo {
   undoLabel: string | null; redoLabel: string | null;
   layers: LayerNode[];
 }
+export type OpenResult = DocInfo & { warnings: string[] };
 export type AutosaveState = 'off' | 'other-tab' | 'idle' | 'saving' | 'saved' | 'error';
 export type WorkerEvent = { event: 'autosave'; state: AutosaveState; detail?: string };
 
@@ -180,14 +182,20 @@ const api = {
     return adopt(e, 'Untitled');
   },
 
-  async openFile(file: File) {
-    if (file.name.toLowerCase().endsWith('.pbaer')) {
+  async openFile(file: File): Promise<OpenResult> {
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.pbaer')) {
       const p = await unpackProject(file);
-      return adopt(loadEngine(p.manifest, id => {
+      return { ...adopt(loadEngine(p.manifest, id => {
         const t = p.tiles.get(id);
         if (!t) throw new Error(`project is missing tile ${id}`);
         return t;
-      }), file.name.replace(/\.pbaer$/i, ''));
+      }), file.name.replace(/\.pbaer$/i, '')), warnings: [] };
+    }
+    if (lower.endsWith('.psb')) throw new Error('PSB files are not supported yet');
+    if (lower.endsWith('.psd')) {
+      const { engine, warnings } = importPsd(new Uint8Array(await file.arrayBuffer()));
+      return { ...adopt(engine, file.name.replace(/\.psd$/i, '')), warnings };
     }
     const bmp = await createImageBitmap(file, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
     const c = new OffscreenCanvas(bmp.width, bmp.height);
@@ -199,7 +207,7 @@ const api = {
       const d = ctx.getImageData(tx * 256, ty * 256, 256, 256).data;
       e.set_tile_rgba8(BACKGROUND, tx, ty, new Uint8Array(d.buffer, d.byteOffset, d.length));
     });
-    return adopt(e, file.name.replace(/\.[^.]+$/, ''));
+    return { ...adopt(e, file.name.replace(/\.[^.]+$/, '')), warnings: [] };
   },
 
   command(op: 'fill' | 'invert', id: number, target: 'pixels' | 'mask', rgba?: [number, number, number, number]) {
@@ -311,6 +319,11 @@ const api = {
   saveProject() {
     const e = need();
     return packProject(e.manifest(), id => e.tile_bytes(BigInt(id)));
+  },
+
+  savePsd(): Blob {
+    const e = need();
+    return new Blob([exportPsd(e)], { type: 'image/vnd.adobe.photoshop' });
   },
 
   async closeDoc() {

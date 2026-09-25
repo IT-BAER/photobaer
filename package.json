@@ -13,6 +13,7 @@
     "test:e2e": "pnpm build && playwright test"
   },
   "dependencies": {
+    "ag-psd": "31.0.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
@@ -23,7 +24,6 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "@webgpu/types": "^0.1.74",
-    "ag-psd": "31.0.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.1"
   }
