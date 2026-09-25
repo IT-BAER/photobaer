@@ -152,6 +152,26 @@ function tileLoop(w: number, h: number, fn: (tx: number, ty: number) => void) {
   for (let ty = 0; ty < Math.ceil(h / 256); ty++) for (let tx = 0; tx < Math.ceil(w / 256); tx++) fn(tx, ty);
 }
 
+interface TileNode { id: number; tiles?: number[]; children?: TileNode[] }
+
+function nodeTiles(e: Engine, id: number): number[] | undefined {
+  const walk = (nodes: TileNode[]): number[] | undefined => {
+    for (const n of nodes) {
+      if (n.id === id) return n.tiles;
+      const t = n.children && walk(n.children);
+      if (t) return t;
+    }
+    return undefined;
+  };
+  return walk((JSON.parse(e.manifest()) as { layers: TileNode[] }).layers);
+}
+
+// A tile's raw RGBA8 bytes, or null (transparent) for a missing tile id.
+function layerTile(e: Engine, ids: number[] | undefined, tx: number, ty: number): Uint8Array | null {
+  const id = ids?.[ty * e.tiles_x() + tx];
+  return id ? e.tile_bytes(BigInt(id)) : null;
+}
+
 const api = {
   async init() {
     // A UI hot reload calls init again; the engine and the autosave lock are already ours.
@@ -284,6 +304,30 @@ const api = {
     const e = need();
     history.run('Delete Layer Mask', () => e.delete_mask(id));
     return changed();
+  },
+
+  // Mean RGBA over an odd-sized box centered on (x, y), clamped to the canvas; layerId null
+  // samples the flattened composite of all layers, else that layer's own pixels.
+  sample(x: number, y: number, size: number, layerId: number | null): [number, number, number, number] {
+    const e = need();
+    const half = Math.floor(size / 2);
+    const cx = Math.floor(x), cy = Math.floor(y);
+    const x0 = Math.max(0, cx - half), y0 = Math.max(0, cy - half);
+    const x1 = Math.min(e.width(), cx + half + 1), y1 = Math.min(e.height(), cy + half + 1);
+    const ids = layerId === null ? undefined : nodeTiles(e, layerId);
+    let r = 0, g = 0, b = 0, a = 0, n = 0;
+    for (let py = y0; py < y1; py++) {
+      for (let px = x0; px < x1; px++) {
+        const tx = Math.floor(px / 256), ty = Math.floor(py / 256);
+        const buf = layerId === null ? e.flatten_tile_rgba8(tx, ty) : layerTile(e, ids, tx, ty);
+        if (buf) {
+          const o = ((py - ty * 256) * 256 + (px - tx * 256)) * 4;
+          r += buf[o]; g += buf[o + 1]; b += buf[o + 2]; a += buf[o + 3];
+        }
+        n++;
+      }
+    }
+    return n ? [Math.round(r / n), Math.round(g / n), Math.round(b / n), Math.round(a / n)] : [0, 0, 0, 0];
   },
 
   undo() { if (history.undo()) return changed(); return info(); },

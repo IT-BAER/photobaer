@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { client } from './client.ts';
-import { Viewer } from './viewer.ts';
+import { Viewer, type ToolPointerEvent, type ViewerTool } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
 import { makeTileSource, gpuTestHook } from './render/tiles.ts';
 import { locate, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import type { AutosaveState, DocInfo } from './engine.worker.ts';
+import { ToolBar } from './shell/ToolBar.tsx';
+import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
+import { ColorPanel } from './shell/ColorPanel.tsx';
+import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
+import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
+import { TOOLS, initialLastUsed, keyToTool, loadToolOptions, slotForKey } from './shell/tools.ts';
+import { hexToRgb, type Rgb } from './shell/color.ts';
+
+const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
+const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
 
 type Rgba = [number, number, number, number];
 type CreateResult = DocInfo & { created: number };
@@ -62,12 +72,11 @@ async function saveBlob(blob: Blob, name: string, mime: string, ext: string) {
   setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
 }
 
-const hex = (c: string): Rgba => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16), 255];
-
 export function App() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const newDialog = useRef<HTMLDialogElement>(null);
+  const picker = useRef<ColorPickerHandle>(null);
   const viewer = useRef<Viewer | null>(null);
   const [doc, setDoc] = useState<DocInfo | null>(null);
   const [view, setView] = useState({ zoom: 1, rot: 0 });
@@ -76,7 +85,16 @@ export function App() {
   const [busy, setBusy] = useState<string | null>('Starting…');
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
-  const [fg, setFg] = useState('#e8a23a');
+  const [fg, setFg] = useState<Rgb>(hexToRgb('#e8a23a')!);
+  const [bg, setBg] = useState<Rgb>([255, 255, 255]);
+  const [tool, setTool] = useState('move');
+  const [lastUsed, setLastUsed] = useState(initialLastUsed());
+  const [quickMask, setQuickMask] = useState(false);
+  const [optionsByTool, setOptionsByTool] = useState<Record<string, ToolOptions>>({});
+  const [dockTab, setDockTab] = useState<'color' | 'swatches'>('color');
+  const activeTool = TOOLS[tool];
+  const toolOptions = optionsByTool[tool] ?? loadToolOptions(activeTool);
+  const setToolOptions = (v: ToolOptions) => setOptionsByTool(o => ({ ...o, [tool]: v }));
   const [active, setActive] = useState<Active | null>(null);
   const docRef = useRef(doc);
   docRef.current = doc;
@@ -195,7 +213,7 @@ export function App() {
     Edit: [
       { label: doc?.undoLabel ? `Undo ${doc.undoLabel}` : 'Undo', keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
       { label: doc?.redoLabel ? `Redo ${doc.redoLabel}` : 'Redo', keys: 'Shift+Ctrl+Z', run: () => run(null, () => client.call('redo')), off: !doc?.redoLabel },
-      { label: 'Fill with foreground color', keys: 'Alt+Backspace', run: () => run('Filling…', () => client.call('command', 'fill', active!.id, active!.target, hex(fg))), off: !has },
+      { label: 'Fill with foreground color', keys: 'Alt+Backspace', run: () => run('Filling…', () => client.call('command', 'fill', active!.id, active!.target, [...fg, 255] as Rgba)), off: !has },
     ],
     Layer: [
       { label: 'New Layer', run: newLayer, off: !has },
@@ -247,6 +265,45 @@ export function App() {
     return () => { alive = false; };
   }, []);
 
+  useEffect(() => { viewer.current?.setTool(VIEWER_TOOL[tool] ?? null); }, [tool]);
+
+  useEffect(() => {
+    if (!viewer.current) return;
+    if (tool !== 'eyedropper') { viewer.current.onPointer = () => {}; return; }
+    viewer.current.onPointer = (e: ToolPointerEvent) => {
+      if (e.type !== 'down') return;
+      const size = SAMPLE_SIZES[toolOptions.sampleSize as string] ?? 1;
+      const layerId = toolOptions.sample === 'current layer' ? active?.id ?? null : null;
+      client.call('sample', e.x, e.y, size, layerId).then(([r, g, b]) => {
+        if (e.altKey) setBg([r, g, b]); else setFg([r, g, b]);
+      });
+    };
+  }, [tool, toolOptions.sampleSize, toolOptions.sample, active]);
+
+  function openPicker(which: 'fg' | 'bg') {
+    picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v));
+  }
+  const swapColors = () => { setFg(bg); setBg(fg); };
+  const resetColors = () => { setFg([0, 0, 0]); setBg([255, 255, 255]); };
+
+  const toolRef = useRef(tool);
+  toolRef.current = tool;
+  const lastUsedRef = useRef(lastUsed);
+  lastUsedRef.current = lastUsed;
+  const fgRef = useRef(fg);
+  fgRef.current = fg;
+  const bgRef = useRef(bg);
+  bgRef.current = bg;
+
+  function selectByKey(key: string, shift: boolean): boolean {
+    const id = keyToTool(key, shift, toolRef.current, lastUsedRef.current);
+    if (!id) return false;
+    const slot = slotForKey(key)!;
+    setLastUsed(u => ({ ...u, [slot.id]: id }));
+    setTool(id);
+    return true;
+  }
+
   useEffect(() => {
     const find = (pred: (label: string) => boolean) => Object.values(menusRef.current).flat().find(i => pred(i.label));
     const trigger = (label: string, e: KeyboardEvent) => {
@@ -278,9 +335,15 @@ export function App() {
       else if (ctrl && k === '1') trigger('100%', e);
       else if (e.altKey && k === 'backspace') trigger('Fill', e);
       else if (k === 'escape') { setMenu(null); viewer.current?.resetRotation(); }
-      else if (k === 'r' && !ctrl && viewer.current) viewer.current.rotateMode = true;
+      else if (k === ' ' && ctrl && e.altKey) { e.preventDefault(); viewer.current?.setSpring('zoomOut'); }
+      else if (k === ' ' && ctrl) { e.preventDefault(); viewer.current?.setSpring('zoom'); }
+      else if (k === ' ') { e.preventDefault(); viewer.current?.setSpring('hand'); }
+      else if (!ctrl && !e.altKey && k === 'x') { e.preventDefault(); setFg(bgRef.current); setBg(fgRef.current); }
+      else if (!ctrl && !e.altKey && k === 'd') { e.preventDefault(); setFg([0, 0, 0]); setBg([255, 255, 255]); }
+      else if (!ctrl && !e.altKey && k === 'q') { e.preventDefault(); setQuickMask(v => !v); }
+      else if (!ctrl && !e.altKey && !e.metaKey) selectByKey(k, e.shiftKey);
     };
-    const up = (e: KeyboardEvent) => { if (e.key.toLowerCase() === 'r' && viewer.current) viewer.current.rotateMode = false; };
+    const up = (e: KeyboardEvent) => { if (e.key === ' ') viewer.current?.setSpring(null); };
     const over = (e: DragEvent) => e.preventDefault();
     const drop = (e: DragEvent) => {
       e.preventDefault();
@@ -318,46 +381,61 @@ export function App() {
             )}
           </div>
         ))}
-        <label className="swatch" title="Foreground color">
-          <input type="color" value={fg} onChange={e => setFg(e.target.value)} />
-        </label>
       </header>
       {menu && <div className="scrim" onClick={() => setMenu(null)} />}
-      <main className={doc ? 'workspace with-sidebar' : 'workspace'}>
-        <div className="stage">
-          <canvas ref={canvas} />
-          {!doc && !busy && (
-            <div className="welcome">
-              <h1>Photobaer</h1>
-              <div className="actions">
-                <button onClick={() => newDialog.current?.showModal()}>New image</button>
-                <button onClick={() => fileInput.current?.click()}>Open…</button>
+      <main className="workspace with-sidebar">
+        <ToolBar
+          active={tool} setActive={setTool} lastUsed={lastUsed} setLastUsed={setLastUsed}
+          fg={fg} bg={bg} openPicker={openPicker} swap={swapColors} reset={resetColors}
+          quickMask={quickMask} setQuickMask={setQuickMask}
+        />
+        <div className="stage-column">
+          <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} />
+          <div className="stage">
+            <canvas ref={canvas} />
+            {!doc && !busy && (
+              <div className="welcome">
+                <h1>Photobaer</h1>
+                <div className="actions">
+                  <button onClick={() => newDialog.current?.showModal()}>New image</button>
+                  <button onClick={() => fileInput.current?.click()}>Open…</button>
+                </div>
+                <p>Or drop a PNG, JPEG, WebP, PSD or .pbaer file here.</p>
               </div>
-              <p>Or drop a PNG, JPEG, WebP, PSD or .pbaer file here.</p>
-            </div>
-          )}
-          {busy && <div className="busy">{busy}</div>}
-          {error && <div className="error" role="alert" onClick={() => setError(null)}>{error}</div>}
+            )}
+            {busy && <div className="busy">{busy}</div>}
+            {error && <div className="error" role="alert" onClick={() => setError(null)}>{error}</div>}
+          </div>
         </div>
-        {doc && active && (
-          <aside className="sidebar">
-            <LayersPanel
-              doc={doc} active={active} setActive={setActive} run={run}
-              newLayer={newLayer} newGroup={newGroup}
-              deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
-            />
-            <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
-          </aside>
-        )}
+        <aside className="sidebar">
+          <div className="panel-tabs dock-tabs">
+            <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} onClick={() => setDockTab('color')}>Color</button>
+            <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} onClick={() => setDockTab('swatches')}>Swatches</button>
+          </div>
+          {dockTab === 'color'
+            ? <ColorPanel fg={fg} bg={bg} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} />
+            : <SwatchesPanel fg={fg} setFg={setFg} setBg={setBg} />}
+          {doc && active && (
+            <>
+              <LayersPanel
+                doc={doc} active={active} setActive={setActive} run={run}
+                newLayer={newLayer} newGroup={newGroup}
+                deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
+              />
+              <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
+            </>
+          )}
+        </aside>
       </main>
       <footer className="status">
         <span>{doc ? `${doc.width} × ${doc.height} px, ${doc.depth}-bit` : 'No document'}</span>
         <span>{Math.round(view.zoom * 1000) / 10}%</span>
         <span>{deg ? `${deg}°` : ''}</span>
-        <span className="grow">{doc ? 'Drag to pan, wheel to zoom, hold R and drag to rotate' : ''}</span>
+        <span className="grow">{doc ? `${activeTool.label}: drag to use, Space to pan, wheel to zoom` : ''}</span>
         <span>{AUTOSAVE_TEXT[autosave]}</span>
         <span>{renderer}</span>
       </footer>
+      <ColorPicker ref={picker} />
       <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.pbaer,.psd"
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) open(f); }} />
       <dialog ref={newDialog}>

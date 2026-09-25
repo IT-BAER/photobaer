@@ -4,19 +4,12 @@ import {
   SquareDashed, SquarePlus, Trash2,
 } from 'lucide-react';
 import { client } from './client.ts';
-import { nodeById, dropTarget, type Where } from './layers.ts';
+import { BLEND_MODES, nodeById, dropTarget, type Where } from './layers.ts';
 import type { DocInfo, LayerNode } from './engine.worker.ts';
 
 export type Active = { id: number; target: 'pixels' | 'mask' };
 type SelectAfter = (d: DocInfo) => Active;
 type Run = (label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) => Promise<void>;
-
-export const BLEND_MODES = [
-  'normal', 'dissolve', 'darken', 'multiply', 'color burn', 'linear burn', 'darker color', 'lighten', 'screen',
-  'color dodge', 'linear dodge', 'lighter color', 'overlay', 'soft light', 'hard light', 'vivid light',
-  'linear light', 'pin light', 'hard mix', 'difference', 'exclusion', 'subtract', 'divide', 'hue', 'saturation',
-  'color', 'luminosity',
-];
 
 interface Props {
   doc: DocInfo;

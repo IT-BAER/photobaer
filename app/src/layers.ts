@@ -1,5 +1,12 @@
 import type { LayerNode } from './engine.worker.ts';
 
+export const BLEND_MODES = [
+  'normal', 'dissolve', 'darken', 'multiply', 'color burn', 'linear burn', 'darker color', 'lighten', 'screen',
+  'color dodge', 'linear dodge', 'lighter color', 'overlay', 'soft light', 'hard light', 'vivid light',
+  'linear light', 'pin light', 'hard mix', 'difference', 'exclusion', 'subtract', 'divide', 'hue', 'saturation',
+  'color', 'luminosity',
+];
+
 export type Where = 'above' | 'below' | 'into';
 
 // The list holding `id` and its index there; parent 0 is the root.

@@ -1,5 +1,15 @@
 import { FLOATS_PER_INSTANCE, type Renderer } from './render/renderer.ts';
-import { TILE, clipMatrix, fit, levelFor, panBy, visibleTiles, zoomAt, type View } from './view.ts';
+import { TILE, clipMatrix, fit, levelFor, panBy, screenToDoc, visibleTiles, zoomAt, type View } from './view.ts';
+
+// hand/zoom/rotate drive the viewer itself; any other tool id gets raw pointer events via onPointer.
+export type ViewerTool = 'hand' | 'zoom' | 'zoomOut' | 'rotate' | null;
+export interface ToolPointerEvent {
+  type: 'down' | 'move' | 'up' | 'cancel';
+  x: number; y: number; // document space
+  pressure: number; tiltX: number; tiltY: number; twist: number;
+  pointerType: string; buttons: number;
+  shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean;
+}
 
 export interface ViewDoc { docId: number; version: number; width: number; height: number; maxLevel: number }
 // `fill` writes the tile into a renderer slot (CPU upload or GPU compositing); null is a fully
@@ -15,8 +25,11 @@ const MAX_INFLIGHT = 4;
 // so panning never waits for the engine worker.
 export class Viewer {
   view: View = { zoom: 1, rot: 0, cx: 0, cy: 0 };
-  rotateMode = false;
   onView: (v: View) => void = () => {};
+  onPointer: (e: ToolPointerEvent) => void = () => {};
+
+  #tool: ViewerTool = null;
+  #spring: ViewerTool = null;
 
   #canvas: HTMLCanvasElement;
   #r: Renderer;
@@ -62,6 +75,11 @@ export class Viewer {
 
   fit() { if (this.#doc) this.setView(fit(this.#doc.width, this.#doc.height, this.#w, this.#h)); }
   actualPixels() { this.setView({ ...this.view, zoom: 1 / this.dpr }); }
+  // The active tool (hand/zoom/rotate drive the viewer; anything else forwards through onPointer).
+  setTool(t: ViewerTool) { this.#tool = t; }
+  // A spring-loaded key override, e.g. held Space; null restores the active tool's own behavior.
+  setSpring(t: ViewerTool) { this.#spring = t; }
+  screenToDoc(sx: number, sy: number): [number, number] { return screenToDoc(this.view, sx, sy, this.#w, this.#h); }
   zoomBy(f: number) { this.setView(zoomAt(this.view, f, this.#w / 2, this.#h / 2, this.#w, this.#h)); }
   resetRotation() { this.setView({ ...this.view, rot: 0 }); }
 
@@ -185,29 +203,59 @@ export class Viewer {
   #bindInput() {
     const c = this.#canvas;
     let last: [number, number] | null = null;
+    let downAt: [number, number] | null = null;
     const local = (e: PointerEvent | WheelEvent): [number, number] => {
       const r = c.getBoundingClientRect();
       return [e.clientX - r.left, e.clientY - r.top];
+    };
+    const toolEvent = (type: ToolPointerEvent['type'], e: PointerEvent, p: [number, number]): ToolPointerEvent => {
+      const [x, y] = this.screenToDoc(p[0], p[1]);
+      return {
+        type, x, y, pressure: e.pressure, tiltX: e.tiltX, tiltY: e.tiltY, twist: e.twist,
+        pointerType: e.pointerType, buttons: e.buttons,
+        shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey,
+      };
     };
     c.addEventListener('pointerdown', e => {
       if (e.button !== 0 && e.button !== 1) return;
       c.setPointerCapture(e.pointerId);
       last = local(e);
+      downAt = last;
+      const mode = e.button === 1 ? 'hand' : this.#spring ?? this.#tool;
+      if (mode !== 'hand' && mode !== 'zoom' && mode !== 'zoomOut' && mode !== 'rotate') this.onPointer(toolEvent('down', e, last));
       e.preventDefault();
     });
     c.addEventListener('pointermove', e => {
       if (!last) return;
       const p = local(e);
-      if (this.rotateMode) {
+      const mode = e.buttons & 4 ? 'hand' : this.#spring ?? this.#tool;
+      if (mode === 'rotate') {
         const a0 = Math.atan2(last[1] - this.#h / 2, last[0] - this.#w / 2);
         const a1 = Math.atan2(p[1] - this.#h / 2, p[0] - this.#w / 2);
         this.setView({ ...this.view, rot: this.view.rot + a1 - a0 });
-      } else {
+      } else if (mode === 'hand') {
         this.setView(panBy(this.view, p[0] - last[0], p[1] - last[1]));
+      } else if (mode !== 'zoom' && mode !== 'zoomOut') {
+        this.onPointer(toolEvent('move', e, p));
       }
       last = p;
     });
-    const end = () => { last = null; };
+    const end = (e: PointerEvent) => {
+      if (last && downAt) {
+        const mode = e.button === 1 ? 'hand' : this.#spring ?? this.#tool;
+        const clicked = Math.hypot(last[0] - downAt[0], last[1] - downAt[1]) < 3;
+        if (mode === 'zoom' || mode === 'zoomOut') {
+          if (clicked) {
+            const out = mode === 'zoomOut' || e.altKey;
+            this.setView(zoomAt(this.view, out ? 0.5 : 2, last[0], last[1], this.#w, this.#h));
+          }
+        } else if (mode !== 'hand' && mode !== 'rotate') {
+          this.onPointer(toolEvent(e.type === 'pointercancel' ? 'cancel' : 'up', e, last));
+        }
+      }
+      last = null;
+      downAt = null;
+    };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
     c.addEventListener('wheel', e => {
