@@ -5,8 +5,6 @@ test('layers and history panels: create, edit, reorder and time travel', async (
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto('/');
-  // ponytail: the UI accepts input before the worker has booted; wait for boot until the UI gates it.
-  await expect(page.getByText('Autosave on')).toBeVisible();
 
   await page.getByRole('button', { name: 'New image' }).click();
   await page.getByRole('button', { name: 'Create' }).click();

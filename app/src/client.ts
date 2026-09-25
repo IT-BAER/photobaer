@@ -26,7 +26,19 @@ export class EngineClient {
     };
   }
 
+  // Every other call waits until init has settled, so nothing reaches an engine that has not booted
+  // and a late init result never replaces a document opened during boot.
   call<K extends keyof Api>(op: K, ...args: Parameters<Api[K]>): Promise<Result<K>> {
+    if (op !== 'init') return this.#booted.then(() => this.#send(op, ...args));
+    const p = this.#send(op, ...args);
+    p.then(this.#boot, this.#boot);
+    return p;
+  }
+
+  #boot!: () => void;
+  #booted = new Promise<void>(r => { this.#boot = r; });
+
+  #send<K extends keyof Api>(op: K, ...args: Parameters<Api[K]>): Promise<Result<K>> {
     const id = this.#next++;
     return new Promise((res, rej) => {
       this.#pending.set(id, { res: res as (v: unknown) => void, rej });

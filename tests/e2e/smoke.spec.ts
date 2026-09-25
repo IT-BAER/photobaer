@@ -58,8 +58,6 @@ test('open a layered PSD and save it back as PSD', async ({ page }) => {
     ],
   });
   await page.goto('/');
-  // ponytail: the UI accepts files before the worker has booted; wait for boot until the UI gates it.
-  await expect(page.getByText('Autosave on')).toBeVisible();
   await page.locator('input[type=file]').setInputFiles({ name: 'layers.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: Buffer.from(psd) });
   await expect(page.getByText('300 × 200 px, 8-bit')).toBeVisible();
   await expect.poll(() => centerPixel(page)).toEqual([255, 0, 0]);
@@ -70,5 +68,26 @@ test('open a layered PSD and save it back as PSD', async ({ page }) => {
   const saved = readPsd(readFileSync(await download.path()), { skipLayerImageData: true, skipCompositeImageData: true });
   expect(saved.children?.map(l => l.name)).toEqual(['bg', 'grp']);
   expect(saved.children?.[1].children?.[0]).toMatchObject({ name: 'red', blendMode: 'multiply' });
+  expect(errors).toEqual([]);
+});
+
+test('a file opened while the engine boots opens once the engine is ready', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  // Hold the worker's init call back, so the file arrives before the engine has booted.
+  await page.addInitScript(() => {
+    const post = Worker.prototype.postMessage;
+    Worker.prototype.postMessage = function (this: Worker, m: { op?: string }, ...rest: never[]) {
+      if (m?.op === 'init') setTimeout(() => post.call(this, m, ...rest), 1500);
+      else post.call(this, m, ...rest);
+    } as typeof post;
+  });
+  await page.goto('/');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await page.locator('input[type=file]').setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: png });
+  await expect(page.getByText('1 × 1 px, 8-bit')).toBeVisible();
+  await page.waitForTimeout(2000);
+  await expect(page.getByText('1 × 1 px, 8-bit')).toBeVisible();
   expect(errors).toEqual([]);
 });
