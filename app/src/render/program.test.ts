@@ -102,3 +102,11 @@ test('lowering the payload cache limit evicts down to it, and delete drops one k
   c.delete(9n);
   assert.equal(c.limit, 20);
 });
+
+test('the draw op codes match the engine enum', () => {
+  const src = readFileSync(new URL('../../../engine/src/doc.rs', import.meta.url), 'utf8');
+  const body = /enum Op \{([^}]*)\}/.exec(src)![1];
+  const rust = Object.fromEntries([...body.matchAll(/(\w+) = (\d+)/g)].map(([, name, v]) =>
+    [name[0].toLowerCase() + name.slice(1), Number(v)]));
+  assert.deepEqual(rust, { ...OP });
+});

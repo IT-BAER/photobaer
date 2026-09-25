@@ -1,9 +1,9 @@
-import { COMPOSITE_WGSL, QUANTIZE_WGSL } from './composite.wgsl.ts';
+import { COMPOSITE_WGSL, QUANTIZE_WGSL, UNIFORM_AT as U, UNIFORM_FIELDS } from './composite.wgsl.ts';
 import { OP, PayloadCache, referencedKeys, type Payload, type Program } from './program.ts';
 
 const TILE = 256;
 const WG = TILE / 8;
-const UNIFORM_BYTES = 64;
+const UNIFORM_BYTES = UNIFORM_FIELDS.length * 4;
 // Tiles are 256 KiB (RGBA8) or 64 KiB (mask); the bound is what the GPU keeps of one document.
 const PAYLOAD_BYTES = 64 << 20;
 
@@ -173,18 +173,18 @@ export class GpuCompositor {
         default: popped = 1; break; // div/mul shape
       }
       const o = (i * stride) / 4;
-      words[o] = s.op;
-      words[o + 1] = s.maskKind;
-      words[o + 2] = s.mode;
-      words[o + 3] = srcTile === this.#dummy8 ? 0 : 1;
-      words[o + 4] = s.node;
-      words[o + 5] = p.level;
-      words[o + 6] = p.ox;
-      words[o + 7] = p.oy;
-      words[o + 8] = p.vw;
-      words[o + 9] = p.vh;
-      floats[o + 12] = s.scale;
-      floats[o + 13] = s.maskConst;
+      words[o + U.op] = s.op;
+      words[o + U.mask_kind] = s.maskKind;
+      words[o + U.mode] = s.mode;
+      words[o + U.src_is_tile] = srcTile === this.#dummy8 ? 0 : 1;
+      words[o + U.node] = s.node;
+      words[o + U.level] = p.level;
+      words[o + U.ox] = p.ox;
+      words[o + U.oy] = p.oy;
+      words[o + U.vw] = p.vw;
+      words[o + U.vh] = p.vh;
+      floats[o + U.scale] = s.scale;
+      floats[o + U.mask_const] = s.maskConst;
       groups.push({
         offset: i * stride,
         bind: this.#d.createBindGroup({

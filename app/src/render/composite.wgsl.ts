@@ -1,13 +1,20 @@
 // The draw program of docs/M1.md section 3, one compute dispatch per step over 256x256 tiles.
 // Buffers are premultiplied f32 RGBA (shapes keep their value in .r); this mirrors the CPU
 // reference in engine/src/doc.rs and engine/src/blend.rs channel for channel.
+import { OP } from './program.ts';
+
+/// The per-step uniform, one 32-bit word per field in this order; composite.ts writes it by name.
+export const UNIFORM_FIELDS = [
+  ['op', 'u32'], ['mask_kind', 'u32'], ['mode', 'u32'], ['src_is_tile', 'u32'],
+  ['node', 'u32'], ['level', 'u32'], ['ox', 'u32'], ['oy', 'u32'],
+  ['vw', 'u32'], ['vh', 'u32'], ['pad0', 'u32'], ['pad1', 'u32'],
+  ['scale', 'f32'], ['mask_const', 'f32'], ['pad2', 'f32'], ['pad3', 'f32'],
+] as const;
+export type UniformField = (typeof UNIFORM_FIELDS)[number][0];
+export const UNIFORM_AT = Object.fromEntries(UNIFORM_FIELDS.map(([n], i) => [n, i])) as Record<UniformField, number>;
+
 export const COMPOSITE_WGSL = /* wgsl */ `
-struct P {
-  op: u32, mask_kind: u32, mode: u32, src_is_tile: u32,
-  node: u32, level: u32, ox: u32, oy: u32,
-  vw: u32, vh: u32, pad0: u32, pad1: u32,
-  scale: f32, mask_const: f32, pad2: f32, pad3: f32,
-};
+struct P { ${UNIFORM_FIELDS.map(([n, t]) => `${n}: ${t}`).join(', ')} };
 @group(0) @binding(0) var<uniform> p: P;
 @group(0) @binding(1) var dst_t: texture_2d<f32>;
 @group(0) @binding(2) var aux_t: texture_2d<f32>;
@@ -177,28 +184,28 @@ fn step_value(xy: vec2i) -> vec4f {
   let dst = textureLoad(dst_t, xy, 0);
   let inside = u32(xy.x) < p.vw && u32(xy.y) < p.vh;
   switch p.op {
-    case 0u: { // draw
+    case ${OP.draw}u: {
       if (!inside) { return dst; }
       return draw_px(xy, dst);
     }
-    case 1u: { return vec4f(0.0); }  // push transparent
-    case 2u: { return dst; }         // push copy
-    case 4u: {                       // pop lerp
+    case ${OP.pushTransparent}u: { return vec4f(0.0); }
+    case ${OP.pushCopy}u: { return dst; }
+    case ${OP.popLerp}u: {
       let k = p.scale * mask_at(xy);
       if (!inside || k <= 0.0) { return dst; }
       return dst + (textureLoad(aux_t, xy, 0) - dst) * k;
     }
-    case 5u: {                       // push shape
+    case ${OP.pushShape}u: {
       if (!inside) { return vec4f(0.0); }
       return vec4f(src_at(xy).a * mask_at(xy) * p.scale, 0.0, 0.0, 0.0);
     }
-    case 6u: {                       // divide by shape
+    case ${OP.divShape}u: {
       let s = textureLoad(shape_t, xy, 0).r;
       return select(vec4f(0.0), dst / s, s > 0.0);
     }
-    case 7u: { return dst * textureLoad(shape_t, xy, 0).r; }
-    case 8u: { return dst - (1.0 - textureLoad(shape_t, xy, 0).r) * textureLoad(aux_t, xy, 0); }
-    case 9u: { return (1.0 - textureLoad(shape_t, xy, 0).r) * dst + textureLoad(aux_t, xy, 0); }
+    case ${OP.mulShape}u: { return dst * textureLoad(shape_t, xy, 0).r; }
+    case ${OP.subBackdrop}u: { return dst - (1.0 - textureLoad(shape_t, xy, 0).r) * textureLoad(aux_t, xy, 0); }
+    case ${OP.popAddBackdrop}u: { return (1.0 - textureLoad(shape_t, xy, 0).r) * dst + textureLoad(aux_t, xy, 0); }
     default: { return dst; }
   }
 }
