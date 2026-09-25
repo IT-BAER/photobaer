@@ -128,6 +128,7 @@ impl Pixels {
     }
 
     // Straight RGBA in 0..1, quantized to the document depth.
+    #[cfg(test)]
     fn from_straight(depth: u8, v: &[f32]) -> Pixels {
         let max = max_value(depth) as f32;
         let q = |x: &f32| (x * max).round().clamp(0.0, max);
@@ -138,6 +139,7 @@ impl Pixels {
         }
     }
 
+    #[cfg(test)]
     fn mask_from_norm(depth: u8, v: &[f32]) -> Pixels {
         let max = max_value(depth) as f32;
         let q = |x: &f32| (x * max).round().clamp(0.0, max);
@@ -504,6 +506,96 @@ fn draw(
             dst[o + 3] = cov + inv * ab;
         }
     }
+}
+
+// ---------- pyramid reduction ----------
+
+// One level-up tile from the four quadrant tiles below it: each output pixel is the
+// alpha-weighted mean colour and the mean alpha of the valid source pixels in its 2x2 block,
+// rounded half up; a block with no alpha stays transparent. Integer maths throughout.
+fn reduce_rgba<T: Copy + Default + Into<u64>>(
+    kids: [Option<&[T]>; 4],
+    valid: &[(usize, usize); 4],
+    cast: fn(u64) -> T,
+) -> Box<[T]> {
+    let half = TILE / 2;
+    // 8-bit sums fit in 32 bits, and a 32-bit division is much cheaper than a 64-bit one.
+    let div = |n: u64, d: u64| if size_of::<T>() == 1 { ((n as u32) / (d as u32)) as u64 } else { n / d };
+    let mut out = vec![T::default(); TILE_PIXELS * 4];
+    for (q, px) in kids.into_iter().enumerate() {
+        let Some(px) = px else { continue };
+        let (qx, qy) = (q & 1, q >> 1);
+        let (vw, vh) = valid[q];
+        for oy in 0..half.min(vh.div_ceil(2)) {
+            for ox in 0..half.min(vw.div_ceil(2)) {
+                let o = ((qy * half + oy) * TILE + qx * half + ox) * 4;
+                let at = |sx: usize, sy: usize| (sy * TILE + sx) * 4;
+                let (x, y) = (ox * 2, oy * 2);
+                if x + 1 < vw && y + 1 < vh {
+                    let i = [at(x, y), at(x + 1, y), at(x, y + 1), at(x + 1, y + 1)];
+                    let a0: u64 = px[i[0] + 3].into();
+                    if i[1..].iter().all(|&j| px[j + 3].into() == a0) {
+                        // Equal weights: the weighted mean is the plain mean.
+                        if a0 > 0 {
+                            for k in 0..3 {
+                                let sum: u64 = i.iter().map(|&j| px[j + k].into()).sum();
+                                out[o + k] = cast((sum + 2) / 4);
+                            }
+                            out[o + 3] = px[i[0] + 3];
+                        }
+                        continue;
+                    }
+                }
+                let (mut c, mut a) = ([0u64; 3], 0u64);
+                for (sx, sy) in [(x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)] {
+                    if sx >= vw || sy >= vh {
+                        continue;
+                    }
+                    let i = at(sx, sy);
+                    let pa: u64 = px[i + 3].into();
+                    for k in 0..3 {
+                        c[k] += px[i + k].into() * pa;
+                    }
+                    a += pa;
+                }
+                if a == 0 {
+                    continue;
+                }
+                for k in 0..3 {
+                    out[o + k] = cast(div(2 * c[k] + a, 2 * a));
+                }
+                out[o + 3] = cast((a + 2) / 4);
+            }
+        }
+    }
+    out.into_boxed_slice()
+}
+
+// The mask counterpart: the mean of the 2x2 block, where pixels outside the document or under a
+// missing tile count as the mask default.
+fn reduce_mask<T: Copy + Into<u64>>(
+    kids: [Option<&[T]>; 4],
+    valid: &[(usize, usize); 4],
+    default: T,
+    cast: fn(u64) -> T,
+) -> Box<[T]> {
+    let half = TILE / 2;
+    let mut out = vec![default; TILE_PIXELS];
+    for (q, px) in kids.into_iter().enumerate() {
+        let Some(px) = px else { continue };
+        let (qx, qy) = (q & 1, q >> 1);
+        let (vw, vh) = valid[q];
+        for oy in 0..half {
+            for ox in 0..half {
+                let mut sum = 0u64;
+                for (sx, sy) in [(ox * 2, oy * 2), (ox * 2 + 1, oy * 2), (ox * 2, oy * 2 + 1), (ox * 2 + 1, oy * 2 + 1)] {
+                    sum += if sx < vw && sy < vh { px[sy * TILE + sx] } else { default }.into();
+                }
+                out[(qy * half + oy) * TILE + qx * half + ox] = cast((sum + 2) / 4);
+            }
+        }
+    }
+    out.into_boxed_slice()
 }
 
 // ---------- draw program ----------
@@ -1281,6 +1373,36 @@ impl Document {
     }
 
     fn reduce(
+        &self,
+        kids: &[Option<(u64, Arc<Pixels>)>; 4],
+        valid: &[(usize, usize); 4],
+        mask_default: Option<u32>,
+    ) -> Pixels {
+        fn u8s(p: &Pixels) -> &[u8] {
+            match p {
+                Pixels::U8(d) | Pixels::Mask8(d) => d,
+                _ => unreachable!("tile depth differs from the document depth"),
+            }
+        }
+        fn u16s(p: &Pixels) -> &[u16] {
+            match p {
+                Pixels::U16(d) | Pixels::Mask16(d) => d,
+                _ => unreachable!("tile depth differs from the document depth"),
+            }
+        }
+        let k8 = || kids.each_ref().map(|k| k.as_ref().map(|(_, p)| u8s(p)));
+        let k16 = || kids.each_ref().map(|k| k.as_ref().map(|(_, p)| u16s(p)));
+        match (self.depth, mask_default) {
+            (8, None) => Pixels::U8(reduce_rgba(k8(), valid, |v| v as u8)),
+            (_, None) => Pixels::U16(reduce_rgba(k16(), valid, |v| v as u16)),
+            (8, Some(d)) => Pixels::Mask8(reduce_mask(k8(), valid, d as u8, |v| v as u8)),
+            (_, Some(d)) => Pixels::Mask16(reduce_mask(k16(), valid, d as u16, |v| v as u16)),
+        }
+    }
+
+    // The float reduction the integer one replaced; kept as the oracle for its test.
+    #[cfg(test)]
+    fn reduce_f32(
         &self,
         kids: &[Option<(u64, Arc<Pixels>)>; 4],
         valid: &[(usize, usize); 4],
@@ -3387,5 +3509,50 @@ mod tests {
         let level3_ms = start.elapsed().as_secs_f64() * 1000.0;
 
         println!("bench_display_tile: 16x level0 = {level0_ms:.3}ms, level3(0,0) = {level3_ms:.3}ms");
+    }
+
+    #[test]
+    fn integer_reduce_matches_the_float_reduction() {
+        let mut seed = 0x2545_F491_4F6C_DD1Du64;
+        let mut rnd = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        for depth in [8u8, 16] {
+            let d = Document::new(300, 300, depth).unwrap();
+            let max = max_value(depth) as u64;
+            for mask in [None, Some(max as u32 / 3)] {
+                let len = if mask.is_some() { TILE_PIXELS } else { TILE_PIXELS * 4 };
+                // Few distinct values, so equal-weight blocks and rounding ties are common.
+                // `opaque` sets every alpha to the maximum, the equal-weight path of the pixel reduction.
+                let mut tile = |opaque: bool| {
+                    let mut v: Vec<u16> = (0..len).map(|_| [0, 1, 2, max / 2, max - 1, max][(rnd() % 6) as usize] as u16).collect();
+                    if opaque && mask.is_none() {
+                        v.iter_mut().skip(3).step_by(4).for_each(|a| *a = max as u16);
+                    }
+                    Arc::new(match (depth, mask.is_some()) {
+                        (8, false) => Pixels::U8(v.iter().map(|x| *x as u8).collect()),
+                        (8, true) => Pixels::Mask8(v.iter().map(|x| *x as u8).collect()),
+                        (_, false) => Pixels::U16(v.into_boxed_slice()),
+                        (_, true) => Pixels::Mask16(v.into_boxed_slice()),
+                    })
+                };
+                let kids = [Some((1, tile(false))), None, Some((3, tile(true))), Some((4, tile(false)))];
+                let valid = [(TILE, TILE), (TILE, TILE), (TILE, 77), (133, 1)];
+                let (a, b) = (d.reduce(&kids, &valid, mask).to_bytes(), d.reduce_f32(&kids, &valid, mask).to_bytes());
+                let step = if depth == 8 { 1 } else { 2 };
+                let (mut worst, mut differ) = (0i64, 0usize);
+                for i in (0..a.len()).step_by(step) {
+                    let v = |x: &[u8]| if depth == 8 { x[i] as i64 } else { u16::from_le_bytes([x[i], x[i + 1]]) as i64 };
+                    let diff = (v(&a) - v(&b)).abs();
+                    worst = worst.max(diff);
+                    differ += (diff > 0) as usize;
+                }
+                assert!(worst <= 1, "depth {depth} mask {mask:?}: max difference {worst}");
+                assert!(differ * 100 < a.len() / step, "depth {depth} mask {mask:?}: {differ} values differ");
+            }
+        }
     }
 }
