@@ -1,20 +1,21 @@
-# Photobaer plan: clean-room image editor with the reference app feature parity (web PWA + desktop)
+# Photobaer plan: image editor with feature parity to the reference app (web PWA + desktop)
 
-Working name: Photobaer. It must not use "the reference app", "its vendor" or their icons, strings, CSS or layout assets.
+Working name: Photobaer. It never names the reference app or its vendor, and never ships their
+icons, strings, CSS or layout assets.
 
 ## 0. Ground rules
 
-- **Clean room.** Build the same features, not a copy of the code. Features and file formats are
-  not protected; the reference app's code, CSS, icons, UI strings and branding are (no license, see
-  a separate tool session 2026-09-25). Sources for the spec: black-box use of the reference app, the public Adobe
-  Photoshop user guide and the public PSD file format specification.
-- The agent session that inspected the reference app's bundles (2026-09-25) must not write engine or UI code
-  from memory of that code. Implementation sessions work from this spec only and never open
-  `app.asar`. The command-ID list below is a feature checklist only (it mirrors the public Photoshop
-  menu structure).
+- **Own implementation.** Build the same features, not a copy of the code. Features and file
+  formats are not protected; the reference app's code, CSS, icons, UI strings and branding are
+  (it has no license). Sources: the reference app (its build may be read to learn how a feature
+  behaves and looks), the public Adobe Photoshop user guide and the public PSD file format
+  specification. Code, CSS and icons are always written here, never copied; icons come from
+  lucide (ISC).
+- The reference app is never named in code, comments, docs or commit messages. The command-ID
+  list below is a feature checklist only (it mirrors the public Photoshop menu structure).
 - Own license chosen before the first public commit (decision D6).
 
-## 1. Scope source (measured 2026-09-25, the reference app 0.1.21)
+## 1. Scope source (measured 2026-09-25, reference app 0.1.21)
 
 855 command IDs registered in the renderer bundles. Registered is not the same as implemented;
 each item is confirmed by black-box use before it enters a milestone.
@@ -33,7 +34,7 @@ each item is confirmed by black-box use before it enters a milestone.
 | type | 51 | point/paragraph text, character and paragraph panels and styles, OpenType features, anti-alias modes, vertical text, warp text, convert to shape/work path, missing fonts, East Asian and Middle Eastern composers |
 | help | 9 | about, shortcuts reference, legal notices |
 
-Other measured the reference app parts: AI background removal and select subject (withoutBG ONNX model, 140 MB,
+Other measured reference app parts: AI background removal and select subject (withoutBG ONNX model, 140 MB,
 Apache-2.0 but it contains DINOv3 material under the Meta DINOv3 License), RAW via LibRaw
 (LGPL-2.1 or CDDL) plus lensfun data, PDF import (pdf.js), JS scripting via QuickJS, a CLI and a
 local agent/MCP API, autosave recovery, i18n.
@@ -57,7 +58,7 @@ Shell: PWA (service worker, File Handling API, File System Access API) | Tauri 2
 
 Key points:
 - **Tiled document.** 256x256 tiles, copy-on-write, mip pyramid for zoomed-out views, paging to
-  OPFS for documents larger than RAM (the reference app has the same need: pixelPaging/tileStore modules).
+  OPFS for documents larger than RAM (the reference app pages tiles the same way).
 - **GPU compositor.** All blend modes, masks, layer styles and adjustment layers as WGSL shaders;
   a bit-exact CPU path in Rust for export and tests. Photopea stores layer pixels in GPU memory
   and blends there (Photopea docs: 850 ms CPU vs 55 ms WebGL for a 10-layer 2048x1152 redraw).
@@ -159,7 +160,7 @@ notes, count tool, slices, i18n. Video layers and timeline last; exclude if nobo
 
 - **Scope.** Photopea has been built by one developer since 2012. Full parity with 855 commands is
   a multi-year effort; M0 to M3 is the realistic first product. (Estimate, inferred, not measured.)
-- **Legal.** Clean-room discipline as in section 0. No the reference app assets, strings or look-alike branding.
+- **Legal.** The rules of section 0. No reference app assets, strings or look-alike branding.
   Photoshop is an Adobe trademark: do not use it in the product name.
 - **Model licenses.** DINOv3 terms (inside withoutBG) and each other model need review before shipping.
 - **LGPL in WASM.** LibRaw as separate replaceable module with source offer, or use the CDDL option.
