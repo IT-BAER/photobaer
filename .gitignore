@@ -3,3 +3,5 @@ dist/
 app/src/engine-pkg/
 engine/target/
 tests/corpus/
+test-results/
+playwright-report/

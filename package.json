@@ -9,13 +9,15 @@
     "preview": "vite preview",
     "test": "cargo test --manifest-path engine/Cargo.toml && node --test \"app/src/**/*.test.ts\" \"tests/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
-    "corpus": "node tests/corpus.ts"
+    "corpus": "node tests/corpus.ts",
+    "test:e2e": "pnpm build && playwright test"
   },
   "dependencies": {
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "^26.6.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
