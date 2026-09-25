@@ -87,3 +87,18 @@ test('the payload cache evicts the least recently used key and reports what it h
   assert.deepEqual([...c.keys()], []);
   assert.deepEqual(gone, ['b', 'c', 'a', 'd', 'e']);
 });
+
+test('lowering the payload cache limit evicts down to it, and delete drops one key', () => {
+  const gone: string[] = [];
+  const c = new PayloadCache<string>(40, v => gone.push(v));
+  for (const [k, v] of [[1n, 'a'], [2n, 'b'], [3n, 'c'], [4n, 'd']] as const) c.set(k, v, 10);
+  c.get(1n);
+  c.limit = 20;
+  assert.deepEqual(gone, ['b', 'c'], 'least recently used first');
+  assert.deepEqual([...c.keys()], [4n, 1n]);
+  c.delete(4n);
+  assert.deepEqual(gone, ['b', 'c', 'd']);
+  assert.equal(c.size, 10);
+  c.delete(9n);
+  assert.equal(c.limit, 20);
+});

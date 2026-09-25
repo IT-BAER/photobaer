@@ -88,12 +88,29 @@ export class PayloadCache<T> {
     }
     this.#map.set(key, { value, bytes });
     this.#bytes += bytes;
-    for (const [k, e] of this.#map) {
+    this.#evict(key);
+  }
+
+  get limit() { return this.#limit; }
+
+  set limit(bytes: number) {
+    this.#limit = bytes;
+    this.#evict();
+  }
+
+  delete(key: bigint) {
+    const e = this.#map.get(key);
+    if (!e) return;
+    this.#map.delete(key);
+    this.#bytes -= e.bytes;
+    this.#dispose(e.value);
+  }
+
+  // Least recently used first, never `keep`.
+  #evict(keep?: bigint) {
+    for (const k of this.#map.keys()) {
       if (this.#bytes <= this.#limit) break;
-      if (k === key) continue;
-      this.#map.delete(k);
-      this.#bytes -= e.bytes;
-      this.#dispose(e.value);
+      if (k !== keep) this.delete(k);
     }
   }
 

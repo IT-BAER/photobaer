@@ -71,7 +71,14 @@ function sceneBytes() {
   return Buffer.from(writePsdUint8Array({ width: W, height: H, children }));
 }
 
-interface Parity { renderer: string; gpu: string | null; cpu: string | null }
+interface Parity {
+  renderer: string; gpu: string | null; cpu: string | null;
+  shipped: number; referenced: number; retried: boolean; bytes: number;
+}
+type Hook = {
+  gpuParity(l: number, x: number, y: number, known: boolean): Promise<Parity>;
+  gpuPayloadLimit(bytes: number): void;
+};
 
 test('WebGPU display tiles match the CPU compositor at levels 0 and 2', async ({ page, browserName }, info) => {
   test.setTimeout(180_000);
@@ -95,16 +102,18 @@ test('WebGPU display tiles match the CPU compositor at levels 0 and 2', async ({
   });
   await expect(page.getByText(`${W} × ${H} px, 8-bit`)).toBeVisible({ timeout: 60_000 });
 
-  for (const [level, ntx, nty] of [[0, 3, 2], [2, 1, 1]]) {
+  // Every tile of a level against the CPU tile; returns the per-tile hook results.
+  async function sweep(level: number, ntx: number, nty: number, known: boolean, label: string) {
     let worst = 0;
+    const all: Parity[] = [];
     for (let ty = 0; ty < nty; ty++) {
       for (let tx = 0; tx < ntx; tx++) {
         const r = await page.evaluate(
-          ([l, x, y]) => (window as unknown as { photobaer: { gpuParity(l: number, x: number, y: number): Promise<Parity> } })
-            .photobaer.gpuParity(l, x, y),
-          [level, tx, ty],
+          ([l, x, y, k]) => (window as unknown as { photobaer: Hook }).photobaer.gpuParity(l as number, x as number, y as number, k as boolean),
+          [level, tx, ty, known],
         ) as Parity;
-        const where = `${browserName} level ${level} tile (${tx}, ${ty})`;
+        all.push(r);
+        const where = `${browserName} ${label} level ${level} tile (${tx}, ${ty})`;
         expect(r.gpu, `${where}: no GPU tile`).not.toBeNull();
         expect(r.cpu, `${where}: no CPU tile`).not.toBeNull();
         const gpu = Buffer.from(r.gpu!, 'base64');
@@ -121,7 +130,27 @@ test('WebGPU display tiles match the CPU compositor at levels 0 and 2', async ({
         expect(max, `${where}: max channel difference${pixel}`).toBeLessThanOrEqual(1);
       }
     }
-    info.annotations.push({ type: 'max channel difference', description: `${browserName} level ${level}: ${worst}` });
+    info.annotations.push({ type: 'max channel difference', description: `${browserName} ${label} level ${level}: ${worst}` });
+    return all;
   }
+
+  const fresh = await sweep(0, 3, 2, false, 'fresh');
+  await sweep(2, 1, 1, false, 'fresh');
+
+  // The level 2 tile was drawn last, so the GPU still holds its payloads: the program leaves them
+  // out and the tile is drawn from the cache.
+  const known = await sweep(2, 1, 1, true, 'known');
+  const sum = (a: Parity[], k: 'shipped' | 'referenced') => a.reduce((n, r) => n + r[k], 0);
+  expect(sum(known, 'shipped'), 'known keys shipped again').toBeLessThan(sum(known, 'referenced'));
+
+  // A budget of about one tile. After tile (1, 0) the cache keeps only part of tile (0, 0); the
+  // known program for (0, 0) relies on that part, and uploading the rest evicts it first, so the
+  // program is asked again with every payload.
+  const budget = Math.ceil(Math.max(...fresh.map(r => r.bytes)) * 1.2);
+  await page.evaluate(b => (window as unknown as { photobaer: Hook }).photobaer.gpuPayloadLimit(b), budget);
+  await sweep(0, 1, 1, false, 'tile A');
+  await sweep(0, 2, 1, false, 'tiles A, B');
+  const [again] = await sweep(0, 1, 1, true, 'evicted A');
+  expect(again.retried, 'the program was not asked again after its known payloads were evicted').toBe(true);
   expect(errors).toEqual([]);
 });

@@ -77,10 +77,15 @@ export class GpuCompositor {
 
   reset() { this.#cache.clear(); }
 
+  /// Test hook: a smaller payload budget forces evictions.
+  set limit(bytes: number) { this.#cache.limit = bytes; }
+
   dispose() {
     this.#cache.clear();
-    for (const t of this.#pool) t.destroy();
+    for (const t of [...this.#pool, this.#zero, this.#out8]) t.destroy();
     this.#pool = [];
+    this.#uniform?.destroy();
+    this.#readback?.destroy();
   }
 
   /// Composites one tile and copies it into `target` at `origin`. Returns false when a referenced
@@ -212,14 +217,23 @@ export class GpuCompositor {
     return result;
   }
 
+  // WebGPU does not report free VRAM, so the budget shrinks when an upload runs out of memory.
+  // The failed payload is dropped; the next program for its tile ships it again.
   #upload(t: Payload) {
     const bytes = t.mask ? TILE * TILE : TILE * TILE * 4;
+    this.#d.pushErrorScope('out-of-memory');
     const tex = this.#d.createTexture({
       size: [TILE, TILE], format: t.mask ? 'r8unorm' : 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
     this.#d.queue.writeTexture({ texture: tex }, t.bytes, { bytesPerRow: bytes / TILE, rowsPerImage: TILE }, [TILE, TILE, 1]);
     this.#cache.set(t.key, tex, bytes);
+    void this.#d.popErrorScope().then(err => {
+      if (!err) return;
+      this.#cache.delete(t.key);
+      this.#cache.limit = Math.max(TILE * TILE * 4, this.#cache.size >> 1);
+      console.warn('GPU out of memory, payload budget now', this.#cache.limit, 'bytes');
+    });
   }
 
   #buffer() {

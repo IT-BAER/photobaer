@@ -1,7 +1,7 @@
 import type { EngineClient } from '../client.ts';
 import type { TileResult, TileSource } from '../viewer.ts';
 import type { Renderer } from './renderer.ts';
-import { decodeProgram, type Program } from './program.ts';
+import { decodeProgram, referencedKeys, type Program } from './program.ts';
 
 const NONE = new BigUint64Array(0);
 
@@ -15,19 +15,28 @@ function base64(b: Uint8Array) {
 /// WebGPU parity spec. Without the query parameter the app exposes nothing extra.
 export function gpuTestHook(client: EngineClient, r: Renderer) {
   if (!new URLSearchParams(location.search).has('gputest')) return {};
-  const readback = (r as { readback?: (p: Program) => Promise<Uint8Array | null> }).readback?.bind(r);
+  const gpuRenderer = r as { readback?: (p: Program) => Promise<Uint8Array | null>; payloadLimit?: number };
   return {
-    gpuParity: async (level: number, tx: number, ty: number) => {
-      if (!readback) return { gpu: null, cpu: null, renderer: r.kind };
-      const res = await client.call('displayProgram', level, tx, ty, NONE);
-      const gpu = await readback(decodeProgram(res.data));
+    // With `known`, the program leaves out payloads the GPU holds and is asked again without them
+    // when one was evicted meanwhile, as the viewer does.
+    gpuParity: async (level: number, tx: number, ty: number, known = false) => {
+      if (!gpuRenderer.readback || !r.gpu) return { gpu: null, cpu: null, renderer: r.kind };
+      const ask = async (keys: BigUint64Array) =>
+        decodeProgram((await client.call('displayProgram', level, tx, ty, keys)).data);
+      let p = await ask(known ? r.gpu.keys() : NONE);
+      const retried = r.gpu.missing(p).length > 0;
+      if (retried) p = await ask(NONE);
+      const gpu = await gpuRenderer.readback(p);
       const cpu = await client.call('displayTile', level, tx, ty);
       return {
         renderer: r.kind,
         gpu: gpu ? base64(gpu) : null,
         cpu: cpu.data ? base64(new Uint8Array(cpu.data)) : null,
+        shipped: p.payloads.length, referenced: referencedKeys(p).length, retried,
+        bytes: p.payloads.reduce((n, t) => n + t.bytes.length, 0),
       };
     },
+    gpuPayloadLimit: (bytes: number) => { gpuRenderer.payloadLimit = bytes; },
   };
 }
 

@@ -56,6 +56,8 @@ export class WebGpuRenderer implements Renderer {
     const r = new WebGpuRenderer(canvas, device);
     device.lost.then(i => {
       r.#lost = true;
+      r.#comp?.dispose();
+      r.#comp = null;
       console.error('WebGPU device lost:', i.message);
     });
     return r;
@@ -76,6 +78,11 @@ export class WebGpuRenderer implements Renderer {
       },
     };
     return this.#api;
+  }
+
+  /// Parity test only: a smaller GPU payload budget, to force evictions.
+  set payloadLimit(bytes: number) {
+    (this.#comp ??= new GpuCompositor(this.#device)).limit = bytes;
   }
 
   /// The composited tile as RGBA8, for the WebGPU parity test only.
