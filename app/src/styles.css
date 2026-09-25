@@ -1,0 +1,59 @@
+:root {
+  --bg: #16181b;
+  --panel: #1f2226;
+  --panel-hi: #2a2e33;
+  --line: #34393f;
+  --text: #d8dbe0;
+  --dim: #8b929b;
+  --accent: #e8a23a;
+  --danger: #d9534f;
+  color-scheme: dark;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); overflow: hidden; }
+button { font: inherit; color: inherit; }
+
+.app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
+
+.menubar { display: flex; align-items: center; gap: 2px; padding: 0 8px; height: 32px; background: var(--panel); border-bottom: 1px solid var(--line); position: relative; z-index: 20; }
+.brand { font-weight: 700; color: var(--accent); margin-right: 12px; }
+.menu { position: relative; }
+.menu > button { background: none; border: 0; padding: 4px 10px; border-radius: 4px; cursor: default; }
+.menu > button:hover, .menu > button.open { background: var(--panel-hi); }
+.menu ul { position: absolute; top: 100%; left: 0; min-width: 300px; margin: 2px 0 0; padding: 4px; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 24px #0008; }
+.menu li button { display: flex; justify-content: space-between; gap: 24px; width: 100%; padding: 5px 10px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: default; }
+.menu li button:hover:not(:disabled) { background: var(--accent); color: #111; }
+.menu li button:disabled { color: var(--dim); opacity: 0.6; }
+.menu kbd { font: inherit; color: var(--dim); }
+.menu li button:hover:not(:disabled) kbd { color: #111; }
+.scrim { position: fixed; inset: 0; z-index: 10; }
+
+.swatch { margin-left: auto; display: flex; align-items: center; }
+.swatch input { width: 28px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; cursor: pointer; }
+
+.stage { position: relative; min-height: 0; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+.welcome { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; pointer-events: none; }
+.welcome h1 { margin: 0; font-size: 32px; color: var(--accent); }
+.welcome .actions, dialog .actions { display: flex; gap: 8px; justify-content: center; pointer-events: auto; }
+.welcome p { color: var(--dim); }
+.welcome button, dialog button { padding: 6px 16px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+.welcome button:hover, dialog button:hover { border-color: var(--accent); }
+dialog button.primary { background: var(--accent); color: #111; border-color: var(--accent); }
+
+.busy { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 6px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.error { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); max-width: 80%; padding: 8px 14px; background: var(--danger); color: #fff; border-radius: 6px; cursor: pointer; }
+
+.status { display: flex; gap: 16px; padding: 0 10px; height: 24px; align-items: center; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
+.status .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; min-width: 300px; }
+dialog::backdrop { background: #0008; }
+dialog h2 { margin: 0 0 12px; font-size: 16px; }
+dialog label { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+dialog input, dialog select { flex: 1; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+dialog .actions { justify-content: flex-end; margin-top: 16px; }

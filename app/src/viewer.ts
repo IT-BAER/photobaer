@@ -1,0 +1,214 @@
+import { FLOATS_PER_INSTANCE, type Renderer } from './render/renderer.ts';
+import { TILE, clipMatrix, fit, levelFor, panBy, visibleTiles, zoomAt, type View } from './view.ts';
+
+export interface ViewDoc { docId: number; version: number; width: number; height: number; maxLevel: number }
+export interface TileResult { docId: number; version: number; data: ArrayBuffer | null }
+export type TileSource = (level: number, tx: number, ty: number) => Promise<TileResult>;
+
+interface Entry { slot: number; version: number; used: number }
+
+const MAX_INFLIGHT = 4;
+
+// Draws the document from a GPU tile cache. Missing tiles fall back to the nearest cached coarser level,
+// so panning never waits for the engine worker.
+export class Viewer {
+  view: View = { zoom: 1, rot: 0, cx: 0, cy: 0 };
+  rotateMode = false;
+  onView: (v: View) => void = () => {};
+
+  #canvas: HTMLCanvasElement;
+  #r: Renderer;
+  #src: TileSource;
+  #doc: ViewDoc | null = null;
+  #cache = new Map<string, Entry>();
+  #free: number[] = [];
+  #inflight = new Set<string>();
+  #frame = 0;
+  #raf = 0;
+  #inst = new Float32Array(1024 * FLOATS_PER_INSTANCE);
+  #w = 1;
+  #h = 1;
+
+  constructor(canvas: HTMLCanvasElement, r: Renderer, src: TileSource) {
+    this.#canvas = canvas;
+    this.#r = r;
+    this.#src = src;
+    this.#resetCache();
+    new ResizeObserver(() => this.#resize()).observe(canvas);
+    this.#resize();
+    this.#bindInput();
+  }
+
+  get dpr() { return window.devicePixelRatio || 1; }
+  get size() { return [this.#w, this.#h] as const; }
+
+  setDoc(d: ViewDoc | null) {
+    const fresh = !d || !this.#doc || d.docId !== this.#doc.docId;
+    this.#doc = d;
+    if (fresh) {
+      this.#resetCache();
+      if (d) this.setView(fit(d.width, d.height, this.#w, this.#h));
+    }
+    this.redraw();
+  }
+
+  setView(v: View) {
+    this.view = v;
+    this.onView(v);
+    this.redraw();
+  }
+
+  fit() { if (this.#doc) this.setView(fit(this.#doc.width, this.#doc.height, this.#w, this.#h)); }
+  actualPixels() { this.setView({ ...this.view, zoom: 1 / this.dpr }); }
+  zoomBy(f: number) { this.setView(zoomAt(this.view, f, this.#w / 2, this.#h / 2, this.#w, this.#h)); }
+  resetRotation() { this.setView({ ...this.view, rot: 0 }); }
+
+  redraw() {
+    if (!this.#raf) this.#raf = requestAnimationFrame(() => { this.#raf = 0; this.#draw(); });
+  }
+
+  #resetCache() {
+    this.#cache.clear();
+    this.#inflight.clear();
+    this.#free = Array.from({ length: this.#r.slots }, (_, i) => this.#r.slots - 1 - i);
+  }
+
+  #resize() {
+    const r = this.#canvas.getBoundingClientRect();
+    this.#w = Math.max(1, r.width);
+    this.#h = Math.max(1, r.height);
+    this.#canvas.width = Math.round(this.#w * this.dpr);
+    this.#canvas.height = Math.round(this.#h * this.dpr);
+    this.redraw();
+  }
+
+  #draw() {
+    const d = this.#doc;
+    const dpr = this.dpr;
+    const frame = { instances: this.#inst, count: 0, matrix: clipMatrix(this.view, this.#w, this.#h), checker: 8 * dpr, nearest: this.view.zoom * dpr >= 2 };
+    if (!d) return this.#r.draw(frame);
+    this.#frame++;
+    let level = levelFor(this.view.zoom, dpr, d.maxLevel);
+    let tiles = visibleTiles(this.view, this.#w, this.#h, level, d.width, d.height);
+    // Keep half the cache free for fallbacks and prefetch; very large screens drop one level.
+    while (tiles.length > this.#r.slots / 2 && level < d.maxLevel) {
+      level++;
+      tiles = visibleTiles(this.view, this.#w, this.#h, level, d.width, d.height);
+    }
+    if (this.#inst.length < tiles.length * FLOATS_PER_INSTANCE) this.#inst = frame.instances = new Float32Array(tiles.length * 2 * FLOATS_PER_INSTANCE);
+    const want: [number, number, number][] = [];
+    for (const [tx, ty] of tiles) {
+      const e = this.#touch(level, tx, ty);
+      if (!e || e.version !== d.version) want.push([level, tx, ty]);
+      const size = TILE << level;
+      const x0 = tx * size, y0 = ty * size;
+      const x1 = Math.min(x0 + size, d.width), y1 = Math.min(y0 + size, d.height);
+      let src: [number, number, number, number] = [level, tx, ty, e ? e.slot : -1];
+      if (!e) {
+        for (let p = level + 1; p <= d.maxLevel; p++) {
+          const pe = this.#touch(p, tx >> (p - level), ty >> (p - level));
+          if (pe) { src = [p, tx >> (p - level), ty >> (p - level), pe.slot]; break; }
+        }
+      }
+      this.#push(frame, x0, y0, x1, y1, src);
+    }
+    // The single top-level tile is the fallback of last resort; fetch it after the visible tiles.
+    const top = this.#touch(d.maxLevel, 0, 0);
+    if (!top || top.version !== d.version) want.push([d.maxLevel, 0, 0]);
+    this.#r.draw(frame);
+    this.#pump(want);
+  }
+
+  #touch(level: number, tx: number, ty: number) {
+    const e = this.#cache.get(`${level}/${tx}/${ty}`);
+    if (e) e.used = this.#frame;
+    return e;
+  }
+
+  #push(f: { instances: Float32Array; count: number }, x0: number, y0: number, x1: number, y1: number, [level, tx, ty, slot]: [number, number, number, number]) {
+    const size = TILE << level;
+    const ox = tx * size, oy = ty * size;
+    f.instances.set([x0, y0, x1, y1, (x0 - ox) / size, (y0 - oy) / size, (x1 - ox) / size, (y1 - oy) / size, slot], f.count * FLOATS_PER_INSTANCE);
+    f.count++;
+  }
+
+  #pump(want: [number, number, number][]) {
+    const d = this.#doc!;
+    for (const [level, tx, ty] of want) {
+      if (this.#inflight.size >= MAX_INFLIGHT) return;
+      const key = `${level}/${tx}/${ty}`;
+      if (this.#inflight.has(key)) continue;
+      this.#inflight.add(key);
+      this.#src(level, tx, ty).then(r => {
+        this.#inflight.delete(key);
+        if (this.#doc?.docId !== r.docId || r.docId !== d.docId) return;
+        this.#store(key, r);
+        this.redraw();
+      }, err => {
+        this.#inflight.delete(key);
+        console.error('tile', key, err);
+      });
+    }
+  }
+
+  #store(key: string, r: TileResult) {
+    let e = this.#cache.get(key);
+    if (e && e.version > r.version) return;
+    if (!r.data) {
+      if (e && e.slot >= 0) this.#free.push(e.slot);
+      this.#cache.set(key, { slot: -1, version: r.version, used: e?.used ?? this.#frame });
+      return;
+    }
+    let slot = e && e.slot >= 0 ? e.slot : this.#free.pop() ?? this.#evict();
+    if (slot === undefined) return;
+    this.#r.upload(slot, new Uint8Array(r.data));
+    e = { slot, version: r.version, used: e?.used ?? this.#frame };
+    this.#cache.set(key, e);
+  }
+
+  // Least recently drawn entry that was not drawn in the current frame.
+  #evict(): number | undefined {
+    let best: string | null = null, bestUsed = this.#frame;
+    for (const [k, e] of this.#cache) if (e.slot >= 0 && e.used < bestUsed) { best = k; bestUsed = e.used; }
+    if (best === null) return undefined;
+    const slot = this.#cache.get(best)!.slot;
+    this.#cache.delete(best);
+    return slot;
+  }
+
+  #bindInput() {
+    const c = this.#canvas;
+    let last: [number, number] | null = null;
+    const local = (e: PointerEvent | WheelEvent): [number, number] => {
+      const r = c.getBoundingClientRect();
+      return [e.clientX - r.left, e.clientY - r.top];
+    };
+    c.addEventListener('pointerdown', e => {
+      if (e.button !== 0 && e.button !== 1) return;
+      c.setPointerCapture(e.pointerId);
+      last = local(e);
+      e.preventDefault();
+    });
+    c.addEventListener('pointermove', e => {
+      if (!last) return;
+      const p = local(e);
+      if (this.rotateMode) {
+        const a0 = Math.atan2(last[1] - this.#h / 2, last[0] - this.#w / 2);
+        const a1 = Math.atan2(p[1] - this.#h / 2, p[0] - this.#w / 2);
+        this.setView({ ...this.view, rot: this.view.rot + a1 - a0 });
+      } else {
+        this.setView(panBy(this.view, p[0] - last[0], p[1] - last[1]));
+      }
+      last = p;
+    });
+    const end = () => { last = null; };
+    c.addEventListener('pointerup', end);
+    c.addEventListener('pointercancel', end);
+    c.addEventListener('wheel', e => {
+      e.preventDefault();
+      const [x, y] = local(e);
+      const step = e.deltaMode === 1 ? 0.05 : 0.002;
+      this.setView(zoomAt(this.view, 2 ** (-e.deltaY * step), x, y, this.#w, this.#h));
+    }, { passive: false });
+  }
+}
