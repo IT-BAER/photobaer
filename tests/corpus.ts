@@ -24,9 +24,11 @@ export function unsupported(psd: Psd): string | null {
   const walk = (layers: Layer[]): string | null => {
     for (const l of layers) {
       const name = `layer "${l.name}"`;
-      for (const k of ['effects', 'adjustment', 'filterMask', 'vectorMask', 'realMask', 'knockout'] as const) {
+      for (const k of ['effects', 'adjustment', 'filterMask', 'realMask', 'knockout'] as const) {
         if (l[k] !== undefined && l[k] !== false) return `${name}: ${k}`;
       }
+      // A shape layer's stored raster already has its vector mask applied; a pixel layer's does not.
+      if (l.vectorMask && !l.vectorFill) return `${name}: vectorMask`;
       // Photoshop stores full 0..255 Blend If ranges on every layer; those change nothing.
       const br = l.blendingRanges;
       if (br && ![br.compositeGrayBlendSource, br.compositeGraphBlendDestinationRange, ...br.ranges.flatMap(r => [r.sourceRange, r.destRange])]

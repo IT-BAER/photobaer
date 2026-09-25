@@ -54,6 +54,16 @@ test('default Blend If ranges are rendered, custom ranges are skipped', async ()
   assert.match(custom.reason!, /blendingRanges/);
 });
 
+test('shape layers render their stored raster, vector masks on pixel layers are skipped', async () => {
+  const img = image(W, H, pattern);
+  const vectorMask = { paths: [] };
+  const shape = await checkPsd('h.psd', psd([{ name: 'bg', imageData: img, vectorMask, vectorFill: { type: 'color', color: { r: 255, g: 0, b: 0 } } }], img));
+  assert.equal(shape.status, 'pass', JSON.stringify(shape));
+  const pixel = await checkPsd('i.psd', psd([{ name: 'bg', imageData: img, vectorMask }], img));
+  assert.equal(pixel.status, 'skip');
+  assert.match(pixel.reason!, /vectorMask/);
+});
+
 test('a PSB file is skipped, not failed', async () => {
   const img = image(W, H, pattern);
   const r = await checkPsd('e.psb', writePsdUint8Array({ width: W, height: H, children: [{ name: 'bg', imageData: img }], imageData: img }, { psb: true }));
