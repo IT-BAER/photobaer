@@ -70,3 +70,25 @@ test('a PSB file is skipped, not failed', async () => {
   assert.equal(r.status, 'skip', JSON.stringify(r));
   assert.match(r.reason!, /PSB/);
 });
+
+test('pixels where a dissolve layer has partial coverage are excluded, full coverage is compared', async () => {
+  const bg = image(W, H, () => [255, 255, 255, 255]);
+  // Left half at alpha 128 (random pattern in Photoshop), right half opaque (always drawn).
+  const top = image(W, H, x => [255, 0, 0, x < 150 ? 128 : 255]);
+  const layers = [{ name: 'bg', imageData: bg }, { name: 'd', imageData: top, blendMode: 'dissolve' as const }];
+  const ok = await checkPsd('j.psd', psd(layers, image(W, H, x => (x < 150 ? [0, 255, 0, 255] : [255, 0, 0, 255]))));
+  assert.equal(ok.status, 'pass', JSON.stringify(ok));
+  assert.equal(ok.excluded, 150 * H);
+  const bad = await checkPsd('k.psd', psd(layers, image(W, H, () => [0, 255, 0, 255])));
+  assert.equal(bad.status, 'fail');
+});
+
+test('a per-file exception allows a bounded count of pixels at dE 5 or more', async () => {
+  const img = image(W, H, pattern);
+  const bad = psd([{ name: 'bg', imageData: img }], image(W, H, (x, y) => (x < 5 && y < 5 ? [0, 255, 0, 255] : pattern(x, y))));
+  assert.equal((await checkPsd('l.psd', bad)).status, 'fail');
+  const r = await checkPsd('l.psd', bad, 25);
+  assert.equal(r.status, 'pass', JSON.stringify(r));
+  assert.equal(r.over, 25);
+  assert.equal((await checkPsd('l.psd', bad, 24)).status, 'fail');
+});

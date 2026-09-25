@@ -242,15 +242,6 @@ impl Node {
         matches!(self.kind, Kind::Group(_))
     }
 
-    // Groups store fill 1 and ignore it (M1.md section 1).
-    fn eff_fill(&self) -> f32 {
-        if self.is_group() {
-            1.0
-        } else {
-            self.fill
-        }
-    }
-
     fn pixel_tiles(&self) -> Result<&Vec<Option<Tile>>, String> {
         match &self.kind {
             Kind::Pixel(t) => Ok(t),
@@ -450,7 +441,6 @@ fn draw(
     dst: &mut [f32],
     src: Src,
     mask: &MaskSrc,
-    shape: Option<&[f32]>,
     scale: f32,
     mode: Blend,
     node_id: u32,
@@ -469,9 +459,6 @@ fn draw(
                 continue;
             }
             let mut cov = a * scale * mask.at(p);
-            if let Some(s) = shape {
-                cov *= s[p];
-            }
             if cov <= 0.0 {
                 continue;
             }
@@ -768,9 +755,6 @@ impl Document {
             return Err("pass through is only allowed on groups".into());
         }
         if let Some(f) = fill {
-            if group && f != 1.0 {
-                return Err("groups ignore fill and always store 1".into());
-            }
             node.fill = f;
         }
         if let Some(n) = p.name {
@@ -1020,9 +1004,9 @@ impl Document {
         }
     }
 
-    fn draw_node(&self, node: &Node, dst: &mut [f32], c: &TileCtx, scale: f32, mode: Blend, shape: Option<&[f32]>) {
+    fn draw_node(&self, node: &Node, dst: &mut [f32], c: &TileCtx, scale: f32, mode: Blend) {
         let m = mask_src(node, self.depth, c.slot);
-        if mode == Blend::PassThrough && shape.is_none() {
+        if mode == Blend::PassThrough {
             let Kind::Group(children) = &node.kind else { return };
             let mut r = dst.to_vec();
             self.composite_list(children, &mut r, c);
@@ -1043,32 +1027,63 @@ impl Document {
         }
         let owned = self.node_src(node, c);
         let Some(src) = owned.as_src() else { return };
-        let mode = if mode == Blend::PassThrough { Blend::Normal } else { mode };
-        draw(dst, src, &m, shape, scale, mode, node.id, c);
+        draw(dst, src, &m, scale, mode, node.id, c);
     }
 
     // A clipping group: base B plus the consecutive clipped nodes above it (M1.md section 3).
+    // S is B's coverage. B's share of each pixel is divided by S, the clipped nodes draw onto it
+    // normally, and the result is multiplied by S again (source-atop at full fill).
     fn draw_clipping_group(&self, base: &Node, clipped: &[Node], dst: &mut [f32], c: &TileCtx) {
         let bmask = mask_src(base, self.depth, c.slot);
         let owned = self.node_src(base, c);
         let Some(bsrc) = owned.as_src() else { return };
+        let pass = base.blend == Blend::PassThrough;
+        // A pass-through base stays in place, so its opacity and fill are part of its share.
+        let k = if pass { base.opacity * base.fill } else { 1.0 };
         let mut shape = vec![0f32; TILE_PIXELS];
         for y in 0..c.vh {
             for x in 0..c.vw {
                 let p = y * TILE + x;
-                shape[p] = bsrc.at(p)[3] * bmask.at(p);
+                shape[p] = bsrc.at(p)[3] * bmask.at(p) * k;
             }
         }
+        let before = if pass { Some(dst.to_vec()) } else { None };
         let mut g = vec![0f32; TILE_PIXELS * 4];
-        draw(&mut g, bsrc, &bmask, None, base.eff_fill(), Blend::Normal, base.id, c);
+        match &before {
+            Some(b) => {
+                self.draw_node(base, dst, c, k, Blend::PassThrough);
+                for p in 0..TILE_PIXELS {
+                    for ch in 0..4 {
+                        let o = p * 4 + ch;
+                        g[o] = dst[o] - (1.0 - shape[p]) * b[o];
+                    }
+                }
+            }
+            None => draw(&mut g, bsrc, &bmask, base.fill, Blend::Normal, base.id, c),
+        }
+        for p in 0..TILE_PIXELS {
+            let inv = if shape[p] > 0.0 { 1.0 / shape[p] } else { 0.0 };
+            g[p * 4..p * 4 + 4].iter_mut().for_each(|v| *v *= inv);
+        }
         for n in clipped {
             if n.visible && n.opacity > 0.0 {
-                self.draw_node(n, &mut g, c, n.opacity * n.eff_fill(), n.blend, Some(&shape));
+                self.draw_node(n, &mut g, c, n.opacity * n.fill, n.blend);
             }
         }
-        // Pass through has no meaning for a clipping base: the group is already isolated here.
-        let mode = if base.blend == Blend::PassThrough { Blend::Normal } else { base.blend };
-        draw(dst, Src::Buf(&g), &MaskSrc::Full, None, base.opacity, mode, base.id, c);
+        for p in 0..TILE_PIXELS {
+            g[p * 4..p * 4 + 4].iter_mut().for_each(|v| *v *= shape[p]);
+        }
+        match &before {
+            Some(b) => {
+                for p in 0..TILE_PIXELS {
+                    for ch in 0..4 {
+                        let o = p * 4 + ch;
+                        dst[o] = (1.0 - shape[p]) * b[o] + g[o];
+                    }
+                }
+            }
+            None => draw(dst, Src::Buf(&g), &MaskSrc::Full, base.opacity, base.blend, base.id, c),
+        }
     }
 
     fn composite_list(&self, nodes: &[Node], dst: &mut [f32], c: &TileCtx) {
@@ -1081,7 +1096,7 @@ impl Document {
             let base = &nodes[i];
             if j == i + 1 {
                 if base.visible && base.opacity > 0.0 {
-                    self.draw_node(base, dst, c, base.opacity * base.eff_fill(), base.blend, None);
+                    self.draw_node(base, dst, c, base.opacity * base.fill, base.blend);
                 }
             } else if base.visible {
                 self.draw_clipping_group(base, &nodes[i + 1..j], dst, c);
@@ -2082,6 +2097,62 @@ mod tests {
         near(at(&d, 10, 10), [128, 64, 191, 255]);
     }
 
+    // Clipped layers paint source-atop: full color over a soft base edge, base alpha kept (corpus clipping-mask.psd).
+    #[test]
+    fn clipped_layer_paints_atop_a_soft_base_edge() {
+        let (mut d, base, _) = clip_doc();
+        d.fill(base, Target::Pixels, 255, 0, 0, 128).unwrap();
+        near(at(&d, 10, 10), [127, 127, 255, 255]);
+    }
+
+    // Background, a pass-through group holding one filled layer, and an empty clipped layer above the group.
+    fn pass_base(bg: [u8; 3], child: [u8; 4], blend: &str) -> (Document, u32, u32) {
+        let mut d = doc_bg(bg[0], bg[1], bg[2]);
+        let g = d.add_group("g", 1).unwrap();
+        let c = d.add_layer("c", 0).unwrap();
+        d.move_node(c, g, 0).unwrap();
+        d.fill(c, Target::Pixels, child[0], child[1], child[2], child[3]).unwrap();
+        set(&mut d, c, &format!(r#"{{"blend":"{blend}"}}"#));
+        let clip = d.add_layer("clip", g).unwrap();
+        set(&mut d, clip, r#"{"clipping":true}"#);
+        (d, g, clip)
+    }
+
+    // A pass-through base stays non-isolated: its children still blend with the backdrop.
+    #[test]
+    fn pass_through_clipping_base_stays_in_place() {
+        let (d, _, _) = pass_base([125, 125, 125], [255, 0, 0, 255], "linear dodge");
+        near(at(&d, 10, 10), [255, 125, 125, 255]);
+    }
+
+    // The clipped layer replaces only the base's share of the pixel; the backdrop share stays.
+    #[test]
+    fn clipped_layer_over_pass_through_base_recolors_only_the_base_share() {
+        let (mut d, _, clip) = pass_base([255, 255, 255], [255, 0, 0, 128], "normal");
+        d.fill(clip, Target::Pixels, 0, 255, 0, 255).unwrap();
+        near(at(&d, 10, 10), [127, 255, 127, 255]);
+    }
+
+    // The clipped layer blends with the in-place result (cyan from exclusion), not with the isolated base (red).
+    #[test]
+    fn clipped_layer_over_pass_through_base_blends_with_the_in_place_color() {
+        let (mut d, _, clip) = pass_base([255, 255, 255], [255, 0, 0, 255], "exclusion");
+        d.fill(clip, Target::Pixels, 0, 255, 0, 255).unwrap();
+        set(&mut d, clip, r#"{"blend":"lighter color"}"#);
+        near(at(&d, 10, 10), [0, 255, 255, 255]);
+    }
+
+    // Group fill fades the group like opacity (corpus passthrough_fill_blendmode.psd).
+    #[test]
+    fn group_fill_fades_like_opacity() {
+        for mode in ["pass through", "normal"] {
+            let (mut d, g, clip) = pass_base([255, 255, 255], [255, 0, 0, 255], "normal");
+            d.delete_node(clip).unwrap();
+            set(&mut d, g, &format!(r#"{{"blend":"{mode}","fill":0.5}}"#));
+            near(at(&d, 10, 10), [255, 127, 127, 255]);
+        }
+    }
+
     // ---------- dissolve, fill, depth ----------
 
     #[test]
@@ -2263,7 +2334,7 @@ mod tests {
         assert!(d.set_props(1, r#"{"blend":"glow"}"#).is_err());
         assert!(d.set_props(1, r#"{"nope":1}"#).is_err());
         assert!(d.set_props(1, r#"{"mask_enabled":true}"#).is_err());
-        assert!(d.set_props(g, r#"{"fill":0.5}"#).is_err());
+        assert!(d.set_props(g, r#"{"fill":1.5}"#).is_err());
         d.set_props(1, r#"{"name":"bg","visible":false,"locks":{"position":true}}"#).unwrap();
         let n = d.node(1).unwrap();
         assert_eq!(n.name, "bg");

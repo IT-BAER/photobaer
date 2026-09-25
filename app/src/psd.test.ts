@@ -24,7 +24,7 @@ function richPsd(): Psd {
       { name: 'Base', top: 0, left: 0, imageData: solid(16, 16, [10, 20, 30, 255]) },
       { name: 'Clip', top: 0, left: 0, clipping: true, imageData: solid(16, 16, [40, 50, 60, 200]) },
       {
-        name: 'Group1', opened: true,
+        name: 'Group1', opened: true, fillOpacity: 0.5,
         children: [
           {
             name: 'Masked', top: 0, left: 0, imageData: solid(16, 16, [1, 2, 3, 255]),
@@ -54,6 +54,7 @@ test('import maps groups, masks, clipping, blend, opacity, fill, visibility and 
   assert.equal(group.name, 'Group1');
   assert.equal(group.kind, 'group');
   assert.equal(group.children.length, 1);
+  assert.ok(Math.abs(group.fill - 0.5) < 0.01, `group fill ${group.fill}`);
   const masked = group.children[0];
   assert.equal(masked.name, 'Masked');
   assert.deepEqual(masked.mask, { enabled: true, default: 0 });

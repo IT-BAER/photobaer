@@ -92,10 +92,12 @@ fn screen(cb: f32, cs: f32) -> f32 {
     cb + cs - cb * cs
 }
 
+const EPS: f32 = 1e-5;
+
 fn color_dodge(cb: f32, cs: f32) -> f32 {
-    if cb <= 0.0 {
+    if cb <= EPS {
         0.0
-    } else if cs >= 1.0 {
+    } else if cs >= 1.0 - EPS {
         1.0
     } else {
         (cb / (1.0 - cs)).min(1.0)
@@ -103,9 +105,9 @@ fn color_dodge(cb: f32, cs: f32) -> f32 {
 }
 
 fn color_burn(cb: f32, cs: f32) -> f32 {
-    if cb >= 1.0 {
+    if cb >= 1.0 - EPS {
         1.0
-    } else if cs <= 0.0 {
+    } else if cs <= EPS {
         0.0
     } else {
         1.0 - ((1.0 - cb) / cs).min(1.0)
@@ -194,26 +196,30 @@ pub fn blend_rgb(mode: Blend, cb: [f32; 3], cs: [f32; 3]) -> [f32; 3] {
         Blend::LinearBurn => per(|cb, cs| cb + cs - 1.0),
         Blend::LinearDodge => per(|cb, cs| cb + cs),
         Blend::VividLight => per(|cb, cs| {
-            if cs <= 0.5 {
-                color_burn(cb, 2.0 * cs)
+            if cs <= EPS {
+                0.0
+            } else if cs <= 0.5 {
+                1.0 - ((1.0 - cb) / (2.0 * cs)).min(1.0)
+            } else if cs >= 1.0 - EPS {
+                1.0
             } else {
-                color_dodge(cb, 2.0 * (cs - 0.5))
+                (cb / (2.0 * (1.0 - cs))).min(1.0)
             }
         }),
         Blend::LinearLight => per(|cb, cs| cb + 2.0 * cs - 1.0),
         Blend::PinLight => per(|cb, cs| if cs <= 0.5 { cb.min(2.0 * cs) } else { cb.max(2.0 * cs - 1.0) }),
-        Blend::HardMix => per(|cb, cs| if cb + cs >= 1.0 { 1.0 } else { 0.0 }),
+        Blend::HardMix => per(|cb, cs| if (cs <= 0.5 && cb + cs >= 1.0 - EPS) || cb + cs > 1.0 + EPS { 1.0 } else { 0.0 }),
         Blend::Subtract => per(|cb, cs| cb - cs),
         Blend::Divide => per(|cb, cs| if cs <= 0.0 { if cb <= 0.0 { 0.0 } else { 1.0 } } else { (cb / cs).min(1.0) }),
         Blend::DarkerColor => {
-            if cs[0] + cs[1] + cs[2] < cb[0] + cb[1] + cb[2] {
+            if lum(cs) < lum(cb) {
                 cs
             } else {
                 cb
             }
         }
         Blend::LighterColor => {
-            if cs[0] + cs[1] + cs[2] > cb[0] + cb[1] + cb[2] {
+            if lum(cs) > lum(cb) {
                 cs
             } else {
                 cb
@@ -297,6 +303,36 @@ mod tests {
             let mode = Blend::parse(name).unwrap();
             close(blend_rgb(mode, CB, CS), want, name);
         }
+    }
+
+    // Corpus-verified Photoshop rules (docs/M1.md section 3). 0.99999994 is what f32 unpremultiply gives for 255.
+    #[test]
+    fn burn_and_dodge_endpoints_survive_f32_rounding() {
+        close(blend_rgb(Blend::ColorBurn, [0.99999994; 3], [0.0; 3]), [1.0; 3], "burn cb=1 cs=0");
+        close(blend_rgb(Blend::ColorDodge, [6e-8; 3], [1.0; 3]), [0.0; 3], "dodge cb=0 cs=1");
+    }
+
+    #[test]
+    fn vivid_light_endpoints_follow_the_source() {
+        close(blend_rgb(Blend::VividLight, [1.0; 3], [0.0; 3]), [0.0; 3], "cs=0");
+        close(blend_rgb(Blend::VividLight, [0.0; 3], [1.0; 3]), [1.0; 3], "cs=1");
+    }
+
+    #[test]
+    fn hard_mix_at_sum_one_depends_on_the_source_half() {
+        close(blend_rgb(Blend::HardMix, [0.6; 3], [0.4; 3]), [1.0; 3], "cs<=0.5");
+        close(blend_rgb(Blend::HardMix, [0.4; 3], [0.6; 3]), [0.0; 3], "cs>0.5");
+    }
+
+    #[test]
+    fn darker_and_lighter_color_compare_luminosity_and_ties_keep_backdrop() {
+        // Channel sum says cs is darker; Lum (0.15 vs 0.11) says cb is darker.
+        let (cb, cs) = ([0.0, 0.0, 1.0], [0.5, 0.0, 0.0]);
+        close(blend_rgb(Blend::DarkerColor, cb, cs), cb, "darker");
+        close(blend_rgb(Blend::LighterColor, cb, cs), cs, "lighter");
+        let tie = [0.11 / 0.3, 0.0, 0.0];
+        close(blend_rgb(Blend::DarkerColor, [0.0, 0.0, 1.0], tie), [0.0, 0.0, 1.0], "darker tie");
+        close(blend_rgb(Blend::LighterColor, [0.0, 0.0, 1.0], tie), [0.0, 0.0, 1.0], "lighter tie");
     }
 
     #[test]

@@ -93,7 +93,7 @@ function addNode(e: Engine, l: Layer, w: number, h: number, warn: (m: string) =>
   if (l.children) {
     const id = e.add_group(l.name ?? '', 0);
     e.set_props(id, JSON.stringify({
-      visible: !l.hidden, opacity: l.opacity ?? 1, blend: l.blendMode ?? 'pass through',
+      visible: !l.hidden, opacity: l.opacity ?? 1, fill: l.fillOpacity ?? 1, blend: l.blendMode ?? 'pass through',
       clipping: !!l.clipping, locks: locksOf(l),
     }));
     let idx = 0;
@@ -212,16 +212,16 @@ function maskFields(e: Engine, n: ManifestNode, w: number, h: number) {
 
 function exportNode(e: Engine, n: ManifestNode, w: number, h: number): Layer {
   const common = {
-    name: n.name, hidden: !n.visible, opacity: n.opacity, blendMode: n.blend as BlendMode, clipping: n.clipping,
+    name: n.name, hidden: !n.visible, opacity: n.opacity, fillOpacity: n.fill, blendMode: n.blend as BlendMode, clipping: n.clipping,
     protected: { transparency: n.locks.transparency, composite: n.locks.pixels, position: n.locks.position },
     ...maskFields(e, n, w, h),
   };
   if (n.kind === 'group') return { ...common, children: (n.children ?? []).map(c => exportNode(e, c, w, h)) };
   const rect = tileBounds(e, n.tiles, w, h);
-  if (!rect) return { ...common, top: 0, left: 0, fillOpacity: n.fill };
+  if (!rect) return { ...common, top: 0, left: 0 };
   const data = assembleImage((tx, ty) => tileAt(e, n.tiles, tx, ty), rect, 4, 0);
   const rw = rect.right - rect.left, rh = rect.bottom - rect.top;
-  return { ...common, top: rect.top, left: rect.left, fillOpacity: n.fill, imageData: { width: rw, height: rh, data: new Uint8ClampedArray(data.buffer) } };
+  return { ...common, top: rect.top, left: rect.left, imageData: { width: rw, height: rh, data: new Uint8ClampedArray(data.buffer) } };
 }
 
 export function exportPsd(e: Engine): Uint8Array<ArrayBuffer> {
