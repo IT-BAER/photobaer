@@ -43,11 +43,12 @@ local agent/MCP API, autosave recovery, i18n.
 Web-first. One code base; the PWA is the product, a desktop shell wraps the same build.
 
 ```
-UI (TypeScript, Solid or React)  ── commands ──►  Document model + history (TS)
+UI (TypeScript, React)  ── commands ──►  Engine worker: undo history (TS, engine snapshots)
         │                                              │
         ▼                                              ▼
 Canvas view (WebGPU, WebGL2 fallback)  ◄── tiles ──  Engine (Rust → WASM, SIMD + threads)
-                                                       │  tile store, compositor CPU path,
+                                                       │  document model (layer tree), tile store,
+                                                       │  compositor CPU path,
                                                        │  filters CPU path, codecs
 Workers: engine threads, AI (onnxruntime-web, WebGPU EP), RAW (LibRaw WASM, separate module)
 Storage: OPFS (tiles, autosave, scratch disk), IndexedDB (presets, settings, recent files)
