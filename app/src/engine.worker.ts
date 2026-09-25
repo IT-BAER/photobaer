@@ -226,8 +226,7 @@ const api = {
 
 export type Api = typeof api;
 
-onmessage = async (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[] }>) => {
-  const { id, op, args } = ev.data;
+async function handle(id: number, op: keyof Api, args: unknown[]) {
   try {
     const result = await (api[op] as (...a: unknown[]) => unknown)(...args);
     const data = (result as { data?: unknown } | null)?.data;
@@ -235,4 +234,13 @@ onmessage = async (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[]
   } catch (err) {
     postMessage({ id, error: err instanceof Error ? err.message : String(err) });
   }
+}
+
+// Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
+// displayTile is synchronous and read-only, so it skips the queue and the viewer keeps drawing.
+let queue = Promise.resolve();
+onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[] }>) => {
+  const { id, op, args } = ev.data;
+  if (op === 'displayTile') void handle(id, op, args);
+  else queue = queue.then(() => handle(id, op, args));
 };

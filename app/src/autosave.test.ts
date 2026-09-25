@@ -1,33 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Autosave } from './autosave.ts';
-
-// In-memory stand-in for the OPFS directory API. `hold` parks the next sync-handle open until released.
-class FakeFile {
-  data = new Uint8Array();
-  async getFile() { const d = this.data; return { text: async () => new TextDecoder().decode(d), arrayBuffer: async () => d.slice().buffer }; }
-  async createSyncAccessHandle() {
-    if (fs.hold) await fs.hold;
-    return {
-      truncate: () => { this.data = new Uint8Array(); },
-      write: (d: Uint8Array) => { this.data = d.slice(); return d.length; },
-      flush() {}, close() {},
-    };
-  }
-}
-class FakeDir {
-  entries = new Map<string, FakeDir | FakeFile>();
-  async getDirectoryHandle(n: string, o?: { create?: boolean }) { return this.#get(n, o, () => new FakeDir()) as FakeDir; }
-  async getFileHandle(n: string, o?: { create?: boolean }) { return this.#get(n, o, () => new FakeFile()) as FakeFile; }
-  async removeEntry(n: string) { if (!this.entries.delete(n)) throw new Error('NotFound'); }
-  async *keys() { yield* [...this.entries.keys()]; }
-  #get(n: string, o: { create?: boolean } | undefined, make: () => FakeDir | FakeFile) {
-    let e = this.entries.get(n);
-    if (!e) { if (!o?.create) throw new Error(`NotFound ${n}`); e = make(); this.entries.set(n, e); }
-    return e;
-  }
-}
-const fs: { hold: Promise<void> | null } = { hold: null };
+import { FakeDir, fs } from './fake-opfs.ts';
 
 const manifest = (...ids: number[]) => JSON.stringify({ layers: [{ tiles: ids }] });
 const bytes = (tag: number) => () => new Uint8Array([tag]);
