@@ -49,3 +49,17 @@ test('layers and history panels: create, edit, reorder and time travel', async (
 
   expect(errors).toEqual([]);
 });
+
+test('layer tree exposes groups to assistive technology', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'New image' }).click();
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.getByRole('treeitem', { name: 'Background' })).toBeVisible();
+  await page.keyboard.press('Control+G');
+  const group = page.getByRole('treeitem', { name: 'Group' });
+  await expect(group).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('group').getByRole('treeitem', { name: 'Background' })).toBeVisible();
+  await page.getByRole('button', { name: 'Collapse Group' }).click();
+  await expect(group).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('treeitem', { name: 'Background' })).toBeHidden();
+});

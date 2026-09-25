@@ -1,4 +1,8 @@
-import { useState, type DragEvent, type ReactNode } from 'react';
+import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  Brush, ChevronDown, ChevronRight, CornerLeftDown, Eye, Folder, FolderPlus, Grid2x2, Link2, Lock, Move,
+  SquareDashed, SquarePlus, Trash2,
+} from 'lucide-react';
 import { client } from './client.ts';
 import { nodeById, dropTarget, type Where } from './layers.ts';
 import type { DocInfo, LayerNode } from './engine.worker.ts';
@@ -21,12 +25,12 @@ interface Props {
   run: Run;
   newLayer: () => void;
   newGroup: () => void;
-  duplicateLayer: () => void;
   deleteLayer: () => void;
   deleteDisabled: boolean;
   addMask: () => void;
-  deleteMask: () => void;
 }
+
+const ICON = { size: 16, strokeWidth: 1.75 };
 
 // Y within a row: top quarter = above, bottom quarter = below, middle half = into for a group,
 // else nearest half.
@@ -39,13 +43,38 @@ function zone(e: DragEvent, isGroup: boolean): Where {
   return f < 0.5 ? 'above' : 'below';
 }
 
+// A 0-100 percent field that commits on Enter or blur, so typing and arrow keys make one history step.
+function PercentField({ label, value, commit }: { label: string; value: number; commit: (v: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const done = () => {
+    const v = Math.round(Number(draft));
+    setDraft(null);
+    if (draft !== null && Number.isFinite(v)) commit(Math.min(100, Math.max(0, v)));
+  };
+  return (
+    <label className="percent-field">
+      {label}
+      <input
+        type="number" min={0} max={100} aria-label={label}
+        value={draft ?? value}
+        onChange={e => setDraft(e.currentTarget.value)}
+        onBlur={done}
+        onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          else if (e.key === 'Escape') { setDraft(null); e.currentTarget.blur(); }
+        }}
+      />
+      <span>%</span>
+    </label>
+  );
+}
+
 export function LayersPanel(props: Props) {
   const { doc, active, setActive, run } = props;
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [renaming, setRenaming] = useState<number | null>(null);
   const [dragId, setDragId] = useState<number | null>(null);
   const [dropHint, setDropHint] = useState<{ id: number; where: Where } | null>(null);
-  const [live, setLive] = useState<{ id: number; opacity?: number; fill?: number } | null>(null);
 
   const node = nodeById(doc.layers, active.id);
 
@@ -72,18 +101,21 @@ export function LayersPanel(props: Props) {
 
   function renderRow(n: LayerNode, depth: number, clipped: boolean): ReactNode {
     const isGroup = n.kind === 'group';
+    const open = isGroup && !collapsed.has(n.id);
     const isActive = active.id === n.id;
-    const dragging = dragId === n.id;
     const hint = dropHint?.id === n.id ? dropHint.where : null;
+    const locked = n.locks.transparency || n.locks.pixels || n.locks.position;
     return (
-      <div key={n.id}>
+      <div
+        key={n.id}
+        role="treeitem"
+        aria-selected={isActive}
+        aria-level={depth + 1}
+        aria-expanded={isGroup ? open : undefined}
+        aria-label={n.name}
+      >
         <div
-          role="treeitem"
-          aria-selected={isActive}
-          aria-level={depth + 1}
-          aria-label={n.name}
-          className={`layer-row${isActive ? ' active' : ''}${dragging ? ' dragging' : ''}${clipped ? ' clipped' : ''}${hint === 'into' ? ' drop-into' : ''}`}
-          style={{ paddingLeft: 8 + depth * 16 + (clipped ? 12 : 0) }}
+          className={`layer-row${isGroup ? ' group' : ''}${isActive ? ' active' : ''}${dragId === n.id ? ' dragging' : ''}${hint === 'into' ? ' drop-into' : ''}${n.visible ? '' : ' hidden'}`}
           draggable
           onClick={() => select(n.id, 'pixels')}
           onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragId(n.id); }}
@@ -103,19 +135,36 @@ export function LayersPanel(props: Props) {
           }}
         >
           {hint === 'above' && <div className="drop-line drop-above" />}
-          {clipped && <span className="clip-marker" title="Clipped to layer below" />}
-          {isGroup && (
-            <button
-              className="disclosure"
-              aria-label={collapsed.has(n.id) ? `Expand ${n.name}` : `Collapse ${n.name}`}
-              onClick={e => { e.stopPropagation(); toggleCollapsed(n.id); }}
-            >{collapsed.has(n.id) ? '▸' : '▾'}</button>
-          )}
           <button
             className="visibility"
             aria-label={n.visible ? `Hide ${n.name}` : `Show ${n.name}`}
             onClick={e => { e.stopPropagation(); setProps(n.id, { visible: !n.visible }); }}
-          >{n.visible ? '\u{1F441}' : '\u{2014}'}</button>
+          >{n.visible && <Eye {...ICON} />}</button>
+          {Array.from({ length: depth }, (_, i) => <span key={i} className="indent" />)}
+          {clipped && <CornerLeftDown className="clip-marker" size={14} strokeWidth={1.75} aria-label="Clipped to layer below" />}
+          {isGroup ? (
+            <>
+              <button
+                className="disclosure"
+                aria-label={open ? `Collapse ${n.name}` : `Expand ${n.name}`}
+                onClick={e => { e.stopPropagation(); toggleCollapsed(n.id); }}
+              >{open ? <ChevronDown {...ICON} /> : <ChevronRight {...ICON} />}</button>
+              <Folder className="group-icon" size={18} strokeWidth={1.75} />
+            </>
+          ) : (
+            <span className={`thumb${isActive && active.target === 'pixels' && n.mask ? ' target' : ''}`} />
+          )}
+          {n.mask && (
+            <>
+              <Link2 className="mask-link" size={14} strokeWidth={1.75} />
+              <button
+                className={`mask-chip${n.mask.enabled ? '' : ' disabled'}${isActive && active.target === 'mask' ? ' target' : ''}`}
+                style={{ background: `rgb(${n.mask.default} ${n.mask.default} ${n.mask.default})` }}
+                aria-label={`${n.name} mask`}
+                onClick={e => { e.stopPropagation(); select(n.id, 'mask'); }}
+              />
+            </>
+          )}
           {renaming === n.id ? (
             <input
               className="rename"
@@ -131,78 +180,62 @@ export function LayersPanel(props: Props) {
           ) : (
             <span className="name" onDoubleClick={e => { e.stopPropagation(); setRenaming(n.id); }}>{n.name}</span>
           )}
-          {n.mask && (
-            <button
-              className={`mask-chip${n.mask.enabled ? '' : ' disabled'}`}
-              aria-label={`${n.name} mask`}
-              onClick={e => { e.stopPropagation(); select(n.id, 'mask'); }}
-            >M</button>
-          )}
+          {locked && <Lock className="lock-badge" size={13} strokeWidth={1.75} aria-label="Locked" />}
           {hint === 'below' && <div className="drop-line drop-below" />}
         </div>
-        {isGroup && !collapsed.has(n.id) && n.children &&
-          [...n.children].reverse().map(c => renderRow(c, depth + 1, c.clipping))}
+        {open && n.children && n.children.length > 0 && (
+          <div role="group">
+            {[...n.children].reverse().map(c => renderRow(c, depth + 1, c.clipping))}
+          </div>
+        )}
       </div>
     );
   }
 
+  const lock = (key: 'transparency' | 'pixels' | 'position', label: string, icon: ReactNode) => node && (
+    <button aria-label={label} aria-pressed={node.locks[key]} title={label}
+      onClick={() => setProps(node.id, { locks: { [key]: !node.locks[key] } })}>{icon}</button>
+  );
+  const allLocked = !!node && node.locks.transparency && node.locks.pixels && node.locks.position;
+
   return (
     <div className="layers-panel">
-      <div className="layers-buttons">
-        <button aria-label="New layer" onClick={props.newLayer}>+L</button>
-        <button aria-label="New group" onClick={props.newGroup}>+G</button>
-        <button aria-label="Duplicate layer" onClick={props.duplicateLayer}>⧉</button>
-        <button aria-label="Add layer mask" disabled={!!node?.mask} onClick={props.addMask}>□</button>
-        <button aria-label="Delete layer mask" disabled={!node?.mask} onClick={props.deleteMask}>□−</button>
-        <button aria-label="Delete layer" disabled={props.deleteDisabled} onClick={props.deleteLayer}>🗑</button>
-      </div>
-      <div className="layers-tree" role="tree">
-        {[...doc.layers].reverse().map(n => renderRow(n, 0, n.clipping))}
-      </div>
+      <div className="panel-tabs"><span className="panel-tab">Layers</span></div>
       {node && (
         <div className="layer-props">
-          <select
-            aria-label="Blend mode"
-            value={node.blend}
-            onChange={e => setProps(node.id, { blend: e.target.value })}
-          >
-            {node.kind === 'group' && <option value="pass through">pass through</option>}
-            {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-          <label className="prop-range">
-            Opacity
-            <input
-              type="range" min={0} max={100}
-              aria-label="Opacity"
-              value={live?.id === node.id && live.opacity !== undefined ? live.opacity : Math.round(node.opacity * 100)}
-              onInput={e => setLive({ id: node.id, opacity: Number(e.currentTarget.value) })}
-              onChange={e => { const v = Number(e.currentTarget.value); setProps(node.id, { opacity: v / 100 }).finally(() => setLive(null)); }}
-            />
-            <span>{live?.id === node.id && live.opacity !== undefined ? live.opacity : Math.round(node.opacity * 100)}%</span>
-          </label>
-          {node.kind === 'pixel' && (
-            <label className="prop-range">
-              Fill
-              <input
-                type="range" min={0} max={100}
-                aria-label="Fill"
-                value={live?.id === node.id && live.fill !== undefined ? live.fill : Math.round(node.fill * 100)}
-                onInput={e => setLive({ id: node.id, fill: Number(e.currentTarget.value) })}
-                onChange={e => { const v = Number(e.currentTarget.value); setProps(node.id, { fill: v / 100 }).finally(() => setLive(null)); }}
-              />
-              <span>{live?.id === node.id && live.fill !== undefined ? live.fill : Math.round(node.fill * 100)}%</span>
-            </label>
-          )}
-          <div className="locks">
-            <button aria-label="Lock transparency" aria-pressed={node.locks.transparency}
-              onClick={() => setProps(node.id, { locks: { transparency: !node.locks.transparency } })}>T</button>
-            <button aria-label="Lock pixels" aria-pressed={node.locks.pixels}
-              onClick={() => setProps(node.id, { locks: { pixels: !node.locks.pixels } })}>P</button>
-            <button aria-label="Lock position" aria-pressed={node.locks.position}
-              onClick={() => setProps(node.id, { locks: { position: !node.locks.position } })}>+</button>
+          <div className="props-row">
+            <select aria-label="Blend mode" value={node.blend} onChange={e => setProps(node.id, { blend: e.target.value })}>
+              {node.kind === 'group' && <option value="pass through">pass through</option>}
+              {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <PercentField label="Opacity" value={Math.round(node.opacity * 100)} commit={v => setProps(node.id, { opacity: v / 100 })} />
+          </div>
+          <div className="props-row">
+            <div className="locks">
+              Lock:
+              {lock('transparency', 'Lock transparency', <Grid2x2 size={14} strokeWidth={1.75} />)}
+              {lock('pixels', 'Lock pixels', <Brush size={14} strokeWidth={1.75} />)}
+              {lock('position', 'Lock position', <Move size={14} strokeWidth={1.75} />)}
+              <button aria-label="Lock all" aria-pressed={allLocked} title="Lock all"
+                onClick={() => setProps(node.id, { locks: { transparency: !allLocked, pixels: !allLocked, position: !allLocked } })}>
+                <Lock size={14} strokeWidth={1.75} />
+              </button>
+            </div>
+            {node.kind === 'pixel' && (
+              <PercentField label="Fill" value={Math.round(node.fill * 100)} commit={v => setProps(node.id, { fill: v / 100 })} />
+            )}
           </div>
         </div>
       )}
+      <div className="layers-tree" role="tree" aria-label="Layers">
+        {[...doc.layers].reverse().map(n => renderRow(n, 0, n.clipping))}
+      </div>
+      <div className="layers-footer">
+        <button aria-label="Add layer mask" title="Add layer mask" disabled={!!node?.mask} onClick={props.addMask}><SquareDashed {...ICON} /></button>
+        <button aria-label="New group" title="New group" onClick={props.newGroup}><FolderPlus {...ICON} /></button>
+        <button aria-label="New layer" title="New layer" onClick={props.newLayer}><SquarePlus {...ICON} /></button>
+        <button aria-label="Delete layer" title="Delete layer" disabled={props.deleteDisabled} onClick={props.deleteLayer}><Trash2 {...ICON} /></button>
+      </div>
     </div>
   );
 }

@@ -343,9 +343,8 @@ export function App() {
           <aside className="sidebar">
             <LayersPanel
               doc={doc} active={active} setActive={setActive} run={run}
-              newLayer={newLayer} newGroup={newGroup} duplicateLayer={duplicateLayer}
-              deleteLayer={deleteLayer} deleteDisabled={deleteDisabled}
-              addMask={addMask} deleteMask={deleteMask}
+              newLayer={newLayer} newGroup={newGroup}
+              deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
             />
             <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
           </aside>
