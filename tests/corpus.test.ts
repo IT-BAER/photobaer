@@ -87,8 +87,19 @@ test('a per-file exception allows a bounded count of pixels at dE 5 or more', as
   const img = image(W, H, pattern);
   const bad = psd([{ name: 'bg', imageData: img }], image(W, H, (x, y) => (x < 5 && y < 5 ? [0, 255, 0, 255] : pattern(x, y))));
   assert.equal((await checkPsd('l.psd', bad)).status, 'fail');
-  const r = await checkPsd('l.psd', bad, 25);
+  const r = await checkPsd('l.psd', bad, { over: 25 });
   assert.equal(r.status, 'pass', JSON.stringify(r));
   assert.equal(r.over, 25);
-  assert.equal((await checkPsd('l.psd', bad, 24)).status, 'fail');
+  assert.equal((await checkPsd('l.psd', bad, { over: 24 })).status, 'fail');
+});
+
+test('a per-file exception can raise the mean limit', async () => {
+  const img = image(W, H, pattern);
+  // Every pixel off by a small shift: mean dE above 1, no pixel at dE 5.
+  const shifted = psd([{ name: 'bg', imageData: img }], image(W, H, (x, y) => pattern(x, y).map((v, i) => (i < 3 ? Math.max(0, v - 4) : v))));
+  const r = await checkPsd('m.psd', shifted);
+  assert.equal(r.status, 'fail', JSON.stringify(r));
+  assert.equal(r.over, 0);
+  assert.equal((await checkPsd('m.psd', shifted, { mean: r.mean! + 0.01 })).status, 'pass');
+  assert.equal((await checkPsd('m.psd', shifted, { mean: r.mean! })).status, 'fail');
 });
