@@ -25,6 +25,30 @@ test('tileIds walks a v2 tree including mask tiles and nested groups', () => {
   assert.deepEqual([...tileIds(manifestV2)].sort((a, b) => a - b), [4, 5, 6, 7, 8]);
 });
 
+const manifestV3 = JSON.stringify({
+  format: 'photobaer-manifest', version: 3,
+  layers: [
+    { kind: 'pixel', mask: null, tiles: [[-2, 0, 11], [0, 1, 12]] },
+    {
+      kind: 'group', mask: { enabled: true, default: 0, tiles: [[0, 0, 13]] }, children: [
+        { kind: 'pixel', mask: { enabled: true, default: 255, tiles: [[1, -3, 14]] }, tiles: [[0, 0, 15]] },
+      ],
+    },
+  ],
+  selection: { default: 0, tiles: [[0, 0, 16]] },
+  last_selection: { default: 255, tiles: [[1, 0, 17]] },
+  channels: [{ id: 1, name: 'a', default: 0, tiles: [[0, 0, 18], [1, 1, 19]] }],
+});
+
+test('tileIds walks v3 sparse tiles, the selections and the channels', () => {
+  assert.deepEqual([...tileIds(manifestV3)].sort((a, b) => a - b), [11, 12, 13, 14, 15, 16, 17, 18, 19]);
+});
+
+test('tileIds reads a v3 manifest without a selection or channels', () => {
+  const m = JSON.stringify({ format: 'photobaer-manifest', version: 3, layers: [{ kind: 'pixel', mask: null, tiles: [[0, 0, 3]] }], selection: null, last_selection: null, channels: [] });
+  assert.deepEqual([...tileIds(m)], [3]);
+});
+
 test('pack then unpack returns the manifest and every tile', async () => {
   const blob = await packProject(manifest, bytes);
   const p = await unpackProject(blob);

@@ -3,17 +3,34 @@
 const MAGIC = 'PBAERPRJ';
 const VERSION = 1;
 
-// Node = v1 layer (tiles only) or v2 node (pixel tiles, mask tiles, children).
-type ManifestNode = { tiles?: number[]; mask?: { tiles?: number[] } | null; children?: ManifestNode[] };
+// v1 and v2 store a dense array of tile ids, v3 a sparse list of [tx, ty, id].
+type TileList = (number | [number, number, number])[];
+type ManifestNode = { tiles?: TileList; mask?: { tiles?: TileList } | null; children?: ManifestNode[] };
+type Manifest = {
+  layers: ManifestNode[];
+  selection?: { tiles?: TileList } | null;
+  last_selection?: { tiles?: TileList } | null;
+  channels?: { tiles?: TileList }[];
+};
 
 export function tileIds(manifest: string): Set<number> {
   const ids = new Set<number>();
+  const add = (list?: TileList) => {
+    for (const e of list ?? []) {
+      const id = Array.isArray(e) ? e[2] : e;
+      if (id) ids.add(id);
+    }
+  };
   const walk = (n: ManifestNode) => {
-    for (const id of n.tiles ?? []) if (id) ids.add(id);
-    for (const id of n.mask?.tiles ?? []) if (id) ids.add(id);
+    add(n.tiles);
+    add(n.mask?.tiles);
     for (const c of n.children ?? []) walk(c);
   };
-  for (const n of (JSON.parse(manifest) as { layers: ManifestNode[] }).layers) walk(n);
+  const m = JSON.parse(manifest) as Manifest;
+  for (const n of m.layers) walk(n);
+  add(m.selection?.tiles);
+  add(m.last_selection?.tiles);
+  for (const c of m.channels ?? []) add(c.tiles);
   return ids;
 }
 

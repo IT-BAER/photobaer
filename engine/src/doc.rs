@@ -5,6 +5,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::blend::{blend_rgb, dissolve_hash, Blend};
+use crate::selection::{gaussian_kernel, Ellipse, Mode, Polygon, Rect, Shape};
 
 pub const TILE: usize = 256;
 const TILE_PIXELS: usize = TILE * TILE;
@@ -13,7 +14,9 @@ const TILE_BYTES_U16: usize = TILE_PIXELS * 4 * 2;
 const MASK_BYTES_U8: usize = TILE_PIXELS;
 const MASK_BYTES_U16: usize = TILE_PIXELS * 2;
 const MANIFEST_FORMAT: &str = "photobaer-manifest";
-const MANIFEST_VERSION: u32 = 2;
+const MANIFEST_VERSION: u32 = 3;
+// A tile coordinate far outside the largest canvas is a broken file, not a moved layer.
+const MAX_TILE_COORD: u32 = 1 << 20;
 // Ids travel as JS numbers; anything above 2^53 would lose precision or overflow next_id.
 const MAX_ID: u64 = 1 << 53;
 
@@ -128,7 +131,6 @@ impl Pixels {
     }
 
     // Straight RGBA in 0..1, quantized to the document depth.
-    #[cfg(test)]
     fn from_straight(depth: u8, v: &[f32]) -> Pixels {
         let max = max_value(depth) as f32;
         let q = |x: &f32| (x * max).round().clamp(0.0, max);
@@ -139,7 +141,6 @@ impl Pixels {
         }
     }
 
-    #[cfg(test)]
     fn mask_from_norm(depth: u8, v: &[f32]) -> Pixels {
         let max = max_value(depth) as f32;
         let q = |x: &f32| (x * max).round().clamp(0.0, max);
@@ -219,6 +220,125 @@ pub struct Tile {
     pub px: Arc<Pixels>,
 }
 
+/// Selection coverage over one tile.
+enum Cov {
+    Uniform(f32),
+    Tile(Arc<Pixels>),
+}
+
+impl Cov {
+    #[inline(always)]
+    fn at(&self, p: usize) -> f32 {
+        match self {
+            Cov::Uniform(v) => *v,
+            Cov::Tile(px) => px.mask_f32(p),
+        }
+    }
+}
+
+// One edited RGBA tile: `f` maps straight old RGBA to straight new RGBA, and the coverage lerps
+// between them (premultiplied, so a partial edge keeps its colour). None when nothing is left.
+fn edit_rgba(
+    depth: u8,
+    old: Option<&Pixels>,
+    cov: &Cov,
+    keep_alpha: bool,
+    f: &impl Fn([f32; 4]) -> [f32; 4],
+) -> Option<Pixels> {
+    let mut out = vec![0f32; TILE_PIXELS * 4];
+    let mut any = false;
+    for p in 0..TILE_PIXELS {
+        let o = p * 4;
+        let ob = old.map_or([0.0; 4], |px| px.rgba_f32(p));
+        let c = cov.at(p).clamp(0.0, 1.0);
+        let px = if c <= 0.0 {
+            ob
+        } else {
+            let nw = f(ob);
+            if keep_alpha {
+                [ob[0] + (nw[0] - ob[0]) * c, ob[1] + (nw[1] - ob[1]) * c, ob[2] + (nw[2] - ob[2]) * c, ob[3]]
+            } else {
+                let a = ob[3] + (nw[3] - ob[3]) * c;
+                if a <= 0.0 {
+                    [0.0; 4]
+                } else {
+                    let ch = |i: usize| {
+                        let (pb, pn) = (ob[i] * ob[3], nw[i] * nw[3]);
+                        ((pb + (pn - pb) * c) / a).clamp(0.0, 1.0)
+                    };
+                    [ch(0), ch(1), ch(2), a]
+                }
+            }
+        };
+        any |= px[3] > 0.0;
+        out[o..o + 4].copy_from_slice(&px);
+    }
+    any.then(|| Pixels::from_straight(depth, &out))
+}
+
+// The same for a single-channel mask; `f` maps the old value in 0..1 to the new one.
+// None when the whole tile ends up at the mask default.
+fn edit_mask(depth: u8, old: Option<&Pixels>, default: u32, cov: &Cov, f: &impl Fn(f32) -> f32) -> Option<Pixels> {
+    let max = max_value(depth) as f32;
+    let def = default as f32 / max;
+    let mut out = vec![0f32; TILE_PIXELS];
+    for (p, v) in out.iter_mut().enumerate() {
+        let ov = old.map_or(def, |px| px.mask_f32(p));
+        *v = (ov + (f(ov) - ov) * cov.at(p).clamp(0.0, 1.0)).clamp(0.0, 1.0);
+    }
+    let px = Pixels::mask_from_norm(depth, &out);
+    let uniform = match &px {
+        Pixels::Mask8(d) => d.iter().all(|v| *v as u32 == default),
+        Pixels::Mask16(d) => d.iter().all(|v| *v as u32 == default),
+        _ => false,
+    };
+    (!uniform).then_some(px)
+}
+
+/// Sparse tile grid, signed tile coordinates on the canvas tile grid. A missing tile is fully
+/// transparent (pixels) or the mask default; tiles outside the canvas are kept but never displayed.
+#[derive(Clone, Default)]
+pub struct Tiles(HashMap<(i32, i32), Tile>);
+
+impl Tiles {
+    fn get(&self, tx: i32, ty: i32) -> Option<&Tile> {
+        self.0.get(&(tx, ty))
+    }
+
+    fn id_at(&self, tx: i32, ty: i32) -> u64 {
+        self.get(tx, ty).map_or(0, |t| t.id)
+    }
+
+    fn put(&mut self, tx: i32, ty: i32, tile: Option<Tile>) {
+        match tile {
+            Some(t) => {
+                self.0.insert((tx, ty), t);
+            }
+            None => {
+                self.0.remove(&(tx, ty));
+            }
+        }
+    }
+
+    fn coords(&self) -> Vec<(i32, i32)> {
+        let mut v: Vec<(i32, i32)> = self.0.keys().copied().collect();
+        v.sort_unstable_by_key(|(tx, ty)| (*ty, *tx));
+        v
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&(i32, i32), &Tile)> {
+        self.0.iter()
+    }
+
+    fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    fn out(&self) -> Vec<(i32, i32, u64)> {
+        self.coords().into_iter().map(|(tx, ty)| (tx, ty, self.id_at(tx, ty))).collect()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Locks {
@@ -231,12 +351,26 @@ pub struct Locks {
 pub struct Mask {
     pub enabled: bool,
     pub default: u32,
-    pub tiles: Vec<Option<Tile>>,
+    pub tiles: Tiles,
+}
+
+/// A selection or saved channel: one canvas-sized single-channel mask at document depth.
+#[derive(Clone, Default)]
+pub struct SelMask {
+    pub default: u32,
+    pub tiles: Tiles,
+}
+
+#[derive(Clone)]
+pub struct Channel {
+    pub id: u32,
+    pub name: String,
+    pub mask: SelMask,
 }
 
 #[derive(Clone)]
 pub enum Kind {
-    Pixel(Vec<Option<Tile>>),
+    Pixel(Tiles),
     Group(Vec<Node>),
 }
 
@@ -274,14 +408,14 @@ impl Node {
         matches!(self.kind, Kind::Group(_))
     }
 
-    fn pixel_tiles(&self) -> Result<&Vec<Option<Tile>>, String> {
+    fn pixel_tiles(&self) -> Result<&Tiles, String> {
         match &self.kind {
             Kind::Pixel(t) => Ok(t),
             Kind::Group(_) => Err(format!("node {} is a group and has no pixels", self.id)),
         }
     }
 
-    fn pixel_tiles_mut(&mut self) -> Result<&mut Vec<Option<Tile>>, String> {
+    fn pixel_tiles_mut(&mut self) -> Result<&mut Tiles, String> {
         let id = self.id;
         match &mut self.kind {
             Kind::Pixel(t) => Ok(t),
@@ -334,10 +468,21 @@ fn node_at_mut<'a>(nodes: &'a mut Vec<Node>, path: &[usize]) -> &'a mut Node {
     &mut list_mut(nodes, prefix)[*last]
 }
 
+// Where a loading tile belongs: a node's pixels or mask, the selection, the last selection,
+// or a saved channel.
+#[derive(Clone)]
+enum Slot {
+    Pixels(Vec<usize>),
+    Mask(Vec<usize>),
+    Selection,
+    LastSelection,
+    Channel(usize),
+}
+
 #[derive(Clone)]
 struct Loading {
-    // tile id -> (is_mask, [(node path, slot)]) still waiting for pixel data.
-    slots: HashMap<u64, (bool, Vec<(Vec<usize>, usize)>)>,
+    // tile id -> (is_mask, [(slot, tx, ty)]) still waiting for pixel data.
+    slots: HashMap<u64, (bool, Vec<(Slot, i32, i32)>)>,
     pending_ids: HashSet<u64>,
     max_referenced_id: u64,
 }
@@ -348,6 +493,9 @@ pub struct Document {
     height: u32,
     depth: u8,
     nodes: Vec<Node>,
+    selection: Option<SelMask>,
+    last_selection: Option<SelMask>,
+    channels: Vec<Channel>,
     next_id: u64,
     next_node_id: u32,
     loading: Option<Loading>,
@@ -794,12 +942,14 @@ fn mix(h: u64, v: u64) -> u64 {
 impl Document {
     pub fn new(width: u32, height: u32, depth: u8) -> Result<Document, String> {
         validate_dims(width, height, depth)?;
-        let slots = (tiles_for(width) * tiles_for(height)) as usize;
         Ok(Document {
             width,
             height,
             depth,
-            nodes: vec![Node::new(1, "Background", Kind::Pixel(vec![None; slots]))],
+            nodes: vec![Node::new(1, "Background", Kind::Pixel(Tiles::default()))],
+            selection: None,
+            last_selection: None,
+            channels: Vec::new(),
             next_id: 1,
             next_node_id: 2,
             loading: None,
@@ -822,10 +972,6 @@ impl Document {
     pub fn tiles_y(&self) -> u32 {
         tiles_for(self.height)
     }
-    fn slots(&self) -> usize {
-        (self.tiles_x() * self.tiles_y()) as usize
-    }
-
     pub fn max_level(&self) -> u32 {
         let m = self.width.max(self.height) as u64;
         for l in 0..=8u32 {
@@ -883,14 +1029,13 @@ impl Document {
 
     fn add_node(&mut self, name: &str, above: u32, group: bool) -> Result<u32, String> {
         self.check_idle()?;
-        let slots = self.slots();
         let at = if above == 0 {
             None
         } else {
             Some(self.find_path(above)?)
         };
         let id = self.alloc_node_id();
-        let kind = if group { Kind::Group(Vec::new()) } else { Kind::Pixel(vec![None; slots]) };
+        let kind = if group { Kind::Group(Vec::new()) } else { Kind::Pixel(Tiles::default()) };
         let node = Node::new(id, name, kind);
         match at {
             None => self.nodes.push(node),
@@ -1087,7 +1232,6 @@ impl Document {
 
     pub fn add_mask(&mut self, id: u32, reveal: bool) -> Result<(), String> {
         self.check_idle()?;
-        let slots = self.slots();
         let max = max_value(self.depth);
         let node = self.node_mut(id)?;
         if node.mask.is_some() {
@@ -1096,7 +1240,7 @@ impl Document {
         node.mask = Some(Mask {
             enabled: true,
             default: if reveal { max } else { 0 },
-            tiles: vec![None; slots],
+            tiles: Tiles::default(),
         });
         Ok(())
     }
@@ -1121,54 +1265,180 @@ impl Document {
         Ok(())
     }
 
+    // Canvas tiles plus the layer's tiles outside the canvas: the whole layer of an unselected edit.
+    fn whole_layer(&self, tiles: &Tiles) -> Vec<(i32, i32)> {
+        let mut out: Vec<(i32, i32)> = tiles.coords().into_iter().filter(|(tx, ty)| !self.on_canvas(*tx, *ty)).collect();
+        for ty in 0..self.tiles_y() as i32 {
+            for tx in 0..self.tiles_x() as i32 {
+                out.push((tx, ty));
+            }
+        }
+        out
+    }
+
+    fn on_canvas(&self, tx: i32, ty: i32) -> bool {
+        tx >= 0 && ty >= 0 && (tx as u32) < self.tiles_x() && (ty as u32) < self.tiles_y()
+    }
+
+    /// The canvas tiles the selection covers at all, or None when nothing is selected and an
+    /// edit acts on the whole layer.
+    fn selected_tiles(&self) -> Option<Vec<(i32, i32)>> {
+        let sel = self.selection.as_ref()?;
+        if sel.default > 0 {
+            return Some(
+                (0..self.tiles_y() as i32)
+                    .flat_map(|ty| (0..self.tiles_x() as i32).map(move |tx| (tx, ty)))
+                    .collect(),
+            );
+        }
+        Some(sel.tiles.coords().into_iter().filter(|(tx, ty)| self.on_canvas(*tx, *ty)).collect())
+    }
+
+    // The selection coverage of one canvas tile; only called for tiles `selected_tiles` listed.
+    fn coverage(&self, tx: i32, ty: i32) -> Cov {
+        let sel = self.selection.as_ref().expect("a selection exists");
+        match sel.tiles.get(tx, ty) {
+            Some(t) => Cov::Tile(t.px.clone()),
+            None => Cov::Uniform(sel.default as f32 / max_value(self.depth) as f32),
+        }
+    }
+
+    // Rewrites the listed tiles of a pixel layer, `f` mapping straight old RGBA to straight new
+    // RGBA, weighted by the selection coverage (premultiplied lerp, or straight when alpha is kept).
+    fn edit_pixel_tiles(
+        &mut self,
+        id: u32,
+        area: &[(i32, i32)],
+        keep_alpha: bool,
+        f: impl Fn([f32; 4]) -> [f32; 4],
+    ) -> Result<(), String> {
+        let depth = self.depth;
+        let selected = self.selection.is_some();
+        let mut fresh: Vec<((i32, i32), Option<Pixels>)> = Vec::with_capacity(area.len());
+        for &(tx, ty) in area {
+            let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
+            let old = self.node(id)?.pixel_tiles()?.get(tx, ty).map(|t| t.px.clone());
+            let px = edit_rgba(depth, old.as_deref(), &cov, keep_alpha, &f);
+            fresh.push(((tx, ty), px));
+        }
+        let mut out = Vec::with_capacity(fresh.len());
+        for (at, px) in fresh {
+            out.push((at, px.map(|px| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })));
+        }
+        let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+        for ((tx, ty), t) in out {
+            tiles.put(tx, ty, t);
+        }
+        Ok(())
+    }
+
+    // The same for a single-channel mask; `f` maps the old value in 0..1 to the new one.
+    fn edit_mask_tiles(
+        &mut self,
+        id: u32,
+        area: &[(i32, i32)],
+        f: impl Fn(f32) -> f32,
+    ) -> Result<(), String> {
+        let depth = self.depth;
+        let selected = self.selection.is_some();
+        let default = self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?.default;
+        let mut fresh: Vec<((i32, i32), Option<Pixels>)> = Vec::with_capacity(area.len());
+        for &(tx, ty) in area {
+            let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
+            let old = self.node(id)?.mask.as_ref().expect("checked").tiles.get(tx, ty).map(|t| t.px.clone());
+            fresh.push(((tx, ty), edit_mask(depth, old.as_deref(), default, &cov, &f)));
+        }
+        let mut out = Vec::with_capacity(fresh.len());
+        for (at, px) in fresh {
+            out.push((at, px.map(|px| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })));
+        }
+        let m = self.node_mut(id)?.mask.as_mut().expect("checked");
+        for ((tx, ty), t) in out {
+            m.tiles.put(tx, ty, t);
+        }
+        Ok(())
+    }
+
     pub fn fill(&mut self, id: u32, target: Target, r: u8, g: u8, b: u8, a: u8) -> Result<(), String> {
         self.check_idle()?;
         let depth = self.depth;
+        let max = max_value(depth) as f32;
         if target == Target::Mask {
             let value = if depth == 8 { r as u32 } else { r as u32 * 257 };
-            if self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?.default == value {
-                let m = self.node_mut(id)?.mask.as_mut().expect("checked");
-                for slot in m.tiles.iter_mut() {
-                    *slot = None;
+            let m = self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
+            let area = match self.selected_tiles() {
+                Some(a) => a,
+                None => {
+                    if m.default == value {
+                        let m = self.node_mut(id)?.mask.as_mut().expect("checked");
+                        m.tiles.clear();
+                        return Ok(());
+                    }
+                    let px = Arc::new(Pixels::mask_const(depth, value));
+                    let tile_id = self.alloc_tile_id();
+                    let area = self.whole_layer(&self.node(id)?.mask.as_ref().expect("checked").tiles);
+                    let m = self.node_mut(id)?.mask.as_mut().expect("checked");
+                    m.tiles.clear();
+                    for (tx, ty) in area {
+                        m.tiles.put(tx, ty, Some(Tile { id: tile_id, px: px.clone() }));
+                    }
+                    return Ok(());
                 }
-                return Ok(());
-            }
-            let tile_id = self.alloc_tile_id();
-            let m = self.node_mut(id)?.mask.as_mut().expect("checked");
-            let px = Arc::new(Pixels::mask_const(depth, value));
-            for slot in m.tiles.iter_mut() {
-                *slot = Some(Tile { id: tile_id, px: px.clone() });
-            }
-            return Ok(());
+            };
+            let v = value as f32 / max;
+            return self.edit_mask_tiles(id, &area, move |_| v);
         }
         self.check_pixel_edit(id)?;
         let keep_alpha = self.node(id)?.locks.transparency;
-        if keep_alpha {
-            let fresh = self.remap_tiles(id, Target::Pixels, |px| px.recolored(r, g, b))?;
-            let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
-            for (i, t) in fresh {
-                tiles[i] = Some(t);
+        let area = match self.selected_tiles() {
+            Some(a) => a,
+            None if keep_alpha => {
+                let fresh = self.remap_tiles(id, Target::Pixels, |px| px.recolored(r, g, b))?;
+                let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+                for ((tx, ty), t) in fresh {
+                    tiles.put(tx, ty, Some(t));
+                }
+                return Ok(());
             }
-            return Ok(());
-        }
-        let tile_id = self.alloc_tile_id();
-        let node = self.node_mut(id)?;
-        let tiles = node.pixel_tiles_mut()?;
-        if a == 0 {
-            for slot in tiles.iter_mut() {
-                *slot = None;
+            None => {
+                let area = self.whole_layer(self.node(id)?.pixel_tiles()?);
+                let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+                tiles.clear();
+                if a == 0 {
+                    return Ok(());
+                }
+                let mut rgba = vec![0u8; TILE_BYTES_U8];
+                for px in rgba.chunks_exact_mut(4) {
+                    px.copy_from_slice(&[r, g, b, a]);
+                }
+                let px = Arc::new(Pixels::from_rgba8(depth, &rgba));
+                let tile_id = self.alloc_tile_id();
+                let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+                for (tx, ty) in area {
+                    tiles.put(tx, ty, Some(Tile { id: tile_id, px: px.clone() }));
+                }
+                return Ok(());
             }
-            return Ok(());
+        };
+        let new = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0];
+        self.edit_pixel_tiles(id, &area, keep_alpha, move |_| new)
+    }
+
+    /// Pixels become transparent, a mask becomes 0; the selection limits the effect.
+    pub fn clear(&mut self, id: u32, target: Target) -> Result<(), String> {
+        self.check_idle()?;
+        if target == Target::Mask {
+            return self.fill(id, Target::Mask, 0, 0, 0, 0);
         }
-        let mut rgba = vec![0u8; TILE_BYTES_U8];
-        for px in rgba.chunks_exact_mut(4) {
-            px.copy_from_slice(&[r, g, b, a]);
-        }
-        let px = Arc::new(Pixels::from_rgba8(depth, &rgba));
-        for slot in tiles.iter_mut() {
-            *slot = Some(Tile { id: tile_id, px: px.clone() });
-        }
-        Ok(())
+        self.check_pixel_edit(id)?;
+        let area = match self.selected_tiles() {
+            Some(a) => a,
+            None => {
+                self.node_mut(id)?.pixel_tiles_mut()?.clear();
+                return Ok(());
+            }
+        };
+        self.edit_pixel_tiles(id, &area, false, |_| [0.0; 4])
     }
 
     // Copy on write: every source tile id maps to one new tile, so shared tiles stay shared.
@@ -1177,19 +1447,23 @@ impl Document {
         id: u32,
         target: Target,
         f: impl Fn(&Pixels) -> Pixels,
-    ) -> Result<Vec<(usize, Tile)>, String> {
+    ) -> Result<Vec<((i32, i32), Tile)>, String> {
         let node = self.node(id)?;
-        let src: Vec<(usize, u64, Arc<Pixels>)> = match target {
+        let tiles = match target {
             Target::Pixels => node.pixel_tiles()?,
             Target::Mask => &node.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?.tiles,
-        }
-        .iter()
-        .enumerate()
-        .filter_map(|(i, t)| t.as_ref().map(|t| (i, t.id, t.px.clone())))
-        .collect();
+        };
+        let src: Vec<((i32, i32), u64, Arc<Pixels>)> = tiles
+            .coords()
+            .into_iter()
+            .map(|at| {
+                let t = tiles.get(at.0, at.1).expect("a listed tile");
+                (at, t.id, t.px.clone())
+            })
+            .collect();
         let mut memo: HashMap<u64, Tile> = HashMap::new();
         let mut out = Vec::with_capacity(src.len());
-        for (i, tid, px) in src {
+        for (at, tid, px) in src {
             let tile = match memo.get(&tid) {
                 Some(t) => t.clone(),
                 None => {
@@ -1198,7 +1472,7 @@ impl Document {
                     t
                 }
             };
-            out.push((i, tile));
+            out.push((at, tile));
         }
         Ok(out)
     }
@@ -1211,36 +1485,48 @@ impl Document {
             return Err(format!("node {id} has no mask"));
         }
         let max = max_value(self.depth);
+        if let Some(area) = self.selected_tiles() {
+            return match target {
+                // Only the selected pixels flip, so the mask default stays as it is.
+                Target::Mask => self.edit_mask_tiles(id, &area, |v| 1.0 - v),
+                Target::Pixels => {
+                    let tiles = self.node(id)?.pixel_tiles()?;
+                    let area: Vec<(i32, i32)> =
+                        area.into_iter().filter(|(tx, ty)| tiles.get(*tx, *ty).is_some()).collect();
+                    self.edit_pixel_tiles(id, &area, true, |[r, g, b, a]| [1.0 - r, 1.0 - g, 1.0 - b, a])
+                }
+            };
+        }
         let fresh = self.remap_tiles(id, target, |px| px.inverted())?;
         let node = self.node_mut(id)?;
         match target {
             Target::Pixels => {
                 let tiles = node.pixel_tiles_mut()?;
-                for (i, t) in fresh {
-                    tiles[i] = Some(t);
+                for ((tx, ty), t) in fresh {
+                    tiles.put(tx, ty, Some(t));
                 }
             }
             Target::Mask => {
                 let m = node.mask.as_mut().expect("checked");
                 m.default = max - m.default;
-                for (i, t) in fresh {
-                    m.tiles[i] = Some(t);
+                for ((tx, ty), t) in fresh {
+                    m.tiles.put(tx, ty, Some(t));
                 }
             }
         }
         Ok(())
     }
 
-    fn check_tile_coord(&self, tx: u32, ty: u32) -> Result<usize, String> {
+    fn check_tile_coord(&self, tx: u32, ty: u32) -> Result<(), String> {
         if tx >= self.tiles_x() || ty >= self.tiles_y() {
             return Err("tile coordinate out of range".into());
         }
-        Ok((ty * self.tiles_x() + tx) as usize)
+        Ok(())
     }
 
     pub fn set_tile_rgba8(&mut self, id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), String> {
         self.check_idle()?;
-        let slot = self.check_tile_coord(tx, ty)?;
+        self.check_tile_coord(tx, ty)?;
         if data.len() != TILE_BYTES_U8 {
             return Err(format!("expected {TILE_BYTES_U8} bytes, got {}", data.len()));
         }
@@ -1249,17 +1535,14 @@ impl Document {
         let tile_id = if transparent { 0 } else { self.alloc_tile_id() };
         let depth = self.depth;
         let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
-        tiles[slot] = if transparent {
-            None
-        } else {
-            Some(Tile { id: tile_id, px: Arc::new(Pixels::from_rgba8(depth, data)) })
-        };
+        let tile = (!transparent).then(|| Tile { id: tile_id, px: Arc::new(Pixels::from_rgba8(depth, data)) });
+        tiles.put(tx as i32, ty as i32, tile);
         Ok(())
     }
 
     pub fn set_mask_tile8(&mut self, id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), String> {
         self.check_idle()?;
-        let slot = self.check_tile_coord(tx, ty)?;
+        self.check_tile_coord(tx, ty)?;
         if data.len() != MASK_BYTES_U8 {
             return Err(format!("expected {MASK_BYTES_U8} bytes, got {}", data.len()));
         }
@@ -1275,11 +1558,442 @@ impl Document {
         let uniform = data.iter().all(|v| *v as u32 == default8);
         let tile_id = if uniform { 0 } else { self.alloc_tile_id() };
         let m = self.node_mut(id)?.mask.as_mut().expect("checked");
-        m.tiles[slot] = if uniform {
-            None
-        } else {
-            Some(Tile { id: tile_id, px: Arc::new(Pixels::from_mask8(depth, data)) })
+        let tile = (!uniform).then(|| Tile { id: tile_id, px: Arc::new(Pixels::from_mask8(depth, data)) });
+        m.tiles.put(tx as i32, ty as i32, tile);
+        Ok(())
+    }
+
+    // ---------- selection (M2.md section 3) ----------
+
+    fn max(&self) -> f32 {
+        max_value(self.depth) as f32
+    }
+
+    // The selection value in 0..1 at a document pixel; outside the canvas it is 0.
+    fn sel_at(&self, sel: &SelMask, x: i32, y: i32) -> f32 {
+        if x < 0 || y < 0 || x as u32 >= self.width || y as u32 >= self.height {
+            return 0.0;
+        }
+        let (tx, ty) = (x.div_euclid(TILE as i32), y.div_euclid(TILE as i32));
+        let p = (y.rem_euclid(TILE as i32) * TILE as i32 + x.rem_euclid(TILE as i32)) as usize;
+        match sel.tiles.get(tx, ty) {
+            Some(t) => t.px.mask_f32(p),
+            None => sel.default as f32 / self.max(),
+        }
+    }
+
+    // Canvas tiles overlapping a document pixel rect (upper bounds exclusive).
+    fn tiles_of_rect(&self, x0: i32, y0: i32, x1: i32, y1: i32) -> Vec<(i32, i32)> {
+        if x1 <= x0 || y1 <= y0 {
+            return Vec::new();
+        }
+        let t = |v: i32| v.div_euclid(TILE as i32);
+        let (tx0, ty0) = (t(x0).max(0), t(y0).max(0));
+        let (tx1, ty1) = (t(x1 - 1).min(self.tiles_x() as i32 - 1), t(y1 - 1).min(self.tiles_y() as i32 - 1));
+        let mut out = Vec::new();
+        for ty in ty0..=ty1 {
+            for tx in tx0..=tx1 {
+                out.push((tx, ty));
+            }
+        }
+        out
+    }
+
+    fn set_sel_tile(&mut self, sel: &mut SelMask, tx: i32, ty: i32, values: &[f32]) {
+        let px = Pixels::mask_from_norm(self.depth, values);
+        let uniform = match &px {
+            Pixels::Mask8(d) => d.iter().all(|v| *v as u32 == sel.default),
+            Pixels::Mask16(d) => d.iter().all(|v| *v as u32 == sel.default),
+            _ => false,
         };
+        let tile = (!uniform).then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) });
+        sel.tiles.put(tx, ty, tile);
+    }
+
+    /// Rasterizes a shape into the selection with one of the four boolean modes. The shape is
+    /// clipped to the canvas; an empty result stays an (empty) selection, not "no selection".
+    pub fn select_shape(&mut self, shape: &dyn Shape, mode: Mode) -> Result<(), String> {
+        self.check_idle()?;
+        let (bx0, by0, bx1, by1) = shape.bounds();
+        if ![bx0, by0, bx1, by1].iter().all(|v| v.is_finite()) {
+            return Err("shape bounds must be finite".into());
+        }
+        let clamp = |v: f64, hi: u32| v.clamp(0.0, hi as f64) as i32;
+        let (x0, y0) = (clamp(bx0.floor(), self.width), clamp(by0.floor(), self.height));
+        let (x1, y1) = (clamp(bx1.ceil(), self.width), clamp(by1.ceil(), self.height));
+        let old = self.selection.take().unwrap_or_default();
+        let mut sel = if mode.keeps_untouched() {
+            old.clone()
+        } else {
+            SelMask { default: 0, tiles: Tiles::default() }
+        };
+        let mut row = vec![0f32; TILE];
+        let mut values = vec![0f32; TILE_PIXELS];
+        for (tx, ty) in self.tiles_of_rect(x0, y0, x1, y1) {
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            for y in 0..TILE as i32 {
+                let inside = oy + y >= y0 && oy + y < y1;
+                if inside {
+                    shape.row(oy + y, ox, &mut row);
+                } else {
+                    row.fill(0.0);
+                }
+                for x in 0..TILE as i32 {
+                    let c = if inside && ox + x >= x0 && ox + x < x1 { row[x as usize] } else { 0.0 };
+                    values[(y * TILE as i32 + x) as usize] =
+                        mode.combine(self.sel_at(&old, ox + x, oy + y), c.clamp(0.0, 1.0)).clamp(0.0, 1.0);
+                }
+            }
+            self.set_sel_tile(&mut sel, tx, ty, &values);
+        }
+        self.selection = Some(sel);
+        Ok(())
+    }
+
+    pub fn select_rect(&mut self, x: f64, y: f64, w: f64, h: f64, mode: Mode) -> Result<(), String> {
+        self.select_shape(&Rect::new(x, y, w, h), mode)
+    }
+
+    pub fn select_ellipse(&mut self, x: f64, y: f64, w: f64, h: f64, aa: bool, mode: Mode) -> Result<(), String> {
+        self.select_shape(&Ellipse::new(x, y, w, h, aa), mode)
+    }
+
+    pub fn select_polygon(&mut self, points: &[f64], aa: bool, mode: Mode) -> Result<(), String> {
+        self.select_shape(&Polygon::new(points, aa)?, mode)
+    }
+
+    pub fn select_all(&mut self) -> Result<(), String> {
+        self.check_idle()?;
+        self.selection = Some(SelMask { default: max_value(self.depth), tiles: Tiles::default() });
+        Ok(())
+    }
+
+    /// Drops the selection and keeps it for `reselect`.
+    pub fn deselect(&mut self) -> Result<(), String> {
+        self.check_idle()?;
+        if let Some(sel) = self.selection.take() {
+            self.last_selection = Some(sel);
+        }
+        Ok(())
+    }
+
+    pub fn reselect(&mut self) -> Result<(), String> {
+        self.check_idle()?;
+        let last = self.last_selection.clone().ok_or("there is no selection to restore")?;
+        self.selection = Some(last);
+        Ok(())
+    }
+
+    /// Inverts the selection; nothing selected inverts to everything.
+    pub fn invert_selection(&mut self) -> Result<(), String> {
+        self.check_idle()?;
+        let old = self.selection.take().unwrap_or_default();
+        let mut sel = SelMask { default: max_value(self.depth) - old.default, tiles: Tiles::default() };
+        for (tx, ty) in old.tiles.coords() {
+            let px = old.tiles.get(tx, ty).expect("a listed tile").px.inverted();
+            let uniform = match &px {
+                Pixels::Mask8(d) => d.iter().all(|v| *v as u32 == sel.default),
+                Pixels::Mask16(d) => d.iter().all(|v| *v as u32 == sel.default),
+                _ => false,
+            };
+            let tile = (!uniform).then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) });
+            sel.tiles.put(tx, ty, tile);
+        }
+        self.selection = Some(sel);
+        Ok(())
+    }
+
+    /// Gaussian blur of the selection mask (`selection::gaussian_kernel`); outside the canvas
+    /// counts as 0, so an edge of the canvas fades like any other edge.
+    pub fn feather_selection(&mut self, radius: f64) -> Result<(), String> {
+        self.check_idle()?;
+        if !radius.is_finite() || radius <= 0.0 {
+            return Err("feather radius must be greater than 0".into());
+        }
+        let old = self.selection.clone().ok_or("nothing is selected")?;
+        let kernel = gaussian_kernel(radius);
+        let k = (kernel.len() / 2) as i32;
+        let (w, h) = (self.width as i32, self.height as i32);
+        // Only tiles within the blur reach of a stored tile change, unless the default is not 0,
+        // which the canvas edge then fades.
+        let mut area = Vec::new();
+        if old.default > 0 {
+            area = self.tiles_of_rect(0, 0, w, h);
+        } else {
+            let mut bb: Option<(i32, i32, i32, i32)> = None;
+            for (tx, ty) in old.tiles.coords() {
+                let (x0, y0) = (tx * TILE as i32, ty * TILE as i32);
+                let b = bb.unwrap_or((x0, y0, x0 + TILE as i32, y0 + TILE as i32));
+                bb = Some((b.0.min(x0), b.1.min(y0), b.2.max(x0 + TILE as i32), b.3.max(y0 + TILE as i32)));
+            }
+            if let Some((x0, y0, x1, y1)) = bb {
+                area = self.tiles_of_rect(x0 - k, y0 - k, x1 + k, y1 + k);
+            }
+        }
+        let mut sel = old.clone();
+        let mut values = vec![0f32; TILE_PIXELS];
+        // ponytail: one horizontal pass per output tile; a shared per-tile-row band would cut the
+        // repeated work if a large radius ever shows up in a profile.
+        let mut band = vec![0f32; (TILE + 2 * k as usize) * TILE];
+        for (tx, ty) in area {
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            let bw = TILE;
+            for (i, row) in band.chunks_exact_mut(bw).enumerate() {
+                let y = oy - k + i as i32;
+                for (j, v) in row.iter_mut().enumerate() {
+                    let x = ox + j as i32;
+                    *v = (-k..=k).map(|d| self.sel_at(&old, x + d, y) * kernel[(d + k) as usize]).sum();
+                }
+            }
+            for y in 0..TILE as i32 {
+                for x in 0..TILE as i32 {
+                    let v: f32 = (-k..=k)
+                        .map(|d| {
+                            let sy = oy + y + d;
+                            if sy < 0 || sy >= h || ox + x >= w {
+                                0.0
+                            } else {
+                                band[((y + d + k) as usize) * bw + x as usize] * kernel[(d + k) as usize]
+                            }
+                        })
+                        .sum();
+                    values[(y * TILE as i32 + x) as usize] = v.clamp(0.0, 1.0);
+                }
+            }
+            self.set_sel_tile(&mut sel, tx, ty, &values);
+        }
+        self.selection = Some(sel);
+        Ok(())
+    }
+
+    pub fn has_selection(&self) -> bool {
+        self.selection.is_some()
+    }
+
+    /// Tight bounds of the selected (non-zero) pixels as [x, y, w, h], or None.
+    pub fn selection_bounds(&self) -> Option<[i32; 4]> {
+        let sel = self.selection.as_ref()?;
+        let mut bb: Option<(i32, i32, i32, i32)> = None;
+        let grow = |bb: &mut Option<(i32, i32, i32, i32)>, x0: i32, y0: i32, x1: i32, y1: i32| {
+            *bb = Some(match *bb {
+                None => (x0, y0, x1, y1),
+                Some(b) => (b.0.min(x0), b.1.min(y0), b.2.max(x1), b.3.max(y1)),
+            });
+        };
+        for (tx, ty) in self.tiles_of_rect(0, 0, self.width as i32, self.height as i32) {
+            let Some(t) = sel.tiles.get(tx, ty) else {
+                // A missing tile is the default, which covers the whole tile when it is not 0.
+                if sel.default > 0 {
+                    let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+                    grow(
+                        &mut bb,
+                        ox,
+                        oy,
+                        (ox + TILE as i32).min(self.width as i32),
+                        (oy + TILE as i32).min(self.height as i32),
+                    );
+                }
+                continue;
+            };
+            let px = &t.px;
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            for y in 0..TILE as i32 {
+                for x in 0..TILE as i32 {
+                    if ox + x >= self.width as i32 || oy + y >= self.height as i32 {
+                        continue;
+                    }
+                    if px.mask_f32((y * TILE as i32 + x) as usize) <= 0.0 {
+                        continue;
+                    }
+                    let (gx, gy) = (ox + x, oy + y);
+                    bb = Some(match bb {
+                        None => (gx, gy, gx + 1, gy + 1),
+                        Some(b) => (b.0.min(gx), b.1.min(gy), b.2.max(gx + 1), b.3.max(gy + 1)),
+                    });
+                }
+            }
+        }
+        bb.map(|(x0, y0, x1, y1)| [x0, y0, x1 - x0, y1 - y0])
+    }
+
+    /// The selection mask of one display tile as 8-bit coverage, or None when the whole tile is
+    /// the mask default. Level 0 is exact, higher levels are box reduced like layer masks.
+    pub fn selection_tile(&self, level: u32, tx: u32, ty: u32) -> Result<Option<Vec<u8>>, String> {
+        if level > 8 {
+            return Err("level must be <= 8".into());
+        }
+        let Some(sel) = &self.selection else { return Ok(None) };
+        let Some((_, px)) = self.level_tile(&sel.tiles, Some(sel.default), level, tx, ty) else {
+            return Ok(None);
+        };
+        Ok(Some(match px.as_ref() {
+            Pixels::Mask8(d) => d.to_vec(),
+            Pixels::Mask16(d) => d.iter().map(|v| (v >> 8) as u8).collect(),
+            _ => return Err("a selection tile is always a mask".into()),
+        }))
+    }
+
+    /// Saves the selection as a named channel and returns its id.
+    pub fn save_selection(&mut self, name: &str) -> Result<u32, String> {
+        self.check_idle()?;
+        let mask = self.selection.clone().ok_or("nothing is selected")?;
+        let id = self.channels.iter().map(|c| c.id).max().unwrap_or(0) + 1;
+        self.channels.push(Channel { id, name: name.to_string(), mask });
+        Ok(id)
+    }
+
+    /// Combines a saved channel into the selection.
+    pub fn load_selection(&mut self, channel: u32, invert: bool, mode: Mode) -> Result<(), String> {
+        self.check_idle()?;
+        let src = self
+            .channels
+            .iter()
+            .find(|c| c.id == channel)
+            .ok_or_else(|| format!("unknown channel {channel}"))?
+            .mask
+            .clone();
+        let old = self.selection.take().unwrap_or_default();
+        let max = self.max();
+        let src_def = src.default as f32 / max;
+        let old_def = old.default as f32 / max;
+        let src_def = if invert { 1.0 - src_def } else { src_def };
+        let mut sel = SelMask {
+            default: (mode.combine(old_def, src_def).clamp(0.0, 1.0) * max).round() as u32,
+            tiles: Tiles::default(),
+        };
+        let mut area: Vec<(i32, i32)> = src.tiles.coords();
+        for at in old.tiles.coords() {
+            if !area.contains(&at) {
+                area.push(at);
+            }
+        }
+        let mut values = vec![0f32; TILE_PIXELS];
+        for (tx, ty) in area {
+            if !self.on_canvas(tx, ty) {
+                continue;
+            }
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            for p in 0..TILE_PIXELS {
+                let (x, y) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
+                let mut c = self.sel_at(&src, x, y);
+                if invert {
+                    c = 1.0 - c;
+                }
+                values[p] = mode.combine(self.sel_at(&old, x, y), c).clamp(0.0, 1.0);
+            }
+            self.set_sel_tile(&mut sel, tx, ty, &values);
+        }
+        self.selection = Some(sel);
+        Ok(())
+    }
+
+    pub fn delete_channel(&mut self, id: u32) -> Result<(), String> {
+        self.check_idle()?;
+        let at = self
+            .channels
+            .iter()
+            .position(|c| c.id == id)
+            .ok_or_else(|| format!("unknown channel {id}"))?;
+        self.channels.remove(at);
+        Ok(())
+    }
+
+    // ---------- layer bounds (M2.md section 5) ----------
+
+    /// Tight bounds of the layer's non-transparent pixels as [x, y, w, h], canvas coordinates
+    /// that may be negative or reach past the canvas.
+    pub fn layer_bounds(&self, id: u32) -> Result<Option<[i32; 4]>, String> {
+        let tiles = self.node(id)?.pixel_tiles()?;
+        let mut bb: Option<(i32, i32, i32, i32)> = None;
+        for (tx, ty) in tiles.coords() {
+            let px = &tiles.get(tx, ty).expect("a listed tile").px;
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            for p in 0..TILE_PIXELS {
+                if px.rgba_f32(p)[3] <= 0.0 {
+                    continue;
+                }
+                let (gx, gy) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
+                bb = Some(match bb {
+                    None => (gx, gy, gx + 1, gy + 1),
+                    Some(b) => (b.0.min(gx), b.1.min(gy), b.2.max(gx + 1), b.3.max(gy + 1)),
+                });
+            }
+        }
+        Ok(bb.map(|(x0, y0, x1, y1)| [x0, y0, x1 - x0, y1 - y0]))
+    }
+
+    // Every tile of `src` moved by (dx, dy); a missing source tile reads as empty or as the
+    // mask default, so an empty area stays empty.
+    fn shift_tiles(&mut self, src: &Tiles, dx: i32, dy: i32, mask_default: Option<u32>) -> Tiles {
+        let t = |v: i32| v.div_euclid(TILE as i32);
+        let mut dest: Vec<(i32, i32)> = Vec::new();
+        for (tx, ty) in src.coords() {
+            let (x0, y0) = (tx * TILE as i32 + dx, ty * TILE as i32 + dy);
+            for at in [
+                (t(x0), t(y0)),
+                (t(x0 + TILE as i32 - 1), t(y0)),
+                (t(x0), t(y0 + TILE as i32 - 1)),
+                (t(x0 + TILE as i32 - 1), t(y0 + TILE as i32 - 1)),
+            ] {
+                if !dest.contains(&at) {
+                    dest.push(at);
+                }
+            }
+        }
+        let max = self.max();
+        let def = mask_default.map_or(0.0, |d| d as f32 / max);
+        let mut out = Tiles::default();
+        let mut buf = vec![0f32; TILE_PIXELS * if mask_default.is_some() { 1 } else { 4 }];
+        for (dtx, dty) in dest {
+            let mut any = false;
+            for p in 0..TILE_PIXELS {
+                let sx = dtx * TILE as i32 + (p % TILE) as i32 - dx;
+                let sy = dty * TILE as i32 + (p / TILE) as i32 - dy;
+                let sp = (sy.rem_euclid(TILE as i32) * TILE as i32 + sx.rem_euclid(TILE as i32)) as usize;
+                let tile = src.get(t(sx), t(sy));
+                match mask_default {
+                    Some(_) => {
+                        let v = tile.map_or(def, |t| t.px.mask_f32(sp));
+                        any |= (v - def).abs() > f32::EPSILON;
+                        buf[p] = v;
+                    }
+                    None => {
+                        let v = tile.map_or([0.0; 4], |t| t.px.rgba_f32(sp));
+                        any |= v[3] > 0.0;
+                        buf[p * 4..p * 4 + 4].copy_from_slice(&v);
+                    }
+                }
+            }
+            if !any {
+                continue;
+            }
+            let px = match mask_default {
+                Some(_) => Pixels::mask_from_norm(self.depth, &buf),
+                None => Pixels::from_straight(self.depth, &buf),
+            };
+            out.put(dtx, dty, Some(Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
+        }
+        out
+    }
+
+    /// Moves a pixel layer and its mask by whole pixels. Pixels outside the canvas are kept.
+    pub fn offset_layer(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), String> {
+        self.check_idle()?;
+        self.check_pixel_edit(id)?;
+        if self.node(id)?.locks.position {
+            return Err("layer position is locked".into());
+        }
+        if dx == 0 && dy == 0 {
+            return Ok(());
+        }
+        let src = self.node(id)?.pixel_tiles()?.clone();
+        let moved = self.shift_tiles(&src, dx, dy, None);
+        *self.node_mut(id)?.pixel_tiles_mut()? = moved;
+        let mask = self.node(id)?.mask.as_ref().map(|m| (m.default, m.tiles.clone()));
+        if let Some((default, tiles)) = mask {
+            let moved = self.shift_tiles(&tiles, dx, dy, Some(default));
+            self.node_mut(id)?.mask.as_mut().expect("checked").tiles = moved;
+        }
         Ok(())
     }
 
@@ -1308,7 +2022,7 @@ impl Document {
     // the cache never serves stale content. Outside the document rect: transparent / mask default.
     fn level_tile(
         &self,
-        tiles: &[Option<Tile>],
+        tiles: &Tiles,
         mask_default: Option<u32>,
         level: u32,
         tx: u32,
@@ -1319,7 +2033,7 @@ impl Document {
             return None;
         }
         if level == 0 {
-            let t = tiles[(ty * ntx + tx) as usize].as_ref()?;
+            let t = tiles.get(tx as i32, ty as i32)?;
             return Some((t.id, t.px.clone()));
         }
         let (key, empty) = self.footprint_key(tiles, mask_default, level, tx, ty);
@@ -1346,7 +2060,7 @@ impl Document {
     // tile at all, which is a `None` tile at every level above it.
     fn footprint_key(
         &self,
-        tiles: &[Option<Tile>],
+        tiles: &Tiles,
         mask_default: Option<u32>,
         level: u32,
         tx: u32,
@@ -1360,11 +2074,7 @@ impl Document {
         for j in 0..n {
             for i in 0..n {
                 let (sx, sy) = (tx * n + i, ty * n + j);
-                let id = if sx < n0x && sy < n0y {
-                    tiles[(sy * n0x + sx) as usize].as_ref().map_or(0, |t| t.id)
-                } else {
-                    0
-                };
+                let id = if sx < n0x && sy < n0y { tiles.id_at(sx as i32, sy as i32) } else { 0 };
                 empty &= id == 0;
                 key = mix(key, id);
             }
@@ -1824,10 +2534,10 @@ impl Document {
             mask: n.mask.as_ref().map(|m| MaskOut {
                 enabled: m.enabled,
                 default: m.default,
-                tiles: if tiles_out { Some(ids_of(&m.tiles)) } else { None },
+                tiles: if tiles_out { Some(m.tiles.out()) } else { None },
             }),
             tiles: match (&n.kind, tiles_out) {
-                (Kind::Pixel(t), true) => Some(ids_of(t)),
+                (Kind::Pixel(t), true) => Some(t.out()),
                 _ => None,
             },
             children: match &n.kind {
@@ -1849,8 +2559,28 @@ impl Document {
             next_id: self.next_id,
             next_node_id: self.next_node_id,
             layers: self.nodes.iter().map(|n| Document::node_out(n, true)).collect(),
+            selection: self.selection.as_ref().map(sel_out),
+            last_selection: self.last_selection.as_ref().map(sel_out),
+            channels: self
+                .channels
+                .iter()
+                .map(|c| ChannelOut { id: c.id, name: &c.name, default: c.mask.default, tiles: c.mask.tiles.out() })
+                .collect(),
         };
         serde_json::to_string(&m).expect("manifest serialization cannot fail")
+    }
+
+    /// The selection state and the saved channels for the UI.
+    pub fn channels_json(&self) -> String {
+        let v = serde_json::json!({
+            "selection": self.selection.as_ref().map(|s| serde_json::json!({
+                "default": s.default,
+                "bounds": self.selection_bounds(),
+            })),
+            "has_last_selection": self.last_selection.is_some(),
+            "channels": self.channels.iter().map(|c| serde_json::json!({ "id": c.id, "name": c.name })).collect::<Vec<_>>(),
+        });
+        v.to_string()
     }
 
     /// The layer tree for the UI: manifest fields without the tile arrays.
@@ -1862,13 +2592,13 @@ impl Document {
     fn tile_bytes_in(nodes: &[Node], id: u64) -> Option<Vec<u8>> {
         for n in nodes {
             if let Kind::Pixel(tiles) = &n.kind {
-                if let Some(t) = tiles.iter().flatten().find(|t| t.id == id) {
-                    return Some(t.px.to_bytes());
+                if let Some(b) = find_tile(tiles, id) {
+                    return Some(b);
                 }
             }
             if let Some(m) = &n.mask {
-                if let Some(t) = m.tiles.iter().flatten().find(|t| t.id == id) {
-                    return Some(t.px.to_bytes());
+                if let Some(b) = find_tile(&m.tiles, id) {
+                    return Some(b);
                 }
             }
             if let Kind::Group(ch) = &n.kind {
@@ -1881,7 +2611,15 @@ impl Document {
     }
 
     pub fn tile_bytes(&self, id: u64) -> Result<Vec<u8>, String> {
-        Document::tile_bytes_in(&self.nodes, id).ok_or_else(|| format!("unknown tile id {id}"))
+        Document::tile_bytes_in(&self.nodes, id)
+            .or_else(|| {
+                self.selection
+                    .iter()
+                    .chain(self.last_selection.iter())
+                    .chain(self.channels.iter().map(|c| &c.mask))
+                    .find_map(|s| find_tile(&s.tiles, id))
+            })
+            .ok_or_else(|| format!("unknown tile id {id}"))
     }
 
     pub fn from_manifest(json: &str) -> Result<Document, String> {
@@ -1892,7 +2630,7 @@ impl Document {
         match probe.version {
             1 => {
                 let m: ManifestV1In = serde_json::from_str(json).map_err(|e| format!("invalid manifest: {e}"))?;
-                let nodes: Vec<NodeIn> = m
+                let nodes: Vec<NodeIn<u64>> = m
                     .layers
                     .iter()
                     .enumerate()
@@ -1911,11 +2649,41 @@ impl Document {
                         children: None,
                     })
                     .collect();
-                Document::build(m.width, m.height, m.depth, m.tiles_x, m.tiles_y, m.next_id, nodes.len() as u32 + 1, nodes)
+                let layers = spread_nodes(nodes, m.tiles_x, m.tiles_y)?;
+                Document::build(
+                    Head { width: m.width, height: m.height, depth: m.depth, tiles_x: m.tiles_x, tiles_y: m.tiles_y },
+                    m.next_id,
+                    layers.len() as u32 + 1,
+                    layers,
+                    None,
+                    None,
+                    Vec::new(),
+                )
             }
             2 => {
                 let m: ManifestV2In = serde_json::from_str(json).map_err(|e| format!("invalid manifest: {e}"))?;
-                Document::build(m.width, m.height, m.depth, m.tiles_x, m.tiles_y, m.next_id, m.next_node_id, m.layers)
+                let layers = spread_nodes(m.layers, m.tiles_x, m.tiles_y)?;
+                Document::build(
+                    Head { width: m.width, height: m.height, depth: m.depth, tiles_x: m.tiles_x, tiles_y: m.tiles_y },
+                    m.next_id,
+                    m.next_node_id,
+                    layers,
+                    None,
+                    None,
+                    Vec::new(),
+                )
+            }
+            3 => {
+                let m: ManifestV3In = serde_json::from_str(json).map_err(|e| format!("invalid manifest: {e}"))?;
+                Document::build(
+                    Head { width: m.width, height: m.height, depth: m.depth, tiles_x: m.tiles_x, tiles_y: m.tiles_y },
+                    m.next_id,
+                    m.next_node_id,
+                    m.layers,
+                    m.selection,
+                    m.last_selection,
+                    m.channels,
+                )
             }
             v => Err(format!("unsupported version {v}")),
         }
@@ -1923,15 +2691,15 @@ impl Document {
 
     #[allow(clippy::too_many_arguments)]
     fn build(
-        width: u32,
-        height: u32,
-        depth: u8,
-        tiles_x: u32,
-        tiles_y: u32,
+        head: Head,
         next_id: u64,
         next_node_id: u32,
-        layers: Vec<NodeIn>,
+        layers: Vec<NodeIn<Coord>>,
+        selection: Option<SelIn>,
+        last_selection: Option<SelIn>,
+        channels: Vec<ChannelIn>,
     ) -> Result<Document, String> {
+        let Head { width, height, depth, tiles_x, tiles_y } = head;
         validate_dims(width, height, depth)?;
         if tiles_for(width) != tiles_x || tiles_for(height) != tiles_y {
             return Err("tiles_x/tiles_y do not match width/height".into());
@@ -1943,8 +2711,8 @@ impl Document {
             return Err("the document must have at least one root node".into());
         }
         let mut ctx = LoadCtx {
-            expected: (tiles_x * tiles_y) as usize,
             max_mask: max_value(depth),
+            canvas: (tiles_x, tiles_y),
             node_ids: HashSet::new(),
             max_node_id: 0,
             kinds: HashMap::new(),
@@ -1956,12 +2724,36 @@ impl Document {
         if next_node_id <= ctx.max_node_id {
             return Err("next_node_id must be greater than every node id".into());
         }
+        let take_sel = |s: &SelIn, slot: Slot, ctx: &mut LoadCtx| -> Result<SelMask, String> {
+            if s.default > max_value(depth) {
+                return Err("mask default out of range".into());
+            }
+            Ok(SelMask { default: s.default, tiles: take_tiles(&s.tiles, true, slot, true, ctx)? })
+        };
+        let selection = selection.as_ref().map(|s| take_sel(s, Slot::Selection, &mut ctx)).transpose()?;
+        let last_selection =
+            last_selection.as_ref().map(|s| take_sel(s, Slot::LastSelection, &mut ctx)).transpose()?;
+        let mut chans = Vec::with_capacity(channels.len());
+        let mut chan_ids = HashSet::new();
+        for (i, c) in channels.iter().enumerate() {
+            if c.id == 0 {
+                return Err("channel id 0 is not allowed".into());
+            }
+            if !chan_ids.insert(c.id) {
+                return Err(format!("duplicate channel id {}", c.id));
+            }
+            let mask = take_sel(&SelIn { default: c.default, tiles: c.tiles.clone() }, Slot::Channel(i), &mut ctx)?;
+            chans.push(Channel { id: c.id, name: c.name.clone(), mask });
+        }
         let pending_ids: HashSet<u64> = ctx.slots.keys().copied().collect();
         Ok(Document {
             width,
             height,
             depth,
             nodes,
+            selection,
+            last_selection,
+            channels: chans,
             next_id,
             next_node_id,
             loading: Some(Loading {
@@ -1982,13 +2774,21 @@ impl Document {
             .ok_or_else(|| format!("unknown tile id {id}"))?
             .clone();
         let px = Arc::new(Pixels::from_bytes(depth, is_mask, bytes)?);
-        for (path, slot) in slots {
-            let node = node_at_mut(&mut self.nodes, &path);
-            if is_mask {
-                node.mask.as_mut().expect("mask exists when a mask tile refers to it").tiles[slot] =
-                    Some(Tile { id, px: px.clone() });
-            } else {
-                node.pixel_tiles_mut()?[slot] = Some(Tile { id, px: px.clone() });
+        for (slot, tx, ty) in slots {
+            let tile = Some(Tile { id, px: px.clone() });
+            match slot {
+                Slot::Pixels(path) => node_at_mut(&mut self.nodes, &path).pixel_tiles_mut()?.put(tx, ty, tile),
+                Slot::Mask(path) => node_at_mut(&mut self.nodes, &path)
+                    .mask
+                    .as_mut()
+                    .expect("mask exists when a mask tile refers to it")
+                    .tiles
+                    .put(tx, ty, tile),
+                Slot::Selection => self.selection.as_mut().expect("a selection exists").tiles.put(tx, ty, tile),
+                Slot::LastSelection => {
+                    self.last_selection.as_mut().expect("a last selection exists").tiles.put(tx, ty, tile)
+                }
+                Slot::Channel(i) => self.channels[i].mask.tiles.put(tx, ty, tile),
             }
         }
         self.loading.as_mut().expect("still loading").pending_ids.remove(&id);
@@ -2006,28 +2806,77 @@ impl Document {
     }
 }
 
-fn ids_of(tiles: &[Option<Tile>]) -> Vec<u64> {
-    tiles.iter().map(|t| t.as_ref().map_or(0, |t| t.id)).collect()
+fn find_tile(tiles: &Tiles, id: u64) -> Option<Vec<u8>> {
+    tiles.iter().find(|(_, t)| t.id == id).map(|(_, t)| t.px.to_bytes())
 }
 
 struct LoadCtx {
-    expected: usize,
     max_mask: u32,
+    canvas: (u32, u32),
     node_ids: HashSet<u32>,
     max_node_id: u32,
     // tile id -> is_mask, so no id is used as both RGBA and mask data.
     kinds: HashMap<u64, bool>,
-    slots: HashMap<u64, (bool, Vec<(Vec<usize>, usize)>)>,
+    slots: HashMap<u64, (bool, Vec<(Slot, i32, i32)>)>,
     max_referenced_id: u64,
 }
 
-fn take_tiles(ids: &[u64], is_mask: bool, path: &[usize], ctx: &mut LoadCtx) -> Result<Vec<Option<Tile>>, String> {
-    if ids.len() != ctx.expected {
+// A tile grid of a v1/v2 manifest, dense and canvas sized, as sparse entries.
+fn spread(ids: &[u64], tiles_x: u32, tiles_y: u32) -> Result<Vec<Coord>, String> {
+    if ids.len() != (tiles_x as usize) * (tiles_y as usize) {
         return Err("tile array length does not match tiles_x*tiles_y".into());
     }
-    for (slot, &id) in ids.iter().enumerate() {
+    Ok(ids
+        .iter()
+        .enumerate()
+        .filter(|(_, id)| **id != 0)
+        .map(|(i, id)| ((i as u32 % tiles_x) as i32, (i as u32 / tiles_x) as i32, *id))
+        .collect())
+}
+
+fn spread_nodes(nodes: Vec<NodeIn<u64>>, tiles_x: u32, tiles_y: u32) -> Result<Vec<NodeIn<Coord>>, String> {
+    nodes
+        .into_iter()
+        .map(|n| {
+            Ok(NodeIn {
+                id: n.id,
+                name: n.name,
+                kind: n.kind,
+                visible: n.visible,
+                opacity: n.opacity,
+                fill: n.fill,
+                blend: n.blend,
+                clipping: n.clipping,
+                locks: n.locks,
+                mask: match n.mask {
+                    None => None,
+                    Some(m) => Some(MaskIn {
+                        enabled: m.enabled,
+                        default: m.default,
+                        tiles: spread(&m.tiles, tiles_x, tiles_y)?,
+                    }),
+                },
+                tiles: n.tiles.as_deref().map(|t| spread(t, tiles_x, tiles_y)).transpose()?,
+                children: n.children.map(|c| spread_nodes(c, tiles_x, tiles_y)).transpose()?,
+            })
+        })
+        .collect()
+}
+
+fn take_tiles(list: &[Coord], is_mask: bool, slot: Slot, on_canvas: bool, ctx: &mut LoadCtx) -> Result<Tiles, String> {
+    let mut seen = HashSet::new();
+    for &(tx, ty, id) in list {
+        if !seen.insert((tx, ty)) {
+            return Err(format!("duplicate tile coordinate ({tx}, {ty})"));
+        }
+        if tx.unsigned_abs() > MAX_TILE_COORD || ty.unsigned_abs() > MAX_TILE_COORD {
+            return Err(format!("tile coordinate ({tx}, {ty}) out of range"));
+        }
+        if on_canvas && (tx < 0 || ty < 0 || tx as u32 >= ctx.canvas.0 || ty as u32 >= ctx.canvas.1) {
+            return Err(format!("tile coordinate ({tx}, {ty}) is outside the canvas"));
+        }
         if id == 0 {
-            continue;
+            return Err("tile id 0 is not allowed".into());
         }
         if id > MAX_ID {
             return Err(format!("tile id {id} out of range"));
@@ -2039,13 +2888,13 @@ fn take_tiles(ids: &[u64], is_mask: bool, path: &[usize], ctx: &mut LoadCtx) -> 
             _ => {}
         }
         let entry = ctx.slots.entry(id).or_insert_with(|| (is_mask, Vec::new()));
-        entry.1.push((path.to_vec(), slot));
+        entry.1.push((slot.clone(), tx, ty));
         ctx.max_referenced_id = ctx.max_referenced_id.max(id);
     }
-    Ok(vec![None; ctx.expected])
+    Ok(Tiles::default())
 }
 
-fn build_nodes(in_nodes: &[NodeIn], path: &mut Vec<usize>, ctx: &mut LoadCtx) -> Result<Vec<Node>, String> {
+fn build_nodes(in_nodes: &[NodeIn<Coord>], path: &mut Vec<usize>, ctx: &mut LoadCtx) -> Result<Vec<Node>, String> {
     let mut out = Vec::with_capacity(in_nodes.len());
     for (i, n) in in_nodes.iter().enumerate() {
         if n.id == 0 {
@@ -2068,7 +2917,7 @@ fn build_nodes(in_nodes: &[NodeIn], path: &mut Vec<usize>, ctx: &mut LoadCtx) ->
                     return Err("a pixel node cannot have children".into());
                 }
                 let ids = n.tiles.as_ref().ok_or("a pixel node needs a tiles array")?;
-                Kind::Pixel(take_tiles(ids, false, path, ctx)?)
+                Kind::Pixel(take_tiles(ids, false, Slot::Pixels(path.clone()), false, ctx)?)
             }
             "group" => {
                 if n.tiles.is_some() {
@@ -2088,7 +2937,7 @@ fn build_nodes(in_nodes: &[NodeIn], path: &mut Vec<usize>, ctx: &mut LoadCtx) ->
                 Some(Mask {
                     enabled: m.enabled,
                     default: m.default,
-                    tiles: take_tiles(&m.tiles, true, path, ctx)?,
+                    tiles: take_tiles(&m.tiles, true, Slot::Mask(path.clone()), false, ctx)?,
                 })
             }
         };
@@ -2117,12 +2966,41 @@ struct VersionProbe {
     version: u32,
 }
 
+/// One stored tile in a manifest: signed tile coordinates and the tile id.
+type Coord = (i32, i32, u64);
+
 #[derive(Serialize)]
 struct MaskOut {
     enabled: bool,
     default: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tiles: Option<Vec<u64>>,
+    tiles: Option<Vec<Coord>>,
+}
+
+#[derive(Serialize)]
+struct SelOut {
+    default: u32,
+    tiles: Vec<Coord>,
+}
+
+#[derive(Serialize)]
+struct ChannelOut<'a> {
+    id: u32,
+    name: &'a str,
+    default: u32,
+    tiles: Vec<Coord>,
+}
+
+fn sel_out(s: &SelMask) -> SelOut {
+    SelOut { default: s.default, tiles: s.tiles.out() }
+}
+
+struct Head {
+    width: u32,
+    height: u32,
+    depth: u8,
+    tiles_x: u32,
+    tiles_y: u32,
 }
 
 #[derive(Serialize)]
@@ -2138,7 +3016,7 @@ struct NodeOut<'a> {
     locks: Locks,
     mask: Option<MaskOut>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tiles: Option<Vec<u64>>,
+    tiles: Option<Vec<Coord>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     children: Option<Vec<NodeOut<'a>>>,
 }
@@ -2155,19 +3033,22 @@ struct ManifestOut<'a> {
     next_id: u64,
     next_node_id: u32,
     layers: Vec<NodeOut<'a>>,
+    selection: Option<SelOut>,
+    last_selection: Option<SelOut>,
+    channels: Vec<ChannelOut<'a>>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct MaskIn {
+struct MaskIn<T> {
     enabled: bool,
     default: u32,
-    tiles: Vec<u64>,
+    tiles: Vec<T>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct NodeIn {
+struct NodeIn<T> {
     id: u32,
     name: String,
     kind: String,
@@ -2177,12 +3058,36 @@ struct NodeIn {
     blend: String,
     clipping: bool,
     locks: Locks,
+    #[serde(default = "no_mask")]
+    mask: Option<MaskIn<T>>,
     #[serde(default)]
-    mask: Option<MaskIn>,
-    #[serde(default)]
-    tiles: Option<Vec<u64>>,
-    #[serde(default)]
-    children: Option<Vec<NodeIn>>,
+    tiles: Option<Vec<T>>,
+    #[serde(default = "no_children")]
+    children: Option<Vec<NodeIn<T>>>,
+}
+
+fn no_mask<T>() -> Option<MaskIn<T>> {
+    None
+}
+
+fn no_children<T>() -> Option<Vec<NodeIn<T>>> {
+    None
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SelIn {
+    default: u32,
+    tiles: Vec<Coord>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChannelIn {
+    id: u32,
+    name: String,
+    default: u32,
+    tiles: Vec<Coord>,
 }
 
 #[derive(Deserialize)]
@@ -2199,7 +3104,30 @@ struct ManifestV2In {
     tiles_y: u32,
     next_id: u64,
     next_node_id: u32,
-    layers: Vec<NodeIn>,
+    layers: Vec<NodeIn<u64>>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ManifestV3In {
+    #[allow(dead_code)]
+    format: String,
+    #[allow(dead_code)]
+    version: u32,
+    width: u32,
+    height: u32,
+    depth: u8,
+    tiles_x: u32,
+    tiles_y: u32,
+    next_id: u64,
+    next_node_id: u32,
+    layers: Vec<NodeIn<Coord>>,
+    #[serde(default)]
+    selection: Option<SelIn>,
+    #[serde(default)]
+    last_selection: Option<SelIn>,
+    #[serde(default)]
+    channels: Vec<ChannelIn>,
 }
 
 #[derive(Deserialize)]
@@ -2357,6 +3285,15 @@ mod tests {
         serde_json::from_str(&d.manifest()).unwrap()
     }
 
+    // The tile id at (tx, ty) of a v3 sparse tile list, or 0 when the tile is absent.
+    fn tile_id(list: &Value, tx: i64, ty: i64) -> u64 {
+        list.as_array()
+            .expect("a sparse tile list")
+            .iter()
+            .find(|e| e[0].as_i64() == Some(tx) && e[1].as_i64() == Some(ty))
+            .map_or(0, |e| e[2].as_u64().expect("a tile id"))
+    }
+
     // ---------- M0 behaviour ----------
 
     #[test]
@@ -2391,12 +3328,9 @@ mod tests {
         d.fill(1, Target::Pixels, 255, 0, 0, 255).unwrap();
         let px = d.display_tile(0, 0, 0).unwrap().unwrap();
         assert_eq!(&px[0..4], &[255, 0, 0, 255]);
-        let ids: Vec<u64> = manifest_value(&d)["layers"][0]["tiles"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_u64().unwrap())
-            .collect();
+        let list = manifest_value(&d)["layers"][0]["tiles"].clone();
+        let ids: Vec<u64> = list.as_array().unwrap().iter().map(|v| v[2].as_u64().unwrap()).collect();
+        assert_eq!(ids.len(), 4, "a 300x300 canvas has 2x2 tiles");
         assert!(ids.iter().all(|&id| id == ids[0] && id != 0));
     }
 
@@ -2410,7 +3344,7 @@ mod tests {
         assert_eq!(at(&restored, 0, 0), [255, 0, 0, 255]);
         let ids_before = restored.next_id;
         restored.invert(1, Target::Pixels).unwrap();
-        let new_id = manifest_value(&restored)["layers"][0]["tiles"][0].as_u64().unwrap();
+        let new_id = tile_id(&manifest_value(&restored)["layers"][0]["tiles"], 0, 0);
         assert!(new_id >= ids_before, "new id {new_id} must be >= every earlier id {ids_before}");
     }
 
@@ -2479,7 +3413,7 @@ mod tests {
         d.fill(1, Target::Pixels, 255, 255, 255, 255).unwrap();
         d.invert(1, Target::Pixels).unwrap();
         assert_eq!(at(&d, 0, 0), [0, 0, 0, 255]);
-        let id = manifest_value(&d)["layers"][0]["tiles"][0].as_u64().unwrap();
+        let id = tile_id(&manifest_value(&d)["layers"][0]["tiles"], 0, 0);
         assert_eq!(d.tile_bytes(id).unwrap().len(), TILE_BYTES_U16);
     }
 
@@ -2487,7 +3421,7 @@ mod tests {
     fn transparent_tile_write_clears_slot() {
         let mut d = Document::new(256, 256, 8).unwrap();
         d.set_tile_rgba8(1, 0, 0, &vec![0u8; TILE_BYTES_U8]).unwrap();
-        assert_eq!(manifest_value(&d)["layers"][0]["tiles"][0].as_u64().unwrap(), 0);
+        assert!(manifest_value(&d)["layers"][0]["tiles"].as_array().unwrap().is_empty());
     }
 
     #[test]
@@ -2502,7 +3436,7 @@ mod tests {
     #[test]
     fn tile_bytes_falls_back_to_live_snapshot() {
         let d = doc_bg(255, 0, 0);
-        let old_id = manifest_value(&d)["layers"][0]["tiles"][0].as_u64().unwrap();
+        let old_id = tile_id(&manifest_value(&d)["layers"][0]["tiles"], 0, 0);
         let mut engine = EngineCore::new(d);
         let snap = engine.snapshot();
         engine.doc.invert(1, Target::Pixels).unwrap();
@@ -2522,8 +3456,8 @@ mod tests {
         d.add_mask(child, false).unwrap();
         d.set_mask_tile8(child, 0, 0, &vec![200u8; MASK_BYTES_U8]).unwrap();
         let m = manifest_value(&d);
-        let pix = m["layers"][1]["children"][0]["tiles"][0].as_u64().unwrap();
-        let msk = m["layers"][1]["children"][0]["mask"]["tiles"][0].as_u64().unwrap();
+        let pix = tile_id(&m["layers"][1]["children"][0]["tiles"], 0, 0);
+        let msk = tile_id(&m["layers"][1]["children"][0]["mask"]["tiles"], 0, 0);
         assert_ne!(pix, 0);
         assert_ne!(msk, 0);
         assert_eq!(d.tile_bytes(pix).unwrap().len(), TILE_BYTES_U8);
@@ -2814,7 +3748,7 @@ mod tests {
         near(at(&d, 0, 0), [0, 255, 0, 128]);
         assert_eq!(at(&d, 1, 0)[3], 0, "an empty pixel stays empty");
         let ids = manifest_value(&d)["layers"][0]["tiles"].clone();
-        assert_eq!(ids[1].as_u64().unwrap(), 0, "the empty tile stays empty");
+        assert_eq!(tile_id(&ids, 1, 0), 0, "the empty tile stays empty");
     }
 
     // ---------- commands ----------
@@ -2877,8 +3811,8 @@ mod tests {
         assert_ne!(copy, g);
         assert_eq!(d.node(copy).unwrap().name, "g copy");
         let m = manifest_value(&d);
-        let src = m["layers"][1]["children"][0]["tiles"][0].as_u64().unwrap();
-        let dup = m["layers"][2]["children"][0]["tiles"][0].as_u64().unwrap();
+        let src = tile_id(&m["layers"][1]["children"][0]["tiles"], 0, 0);
+        let dup = tile_id(&m["layers"][2]["children"][0]["tiles"], 0, 0);
         assert_eq!(src, dup, "duplicated layers share their tiles");
         let dup_id = m["layers"][2]["children"][0]["id"].as_u64().unwrap() as u32;
         assert_ne!(dup_id, c, "every copied node gets a new id");
@@ -2983,11 +3917,10 @@ mod tests {
     // ---------- persistence ----------
 
     fn collect_ids(v: &Value, ids: &mut HashSet<u64>) {
-        if let Some(a) = v["tiles"].as_array() {
-            ids.extend(a.iter().filter_map(|i| i.as_u64()).filter(|i| *i != 0));
-        }
-        if let Some(a) = v["mask"]["tiles"].as_array() {
-            ids.extend(a.iter().filter_map(|i| i.as_u64()).filter(|i| *i != 0));
+        for list in [&v["tiles"], &v["mask"]["tiles"]] {
+            if let Some(a) = list.as_array() {
+                ids.extend(a.iter().filter_map(|e| e[2].as_u64()));
+            }
         }
         if let Some(ch) = v["children"].as_array() {
             for c in ch {
@@ -2996,20 +3929,36 @@ mod tests {
         }
     }
 
+    // Every tile id a v3 manifest references: layers, masks, both selections and the channels.
+    fn all_ids(m: &Value) -> HashSet<u64> {
+        let mut ids: HashSet<u64> = HashSet::new();
+        for n in m["layers"].as_array().expect("layers") {
+            collect_ids(n, &mut ids);
+        }
+        let mut sel = |v: &Value| {
+            if let Some(a) = v["tiles"].as_array() {
+                ids.extend(a.iter().filter_map(|e| e[2].as_u64()));
+            }
+        };
+        sel(&m["selection"]);
+        sel(&m["last_selection"]);
+        for c in m["channels"].as_array().expect("channels") {
+            sel(c);
+        }
+        ids
+    }
+
     fn loaded_copy(d: &Document) -> Document {
         let manifest = d.manifest();
         let mut l = Document::from_manifest(&manifest).unwrap();
         let m: Value = serde_json::from_str(&manifest).unwrap();
-        let mut ids: HashSet<u64> = HashSet::new();
-        for n in m["layers"].as_array().unwrap() {
-            collect_ids(n, &mut ids);
-        }
+        let ids = all_ids(&m);
         assert!(l.finish_load().is_err(), "loading is not done before every tile arrived");
         for id in ids {
             l.put_tile(id, &d.tile_bytes(id).unwrap()).unwrap();
         }
         l.finish_load().unwrap();
-        assert_eq!(l.manifest(), manifest, "a v2 manifest must round trip byte for byte");
+        assert_eq!(l.manifest(), manifest, "a v3 manifest must round trip byte for byte");
         l
     }
 
@@ -3043,7 +3992,7 @@ mod tests {
     fn v1_manifest_loads_as_pixel_nodes() {
         let mut old = Document::new(256, 256, 8).unwrap();
         old.fill(1, Target::Pixels, 7, 8, 9, 255).unwrap();
-        let tile_id = manifest_value(&old)["layers"][0]["tiles"][0].as_u64().unwrap();
+        let tile_id = tile_id(&manifest_value(&old)["layers"][0]["tiles"], 0, 0);
         let v1 = format!(
             r#"{{"format":"photobaer-manifest","version":1,"width":256,"height":256,"depth":8,"tiles_x":1,"tiles_y":1,"next_id":{},"layers":[{{"name":"bg","visible":true,"opacity":1.0,"tiles":[{tile_id}]}},{{"name":"top","visible":false,"opacity":0.5,"tiles":[0]}}]}}"#,
             tile_id + 1
@@ -3061,7 +4010,7 @@ mod tests {
         assert_eq!(n.locks, Locks::default());
         assert_eq!(at(&d, 0, 0), [7, 8, 9, 255]);
         let m = manifest_value(&d);
-        assert_eq!(m["version"].as_u64().unwrap(), 2);
+        assert_eq!(m["version"].as_u64().unwrap(), 3);
         assert_eq!(m["next_node_id"].as_u64().unwrap(), 3);
     }
 
@@ -3082,7 +4031,7 @@ mod tests {
         let json = d.manifest().replacen(&format!("\"next_id\":{}", d.next_id), &format!("\"next_id\":{big}"), 1);
         assert!(json.contains(&big));
         assert!(Document::from_manifest(&json).is_err());
-        let json = d.manifest().replacen("\"tiles\":[0]", &format!("\"tiles\":[{big}]"), 1);
+        let json = d.manifest().replacen("\"tiles\":[]", &format!("\"tiles\":[[0,0,{big}]]"), 1);
         assert!(json.contains(&big));
         assert!(Document::from_manifest(&json).is_err());
     }
@@ -3094,7 +4043,7 @@ mod tests {
         let mut l = Document::from_manifest(&json).unwrap();
         l.finish_load().unwrap();
         l.fill(1, Target::Pixels, 1, 2, 3, 255).unwrap();
-        assert!(!l.manifest().contains("\"tiles\":[0]"));
+        assert_ne!(tile_id(&manifest_value(&l)["layers"][0]["tiles"], 0, 0), 0);
     }
 
     fn broken(f: impl Fn(&mut Value)) -> String {
@@ -3112,13 +4061,16 @@ mod tests {
             ("next_node_id too small", broken(|v| v["next_node_id"] = 1.into())),
             ("unknown blend", broken(|v| v["layers"][0]["blend"] = "glow".into())),
             ("pass through on a pixel node", broken(|v| v["layers"][0]["blend"] = "pass through".into())),
-            ("wrong tile array length", broken(|v| v["layers"][0]["tiles"] = serde_json::json!([1, 2]))),
-            ("group with tiles", broken(|v| v["layers"][1]["tiles"] = serde_json::json!([0, 0, 0, 0, 0, 0]))),
+            ("tile id 0", broken(|v| v["layers"][0]["tiles"] = serde_json::json!([[0, 0, 0]]))),
+            ("duplicate tile coordinate", broken(|v| v["layers"][0]["tiles"] = serde_json::json!([[1, 1, 5], [1, 1, 6]]))),
+            ("tile coordinate out of range", broken(|v| v["layers"][0]["tiles"] = serde_json::json!([[1 << 21, 0, 5]]))),
+            ("malformed tile entry", broken(|v| v["layers"][0]["tiles"] = serde_json::json!([[1, 2]]))),
+            ("group with tiles", broken(|v| v["layers"][1]["tiles"] = serde_json::json!([[0, 0, 7]]))),
             ("pixel node with children", broken(|v| v["layers"][0]["children"] = serde_json::json!([]))),
             ("unknown kind", broken(|v| v["layers"][0]["kind"] = "text".into())),
             ("opacity out of range", broken(|v| v["layers"][0]["opacity"] = 2.into())),
             ("unknown field", broken(|v| v["layers"][0]["extra"] = 1.into())),
-            ("unsupported version", broken(|v| v["version"] = 3.into())),
+            ("unsupported version", broken(|v| v["version"] = 4.into())),
             ("tiles_x mismatch", broken(|v| v["tiles_x"] = 9.into())),
         ];
         for (what, json) in cases {
@@ -3126,16 +4078,10 @@ mod tests {
         }
         let d = rich_doc();
         let m: Value = serde_json::from_str(&d.manifest()).unwrap();
-        let pixel_id = m["layers"][1]["children"][0]["tiles"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find_map(|v| v.as_u64().filter(|i| *i != 0))
-            .unwrap();
+        let pixel_id = tile_id(&m["layers"][1]["children"][0]["tiles"], 1, 1);
         let json = broken(|v| {
             let mask = v["layers"][1]["children"][0]["mask"]["tiles"].as_array_mut().unwrap();
-            let slot = mask.iter().position(|i| i.as_u64() != Some(0)).unwrap();
-            mask[slot] = pixel_id.into();
+            mask[0][2] = pixel_id.into();
         });
         assert!(
             matches!(Document::from_manifest(&json), Err(e) if e.contains("both pixel and mask")),
@@ -3143,12 +4089,7 @@ mod tests {
         );
         let mut l = Document::from_manifest(&d.manifest()).unwrap();
         assert!(l.put_tile(pixel_id, &vec![0u8; MASK_BYTES_U8]).is_err());
-        let mask_id = m["layers"][1]["children"][0]["mask"]["tiles"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find_map(|v| v.as_u64().filter(|i| *i != 0))
-            .unwrap();
+        let mask_id = tile_id(&m["layers"][1]["children"][0]["mask"]["tiles"], 1, 1);
         assert!(l.put_tile(mask_id, &vec![0u8; TILE_BYTES_U8]).is_err());
         l.put_tile(mask_id, &vec![7u8; MASK_BYTES_U8]).unwrap();
         assert!(l.put_tile(999_999, &vec![7u8; MASK_BYTES_U8]).is_err());
@@ -3158,11 +4099,8 @@ mod tests {
     fn commands_are_refused_while_the_document_is_loading() {
         let d = rich_doc();
         let manifest = d.manifest();
-        let mut ids: HashSet<u64> = HashSet::new();
         let m: Value = serde_json::from_str(&manifest).unwrap();
-        for n in m["layers"].as_array().unwrap() {
-            collect_ids(n, &mut ids);
-        }
+        let ids = all_ids(&m);
         let mut l = Document::from_manifest(&manifest).unwrap();
         let group = l.nodes[1].id;
         let child = match &l.nodes[1].kind {
@@ -3553,6 +4491,363 @@ mod tests {
                 assert!(worst <= 1, "depth {depth} mask {mask:?}: max difference {worst}");
                 assert!(differ * 100 < a.len() / step, "depth {depth} mask {mask:?}: {differ} values differ");
             }
+        }
+    }
+
+    // ---------- selection (M2.md section 3) ----------
+
+    fn sel(d: &Document, x: i32, y: i32) -> f32 {
+        d.sel_at(d.selection.as_ref().expect("a selection"), x, y)
+    }
+
+    fn sel_mass(d: &Document) -> f64 {
+        let mut m = 0.0;
+        for y in 0..d.height as i32 {
+            for x in 0..d.width as i32 {
+                m += sel(d, x, y) as f64;
+            }
+        }
+        m
+    }
+
+    #[test]
+    fn select_rect_is_hard_edged_and_exact_at_a_fractional_edge() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        assert!(!d.has_selection());
+        d.select_rect(10.0, 20.0, 30.0, 40.0, Mode::New).unwrap();
+        assert!(d.has_selection());
+        assert_eq!(d.selection_bounds(), Some([10, 20, 30, 40]));
+        assert_eq!(sel(&d, 10, 20), 1.0);
+        assert_eq!(sel(&d, 9, 20), 0.0);
+        assert_eq!(sel(&d, 39, 59), 1.0);
+        assert_eq!(sel(&d, 40, 59), 0.0);
+        d.select_rect(0.0, 0.0, 10.5, 4.0, Mode::New).unwrap();
+        assert!((sel(&d, 10, 0) - 0.5).abs() <= 1.0 / 255.0);
+        assert!((sel_mass(&d) - 42.0).abs() < 0.05, "10.5 x 4 pixels: {}", sel_mass(&d));
+    }
+
+    #[test]
+    fn boolean_modes_combine_two_rects() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        let cases = [
+            (Mode::Add, [0, 0, 150, 100], 15000.0),
+            (Mode::Intersect, [50, 0, 50, 100], 5000.0),
+            (Mode::Subtract, [0, 0, 50, 100], 5000.0),
+            (Mode::New, [50, 0, 100, 100], 10000.0),
+        ];
+        for (mode, bounds, mass) in cases {
+            d.select_rect(0.0, 0.0, 100.0, 100.0, Mode::New).unwrap();
+            d.select_rect(50.0, 0.0, 100.0, 100.0, mode).unwrap();
+            assert_eq!(d.selection_bounds(), Some(bounds), "{mode:?}");
+            assert!((sel_mass(&d) - mass).abs() < 0.5, "{mode:?}: {}", sel_mass(&d));
+        }
+    }
+
+    #[test]
+    fn ellipse_selection_covers_its_area_and_intersects() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        d.select_ellipse(28.0, 40.0, 200.0, 120.0, true, Mode::New).unwrap();
+        let area = std::f64::consts::PI * 100.0 * 60.0;
+        assert!((sel_mass(&d) - area).abs() < area * 5e-3, "{} vs {area}", sel_mass(&d));
+        assert_eq!(d.selection_bounds(), Some([28, 40, 200, 120]));
+        // The centre is at x = 128, so half the canvas cuts the ellipse in half.
+        d.select_rect(0.0, 0.0, 128.0, 256.0, Mode::Intersect).unwrap();
+        assert!((sel_mass(&d) - area / 2.0).abs() < area * 5e-3, "{}", sel_mass(&d));
+        d.select_ellipse(28.0, 40.0, 200.0, 120.0, false, Mode::New).unwrap();
+        for v in [sel(&d, 128, 100), sel(&d, 28, 40)] {
+            assert!(v == 0.0 || v == 1.0, "centre sampling is binary: {v}");
+        }
+    }
+
+    #[test]
+    fn polygon_selection_fills_even_odd_and_clips_to_the_canvas() {
+        let mut d = Document::new(64, 64, 8).unwrap();
+        d.select_polygon(&[-20.0, -20.0, 84.0, -20.0, 32.0, 40.0], true, Mode::New).unwrap();
+        let b = d.selection_bounds().unwrap();
+        assert!(b[0] >= 0 && b[1] >= 0 && b[0] + b[2] <= 64 && b[1] + b[3] <= 64, "{b:?}");
+        assert_eq!(sel(&d, 32, 0), 1.0);
+        assert_eq!(sel(&d, 32, 45), 0.0);
+        assert!(d.select_polygon(&[0.0, 0.0, 1.0, 1.0], true, Mode::New).is_err());
+        assert!(d.select_polygon(&[0.0, 0.0, 1.0], true, Mode::New).is_err());
+    }
+
+    #[test]
+    fn feather_keeps_the_mass_and_stays_symmetric() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        d.select_rect(64.0, 64.0, 128.0, 128.0, Mode::New).unwrap();
+        let before = sel_mass(&d);
+        assert!(d.feather_selection(0.0).is_err());
+        d.feather_selection(12.0).unwrap();
+        let after = sel_mass(&d);
+        assert!((after - before).abs() < before * 5e-3, "{before} -> {after}");
+        for k in 0..24 {
+            let (l, r) = (sel(&d, 52 + k, 128), sel(&d, 203 - k, 128));
+            assert!((l - r).abs() <= 1.0 / 255.0, "k {k}: {l} vs {r}");
+        }
+        assert!((sel(&d, 63, 128) + sel(&d, 64, 128) - 1.0).abs() < 0.02, "the edge fades through 0.5");
+        assert!(sel(&d, 128, 128) > 0.99);
+        assert_eq!(sel(&d, 40, 128), 0.0, "beyond the radius nothing changes");
+        // The edge spreads by about the radius; the outermost ring quantizes to 0.
+        let b = d.selection_bounds().unwrap();
+        assert!((52..=54).contains(&b[0]) && (52..=54).contains(&b[1]), "{b:?}");
+        assert_eq!([b[0] + b[2], b[1] + b[3]], [256 - b[0], 256 - b[1]], "symmetric growth: {b:?}");
+    }
+
+    #[test]
+    fn select_all_invert_deselect_and_reselect() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        d.select_all().unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 256, 256]));
+        d.select_rect(0.0, 0.0, 100.0, 256.0, Mode::New).unwrap();
+        d.invert_selection().unwrap();
+        assert_eq!(d.selection_bounds(), Some([100, 0, 156, 256]));
+        assert_eq!(sel(&d, 0, 0), 0.0);
+        assert_eq!(sel(&d, 100, 0), 1.0);
+        d.deselect().unwrap();
+        assert!(!d.has_selection());
+        assert_eq!(d.selection_bounds(), None);
+        d.reselect().unwrap();
+        assert_eq!(d.selection_bounds(), Some([100, 0, 156, 256]));
+        let mut e = Document::new(64, 64, 8).unwrap();
+        assert!(e.reselect().is_err());
+        e.invert_selection().unwrap();
+        assert_eq!(e.selection_bounds(), Some([0, 0, 64, 64]), "nothing selected inverts to everything");
+    }
+
+    #[test]
+    fn fill_and_clear_honour_a_partial_selection() {
+        let mut d = doc_bg(255, 255, 255);
+        d.select_rect(0.0, 0.0, 10.5, 256.0, Mode::New).unwrap();
+        d.fill(1, Target::Pixels, 255, 0, 0, 255).unwrap();
+        near(at(&d, 0, 0), [255, 0, 0, 255]);
+        near(at(&d, 10, 0), [255, 128, 128, 255]);
+        near(at(&d, 11, 0), [255, 255, 255, 255]);
+        d.clear(1, Target::Pixels).unwrap();
+        assert_eq!(at(&d, 0, 0)[3], 0);
+        let half = at(&d, 10, 0);
+        assert!((half[3] as i32 - 127).abs() <= 1, "half coverage keeps half the alpha: {half:?}");
+        near(at(&d, 11, 0), [255, 255, 255, 255]);
+    }
+
+    #[test]
+    fn invert_pixels_only_inside_the_selection() {
+        let mut d = doc_bg(255, 0, 0);
+        d.select_rect(0.0, 0.0, 128.0, 256.0, Mode::New).unwrap();
+        d.invert(1, Target::Pixels).unwrap();
+        near(at(&d, 10, 10), [0, 255, 255, 255]);
+        near(at(&d, 200, 10), [255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn mask_edits_inside_a_selection_keep_the_default() {
+        let mut d = doc_bg(255, 255, 255);
+        let top = d.add_layer("top", 1).unwrap();
+        d.fill(top, Target::Pixels, 255, 0, 0, 255).unwrap();
+        d.add_mask(top, true).unwrap();
+        d.select_rect(0.0, 0.0, 128.0, 256.0, Mode::New).unwrap();
+        d.clear(top, Target::Mask).unwrap();
+        assert_eq!(d.node(top).unwrap().mask.as_ref().unwrap().default, 255);
+        near(at(&d, 10, 10), [255, 255, 255, 255]);
+        near(at(&d, 200, 10), [255, 0, 0, 255]);
+        d.invert(top, Target::Mask).unwrap();
+        assert_eq!(d.node(top).unwrap().mask.as_ref().unwrap().default, 255, "only the selection flips");
+        near(at(&d, 10, 10), [255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn an_empty_selection_stops_every_edit() {
+        let mut d = doc_bg(255, 255, 255);
+        d.select_rect(0.0, 0.0, 10.0, 10.0, Mode::New).unwrap();
+        d.select_rect(100.0, 100.0, 10.0, 10.0, Mode::Intersect).unwrap();
+        assert!(d.has_selection());
+        assert_eq!(d.selection_bounds(), None);
+        d.fill(1, Target::Pixels, 0, 0, 0, 255).unwrap();
+        d.clear(1, Target::Pixels).unwrap();
+        near(at(&d, 0, 0), [255, 255, 255, 255]);
+    }
+
+    #[test]
+    fn snapshot_restores_the_selection() {
+        let mut e = EngineCore::new(Document::new(256, 256, 8).unwrap());
+        e.doc.select_rect(10.0, 10.0, 50.0, 50.0, Mode::New).unwrap();
+        let snap = e.snapshot();
+        e.doc.deselect().unwrap();
+        assert!(!e.doc.has_selection());
+        e.restore(snap).unwrap();
+        assert_eq!(e.doc.selection_bounds(), Some([10, 10, 50, 50]));
+    }
+
+    #[test]
+    fn selection_tile_reports_coverage_per_level() {
+        let mut d = Document::new(512, 512, 8).unwrap();
+        assert_eq!(d.selection_tile(0, 0, 0).unwrap(), None, "no selection, no overlay");
+        d.select_rect(0.0, 0.0, 256.0, 256.0, Mode::New).unwrap();
+        let t = d.selection_tile(0, 0, 0).unwrap().unwrap();
+        assert_eq!(t.len(), MASK_BYTES_U8);
+        assert!(t.iter().all(|v| *v == 255));
+        assert_eq!(d.selection_tile(0, 1, 0).unwrap(), None, "an unselected tile is the default");
+        let l1 = d.selection_tile(1, 0, 0).unwrap().unwrap();
+        assert_eq!(l1[0], 255);
+        assert_eq!(l1[200], 0);
+        d.select_all().unwrap();
+        assert_eq!(d.selection_tile(0, 0, 0).unwrap(), None, "select all needs no tile");
+        assert!(d.selection_tile(9, 0, 0).is_err());
+    }
+
+    #[test]
+    fn channels_save_load_and_delete() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        assert!(d.save_selection("none").is_err());
+        d.select_rect(0.0, 0.0, 100.0, 100.0, Mode::New).unwrap();
+        let ch = d.save_selection("left").unwrap();
+        d.select_rect(50.0, 50.0, 100.0, 100.0, Mode::New).unwrap();
+        d.load_selection(ch, false, Mode::Intersect).unwrap();
+        assert_eq!(d.selection_bounds(), Some([50, 50, 50, 50]));
+        d.load_selection(ch, true, Mode::New).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 256, 256]));
+        assert_eq!(sel(&d, 10, 10), 0.0);
+        assert_eq!(sel(&d, 200, 200), 1.0);
+        let v: Value = serde_json::from_str(&d.channels_json()).unwrap();
+        assert_eq!(v["channels"][0]["name"], "left");
+        assert_eq!(v["channels"][0]["id"].as_u64().unwrap() as u32, ch);
+        assert_eq!(v["selection"]["default"].as_u64().unwrap(), 255);
+        d.delete_channel(ch).unwrap();
+        assert!(d.delete_channel(ch).is_err());
+        assert!(d.load_selection(ch, false, Mode::New).is_err());
+    }
+
+    // ---------- layer bounds (M2.md section 5) ----------
+
+    #[test]
+    fn offset_layer_keeps_pixels_outside_the_canvas() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        let mut data = vec![0u8; TILE_BYTES_U8];
+        for y in 0..TILE {
+            for x in 0..TILE {
+                let o = (y * TILE + x) * 4;
+                data[o..o + 4].copy_from_slice(&[(x % 251) as u8, (y % 253) as u8, 7, 255]);
+            }
+        }
+        d.set_tile_rgba8(1, 0, 0, &data).unwrap();
+        d.add_mask(1, false).unwrap();
+        d.set_mask_tile8(1, 0, 0, &mask_pattern(3, 0, 0)).unwrap();
+        let before = d.flatten_tile_rgba8(0, 0).unwrap();
+        let mask_before = d.node(1).unwrap().mask.as_ref().unwrap().tiles.get(0, 0).unwrap().px.to_bytes();
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([0, 0, 256, 256]));
+        d.offset_layer(1, 300, 20).unwrap();
+        assert_eq!(d.display_tile(0, 0, 0).unwrap(), None, "the pixels moved off the canvas");
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([300, 20, 256, 256]));
+        d.offset_layer(1, -300, -20).unwrap();
+        assert_eq!(d.flatten_tile_rgba8(0, 0).unwrap(), before, "moving back restores the pixels");
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([0, 0, 256, 256]));
+        let mask_after = d.node(1).unwrap().mask.as_ref().unwrap().tiles.get(0, 0).unwrap().px.to_bytes();
+        assert_eq!(mask_after, mask_before, "the mask travels with the pixels");
+        d.offset_layer(1, 0, 0).unwrap();
+        set(&mut d, 1, r#"{"locks":{"position":true}}"#);
+        assert_eq!(d.offset_layer(1, 1, 0).unwrap_err(), "layer position is locked");
+    }
+
+    #[test]
+    fn layer_bounds_are_tight_and_empty_layers_have_none() {
+        let mut d = Document::new(512, 512, 8).unwrap();
+        assert_eq!(d.layer_bounds(1).unwrap(), None);
+        let mut data = vec![0u8; TILE_BYTES_U8];
+        let o = (5 * TILE + 7) * 4;
+        data[o..o + 4].copy_from_slice(&[1, 2, 3, 255]);
+        d.set_tile_rgba8(1, 1, 1, &data).unwrap();
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([256 + 7, 256 + 5, 1, 1]));
+        let g = d.add_group("g", 0).unwrap();
+        assert!(d.layer_bounds(g).is_err());
+    }
+
+    // ---------- manifest v3 ----------
+
+    #[test]
+    fn v3_round_trip_keeps_selection_channels_and_offset_tiles() {
+        let mut d = rich_doc();
+        d.select_rect(20.0, 30.0, 100.0, 40.0, Mode::New).unwrap();
+        let ch = d.save_selection("saved").unwrap();
+        d.deselect().unwrap();
+        d.select_ellipse(0.0, 0.0, 200.0, 100.0, true, Mode::New).unwrap();
+        d.offset_layer(1, -300, -40).unwrap();
+        let m = manifest_value(&d);
+        assert_eq!(m["version"].as_u64().unwrap(), 3);
+        assert!(
+            m["layers"][0]["tiles"].as_array().unwrap().iter().any(|e| e[0].as_i64().unwrap() < 0),
+            "a tile outside the canvas is stored"
+        );
+        assert_eq!(m["channels"][0]["name"], "saved");
+        assert_eq!(m["channels"][0]["id"].as_u64().unwrap() as u32, ch);
+        assert!(!m["last_selection"].is_null());
+        let l = loaded_copy(&d);
+        assert_eq!(l.selection_bounds(), d.selection_bounds());
+        assert_eq!(l.channels.len(), 1);
+        assert!(l.last_selection.is_some());
+        assert_eq!(l.layer_bounds(1).unwrap(), d.layer_bounds(1).unwrap());
+        for ty in 0..d.tiles_y() {
+            for tx in 0..d.tiles_x() {
+                assert_eq!(l.display_tile(0, tx, ty).unwrap(), d.display_tile(0, tx, ty).unwrap());
+            }
+        }
+        for (x, y) in [(10, 10), (100, 60), (250, 200)] {
+            assert_eq!(sel(&l, x, y), sel(&d, x, y), "selection at ({x}, {y})");
+        }
+    }
+
+    #[test]
+    fn v2_manifest_still_loads() {
+        let mut old = Document::new(512, 256, 8).unwrap();
+        old.fill(1, Target::Pixels, 7, 8, 9, 255).unwrap();
+        let id = tile_id(&manifest_value(&old)["layers"][0]["tiles"], 1, 0);
+        let v2 = format!(
+            r#"{{"format":"photobaer-manifest","version":2,"width":512,"height":256,"depth":8,"tiles_x":2,"tiles_y":1,"next_id":{},"next_node_id":2,"layers":[{{"id":1,"name":"bg","kind":"pixel","visible":true,"opacity":1.0,"fill":1.0,"blend":"normal","clipping":false,"locks":{{"transparency":false,"pixels":false,"position":false}},"mask":{{"enabled":true,"default":255,"tiles":[0,0]}},"tiles":[0,{id}]}}]}}"#,
+            id + 1
+        );
+        let mut d = Document::from_manifest(&v2).unwrap();
+        d.put_tile(id, &old.tile_bytes(id).unwrap()).unwrap();
+        d.finish_load().unwrap();
+        assert_eq!(at(&d, 0, 0)[3], 0, "the empty dense slot stays empty");
+        assert_eq!(d.flatten_tile_rgba8(1, 0).unwrap()[0..4], [7, 8, 9, 255]);
+        let m = manifest_value(&d);
+        assert_eq!(m["version"].as_u64().unwrap(), 3);
+        assert_eq!(tile_id(&m["layers"][0]["tiles"], 1, 0), id, "dense slot 1 became tile (1, 0)");
+        assert!(m["selection"].is_null());
+        assert!(m["last_selection"].is_null());
+        assert!(m["channels"].as_array().unwrap().is_empty());
+        assert!(d.node(1).unwrap().mask.is_some());
+    }
+
+    #[test]
+    fn v3_selection_and_channel_rejections() {
+        let base = || {
+            let mut d = Document::new(300, 300, 8).unwrap();
+            d.fill(1, Target::Pixels, 1, 2, 3, 255).unwrap();
+            d.select_rect(0.0, 0.0, 50.0, 50.0, Mode::New).unwrap();
+            d.save_selection("c").unwrap();
+            d
+        };
+        assert!(Document::from_manifest(&base().manifest()).is_ok());
+        let broken3 = |f: &dyn Fn(&mut Value)| {
+            let mut v = manifest_value(&base());
+            f(&mut v);
+            v.to_string()
+        };
+        let cases: Vec<(&str, String)> = vec![
+            ("selection tile outside the canvas", broken3(&|v| v["selection"]["tiles"] = serde_json::json!([[9, 0, 5]]))),
+            ("negative selection tile", broken3(&|v| v["selection"]["tiles"] = serde_json::json!([[-1, 0, 5]]))),
+            ("selection tile id 0", broken3(&|v| v["selection"]["tiles"] = serde_json::json!([[0, 0, 0]]))),
+            ("duplicate selection coordinate", broken3(&|v| v["selection"]["tiles"] = serde_json::json!([[0, 0, 5], [0, 0, 6]]))),
+            ("selection default out of range", broken3(&|v| v["selection"]["default"] = 300.into())),
+            ("unknown field in the selection", broken3(&|v| v["selection"]["extra"] = 1.into())),
+            ("channel id 0", broken3(&|v| v["channels"][0]["id"] = 0.into())),
+            ("duplicate channel id", broken3(&|v| {
+                let c = v["channels"][0].clone();
+                v["channels"].as_array_mut().unwrap().push(c);
+            })),
+            ("channel tile outside the canvas", broken3(&|v| v["channels"][0]["tiles"] = serde_json::json!([[0, 7, 5]]))),
+        ];
+        for (what, json) in cases {
+            assert!(Document::from_manifest(&json).is_err(), "{what} must be rejected");
         }
     }
 }

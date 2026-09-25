@@ -1,7 +1,9 @@
 mod blend;
 mod doc;
+mod selection;
 
 use doc::{Document, EngineCore, Target};
+use selection::Mode;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -9,6 +11,13 @@ pub struct Engine(EngineCore);
 
 fn err(e: String) -> JsError {
     JsError::new(&e)
+}
+
+fn rect_js(r: Option<[i32; 4]>) -> JsValue {
+    match r {
+        Some(r) => js_sys::Int32Array::from(r.as_slice()).into(),
+        None => JsValue::NULL,
+    }
 }
 
 #[wasm_bindgen]
@@ -90,6 +99,93 @@ impl Engine {
 
     pub fn invert(&mut self, id: u32, target: &str) -> Result<(), JsError> {
         self.0.doc.invert(id, Target::parse(target).map_err(err)?).map_err(err)
+    }
+
+    /// Pixels become transparent, a mask becomes 0; the selection limits the effect.
+    pub fn clear(&mut self, id: u32, target: &str) -> Result<(), JsError> {
+        self.0.doc.clear(id, Target::parse(target).map_err(err)?).map_err(err)
+    }
+
+    /// Moves a pixel layer and its mask by whole pixels, keeping pixels outside the canvas.
+    pub fn offset_layer(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), JsError> {
+        self.0.doc.offset_layer(id, dx, dy).map_err(err)
+    }
+
+    /// Tight bounds of the layer's non-transparent pixels as [x, y, w, h], or null.
+    pub fn layer_bounds(&self, id: u32) -> Result<JsValue, JsError> {
+        Ok(rect_js(self.0.doc.layer_bounds(id).map_err(err)?))
+    }
+
+    // ---------- selection ----------
+
+    /// `mode` is "new", "add", "subtract" or "intersect".
+    pub fn select_rect(&mut self, x: f64, y: f64, w: f64, h: f64, mode: &str) -> Result<(), JsError> {
+        self.0.doc.select_rect(x, y, w, h, Mode::parse(mode).map_err(err)?).map_err(err)
+    }
+
+    pub fn select_ellipse(&mut self, x: f64, y: f64, w: f64, h: f64, antialias: bool, mode: &str) -> Result<(), JsError> {
+        self.0.doc.select_ellipse(x, y, w, h, antialias, Mode::parse(mode).map_err(err)?).map_err(err)
+    }
+
+    /// `points` are flat document pixels x0, y0, x1, y1, ...; the polygon fills even-odd.
+    pub fn select_polygon(&mut self, points: Vec<f64>, antialias: bool, mode: &str) -> Result<(), JsError> {
+        self.0.doc.select_polygon(&points, antialias, Mode::parse(mode).map_err(err)?).map_err(err)
+    }
+
+    pub fn select_all(&mut self) -> Result<(), JsError> {
+        self.0.doc.select_all().map_err(err)
+    }
+
+    pub fn deselect(&mut self) -> Result<(), JsError> {
+        self.0.doc.deselect().map_err(err)
+    }
+
+    pub fn reselect(&mut self) -> Result<(), JsError> {
+        self.0.doc.reselect().map_err(err)
+    }
+
+    pub fn invert_selection(&mut self) -> Result<(), JsError> {
+        self.0.doc.invert_selection().map_err(err)
+    }
+
+    /// Gaussian blur of the selection mask with sigma = radius / 3.
+    pub fn feather_selection(&mut self, radius: f64) -> Result<(), JsError> {
+        self.0.doc.feather_selection(radius).map_err(err)
+    }
+
+    pub fn has_selection(&self) -> bool {
+        self.0.doc.has_selection()
+    }
+
+    /// Tight bounds of the selected pixels as [x, y, w, h], or null.
+    pub fn selection_bounds(&self) -> JsValue {
+        rect_js(self.0.doc.selection_bounds())
+    }
+
+    /// The selection coverage of one display tile as 8-bit bytes, or null when it is fully
+    /// the mask default.
+    pub fn selection_tile(&self, level: u32, tx: u32, ty: u32) -> Result<JsValue, JsError> {
+        match self.0.doc.selection_tile(level, tx, ty).map_err(err)? {
+            Some(bytes) => Ok(js_sys::Uint8Array::from(bytes.as_slice()).into()),
+            None => Ok(JsValue::NULL),
+        }
+    }
+
+    pub fn save_selection(&mut self, name: &str) -> Result<u32, JsError> {
+        self.0.doc.save_selection(name).map_err(err)
+    }
+
+    pub fn load_selection(&mut self, channel: u32, invert: bool, mode: &str) -> Result<(), JsError> {
+        self.0.doc.load_selection(channel, invert, Mode::parse(mode).map_err(err)?).map_err(err)
+    }
+
+    pub fn delete_channel(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.delete_channel(id).map_err(err)
+    }
+
+    /// `{ selection: null | { default, bounds }, has_last_selection, channels: [{ id, name }] }`.
+    pub fn channels_json(&self) -> String {
+        self.0.doc.channels_json()
     }
 
     pub fn set_tile_rgba8(&mut self, id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), JsError> {
