@@ -5,8 +5,24 @@ import { packProject, unpackProject, tileIds } from './project.ts';
 const manifest = JSON.stringify({ format: 'photobaer-manifest', version: 1, layers: [{ tiles: [0, 7, 7, 2 ** 40 + 3] }, { tiles: [9, 0] }] });
 const bytes = (id: number) => new Uint8Array([id % 251, 1, 2, 3, id % 7]);
 
+const manifestV2 = JSON.stringify({
+  format: 'photobaer-manifest', version: 2, layers: [
+    { kind: 'pixel', mask: null, tiles: [0, 4] },
+    {
+      kind: 'group', mask: { enabled: true, default: 0, tiles: [5, 0] }, children: [
+        { kind: 'pixel', mask: { enabled: true, default: 255, tiles: [0, 6] }, tiles: [7, 0] },
+        { kind: 'group', mask: null, children: [{ kind: 'pixel', mask: null, tiles: [8, 8] }] },
+      ],
+    },
+  ],
+});
+
 test('tileIds lists each referenced tile once and skips 0', () => {
   assert.deepEqual([...tileIds(manifest)].sort((a, b) => a - b), [7, 9, 2 ** 40 + 3]);
+});
+
+test('tileIds walks a v2 tree including mask tiles and nested groups', () => {
+  assert.deepEqual([...tileIds(manifestV2)].sort((a, b) => a - b), [4, 5, 6, 7, 8]);
 });
 
 test('pack then unpack returns the manifest and every tile', async () => {

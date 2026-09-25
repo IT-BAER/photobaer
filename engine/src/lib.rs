@@ -1,6 +1,7 @@
+mod blend;
 mod doc;
 
-use doc::{Document, EngineCore};
+use doc::{Document, EngineCore, Target};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -32,31 +33,71 @@ impl Engine {
     pub fn tiles_y(&self) -> u32 {
         self.0.doc.tiles_y()
     }
-    pub fn layer_count(&self) -> u32 {
-        self.0.doc.layer_count()
-    }
     pub fn max_level(&self) -> u32 {
         self.0.doc.max_level()
     }
 
-    pub fn add_layer(&mut self, name: &str) -> u32 {
-        self.0.doc.add_layer(name)
+    /// The layer tree for the UI (manifest fields without the tile arrays).
+    pub fn layers_json(&self) -> String {
+        self.0.doc.layers_json()
     }
 
-    pub fn set_layer_props(&mut self, index: usize, visible: bool, opacity: f32) -> Result<(), JsError> {
-        self.0.doc.set_layer_props(index, visible, opacity).map_err(err)
+    pub fn add_layer(&mut self, name: &str, above: u32) -> Result<u32, JsError> {
+        self.0.doc.add_layer(name, above).map_err(err)
     }
 
-    pub fn set_tile_rgba8(&mut self, layer: usize, tx: u32, ty: u32, data: &[u8]) -> Result<(), JsError> {
-        self.0.doc.set_tile_rgba8(layer, tx, ty, data).map_err(err)
+    pub fn add_group(&mut self, name: &str, above: u32) -> Result<u32, JsError> {
+        self.0.doc.add_group(name, above).map_err(err)
     }
 
-    pub fn fill(&mut self, layer: usize, r: u8, g: u8, b: u8, a: u8) -> Result<(), JsError> {
-        self.0.doc.fill(layer, r, g, b, a).map_err(err)
+    pub fn group_nodes(&mut self, ids: Vec<u32>) -> Result<u32, JsError> {
+        self.0.doc.group_nodes(&ids).map_err(err)
     }
 
-    pub fn invert(&mut self, layer: usize) -> Result<(), JsError> {
-        self.0.doc.invert(layer).map_err(err)
+    pub fn ungroup(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.ungroup(id).map_err(err)
+    }
+
+    pub fn delete_node(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.delete_node(id).map_err(err)
+    }
+
+    pub fn duplicate_node(&mut self, id: u32) -> Result<u32, JsError> {
+        self.0.doc.duplicate_node(id).map_err(err)
+    }
+
+    pub fn move_node(&mut self, id: u32, parent: u32, index: u32) -> Result<(), JsError> {
+        self.0.doc.move_node(id, parent, index).map_err(err)
+    }
+
+    /// Partial JSON: name, visible, opacity, fill, blend, clipping, locks, mask_enabled.
+    pub fn set_props(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_props(id, json).map_err(err)
+    }
+
+    pub fn add_mask(&mut self, id: u32, reveal: bool) -> Result<(), JsError> {
+        self.0.doc.add_mask(id, reveal).map_err(err)
+    }
+
+    pub fn delete_mask(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.delete_mask(id).map_err(err)
+    }
+
+    /// `target` is "pixels" or "mask"; a mask fill uses the red channel as its value.
+    pub fn fill(&mut self, id: u32, target: &str, r: u8, g: u8, b: u8, a: u8) -> Result<(), JsError> {
+        self.0.doc.fill(id, Target::parse(target).map_err(err)?, r, g, b, a).map_err(err)
+    }
+
+    pub fn invert(&mut self, id: u32, target: &str) -> Result<(), JsError> {
+        self.0.doc.invert(id, Target::parse(target).map_err(err)?).map_err(err)
+    }
+
+    pub fn set_tile_rgba8(&mut self, id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), JsError> {
+        self.0.doc.set_tile_rgba8(id, tx, ty, data).map_err(err)
+    }
+
+    pub fn set_mask_tile8(&mut self, id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), JsError> {
+        self.0.doc.set_mask_tile8(id, tx, ty, data).map_err(err)
     }
 
     pub fn snapshot(&mut self) -> u32 {

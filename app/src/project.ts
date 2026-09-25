@@ -3,10 +3,17 @@
 const MAGIC = 'PBAERPRJ';
 const VERSION = 1;
 
+// Node = v1 layer (tiles only) or v2 node (pixel tiles, mask tiles, children).
+type ManifestNode = { tiles?: number[]; mask?: { tiles?: number[] } | null; children?: ManifestNode[] };
+
 export function tileIds(manifest: string): Set<number> {
-  const m = JSON.parse(manifest) as { layers: { tiles: number[] }[] };
   const ids = new Set<number>();
-  for (const l of m.layers) for (const id of l.tiles) if (id) ids.add(id);
+  const walk = (n: ManifestNode) => {
+    for (const id of n.tiles ?? []) if (id) ids.add(id);
+    for (const id of n.mask?.tiles ?? []) if (id) ids.add(id);
+    for (const c of n.children ?? []) walk(c);
+  };
+  for (const n of (JSON.parse(manifest) as { layers: ManifestNode[] }).layers) walk(n);
   return ids;
 }
 

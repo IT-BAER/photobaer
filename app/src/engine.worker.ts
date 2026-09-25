@@ -11,6 +11,9 @@ export interface DocInfo {
 export type AutosaveState = 'off' | 'other-tab' | 'idle' | 'saving' | 'saved' | 'error';
 export type WorkerEvent = { event: 'autosave'; state: AutosaveState; detail?: string };
 
+// A new document has one pixel layer with node id 1; the layer API arrives with the panel (M1 task 3).
+const BACKGROUND = 1;
+
 let eng: Engine | null = null;
 let name = 'Untitled';
 let docId = 0;
@@ -141,7 +144,7 @@ const api = {
 
   newDoc(width: number, height: number, depth: number, bg: [number, number, number, number] | null) {
     const e = new Engine(width, height, depth);
-    if (bg) e.fill(0, ...bg);
+    if (bg) e.fill(BACKGROUND, 'pixels', ...bg);
     return adopt(e, 'Untitled');
   },
 
@@ -162,15 +165,15 @@ const api = {
     const e = new Engine(c.width, c.height, 8);
     tileLoop(c.width, c.height, (tx, ty) => {
       const d = ctx.getImageData(tx * 256, ty * 256, 256, 256).data;
-      e.set_tile_rgba8(0, tx, ty, new Uint8Array(d.buffer, d.byteOffset, d.length));
+      e.set_tile_rgba8(BACKGROUND, tx, ty, new Uint8Array(d.buffer, d.byteOffset, d.length));
     });
     return adopt(e, file.name.replace(/\.[^.]+$/, ''));
   },
 
   command(op: 'fill' | 'invert', rgba?: [number, number, number, number]) {
     const e = need();
-    if (op === 'fill') history.run('Fill', () => e.fill(0, ...rgba!));
-    else history.run('Invert', () => e.invert(0));
+    if (op === 'fill') history.run('Fill', () => e.fill(BACKGROUND, 'pixels', ...rgba!));
+    else history.run('Invert', () => e.invert(BACKGROUND, 'pixels'));
     return changed();
   },
 

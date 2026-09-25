@@ -33,7 +33,7 @@ export function unsupported(psd: Psd): string | null {
   return null;
 }
 
-function place(e: Engine, idx: number, l: Layer, w: number, h: number) {
+function place(e: Engine, id: number, l: Layer, w: number, h: number) {
   const img = l.imageData;
   if (!img || img.width === 0 || img.height === 0) return;
   const left = l.left ?? 0, top = l.top ?? 0;
@@ -48,7 +48,7 @@ function place(e: Engine, idx: number, l: Layer, w: number, h: number) {
         const s = ((y - top) * img.width + (cx0 - left)) * 4;
         buf.set(img.data.subarray(s, s + (cx1 - cx0) * 4), ((y - ty * 256) * 256 + (cx0 - tx * 256)) * 4);
       }
-      e.set_tile_rgba8(idx, tx, ty, buf);
+      e.set_tile_rgba8(id, tx, ty, buf);
     }
   }
 }
@@ -63,9 +63,9 @@ export async function checkPsd(file: string, bytes: Uint8Array): Promise<Result>
   const e = new Engine(w, h, 8);
   try {
     (psd.children ?? []).forEach((l, i) => {
-      const idx = i === 0 ? 0 : e.add_layer(l.name ?? '');
-      e.set_layer_props(idx, !l.hidden, l.opacity ?? 1);
-      place(e, idx, l, w, h);
+      const id = i === 0 ? 1 : e.add_layer(l.name ?? '', 0);
+      e.set_props(id, JSON.stringify({ visible: !l.hidden, opacity: l.opacity ?? 1 }));
+      place(e, id, l, w, h);
     });
     const ref = psd.imageData!.data;
     const white = (c: number, a: number) => Math.round(c * a / 255 + 255 * (1 - a / 255));
