@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -61,6 +62,14 @@ impl Pixels {
         }
     }
 
+    fn byte_len(&self) -> usize {
+        match self {
+            Pixels::U8(d) | Pixels::Mask8(d) => d.len(),
+            Pixels::U16(d) => d.len() * 2,
+            Pixels::Mask16(d) => d.len() * 2,
+        }
+    }
+
     fn to_bytes(&self) -> Vec<u8> {
         match self {
             Pixels::U8(d) | Pixels::Mask8(d) => d.to_vec(),
@@ -115,6 +124,27 @@ impl Pixels {
             Pixels::Mask8(data.to_vec().into_boxed_slice())
         } else {
             Pixels::Mask16(data.iter().map(|v| *v as u16 * 257).collect::<Vec<_>>().into_boxed_slice())
+        }
+    }
+
+    // Straight RGBA in 0..1, quantized to the document depth.
+    fn from_straight(depth: u8, v: &[f32]) -> Pixels {
+        let max = max_value(depth) as f32;
+        let q = |x: &f32| (x * max).round().clamp(0.0, max);
+        if depth == 8 {
+            Pixels::U8(v.iter().map(|x| q(x) as u8).collect::<Vec<_>>().into_boxed_slice())
+        } else {
+            Pixels::U16(v.iter().map(|x| q(x) as u16).collect::<Vec<_>>().into_boxed_slice())
+        }
+    }
+
+    fn mask_from_norm(depth: u8, v: &[f32]) -> Pixels {
+        let max = max_value(depth) as f32;
+        let q = |x: &f32| (x * max).round().clamp(0.0, max);
+        if depth == 8 {
+            Pixels::Mask8(v.iter().map(|x| q(x) as u8).collect::<Vec<_>>().into_boxed_slice())
+        } else {
+            Pixels::Mask16(v.iter().map(|x| q(x) as u16).collect::<Vec<_>>().into_boxed_slice())
         }
     }
 
@@ -319,6 +349,8 @@ pub struct Document {
     next_id: u64,
     next_node_id: u32,
     loading: Option<Loading>,
+    // Reduced tiles for display levels >= 1, keyed by content, shared by clones. Never persisted.
+    tile_cache: Arc<RefCell<TileCache>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -361,7 +393,8 @@ fn unit(v: f32, what: &str) -> Result<f32, String> {
 // ---------- compositing ----------
 
 struct TileCtx {
-    slot: usize,
+    level: u32,
+    // Top-left of the tile in level-`level` pixels.
     ox: u32,
     oy: u32,
     vw: usize,
@@ -382,16 +415,6 @@ impl MaskSrc<'_> {
             MaskSrc::Const(v) => *v,
             MaskSrc::Tile(px) => px.mask_f32(p),
         }
-    }
-}
-
-fn mask_src<'a>(node: &'a Node, depth: u8, slot: usize) -> MaskSrc<'a> {
-    match &node.mask {
-        Some(m) if m.enabled => match &m.tiles[slot] {
-            Some(t) => MaskSrc::Tile(&t.px),
-            None => MaskSrc::Const(m.default as f32 / max_value(depth) as f32),
-        },
-        _ => MaskSrc::Full,
     }
 }
 
@@ -416,22 +439,6 @@ impl Src<'_> {
                     [0.0; 4]
                 }
             }
-        }
-    }
-}
-
-enum SrcOwned<'a> {
-    Tile(&'a Pixels),
-    Buf(Vec<f32>),
-    Empty,
-}
-
-impl SrcOwned<'_> {
-    fn as_src(&self) -> Option<Src<'_>> {
-        match self {
-            SrcOwned::Tile(px) => Some(Src::Tile(px)),
-            SrcOwned::Buf(b) => Some(Src::Buf(b)),
-            SrcOwned::Empty => None,
         }
     }
 }
@@ -463,7 +470,9 @@ fn draw(
                 continue;
             }
             if dissolve {
-                if dissolve_hash(c.ox + x as u32, c.oy + y as u32, node_id) < cov {
+                // Document coordinates of the sample's top-left source pixel.
+                let (dx, dy) = ((c.ox + x as u32) << c.level, (c.oy + y as u32) << c.level);
+                if dissolve_hash(dx, dy, node_id) < cov {
                     cov = 1.0;
                 } else {
                     continue;
@@ -497,6 +506,199 @@ fn draw(
     }
 }
 
+// ---------- draw program ----------
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Op {
+    Draw = 0,
+    PushTransparent = 1,
+    PushCopy = 2,
+    Pop = 3,
+    PopLerp = 4,
+    PushShape = 5,
+    DivShape = 6,
+    MulShape = 7,
+    SubBackdrop = 8,
+    PopAddBackdrop = 9,
+    PopShape = 10,
+}
+
+#[cfg(test)]
+const OPS: [Op; 11] = [
+    Op::Draw,
+    Op::PushTransparent,
+    Op::PushCopy,
+    Op::Pop,
+    Op::PopLerp,
+    Op::PushShape,
+    Op::DivShape,
+    Op::MulShape,
+    Op::SubBackdrop,
+    Op::PopAddBackdrop,
+    Op::PopShape,
+];
+
+/// One step; `src` 0 means the top of the stack (`Draw` pops it, `PushShape` reads it),
+/// `mask_kind` is 0 full, 1 `mask_const`, 2 the tile `mask`.
+struct Step {
+    op: Op,
+    src: u64,
+    mask: u64,
+    mask_kind: u8,
+    mask_const: f32,
+    scale: f32,
+    mode: Blend,
+    node: u32,
+}
+
+impl Step {
+    fn new(op: Op) -> Step {
+        Step { op, src: 0, mask: 0, mask_kind: 0, mask_const: 0.0, scale: 1.0, mode: Blend::Normal, node: 0 }
+    }
+}
+
+/// The ordered stack-machine ops for one display tile plus the level tiles they reference.
+/// Binary layout (docs/M1.md section 3): 32-byte header, `steps` 32-byte records, then for each
+/// payload a u64 key, u32 kind (0 RGBA8, 1 mask8), u32 byte length and that many bytes.
+struct Program {
+    level: u32,
+    tx: u32,
+    ty: u32,
+    ox: u32,
+    oy: u32,
+    vw: usize,
+    vh: usize,
+    steps: Vec<Step>,
+    payloads: Vec<(u64, Arc<Pixels>)>,
+}
+
+fn put32(out: &mut Vec<u8>, v: u32) {
+    out.extend_from_slice(&v.to_le_bytes());
+}
+
+fn put64(out: &mut Vec<u8>, v: u64) {
+    out.extend_from_slice(&v.to_le_bytes());
+}
+
+impl Program {
+    fn encode(&self, known: &[u64]) -> Vec<u8> {
+        let send: Vec<&(u64, Arc<Pixels>)> = self.payloads.iter().filter(|(k, _)| !known.contains(k)).collect();
+        let mut out = Vec::with_capacity(32 + self.steps.len() * 32 + send.len() * TILE_BYTES_U8);
+        for v in [1, self.level, self.ox, self.oy, self.vw as u32, self.vh as u32, self.steps.len() as u32, send.len() as u32] {
+            put32(&mut out, v);
+        }
+        for s in &self.steps {
+            out.extend_from_slice(&[s.op as u8, s.mask_kind, s.mode.index(), 0]);
+            put32(&mut out, s.node);
+            out.extend_from_slice(&s.scale.to_le_bytes());
+            out.extend_from_slice(&s.mask_const.to_le_bytes());
+            put64(&mut out, s.src);
+            put64(&mut out, s.mask);
+        }
+        for (key, px) in send {
+            let bytes = px.to_bytes();
+            put64(&mut out, *key);
+            put32(&mut out, u32::from(matches!(px.as_ref(), Pixels::Mask8(_) | Pixels::Mask16(_))));
+            put32(&mut out, bytes.len() as u32);
+            out.extend_from_slice(&bytes);
+        }
+        out
+    }
+
+    #[cfg(test)]
+    fn decode(b: &[u8]) -> Program {
+        let u32at = |o: usize| u32::from_le_bytes(b[o..o + 4].try_into().unwrap());
+        let u64at = |o: usize| u64::from_le_bytes(b[o..o + 8].try_into().unwrap());
+        let f32at = |o: usize| f32::from_le_bytes(b[o..o + 4].try_into().unwrap());
+        assert_eq!(u32at(0), 1, "program version");
+        let (n_steps, n_payloads) = (u32at(24) as usize, u32at(28) as usize);
+        let steps = (0..n_steps)
+            .map(|i| {
+                let o = 32 + i * 32;
+                Step {
+                    op: OPS[b[o] as usize],
+                    mask_kind: b[o + 1],
+                    mode: Blend::from_index(b[o + 2]).expect("a known blend mode"),
+                    node: u32at(o + 4),
+                    scale: f32at(o + 8),
+                    mask_const: f32at(o + 12),
+                    src: u64at(o + 16),
+                    mask: u64at(o + 24),
+                }
+            })
+            .collect();
+        let mut o = 32 + n_steps * 32;
+        let mut payloads = Vec::new();
+        for _ in 0..n_payloads {
+            let (key, kind, len) = (u64at(o), u32at(o + 8), u32at(o + 12) as usize);
+            let px = Pixels::from_bytes(8, kind == 1, &b[o + 16..o + 16 + len]).expect("payload bytes");
+            payloads.push((key, Arc::new(px)));
+            o += 16 + len;
+        }
+        Program {
+            level: u32at(4),
+            tx: 0,
+            ty: 0,
+            ox: u32at(8),
+            oy: u32at(12),
+            vw: u32at(16) as usize,
+            vh: u32at(20) as usize,
+            steps,
+            payloads,
+        }
+    }
+}
+
+/// Reduced display tiles, bounded by bytes. Eviction takes the lowest level first (rebuilding a
+/// level-1 tile costs one reduction, a level-5 tile its whole subtree), then the least recently used.
+#[derive(Default)]
+struct TileCache {
+    map: HashMap<u64, (Arc<Pixels>, u32, u64)>,
+    bytes: usize,
+    clock: u64,
+}
+
+const CACHE_BYTES: usize = 256 << 20;
+
+impl TileCache {
+    fn get(&mut self, key: u64) -> Option<Arc<Pixels>> {
+        self.clock += 1;
+        let clock = self.clock;
+        let e = self.map.get_mut(&key)?;
+        e.2 = clock;
+        Some(e.0.clone())
+    }
+
+    fn insert(&mut self, key: u64, px: Arc<Pixels>, level: u32) {
+        self.clock += 1;
+        self.bytes += px.byte_len();
+        if let Some(old) = self.map.insert(key, (px, level, self.clock)) {
+            self.bytes -= old.0.byte_len();
+        }
+        if self.bytes <= CACHE_BYTES {
+            return;
+        }
+        let mut order: Vec<(u32, u64, u64)> = self.map.iter().map(|(k, (_, l, u))| (*l, *u, *k)).collect();
+        order.sort_unstable();
+        for (_, _, k) in order {
+            if self.bytes * 4 <= CACHE_BYTES * 3 {
+                break;
+            }
+            if let Some(old) = self.map.remove(&k) {
+                self.bytes -= old.0.byte_len();
+            }
+        }
+    }
+}
+
+// A 64-bit mixer for content keys (splitmix64 finalizer).
+fn mix(h: u64, v: u64) -> u64 {
+    let mut z = h ^ v.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^ (z >> 31)
+}
+
 impl Document {
     pub fn new(width: u32, height: u32, depth: u8) -> Result<Document, String> {
         validate_dims(width, height, depth)?;
@@ -509,6 +711,7 @@ impl Document {
             next_id: 1,
             next_node_id: 2,
             loading: None,
+            tile_cache: Arc::new(RefCell::new(TileCache::default())),
         })
     }
 
@@ -988,105 +1191,282 @@ impl Document {
         Ok(())
     }
 
-    // ---------- compositing ----------
+    // ---------- level pyramid ----------
 
-    fn node_src<'a>(&'a self, node: &'a Node, c: &TileCtx) -> SrcOwned<'a> {
-        match &node.kind {
-            Kind::Pixel(tiles) => match &tiles[c.slot] {
-                Some(t) => SrcOwned::Tile(&t.px),
-                None => SrcOwned::Empty,
-            },
-            Kind::Group(children) => {
-                let mut g = vec![0f32; TILE_PIXELS * 4];
-                self.composite_list(children, &mut g, c);
-                SrcOwned::Buf(g)
-            }
-        }
+    /// Document size in level-`level` pixels.
+    fn level_size(&self, level: u32) -> (u32, u32) {
+        (self.width.div_ceil(1 << level), self.height.div_ceil(1 << level))
     }
 
-    fn draw_node(&self, node: &Node, dst: &mut [f32], c: &TileCtx, scale: f32, mode: Blend) {
-        let m = mask_src(node, self.depth, c.slot);
-        if mode == Blend::PassThrough {
-            let Kind::Group(children) = &node.kind else { return };
-            let mut r = dst.to_vec();
-            self.composite_list(children, &mut r, c);
-            for y in 0..c.vh {
-                for x in 0..c.vw {
-                    let p = y * TILE + x;
-                    let k = scale * m.at(p);
-                    if k <= 0.0 {
-                        continue;
-                    }
-                    let o = p * 4;
-                    for ch in 0..4 {
-                        dst[o + ch] += (r[o + ch] - dst[o + ch]) * k;
+    fn level_tiles(&self, level: u32) -> (u32, u32) {
+        let (w, h) = self.level_size(level);
+        (tiles_for(w), tiles_for(h))
+    }
+
+    /// Valid (inside the document rect) level-`level` pixels of tile (tx, ty).
+    fn level_valid(&self, level: u32, tx: u32, ty: u32) -> (usize, usize) {
+        let (w, h) = self.level_size(level);
+        let v = |size: u32, t: u32| size.saturating_sub(t * TILE as u32).min(TILE as u32) as usize;
+        (v(w, tx), v(h, ty))
+    }
+
+    // A node's tile at `level`: level 0 is the stored tile, every higher level a lazily built
+    // 2x2 box average of the level below (premultiplied for pixels, plain for masks). The key is
+    // derived from the child keys, so an edit (which allocates new tile ids) yields a new key and
+    // the cache never serves stale content. Outside the document rect: transparent / mask default.
+    fn level_tile(
+        &self,
+        tiles: &[Option<Tile>],
+        mask_default: Option<u32>,
+        level: u32,
+        tx: u32,
+        ty: u32,
+    ) -> Option<(u64, Arc<Pixels>)> {
+        let (ntx, nty) = self.level_tiles(level);
+        if tx >= ntx || ty >= nty {
+            return None;
+        }
+        if level == 0 {
+            let t = tiles[(ty * ntx + tx) as usize].as_ref()?;
+            return Some((t.id, t.px.clone()));
+        }
+        let (key, empty) = self.footprint_key(tiles, mask_default, level, tx, ty);
+        if empty {
+            return None;
+        }
+        let hit = self.tile_cache.borrow_mut().get(key);
+        if let Some(px) = hit {
+            return Some((key, px));
+        }
+        let kids: [Option<(u64, Arc<Pixels>)>; 4] = std::array::from_fn(|q| {
+            self.level_tile(tiles, mask_default, level - 1, tx * 2 + (q as u32 & 1), ty * 2 + (q as u32 >> 1))
+        });
+        let valid: [(usize, usize); 4] = std::array::from_fn(|q| {
+            self.level_valid(level - 1, tx * 2 + (q as u32 & 1), ty * 2 + (q as u32 >> 1))
+        });
+        let px = Arc::new(self.reduce(&kids, &valid, mask_default));
+        self.tile_cache.borrow_mut().insert(key, px.clone(), level);
+        Some((key, px))
+    }
+
+    // The key mixes the level-0 tile ids under the tile, so a cache hit costs no rebuild of the
+    // subtree, and an edit (which always allocates a new tile id) misses. `empty` means no stored
+    // tile at all, which is a `None` tile at every level above it.
+    fn footprint_key(
+        &self,
+        tiles: &[Option<Tile>],
+        mask_default: Option<u32>,
+        level: u32,
+        tx: u32,
+        ty: u32,
+    ) -> (u64, bool) {
+        let (n0x, n0y) = self.level_tiles(0);
+        let n = 1u32 << level;
+        let mut key = mix(0x9E37_79B9_7F4A_7C15, level as u64);
+        key = mix(key, mask_default.map_or(u64::MAX, |d| d as u64));
+        let mut empty = true;
+        for j in 0..n {
+            for i in 0..n {
+                let (sx, sy) = (tx * n + i, ty * n + j);
+                let id = if sx < n0x && sy < n0y {
+                    tiles[(sy * n0x + sx) as usize].as_ref().map_or(0, |t| t.id)
+                } else {
+                    0
+                };
+                empty &= id == 0;
+                key = mix(key, id);
+            }
+        }
+        (key | (1 << 63), empty)
+    }
+
+    fn reduce(
+        &self,
+        kids: &[Option<(u64, Arc<Pixels>)>; 4],
+        valid: &[(usize, usize); 4],
+        mask_default: Option<u32>,
+    ) -> Pixels {
+        let max = max_value(self.depth);
+        let half = TILE / 2;
+        if let Some(def) = mask_default {
+            let def = def as f32 / max as f32;
+            let mut out = vec![def; TILE_PIXELS];
+            for q in 0..4 {
+                let (qx, qy) = (q & 1, q >> 1);
+                let (vw, vh) = valid[q];
+                let px = kids[q].as_ref().map(|(_, p)| p.clone());
+                for oy in 0..half {
+                    for ox in 0..half {
+                        let mut acc = 0.0;
+                        for dy in 0..2 {
+                            for dx in 0..2 {
+                                let (sx, sy) = (ox * 2 + dx, oy * 2 + dy);
+                                acc += match &px {
+                                    Some(p) if sx < vw && sy < vh => p.mask_f32(sy * TILE + sx),
+                                    _ => def,
+                                };
+                            }
+                        }
+                        out[(qy * half + oy) * TILE + qx * half + ox] = acc / 4.0;
                     }
                 }
             }
+            return Pixels::mask_from_norm(self.depth, &out);
+        }
+        let mut out = vec![0f32; TILE_PIXELS * 4];
+        for q in 0..4 {
+            let Some((_, px)) = &kids[q] else { continue };
+            let (qx, qy) = (q & 1, q >> 1);
+            let (vw, vh) = valid[q];
+            for oy in 0..half {
+                for ox in 0..half {
+                    let mut acc = [0f32; 4];
+                    for dy in 0..2 {
+                        for dx in 0..2 {
+                            let (sx, sy) = (ox * 2 + dx, oy * 2 + dy);
+                            if sx >= vw || sy >= vh {
+                                continue;
+                            }
+                            let [r, g, b, a] = px.rgba_f32(sy * TILE + sx);
+                            acc[0] += r * a;
+                            acc[1] += g * a;
+                            acc[2] += b * a;
+                            acc[3] += a;
+                        }
+                    }
+                    if acc[3] <= 0.0 {
+                        continue;
+                    }
+                    let inv = 1.0 / acc[3];
+                    let o = ((qy * half + oy) * TILE + qx * half + ox) * 4;
+                    out[o] = acc[0] * inv;
+                    out[o + 1] = acc[1] * inv;
+                    out[o + 2] = acc[2] * inv;
+                    out[o + 3] = acc[3] / 4.0;
+                }
+            }
+        }
+        Pixels::from_straight(self.depth, &out)
+    }
+
+    // ---------- draw program (M1.md section 3) ----------
+
+    fn payload(&self, prog: &mut Program, t: (u64, Arc<Pixels>)) -> u64 {
+        if !prog.payloads.iter().any(|(k, _)| *k == t.0) {
+            prog.payloads.push(t.clone());
+        }
+        t.0
+    }
+
+    fn node_tile(&self, node: &Node, prog: &mut Program) -> Option<u64> {
+        let Kind::Pixel(tiles) = &node.kind else { return None };
+        let t = self.level_tile(tiles, None, prog.level, prog.tx, prog.ty)?;
+        Some(self.payload(prog, t))
+    }
+
+    // (kind, tile key, const value) matching `MaskSrc`.
+    fn node_mask(&self, node: &Node, prog: &mut Program) -> (u8, u64, f32) {
+        match &node.mask {
+            Some(m) if m.enabled => {
+                match self.level_tile(&m.tiles, Some(m.default), prog.level, prog.tx, prog.ty) {
+                    Some(t) => (2, self.payload(prog, t), 0.0),
+                    None => (1, 0, m.default as f32 / max_value(self.depth) as f32),
+                }
+            }
+            _ => (0, 0, 0.0),
+        }
+    }
+
+    fn emit_node(&self, node: &Node, scale: f32, mode: Blend, prog: &mut Program) {
+        let (mk, mkey, mc) = self.node_mask(node, prog);
+        if mode == Blend::PassThrough {
+            let Kind::Group(children) = &node.kind else { return };
+            prog.steps.push(Step::new(Op::PushCopy));
+            self.emit_list(children, prog);
+            let mut s = Step::new(Op::PopLerp);
+            (s.mask_kind, s.mask, s.mask_const, s.scale) = (mk, mkey, mc, scale);
+            prog.steps.push(s);
             return;
         }
-        let owned = self.node_src(node, c);
-        let Some(src) = owned.as_src() else { return };
-        draw(dst, src, &m, scale, mode, node.id, c);
+        let src = match &node.kind {
+            Kind::Pixel(_) => match self.node_tile(node, prog) {
+                Some(k) => k,
+                None => return,
+            },
+            Kind::Group(children) => {
+                prog.steps.push(Step::new(Op::PushTransparent));
+                self.emit_list(children, prog);
+                0
+            }
+        };
+        let mut s = Step::new(Op::Draw);
+        (s.src, s.mask_kind, s.mask, s.mask_const, s.scale, s.mode, s.node) =
+            (src, mk, mkey, mc, scale, mode, node.id);
+        prog.steps.push(s);
     }
 
     // A clipping group: base B plus the consecutive clipped nodes above it (M1.md section 3).
     // S is B's coverage. B's share of each pixel is divided by S, the clipped nodes draw onto it
     // normally, and the result is multiplied by S again (source-atop at full fill).
-    fn draw_clipping_group(&self, base: &Node, clipped: &[Node], dst: &mut [f32], c: &TileCtx) {
-        let bmask = mask_src(base, self.depth, c.slot);
-        let owned = self.node_src(base, c);
-        let Some(bsrc) = owned.as_src() else { return };
+    fn emit_clipping(&self, base: &Node, clipped: &[Node], prog: &mut Program) {
+        let (mk, mkey, mc) = self.node_mask(base, prog);
         let pass = base.blend == Blend::PassThrough;
         // A pass-through base stays in place, so its opacity and fill are part of its share.
         let k = if pass { base.opacity * base.fill } else { 1.0 };
-        let mut shape = vec![0f32; TILE_PIXELS];
-        for y in 0..c.vh {
-            for x in 0..c.vw {
-                let p = y * TILE + x;
-                shape[p] = bsrc.at(p)[3] * bmask.at(p) * k;
+        let mut shape = Step::new(Op::PushShape);
+        (shape.mask_kind, shape.mask, shape.mask_const, shape.scale) = (mk, mkey, mc, k);
+        match &base.kind {
+            Kind::Pixel(_) => {
+                let Some(src) = self.node_tile(base, prog) else { return };
+                shape.src = src;
+                prog.steps.push(shape);
+                prog.steps.push(Step::new(Op::PushTransparent));
+                let mut s = Step::new(Op::Draw);
+                (s.src, s.mask_kind, s.mask, s.mask_const, s.scale, s.node) =
+                    (src, mk, mkey, mc, base.fill, base.id);
+                prog.steps.push(s);
+            }
+            Kind::Group(children) if !pass => {
+                prog.steps.push(Step::new(Op::PushTransparent)); // the group's share
+                prog.steps.push(Step::new(Op::PushTransparent)); // the base composited alone
+                self.emit_list(children, prog);
+                prog.steps.push(shape);
+                let mut s = Step::new(Op::Draw);
+                (s.mask_kind, s.mask, s.mask_const, s.scale, s.node) = (mk, mkey, mc, base.fill, base.id);
+                prog.steps.push(s);
+            }
+            Kind::Group(children) => {
+                prog.steps.push(Step::new(Op::PushTransparent));
+                self.emit_list(children, prog);
+                prog.steps.push(shape);
+                prog.steps.push(Step::new(Op::Pop));
+                prog.steps.push(Step::new(Op::PushCopy)); // the in-place result
+                prog.steps.push(Step::new(Op::PushCopy));
+                self.emit_list(children, prog);
+                let mut s = Step::new(Op::PopLerp);
+                (s.mask_kind, s.mask, s.mask_const, s.scale) = (mk, mkey, mc, k);
+                prog.steps.push(s);
+                prog.steps.push(Step::new(Op::SubBackdrop));
             }
         }
-        let before = if pass { Some(dst.to_vec()) } else { None };
-        let mut g = vec![0f32; TILE_PIXELS * 4];
-        match &before {
-            Some(b) => {
-                self.draw_node(base, dst, c, k, Blend::PassThrough);
-                for p in 0..TILE_PIXELS {
-                    for ch in 0..4 {
-                        let o = p * 4 + ch;
-                        g[o] = dst[o] - (1.0 - shape[p]) * b[o];
-                    }
-                }
-            }
-            None => draw(&mut g, bsrc, &bmask, base.fill, Blend::Normal, base.id, c),
-        }
-        for p in 0..TILE_PIXELS {
-            let inv = if shape[p] > 0.0 { 1.0 / shape[p] } else { 0.0 };
-            g[p * 4..p * 4 + 4].iter_mut().for_each(|v| *v *= inv);
-        }
+        prog.steps.push(Step::new(Op::DivShape));
         for n in clipped {
             if n.visible && n.opacity > 0.0 {
-                self.draw_node(n, &mut g, c, n.opacity * n.fill, n.blend);
+                self.emit_node(n, n.opacity * n.fill, n.blend, prog);
             }
         }
-        for p in 0..TILE_PIXELS {
-            g[p * 4..p * 4 + 4].iter_mut().for_each(|v| *v *= shape[p]);
+        prog.steps.push(Step::new(Op::MulShape));
+        if pass {
+            prog.steps.push(Step::new(Op::PopAddBackdrop));
+        } else {
+            let mut s = Step::new(Op::Draw);
+            (s.scale, s.mode, s.node) = (base.opacity, base.blend, base.id);
+            prog.steps.push(s);
         }
-        match &before {
-            Some(b) => {
-                for p in 0..TILE_PIXELS {
-                    for ch in 0..4 {
-                        let o = p * 4 + ch;
-                        dst[o] = (1.0 - shape[p]) * b[o] + g[o];
-                    }
-                }
-            }
-            None => draw(dst, Src::Buf(&g), &MaskSrc::Full, base.opacity, base.blend, base.id, c),
-        }
+        prog.steps.push(Step::new(Op::PopShape));
     }
 
-    fn composite_list(&self, nodes: &[Node], dst: &mut [f32], c: &TileCtx) {
+    fn emit_list(&self, nodes: &[Node], prog: &mut Program) {
         let mut i = 0;
         while i < nodes.len() {
             let mut j = i + 1;
@@ -1096,108 +1476,196 @@ impl Document {
             let base = &nodes[i];
             if j == i + 1 {
                 if base.visible && base.opacity > 0.0 {
-                    self.draw_node(base, dst, c, base.opacity * base.fill, base.blend);
+                    self.emit_node(base, base.opacity * base.fill, base.blend, prog);
                 }
             } else if base.visible {
-                self.draw_clipping_group(base, &nodes[i + 1..j], dst, c);
+                self.emit_clipping(base, &nodes[i + 1..j], prog);
             }
             i = j;
         }
     }
 
-    fn list_has_content(nodes: &[Node], slot: usize) -> bool {
-        nodes.iter().any(|n| {
-            n.visible
-                && n.opacity > 0.0
-                && match &n.kind {
-                    Kind::Pixel(tiles) => tiles[slot].is_some(),
-                    Kind::Group(ch) => Document::list_has_content(ch, slot),
-                }
-        })
+    /// The ordered draw program for one display tile, with the level tiles it references.
+    fn program(&self, level: u32, tx: u32, ty: u32) -> Result<Program, String> {
+        if level > 8 {
+            return Err("level must be <= 8".into());
+        }
+        let (vw, vh) = self.level_valid(level, tx, ty);
+        let mut prog = Program {
+            level,
+            tx,
+            ty,
+            ox: tx * TILE as u32,
+            oy: ty * TILE as u32,
+            vw,
+            vh,
+            steps: Vec::new(),
+            payloads: Vec::new(),
+        };
+        self.emit_list(&self.nodes, &mut prog);
+        Ok(prog)
     }
 
-    fn slot_has_visible_tile(&self, tx: u32, ty: u32) -> bool {
-        let slot = (ty * self.tiles_x() + tx) as usize;
-        Document::list_has_content(&self.nodes, slot)
+    /// One display tile as premultiplied f32 RGBA, by running its draw program.
+    fn run_program(prog: &Program) -> Vec<f32> {
+        let tiles: HashMap<u64, &Pixels> = prog.payloads.iter().map(|(k, p)| (*k, p.as_ref())).collect();
+        let c = TileCtx { level: prog.level, ox: prog.ox, oy: prog.oy, vw: prog.vw, vh: prog.vh };
+        let mut stack: Vec<Vec<f32>> = vec![vec![0f32; TILE_PIXELS * 4]];
+        let mut shapes: Vec<Vec<f32>> = Vec::new();
+        for s in &prog.steps {
+            let mask = match s.mask_kind {
+                1 => MaskSrc::Const(s.mask_const),
+                2 => MaskSrc::Tile(tiles[&s.mask]),
+                _ => MaskSrc::Full,
+            };
+            match s.op {
+                Op::PushTransparent => stack.push(vec![0f32; TILE_PIXELS * 4]),
+                Op::PushCopy => {
+                    let top = stack.last().expect("stack is never empty").clone();
+                    stack.push(top);
+                }
+                Op::Pop => {
+                    stack.pop();
+                }
+                Op::Draw => {
+                    if s.src != 0 {
+                        let src = Src::Tile(tiles[&s.src]);
+                        draw(stack.last_mut().expect("stack"), src, &mask, s.scale, s.mode, s.node, &c);
+                    } else {
+                        let g = stack.pop().expect("stack");
+                        let dst = stack.last_mut().expect("stack");
+                        draw(dst, Src::Buf(&g), &mask, s.scale, s.mode, s.node, &c);
+                    }
+                }
+                Op::PopLerp => {
+                    let r = stack.pop().expect("stack");
+                    let dst = stack.last_mut().expect("stack");
+                    for y in 0..c.vh {
+                        for x in 0..c.vw {
+                            let p = y * TILE + x;
+                            let k = s.scale * mask.at(p);
+                            if k <= 0.0 {
+                                continue;
+                            }
+                            let o = p * 4;
+                            for ch in 0..4 {
+                                dst[o + ch] += (r[o + ch] - dst[o + ch]) * k;
+                            }
+                        }
+                    }
+                }
+                Op::PushShape => {
+                    let src = if s.src != 0 {
+                        Src::Tile(tiles[&s.src])
+                    } else {
+                        Src::Buf(stack.last().expect("stack"))
+                    };
+                    let mut shape = vec![0f32; TILE_PIXELS];
+                    for y in 0..c.vh {
+                        for x in 0..c.vw {
+                            let p = y * TILE + x;
+                            shape[p] = src.at(p)[3] * mask.at(p) * s.scale;
+                        }
+                    }
+                    shapes.push(shape);
+                }
+                Op::DivShape | Op::MulShape => {
+                    let shape = shapes.last().expect("shape stack");
+                    let dst = stack.last_mut().expect("stack");
+                    for p in 0..TILE_PIXELS {
+                        let f = match s.op {
+                            Op::MulShape => shape[p],
+                            _ if shape[p] > 0.0 => 1.0 / shape[p],
+                            _ => 0.0,
+                        };
+                        dst[p * 4..p * 4 + 4].iter_mut().for_each(|v| *v *= f);
+                    }
+                }
+                Op::SubBackdrop => {
+                    let shape = shapes.last().expect("shape stack");
+                    let (dst, rest) = stack.split_last_mut().expect("stack");
+                    let back = rest.last().expect("a backdrop below the top");
+                    for p in 0..TILE_PIXELS {
+                        for ch in 0..4 {
+                            let o = p * 4 + ch;
+                            dst[o] -= (1.0 - shape[p]) * back[o];
+                        }
+                    }
+                }
+                Op::PopAddBackdrop => {
+                    let shape = shapes.last().expect("shape stack");
+                    let g = stack.pop().expect("stack");
+                    let dst = stack.last_mut().expect("stack");
+                    for p in 0..TILE_PIXELS {
+                        for ch in 0..4 {
+                            let o = p * 4 + ch;
+                            dst[o] = (1.0 - shape[p]) * dst[o] + g[o];
+                        }
+                    }
+                }
+                Op::PopShape => {
+                    shapes.pop();
+                }
+            }
+        }
+        stack.pop().expect("the program leaves exactly the destination")
     }
+
+    // ---------- compositing ----------
 
     // Composites one level-0 tile bottom-to-top into a premultiplied f32 buffer.
     // Pixels outside the document rect (in an edge tile) are left as 0 (transparent).
     fn composite_tile_premul(&self, tx: u32, ty: u32) -> Vec<f32> {
-        let mut out = vec![0f32; TILE_PIXELS * 4];
-        let c = TileCtx {
-            slot: (ty * self.tiles_x() + tx) as usize,
-            ox: tx * TILE as u32,
-            oy: ty * TILE as u32,
-            vw: ((self.width - tx * TILE as u32).min(TILE as u32)) as usize,
-            vh: ((self.height - ty * TILE as u32).min(TILE as u32)) as usize,
-        };
-        self.composite_list(&self.nodes, &mut out, &c);
-        out
+        Document::run_program(&self.program(0, tx, ty).expect("level 0 is valid"))
     }
 
+    /// The level-`level` display tile as premultiplied RGBA8, or None when it is fully
+    /// transparent. Level 0 is exact; higher levels composite the layers' pyramid tiles.
     pub fn display_tile(&self, level: u32, tx: u32, ty: u32) -> Result<Option<Vec<u8>>, String> {
-        if level > 8 {
-            return Err("level must be <= 8".into());
-        }
-        let n = 1u32 << level;
-        let sub = (TILE as u32) >> level;
-        let tiles_x = self.tiles_x();
-        let tiles_y = self.tiles_y();
-        let mut out = vec![0f32; TILE_PIXELS * 4];
-        for lj in 0..n {
-            let sy = ty * n + lj;
-            if sy >= tiles_y {
-                continue;
-            }
-            for li in 0..n {
-                let sx = tx * n + li;
-                if sx >= tiles_x || !self.slot_has_visible_tile(sx, sy) {
-                    continue;
-                }
-                let src = self.composite_tile_premul(sx, sy);
-                let cnt = (n * n) as f32;
-                for oy in 0..sub {
-                    for ox in 0..sub {
-                        let mut acc = [0f32; 4];
-                        for dy in 0..n {
-                            for dx in 0..n {
-                                let spx = (oy * n + dy) as usize * TILE + (ox * n + dx) as usize;
-                                let o = spx * 4;
-                                acc[0] += src[o];
-                                acc[1] += src[o + 1];
-                                acc[2] += src[o + 2];
-                                acc[3] += src[o + 3];
-                            }
-                        }
-                        let ooy = (lj * sub + oy) as usize;
-                        let oox = (li * sub + ox) as usize;
-                        let oo = (ooy * TILE + oox) * 4;
-                        out[oo] = acc[0] / cnt;
-                        out[oo + 1] = acc[1] / cnt;
-                        out[oo + 2] = acc[2] / cnt;
-                        out[oo + 3] = acc[3] / cnt;
-                    }
-                }
-            }
-        }
-        let mut bytes = vec![0u8; TILE_BYTES_U8];
-        let mut any_alpha = false;
-        for p in 0..TILE_PIXELS {
-            let o = p * 4;
-            for c in 0..4 {
-                bytes[o + c] = (out[o + c] * 255.0).round().clamp(0.0, 255.0) as u8;
-            }
-            if bytes[o + 3] != 0 {
-                any_alpha = true;
-            }
-        }
-        if !any_alpha {
-            return Ok(None);
-        }
-        Ok(Some(bytes))
+        Ok(quantize_premul(&Document::run_program(&self.program(level, tx, ty)?)))
     }
 
+    /// The encoded draw program for one display tile (8-bit documents only). `known` lists
+    /// payload keys the caller already has; their bytes are left out. See `Program` for the layout.
+    pub fn display_program(&self, level: u32, tx: u32, ty: u32, known: &[u64]) -> Result<Vec<u8>, String> {
+        if self.depth != 8 {
+            return Err("draw programs need an 8-bit document".into());
+        }
+        Ok(self.program(level, tx, ty)?.encode(known))
+    }
+
+    #[cfg(test)]
+    fn level_tile_bytes(&self, id: u32, mask: bool, level: u32, tx: u32, ty: u32) -> Option<Vec<u8>> {
+        let node = self.node(id).unwrap();
+        let t = if mask {
+            let m = node.mask.as_ref().unwrap();
+            self.level_tile(&m.tiles, Some(m.default), level, tx, ty)?
+        } else {
+            self.level_tile(node.pixel_tiles().unwrap(), None, level, tx, ty)?
+        };
+        Some(t.1.to_bytes())
+    }
+}
+
+fn quantize_premul(out: &[f32]) -> Option<Vec<u8>> {
+    let mut bytes = vec![0u8; TILE_BYTES_U8];
+    let mut any_alpha = false;
+    for p in 0..TILE_PIXELS {
+        let o = p * 4;
+        for c in 0..4 {
+            bytes[o + c] = (out[o + c] * 255.0).round().clamp(0.0, 255.0) as u8;
+        }
+        if bytes[o + 3] != 0 {
+            any_alpha = true;
+        }
+    }
+    if !any_alpha {
+        return None;
+    }
+    Some(bytes)
+}
+
+impl Document {
     pub fn flatten_tile_rgba8(&self, tx: u32, ty: u32) -> Result<Vec<u8>, String> {
         self.check_tile_coord(tx, ty)?;
         let premul = self.composite_tile_premul(tx, ty);
@@ -1379,6 +1847,7 @@ impl Document {
                 pending_ids,
                 max_referenced_id: ctx.max_referenced_id,
             }),
+            tile_cache: Arc::new(RefCell::new(TileCache::default())),
         })
     }
 
@@ -1721,6 +2190,7 @@ impl EngineCore {
 mod tests {
     use super::*;
     use serde_json::Value;
+    use crate::blend::BLEND_NAMES;
 
     fn rgba(r: u8, g: u8, b: u8, a: u8) -> Vec<u8> {
         let mut v = vec![0u8; TILE_BYTES_U8];
@@ -2603,6 +3073,298 @@ mod tests {
         l.finish_load().unwrap();
         assert_eq!(l.manifest(), manifest, "the tree survives a refused command");
         l.set_props(1, r#"{"visible":false}"#).unwrap();
+    }
+
+    // ---------- pyramid, display levels and draw program ----------
+
+    fn pattern(seed: u32, tx: u32, ty: u32) -> Vec<u8> {
+        let mut v = vec![0u8; TILE_BYTES_U8];
+        let s = seed as usize;
+        for y in 0..TILE {
+            for x in 0..TILE {
+                let gx = tx as usize * TILE + x;
+                let gy = ty as usize * TILE + y;
+                let o = (y * TILE + x) * 4;
+                v[o] = (gx * 3 + s * 17) as u8;
+                v[o + 1] = (gy * 5 + s * 29) as u8;
+                v[o + 2] = ((gx ^ gy) as u8) ^ (s as u8);
+                v[o + 3] = (((gx / 7 + gy / 5 + s) % 5) * 60) as u8;
+            }
+        }
+        v
+    }
+
+    fn mask_pattern(seed: u32, tx: u32, ty: u32) -> Vec<u8> {
+        let mut v = vec![0u8; MASK_BYTES_U8];
+        let s = seed as usize;
+        for y in 0..TILE {
+            for x in 0..TILE {
+                let gx = tx as usize * TILE + x;
+                let gy = ty as usize * TILE + y;
+                v[y * TILE + x] = (gx * 2 + gy * 3 + s * 11) as u8;
+            }
+        }
+        v
+    }
+
+    fn paint(d: &mut Document, id: u32, seed: u32) {
+        for ty in 0..d.tiles_y() {
+            for tx in 0..d.tiles_x() {
+                d.set_tile_rgba8(id, tx, ty, &pattern(seed, tx, ty)).unwrap();
+            }
+        }
+    }
+
+    // A mask with a painted first tile and the reveal default everywhere else.
+    fn paint_mask(d: &mut Document, id: u32, seed: u32) {
+        d.add_mask(id, true).unwrap();
+        d.set_mask_tile8(id, 0, 0, &mask_pattern(seed, 0, 0)).unwrap();
+        let (tx, ty) = (d.tiles_x() - 1, d.tiles_y() - 1);
+        d.set_mask_tile8(id, tx, ty, &mask_pattern(seed, tx, ty)).unwrap();
+    }
+
+    fn add_painted(d: &mut Document, above: &mut u32, name: &str, seed: u32) -> u32 {
+        let id = d.add_layer(name, *above).unwrap();
+        paint(d, id, seed);
+        *above = id;
+        id
+    }
+
+    // Every blend mode, dissolve, masks, nested groups, a pass-through group with
+    // fill < 1, and clipping groups with a pixel, group, pass-through and hidden base.
+    fn program_doc() -> Document {
+        let mut d = Document::new(600, 300, 8).unwrap();
+        paint(&mut d, 1, 1);
+        // clipping on the lowest node is ignored
+        set(&mut d, 1, r#"{"clipping":true}"#);
+        let mut above = 1;
+        for (i, (_, name)) in BLEND_NAMES.iter().enumerate() {
+            if *name == "pass through" {
+                continue;
+            }
+            let id = add_painted(&mut d, &mut above, name, i as u32 + 2);
+            set(&mut d, id, &format!(r#"{{"blend":"{name}","opacity":0.7,"fill":0.9}}"#));
+        }
+
+        let a = add_painted(&mut d, &mut above, "ga", 40);
+        let b = add_painted(&mut d, &mut above, "gb", 41);
+        set(&mut d, b, r#"{"blend":"screen"}"#);
+        let g = d.group_nodes(&[a, b]).unwrap();
+        set(&mut d, g, r#"{"blend":"multiply","opacity":0.8,"fill":0.6}"#);
+        paint_mask(&mut d, g, 7);
+        above = g;
+
+        let n1 = add_painted(&mut d, &mut above, "n1", 42);
+        let n2 = add_painted(&mut d, &mut above, "n2", 43);
+        let inner = d.group_nodes(&[n2]).unwrap();
+        set(&mut d, inner, r#"{"blend":"normal","opacity":0.9}"#);
+        let outer = d.group_nodes(&[n1, inner]).unwrap();
+        set(&mut d, outer, r#"{"blend":"pass through","opacity":0.8,"fill":0.5}"#);
+        paint_mask(&mut d, outer, 8);
+        above = outer;
+
+        let pb = add_painted(&mut d, &mut above, "pixbase", 50);
+        set(&mut d, pb, r#"{"blend":"overlay","opacity":0.9,"fill":0.8}"#);
+        paint_mask(&mut d, pb, 9);
+        let pc1 = add_painted(&mut d, &mut above, "clip1", 51);
+        set(&mut d, pc1, r#"{"clipping":true,"blend":"multiply","opacity":0.8,"fill":0.7}"#);
+        let pc2 = add_painted(&mut d, &mut above, "clip2", 52);
+        set(&mut d, pc2, r#"{"clipping":true}"#);
+        paint_mask(&mut d, pc2, 10);
+
+        let gb1 = add_painted(&mut d, &mut above, "gb1", 53);
+        let gb2 = add_painted(&mut d, &mut above, "gb2", 54);
+        let gbase = d.group_nodes(&[gb1, gb2]).unwrap();
+        set(&mut d, gbase, r#"{"blend":"hard light","opacity":0.9,"fill":0.7}"#);
+        paint_mask(&mut d, gbase, 11);
+        above = gbase;
+        let gc = add_painted(&mut d, &mut above, "gclip", 55);
+        set(&mut d, gc, r#"{"clipping":true,"blend":"color dodge"}"#);
+
+        let pt1 = add_painted(&mut d, &mut above, "pt1", 56);
+        let ptbase = d.group_nodes(&[pt1]).unwrap();
+        set(&mut d, ptbase, r#"{"blend":"pass through","opacity":0.8,"fill":0.6}"#);
+        paint_mask(&mut d, ptbase, 12);
+        above = ptbase;
+        let ptc = add_painted(&mut d, &mut above, "ptclip", 57);
+        set(&mut d, ptc, r#"{"clipping":true,"blend":"difference","opacity":0.9}"#);
+
+        let hb = add_painted(&mut d, &mut above, "hidden", 58);
+        set(&mut d, hb, r#"{"visible":false}"#);
+        let hc = add_painted(&mut d, &mut above, "hidclip", 59);
+        set(&mut d, hc, r#"{"clipping":true}"#);
+        d
+    }
+
+    fn fnv(bytes: &[u8], mut h: u64) -> u64 {
+        for b in bytes {
+            h ^= *b as u64;
+            h = h.wrapping_mul(0x100_0000_01b3);
+        }
+        h
+    }
+
+    fn scene_checksum(d: &Document) -> u64 {
+        let mut h = 0xcbf2_9ce4_8422_2325u64;
+        for ty in 0..d.tiles_y() {
+            for tx in 0..d.tiles_x() {
+                h = fnv(&d.flatten_tile_rgba8(tx, ty).unwrap(), h);
+                h = match d.display_tile(0, tx, ty).unwrap() {
+                    Some(b) => fnv(&b, h),
+                    None => fnv(&[0], h),
+                };
+            }
+        }
+        h
+    }
+
+    // Four source pixels at the top-left corner; the rest of the tile stays transparent.
+    fn corner_doc() -> Document {
+        let mut d = Document::new(1024, 1024, 8).unwrap();
+        let mut t = vec![0u8; TILE_BYTES_U8];
+        t[4..8].copy_from_slice(&[200, 100, 50, 255]);
+        let row = TILE * 4;
+        t[row..row + 4].copy_from_slice(&[100, 255, 0, 128]);
+        t[row + 4..row + 8].copy_from_slice(&[40, 60, 80, 64]);
+        d.set_tile_rgba8(1, 0, 0, &t).unwrap();
+        d
+    }
+
+    #[test]
+    fn pyramid_box_averages_premultiplied() {
+        let d = corner_doc();
+        // (0,0,0,0), (200,100,50,255), (100,255,0,128), (40,60,80,64):
+        // premultiplied sums 66360 / 61980 / 17870 over alpha sum 447, alpha 447/4.
+        let l1 = d.level_tile_bytes(1, false, 1, 0, 0).unwrap();
+        assert_eq!(&l1[0..4], &[148, 139, 40, 112]);
+        assert_eq!(&l1[4..8], &[0, 0, 0, 0], "the neighbouring 2x2 block is empty");
+        // Level 2 averages one opaque-ish sample with three empty ones: color kept, alpha / 4.
+        let l2 = d.level_tile_bytes(1, false, 2, 0, 0).unwrap();
+        assert_eq!(&l2[0..4], &[148, 139, 40, 28]);
+        assert!(d.level_tile_bytes(1, false, 1, 1, 0).is_none(), "an all-empty 2x2 stays None");
+    }
+
+    #[test]
+    fn pyramid_masks_average_and_keep_the_default() {
+        let mut d = corner_doc();
+        d.add_mask(1, true).unwrap();
+        let mut m = vec![0u8; MASK_BYTES_U8];
+        m[1] = 100;
+        m[TILE] = 200;
+        m[TILE + 1] = 255;
+        d.set_mask_tile8(1, 0, 0, &m).unwrap();
+        let l1 = d.level_tile_bytes(1, true, 1, 0, 0).unwrap();
+        assert_eq!(l1[0], 139, "(0 + 100 + 200 + 255) / 4");
+        assert_eq!(l1[1], 0);
+        assert!(d.level_tile_bytes(1, true, 1, 1, 0).is_none(), "a missing mask tile stays the default");
+    }
+
+    #[test]
+    fn pyramid_follows_edits_and_snapshot_restore() {
+        let mut d = Document::new(512, 512, 8).unwrap();
+        d.fill(1, Target::Pixels, 255, 255, 255, 255).unwrap();
+        let white = d.display_tile(1, 0, 0).unwrap().unwrap();
+        assert_eq!(&white[0..4], &[255, 255, 255, 255]);
+        let mut e = EngineCore::new(d);
+        let snap = e.snapshot();
+        e.doc.fill(1, Target::Pixels, 0, 0, 0, 255).unwrap();
+        let black = e.doc.display_tile(1, 0, 0).unwrap().unwrap();
+        assert_eq!(&black[0..4], &[0, 0, 0, 255], "an edit shows at level 1");
+        e.restore(snap).unwrap();
+        assert_eq!(e.doc.display_tile(1, 0, 0).unwrap().unwrap(), white, "restore shows at level 1");
+    }
+
+    fn payload_keys(b: &[u8]) -> Vec<u64> {
+        let u32at = |o: usize| u32::from_le_bytes(b[o..o + 4].try_into().unwrap());
+        let mut o = 32 + u32at(24) as usize * 32;
+        let mut keys = Vec::new();
+        for _ in 0..u32at(28) {
+            keys.push(u64::from_le_bytes(b[o..o + 8].try_into().unwrap()));
+            o += 16 + u32at(o + 12) as usize;
+        }
+        keys
+    }
+
+    #[test]
+    fn display_program_matches_the_display_tile() {
+        let d = program_doc();
+        for level in [0, 2] {
+            let (ntx, nty) = d.level_tiles(level);
+            for ty in 0..nty {
+                for tx in 0..ntx {
+                    let bytes = d.display_program(level, tx, ty, &[]).unwrap();
+                    let run = Document::run_program(&Program::decode(&bytes));
+                    assert_eq!(
+                        quantize_premul(&run),
+                        d.display_tile(level, tx, ty).unwrap(),
+                        "level {level} tile ({tx}, {ty})"
+                    );
+                    let known = payload_keys(&bytes);
+                    assert!(!known.is_empty());
+                    let again = d.display_program(level, tx, ty, &known).unwrap();
+                    assert!(payload_keys(&again).is_empty(), "known payloads are not resent");
+                    assert!(again.len() < bytes.len());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn depth16_documents_display_but_have_no_draw_program() {
+        let mut d = Document::new(512, 512, 16).unwrap();
+        d.fill(1, Target::Pixels, 255, 0, 0, 255).unwrap();
+        assert_eq!(&d.display_tile(1, 0, 0).unwrap().unwrap()[0..4], &[255, 0, 0, 255]);
+        assert_eq!(
+            d.display_program(0, 0, 0, &[]).unwrap_err(),
+            "draw programs need an 8-bit document"
+        );
+    }
+
+    #[test]
+    fn display_tile_level0_is_unchanged() {
+        // Frozen before the pyramid rewrite: level 0 must stay bit-identical.
+        assert_eq!(scene_checksum(&program_doc()), 9894974724174265876);
+    }
+
+    // cargo test --release bench_pan_zoom -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn bench_pan_zoom() {
+        use std::time::Instant;
+        let mut d = Document::new(8000, 8000, 8).unwrap();
+        // Distinct content per tile, so every tile has its own id and its own pyramid entries.
+        let paint_all = |d: &mut Document, id: u32, seed: u32| {
+            for ty in 0..d.tiles_y() {
+                for tx in 0..d.tiles_x() {
+                    let c = [(tx * 7 + seed) as u8, (ty * 5 + seed) as u8, (tx + ty) as u8, 220];
+                    let mut px = vec![0u8; TILE_BYTES_U8];
+                    for p in px.chunks_exact_mut(4) {
+                        p.copy_from_slice(&c);
+                    }
+                    d.set_tile_rgba8(id, tx, ty, &px).unwrap();
+                }
+            }
+        };
+        paint_all(&mut d, 1, 1);
+        for i in 0..9u32 {
+            let id = d.add_layer(&format!("L{i}"), 0).unwrap();
+            paint_all(&mut d, id, i * 13 + 2);
+        }
+        let sweep = |level: u32, n: u32| {
+            let start = Instant::now();
+            for ty in 0..n {
+                for tx in 0..n {
+                    d.display_tile(level, tx, ty).unwrap();
+                }
+            }
+            start.elapsed().as_secs_f64() * 1000.0 / (n * n) as f64
+        };
+        println!("bench_pan_zoom: level 0 {:.2} ms/tile", sweep(0, 4));
+        println!("bench_pan_zoom: level 3 cold {:.2} ms/tile", sweep(3, 4));
+        println!("bench_pan_zoom: level 3 warm {:.2} ms/tile", sweep(3, 4));
+        println!("bench_pan_zoom: level 5 cold {:.2} ms/tile", sweep(5, 1));
+        println!("bench_pan_zoom: level 5 warm {:.2} ms/tile", sweep(5, 1));
+        println!("bench_pan_zoom: level 3 after zoom out {:.2} ms/tile", sweep(3, 4));
     }
 
     #[test]

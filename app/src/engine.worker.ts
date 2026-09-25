@@ -296,6 +296,13 @@ const api = {
     return { docId, version, data: px ? px.buffer as ArrayBuffer : null };
   },
 
+  // The GPU draw program for one display tile; `known` are payload keys the caller already holds.
+  displayProgram(level: number, tx: number, ty: number, known: BigUint64Array) {
+    const e = need();
+    const bytes = e.display_program(level, tx, ty, known);
+    return { docId, version, data: bytes.buffer as ArrayBuffer };
+  },
+
   async exportImage(type: 'image/png' | 'image/jpeg' | 'image/webp', quality?: number) {
     const e = need();
     const w = e.width(), h = e.height();
@@ -355,10 +362,11 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 }
 
 // Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
-// displayTile is synchronous and read-only, so it skips the queue and the viewer keeps drawing.
+// displayTile and displayProgram are synchronous and read-only, so they skip the queue and the
+// viewer keeps drawing.
 let queue = Promise.resolve();
 onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[] }>) => {
   const { id, op, args } = ev.data;
-  if (op === 'displayTile') void handle(id, op, args);
+  if (op === 'displayTile' || op === 'displayProgram') void handle(id, op, args);
   else queue = queue.then(() => handle(id, op, args));
 };

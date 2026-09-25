@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { client } from './client.ts';
 import { Viewer } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
+import { makeTileSource, gpuTestHook } from './render/tiles.ts';
 import { locate, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
@@ -230,10 +231,10 @@ export function App() {
         const r = await createRenderer(canvas.current!, new URLSearchParams(location.search).get('renderer'));
         if (!alive) return;
         setRenderer(r.kind === 'webgpu' ? 'WebGPU' : 'WebGL2');
-        const v = new Viewer(canvas.current!, r, (l, tx, ty) => client.call('displayTile', l, tx, ty));
+        const v = new Viewer(canvas.current!, r, makeTileSource(client, r));
         v.onView = x => setView({ zoom: x.zoom * v.dpr, rot: x.rot });
         viewer.current = v;
-        (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client };
+        (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client, ...gpuTestHook(client, r) };
         show(await client.call('init'));
       } catch (e) {
         setError((e as Error).message);

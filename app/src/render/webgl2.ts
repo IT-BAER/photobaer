@@ -38,6 +38,7 @@ void main() {
 
 export class WebGl2Renderer implements Renderer {
   readonly kind = 'webgl2';
+  readonly gpu = null;
   readonly slots: number;
   #gl: WebGL2RenderingContext;
   #tex: WebGLTexture;

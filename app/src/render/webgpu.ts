@@ -1,4 +1,6 @@
-import { BACKGROUND, FLOATS_PER_INSTANCE, MAX_ARRAY_LAYERS, slotOrigin, type Frame, type Renderer } from './renderer.ts';
+import { BACKGROUND, FLOATS_PER_INSTANCE, MAX_ARRAY_LAYERS, slotOrigin, type Frame, type Renderer, type TileCompositor } from './renderer.ts';
+import { GpuCompositor } from './composite.ts';
+import type { Program } from './program.ts';
 
 const WGSL = /* wgsl */ `
 struct U { r0: vec4f, r1: vec4f, px: vec4f };
@@ -45,11 +47,41 @@ export class WebGpuRenderer implements Renderer {
   #uniform: GPUBuffer;
   #groups: { linear: GPUBindGroup; nearest: GPUBindGroup };
   #inst: GPUBuffer | null = null;
+  #comp: GpuCompositor | null = null;
+  #api: TileCompositor | null = null;
+  #lost = false;
 
   static async create(canvas: HTMLCanvasElement, adapter: GPUAdapter) {
     const device = await adapter.requestDevice();
-    device.lost.then(i => console.error('WebGPU device lost:', i.message));
-    return new WebGpuRenderer(canvas, device);
+    const r = new WebGpuRenderer(canvas, device);
+    device.lost.then(i => {
+      r.#lost = true;
+      console.error('WebGPU device lost:', i.message);
+    });
+    return r;
+  }
+
+  // Null until the compositor is built, and again once the device is lost: the caller then
+  // falls back to CPU display tiles.
+  get gpu(): TileCompositor | null {
+    if (this.#lost) return null;
+    const comp = (this.#comp ??= new GpuCompositor(this.#device));
+    this.#api ??= {
+      keys: () => comp.keys(),
+      missing: (p: Program) => comp.missing(p),
+      reset: () => comp.reset(),
+      run: (slot: number, p: Program) => {
+        const [x, y, z] = slotOrigin(slot);
+        return comp.run(p, this.#tex, { x, y, z });
+      },
+    };
+    return this.#api;
+  }
+
+  /// The composited tile as RGBA8, for the WebGPU parity test only.
+  readback(p: Program) {
+    this.#comp ??= new GpuCompositor(this.#device);
+    return this.#comp.readback(p);
   }
 
   private constructor(canvas: HTMLCanvasElement, device: GPUDevice) {

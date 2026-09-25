@@ -78,6 +78,16 @@ impl Blend {
         BLEND_NAMES.iter().find(|(b, _)| *b == self).expect("every mode has a name").1
     }
 
+    /// Position in `BLEND_NAMES`; the draw program encodes modes by this index.
+    pub fn index(self) -> u8 {
+        BLEND_NAMES.iter().position(|(b, _)| *b == self).expect("every mode is listed") as u8
+    }
+
+    #[cfg(test)]
+    pub fn from_index(i: u8) -> Option<Blend> {
+        BLEND_NAMES.get(i as usize).map(|(b, _)| *b)
+    }
+
     /// True when the result is `Cs` and the backdrop can be ignored.
     pub fn is_passthrough_of_source(self) -> bool {
         matches!(self, Blend::Normal | Blend::Dissolve | Blend::PassThrough)

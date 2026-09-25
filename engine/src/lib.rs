@@ -120,6 +120,12 @@ impl Engine {
         }
     }
 
+    /// The encoded draw program for one display tile (8-bit only); `known` lists payload keys
+    /// the caller already holds, whose bytes are then left out.
+    pub fn display_program(&self, level: u32, tx: u32, ty: u32, known: Vec<u64>) -> Result<Vec<u8>, JsError> {
+        self.0.doc.display_program(level, tx, ty, &known).map_err(err)
+    }
+
     pub fn flatten_tile_rgba8(&self, tx: u32, ty: u32) -> Result<Vec<u8>, JsError> {
         self.0.doc.flatten_tile_rgba8(tx, ty).map_err(err)
     }

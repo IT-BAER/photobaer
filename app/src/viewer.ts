@@ -2,7 +2,9 @@ import { FLOATS_PER_INSTANCE, type Renderer } from './render/renderer.ts';
 import { TILE, clipMatrix, fit, levelFor, panBy, visibleTiles, zoomAt, type View } from './view.ts';
 
 export interface ViewDoc { docId: number; version: number; width: number; height: number; maxLevel: number }
-export interface TileResult { docId: number; version: number; data: ArrayBuffer | null }
+// `fill` writes the tile into a renderer slot (CPU upload or GPU compositing); null is a fully
+// transparent tile, which needs no slot at all.
+export interface TileResult { docId: number; version: number; fill: ((slot: number) => boolean | void) | null }
 export type TileSource = (level: number, tx: number, ty: number) => Promise<TileResult>;
 
 interface Entry { slot: number; version: number; used: number }
@@ -154,14 +156,18 @@ export class Viewer {
   #store(key: string, r: TileResult) {
     let e = this.#cache.get(key);
     if (e && e.version > r.version) return;
-    if (!r.data) {
+    if (!r.fill) {
       if (e && e.slot >= 0) this.#free.push(e.slot);
       this.#cache.set(key, { slot: -1, version: r.version, used: e?.used ?? this.#frame });
       return;
     }
-    let slot = e && e.slot >= 0 ? e.slot : this.#free.pop() ?? this.#evict();
+    const slot = e && e.slot >= 0 ? e.slot : this.#free.pop() ?? this.#evict();
     if (slot === undefined) return;
-    this.#r.upload(slot, new Uint8Array(r.data));
+    if (r.fill(slot) === false) {
+      if (e) this.#cache.delete(key);
+      this.#free.push(slot);
+      return;
+    }
     e = { slot, version: r.version, used: e?.used ?? this.#frame };
     this.#cache.set(key, e);
   }
