@@ -43,6 +43,17 @@ test('features the engine cannot render yet are skipped with a reason', async ()
   assert.match(r.reason!, /adjustment/);
 });
 
+test('default Blend If ranges are rendered, custom ranges are skipped', async () => {
+  const img = image(W, H, pattern);
+  const full = { sourceRange: [0, 0, 255, 255], destRange: [0, 0, 255, 255] };
+  const ranges = (source: number[]) => ({ compositeGrayBlendSource: source, compositeGraphBlendDestinationRange: [0, 0, 255, 255], ranges: [full, full, full] });
+  const ok = await checkPsd('f.psd', psd([{ name: 'bg', imageData: img, blendingRanges: ranges([0, 0, 255, 255]) }], img));
+  assert.equal(ok.status, 'pass', JSON.stringify(ok));
+  const custom = await checkPsd('g.psd', psd([{ name: 'bg', imageData: img, blendingRanges: ranges([0, 0, 128, 200]) }], img));
+  assert.equal(custom.status, 'skip');
+  assert.match(custom.reason!, /blendingRanges/);
+});
+
 test('a PSB file is skipped, not failed', async () => {
   const img = image(W, H, pattern);
   const r = await checkPsd('e.psb', writePsdUint8Array({ width: W, height: H, children: [{ name: 'bg', imageData: img }], imageData: img }, { psb: true }));

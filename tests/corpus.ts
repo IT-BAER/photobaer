@@ -24,9 +24,13 @@ export function unsupported(psd: Psd): string | null {
   const walk = (layers: Layer[]): string | null => {
     for (const l of layers) {
       const name = `layer "${l.name}"`;
-      for (const k of ['effects', 'adjustment', 'filterMask', 'vectorMask', 'realMask', 'blendingRanges', 'knockout'] as const) {
+      for (const k of ['effects', 'adjustment', 'filterMask', 'vectorMask', 'realMask', 'knockout'] as const) {
         if (l[k] !== undefined && l[k] !== false) return `${name}: ${k}`;
       }
+      // Photoshop stores full 0..255 Blend If ranges on every layer; those change nothing.
+      const br = l.blendingRanges;
+      if (br && ![br.compositeGrayBlendSource, br.compositeGraphBlendDestinationRange, ...br.ranges.flatMap(r => [r.sourceRange, r.destRange])]
+        .every(r => r.join() === '0,0,255,255')) return `${name}: blendingRanges`;
       if (l.children) { const r = walk(l.children); if (r) return r; }
     }
     return null;
