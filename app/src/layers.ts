@@ -1,0 +1,42 @@
+import type { LayerNode } from './engine.worker.ts';
+
+export type Where = 'above' | 'below' | 'into';
+
+// The list holding `id` and its index there; parent 0 is the root.
+export function locate(list: LayerNode[], id: number, parent = 0): { parent: number; list: LayerNode[]; index: number } | null {
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].id === id) return { parent, list, index: i };
+    const hit = list[i].children && locate(list[i].children!, id, list[i].id);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+export function nodeById(list: LayerNode[], id: number): LayerNode | undefined {
+  for (const n of list) {
+    if (n.id === id) return n;
+    const hit = n.children && nodeById(n.children, id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+// moveNode arguments for dropping `drag` above, below or into `target` (index counts after removal),
+// or null for an invalid or no-op drop. Lists are bottom to top, so "above" is the higher index.
+export function dropTarget(tree: LayerNode[], drag: number, target: number, where: Where) {
+  const d = locate(tree, drag), t = locate(tree, target);
+  if (!d || !t || drag === target) return null;
+  const dragged = d.list[d.index];
+  if (dragged.children && locate(dragged.children, target)) return null;
+  let parent = t.parent, list = t.list, index = where === 'above' ? t.index + 1 : t.index;
+  if (where === 'into') {
+    const g = t.list[t.index];
+    if (!g.children) return null;
+    parent = g.id;
+    list = g.children;
+    index = list.length;
+  }
+  if (list === d.list && d.index < index) index--;
+  if (list === d.list && d.index === index) return null;
+  return { parent, index };
+}

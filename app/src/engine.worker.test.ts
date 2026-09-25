@@ -143,3 +143,16 @@ test('closing a document and creating the next one right away keeps the new auto
   assert.ok(r, 'the new document must be restorable');
   assert.equal(JSON.parse(r.manifest).width, 512);
 });
+
+test('history lists every step and historyGoto jumps back and forward', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('addLayer', 0);
+  await call('setProps', 1, { blend: 'multiply' });
+  const back = (await call('historyGoto', 0)).result as { layers: unknown[]; history: { labels: string[]; current: number } };
+  assert.deepEqual(back.history, { labels: ['New Layer', 'Blend Mode'], current: 0 });
+  assert.equal(back.layers.length, 1);
+  const fwd = (await call('historyGoto', 2)).result as { layers: { blend: string }[]; history: { current: number } };
+  assert.equal(fwd.history.current, 2);
+  assert.equal(fwd.layers[0].blend, 'multiply');
+});

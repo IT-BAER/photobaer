@@ -2,10 +2,34 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { client } from './client.ts';
 import { Viewer } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
+import { locate, nodeById } from './layers.ts';
+import { LayersPanel, type Active } from './LayersPanel.tsx';
+import { HistoryPanel } from './HistoryPanel.tsx';
 import type { AutosaveState, DocInfo } from './engine.worker.ts';
 
 type Rgba = [number, number, number, number];
+type CreateResult = DocInfo & { created: number };
+type SelectAfter = (d: DocInfo) => Active;
 interface Item { label: string; keys?: string; run: () => void; off?: boolean }
+
+// Default and undo/redo fallback: the topmost root layer, pixels target.
+function fallbackActive(d: DocInfo): Active {
+  return { id: d.layers.at(-1)!.id, target: 'pixels' };
+}
+
+const selectCreated: SelectAfter = d => ({ id: (d as CreateResult).created, target: 'pixels' });
+
+// The node now at the deleted node's place in its old parent list, else the topmost root layer.
+function selectAfterDelete(before: DocInfo, id: number): SelectAfter {
+  const loc = locate(before.layers, id);
+  return d => {
+    if (loc) {
+      const siblings = loc.parent === 0 ? d.layers : nodeById(d.layers, loc.parent)?.children ?? [];
+      if (siblings.length) return { id: siblings[Math.min(loc.index, siblings.length - 1)].id, target: 'pixels' };
+    }
+    return fallbackActive(d);
+  };
+}
 
 const AUTOSAVE_TEXT: Record<AutosaveState, string> = {
   off: 'Autosave unavailable in this browser',
@@ -52,20 +76,23 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
   const [fg, setFg] = useState('#e8a23a');
+  const [active, setActive] = useState<Active | null>(null);
   const docRef = useRef(doc);
   docRef.current = doc;
 
-  function show(d: DocInfo | null) {
+  function show(d: DocInfo | null, selectAfter?: SelectAfter) {
     setDoc(d);
     viewer.current?.setDoc(d);
     document.title = d ? `${d.name} - Photobaer` : 'Photobaer';
+    if (!d) { setActive(null); return; }
+    setActive(prev => selectAfter ? selectAfter(d) : prev && nodeById(d.layers, prev.id) ? prev : fallbackActive(d));
   }
 
-  async function run(label: string | null, p: () => Promise<DocInfo | null>) {
+  async function run(label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) {
     setMenu(null);
     if (label) setBusy(label);
     try {
-      show(await p());
+      show(await p(), selectAfter);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -139,6 +166,20 @@ export function App() {
   }
 
   const has = !!doc;
+  const node = doc && active ? nodeById(doc.layers, active.id) : undefined;
+  const deleteDisabled = !doc || !active || (doc.layers.length === 1 && doc.layers[0].id === active.id);
+
+  const newLayer = () => active && run('New layer', () => client.call('addLayer', active.id), selectCreated);
+  const newGroup = () => active && run('New group', () => client.call('addGroup', active.id), selectCreated);
+  const duplicateLayer = () => active && run('Duplicate layer', () => client.call('duplicateNode', active.id), selectCreated);
+  const deleteLayer = () => doc && active && run('Delete layer', () => client.call('deleteNode', active.id), selectAfterDelete(doc, active.id));
+  const groupLayers = () => active && run('Group layers', () => client.call('groupNodes', [active.id]), selectCreated);
+  const ungroupLayers = () => active && run('Ungroup layers', () => client.call('ungroup', active.id));
+  const toggleClipping = () => node && run(null, () => client.call('setProps', node.id, { clipping: !node.clipping }));
+  const addMask = () => active && run('Add layer mask', () => client.call('addMask', active.id, true));
+  const deleteMask = () => active && run('Delete layer mask', () => client.call('deleteMask', active.id));
+  const toggleMaskEnabled = () => node?.mask && run(null, () => client.call('setProps', node.id, { mask_enabled: !node.mask!.enabled }));
+
   const menus: Record<string, Item[]> = {
     File: [
       { label: 'New…', keys: 'Alt+Ctrl+N', run: () => { setMenu(null); newDialog.current?.showModal(); } },
@@ -153,10 +194,22 @@ export function App() {
     Edit: [
       { label: doc?.undoLabel ? `Undo ${doc.undoLabel}` : 'Undo', keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
       { label: doc?.redoLabel ? `Redo ${doc.redoLabel}` : 'Redo', keys: 'Shift+Ctrl+Z', run: () => run(null, () => client.call('redo')), off: !doc?.redoLabel },
-      { label: 'Fill with foreground color', keys: 'Alt+Backspace', run: () => run('Filling…', () => client.call('command', 'fill', doc!.layers.at(-1)!.id, 'pixels', hex(fg))), off: !has },
+      { label: 'Fill with foreground color', keys: 'Alt+Backspace', run: () => run('Filling…', () => client.call('command', 'fill', active!.id, active!.target, hex(fg))), off: !has },
+    ],
+    Layer: [
+      { label: 'New Layer', run: newLayer, off: !has },
+      { label: 'New Group', run: newGroup, off: !has },
+      { label: 'Duplicate Layer', keys: 'Ctrl+J', run: duplicateLayer, off: !has },
+      { label: 'Delete Layer', run: deleteLayer, off: deleteDisabled },
+      { label: 'Group Layers', keys: 'Ctrl+G', run: groupLayers, off: !has },
+      { label: 'Ungroup Layers', keys: 'Shift+Ctrl+G', run: ungroupLayers, off: !has || node?.kind !== 'group' },
+      { label: node?.clipping ? 'Release Clipping Mask' : 'Create Clipping Mask', keys: 'Alt+Ctrl+G', run: toggleClipping, off: !has },
+      { label: 'Add Layer Mask', run: addMask, off: !has || !!node?.mask },
+      { label: 'Delete Layer Mask', run: deleteMask, off: !has || !node?.mask },
+      { label: node?.mask?.enabled === false ? 'Enable Layer Mask' : 'Disable Layer Mask', run: toggleMaskEnabled, off: !has || !node?.mask },
     ],
     Image: [
-      { label: 'Invert', keys: 'Ctrl+I', run: () => run('Inverting…', () => client.call('command', 'invert', doc!.layers.at(-1)!.id, 'pixels')), off: !has },
+      { label: 'Invert', keys: 'Ctrl+I', run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, active!.target)), off: !has },
     ],
     View: [
       { label: 'Zoom in', keys: 'Ctrl++', run: () => { setMenu(null); viewer.current?.zoomBy(2); }, off: !has },
@@ -194,9 +247,14 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const find = (label: string) => Object.values(menusRef.current).flat().find(i => i.label.startsWith(label));
+    const find = (pred: (label: string) => boolean) => Object.values(menusRef.current).flat().find(i => pred(i.label));
     const trigger = (label: string, e: KeyboardEvent) => {
-      const it = find(label);
+      const it = find(l => l.startsWith(label));
+      e.preventDefault();
+      if (it && !it.off) it.run();
+    };
+    const triggerBy = (pred: (label: string) => boolean, e: KeyboardEvent) => {
+      const it = find(pred);
       e.preventDefault();
       if (it && !it.off) it.run();
     };
@@ -209,6 +267,10 @@ export function App() {
       else if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) trigger('Redo', e);
       else if (ctrl && k === 'z') trigger('Undo', e);
       else if (ctrl && k === 'i') trigger('Invert', e);
+      else if (ctrl && k === 'j') trigger('Duplicate Layer', e);
+      else if (ctrl && e.altKey && k === 'g') triggerBy(l => l.endsWith('Clipping Mask'), e);
+      else if (ctrl && e.shiftKey && k === 'g') trigger('Ungroup Layers', e);
+      else if (ctrl && k === 'g') trigger('Group Layers', e);
       else if (ctrl && (k === '+' || k === '=')) trigger('Zoom in', e);
       else if (ctrl && k === '-') trigger('Zoom out', e);
       else if (ctrl && k === '0') trigger('Fit', e);
@@ -260,20 +322,33 @@ export function App() {
         </label>
       </header>
       {menu && <div className="scrim" onClick={() => setMenu(null)} />}
-      <main className="stage">
-        <canvas ref={canvas} />
-        {!doc && !busy && (
-          <div className="welcome">
-            <h1>Photobaer</h1>
-            <div className="actions">
-              <button onClick={() => newDialog.current?.showModal()}>New image</button>
-              <button onClick={() => fileInput.current?.click()}>Open…</button>
+      <main className={doc ? 'workspace with-sidebar' : 'workspace'}>
+        <div className="stage">
+          <canvas ref={canvas} />
+          {!doc && !busy && (
+            <div className="welcome">
+              <h1>Photobaer</h1>
+              <div className="actions">
+                <button onClick={() => newDialog.current?.showModal()}>New image</button>
+                <button onClick={() => fileInput.current?.click()}>Open…</button>
+              </div>
+              <p>Or drop a PNG, JPEG, WebP, PSD or .pbaer file here.</p>
             </div>
-            <p>Or drop a PNG, JPEG, WebP, PSD or .pbaer file here.</p>
-          </div>
+          )}
+          {busy && <div className="busy">{busy}</div>}
+          {error && <div className="error" role="alert" onClick={() => setError(null)}>{error}</div>}
+        </div>
+        {doc && active && (
+          <aside className="sidebar">
+            <LayersPanel
+              doc={doc} active={active} setActive={setActive} run={run}
+              newLayer={newLayer} newGroup={newGroup} duplicateLayer={duplicateLayer}
+              deleteLayer={deleteLayer} deleteDisabled={deleteDisabled}
+              addMask={addMask} deleteMask={deleteMask}
+            />
+            <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
+          </aside>
         )}
-        {busy && <div className="busy">{busy}</div>}
-        {error && <div className="error" role="alert" onClick={() => setError(null)}>{error}</div>}
       </main>
       <footer className="status">
         <span>{doc ? `${doc.width} × ${doc.height} px, ${doc.depth}-bit` : 'No document'}</span>

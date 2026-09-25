@@ -20,6 +20,16 @@ export class History {
 
   get undoLabel() { return this.#undo.at(-1)?.label ?? null; }
   get redoLabel() { return this.#redo.at(-1)?.label ?? null; }
+  // Every step oldest first; the first `current` are applied, the rest can be redone.
+  get labels() { return [...this.#undo, ...this.#redo.toReversed()].map(s => s.label); }
+  get current() { return this.#undo.length; }
+
+  goto(n: number) {
+    let moved = false;
+    while (this.#undo.length > n && this.undo()) moved = true;
+    while (this.#undo.length < n && this.redo()) moved = true;
+    return moved;
+  }
 
   run(label: string, fn: () => void) {
     const snap = this.#s.snapshot();

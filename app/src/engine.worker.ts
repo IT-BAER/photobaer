@@ -16,6 +16,7 @@ export interface DocInfo {
   width: number; height: number; depth: number; maxLevel: number;
   undoLabel: string | null; redoLabel: string | null;
   layers: LayerNode[];
+  history: { labels: string[]; current: number };
 }
 export type OpenResult = DocInfo & { warnings: string[] };
 export type AutosaveState = 'off' | 'other-tab' | 'idle' | 'saving' | 'saved' | 'error';
@@ -53,6 +54,7 @@ function info(): DocInfo | null {
     width: eng.width(), height: eng.height(), depth: eng.depth(), maxLevel: eng.max_level(),
     undoLabel: history.undoLabel, redoLabel: history.redoLabel,
     layers: JSON.parse(eng.layers_json()),
+    history: { labels: history.labels, current: history.current },
   };
 }
 
@@ -286,6 +288,7 @@ const api = {
 
   undo() { if (history.undo()) return changed(); return info(); },
   redo() { if (history.redo()) return changed(); return info(); },
+  historyGoto(n: number) { need(); if (history.goto(n)) return changed(); return info(); },
 
   displayTile(level: number, tx: number, ty: number) {
     const e = need();

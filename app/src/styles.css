@@ -34,8 +34,48 @@ button { font: inherit; color: inherit; }
 .swatch { margin-left: auto; display: flex; align-items: center; }
 .swatch input { width: 28px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; cursor: pointer; }
 
+.workspace { display: grid; grid-template-columns: 1fr; min-height: 0; }
+.workspace.with-sidebar { grid-template-columns: 1fr 260px; }
 .stage { position: relative; min-height: 0; }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+.sidebar { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-left: 1px solid var(--line); }
+
+.layers-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.layers-buttons { display: flex; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.layers-buttons button { padding: 2px 8px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.layers-buttons button:hover:not(:disabled) { border-color: var(--accent); }
+.layers-buttons button:disabled { color: var(--dim); opacity: 0.5; cursor: default; }
+.layers-tree { flex: 1; min-height: 60px; overflow: auto; }
+.layer-row { position: relative; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid transparent; cursor: default; }
+.layer-row:hover { background: var(--panel-hi); }
+.layer-row.active { background: var(--panel-hi); outline: 1px solid var(--accent); outline-offset: -1px; }
+.layer-row.dragging { opacity: 0.5; }
+.layer-row.drop-into { outline: 1px dashed var(--accent); outline-offset: -1px; }
+.layer-row .disclosure, .layer-row .visibility, .layer-row .mask-chip { background: none; border: 0; padding: 0; width: 18px; color: inherit; cursor: pointer; }
+.layer-row .mask-chip { border: 1px solid var(--line); border-radius: 3px; }
+.layer-row .mask-chip.disabled { opacity: 0.4; }
+.layer-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layer-row .rename { flex: 1; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--accent); border-radius: 3px; padding: 1px 4px; }
+.layer-row .clip-marker { width: 6px; height: 6px; margin-right: -2px; border-left: 1px solid var(--dim); border-bottom: 1px solid var(--dim); }
+.drop-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--accent); }
+.drop-line.drop-above { top: 0; }
+.drop-line.drop-below { bottom: 0; }
+
+.layer-props { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
+.layer-props select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
+.prop-range { display: flex; align-items: center; gap: 6px; }
+.prop-range input[type=range] { flex: 1; }
+.prop-range span { width: 3em; text-align: right; color: var(--dim); }
+.locks { display: flex; gap: 4px; }
+.locks button { width: 22px; height: 22px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.locks button[aria-pressed=true] { background: var(--accent); color: #111; border-color: var(--accent); }
+
+.history-panel { max-height: 35%; flex-shrink: 0; overflow: auto; border-top: 1px solid var(--line); }
+.history-row { padding: 4px 10px; cursor: default; }
+.history-row:hover { background: var(--panel-hi); }
+.history-row.current { background: var(--panel-hi); font-weight: 600; }
+.history-row.dimmed { color: var(--dim); }
 
 .welcome { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; pointer-events: none; }
 .welcome h1 { margin: 0; font-size: 32px; color: var(--accent); }

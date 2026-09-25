@@ -64,6 +64,24 @@ test('limit drops the oldest step and its snapshot', () => {
   assert.equal(h.undo(), false);
 });
 
+test('labels list applied then undone steps, and goto jumps to any state', () => {
+  const s = store();
+  const h = new History(s);
+  for (const v of ['a', 'b', 'c']) h.run(v.toUpperCase(), () => { s.value += v; });
+  h.undo();
+  assert.deepEqual(h.labels, ['A', 'B', 'C']);
+  assert.equal(h.current, 2);
+  assert.ok(h.goto(0));
+  assert.equal(s.value, '');
+  assert.equal(h.current, 0);
+  assert.ok(h.goto(3));
+  assert.equal(s.value, 'abc');
+  assert.equal(h.goto(3), false);
+  assert.equal(h.goto(9), false);
+  assert.deepEqual(h.labels, ['A', 'B', 'C']);
+  assert.equal(s.live(), 3);
+});
+
 test('clear frees everything', () => {
   const s = store();
   const h = new History(s);
