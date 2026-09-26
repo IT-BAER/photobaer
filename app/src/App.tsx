@@ -3,6 +3,7 @@ import { client } from './client.ts';
 import { Viewer, type ToolPointerEvent, type ViewerTool } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
 import { makeTileSource, gpuTestHook } from './render/tiles.ts';
+import { perfTestHook, type PerfProbe } from './render/perf.ts';
 import { locate, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
@@ -15,6 +16,7 @@ import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
 import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
 import { TOOLS, initialLastUsed, keyToTool, loadToolOptions, slotForKey } from './shell/tools.ts';
 import { hexToRgb, type Rgb } from './shell/color.ts';
+import { digitOption, dragResize, showCrosshair, stepHardness, stepSize, type DigitState } from './shell/brushKeys.ts';
 import { SelectionOverlay } from './shell/SelectionOverlay.ts';
 import { antsLevel, contour, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, type SelectMode } from './shell/selecttools.ts';
 import { levelFor } from './view.ts';
@@ -24,6 +26,7 @@ const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate'
 const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso', 'magneticLasso', 'quickSelection', 'magicWand'];
 const PAINT_LABELS: Record<string, string> = { brush: 'Brush', pencil: 'Pencil', eraser: 'Eraser' };
 const AIRBRUSH_MS = 50;
+const PAINT_TOOLS = new Set(['brush', 'pencil', 'eraser']);
 
 // Select > Modify (docs/M2.md section 3): op -> [min, max, default].
 const MODIFY_OPS: Record<'border' | 'smooth' | 'expand' | 'contract', { label: string; min: number; max: number; default: number }> = {
@@ -140,6 +143,14 @@ export function App() {
   docRef.current = doc;
   const toolOptionsRef = useRef(toolOptions);
   toolOptionsRef.current = toolOptions;
+  function patchToolOptions(toolId: string, patch: Record<string, number | string | boolean>) {
+    setOptionsByTool(o => ({ ...o, [toolId]: { ...(o[toolId] ?? loadToolOptions(TOOLS[toolId])), ...patch } }));
+  }
+  // Digit-combo state (docs/M2.md section 4): a second digit within 0.8s combines with the first
+  // into an exact value; opacity and flow track their own combo independently.
+  const opacityDigitRef = useRef<DigitState | null>(null);
+  const flowDigitRef = useRef<DigitState | null>(null);
+  const capsLockRef = useRef(false);
   const dragRef = useRef<Record<string, unknown> | null>(null);
   const polygonRef = useRef<PolygonLasso | null>(null);
   const polygonModeRef = useRef<SelectMode>('new');
@@ -151,6 +162,7 @@ export function App() {
   // Last dab of the previous stroke per layer, so Shift+click can draw a straight line from it
   // (the engine has no last-dab accessor).
   const lastStrokePoint = useRef<Record<number, [number, number]>>({});
+  const perfRef = useRef<PerfProbe | null>(null);
 
   function redrawOverlay() {
     const v = viewer.current;
@@ -369,7 +381,8 @@ export function App() {
         overlayRef.current = new SelectionOverlay(overlayCanvas.current!);
         v.onView = x => { setView({ zoom: x.zoom * v.dpr, rot: x.rot }); redrawOverlay(); };
         viewer.current = v;
-        (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client, ...gpuTestHook(client, r) };
+        perfRef.current = perfTestHook(v);
+        (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client, ...gpuTestHook(client, r), ...(perfRef.current ? { perf: perfRef.current } : {}) };
         show(await client.call('init'));
       } catch (e) {
         setError((e as Error).message);
@@ -701,14 +714,20 @@ export function App() {
     if (!v || !(tool === 'brush' || tool === 'pencil' || tool === 'eraser')) return;
     const st: {
       smoother: Smoother | null; layerId: number | null; raf: number;
-      pending: number[]; last: [number, number, number] | null;
+      pending: number[]; last: [number, number, number] | null; lastSampleAt: number;
       airbrush: ReturnType<typeof setInterval> | null; moved: boolean; begun: Promise<void> | null;
-    } = { smoother: null, layerId: null, raf: 0, pending: [], last: null, airbrush: null, moved: false, begun: null };
+    } = { smoother: null, layerId: null, raf: 0, pending: [], last: null, lastSampleAt: 0, airbrush: null, moved: false, begun: null };
 
     function flush() {
       if (!st.pending.length) return;
       const samples = Float64Array.from(st.pending.splice(0));
-      client.call('strokeTo', samples).then(r => viewer.current?.invalidate(r.version, r.dirty), e => setError((e as Error).message));
+      const sampled = st.lastSampleAt;
+      const sent = performance.now();
+      client.call('strokeTo', samples).then(r => {
+        const resolved = performance.now();
+        viewer.current?.invalidate(r.version, r.dirty);
+        perfRef.current?.recordSample(r.version, { sampled, sent, resolved });
+      }, e => setError((e as Error).message));
     }
     function schedule() {
       if (st.raf) return;
@@ -716,6 +735,7 @@ export function App() {
     }
     function push(p: [number, number], pressure: number) {
       st.last = [p[0], p[1], pressure];
+      st.lastSampleAt = performance.now();
       st.pending.push(p[0], p[1], pressure);
       schedule();
     }
@@ -816,6 +836,66 @@ export function App() {
     };
   }, [tool, active, quickMask]);
 
+  // Brush cursor outline (tracks the pointer independent of any drag) and Ctrl+Alt+right-drag
+  // resize/hardness, with the outline doubling as the drag's live preview.
+  useEffect(() => {
+    const v = viewer.current, c = canvas.current;
+    overlayRef.current?.setCursor(null);
+    if (!v || !c || !PAINT_TOOLS.has(tool)) { redrawOverlay(); return; }
+    let pos: [number, number] | null = null;
+    let drag: { x: number; y: number; size: number; hardness: number } | null = null;
+    const local = (e: PointerEvent): [number, number] => {
+      const r = c.getBoundingClientRect();
+      return [e.clientX - r.left, e.clientY - r.top];
+    };
+    const cursorFor = () => {
+      if (!pos) return null;
+      const [x, y] = v.screenToDoc(pos[0], pos[1]);
+      const o = toolOptionsRef.current;
+      const zoom = v.view.zoom;
+      const block = tool === 'eraser' && o.mode === 'block';
+      const sizeDoc = block ? 16 / zoom : Number(o.size);
+      return { x, y, sizeDoc, shape: block ? 'square' as const : 'round' as const, crosshair: showCrosshair(sizeDoc * zoom, capsLockRef.current) };
+    };
+    const update = () => { overlayRef.current?.setCursor(cursorFor()); redrawOverlay(); };
+    const move = (e: PointerEvent) => {
+      pos = local(e);
+      if (drag) {
+        const r = dragResize(drag.size, drag.hardness, e.clientX - drag.x, e.clientY - drag.y);
+        const patch: Record<string, number> = { size: r.size };
+        if (toolOptionsRef.current.hardness !== undefined) patch.hardness = r.hardness;
+        patchToolOptions(tool, patch);
+      }
+      update();
+    };
+    const leave = () => { if (!drag) { pos = null; update(); } };
+    const down = (e: PointerEvent) => {
+      if (e.button !== 2 || !e.ctrlKey || !e.altKey) return;
+      e.preventDefault();
+      c.setPointerCapture(e.pointerId);
+      const o = toolOptionsRef.current;
+      drag = { x: e.clientX, y: e.clientY, size: Number(o.size), hardness: Number(o.hardness ?? 100) };
+    };
+    const up = () => { drag = null; };
+    const context = (e: MouseEvent) => { if (e.ctrlKey && e.altKey) e.preventDefault(); };
+    c.addEventListener('pointermove', move);
+    c.addEventListener('pointerleave', leave);
+    c.addEventListener('pointerdown', down);
+    c.addEventListener('pointerup', up);
+    c.addEventListener('pointercancel', up);
+    c.addEventListener('contextmenu', context);
+    return () => {
+      c.removeEventListener('pointermove', move);
+      c.removeEventListener('pointerleave', leave);
+      c.removeEventListener('pointerdown', down);
+      c.removeEventListener('pointerup', up);
+      c.removeEventListener('pointercancel', up);
+      c.removeEventListener('contextmenu', context);
+      overlayRef.current?.setCursor(null);
+      redrawOverlay();
+    };
+  }, [tool]);
+
   function openPicker(which: 'fg' | 'bg') {
     picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v));
   }
@@ -856,6 +936,7 @@ export function App() {
       // A closed <dialog> can keep focus on its OK button; only an open dialog or a live field swallows keys.
       const t = e.target instanceof Element ? e.target : null;
       if (t && (t.closest('dialog[open]') || (t.closest('input, select') && !t.closest('dialog:not([open])')))) return;
+      capsLockRef.current = e.getModifierState('CapsLock');
       const k = e.key.toLowerCase(), ctrl = e.ctrlKey || e.metaKey;
       if (polygonActionsRef.current?.active()) {
         if (k === 'escape') { e.preventDefault(); polygonActionsRef.current.cancel(); return; }
@@ -891,9 +972,36 @@ export function App() {
       else if (!ctrl && !e.altKey && k === 'x') { e.preventDefault(); setFg(bgRef.current); setBg(fgRef.current); }
       else if (!ctrl && !e.altKey && k === 'd') { e.preventDefault(); setFg([0, 0, 0]); setBg([255, 255, 255]); }
       else if (!ctrl && !e.altKey && k === 'q') { e.preventDefault(); setQuickMask(v => !v); }
+      else if (!ctrl && !e.altKey && (e.key === '[' || e.key === ']' || e.key === '{' || e.key === '}' || /^Digit[0-9]$/.test(e.code))) {
+        // Brush shortcuts (docs/M2.md section 4): only mutate options for the active paint tool,
+        // but always swallow these keys so they never reach selectByKey (no slot uses them anyway).
+        e.preventDefault();
+        if (PAINT_TOOLS.has(toolRef.current)) {
+          const o = toolOptionsRef.current;
+          if (e.key === '[' || e.key === ']') patchToolOptions(toolRef.current, { size: stepSize(Number(o.size), e.key === ']') });
+          else if ((e.key === '{' || e.key === '}') && o.hardness !== undefined) {
+            patchToolOptions(toolRef.current, { hardness: stepHardness(Number(o.hardness), e.key === '}') });
+          } else {
+            const digit = e.code.slice(5);
+            const now = performance.now();
+            if (e.shiftKey && o.flow !== undefined) {
+              const r = digitOption(flowDigitRef.current, digit, now);
+              flowDigitRef.current = r.state;
+              patchToolOptions(toolRef.current, { flow: r.value });
+            } else if (!e.shiftKey) {
+              const r = digitOption(opacityDigitRef.current, digit, now);
+              opacityDigitRef.current = r.state;
+              patchToolOptions(toolRef.current, { opacity: r.value });
+            }
+          }
+        }
+      }
       else if (!ctrl && !e.altKey && !e.metaKey) selectByKey(k, e.shiftKey);
     };
-    const up = (e: KeyboardEvent) => { if (e.key === ' ') viewer.current?.setSpring(null); };
+    const up = (e: KeyboardEvent) => {
+      capsLockRef.current = e.getModifierState('CapsLock');
+      if (e.key === ' ') viewer.current?.setSpring(null);
+    };
     const over = (e: DragEvent) => e.preventDefault();
     const drop = (e: DragEvent) => {
       e.preventDefault();

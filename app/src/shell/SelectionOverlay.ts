@@ -5,6 +5,10 @@ export type Preview =
   | { kind: 'rect' | 'ellipse'; x: number; y: number; w: number; h: number }
   | { kind: 'path'; points: number[]; closed: boolean };
 
+// Brush cursor (docs/M2.md section 4): x/y and sizeDoc are document-space so the outline scales
+// with zoom; crosshair replaces the outline under 6 screen px or with Caps Lock on.
+export interface CursorState { x: number; y: number; sizeDoc: number; shape: 'round' | 'square'; crosshair: boolean }
+
 // Draws marching-ants selection edges and the in-progress shape preview on a transparent canvas
 // layered over the stage. Strokes are sized in device pixels so they stay crisp at any zoom/rotation.
 export class SelectionOverlay {
@@ -15,6 +19,7 @@ export class SelectionOverlay {
   #preview: Preview = null;
   #hidden = false;
   #mask: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number } | null = null;
+  #cursor: CursorState | null = null;
   #dash = 0;
   #timer: ReturnType<typeof setInterval> | undefined;
   #last: [View, number, number, number] | null = null;
@@ -37,6 +42,10 @@ export class SelectionOverlay {
 
   setHidden(b: boolean) {
     this.#hidden = b;
+  }
+
+  setCursor(c: CursorState | null) {
+    this.#cursor = c;
   }
 
   // Quick mask: `coverage` is the selectionMask byte buffer (255 = selected); unselected pixels
@@ -75,6 +84,31 @@ export class SelectionOverlay {
     if (this.#mask) this.#drawMask(this.#mask, view, cssW, cssH, dpr);
     else if (this.#ants) this.#strokeSegments(this.#segmentsFor(this.#ants), view, cssW, cssH, dpr, this.#antsScale);
     if (this.#preview) this.#strokeSegments(this.#previewSegments(this.#preview), view, cssW, cssH, dpr, 1);
+    if (this.#cursor) this.#drawCursor(this.#cursor, view, cssW, cssH, dpr);
+  }
+
+  // Screen-space outline (or crosshair) at the cursor's doc position; not part of the ants/preview
+  // dash cycle since it tracks the pointer instead of animating.
+  #drawCursor(cur: CursorState, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx;
+    const [sx, sy] = docToScreen(view, cur.x, cur.y, cssW, cssH);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.beginPath();
+    if (cur.crosshair) {
+      const r = 5;
+      ctx.moveTo(sx - r, sy); ctx.lineTo(sx + r, sy);
+      ctx.moveTo(sx, sy - r); ctx.lineTo(sx, sy + r);
+    } else {
+      const rPx = (cur.sizeDoc / 2) * view.zoom;
+      if (cur.shape === 'square') ctx.rect(sx - rPx, sy - rPx, rPx * 2, rPx * 2);
+      else ctx.arc(sx, sy, rPx, 0, Math.PI * 2);
+    }
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
   }
 
   #segmentsFor(flat: Float32Array): [number, number, number, number][] {

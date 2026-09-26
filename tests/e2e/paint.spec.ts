@@ -98,6 +98,24 @@ test('eraser clears a painted square', async ({ page }) => {
   await expect.poll(() => sample(page, 100, 50)).toEqual([0, 0, 0, 255]); // outside the erased row: still painted
 });
 
+test('[ ] resizes the brush size field, and a digit sets the opacity field', async ({ page }) => {
+  await page.goto('/');
+  await newDoc(page, 200, 200);
+  await page.keyboard.press('b');
+  await expect(page.getByRole('toolbar', { name: 'Tools' })).toHaveAttribute('data-active-tool', 'brush');
+  const size = page.locator('.opt-number:has-text("Size") input');
+  const opacity = page.locator('.opt-number:has-text("Opacity") input');
+  await expect(size).toHaveValue('30');
+  await page.keyboard.press(']');
+  await expect(size).toHaveValue('35'); // step scales with size: 5 in the 10-99 range
+  await page.keyboard.press('[');
+  await expect(size).toHaveValue('30');
+
+  await expect(opacity).toHaveValue('100');
+  await page.keyboard.press('7');
+  await expect(opacity).toHaveValue('70');
+});
+
 test('the selection clips the brush stroke', async ({ page }) => {
   await page.goto('/');
   await newDoc(page, 200, 200);

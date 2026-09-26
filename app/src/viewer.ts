@@ -27,6 +27,11 @@ export class Viewer {
   view: View = { zoom: 1, rot: 0, cx: 0, cy: 0 };
   onView: (v: View) => void = () => {};
   onPointer: (e: ToolPointerEvent) => void = () => {};
+  // Fires once per version, the first time a drawn frame has every visible-level tile it needs
+  // (ignoring the coarse top-level fallback, which a live stroke's dirty rect always keeps stale).
+  // `readyAt` is when the last tile the frame needed was stored (performance.now()).
+  onVersionDrawn: (version: number, readyAt: number) => void = () => {};
+  #storedAt = 0;
 
   #tool: ViewerTool = null;
   #spring: ViewerTool = null;
@@ -74,6 +79,9 @@ export class Viewer {
     if (!this.#doc) return;
     this.#doc = { ...this.#doc, version };
     invalidateEntries(this.#cache, version, rect);
+    // Fetch the stale visible tiles now, so they are drawn in the next frame, not the one after.
+    const { level, tiles } = this.#visible(this.#doc);
+    this.#pump(tiles.filter(([tx, ty]) => this.#cache.get(`${level}/${tx}/${ty}`)?.version !== version).map(([tx, ty]) => [level, tx, ty]));
     this.redraw();
   }
 
@@ -119,18 +127,13 @@ export class Viewer {
     const frame = { instances: this.#inst, count: 0, matrix: clipMatrix(this.view, this.#w, this.#h), checker: 8 * dpr, nearest: this.view.zoom * dpr >= 2 };
     if (!d) return this.#r.draw(frame);
     this.#frame++;
-    let level = levelFor(this.view.zoom, dpr, d.maxLevel);
-    let tiles = visibleTiles(this.view, this.#w, this.#h, level, d.width, d.height);
-    // Keep half the cache free for fallbacks and prefetch; very large screens drop one level.
-    while (tiles.length > this.#r.slots / 2 && level < d.maxLevel) {
-      level++;
-      tiles = visibleTiles(this.view, this.#w, this.#h, level, d.width, d.height);
-    }
+    const { level, tiles } = this.#visible(d);
     if (this.#inst.length < tiles.length * FLOATS_PER_INSTANCE) this.#inst = frame.instances = new Float32Array(tiles.length * 2 * FLOATS_PER_INSTANCE);
     const want: [number, number, number][] = [];
+    let freshVisible = true;
     for (const [tx, ty] of tiles) {
       const e = this.#touch(level, tx, ty);
-      if (!e || e.version !== d.version) want.push([level, tx, ty]);
+      if (!e || e.version !== d.version) { want.push([level, tx, ty]); freshVisible = false; }
       const size = TILE << level;
       const x0 = tx * size, y0 = ty * size;
       const x1 = Math.min(x0 + size, d.width), y1 = Math.min(y0 + size, d.height);
@@ -148,6 +151,18 @@ export class Viewer {
     if (!top || top.version !== d.version) want.push([d.maxLevel, 0, 0]);
     this.#r.draw(frame);
     this.#pump(want);
+    if (freshVisible) this.onVersionDrawn(d.version, this.#storedAt);
+  }
+
+  #visible(d: ViewDoc) {
+    let level = levelFor(this.view.zoom, this.dpr, d.maxLevel);
+    let tiles = visibleTiles(this.view, this.#w, this.#h, level, d.width, d.height);
+    // Keep half the cache free for fallbacks and prefetch; very large screens drop one level.
+    while (tiles.length > this.#r.slots / 2 && level < d.maxLevel) {
+      level++;
+      tiles = visibleTiles(this.view, this.#w, this.#h, level, d.width, d.height);
+    }
+    return { level, tiles };
   }
 
   #touch(level: number, tx: number, ty: number) {
@@ -183,6 +198,7 @@ export class Viewer {
   }
 
   #store(key: string, r: TileResult) {
+    this.#storedAt = performance.now();
     let e = this.#cache.get(key);
     if (e && e.version > r.version) return;
     if (!r.fill) {
