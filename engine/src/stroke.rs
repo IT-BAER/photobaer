@@ -4,6 +4,8 @@
 
 use std::sync::Arc;
 
+use crate::blend::Blend;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TipKind {
     Round,
@@ -452,12 +454,118 @@ pub struct ColorDynamics {
     pub per_tip: bool,
 }
 
+/// E2.3 texture depth jitter: the sampling-side params (pattern, invert, scale, mode, ...) live in
+/// `doc::Stroke`, which alone knows about the pattern registry; only the per-dab depth roll needs
+/// the stroke PRNG, so only that lives here.
+#[derive(Clone, Default)]
+pub struct TextureDynamics {
+    pub enabled: bool,
+    pub depth: f32,
+    pub minimum_depth: f32,
+    pub depth_jitter: Dyn,
+}
+
+/// E2.4 dual brush: a secondary tip stamped in a grid over the primary dab and blended in.
+#[derive(Clone)]
+pub struct DualBrush {
+    pub enabled: bool,
+    pub shape: TipShape,
+    pub hardness: f32,
+    pub roundness: f32,
+    pub angle: f32,
+    pub flip_x: bool,
+    pub flip_y: bool,
+    pub mode: Blend,
+    pub size: f32,
+    pub spacing: f32,
+    pub scatter: f32,
+    pub both_axes: bool,
+    pub count: u32,
+}
+
+impl Default for DualBrush {
+    fn default() -> DualBrush {
+        DualBrush {
+            enabled: false,
+            shape: TipShape::Round,
+            hardness: 1.0,
+            roundness: 1.0,
+            angle: 0.0,
+            flip_x: false,
+            flip_y: false,
+            mode: Blend::Multiply,
+            size: 1.0,
+            spacing: 0.25,
+            scatter: 0.0,
+            both_axes: false,
+            count: 1,
+        }
+    }
+}
+
+/// The two constants xoring the stroke seed for the dual brush's grid-point jitter hash (E2.4):
+/// distinct odd constants so a grid point's x and y offsets never share a draw with each other or
+/// with the per-pixel noise hash (`hash01` unmixed).
+const DUAL_SEED_X: u32 = 0xD1B5_4A35;
+const DUAL_SEED_Y: u32 = 0xA24B_AED4;
+
+/// Stamps the dual brush's secondary tip in a grid over `rect` (a primary dab's pixel box, in
+/// document coordinates) and returns its `(x1 - x0) * (y1 - y0)` coverage buffer, row-major,
+/// combined with max compositing (E2.4). Grid points a spacing step outside `rect` still
+/// contribute, so a tip stamp centered just off the edge can cover pixels inside it.
+pub fn dual_brush_mask(dual: &DualBrush, rect: (i32, i32, i32, i32), dab_index: u32, seed: u32) -> Vec<f32> {
+    let (x0, y0, x1, y1) = rect;
+    let (w, h) = ((x1 - x0).max(0) as usize, (y1 - y0).max(0) as usize);
+    let mut buf = vec![0f32; w * h];
+    if w == 0 || h == 0 {
+        return buf;
+    }
+    let step = (dual.size * dual.spacing).max(1.0);
+    let scatter_px = dual.scatter * dual.size.max(1.0);
+    let tip = Tip::new(dual.size / 2.0, dual.hardness, dual.angle, dual.roundness, false, dual.shape.clone(), dual.flip_x, dual.flip_y);
+    let rf = dual.size / 2.0 + 1.0;
+    let gx0 = ((x0 as f32 - step) / step).floor() as i32;
+    let gx1 = ((x1 as f32 + step) / step).ceil() as i32;
+    let gy0 = ((y0 as f32 - step) / step).floor() as i32;
+    let gy1 = ((y1 as f32 + step) / step).ceil() as i32;
+    for gy in gy0..=gy1 {
+        for gx in gx0..=gx1 {
+            let (cx, cy) = (gx as f32 * step, gy as f32 * step);
+            for i in 0..dual.count {
+                let dx = (2.0 * hash01(i as i32, dab_index as i32, seed ^ DUAL_SEED_X) - 1.0) * scatter_px;
+                let dy = if dual.both_axes { (2.0 * hash01(dab_index as i32, i as i32, seed ^ DUAL_SEED_Y) - 1.0) * scatter_px } else { 0.0 };
+                let (px, py) = (cx + dx, cy + dy);
+                let lx0 = ((px - rf).floor() as i32).max(x0);
+                let ly0 = ((py - rf).floor() as i32).max(y0);
+                let lx1 = ((px + rf).ceil() as i32 + 1).min(x1);
+                let ly1 = ((py + rf).ceil() as i32 + 1).min(y1);
+                for iy in ly0..ly1 {
+                    let ddy = iy as f32 + 0.5 - py;
+                    for ix in lx0..lx1 {
+                        let ddx = ix as f32 + 0.5 - px;
+                        let c = tip.cov(ddx, ddy);
+                        if c <= 0.0 {
+                            continue;
+                        }
+                        let idx = ((iy - y0) as usize) * w + (ix - x0) as usize;
+                        if c > buf[idx] {
+                            buf[idx] = c;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    buf
+}
+
 #[derive(Clone, Default)]
 pub struct Dynamics {
     pub shape: ShapeDynamics,
     pub scatter: ScatterDynamics,
     pub transfer: TransferDynamics,
     pub color: ColorDynamics,
+    pub texture: TextureDynamics,
 }
 
 /// One placed dab, after dynamics and scattering (a stroke_apply "anchor" placed by `Spacer`
@@ -474,6 +582,8 @@ pub struct PlacedDab {
     pub cap_mul: f32,
     pub flow_mul: f32,
     pub rgb: Option<[f32; 3]>,
+    pub tex_depth: f32,
+    pub dab_index: u32,
 }
 
 fn rgb_to_hsb(rgb: [f32; 3]) -> (f32, f32, f32) {
@@ -535,13 +645,14 @@ fn roll_color(c: &ColorDynamics, fg: [f32; 3], prng: &mut Prng) -> [f32; 3] {
     [rgb[0].clamp(0.0, 1.0), rgb[1].clamp(0.0, 1.0), rgb[2].clamp(0.0, 1.0)]
 }
 
-/// Expands one spaced anchor into its placed dabs (E1.4-E1.7): scattering's `count`/magnitude are
-/// rolled once per anchor, then every sub-dab (in order) rolls scatter offset, shape (size,
-/// roundness, flips, angle), transfer (opacity, flow) and color -- this order, applied to every
-/// sub-dab of every anchor in path order, is the one fixed PRNG draw order for the whole stroke.
-/// `anchor` must already have pose overrides applied (`apply_pose`) and `base_diameter` must
-/// already include the legacy pressure-size toggle; `dab_index` and `prng` carry state across
-/// anchors for the whole stroke.
+/// Expands one spaced anchor into its placed dabs (E1.4-E1.7, E2.3): scattering's `count`/magnitude
+/// are rolled once per anchor, then every sub-dab (in order) rolls scatter offset, shape (size,
+/// roundness, flips, angle), transfer (opacity, flow), color and finally the E2.3 texture depth
+/// jitter (appended after the E1 draws, so all-texture-off strokes keep the E1 draw order exactly)
+/// -- this order, applied to every sub-dab of every anchor in path order, is the one fixed PRNG
+/// draw order for the whole stroke. `anchor` must already have pose overrides applied
+/// (`apply_pose`) and `base_diameter` must already include the legacy pressure-size toggle;
+/// `dab_index` and `prng` carry state across anchors for the whole stroke.
 #[allow(clippy::too_many_arguments)]
 pub fn place_dabs(
     anchor: &Sample,
@@ -624,6 +735,13 @@ pub fn place_dabs(
 
         let rgb = if dyn_.color.enabled { Some(color_once.unwrap_or_else(|| roll_color(&dyn_.color, fg, prng))) } else { None };
 
+        // E2.3, drawn last so an all-off stroke's PRNG sequence is exactly the E1 one.
+        let tex_depth = if dyn_.texture.enabled {
+            (dyn_.texture.depth * dyn_.texture.depth_jitter.eval(&ctx, prng)).max(dyn_.texture.minimum_depth)
+        } else {
+            1.0
+        };
+
         out.push(PlacedDab {
             x: anchor.x + ox as f64,
             y: anchor.y + oy as f64,
@@ -636,6 +754,8 @@ pub fn place_dabs(
             cap_mul,
             flow_mul,
             rgb,
+            tex_depth,
+            dab_index: ctx.dab_index,
         });
         *dab_index += 1;
     }

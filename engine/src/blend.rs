@@ -243,6 +243,30 @@ pub fn blend_rgb(mode: Blend, cb: [f32; 3], cs: [f32; 3]) -> [f32; 3] {
     [out[0].clamp(0.0, 1.0), out[1].clamp(0.0, 1.0), out[2].clamp(0.0, 1.0)]
 }
 
+/// Non-separable modes (whole-pixel comparisons/HSL ops) have no single-channel form; texture and
+/// dual-brush blending (E2.2) fall back to multiply for them.
+fn separable_or_multiply(mode: Blend) -> Blend {
+    match mode {
+        Blend::DarkerColor
+        | Blend::LighterColor
+        | Blend::Hue
+        | Blend::Saturation
+        | Blend::Color
+        | Blend::Luminosity
+        | Blend::Dissolve
+        | Blend::PassThrough => Blend::Multiply,
+        other => other,
+    }
+}
+
+/// Single-channel blend for texture and dual-brush masks (E2.2): `t` (the texture or secondary
+/// value) plays the backdrop and `e` (existing coverage) the source, so `overlay(e, t) ==
+/// hardLight(e, t)` and soft light's D-curve reads `t`, and `hardMix(e, t) == (t + e >= 1)`,
+/// matching the spec's formulas; reuses `blend_rgb`, never a forked copy.
+pub fn blend_channel(mode: Blend, e: f32, t: f32) -> f32 {
+    blend_rgb(separable_or_multiply(mode), [t; 3], [e; 3])[0]
+}
+
 /// A paint bucket / brush color, composited with an ordinary blend mode or one of the two paint
 /// modes docs/M2.md doesn't cover with `Blend`: "behind" only paints under existing alpha (like
 /// painting on the back of transparent film), "clear" erases towards transparent.
@@ -525,6 +549,28 @@ mod tests {
         assert_eq!(PaintMode::parse("behind").unwrap(), PaintMode::Behind);
         assert_eq!(PaintMode::parse("clear").unwrap(), PaintMode::Clear);
         assert!(PaintMode::parse("nope").is_err());
+    }
+
+    #[test]
+    fn blend_channel_matches_the_e2_2_formulas() {
+        let (e, t) = (0.3f32, 0.7f32);
+        let hard_light = |cb: f32, cs: f32| if cs <= 0.5 { cb * 2.0 * cs } else { cb + 2.0 * cs - 1.0 - cb * (2.0 * cs - 1.0) };
+        assert!(
+            (blend_channel(Blend::Overlay, e, t) - hard_light(e, t)).abs() < 1e-6,
+            "overlay(e, t) == hardLight(e, t)"
+        );
+        assert!(
+            (blend_channel(Blend::HardMix, e, t) - if t + e >= 1.0 { 1.0 } else { 0.0 }).abs() < 1e-6,
+            "hardMix == (t + e >= 1)"
+        );
+        // Soft light's D-curve reads the texture value t, not the existing coverage e.
+        let d = |x: f32| if x <= 0.25 { ((16.0 * x - 12.0) * x + 4.0) * x } else { x.sqrt() };
+        let soft_light_hi = |e: f32, t: f32| t + (2.0 * e - 1.0) * (d(t) - t);
+        let (e2, t2) = (0.8f32, 0.9f32); // e > 0.5 selects the D-curve branch.
+        assert!((blend_channel(Blend::SoftLight, e2, t2) - soft_light_hi(e2, t2)).abs() < 1e-6);
+        assert!((blend_channel(Blend::Multiply, e, t) - e * t).abs() < 1e-6, "multiply is symmetric");
+        // Non-separable modes fall back to multiply.
+        assert_eq!(blend_channel(Blend::Hue, e, t), blend_channel(Blend::Multiply, e, t));
     }
 
     #[test]

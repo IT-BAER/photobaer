@@ -1,6 +1,7 @@
 mod blend;
 mod doc;
 mod livewire;
+mod pattern;
 mod region;
 mod selection;
 mod stroke;
@@ -283,6 +284,16 @@ impl Engine {
 
     pub fn tip_remove(&mut self, id: u32) {
         self.0.tip_remove(id)
+    }
+
+    /// Registers a fill/texture pattern (E2.1): `1..=4096` px per side, `channels` 1 (gray) or 4
+    /// (RGBA, alpha ignored).
+    pub fn pattern_add(&mut self, w: u32, h: u32, data: Vec<u8>, channels: u8) -> Result<u32, JsError> {
+        self.0.pattern_add(w, h, &data, channels).map_err(err)
+    }
+
+    pub fn pattern_remove(&mut self, id: u32) {
+        self.0.pattern_remove(id)
     }
 
     /// Renders a brush preview (E1.12) as RGBA8, `w * h * 4` bytes, capped at 1024 x 256.

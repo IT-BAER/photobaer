@@ -4,11 +4,12 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::blend::{blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blend, PaintMode};
+use crate::blend::{blend_channel, blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blend, PaintMode};
 use crate::livewire::{self, LiveWire};
+use crate::pattern::Pattern;
 use crate::region;
 use crate::selection::{gaussian_kernel, Ellipse, MaskShape, Mode, Polygon, Rect, Shape};
-use crate::stroke::{self, Dyn, PoseOverride, Sample, SampledTip, Source, Spacer, Tip, TipKind, TipShape};
+use crate::stroke::{self, DualBrush, Dyn, PoseOverride, Sample, SampledTip, Source, Spacer, Tip, TipKind, TipShape};
 
 pub const TILE: usize = 256;
 const TILE_PIXELS: usize = TILE * TILE;
@@ -2106,6 +2107,13 @@ impl Document {
                 None => [x0, y0, x1, y1],
                 Some(b) => [b[0].min(x0), b[1].min(y0), b[2].max(x1), b[3].max(y1)],
             });
+            // Dual brush (E2.4): one secondary-tip stamp mask per placed dab, over the same pixel
+            // box as the primary tip, computed once and indexed per pixel below.
+            let dual_mask = st
+                .dual_brush
+                .enabled
+                .then(|| stroke::dual_brush_mask(&st.dual_brush, (x0, y0, x1, y1), d.dab_index, st.seed));
+            let dual_w = (x1 - x0) as usize;
             for (tx, ty) in self.tiles_of_rect(x0, y0, x1, y1) {
                 let key = (tx, ty);
                 if !st.tiles.contains_key(&key) {
@@ -2133,6 +2141,25 @@ impl Document {
                             if cov <= 0.0 {
                                 continue;
                             }
+                        }
+                        // Texture (E2.3): per pixel with coverage > 0, sampled at the document
+                        // pixel or (when eachTip) at the dab-local offset from this dab's rect.
+                        if st.texture.enabled {
+                            if let Some(pat) = &st.texture.pattern {
+                                let (sx, sy) =
+                                    if st.texture.each_tip { (ox + px - x0, oy + py - y0) } else { (ox + px, oy + py) };
+                                let v = pat.sample(sx, sy, st.texture.scale, st.texture.invert, st.texture.brightness, st.texture.contrast);
+                                let blended = blend_channel(st.texture.mode, cov, v);
+                                cov = (cov + (blended - cov) * d.tex_depth).clamp(0.0, 1.0);
+                            }
+                        }
+                        // Dual brush (E2.4): blend in the secondary stamp mask at this pixel.
+                        if let Some(mask) = &dual_mask {
+                            let v = mask[(oy + py - y0) as usize * dual_w + (ox + px - x0) as usize];
+                            cov = blend_channel(st.dual_brush.mode, cov, v).clamp(0.0, 1.0);
+                        }
+                        if cov <= 0.0 {
+                            continue;
                         }
                         let p = (py * TILE as i32 + px) as usize;
                         let prev = t.s[p];
@@ -3900,6 +3927,101 @@ struct PoseIn {
     pressure: Option<f32>,
 }
 
+fn multiply_mode() -> String {
+    "multiply".into()
+}
+
+// `#[serde(default)]` on the outer `StrokeIn` field falls back to `Default::default()` when the
+// whole object is absent, so these need a hand-written `Default` matching the per-field
+// `#[serde(default = "...")]` values below (a derived `Default` would give `mode: String::new()`).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+struct TextureIn {
+    enabled: bool,
+    pattern_id: Option<u32>,
+    invert: bool,
+    #[serde(default = "one")]
+    scale: f32,
+    brightness: f32,
+    contrast: f32,
+    each_tip: bool,
+    #[serde(default = "multiply_mode")]
+    mode: String,
+    #[serde(default = "one")]
+    depth: f32,
+    minimum_depth: f32,
+    depth_jitter: DynIn,
+}
+
+impl Default for TextureIn {
+    fn default() -> TextureIn {
+        TextureIn {
+            enabled: false,
+            pattern_id: None,
+            invert: false,
+            scale: one(),
+            brightness: 0.0,
+            contrast: 0.0,
+            each_tip: false,
+            mode: multiply_mode(),
+            depth: one(),
+            minimum_depth: 0.0,
+            depth_jitter: DynIn::default(),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+struct DualBrushIn {
+    enabled: bool,
+    #[serde(default = "round_tip")]
+    tip: String,
+    tip_id: Option<u32>,
+    #[serde(default = "one")]
+    hardness: f32,
+    #[serde(default = "one")]
+    roundness: f32,
+    angle: f32,
+    flip_x: bool,
+    flip_y: bool,
+    #[serde(default = "multiply_mode")]
+    mode: String,
+    #[serde(default = "one")]
+    size: f32,
+    #[serde(default = "quarter")]
+    spacing: f32,
+    scatter: f32,
+    both_axes: bool,
+    #[serde(default = "one_u32")]
+    count: u32,
+}
+
+fn one_u32() -> u32 {
+    1
+}
+
+impl Default for DualBrushIn {
+    fn default() -> DualBrushIn {
+        DualBrushIn {
+            enabled: false,
+            tip: round_tip(),
+            tip_id: None,
+            hardness: one(),
+            roundness: one(),
+            angle: 0.0,
+            flip_x: false,
+            flip_y: false,
+            mode: multiply_mode(),
+            size: one(),
+            spacing: quarter(),
+            scatter: 0.0,
+            both_axes: false,
+            count: one_u32(),
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StrokeIn {
@@ -3954,6 +4076,10 @@ struct StrokeIn {
     noise: f32,
     #[serde(default)]
     pose: PoseIn,
+    #[serde(default)]
+    texture: TextureIn,
+    #[serde(default)]
+    dual_brush: DualBrushIn,
 }
 
 fn one() -> f32 {
@@ -3980,6 +4106,7 @@ fn parse_stroke(
     target: Target,
     params_json: &str,
     tips: &HashMap<u32, Arc<SampledTip>>,
+    patterns: &HashMap<u32, Arc<Pattern>>,
     keep_alpha: bool,
     sel_was_none: bool,
     resolve_hist: impl FnOnce(u32) -> Result<Tiles, String>,
@@ -4058,6 +4185,73 @@ fn parse_stroke(
         per_tip: p.color.per_tip.unwrap_or(true),
     };
 
+    if ![p.texture.scale, p.texture.brightness, p.texture.contrast, p.texture.depth, p.texture.minimum_depth]
+        .iter()
+        .all(|v| v.is_finite())
+        || !p.texture.depth_jitter.finite()
+    {
+        return Err("texture params must be finite".into());
+    }
+    let texture_mode = Blend::parse(&p.texture.mode)?;
+    let texture_pattern = match p.texture.pattern_id {
+        Some(id) => Some(patterns.get(&id).ok_or_else(|| format!("unknown pattern {id}"))?.clone()),
+        None => None,
+    };
+    if p.texture.enabled && texture_pattern.is_none() {
+        return Err("texture needs a patternId".into());
+    }
+    let texture = TextureCfg {
+        enabled: p.texture.enabled,
+        pattern: texture_pattern,
+        invert: p.texture.invert,
+        scale: if p.texture.scale <= 0.0 { 1.0 } else { p.texture.scale.clamp(0.01, 10.0) },
+        brightness: p.texture.brightness.clamp(-1.0, 1.0),
+        contrast: p.texture.contrast.clamp(-1.0, 1.0),
+        each_tip: p.texture.each_tip,
+        mode: texture_mode,
+    };
+    let texture_dyn = stroke::TextureDynamics {
+        enabled: p.texture.enabled,
+        depth: p.texture.depth.clamp(0.0, 1.0),
+        minimum_depth: p.texture.minimum_depth.clamp(0.0, 1.0),
+        depth_jitter: p.texture.depth_jitter.parse()?,
+    };
+
+    if !p.dual_brush.size.is_finite()
+        || !p.dual_brush.spacing.is_finite()
+        || !p.dual_brush.scatter.is_finite()
+        || !p.dual_brush.angle.is_finite()
+        || !p.dual_brush.hardness.is_finite()
+        || !p.dual_brush.roundness.is_finite()
+    {
+        return Err("dual brush params must be finite".into());
+    }
+    let dual_mode = Blend::parse(&p.dual_brush.mode)?;
+    let dual_shape = match TipKind::parse(&p.dual_brush.tip)? {
+        TipKind::Round => TipShape::Round,
+        TipKind::Sampled => {
+            let id = p.dual_brush.tip_id.ok_or_else(|| "a sampled dual brush tip needs tipId".to_string())?;
+            let tip = tips.get(&id).ok_or_else(|| format!("unknown tip {id}"))?;
+            TipShape::Sampled(tip.clone())
+        }
+        TipKind::Square => return Err("dual brush only supports round or sampled tips".into()),
+    };
+    let dual_brush = DualBrush {
+        enabled: p.dual_brush.enabled,
+        shape: dual_shape,
+        hardness: p.dual_brush.hardness.clamp(0.0, 1.0),
+        roundness: p.dual_brush.roundness.clamp(0.01, 1.0),
+        angle: p.dual_brush.angle,
+        flip_x: p.dual_brush.flip_x,
+        flip_y: p.dual_brush.flip_y,
+        mode: dual_mode,
+        size: p.dual_brush.size.clamp(1.0, 1000.0),
+        spacing: p.dual_brush.spacing.clamp(0.01, 10.0),
+        scatter: p.dual_brush.scatter.clamp(0.0, 10.0),
+        both_axes: p.dual_brush.both_axes,
+        count: p.dual_brush.count.clamp(1, 16),
+    };
+
     let pose = if p.pose.enabled {
         for v in [p.pose.tilt_x, p.pose.tilt_y, p.pose.rotation, p.pose.pressure].into_iter().flatten() {
             if !v.is_finite() {
@@ -4111,12 +4305,14 @@ fn parse_stroke(
         prng: stroke::Prng::new(p.seed),
         dab_index: 0,
         pose,
-        dynamics: stroke::Dynamics { shape: shape_dyn, scatter, transfer, color },
+        dynamics: stroke::Dynamics { shape: shape_dyn, scatter, transfer, color, texture: texture_dyn },
         noise: p.noise.clamp(0.0, 1.0),
         seed: p.seed,
         hist,
         sel_was_none,
         tiles: HashMap::new(),
+        texture,
+        dual_brush,
     })
 }
 
@@ -4128,6 +4324,19 @@ struct StrokeTile {
     s: Vec<f32>,
     rgb: Option<Vec<[f32; 3]>>,
     orig: Option<Tile>,
+}
+
+/// E2.3 texture sampling config; the per-dab depth roll lives in `stroke::TextureDynamics`
+/// instead, since only that needs the stroke PRNG.
+struct TextureCfg {
+    enabled: bool,
+    pattern: Option<Arc<Pattern>>,
+    invert: bool,
+    scale: f32,
+    brightness: f32,
+    contrast: f32,
+    each_tip: bool,
+    mode: Blend,
 }
 
 /// An open stroke (B5 spec v2 Part E1). Lives in `EngineCore`, outside the document, so
@@ -4162,6 +4371,8 @@ pub struct Stroke {
     dynamics: stroke::Dynamics,
     noise: f32,
     seed: u32,
+    texture: TextureCfg,
+    dual_brush: DualBrush,
     // Erase to history: the same layer's tiles in the chosen snapshot.
     hist: Option<Tiles>,
     // A quick-mask stroke that created the selection removes it again on cancel.
@@ -4185,6 +4396,9 @@ pub struct EngineCore {
     // referenced by id from stroke params, not part of the document's persisted state.
     tips: HashMap<u32, Arc<SampledTip>>,
     next_tip_id: u32,
+    // Fill/texture patterns (E2.1), outside the document/snapshots for the same reason as tips.
+    patterns: HashMap<u32, Arc<Pattern>>,
+    next_pattern_id: u32,
 }
 
 impl EngineCore {
@@ -4198,6 +4412,8 @@ impl EngineCore {
             next_livewire_id: 0,
             tips: HashMap::new(),
             next_tip_id: 0,
+            patterns: HashMap::new(),
+            next_pattern_id: 0,
         }
     }
 
@@ -4217,6 +4433,20 @@ impl EngineCore {
 
     pub fn tip_remove(&mut self, id: u32) {
         self.tips.remove(&id);
+    }
+
+    /// Registers a fill/texture pattern (E2.1): `1..=4096` px per side, `channels` 1 (gray) or 4
+    /// (RGBA, alpha ignored).
+    pub fn pattern_add(&mut self, w: u32, h: u32, data: &[u8], channels: u8) -> Result<u32, String> {
+        let pattern = Pattern::new(w, h, data, channels)?;
+        let id = self.next_pattern_id;
+        self.next_pattern_id += 1;
+        self.patterns.insert(id, Arc::new(pattern));
+        Ok(id)
+    }
+
+    pub fn pattern_remove(&mut self, id: u32) {
+        self.patterns.remove(&id);
     }
 
     /// Magnetic lasso (docs/M2.md section 3): computes the gradient field of the sampled image
@@ -4272,7 +4502,7 @@ impl EngineCore {
         };
         let sel_was_none = self.doc.selection.is_none();
         let snapshots = &self.snapshots;
-        let stroke = parse_stroke(layer_id, target, params_json, &self.tips, keep_alpha, sel_was_none, |id| {
+        let stroke = parse_stroke(layer_id, target, params_json, &self.tips, &self.patterns, keep_alpha, sel_was_none, |id| {
             let snap = snapshots.get(&id).ok_or_else(|| format!("unknown snapshot {id}"))?;
             let tiles = snap
                 .node(layer_id)
@@ -4297,7 +4527,7 @@ impl EngineCore {
         }
         let mut doc = Document::new(w, h, 8)?;
         let layer = 1; // Document::new's Background layer.
-        let mut st = parse_stroke(layer, Target::Pixels, params_json, &self.tips, false, true, |id| {
+        let mut st = parse_stroke(layer, Target::Pixels, params_json, &self.tips, &self.patterns, false, true, |id| {
             Err(format!("brush preview has no snapshot {id}"))
         })?;
         st.prng = stroke::Prng::new(0);
@@ -6563,7 +6793,7 @@ mod tests {
     #[test]
     fn all_dynamics_off_matches_the_bare_default_params() {
         let explicit_off = hard(
-            r#","shapeDyn":{"enabled":false},"scatter":{"enabled":false},"transfer":{"enabled":false},"color":{"enabled":false},"pose":{"enabled":false},"noise":0,"wetEdges":false"#,
+            r#","shapeDyn":{"enabled":false},"scatter":{"enabled":false},"transfer":{"enabled":false},"color":{"enabled":false},"pose":{"enabled":false},"noise":0,"wetEdges":false,"texture":{"enabled":false},"dualBrush":{"enabled":false}"#,
         );
         let bare = hard("");
         let samples = [10.5, 10.5, 1.0, 20.5, 15.5, 0.6, 15.5, 25.5, 0.9];
@@ -6686,12 +6916,138 @@ mod tests {
         assert!(e.tip_add(3, 3, vec![0; 9]).is_ok());
     }
 
+    // ---------- B5 Part E2 (patterns, texture, dual brush) ----------
+
+    #[test]
+    fn pattern_add_rejects_bad_sizes_and_length() {
+        let mut e = core_bg(255, 255, 255);
+        assert!(e.pattern_add(0, 3, &[0; 3], 1).is_err(), "a 0 px side is rejected");
+        assert!(e.pattern_add(4097, 3, &[0; 4097 * 3], 1).is_err(), "over 4096 px per side is rejected");
+        assert!(e.pattern_add(3, 3, &[0; 8], 1).is_err(), "gray bytes must be w * h long");
+        assert!(e.pattern_add(3, 3, &[0; 9], 1).is_ok());
+        assert!(e.pattern_add(2, 2, &[0; 16], 4).is_ok());
+    }
+
+    // A period-2 checker pattern (dark, light) used by every texture golden below.
+    fn checker(e: &mut EngineCore) -> u32 {
+        e.pattern_add(2, 1, &[0, 255], 1).unwrap()
+    }
+
+    #[test]
+    fn texture_multiply_at_depth_1_leaves_dark_texels_unpainted() {
+        let mut e = core_bg(255, 255, 255);
+        let pid = checker(&mut e);
+        let params = hard(&format!(
+            r#","size":5,"texture":{{"enabled":true,"patternId":{pid},"mode":"multiply","scale":1,"depth":1}}"#
+        ));
+        stroke(&mut e, &params, &[12.5, 12.5, 1.0]);
+        assert_eq!(at(&e.doc, 10, 12), [255, 255, 255, 255], "even x samples the dark (0) texel: multiply gives zero");
+        assert_eq!(at(&e.doc, 13, 12), [0, 0, 0, 255], "odd x samples the light (1) texel: multiply is a no-op");
+    }
+
+    #[test]
+    fn texture_invert_flips_which_texels_paint() {
+        let mut e = core_bg(255, 255, 255);
+        let pid = checker(&mut e);
+        let params = hard(&format!(
+            r#","size":5,"texture":{{"enabled":true,"patternId":{pid},"mode":"multiply","scale":1,"depth":1,"invert":true}}"#
+        ));
+        stroke(&mut e, &params, &[12.5, 12.5, 1.0]);
+        assert_eq!(at(&e.doc, 10, 12), [0, 0, 0, 255], "inverted: the dark texel now reads as light");
+        assert_eq!(at(&e.doc, 13, 12), [255, 255, 255, 255], "inverted: the light texel now reads as dark");
+    }
+
+    #[test]
+    fn texture_scale_2_doubles_the_period() {
+        let mut e = core_bg(255, 255, 255);
+        let pid = checker(&mut e);
+        let scale1 = hard(&format!(
+            r#","size":5,"texture":{{"enabled":true,"patternId":{pid},"mode":"multiply","scale":1,"depth":1}}"#
+        ));
+        stroke(&mut e, &scale1, &[12.5, 12.5, 1.0]);
+        assert_ne!(at(&e.doc, 12, 12), at(&e.doc, 13, 12), "scale 1: adjacent columns land on different texels");
+
+        let mut e2 = core_bg(255, 255, 255);
+        let pid2 = checker(&mut e2);
+        let scale2 = hard(&format!(
+            r#","size":5,"texture":{{"enabled":true,"patternId":{pid2},"mode":"multiply","scale":2,"depth":1}}"#
+        ));
+        stroke(&mut e2, &scale2, &[12.5, 12.5, 1.0]);
+        assert_eq!(at(&e2.doc, 12, 12), at(&e2.doc, 13, 12), "scale 2: the period doubled, so they now agree");
+    }
+
+    #[test]
+    fn texture_each_tip_samples_the_dab_local_rect_not_the_document() {
+        let pid_params = |each_tip: bool, pid: u32| {
+            hard(&format!(
+                r#","size":5,"texture":{{"enabled":true,"patternId":{pid},"mode":"multiply","scale":1,"depth":1,"eachTip":{each_tip}}}"#
+            ))
+        };
+        // Anchor x = 12.5, size 5 (radius 2.5): the dab's pixel rect starts at document x = 9 (odd),
+        // so a document-anchored sample and a dab-local sample (offset from x = 9) land on opposite
+        // texels of the period-2 checker at document x = 10.
+        let mut doc_anchored = core_bg(255, 255, 255);
+        let pid = checker(&mut doc_anchored);
+        stroke(&mut doc_anchored, &pid_params(false, pid), &[12.5, 12.5, 1.0]);
+        let mut dab_local = core_bg(255, 255, 255);
+        let pid2 = checker(&mut dab_local);
+        stroke(&mut dab_local, &pid_params(true, pid2), &[12.5, 12.5, 1.0]);
+        assert_ne!(at(&doc_anchored.doc, 10, 12), at(&dab_local.doc, 10, 12), "eachTip and the document anchor sample differently");
+    }
+
+    #[test]
+    fn dual_brush_multiply_with_no_secondary_coverage_leaves_zero() {
+        let mut e = core_bg(255, 255, 255);
+        // A tiny, widely spaced secondary tip: no grid point's stamp reaches the primary dab's rect.
+        let params = hard(
+            r#","size":5,"dualBrush":{"enabled":true,"tip":"round","mode":"multiply","size":1,"spacing":100,"scatter":0,"count":1}"#,
+        );
+        stroke(&mut e, &params, &[12.5, 12.5, 1.0]);
+        assert_eq!(at(&e.doc, 12, 12), [255, 255, 255, 255], "multiply by zero secondary coverage paints nothing");
+    }
+
+    #[test]
+    fn dual_brush_mask_uses_max_compositing_not_a_sum() {
+        // step = size * spacing = 3, so grid points at document x = 0, 3, 6, ...; scatter 0 keeps
+        // them exact. A soft (hardness 0.5) tip of radius 5 overlaps its neighbor at x = 1.
+        let dual = DualBrush {
+            enabled: true,
+            shape: TipShape::Round,
+            hardness: 0.5,
+            roundness: 1.0,
+            angle: 0.0,
+            flip_x: false,
+            flip_y: false,
+            mode: Blend::Multiply,
+            size: 10.0,
+            spacing: 0.3,
+            scatter: 0.0,
+            both_axes: false,
+            count: 1,
+        };
+        let mask = stroke::dual_brush_mask(&dual, (0, 0, 20, 20), 0, 0);
+        let tip = Tip::new(5.0, 0.5, 0.0, 1.0, false, TipShape::Round, false, false);
+        let (x, y) = (1usize, 0usize);
+        let v0 = tip.cov(x as f32 + 0.5, y as f32 + 0.5);
+        let v1 = tip.cov(x as f32 + 0.5 - 3.0, y as f32 + 0.5);
+        assert!(v0 > 0.0 && v1 > 0.0, "both grid stamps reach this pixel");
+        let got = mask[y * 20 + x];
+        assert!((got - v0.max(v1)).abs() < 1e-4, "max compositing: got {got}, want max {}", v0.max(v1));
+        assert!(got < v0 + v1 - 1e-3, "not a sum of the two overlapping stamps");
+    }
+
     #[test]
     #[ignore = "timing guide, not a gate"]
     fn stroke_latency_on_a_4k_canvas() {
         let mut e = EngineCore::new(Document::new(3840, 2160, 8).unwrap());
         e.doc.fill(1, Target::Pixels, 255, 255, 255, 255).unwrap();
-        e.stroke_begin(1, "pixels", r#"{"rgba":[0,0,0,255],"mode":"normal","size":30}"#).unwrap();
+        let pid = e.pattern_add(2, 2, &[0, 255, 255, 0], 1).unwrap();
+        let params = format!(
+            r#"{{"rgba":[0,0,0,255],"mode":"normal","size":30,
+            "texture":{{"enabled":true,"patternId":{pid},"mode":"multiply","scale":4}},
+            "dualBrush":{{"enabled":true,"tip":"round","mode":"multiply","size":15,"spacing":0.5,"scatter":2,"count":2}}}}"#
+        );
+        e.stroke_begin(1, "pixels", &params).unwrap();
         let t0 = std::time::Instant::now();
         let segments = 60;
         for i in 0..segments {
@@ -6699,7 +7055,7 @@ mod tests {
             e.stroke_to(&[x, 500.0, 1.0]).unwrap();
         }
         let ms = t0.elapsed().as_secs_f64() * 1000.0 / segments as f64;
-        println!("stroke_to: {ms:.3} ms per 20 px segment");
+        println!("stroke_to (texture + dual brush): {ms:.3} ms per 20 px segment");
         e.stroke_end().unwrap();
     }
 }
