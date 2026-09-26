@@ -2,6 +2,8 @@
 mod transform;
 #[path = "warp.rs"]
 mod warp;
+#[path = "canvas.rs"]
+mod canvas;
 pub use transform::Remap;
 
 use std::cell::RefCell;

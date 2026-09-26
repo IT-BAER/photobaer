@@ -601,4 +601,49 @@ impl Engine {
     pub fn warp_layer(&mut self, id: u32, mesh: &str, interp: &str) -> Result<(), JsError> {
         self.0.doc.warp_layer(id, mesh, Interp::parse(interp).map_err(err)?).map_err(err)
     }
+
+    // ---------- canvas ----------
+
+    /// Crops to the rounded-out rect: every plane is clipped to it when `delete_cropped`, then
+    /// moved by (-x, -y); the canvas becomes w x h. False when the rect is empty.
+    pub fn apply_crop(&mut self, x: f64, y: f64, w: f64, h: f64, delete_cropped: bool) -> Result<bool, JsError> {
+        self.0.doc.apply_crop([x, y, w, h], delete_cropped).map_err(err)
+    }
+
+    /// Crop tool commit: a non-zero `angle` (degrees) first rotates the canvas by -angle. False
+    /// when nothing changes (angle 0 and the rect is the canvas, or an empty rect).
+    #[allow(clippy::too_many_arguments)]
+    pub fn crop_rotated(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64, delete_cropped: bool) -> Result<bool, JsError> {
+        self.0.doc.crop_rotated([x, y, w, h], angle, delete_cropped).map_err(err)
+    }
+
+    /// `based_on` is transparent|topLeftPixel|bottomRightPixel; returns [x, y, w, h].
+    pub fn trim_rect(&self, based_on: &str, top: bool, bottom: bool, left: bool, right: bool) -> Result<Vec<i32>, JsError> {
+        Ok(self.0.doc.trim_rect(based_on, top, bottom, left, right).map_err(err)?.to_vec())
+    }
+
+    /// Crops to `trim_rect` keeping hidden pixels. False when that rect is the canvas.
+    pub fn trim(&mut self, based_on: &str, top: bool, bottom: bool, left: bool, right: bool) -> Result<bool, JsError> {
+        self.0.doc.trim(based_on, top, bottom, left, right).map_err(err)
+    }
+
+    /// False when every layer and mask already fits the canvas.
+    pub fn reveal_all(&mut self) -> Result<bool, JsError> {
+        self.0.doc.reveal_all().map_err(err)
+    }
+
+    /// `kind` is cw|ccw|180|flipH|flipV.
+    pub fn rotate_canvas_exact(&mut self, kind: &str) -> Result<(), JsError> {
+        self.0.doc.rotate_canvas_exact(Remap::parse(kind).map_err(err)?).map_err(err)
+    }
+
+    /// Arbitrary canvas rotation, `deg` clockwise; false for a multiple of 360.
+    pub fn rotate_canvas(&mut self, deg: f64, interp: &str) -> Result<bool, JsError> {
+        self.0.doc.rotate_canvas(deg, Interp::parse(interp).map_err(err)?).map_err(err)
+    }
+
+    /// `quad` is flat x0, y0 .. x3, y3 for the corners that map to (0,0), (W,0), (W,H), (0,H).
+    pub fn perspective_crop(&mut self, quad: Vec<f64>, out_w: u32, out_h: u32, interp: &str) -> Result<(), JsError> {
+        self.0.doc.perspective_crop(&quad, out_w, out_h, Interp::parse(interp).map_err(err)?).map_err(err)
+    }
 }

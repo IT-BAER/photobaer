@@ -135,7 +135,7 @@ impl Document {
 
     // Renders the resampler's dest rect (clipped to `clip`) into fresh tiles; mask tiles that are
     // all default and fully transparent pixel tiles are dropped.
-    fn render_tiles(&mut self, rs: &Resampler, mask_default: Option<u32>, clip: Option<[i32; 4]>) -> Result<Tiles, String> {
+    pub(super) fn render_tiles(&mut self, rs: &Resampler, mask_default: Option<u32>, clip: Option<[i32; 4]>) -> Result<Tiles, String> {
         let r = clip.map_or(rs.rect(), |c| intersect(rs.rect(), c));
         self.render_tiles_with(r, mask_default, clip.is_some(), |ox, oy, buf| rs.render(ox, oy, TILE, TILE, buf))
     }
@@ -335,7 +335,7 @@ impl Document {
 
     // Every pixel of `src` moved by an exact integer map (`fwd`, inverse `inv`, document px); a
     // missing source tile reads as empty or as the mask default.
-    fn remap_exact(
+    pub(super) fn remap_exact(
         &mut self,
         src: &Tiles,
         fwd: &dyn Fn(i64, i64) -> (i64, i64),
