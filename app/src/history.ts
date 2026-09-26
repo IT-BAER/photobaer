@@ -51,11 +51,12 @@ export class History {
     this.#open = { label, snap: this.#s.snapshot() };
   }
 
-  commit() {
+  // `label` replaces the label the step was opened with.
+  commit(label?: string) {
     const open = this.#open;
     if (!open) throw new Error('no history step is open');
     this.#open = null;
-    this.#push(open);
+    this.#push(label ? { ...open, label } : open);
   }
 
   // Puts the document back to the open step's starting state (a live preview rerun or cancel).

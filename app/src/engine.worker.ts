@@ -72,10 +72,13 @@ let strokeOpen = false;
 // Move tool live session: a snapshot taken right after any duplicate, restored and replayed
 // from on every step so the previewed offset never compounds.
 let moveSession: { liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number } | null = null;
-// Free transform / Transform Selection session: one open history step. `hidden` is the document
-// with the source removed (the UI previews it), `refined` the matrix last rendered for real.
+// Free transform / Transform Selection / Warp session: one open history step. `hidden` is the document
+// with the source removed (the UI previews it), `refined` the matrix or warp mesh JSON last rendered for
+// real, `base` the snapshot a warp applies to after a baked matrix (null: the step's start), `label` the
+// commit label when it differs from the one the step opened with.
 type TransformKind = 'layer' | 'pixels' | 'selection';
-let transformSession: { id: number; kind: TransformKind; hidden: number; refined: number[] | null } | null = null;
+type TransformOp = number[] | string;
+let transformSession: { id: number; kind: TransformKind; hidden: number; refined: TransformOp | null; base: number | null; label: string | null } | null = null;
 // Open live-preview session (Fill/Stroke dialogs): one history step, rerun from its start on every change.
 let previewOpen = false;
 let previewError: string | null = null;
@@ -189,11 +192,36 @@ function endPreview(commit: boolean) {
   if (commit) { const e = previewError; previewError = null; throw new Error(e!); }
 }
 
-function applyTransform(e: Engine, kind: TransformKind, id: number, m: number[], interp: string) {
+// A string is a warp mesh (whole layer only); an array a row-major 3x3 matrix.
+function applyTransform(e: Engine, kind: TransformKind, id: number, m: TransformOp, interp: string) {
+  if (typeof m === 'string') {
+    if (kind !== 'layer') throw new Error(WARP_LAYER_ONLY);
+    e.warp_layer(id, m, interp);
+    return;
+  }
   const f = Float64Array.from(m);
   if (kind === 'layer') e.transform_layer(id, f, interp, true);
   else if (kind === 'pixels') e.transform_selected_pixels(id, f, interp, new Uint8Array(), false);
   else e.transform_selection(f, interp);
+}
+
+const WARP_LAYER_ONLY = 'Warp bends a whole layer; deselect to warp it.';
+const sameOp = (a: TransformOp, b: TransformOp) => typeof a === 'string' || typeof b === 'string' ? a === b : a.length === b.length && a.every((v, i) => v === b[i]);
+
+// Puts the document back to the state the session's transform applies to.
+function restoreBase(e: Engine, base: number | null) {
+  if (base === null) history.restoreOpen();
+  else e.restore(base);
+}
+
+// The session preview source: straight RGBA8 at scale f (longest side <= maxSide) over doc rect (x, y, w, h) / f.
+function liftPreview(e: Engine, id: number, bounds: Box, selected: boolean, maxSide: number) {
+  let f = Math.min(1, maxSide / Math.max(bounds[2], bounds[3]));
+  if (f >= 0.9) f = 1;
+  const x0 = Math.floor(bounds[0] * f), y0 = Math.floor(bounds[1] * f);
+  const w = Math.ceil((bounds[0] + bounds[2]) * f) - x0, h = Math.ceil((bounds[1] + bounds[3]) * f) - y0;
+  const data = e.transform_preview(id, Float64Array.of(1, 0, 0, 0, 1, 0, 0, 0, 1), f, selected, x0, y0, w, h).buffer as ArrayBuffer;
+  return { image: { x: x0, y: y0, w, h, f }, data };
 }
 
 type Box = [number, number, number, number];
@@ -819,15 +847,7 @@ const api = {
     const found = kind === 'layer' ? layer : kind === 'pixels' ? intersect(sel!.bounds, layer) : sel!.bounds;
     const bounds = found && Array.from(found) as Box;
     if (!bounds) throw new Error(kind === 'selection' ? 'Make a selection first.' : 'There are no pixels to transform.');
-    let image = null, data: ArrayBuffer | null = null;
-    if (kind !== 'selection') {
-      let f = Math.min(1, maxSide / Math.max(bounds[2], bounds[3]));
-      if (f >= 0.9) f = 1;
-      const x0 = Math.floor(bounds[0] * f), y0 = Math.floor(bounds[1] * f);
-      const w = Math.ceil((bounds[0] + bounds[2]) * f) - x0, h = Math.ceil((bounds[1] + bounds[3]) * f) - y0;
-      data = e.transform_preview(id, Float64Array.of(1, 0, 0, 0, 1, 0, 0, 0, 1), f, kind === 'pixels', x0, y0, w, h).buffer as ArrayBuffer;
-      image = { x: x0, y: y0, w, h, f };
-    }
+    const { image, data } = kind === 'selection' ? { image: null, data: null } : liftPreview(e, id, bounds, kind === 'pixels', maxSide);
     history.begin(label);
     try {
       if (kind !== 'selection') e.clear(id, 'pixels');
@@ -836,17 +856,17 @@ const api = {
       history.abort();
       throw err;
     }
-    transformSession = { id, kind, hidden: e.snapshot(), refined: null };
+    transformSession = { id, kind, hidden: e.snapshot(), refined: null, base: null, label: null };
     version++;
     return { ...info()!, bounds, image, data };
   },
 
   // Renders the session's real result (bicubic) into the live document.
   // Refine, unrefine and commit do nothing once another op has cancelled the session.
-  transformRefine(m: number[]) {
+  transformRefine(m: TransformOp) {
     const e = need(), s = transformSession;
     if (!s) return info();
-    history.restoreOpen();
+    restoreBase(e, s.base);
     try {
       applyTransform(e, s.kind, s.id, m, 'bicubic');
     } catch (err) {
@@ -869,14 +889,16 @@ const api = {
     return info()!;
   },
 
-  // Commits `m` as one history step under the session label; null (unmodified) commits nothing.
-  transformCommit(m: number[] | null) {
+  // Commits `m` as one history step under the session label; null (unmodified) commits nothing
+  // unless a matrix was baked before a warp.
+  transformCommit(m: TransformOp | null) {
     const e = need(), s = transformSession;
     if (!s) throw new Error('The transform was cancelled.');
-    if (!m) return api.transformCancel();
+    if (!m && s.base === null) return api.transformCancel();
     try {
-      if (!s.refined || s.refined.some((v, i) => v !== m[i])) {
-        history.restoreOpen();
+      if (!m) restoreBase(e, s.base);
+      else if (!s.refined || !sameOp(s.refined, m)) {
+        restoreBase(e, s.base);
         applyTransform(e, s.kind, s.id, m, 'bicubic');
       }
     } catch (err) {
@@ -885,7 +907,8 @@ const api = {
     }
     transformSession = null;
     e.drop_snapshot(s.hidden);
-    history.commit();
+    if (s.base !== null) e.drop_snapshot(s.base);
+    history.commit(s.label ?? undefined);
     selGen++;
     return changed();
   },
@@ -895,10 +918,42 @@ const api = {
     if (!s) return info();
     transformSession = null;
     need().drop_snapshot(s.hidden);
+    if (s.base !== null) need().drop_snapshot(s.base);
     history.restoreOpen();
     history.abort();
     selGen++;
     return changed();
+  },
+
+  // Turns the open layer session into a warp: the pending matrix `m` (null: unmodified) is rendered
+  // bicubic and the result becomes the warp source, returned like transformBegin.
+  transformWarp(m: number[] | null, maxSide = 2048) {
+    const e = need(), s = transformSession;
+    if (!s) throw new Error('The transform was cancelled.');
+    if (s.kind === 'selection') throw new Error('Warp bends layer pixels, not the selection outline.');
+    if (s.kind !== 'layer') throw new Error(WARP_LAYER_ONLY);
+    if (collectPixelIds(JSON.parse(e.layers_json()), s.id)[0] !== s.id) throw new Error('Only pixel layers can be warped.');
+    let base: number | null = null;
+    try {
+      restoreBase(e, s.base);
+      if (m) applyTransform(e, s.kind, s.id, m, 'bicubic');
+      const found = e.layer_bounds(s.id) as Box | null;
+      if (!found) throw new Error('There are no pixels to warp.');
+      const bounds = Array.from(found) as Box, lifted = liftPreview(e, s.id, bounds, false, maxSide);
+      if (m) base = e.snapshot();
+      e.clear(s.id, 'pixels');
+      e.drop_snapshot(s.hidden);
+      if (s.base !== null) e.drop_snapshot(s.base);
+      Object.assign(s, { hidden: e.snapshot(), refined: null, base, label: m ? 'Free Transform and Warp' : 'Warp' });
+      version++;
+      return { ...info()!, bounds, ...lifted };
+    } catch (err) {
+      if (base !== null) e.drop_snapshot(base);
+      e.restore(s.hidden);
+      s.refined = null;
+      version++;
+      throw err;
+    }
   },
 
   // Replays the unit-square transform `n` on the layer's tight bounds; the mask stays.
@@ -1099,7 +1154,7 @@ const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'previewEnd
 // An open move session commits before any other op, so history never sees a half move.
 const MOVE_OPS = new Set<keyof Api>(['moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds']);
 // An open transform session is cancelled by any other op: only the UI knows its current matrix.
-const TRANSFORM_OPS = new Set<keyof Api>(['transformRefine', 'transformUnrefine', 'transformCommit', 'transformCancel', 'sample', 'snapTargets', 'movingBounds', 'selectionAt']);
+const TRANSFORM_OPS = new Set<keyof Api>(['transformRefine', 'transformUnrefine', 'transformCommit', 'transformCancel', 'transformWarp', 'sample', 'snapTargets', 'movingBounds', 'selectionAt']);
 
 // Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
 // displayTile, displayProgram and selectionMask are synchronous and read-only, so they skip the

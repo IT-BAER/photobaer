@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { initSync } from './engine-pkg/photobaer_engine.js';
 import { Autosave } from './autosave.ts';
 import { FakeDir, fs } from './fake-opfs.ts';
+import { engineMesh, identityMesh } from './transform/warp.ts';
 
 // Runs the real worker module in Node: WASM loaded up front, worker globals and OPFS faked.
 initSync({ module: readFileSync(new URL('./engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
@@ -576,4 +577,69 @@ test('transformAgain replays a normalized transform on the layer tight bounds as
   await call('addLayer', 1);
   assert.equal((await call('transformAgain', 2, n, 'bicubic')).error, 'Transform Again changed nothing.');
   assert.equal(((await call('undo')).result as { undoLabel: string }).undoLabel, 'Transform Again');
+});
+
+// The identity mesh of a rect, moved by (dx, dy), as the engine's mesh JSON.
+const meshMoved = (x: number, y: number, w: number, h: number, dx: number, dy: number) => {
+  const m = identityMesh({ x, y, w, h });
+  return engineMesh({ ...m, points: m.points.map(([px, py]) => [px + dx, py + dy]) });
+};
+
+test('a warp session refines and commits a mesh as one Warp step', async () => {
+  await redSquare();
+  await call('transformBegin', 1, 'layer', 'Warp');
+  assert.deepEqual(await px(3, 3), CLEAR);
+  await call('transformRefine', meshMoved(2, 2, 4, 4, 8, 0));
+  assert.deepEqual([await px(11, 3), await px(3, 3)], [RED, CLEAR]);
+  await call('transformUnrefine');
+  assert.deepEqual(await px(11, 3), CLEAR);
+  const c = await call('transformCommit', meshMoved(2, 2, 4, 4, 8, 8));
+  const doc = c.result as { undoLabel: string; history: { labels: string[] } };
+  assert.equal(doc.undoLabel, 'Warp');
+  assert.equal(doc.history.labels.filter(l => l === 'Warp').length, 1);
+  assert.deepEqual([await px(11, 11), await px(3, 3)], [RED, CLEAR]);
+  await call('undo');
+  assert.deepEqual([await px(3, 3), await px(11, 11)], [RED, CLEAR]);
+});
+
+test('switching a session to warp bakes a pending matrix and labels the step Free Transform and Warp', async () => {
+  await redSquare();
+  await call('transformBegin', 1, 'layer', 'Free Transform');
+  const w = (await call('transformWarp', translate(8, 0))).result as { bounds: number[]; image: { x: number; y: number; w: number; h: number; f: number }; data: ArrayBuffer };
+  assert.deepEqual(w.bounds, [10, 2, 4, 4], 'the warp source is the transformed layer');
+  assert.deepEqual(w.image, { x: 10, y: 2, w: 4, h: 4, f: 1 });
+  assert.deepEqual(Array.from(new Uint8Array(w.data).subarray(0, 4)), RED);
+  assert.deepEqual([await px(11, 3), await px(3, 3)], [CLEAR, CLEAR], 'the live document hides the warp source');
+  await call('transformRefine', meshMoved(10, 2, 4, 4, 0, 8));
+  assert.deepEqual(await px(11, 11), RED, 'the mesh applies on top of the baked matrix');
+  const c = await call('transformCommit', null);
+  assert.equal((c.result as { undoLabel: string }).undoLabel, 'Free Transform and Warp', 'an unmodified mesh still commits the matrix');
+  assert.deepEqual([await px(11, 3), await px(11, 11), await px(3, 3)], [RED, CLEAR, CLEAR]);
+  assert.equal(((await call('undo')).result as { undoLabel: string }).undoLabel, 'Deselect');
+  assert.deepEqual(await px(3, 3), RED);
+});
+
+test('switching an unmodified session to warp commits as Warp, and an unmodified warp commits nothing', async () => {
+  await redSquare();
+  await call('transformBegin', 1, 'layer', 'Free Transform');
+  assert.deepEqual(((await call('transformWarp', null)).result as { bounds: number[] }).bounds, [2, 2, 4, 4]);
+  const c = await call('transformCommit', meshMoved(2, 2, 4, 4, 8, 0));
+  assert.equal((c.result as { undoLabel: string }).undoLabel, 'Warp');
+  await call('transformBegin', 1, 'layer', 'Warp');
+  const n = await call('transformCommit', null);
+  assert.equal((n.result as { undoLabel: string }).undoLabel, 'Warp', 'no second step');
+  assert.equal((n.result as { history: { labels: string[] } }).history.labels.filter(l => l === 'Warp').length, 1);
+});
+
+test('warp refuses the selection outline and selected pixels, and the session stays open', async () => {
+  await redSquare();
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 2, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  for (const kind of ['selection', 'pixels']) {
+    await call('transformBegin', 1, kind, 'Free Transform');
+    const r = await call('transformWarp', null);
+    assert.match(r.error ?? '', /warp/i, kind);
+    assert.equal((await call('transformRefine', meshMoved(2, 2, 4, 4, 8, 0))).error !== undefined, true, `${kind}: a mesh is refused`);
+    assert.equal((await call('transformCancel')).error, undefined, `${kind}: the session is still open`);
+  }
+  assert.equal((await call('transformWarp', null)).error, 'The transform was cancelled.');
 });

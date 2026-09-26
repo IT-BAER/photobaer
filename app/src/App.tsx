@@ -20,12 +20,16 @@ import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
 import { digitOption, dragResize, showCrosshair, stepHardness, stepSize, type DigitState } from './shell/brushKeys.ts';
 import { HANDLE_CURSORS, SelectionOverlay, boxHandles, type TransformImage } from './shell/SelectionOverlay.ts';
 import { constrainedSnap, snapOffset, type Rect, type SnapAxes } from './shell/snapping.ts';
-import { MODES, TransformBar, TransformBarStore } from './shell/TransformBar.tsx';
+import { MODES, TransformBar, TransformBarStore, type WarpBarState, type WarpSplit } from './shell/TransformBar.tsx';
 import { IDENTITY, isIdentity, normalize, type Mat3, type Pt } from './transform/matrix.ts';
 import {
   commandState, drag as dragState, handlePoints, hitTest, initialState, matrixOf, numericValues, opFor, refPoint, setNumeric, setReference,
   setReferenceNormalized, type Command, type Hit, type Mode, type Mods, type TState,
 } from './transform/session.ts';
+import {
+  defaultPreset, dragPoint, dragSurface, engineMesh, evaluate, gridOf, hitPoint, identityMesh, meshModified, pickStyle, presetMesh,
+  removeSplitAt, setGrid, splitAt, surfaceWeights, type Mesh, type Warp,
+} from './transform/warp.ts';
 import { antsLevel, contour, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from './shell/selecttools.ts';
 import { levelFor } from './view.ts';
 import { BrushLibrary } from './brushes/store.ts';
@@ -198,7 +202,14 @@ export function App() {
   const polygonRef = useRef<PolygonLasso | null>(null);
   const polygonModeRef = useRef<SelectMode>('new');
   const lastPolyDownRef = useRef<{ t: number; x: number; y: number } | null>(null);
+  // Warp editing inside a transform session; `initial` is the unmodified mesh over the source bounds,
+  // `last` the last pointer-down point (where the menu split commands act).
+  type WState = {
+    w: Warp; initial: Mesh; undo: Warp[]; split: WarpSplit | null; last: Pt | null;
+    drag: { start: Warp; from: Pt; index: number | null; weights: number[] | null } | null;
+  };
   type TSession = {
+    warp: WState | null; switching: boolean;
     s: TState; mode: Mode; linked: boolean; snap: boolean; kind: 'layer' | 'pixels' | 'selection'; img: TransformImage | null;
     // Earlier states for Ctrl+Z inside the session.
     undo: TState[];
@@ -407,6 +418,7 @@ export function App() {
   }
 
   const has = !!doc;
+  const warping = transformStore?.get().mode === 'warp';
   const node = doc && active ? nodeById(doc.layers, active.id) : undefined;
   const deleteDisabled = !doc || !active || (doc.layers.length === 1 && doc.layers[0].id === active.id);
 
@@ -444,10 +456,11 @@ export function App() {
       {
         label: 'Transform', keys: '›', run: () => {}, off: !has || !active, sub: [
           { label: 'Again', keys: 'Shift+Ctrl+T', run: transformAgain, off: !!transformStore },
-          ...MODES.filter(([m]) => m !== 'free').map(([m, label]) => ({ label, run: () => transformMode(m), off: m === 'warp' })),
-          ...['Split Warp Horizontally', 'Split Warp Vertically', 'Split Warp Crosswise', 'Remove Warp Split'].map(label => ({ label, run: () => {}, off: true })),
+          ...MODES.filter(([m]) => m !== 'free').map(([m, label]) => ({ label, run: () => transformMode(m), off: warping && m !== 'warp' })),
+          ...([['horizontal', 'Split Warp Horizontally'], ['vertical', 'Split Warp Vertically'], ['both', 'Split Warp Crosswise'], ['remove', 'Remove Warp Split']] as [WarpSplit, string][])
+            .map(([m, label]) => ({ label, run: () => warpMenuSplit(m) })),
           ...([['180', 'Rotate 180°'], ['cw', 'Rotate 90° Clockwise'], ['ccw', 'Rotate 90° Counter Clockwise'], ['flipH', 'Flip Horizontal'], ['flipV', 'Flip Vertical']] as [Command, string][])
-            .map(([c, label]) => ({ label, run: () => transformRemap(c, label) })),
+            .map(([c, label]) => ({ label, run: () => transformRemap(c, label), off: warping })),
         ],
       },
     ],
@@ -1065,6 +1078,16 @@ export function App() {
   function transformDraw(t: TSession) {
     t.frame = 0;
     const t0 = performance.now(), m = matrixOf(t.s), o = overlayRef.current!, g = t.drag;
+    if (t.warp) {
+      const mesh = t.warp.w.mesh, b = mesh.bounds;
+      o.setImage(t.img && t.refine !== 'done' ? { ...t.img, m: IDENTITY, map: (x, y) => evaluate(mesh, (x - b.x) / b.w, (y - b.y) / b.h) } : null);
+      o.setAntsMatrix(null);
+      o.setTransform(null);
+      o.setWarp(mesh);
+      redrawOverlay();
+      perfRef.current?.recordPreview(performance.now() - t0);
+      return;
+    }
     o.setImage(t.img && t.refine !== 'done' ? { ...t.img, m } : null);
     o.setAntsMatrix(t.kind !== 'layer' ? m : null);
     const b = t.s.bounds, scaling = g?.hit.kind === 'handle' && g.hit.i % 2 === 0 && opFor(g.hit, g.mods, t.mode) === 'scale';
@@ -1077,7 +1100,7 @@ export function App() {
     if (transformRef.current !== t) return;
     const gen = t.gen;
     t.refine = 'pending';
-    client.call('transformRefine', matrixOf(t.s)).then(d => {
+    client.call('transformRefine', t.warp ? engineMesh(t.warp.w.mesh) : matrixOf(t.s)).then(d => {
       if (transformRef.current !== t || t.gen !== gen) return;
       t.refine = 'done';
       show(d);
@@ -1090,15 +1113,94 @@ export function App() {
   function transformChange(t: TSession, s: TState, checkpoint: boolean) {
     if (checkpoint) t.undo.push(t.s);
     t.s = s;
+    t.store.set({ values: numericValues(s) });
+    transformTouched(t);
+  }
+  // Drops a refined result and schedules the preview frame and the next refine.
+  function transformTouched(t: TSession) {
     t.gen++;
     if (t.refine !== 'none') {
       t.refine = 'none';
       client.call('transformUnrefine').then(d => { if (transformRef.current === t) show(d); }, err => setError((err as Error).message));
     }
-    t.store.set({ values: numericValues(s) });
     t.frame ||= requestAnimationFrame(() => transformDraw(t));
     clearTimeout(t.timer);
     t.timer = setTimeout(() => transformRefine(t), 500);
+  }
+  const warpBar = (ws: WState): WarpBarState => ({ preset: ws.w.preset, grid: gridOf(ws.w.mesh), split: ws.split });
+  function warpChange(t: TSession, w: Warp, checkpoint: boolean) {
+    const ws = t.warp!;
+    if (w === ws.w) return;
+    if (checkpoint) ws.undo.push(ws.w);
+    ws.w = w;
+    t.store.set({ warp: warpBar(ws) });
+    transformTouched(t);
+  }
+  // An armed split mode places (or removes) a split at the click; otherwise a control point within
+  // 8 screen px or the surface within 2 screen px is dragged. A click elsewhere does nothing.
+  function warpPointer(t: TSession, ws: WState, e: ToolPointerEvent) {
+    const v = viewer.current!;
+    if (e.type === 'down') {
+      ws.last = [e.x, e.y];
+      if (ws.split) {
+        const mode = ws.split, mesh = ws.w.mesh;
+        ws.split = null;
+        const next = mode === 'remove' ? removeSplitAt(mesh, e.x, e.y) : splitAt(mesh, e.x, e.y, mode);
+        if (next && next !== mesh) warpChange(t, { ...ws.w, mesh: next }, true);
+        else t.store.set({ warp: warpBar(ws) });
+        return;
+      }
+      const toScreen = (p: Pt) => v.docToScreen(p[0], p[1]);
+      const index = hitPoint(ws.w.mesh, toScreen, toScreen([e.x, e.y]), 8);
+      const weights = index === null ? surfaceWeights(ws.w.mesh, e.x, e.y, 2 / v.view.zoom) : null;
+      if (index !== null || weights) ws.drag = { start: ws.w, from: [e.x, e.y], index, weights };
+      return;
+    }
+    const g = ws.drag;
+    if (!g) return;
+    const dx = e.x - g.from[0], dy = e.y - g.from[1];
+    const next = e.type === 'cancel' || (!dx && !dy) ? g.start : g.index !== null ? dragPoint(g.start, g.index, dx, dy) : dragSurface(g.start, g.weights!, dx, dy);
+    warpChange(t, next, false);
+    if (e.type === 'move') return;
+    ws.drag = null;
+    if (e.type === 'up' && ws.w !== g.start) ws.undo.push(g.start);
+  }
+  // Edit > Transform > Split Warp / Remove Warp Split: at the last click, else the source centre.
+  function warpMenuSplit(mode: WarpSplit) {
+    setMenu(null);
+    const t = transformRef.current, ws = t?.warp;
+    if (!t || !ws) { setError('Splits belong to a warp: open one with Edit > Transform > Warp.'); return; }
+    const b = ws.w.mesh.bounds, [x, y] = ws.last ?? [b.x + b.w / 2, b.y + b.h / 2];
+    const next = mode === 'remove' ? removeSplitAt(ws.w.mesh, x, y) : splitAt(ws.w.mesh, x, y, mode);
+    if (!next) { setError('This warp has no split to remove.'); return; }
+    warpChange(t, { ...ws.w, mesh: next }, true);
+  }
+  const newWarp = (b: Rect): WState => ({ w: { mesh: identityMesh(b), preset: defaultPreset('custom') }, initial: identityMesh(b), undo: [], split: null, last: null, drag: null });
+  // Free transform -> warp: the worker renders the pending matrix and lifts the result as the warp source.
+  async function warpSwitch(t: TSession) {
+    const m = isIdentity(matrixOf(t.s)) ? null : matrixOf(t.s);
+    t.switching = true;
+    t.drag = null;
+    clearTimeout(t.timer);
+    t.gen++;
+    let r;
+    try {
+      r = await client.call('transformWarp', m);
+    } catch (err) {
+      t.switching = false;
+      setError((err as Error).message);
+      if (transformRef.current === t) { t.refine = 'done'; transformTouched(t); }
+      return;
+    }
+    t.switching = false;
+    if (transformRef.current !== t) return;
+    t.img = sourceImage(r);
+    t.refine = 'none';
+    t.warp = newWarp({ x: r.bounds[0], y: r.bounds[1], w: r.bounds[2], h: r.bounds[3] });
+    t.mode = 'warp';
+    t.store.set({ mode: 'warp', warp: warpBar(t.warp) });
+    show(r);
+    transformDraw(t);
   }
   function transformDragStep(t: TSession) {
     const g = t.drag!, zoom = viewer.current!.view.zoom;
@@ -1111,6 +1213,8 @@ export function App() {
   }
   const eventMods = (e: { shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean }): Mods => ({ shift: e.shiftKey, alt: e.altKey, ctrl: e.ctrlKey || e.metaKey });
   function transformPointer(t: TSession, e: ToolPointerEvent) {
+    if (t.switching) return;
+    if (t.warp) { warpPointer(t, t.warp, e); return; }
     if (e.type === 'down') {
       const v = viewer.current!, toScreen = (p: Pt) => v.docToScreen(p[0], p[1]);
       const hit = hitTest(t.s, toScreen, toScreen([e.x, e.y]));
@@ -1147,10 +1251,16 @@ export function App() {
     else if (k === 'escape') { e.preventDefault(); endTransform(false); }
     else if (ctrl && !e.shiftKey && k === 'z') {
       e.preventDefault();
+      if (t.warp) {
+        const prev = t.warp.drag ? undefined : t.warp.undo.pop();
+        if (prev) warpChange(t, prev, false);
+        return true;
+      }
       const prev = t.drag ? undefined : t.undo.pop();
       if (prev) transformChange(t, prev, false);
     } else if (!ctrl && k.startsWith('arrow')) {
       e.preventDefault();
+      if (t.warp || t.switching) return true;
       const n = e.shiftKey ? 10 : 1, [x, y] = refPoint(t.s);
       transformChange(t, setReference(t.s, [x + (k === 'arrowleft' ? -n : k === 'arrowright' ? n : 0), y + (k === 'arrowup' ? -n : k === 'arrowdown' ? n : 0)]), true);
     } else if (k === ' ' || (ctrl && ['+', '=', '-', '0', '1'].includes(k))) return false;
@@ -1163,8 +1273,22 @@ export function App() {
     setTransformMenu(null);
     if (t) f(t);
   }
-  const transformCommand = (c: Command) => withTransform(t => transformChange(t, commandState(t.s, c), true));
-  const setTransformMode = (t: TSession, m: Mode) => { t.mode = m; t.store.set({ mode: m }); };
+  const transformCommand = (c: Command) => withTransform(t => { if (!t.warp && !t.switching) transformChange(t, commandState(t.s, c), true); });
+  // A warp session stays a warp.
+  const setTransformMode = (t: TSession, m: Mode) => {
+    if (t.warp || t.switching) return;
+    if (m === 'warp') void warpSwitch(t);
+    else { t.mode = m; t.store.set({ mode: m }); }
+  };
+  // The session preview source as a canvas.
+  function sourceImage(r: { image: { x: number; y: number; w: number; h: number; f: number } | null; data: ArrayBuffer | null }): TransformImage | null {
+    if (!r.image || !r.data) return null;
+    const src = document.createElement('canvas');
+    src.width = r.image.w;
+    src.height = r.image.h;
+    src.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(r.data), r.image.w, r.image.h), 0, 0);
+    return { source: src, ...r.image, m: IDENTITY };
+  }
   // Edit > Transform: inside a session these change it, outside they start one or act directly.
   function transformMode(m: Mode) {
     if (transformRef.current) withTransform(t => setTransformMode(t, m));
@@ -1189,25 +1313,23 @@ export function App() {
     const n = nodeById(d.layers, a.id);
     if (!n) return;
     const kind = selection ? 'selection' : d.selection ? 'pixels' : 'layer';
+    if (mode === 'warp') {
+      if (n.kind !== 'pixel') { setError('Only pixel layers can be warped.'); return; }
+      if (kind !== 'layer') { setError('Warp bends a whole layer; deselect to warp it.'); return; }
+      if (n.locks.pixels) { setError('Could not use the layer because it is locked.'); return; }
+    }
     if (kind === 'pixels' && n.locks.pixels) { setError('Could not use the layer because it is locked.'); return; }
     if (kind === 'layer' && n.locks.position) { setError(`${n.name} is locked and can't be moved.`); return; }
     let r;
     try {
-      r = await client.call('transformBegin', a.id, kind, selection ? 'Transform Selection' : 'Free Transform');
+      r = await client.call('transformBegin', a.id, kind, selection ? 'Transform Selection' : mode === 'warp' ? 'Warp' : 'Free Transform');
     } catch (err) {
       setError((err as Error).message);
       return;
     }
-    let img: TransformImage | null = null;
-    if (r.image && r.data) {
-      const src = document.createElement('canvas');
-      src.width = r.image.w;
-      src.height = r.image.h;
-      src.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(r.data), r.image.w, r.image.h), 0, 0);
-      img = { source: src, ...r.image, m: IDENTITY };
-    }
-    const s = initialState({ x: r.bounds[0], y: r.bounds[1], w: r.bounds[2], h: r.bounds[3] });
-    const store = new TransformBarStore({ mode, values: numericValues(s), linked: true, snap: true });
+    const img = sourceImage(r), b = { x: r.bounds[0], y: r.bounds[1], w: r.bounds[2], h: r.bounds[3] };
+    const s = initialState(b), warp = mode === 'warp' ? newWarp(b) : null;
+    const store = new TransformBarStore({ mode, values: numericValues(s), linked: true, snap: true, warp: warp && warpBar(warp) });
     const dbl = () => endTransform(true);
     const ctx = (e: MouseEvent) => { e.preventDefault(); setTransformMenu([e.clientX, e.clientY]); };
     const keyUp = (e: KeyboardEvent) => { transformModifier(e); };
@@ -1215,7 +1337,7 @@ export function App() {
     c.addEventListener('contextmenu', ctx);
     addEventListener('keyup', keyUp);
     const t: TSession = {
-      s, mode, linked: true, snap: true, kind, img, undo: [], gen: 0, refine: 'none', timer: undefined, frame: 0, drag: null,
+      warp, switching: false, s, mode, linked: true, snap: true, kind, img, undo: [], gen: 0, refine: 'none', timer: undefined, frame: 0, drag: null,
       tx: [], ty: [], lock: { x: null, y: null }, store,
       off: () => { c.removeEventListener('dblclick', dbl); c.removeEventListener('contextmenu', ctx); removeEventListener('keyup', keyUp); },
     };
@@ -1238,6 +1360,7 @@ export function App() {
     const o = overlayRef.current;
     o?.setImage(null);
     o?.setTransform(null);
+    o?.setWarp(null);
     o?.setAntsMatrix(null);
     redrawOverlay();
     setTransformStore(null);
@@ -1246,12 +1369,15 @@ export function App() {
   }
   // Commits (one undo step, nothing when unmodified) or cancels the open session.
   function endTransform(commit: boolean) {
+    // A commit waits until a switch to warp has landed.
+    if (commit && transformRef.current?.switching) return;
     const t = closeTransform();
     if (!t) return;
-    const m = isIdentity(matrixOf(t.s)) ? null : matrixOf(t.s);
+    const m = t.warp || isIdentity(matrixOf(t.s)) ? null : matrixOf(t.s);
+    const op = t.warp ? meshModified(t.warp.w.mesh, t.warp.initial) ? engineMesh(t.warp.w.mesh) : null : m;
     void run(null, async () => {
       if (!commit) return client.call('transformCancel');
-      const d = await client.call('transformCommit', m);
+      const d = await client.call('transformCommit', op);
       if (m) againRef.current = { n: normalize(m, t.s.bounds), interp: 'bicubic' };
       return d;
     });
@@ -1723,12 +1849,12 @@ export function App() {
           <div className="menu context-menu" style={{ left: transformMenu[0], top: transformMenu[1] }}>
             <ul role="menu" aria-label="Transform">
               {([
-                ...MODES.map(([m, label]) => ({ label, run: () => withTransform(t => setTransformMode(t, m)), off: m === 'warp' })),
-                { label: 'Rotate 180°', run: () => transformCommand('180') },
-                { label: 'Rotate 90° CW', run: () => transformCommand('cw') },
-                { label: 'Rotate 90° CCW', run: () => transformCommand('ccw') },
-                { label: 'Flip Horizontal', run: () => transformCommand('flipH') },
-                { label: 'Flip Vertical', run: () => transformCommand('flipV') },
+                ...MODES.map(([m, label]) => ({ label, run: () => withTransform(t => setTransformMode(t, m)), off: warping && m !== 'warp' })),
+                { label: 'Rotate 180°', run: () => transformCommand('180'), off: warping },
+                { label: 'Rotate 90° CW', run: () => transformCommand('cw'), off: warping },
+                { label: 'Rotate 90° CCW', run: () => transformCommand('ccw'), off: warping },
+                { label: 'Flip Horizontal', run: () => transformCommand('flipH'), off: warping },
+                { label: 'Flip Vertical', run: () => transformCommand('flipV'), off: warping },
                 { label: 'Apply', run: () => endTransform(true) },
                 { label: 'Cancel', run: () => endTransform(false) },
               ] as { label: string; run: () => void; off?: boolean }[]).map(i => (
@@ -1754,6 +1880,26 @@ export function App() {
               setReference={(u, v) => withTransform(t => transformChange(t, setReferenceNormalized(t.s, u, v), true))}
               setNumeric={(f, v) => withTransform(t => transformChange(t, setNumeric(t.s, f, v, t.linked), true))}
               apply={() => endTransform(true)} cancel={() => endTransform(false)}
+              warpStyle={st => withTransform(t => {
+                const ws = t.warp;
+                if (!ws) return;
+                if (st === 'custom') { warpChange(t, { ...ws.w, preset: { ...ws.w.preset, style: 'custom' } }, false); return; }
+                const preset = pickStyle(ws.w.preset, st);
+                warpChange(t, { preset, mesh: presetMesh(preset, ws.w.mesh.bounds) }, true);
+              })}
+              warpPreset={p => withTransform(t => {
+                const ws = t.warp;
+                if (!ws) return;
+                const preset = { ...ws.w.preset, ...p };
+                warpChange(t, { preset, mesh: presetMesh(preset, ws.w.mesh.bounds) }, true);
+              })}
+              warpGrid={n => withTransform(t => { if (t.warp) warpChange(t, setGrid(t.warp.w, n), true); })}
+              warpSplit={m => withTransform(t => {
+                const ws = t.warp;
+                if (!ws) return;
+                ws.split = ws.split === m ? null : m;
+                t.store.set({ warp: warpBar(ws) });
+              })}
             />
           ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton }} />}
           <div className="stage">

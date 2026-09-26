@@ -16,8 +16,10 @@ export const HANDLE_CURSORS = ['nwse-resize', 'ns-resize', 'nesw-resize', 'ew-re
 // even indexes), the dest reference point and an optional size readout, all in document px.
 export interface TransformBox { handles: [number, number][]; ref: [number, number]; dims: { text: string; at: [number, number] } | null }
 // Preview source: image pixel (i, j) sits at document ((x + i) / f, (y + j) / f) before the
-// row-major 3x3 matrix `m` maps it.
-export interface TransformImage { source: CanvasImageSource; x: number; y: number; w: number; h: number; f: number; m: number[] }
+// row-major 3x3 matrix `m` maps it; `map` (a warp) replaces the matrix when set.
+export interface TransformImage { source: CanvasImageSource; x: number; y: number; w: number; h: number; f: number; m: number[]; map?: (x: number, y: number) => [number, number] }
+// Warp overlay: a (3 cols + 1) x (3 rows + 1) row-major grid of Bezier control points in document px.
+export interface WarpGrid { cols: number; rows: number; points: [number, number][] }
 
 // Handle points clockwise from the top-left corner (corners at even indexes), in document px.
 export function boxHandles(r: BoxRect): [number, number][] {
@@ -41,6 +43,7 @@ export class SelectionOverlay {
   #transform: TransformBox | null = null;
   #image: TransformImage | null = null;
   #antsMatrix: number[] | null = null;
+  #warp: WarpGrid | null = null;
   #dash = 0;
   #timer: ReturnType<typeof setInterval> | undefined;
   #last: [View, number, number, number] | null = null;
@@ -82,6 +85,10 @@ export class SelectionOverlay {
 
   setTransform(t: TransformBox | null) {
     this.#transform = t;
+  }
+
+  setWarp(w: WarpGrid | null) {
+    this.#warp = w;
   }
 
   setImage(img: TransformImage | null) {
@@ -133,6 +140,7 @@ export class SelectionOverlay {
     if (this.#preview) this.#strokeSegments(this.#previewSegments(this.#preview), view, cssW, cssH, dpr, 1);
     if (this.#box) this.#drawBox(this.#box, view, cssW, cssH, dpr);
     if (this.#transform) this.#drawTransform(this.#transform, view, cssW, cssH, dpr);
+    if (this.#warp) this.#drawWarp(this.#warp, view, cssW, cssH, dpr);
     if (this.#guides.length) this.#drawGuides(view, cssW, cssH, dpr);
     if (this.#cursor) this.#drawCursor(this.#cursor, view, cssW, cssH, dpr);
   }
@@ -202,19 +210,21 @@ export class SelectionOverlay {
     const o = docToScreen(view, 0, 0, cssW, cssH), ex = docToScreen(view, 1, 0, cssW, cssH), ey = docToScreen(view, 0, 1, cssW, cssH);
     const [a, b, c, d, e, f] = [(ex[0] - o[0]) * dpr, (ex[1] - o[1]) * dpr, (ey[0] - o[0]) * dpr, (ey[1] - o[1]) * dpr, o[0] * dpr, o[1] * dpr];
     const toDevice = (i: number, j: number): [number, number] => {
-      const x = (img.x + i) / img.f, y = (img.y + j) / img.f, w = m[6] * x + m[7] * y + m[8];
+      const x = (img.x + i) / img.f, y = (img.y + j) / img.f;
+      if (img.map) { const [u, v] = img.map(x, y); return [a * u + c * v + e, b * u + d * v + f]; }
+      const w = m[6] * x + m[7] * y + m[8];
       const u = (m[0] * x + m[1] * y + m[2]) / w, v = (m[3] * x + m[4] * y + m[5]) / w;
       return [a * u + c * v + e, b * u + d * v + f];
     };
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'low';
-    if (m[6] === 0 && m[7] === 0) {
+    if (!img.map && m[6] === 0 && m[7] === 0) {
       const p0 = toDevice(0, 0), px = toDevice(1, 0), py = toDevice(0, 1);
       ctx.setTransform(px[0] - p0[0], px[1] - p0[1], py[0] - p0[0], py[1] - p0[1], p0[0], p0[1]);
       ctx.drawImage(img.source, 0, 0);
       return;
     }
-    const n = 8, sx = img.w / n, sy = img.h / n;
+    const n = img.map ? 12 : 8, sx = img.w / n, sy = img.h / n;
     for (let j = 0; j < n; j++) {
       for (let i = 0; i < n; i++) {
         const s00: [number, number] = [i * sx, j * sy], s10: [number, number] = [(i + 1) * sx, j * sy];
@@ -247,6 +257,40 @@ export class SelectionOverlay {
     const sw = Math.min(img.w, Math.ceil(Math.max(x0, x1, x2)) + 1) - sx, sh = Math.min(img.h, Math.ceil(Math.max(y0, y1, y2)) + 1) - sy;
     ctx.drawImage(img.source, sx, sy, sw, sh, sx, sy, sw, sh);
     ctx.restore();
+  }
+
+  // Patch boundary curves, then anchors as squares and handles as dots.
+  #drawWarp(g: WarpGrid, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx, nc = 3 * g.cols + 1, nr = 3 * g.rows + 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const pts = g.points.map(([x, y]) => docToScreen(view, x, y, cssW, cssH));
+    const color = getComputedStyle(this.#canvas).getPropertyValue('--transform-box');
+    ctx.beginPath();
+    const curve = (idx: number[]) => {
+      ctx.moveTo(pts[idx[0]][0], pts[idx[0]][1]);
+      for (let k = 1; k + 2 < idx.length; k += 3) {
+        const [p, q, r] = [pts[idx[k]], pts[idx[k + 1]], pts[idx[k + 2]]];
+        ctx.bezierCurveTo(p[0], p[1], q[0], q[1], r[0], r[1]);
+      }
+    };
+    for (let j = 0; j < nr; j += 3) curve(Array.from({ length: nc }, (_, i) => j * nc + i));
+    for (let i = 0; i < nc; i += 3) curve(Array.from({ length: nr }, (_, j) => j * nc + i));
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    pts.forEach(([x, y], k) => {
+      if ((k % nc) % 3 === 0 && Math.floor(k / nc) % 3 === 0) {
+        ctx.fillRect(x - 3.5, y - 3.5, 7, 7);
+        ctx.strokeRect(x - 3.5, y - 3.5, 7, 7);
+      } else {
+        ctx.beginPath();
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    });
   }
 
   #drawTransform(t: TransformBox, view: View, cssW: number, cssH: number, dpr: number) {
