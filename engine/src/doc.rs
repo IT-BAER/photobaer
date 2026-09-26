@@ -8,7 +8,7 @@ use crate::blend::{blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blen
 use crate::livewire::{self, LiveWire};
 use crate::region;
 use crate::selection::{gaussian_kernel, Ellipse, MaskShape, Mode, Polygon, Rect, Shape};
-use crate::stroke::{self, Sample, Spacer, Tip, TipShape};
+use crate::stroke::{self, Dyn, PoseOverride, Sample, SampledTip, Source, Spacer, Tip, TipKind, TipShape};
 
 pub const TILE: usize = 256;
 const TILE_PIXELS: usize = TILE * TILE;
@@ -2037,29 +2037,64 @@ impl Document {
     /// tile as it was at stroke start. Returns the changed document rect as [x, y, w, h].
     fn stroke_apply(&mut self, st: &mut Stroke, samples: &[f64]) -> Result<Vec<i32>, String> {
         self.check_idle()?;
-        if samples.len() % 3 != 0 {
-            return Err("stroke samples need an x, a y and a pressure each".into());
+        let stride = st.stride as usize;
+        if samples.len() % stride != 0 {
+            return Err(format!("stroke samples need groups of {stride} (the stride set at stroke_begin)"));
         }
         if samples.iter().any(|v| !v.is_finite()) {
             return Err("stroke samples must be finite".into());
         }
         let pts: Vec<Sample> = samples
-            .chunks_exact(3)
-            .map(|c| Sample { x: c[0], y: c[1], p: (c[2] as f32).clamp(0.0, 1.0) })
+            .chunks_exact(stride)
+            .map(|c| Sample {
+                x: c[0],
+                y: c[1],
+                p: (c[2] as f32).clamp(0.0, 1.0),
+                tilt_x: if stride == 6 { (c[3] as f32).clamp(-90.0, 90.0) } else { 0.0 },
+                tilt_y: if stride == 6 { (c[4] as f32).clamp(-90.0, 90.0) } else { 0.0 },
+                twist: if stride == 6 { c[5] as f32 } else { 0.0 },
+                dir: 0.0,
+            })
             .collect();
-        let dabs = st.spacer.feed(&pts, st.step, st.airbrush);
-        if dabs.is_empty() {
+        let anchors = st.spacer.feed(&pts, st.step, st.airbrush);
+        if anchors.is_empty() {
+            return Ok(Vec::new());
+        }
+        // Dynamics (E1.4-E1.7): each anchor placed by the spacer expands into one or more placed
+        // dabs (scattering); brush pose overrides the anchor's pressure/tilt/twist before any of
+        // that, including the legacy pressure-size toggle below.
+        let color_active = st.dynamics.color.enabled;
+        let fg = st.rgb;
+        let initial_dir = st.spacer.initial_dir();
+        let mut placed_dabs = Vec::new();
+        for a in &anchors {
+            let resolved = stroke::apply_pose(a, &st.pose);
+            let base_diameter = if st.pressure_size { (st.size * resolved.p).max(1.0) } else { st.size };
+            placed_dabs.extend(stroke::place_dabs(
+                &resolved,
+                initial_dir,
+                base_diameter,
+                st.angle,
+                st.roundness,
+                st.flip_x,
+                st.flip_y,
+                &st.dynamics,
+                fg,
+                &mut st.prng,
+                &mut st.dab_index,
+            ));
+        }
+        if placed_dabs.is_empty() {
             return Ok(Vec::new());
         }
         // Per touched tile the local pixel box the new dabs cover; only those pixels are repainted.
         let mut dirty: Vec<((i32, i32), [i32; 4])> = Vec::new();
         let mut rect: Option<[i32; 4]> = None;
-        for d in &dabs {
-            let dia = if st.pressure_size { (st.size * d.p).max(1.0) } else { st.size };
-            let r = dia / 2.0;
-            let tip = Tip::new(r, st.hardness, st.angle, st.roundness, st.aliased, st.shape, st.wet_edges);
-            let cap = st.opacity * if st.pressure_opacity { d.p } else { 1.0 };
-            let (rf, w, h) = (r as f64 + 1.0, self.width as i32, self.height as i32);
+        for d in &placed_dabs {
+            let tip = Tip::new(d.radius, st.hardness, d.angle, d.roundness, st.aliased, st.shape.clone(), d.flip_x, d.flip_y);
+            let cap = (st.opacity * if st.pressure_opacity { d.pressure } else { 1.0 } * d.cap_mul).clamp(0.0, 1.0);
+            let flow = (st.flow * d.flow_mul).clamp(0.0, 1.0);
+            let (rf, w, h) = (d.radius as f64 + 1.0, self.width as i32, self.height as i32);
             let x0 = ((d.x - rf).floor() as i32).clamp(0, w);
             let y0 = ((d.y - rf).floor() as i32).clamp(0, h);
             let x1 = ((d.x + rf).ceil() as i32 + 1).clamp(0, w);
@@ -2078,7 +2113,8 @@ impl Document {
                         Target::Pixels => self.node(st.layer)?.pixel_tiles()?.get(tx, ty).cloned(),
                         _ => self.selection.as_ref().and_then(|s| s.tiles.get(tx, ty)).cloned(),
                     };
-                    st.tiles.insert(key, StrokeTile { s: vec![0f32; TILE_PIXELS], orig });
+                    let rgb = color_active.then(|| vec![[0f32; 3]; TILE_PIXELS]);
+                    st.tiles.insert(key, StrokeTile { s: vec![0f32; TILE_PIXELS], rgb, orig });
                 }
                 let t = st.tiles.get_mut(&key).expect("the tile is present");
                 let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
@@ -2088,12 +2124,29 @@ impl Document {
                     let dy = ((oy + py) as f64 + 0.5 - d.y) as f32;
                     for px in lx0..lx1 {
                         let dx = ((ox + px) as f64 + 0.5 - d.x) as f32;
-                        let cov = tip.cov(dx, dy);
+                        let mut cov = tip.cov(dx, dy);
                         if cov <= 0.0 {
                             continue;
                         }
+                        if st.noise > 0.0 {
+                            cov = stroke::noise_remap(cov, st.noise, ox + px, oy + py, st.seed);
+                            if cov <= 0.0 {
+                                continue;
+                            }
+                        }
                         let p = (py * TILE as i32 + px) as usize;
-                        t.s[p] = stroke::accumulate(t.s[p], cap, st.flow, cov, st.wet_edges);
+                        let prev = t.s[p];
+                        let new = stroke::accumulate(prev, cap, flow, cov);
+                        if let Some(rgb_buf) = t.rgb.as_mut() {
+                            let delta = (new - prev).max(0.0);
+                            if delta > 0.0 && new > 0.0 {
+                                let wgt = delta / new;
+                                let c = rgb_buf[p];
+                                let dc = d.rgb.unwrap_or(fg);
+                                rgb_buf[p] = [c[0] + (dc[0] - c[0]) * wgt, c[1] + (dc[1] - c[1]) * wgt, c[2] + (dc[2] - c[2]) * wgt];
+                            }
+                        }
+                        t.s[p] = new;
                     }
                 }
                 match dirty.iter_mut().find(|(k, _)| *k == key) {
@@ -2135,8 +2188,12 @@ impl Document {
         for py in b[1]..b[3] {
             for px in b[0]..b[2] {
                 let p = (py * TILE as i32 + px) as usize;
-                let c = (t.s[p] * cov.at(p)).clamp(0.0, 1.0);
+                // Wet edges (E1.8) are a look remap of the accumulated coverage at flush, not a
+                // different accumulation rule; `st.opacity` is the stroke-wide cap the remap reads.
+                let s_val = if st.wet_edges { stroke::wet_edge_remap(t.s[p], st.opacity) } else { t.s[p] };
+                let c = (s_val * cov.at(p)).clamp(0.0, 1.0);
                 let old = t.orig.as_ref().map_or([0.0; 4], |o| o.px.rgba_f32(p));
+                let rgb = t.rgb.as_ref().map_or(st.rgb, |buf| buf[p]);
                 let new = match &hist {
                     // Erase to history: move towards the snapshot's pixel in straight RGBA.
                     Some(h) => {
@@ -2150,7 +2207,7 @@ impl Document {
                         }
                         out
                     }
-                    None => paint_pixel(st.mode, old, st.rgb, c, st.keep_alpha),
+                    None => paint_pixel(st.mode, old, rgb, c, st.keep_alpha),
                 };
                 data.set_rgba_f32(p, new);
             }
@@ -3759,6 +3816,90 @@ struct PropsIn {
     mask_enabled: Option<bool>,
 }
 
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+struct DynIn {
+    control: Option<String>,
+    fade_steps: Option<u32>,
+    jitter: f32,
+    minimum: f32,
+}
+
+impl DynIn {
+    fn finite(&self) -> bool {
+        self.jitter.is_finite() && self.minimum.is_finite()
+    }
+
+    fn parse(&self) -> Result<Dyn, String> {
+        Ok(Dyn {
+            control: match &self.control {
+                Some(s) => Source::parse(s)?,
+                None => Source::Off,
+            },
+            fade_steps: self.fade_steps.unwrap_or(1),
+            jitter: self.jitter.clamp(0.0, 1.0),
+            minimum: self.minimum.clamp(0.0, 1.0),
+        })
+    }
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+struct ShapeDynIn {
+    enabled: bool,
+    size: DynIn,
+    roundness: DynIn,
+    flip_x_jitter: bool,
+    flip_y_jitter: bool,
+    brush_projection: bool,
+    angle_follows_path: bool,
+    angle_control: Option<String>,
+    angle_fade_steps: Option<u32>,
+    angle_jitter: f32,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+struct ScatterIn {
+    enabled: bool,
+    count: Option<u32>,
+    count_dyn: DynIn,
+    amount: f32,
+    scatter_dyn: DynIn,
+    both_axes: bool,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+struct TransferIn {
+    enabled: bool,
+    opacity_dyn: DynIn,
+    flow_dyn: DynIn,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+struct ColorDynIn {
+    enabled: bool,
+    bg: Option<[u8; 4]>,
+    fg_bg: f32,
+    hue_jitter: f32,
+    sat_jitter: f32,
+    bri_jitter: f32,
+    purity: f32,
+    per_tip: Option<bool>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+struct PoseIn {
+    enabled: bool,
+    tilt_x: Option<f32>,
+    tilt_y: Option<f32>,
+    rotation: Option<f32>,
+    pressure: Option<f32>,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StrokeIn {
@@ -3780,6 +3921,12 @@ struct StrokeIn {
     #[serde(default = "round_tip")]
     tip: String,
     #[serde(default)]
+    tip_id: Option<u32>,
+    #[serde(default)]
+    flip_x: bool,
+    #[serde(default)]
+    flip_y: bool,
+    #[serde(default)]
     aliased: bool,
     #[serde(default)]
     wet_edges: bool,
@@ -3791,6 +3938,22 @@ struct StrokeIn {
     pressure_opacity: bool,
     #[serde(default)]
     erase_to_history: Option<u32>,
+    #[serde(default = "three")]
+    stride: u8,
+    #[serde(default)]
+    seed: u32,
+    #[serde(default)]
+    shape_dyn: ShapeDynIn,
+    #[serde(default)]
+    scatter: ScatterIn,
+    #[serde(default)]
+    transfer: TransferIn,
+    #[serde(default)]
+    color: ColorDynIn,
+    #[serde(default)]
+    noise: f32,
+    #[serde(default)]
+    pose: PoseIn,
 }
 
 fn one() -> f32 {
@@ -3805,14 +3968,169 @@ fn round_tip() -> String {
     "round".into()
 }
 
+fn three() -> u8 {
+    3
+}
+
+/// Parses and validates `params_json` into a ready `Stroke`, apart from the doc-specific guard
+/// checks (locks, snapshot lookup, selection init) that only `stroke_begin` and `brush_preview`
+/// can do themselves; `resolve_hist` resolves an `eraseToHistory` snapshot id when present.
+fn parse_stroke(
+    layer_id: u32,
+    target: Target,
+    params_json: &str,
+    tips: &HashMap<u32, Arc<SampledTip>>,
+    keep_alpha: bool,
+    sel_was_none: bool,
+    resolve_hist: impl FnOnce(u32) -> Result<Tiles, String>,
+) -> Result<Stroke, String> {
+    let p: StrokeIn = serde_json::from_str(params_json).map_err(|e| format!("bad stroke params: {e}"))?;
+    if ![p.size, p.opacity, p.flow, p.hardness, p.spacing, p.angle, p.roundness, p.noise].iter().all(|v| v.is_finite()) {
+        return Err("stroke params must be finite".into());
+    }
+    if p.size <= 0.0 {
+        return Err("stroke size must be positive".into());
+    }
+    if p.stride != 3 && p.stride != 6 {
+        return Err("stride must be 3 or 6".into());
+    }
+    let mode = PaintMode::parse(&p.mode)?;
+    let kind = TipKind::parse(&p.tip)?;
+    let shape = match kind {
+        TipKind::Round => TipShape::Round,
+        TipKind::Square => TipShape::Square,
+        TipKind::Sampled => {
+            let id = p.tip_id.ok_or_else(|| "a sampled tip needs tipId".to_string())?;
+            let tip = tips.get(&id).ok_or_else(|| format!("unknown tip {id}"))?;
+            TipShape::Sampled(tip.clone())
+        }
+    };
+
+    if !p.shape_dyn.size.finite() || !p.shape_dyn.roundness.finite() || !p.shape_dyn.angle_jitter.is_finite() {
+        return Err("shape dynamics params must be finite".into());
+    }
+    let shape_dyn = stroke::ShapeDynamics {
+        enabled: p.shape_dyn.enabled,
+        size: p.shape_dyn.size.parse()?,
+        roundness: p.shape_dyn.roundness.parse()?,
+        flip_x_jitter: p.shape_dyn.flip_x_jitter,
+        flip_y_jitter: p.shape_dyn.flip_y_jitter,
+        brush_projection: p.shape_dyn.brush_projection,
+        angle_follows_path: p.shape_dyn.angle_follows_path,
+        angle_control: match &p.shape_dyn.angle_control {
+            Some(s) => Source::parse(s)?,
+            None => Source::Off,
+        },
+        angle_fade_steps: p.shape_dyn.angle_fade_steps.unwrap_or(1),
+        angle_jitter: p.shape_dyn.angle_jitter.clamp(0.0, 1.0),
+    };
+
+    if !p.scatter.amount.is_finite() || !p.scatter.count_dyn.finite() || !p.scatter.scatter_dyn.finite() {
+        return Err("scatter params must be finite".into());
+    }
+    let scatter = stroke::ScatterDynamics {
+        enabled: p.scatter.enabled,
+        count: p.scatter.count.unwrap_or(1).clamp(1, 16),
+        count_dyn: p.scatter.count_dyn.parse()?,
+        amount: p.scatter.amount.clamp(0.0, 10.0),
+        scatter_dyn: p.scatter.scatter_dyn.parse()?,
+        both_axes: p.scatter.both_axes,
+    };
+
+    if !p.transfer.opacity_dyn.finite() || !p.transfer.flow_dyn.finite() {
+        return Err("transfer params must be finite".into());
+    }
+    let transfer =
+        stroke::TransferDynamics { enabled: p.transfer.enabled, opacity_dyn: p.transfer.opacity_dyn.parse()?, flow_dyn: p.transfer.flow_dyn.parse()? };
+
+    if ![p.color.fg_bg, p.color.hue_jitter, p.color.sat_jitter, p.color.bri_jitter, p.color.purity].iter().all(|v| v.is_finite()) {
+        return Err("color dynamics params must be finite".into());
+    }
+    let bg = p.color.bg.unwrap_or([0, 0, 0, 255]);
+    let color = stroke::ColorDynamics {
+        enabled: p.color.enabled,
+        bg: [bg[0] as f32 / 255.0, bg[1] as f32 / 255.0, bg[2] as f32 / 255.0],
+        fg_bg: p.color.fg_bg.clamp(0.0, 1.0),
+        hue_jitter: p.color.hue_jitter.clamp(0.0, 1.0),
+        sat_jitter: p.color.sat_jitter.clamp(0.0, 1.0),
+        bri_jitter: p.color.bri_jitter.clamp(0.0, 1.0),
+        purity: p.color.purity.clamp(-1.0, 1.0),
+        per_tip: p.color.per_tip.unwrap_or(true),
+    };
+
+    let pose = if p.pose.enabled {
+        for v in [p.pose.tilt_x, p.pose.tilt_y, p.pose.rotation, p.pose.pressure].into_iter().flatten() {
+            if !v.is_finite() {
+                return Err("brush pose overrides must be finite".into());
+            }
+        }
+        PoseOverride {
+            tilt_x: p.pose.tilt_x.map(|v| v.clamp(-90.0, 90.0)),
+            tilt_y: p.pose.tilt_y.map(|v| v.clamp(-90.0, 90.0)),
+            rotation: p.pose.rotation,
+            pressure: p.pose.pressure.map(|v| v.clamp(0.0, 1.0)),
+        }
+    } else {
+        PoseOverride::default()
+    };
+
+    let hist = match p.erase_to_history {
+        None => None,
+        Some(id) => {
+            if target != Target::Pixels {
+                return Err("erase to history needs the pixels target".into());
+            }
+            Some(resolve_hist(id)?)
+        }
+    };
+
+    Ok(Stroke {
+        layer: layer_id,
+        target,
+        mode,
+        rgb: [p.rgba[0] as f32 / 255.0, p.rgba[1] as f32 / 255.0, p.rgba[2] as f32 / 255.0],
+        value: p.rgba[0] as f32 / 255.0,
+        keep_alpha,
+        opacity: p.opacity.clamp(0.0, 1.0),
+        flow: p.flow.clamp(0.0, 1.0),
+        size: p.size,
+        hardness: p.hardness,
+        angle: p.angle,
+        roundness: p.roundness,
+        flip_x: p.flip_x,
+        flip_y: p.flip_y,
+        shape,
+        aliased: p.aliased,
+        wet_edges: p.wet_edges,
+        airbrush: p.airbrush,
+        pressure_size: p.pressure_size,
+        pressure_opacity: p.pressure_opacity,
+        step: (p.spacing as f64 * p.size as f64).max(1.0),
+        stride: p.stride,
+        spacer: Spacer::default(),
+        prng: stroke::Prng::new(p.seed),
+        dab_index: 0,
+        pose,
+        dynamics: stroke::Dynamics { shape: shape_dyn, scatter, transfer, color },
+        noise: p.noise.clamp(0.0, 1.0),
+        seed: p.seed,
+        hist,
+        sel_was_none,
+        tiles: HashMap::new(),
+    })
+}
+
 // One tile a stroke has touched: the accumulated stroke coverage and the tile as it was at
-// stroke start, which every frame recomputes from (so the opacity caps the whole stroke).
+// stroke start, which every frame recomputes from (so the opacity caps the whole stroke). `rgb`
+// is only present when color dynamics are active (E1.7); otherwise the stroke's flat `rgb` is
+// used for every pixel and no extra buffer is allocated (the B4 fast path).
 struct StrokeTile {
     s: Vec<f32>,
+    rgb: Option<Vec<[f32; 3]>>,
     orig: Option<Tile>,
 }
 
-/// An open stroke (docs/M2.md section 4). Lives in `EngineCore`, outside the document, so
+/// An open stroke (B5 spec v2 Part E1). Lives in `EngineCore`, outside the document, so
 /// snapshots and autosaves never see a half stroke.
 pub struct Stroke {
     layer: u32,
@@ -3827,6 +4145,8 @@ pub struct Stroke {
     hardness: f32,
     angle: f32,
     roundness: f32,
+    flip_x: bool,
+    flip_y: bool,
     shape: TipShape,
     aliased: bool,
     wet_edges: bool,
@@ -3834,7 +4154,14 @@ pub struct Stroke {
     pressure_size: bool,
     pressure_opacity: bool,
     step: f64,
+    stride: u8,
     spacer: Spacer,
+    prng: stroke::Prng,
+    dab_index: u32,
+    pose: PoseOverride,
+    dynamics: stroke::Dynamics,
+    noise: f32,
+    seed: u32,
     // Erase to history: the same layer's tiles in the chosen snapshot.
     hist: Option<Tiles>,
     // A quick-mask stroke that created the selection removes it again on cancel.
@@ -3854,6 +4181,10 @@ pub struct EngineCore {
     // they live outside the document and never travel into a snapshot.
     livewires: HashMap<u32, LiveWire>,
     next_livewire_id: u32,
+    // Sampled brush tips (E1.11), outside the document/snapshots: they are host-side resources
+    // referenced by id from stroke params, not part of the document's persisted state.
+    tips: HashMap<u32, Arc<SampledTip>>,
+    next_tip_id: u32,
 }
 
 impl EngineCore {
@@ -3865,7 +4196,27 @@ impl EngineCore {
             stroke: None,
             livewires: HashMap::new(),
             next_livewire_id: 0,
+            tips: HashMap::new(),
+            next_tip_id: 0,
         }
+    }
+
+    /// Registers a sampled brush tip (E1.11): 8-bit coverage, row-major, `1..=2500` per side.
+    pub fn tip_add(&mut self, w: u32, h: u32, alpha: Vec<u8>) -> Result<u32, String> {
+        if !(1..=2500).contains(&w) || !(1..=2500).contains(&h) {
+            return Err("a sampled tip must be 1..=2500 px per side".into());
+        }
+        if alpha.len() != (w * h) as usize {
+            return Err("a sampled tip's bytes must be w * h long".into());
+        }
+        let id = self.next_tip_id;
+        self.next_tip_id += 1;
+        self.tips.insert(id, Arc::new(SampledTip { w, h, alpha }));
+        Ok(id)
+    }
+
+    pub fn tip_remove(&mut self, id: u32) {
+        self.tips.remove(&id);
     }
 
     /// Magnetic lasso (docs/M2.md section 3): computes the gradient field of the sampled image
@@ -3901,9 +4252,9 @@ impl EngineCore {
         self.livewires.remove(&handle).map(|_| ()).ok_or_else(|| format!("unknown magnetic lasso {handle}"))
     }
 
-    /// Opens a stroke (docs/M2.md section 4) on `layer_id`; `target` is "pixels" or "selection"
+    /// Opens a stroke (B5 spec v2 Part E1) on `layer_id`; `target` is "pixels" or "selection"
     /// (quick mask). `params_json` is the brush: sizes in document pixels, angle in degrees,
-    /// every other amount a 0..1 fraction.
+    /// every other amount a 0..1 fraction, dynamics as `{control, fadeSteps, jitter, minimum}`.
     pub fn stroke_begin(&mut self, layer_id: u32, target: &str, params_json: &str) -> Result<(), String> {
         self.doc.check_idle()?;
         if self.stroke.is_some() {
@@ -3913,65 +4264,59 @@ impl EngineCore {
         if target == Target::Mask {
             return Err("a stroke only supports the pixels or selection target".into());
         }
-        let p: StrokeIn = serde_json::from_str(params_json).map_err(|e| format!("bad stroke params: {e}"))?;
-        if ![p.size, p.opacity, p.flow, p.hardness, p.spacing, p.angle, p.roundness].iter().all(|v| v.is_finite()) {
-            return Err("stroke params must be finite".into());
-        }
-        if p.size <= 0.0 {
-            return Err("stroke size must be positive".into());
-        }
-        let mode = PaintMode::parse(&p.mode)?;
-        let shape = TipShape::parse(&p.tip)?;
         let keep_alpha = if target == Target::Pixels {
             self.doc.check_pixel_edit(layer_id)?;
             self.doc.node(layer_id)?.locks.transparency
         } else {
             false
         };
-        let hist = match p.erase_to_history {
-            None => None,
-            Some(id) => {
-                if target != Target::Pixels {
-                    return Err("erase to history needs the pixels target".into());
-                }
-                let snap = self.snapshots.get(&id).ok_or_else(|| format!("unknown snapshot {id}"))?;
-                let tiles = snap
-                    .node(layer_id)
-                    .and_then(|n| n.pixel_tiles())
-                    .map_err(|_| format!("layer {layer_id} has no pixels in snapshot {id}"))?;
-                Some(tiles.clone())
-            }
-        };
         let sel_was_none = self.doc.selection.is_none();
+        let snapshots = &self.snapshots;
+        let stroke = parse_stroke(layer_id, target, params_json, &self.tips, keep_alpha, sel_was_none, |id| {
+            let snap = snapshots.get(&id).ok_or_else(|| format!("unknown snapshot {id}"))?;
+            let tiles = snap
+                .node(layer_id)
+                .and_then(|n| n.pixel_tiles())
+                .map_err(|_| format!("layer {layer_id} has no pixels in snapshot {id}"))?;
+            Ok(tiles.clone())
+        })?;
         if target == Target::Selection && sel_was_none {
             self.doc.selection = Some(SelMask::default());
         }
-        self.stroke = Some(Stroke {
-            layer: layer_id,
-            target,
-            mode,
-            rgb: [p.rgba[0] as f32 / 255.0, p.rgba[1] as f32 / 255.0, p.rgba[2] as f32 / 255.0],
-            value: p.rgba[0] as f32 / 255.0,
-            keep_alpha,
-            opacity: p.opacity.clamp(0.0, 1.0),
-            flow: p.flow.clamp(0.0, 1.0),
-            size: p.size,
-            hardness: p.hardness,
-            angle: p.angle,
-            roundness: p.roundness,
-            shape,
-            aliased: p.aliased,
-            wet_edges: p.wet_edges,
-            airbrush: p.airbrush,
-            pressure_size: p.pressure_size,
-            pressure_opacity: p.pressure_opacity,
-            step: (p.spacing as f64 * p.size as f64).max(1.0),
-            spacer: Spacer::default(),
-            hist,
-            sel_was_none,
-            tiles: HashMap::new(),
-        });
+        self.stroke = Some(stroke);
         Ok(())
+    }
+
+    /// Brush preview (E1.12): renders a fixed S-curve stroke with a pressure ramp of 0 -> 1 along
+    /// its length (both curves are ours, not the reference app's) through the same stroke code
+    /// path, on a temporary one-layer document capped at 1024 x 256. Always uses seed 0 so the
+    /// same brush always previews the same, regardless of its own `seed`.
+    pub fn brush_preview(&self, params_json: &str, w: u32, h: u32) -> Result<Vec<u8>, String> {
+        if w == 0 || h == 0 || w > 1024 || h > 256 {
+            return Err("brush preview size must be 1..=1024 x 1..=256".into());
+        }
+        let mut doc = Document::new(w, h, 8)?;
+        let layer = 1; // Document::new's Background layer.
+        let mut st = parse_stroke(layer, Target::Pixels, params_json, &self.tips, false, true, |id| {
+            Err(format!("brush preview has no snapshot {id}"))
+        })?;
+        st.prng = stroke::Prng::new(0);
+        st.seed = 0;
+        let n: usize = 64;
+        let mut samples = Vec::with_capacity(n * st.stride as usize);
+        for i in 0..n {
+            let t = i as f64 / (n - 1) as f64;
+            samples.push(w as f64 * (0.1 + 0.8 * t));
+            samples.push(h as f64 * 0.5 + h as f64 * 0.35 * (t * std::f64::consts::PI * 2.0).sin());
+            samples.push(t);
+            if st.stride == 6 {
+                samples.push(0.0);
+                samples.push(0.0);
+                samples.push(0.0);
+            }
+        }
+        doc.stroke_apply(&mut st, &samples)?;
+        doc.sample_rgba8(true, layer)
     }
 
     /// Adds `samples` (flat x, y, pressure triples) to the open stroke and returns the changed
@@ -6211,6 +6556,134 @@ mod tests {
         assert_eq!(at(&e.doc, 30, 30), [128, 128, 128, 255], "half pressure, half opacity");
         assert_eq!(at(&e.doc, 34, 30), [128, 128, 128, 255], "radius 5 at half size");
         assert_eq!(at(&e.doc, 36, 30), [255, 255, 255, 255]);
+    }
+
+    // ---------- B5 Part E1 (dynamics, scattering, color, pose, sampled tips, preview) ----------
+
+    #[test]
+    fn all_dynamics_off_matches_the_bare_default_params() {
+        let explicit_off = hard(
+            r#","shapeDyn":{"enabled":false},"scatter":{"enabled":false},"transfer":{"enabled":false},"color":{"enabled":false},"pose":{"enabled":false},"noise":0,"wetEdges":false"#,
+        );
+        let bare = hard("");
+        let samples = [10.5, 10.5, 1.0, 20.5, 15.5, 0.6, 15.5, 25.5, 0.9];
+        let mut e1 = core_bg(255, 255, 255);
+        stroke(&mut e1, &explicit_off, &samples);
+        let mut e2 = core_bg(255, 255, 255);
+        stroke(&mut e2, &bare, &samples);
+        assert_eq!(e1.doc.flatten_tile_rgba8(0, 0).unwrap(), e2.doc.flatten_tile_rgba8(0, 0).unwrap());
+    }
+
+    #[test]
+    fn same_seed_paints_identically_different_seed_differs() {
+        let with_seed = |seed: u32| {
+            hard(&format!(
+                r#","seed":{seed},"shapeDyn":{{"enabled":true,"size":{{"jitter":1,"minimum":0}},"angleJitter":0.5}}"#
+            ))
+        };
+        let samples = [10.5, 10.5, 1.0, 20.5, 12.5, 0.8, 15.5, 22.5, 0.6];
+        let mut a = core_bg(255, 255, 255);
+        stroke(&mut a, &with_seed(5), &samples);
+        let mut b = core_bg(255, 255, 255);
+        stroke(&mut b, &with_seed(5), &samples);
+        assert_eq!(a.doc.flatten_tile_rgba8(0, 0).unwrap(), b.doc.flatten_tile_rgba8(0, 0).unwrap(), "same seed paints identically");
+        let mut c = core_bg(255, 255, 255);
+        stroke(&mut c, &with_seed(6), &samples);
+        assert_ne!(a.doc.flatten_tile_rgba8(0, 0).unwrap(), c.doc.flatten_tile_rgba8(0, 0).unwrap(), "a different seed paints differently");
+    }
+
+    #[test]
+    fn scatter_count_3_places_3x_dabs_perpendicular_only_without_both_axes() {
+        let anchor = Sample::new(0.0, 0.0, 1.0);
+        let dyn_ = stroke::Dynamics {
+            scatter: stroke::ScatterDynamics { enabled: true, count: 3, amount: 1.0, both_axes: false, ..Default::default() },
+            ..Default::default()
+        };
+        let mut prng = stroke::Prng::new(1);
+        let mut idx = 0u32;
+        let dabs = stroke::place_dabs(&anchor, 0.0, 10.0, 0.0, 1.0, false, false, &dyn_, [0.0; 3], &mut prng, &mut idx);
+        assert_eq!(dabs.len(), 3, "count 3 places 3x the dabs of one anchor");
+        assert_eq!(idx, 3);
+        assert!(dabs.iter().all(|d| d.x == anchor.x), "dir 0's perpendicular is the y axis: x never moves");
+        assert!(dabs.iter().any(|d| d.y != anchor.y), "the perpendicular offset moves y");
+    }
+
+    #[test]
+    fn hue_jitter_changes_color_per_sub_dab_with_per_tip_on_one_color_off() {
+        let anchor = Sample::new(0.0, 0.0, 1.0);
+        let fg = [1.0, 0.0, 0.0];
+        let color =
+            stroke::ColorDynamics { enabled: true, bg: fg, fg_bg: 0.0, hue_jitter: 1.0, per_tip: true, ..Default::default() };
+        let scatter =
+            stroke::ScatterDynamics { enabled: true, count: 3, amount: 1.0, both_axes: false, ..Default::default() };
+        let dyn_on = stroke::Dynamics { scatter: scatter.clone(), color: color.clone(), ..Default::default() };
+        let mut prng = stroke::Prng::new(3);
+        let mut idx = 0u32;
+        let dabs = stroke::place_dabs(&anchor, 0.0, 10.0, 0.0, 1.0, false, false, &dyn_on, fg, &mut prng, &mut idx);
+        let colors: Vec<[f32; 3]> = dabs.iter().map(|d| d.rgb.unwrap()).collect();
+        assert!(colors.windows(2).any(|w| w[0] != w[1]), "perTip on: every sub-dab draws its own color");
+
+        let dyn_off = stroke::Dynamics {
+            scatter,
+            color: stroke::ColorDynamics { per_tip: false, ..color },
+            ..Default::default()
+        };
+        let mut prng2 = stroke::Prng::new(3);
+        let mut idx2 = 0u32;
+        let dabs2 = stroke::place_dabs(&anchor, 0.0, 10.0, 0.0, 1.0, false, false, &dyn_off, fg, &mut prng2, &mut idx2);
+        let colors2: Vec<[f32; 3]> = dabs2.iter().map(|d| d.rgb.unwrap()).collect();
+        assert!(colors2.windows(2).all(|w| w[0] == w[1]), "perTip off: one color for the whole spaced position");
+    }
+
+    #[test]
+    fn pose_pressure_override_changes_size_under_pressure_size_control() {
+        let mut raw = core_bg(255, 255, 255);
+        stroke(&mut raw, &hard(r#","size":20,"pressureSize":true"#), &[30.5, 30.5, 0.1]);
+        assert_eq!(at(&raw.doc, 34, 30), [255, 255, 255, 255], "raw low pressure keeps the dab small");
+
+        let mut overridden = core_bg(255, 255, 255);
+        stroke(
+            &mut overridden,
+            &hard(r#","size":20,"pressureSize":true,"pose":{"enabled":true,"pressure":1.0}"#),
+            &[30.5, 30.5, 0.1],
+        );
+        assert_eq!(at(&overridden.doc, 34, 30), [0, 0, 0, 255], "the pose override, not the raw sample, drives the size");
+    }
+
+    #[test]
+    fn stride_6_tilt_drives_pen_tilt() {
+        let params = hard(r#","stride":6,"transfer":{"enabled":true,"opacityDyn":{"control":"penTilt","minimum":0}}"#);
+        let mut no_tilt = core_bg(255, 255, 255);
+        no_tilt.stroke_begin(1, "pixels", &params).unwrap();
+        no_tilt.stroke_to(&[30.5, 30.5, 1.0, 0.0, 0.0, 0.0]).unwrap();
+        no_tilt.stroke_end().unwrap();
+        assert_eq!(at(&no_tilt.doc, 30, 30), [255, 255, 255, 255], "no tilt: penTilt control is 0, so is the opacity");
+
+        let mut tilted = core_bg(255, 255, 255);
+        tilted.stroke_begin(1, "pixels", &params).unwrap();
+        tilted.stroke_to(&[30.5, 30.5, 1.0, 90.0, 0.0, 0.0]).unwrap();
+        tilted.stroke_end().unwrap();
+        assert_eq!(at(&tilted.doc, 30, 30), [0, 0, 0, 255], "a stride-6 tilt sample drives the penTilt control");
+    }
+
+    #[test]
+    fn brush_preview_is_deterministic_nonempty_and_sized() {
+        let e = core_bg(255, 255, 255);
+        let params = hard(r#","size":20"#);
+        let a = e.brush_preview(&params, 64, 32).unwrap();
+        let b = e.brush_preview(&params, 64, 32).unwrap();
+        assert_eq!(a.len(), 64 * 32 * 4);
+        assert_eq!(a, b, "the same params always preview the same, regardless of the brush's own seed");
+        assert!(a.iter().any(|&v| v != 0), "the pressure ramp paints something");
+    }
+
+    #[test]
+    fn tip_add_rejects_bad_sizes_and_length() {
+        let mut e = core_bg(255, 255, 255);
+        assert!(e.tip_add(0, 3, vec![0; 3]).is_err(), "a 0 px side is rejected");
+        assert!(e.tip_add(2501, 3, vec![0; 2501 * 3]).is_err(), "over 2500 px per side is rejected");
+        assert!(e.tip_add(3, 3, vec![0; 8]).is_err(), "alpha must be exactly w * h long");
+        assert!(e.tip_add(3, 3, vec![0; 9]).is_ok());
     }
 
     #[test]

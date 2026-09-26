@@ -276,6 +276,20 @@ impl Engine {
         self.0.stroke_cancel().map_err(err)
     }
 
+    /// Registers a sampled brush tip (E1.11): 8-bit coverage, row-major, `1..=2500` per side.
+    pub fn tip_add(&mut self, w: u32, h: u32, alpha: Vec<u8>) -> Result<u32, JsError> {
+        self.0.tip_add(w, h, alpha).map_err(err)
+    }
+
+    pub fn tip_remove(&mut self, id: u32) {
+        self.0.tip_remove(id)
+    }
+
+    /// Renders a brush preview (E1.12) as RGBA8, `w * h * 4` bytes, capped at 1024 x 256.
+    pub fn brush_preview(&self, params_json: &str, w: u32, h: u32) -> Result<Vec<u8>, JsError> {
+        self.0.brush_preview(params_json, w, h).map_err(err)
+    }
+
     /// Paints a solid color into the layer through `coverage` (0..1, `w * h` long) at document
     /// rect (x, y, w, h); `mode` is a blend mode name, "behind" or "clear". `target` is "pixels"
     /// or "selection" (quick mask: paints the selection itself, `r` is the mask value).
