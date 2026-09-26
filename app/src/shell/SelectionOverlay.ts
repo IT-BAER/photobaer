@@ -9,6 +9,15 @@ export type Preview =
 // with zoom; crosshair replaces the outline under 6 screen px or with Caps Lock on.
 export interface CursorState { x: number; y: number; sizeDoc: number; shape: 'round' | 'square'; crosshair: boolean }
 
+export interface BoxRect { x: number; y: number; w: number; h: number }
+export const HANDLE_CURSORS = ['nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize'];
+
+// Handle points clockwise from the top-left corner (corners at even indexes), in document px.
+export function boxHandles(r: BoxRect): [number, number][] {
+  const { x, y, w, h } = r, mx = x + w / 2, my = y + h / 2;
+  return [[x, y], [mx, y], [x + w, y], [x + w, my], [x + w, y + h], [mx, y + h], [x, y + h], [x, my]];
+}
+
 // Draws marching-ants selection edges and the in-progress shape preview on a transparent canvas
 // layered over the stage. Strokes are sized in device pixels so they stay crisp at any zoom/rotation.
 export class SelectionOverlay {
@@ -20,6 +29,8 @@ export class SelectionOverlay {
   #hidden = false;
   #mask: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number } | null = null;
   #cursor: CursorState | null = null;
+  #guides: [number, number, number, number][] = [];
+  #box: BoxRect | null = null;
   #dash = 0;
   #timer: ReturnType<typeof setInterval> | undefined;
   #last: [View, number, number, number] | null = null;
@@ -46,6 +57,17 @@ export class SelectionOverlay {
 
   setCursor(c: CursorState | null) {
     this.#cursor = c;
+  }
+
+  // Move/transform smart guides: full-document lines (x0, y0, x1, y1 in doc px) at the locked
+  // snap targets, own colour, drawn only while set (cleared with an empty array).
+  setGuides(lines: [number, number, number, number][]) {
+    this.#guides = lines;
+  }
+
+  // Move tool transform controls: the target's bounding box with 8 handles (no drag from them).
+  setBox(r: BoxRect | null) {
+    this.#box = r;
   }
 
   // Quick mask: `coverage` is the selectionMask byte buffer (255 = selected); unselected pixels
@@ -84,6 +106,8 @@ export class SelectionOverlay {
     if (this.#mask) this.#drawMask(this.#mask, view, cssW, cssH, dpr);
     else if (this.#ants) this.#strokeSegments(this.#segmentsFor(this.#ants), view, cssW, cssH, dpr, this.#antsScale);
     if (this.#preview) this.#strokeSegments(this.#previewSegments(this.#preview), view, cssW, cssH, dpr, 1);
+    if (this.#box) this.#drawBox(this.#box, view, cssW, cssH, dpr);
+    if (this.#guides.length) this.#drawGuides(view, cssW, cssH, dpr);
     if (this.#cursor) this.#drawCursor(this.#cursor, view, cssW, cssH, dpr);
   }
 
@@ -109,6 +133,41 @@ export class SelectionOverlay {
     ctx.lineWidth = 1;
     ctx.strokeStyle = '#fff';
     ctx.stroke();
+  }
+
+  #drawGuides(view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.beginPath();
+    for (const [x0, y0, x1, y1] of this.#guides) {
+      const [sx0, sy0] = docToScreen(view, x0, y0, cssW, cssH);
+      const [sx1, sy1] = docToScreen(view, x1, y1, cssW, cssH);
+      ctx.moveTo(sx0, sy0);
+      ctx.lineTo(sx1, sy1);
+    }
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.strokeStyle = getComputedStyle(this.#canvas).getPropertyValue('--smart-guide');
+    ctx.stroke();
+  }
+
+  #drawBox(r: BoxRect, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const pts = boxHandles(r).map(([x, y]) => docToScreen(view, x, y, cssW, cssH));
+    const color = getComputedStyle(this.#canvas).getPropertyValue('--transform-box');
+    ctx.beginPath();
+    for (let i = 0; i < 8; i += 2) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath();
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    for (const [x, y] of pts) {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x - 3.5, y - 3.5, 7, 7);
+      ctx.strokeRect(x - 3.5, y - 3.5, 7, 7);
+    }
   }
 
   #segmentsFor(flat: Float32Array): [number, number, number, number][] {

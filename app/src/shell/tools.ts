@@ -37,7 +37,9 @@ export const TOOLS: Record<string, Tool> = {
     id: 'move', label: 'Move', slot: 'move', key: 'v', cursor: 'move', icon: 'Move',
     options: [
       { id: 'autoSelect', kind: 'boolean', label: 'Auto-select', default: false },
+      { id: 'autoSelectTarget', kind: 'select', label: 'Auto-select target', default: 'layer', choices: ['layer', 'group'] },
       { id: 'showTransform', kind: 'boolean', label: 'Show transform controls', default: false },
+      { id: 'snap', kind: 'boolean', label: 'Snap', default: true },
     ],
   },
   marqueeRect: {

@@ -68,6 +68,9 @@ let booted = false;
 let lastState: AutosaveState = 'off';
 let selGen = 0;
 let strokeOpen = false;
+// Move tool live session: a snapshot taken right after any duplicate, restored and replayed
+// from on every step so the previewed offset never compounds.
+let moveSession: { liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number } | null = null;
 // Open live-preview session (Fill/Stroke dialogs): one history step, rerun from its start on every change.
 let previewOpen = false;
 let previewError: string | null = null;
@@ -246,6 +249,42 @@ function nodeTiles(e: Engine, id: number): Sparse | undefined {
 function layerTile(e: Engine, ids: Sparse | undefined, tx: number, ty: number): Uint8Array | null {
   const id = ids?.find(t => t[0] === tx && t[1] === ty)?.[2];
   return id ? e.tile_bytes(BigInt(id)) : null;
+}
+
+// Every node, topmost first (reading order): each root sibling before its children, siblings in
+// top-to-bottom (reverse array) order; skips a node, and its whole subtree, once hidden or under
+// a hidden ancestor.
+function visibleTopDown(nodes: LayerNode[], ancestorVisible = true): LayerNode[] {
+  const out: LayerNode[] = [];
+  for (const n of [...nodes].reverse()) {
+    const vis = ancestorVisible && n.visible;
+    if (vis) out.push(n);
+    if (n.children) out.push(...visibleTopDown(n.children, vis));
+  }
+  return out;
+}
+
+function containsId(nodes: LayerNode[], id: number): boolean {
+  return nodes.some(n => n.id === id || (n.children && containsId(n.children, id)));
+}
+
+// The root-level sibling (direct child of `tree`) whose subtree contains `id`, or `id` itself
+// when it is already root-level.
+function topLevelAncestor(tree: LayerNode[], id: number): number {
+  for (const n of tree) if (n.id === id || (n.children && containsId(n.children, id))) return n.id;
+  return id;
+}
+
+// Every pixel-layer id under `id` (itself included), depth-first.
+function collectPixelIds(tree: LayerNode[], id: number): number[] {
+  const flatten = (nodes: LayerNode[]): number[] => nodes.flatMap(n => (n.kind === 'pixel' ? [n.id] : []).concat(n.children ? flatten(n.children) : []));
+  const find = (nodes: LayerNode[]): LayerNode | undefined => {
+    for (const n of nodes) { if (n.id === id) return n; const h = n.children && find(n.children); if (h) return h; }
+    return undefined;
+  };
+  const node = find(tree);
+  if (!node) return [];
+  return node.kind === 'pixel' ? [node.id] : flatten(node.children ?? []);
 }
 
 // Sampled tips and patterns live inside an Engine instance, which a new document replaces. The worker keeps them
@@ -598,6 +637,155 @@ const api = {
     return changed();
   },
 
+  // Selection coverage (0-255) at a document point; 255 everywhere with no selection.
+  selectionAt(x: number, y: number) {
+    const e = need();
+    const px = Math.floor(x), py = Math.floor(y);
+    const ch = JSON.parse(e.channels_json()) as { selection: { default: number } | null };
+    if (!ch.selection) return 255;
+    if (px < 0 || py < 0 || px >= e.width() || py >= e.height()) return 0;
+    const tile = e.selection_tile(0, Math.floor(px / 256), Math.floor(py / 256)) as Uint8Array | undefined;
+    return tile ? tile[(py % 256) * 256 + (px % 256)] : ch.selection.default > 0 ? 255 : 0;
+  },
+
+  // Move tool: the union of the document bounds and every visible layer's content bounds
+  // except `excludeId`'s own subtree, as [start, center, end] anchors per axis for snapping.
+  snapTargets(excludeId: number) {
+    const e = need();
+    const rects: [number, number, number, number][] = [[0, 0, e.width(), e.height()]];
+    const walk = (nodes: LayerNode[], excluded: boolean) => {
+      for (const n of nodes) {
+        const skip = excluded || n.id === excludeId;
+        if (!skip && n.visible && n.kind === 'pixel') {
+          const b = e.layer_bounds(n.id) as [number, number, number, number] | null;
+          if (b) rects.push(b);
+        }
+        if (n.children) walk(n.children, skip || !n.visible);
+      }
+    };
+    walk(JSON.parse(e.layers_json()) as LayerNode[], false);
+    const x: number[] = [], y: number[] = [];
+    for (const [rx, ry, rw, rh] of rects) { x.push(rx, rx + rw / 2, rx + rw); y.push(ry, ry + rh / 2, ry + rh); }
+    return { x, y };
+  },
+
+  // Union of the content bounds of every pixel layer under `id` (itself included), or null when
+  // none has any pixels. The moving rect for snapping and for the union offset bounding box.
+  movingBounds(id: number) {
+    const e = need();
+    const tree = JSON.parse(e.layers_json()) as LayerNode[];
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const pid of collectPixelIds(tree, id)) {
+      const b = e.layer_bounds(pid) as [number, number, number, number] | null;
+      if (!b) continue;
+      x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]);
+      x1 = Math.max(x1, b[0] + b[2]); y1 = Math.max(y1, b[1] + b[3]);
+    }
+    return x0 === Infinity ? null : [x0, y0, x1 - x0, y1 - y0];
+  },
+
+  // Move tool auto-select: the topmost visible pixel layer with a non-transparent pixel at (x, y),
+  // or (with `group`) that layer's top-level ancestor. Null off-canvas or over empty pixels.
+  hitTestLayer(x: number, y: number, group: boolean): number | null {
+    const e = need();
+    const px = Math.floor(x), py = Math.floor(y);
+    if (px < 0 || py < 0 || px >= e.width() || py >= e.height()) return null;
+    const tx = Math.floor(px / 256), ty = Math.floor(py / 256);
+    const ox = px - tx * 256, oy = py - ty * 256;
+    const tree = JSON.parse(e.layers_json()) as LayerNode[];
+    for (const n of visibleTopDown(tree)) {
+      if (n.kind !== 'pixel') continue;
+      const buf = layerTile(e, nodeTiles(e, n.id), tx, ty);
+      if (buf && buf[(oy * 256 + ox) * 4 + 3] > 0) return group ? topLevelAncestor(tree, n.id) : n.id;
+    }
+    return null;
+  },
+
+  // Whole-layer move/duplicate session: `moveLayerBegin` opens one history step (duplicating the
+  // node first when asked), `moveLayerStep` previews a cumulative offset from the session's start,
+  // `moveLayerCommit`/`moveLayerCancel` close it. A zero net offset with no duplicate makes no step.
+  moveLayerBegin(id: number, duplicate: boolean, label: string) {
+    const e = need();
+    history.begin(label);
+    const targetId = duplicate ? e.duplicate_node(id) : id;
+    if (duplicate) {
+      const used = new Set<string>();
+      let base = '';
+      const walk = (ns: LayerNode[]) => { for (const n of ns) { if (n.id === targetId) base = n.name; else used.add(n.name); if (n.children) walk(n.children); } };
+      walk(JSON.parse(e.layers_json()) as LayerNode[]);
+      if (used.has(base)) { let i = 2; while (used.has(`${base} ${i}`)) i++; e.set_props(targetId, JSON.stringify({ name: `${base} ${i}` })); }
+    }
+    moveSession = { liveBase: e.snapshot(), targetId, duplicated: duplicate, lastDx: 0, lastDy: 0 };
+    return { ...changed(), activeId: targetId };
+  },
+
+  moveLayerStep(dx: number, dy: number) {
+    const e = need(), s = moveSession!;
+    e.restore(s.liveBase);
+    const tree = JSON.parse(e.layers_json()) as LayerNode[];
+    for (const pid of collectPixelIds(tree, s.targetId)) e.offset_layer(pid, dx, dy);
+    s.lastDx = dx;
+    s.lastDy = dy;
+    version++;
+    return info()!;
+  },
+
+  moveLayerCommit() {
+    const e = need(), s = moveSession!;
+    e.drop_snapshot(s.liveBase);
+    moveSession = null;
+    if (!s.duplicated && s.lastDx === 0 && s.lastDy === 0) history.abort(); else history.commit();
+    return changed();
+  },
+
+  moveLayerCancel() {
+    const s = moveSession;
+    if (!s) return info();
+    moveSession = null;
+    need().drop_snapshot(s.liveBase);
+    history.restoreOpen();
+    history.abort();
+    return changed();
+  },
+
+  // Selected-pixels move session (engine lift/hole via transform_selected_pixels), same begin/
+  // step/commit/cancel shape as the whole-layer session above; no layer is a background layer.
+  movePixelsBegin(id: number, label: string, copy = false) {
+    const e = need();
+    history.begin(label);
+    moveSession = { liveBase: e.snapshot(), targetId: id, duplicated: copy, lastDx: 0, lastDy: 0 };
+    return changed();
+  },
+
+  movePixelsStep(dx: number, dy: number) {
+    const e = need(), s = moveSession!;
+    e.restore(s.liveBase);
+    e.transform_selected_pixels(s.targetId, Float64Array.of(1, 0, dx, 0, 1, dy, 0, 0, 1), 'nearest', new Uint8Array(), s.duplicated);
+    s.lastDx = dx;
+    s.lastDy = dy;
+    version++;
+    selGen++;
+    return info()!;
+  },
+
+  movePixelsCommit() {
+    const e = need(), s = moveSession!;
+    e.drop_snapshot(s.liveBase);
+    moveSession = null;
+    if (s.lastDx === 0 && s.lastDy === 0) history.abort(); else history.commit();
+    return changed();
+  },
+
+  movePixelsCancel() {
+    const s = moveSession;
+    if (!s) return info();
+    moveSession = null;
+    need().drop_snapshot(s.liveBase);
+    history.restoreOpen();
+    history.abort();
+    return changed();
+  },
+
   setProps(id: number, props: Partial<{
     name: string; visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
     locks: Partial<{ transparency: boolean; pixels: boolean; position: boolean }>; mask_enabled: boolean;
@@ -778,6 +966,8 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 // Ops that may run while a stroke is open without committing it (they never touch the document or history).
 const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove']);
 const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd']);
+// An open move session commits before any other op, so history never sees a half move.
+const MOVE_OPS = new Set<keyof Api>(['moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds']);
 
 // Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
 // displayTile, displayProgram and selectionMask are synchronous and read-only, so they skip the
@@ -791,6 +981,7 @@ onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[] }>) =
     if (strokeOpen && !STROKE_OPS.has(op) && eng) { eng.stroke_end(); strokeOpen = false; history.commit(); changed(); }
     // Anything but a preview rerun, its end or a read cancels an open preview.
     if (previewOpen && !PREVIEW_OPS.has(op) && eng) { try { endPreview(false); } catch { /* cancel never throws */ } version++; }
+    if (moveSession && !MOVE_OPS.has(op) && eng) api.moveLayerCommit();
     return handle(id, op, args);
   });
 };

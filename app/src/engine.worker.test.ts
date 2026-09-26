@@ -312,3 +312,140 @@ test('gradient renders a black to white row as one Gradient step', async () => {
   assert.ok(row.every((p, i) => i === 0 || p[0] >= row[i - 1][0]));
   assert.ok(row[0][0] < 16 && row[15][0] > 239);
 });
+
+test('moveLayerBegin/Step/Commit previews from the same base and lands as one Move step', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('moveLayerBegin', 1, false, 'Move');
+  await call('moveLayerStep', 3, 0);
+  assert.deepEqual(await px(1, 5), [0, 0, 0, 0], 'the edge revealed by the shift is transparent');
+  await call('moveLayerStep', 5, 5);
+  assert.deepEqual(await px(7, 5), [255, 0, 0, 255], 'each step previews (5,5) from the pre-drag base, not (3,0)+(5,5)');
+  const c = await call('moveLayerCommit');
+  assert.equal((c.result as { undoLabel: string }).undoLabel, 'Move');
+  assert.deepEqual(await px(5, 6), [255, 0, 0, 255]);
+});
+
+test('moveLayerCommit with a zero net offset makes no history step', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, null);
+  await call('moveLayerBegin', 1, false, 'Move');
+  await call('moveLayerStep', 4, 4);
+  await call('moveLayerStep', 0, 0);
+  const c = await call('moveLayerCommit');
+  assert.equal((c.result as { undoLabel: string | null }).undoLabel, null);
+});
+
+test('moveLayerBegin duplicate=true adds a layer and commits as Move Copy even with no drag', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [0, 255, 0, 255]);
+  const b = await call('moveLayerBegin', 1, true, 'Move Copy');
+  const dupId = (b.result as { activeId: number }).activeId;
+  assert.notEqual(dupId, 1);
+  const c = await call('moveLayerCommit');
+  const doc = c.result as { undoLabel: string; layers: unknown[] };
+  assert.equal(doc.undoLabel, 'Move Copy');
+  assert.equal(doc.layers.length, 2);
+});
+
+test('moveLayerCancel restores the pre-drag document with no history step', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('moveLayerBegin', 1, false, 'Move');
+  await call('moveLayerStep', 8, 0);
+  const c = await call('moveLayerCancel');
+  assert.equal((c.result as { undoLabel: string | null }).undoLabel, null);
+  assert.deepEqual(await px(1, 1), [255, 0, 0, 255]);
+});
+
+test('movePixels moves the selected pixels, leaves a hole and lands as one Move Selection step', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('movePixelsBegin', 1, 'Move Selection');
+  await call('movePixelsStep', 8, 8);
+  assert.deepEqual(await px(9, 9), [255, 0, 0, 255], 'the moved pixels landed at the offset');
+  assert.deepEqual(await px(1, 1), [0, 0, 0, 0], 'the source area is a hole');
+  const c = await call('movePixelsCommit');
+  assert.equal((c.result as { undoLabel: string }).undoLabel, 'Move Selection');
+});
+
+test('movePixels with copy keeps the source pixels and lands as one Move Selection Copy step', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('movePixelsBegin', 1, 'Move Selection Copy', true);
+  await call('movePixelsStep', 8, 8);
+  assert.deepEqual(await px(9, 9), [255, 0, 0, 255], 'the copy landed at the offset');
+  assert.deepEqual(await px(1, 1), [255, 0, 0, 255], 'the source area is untouched');
+  const c = await call('movePixelsCommit');
+  assert.equal((c.result as { undoLabel: string }).undoLabel, 'Move Selection Copy');
+});
+
+test('hitTestLayer picks the topmost visible layer with a pixel under the point, or its top-level group', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  const { created: groupId } = (await call('addGroup', 0)).result as { created: number };
+  await call('moveNode', 1, 0, 0);
+  await call('addLayer', 0);
+  assert.equal(await (await call('hitTestLayer', 2, 2, false)).result, 1);
+  assert.equal(await (await call('hitTestLayer', 6, 6, false)).result, null);
+  await call('moveNode', 1, groupId, 0);
+  assert.equal((await call('hitTestLayer', 2, 2, false)).result, 1);
+  assert.equal((await call('hitTestLayer', 2, 2, true)).result, groupId);
+});
+
+test('snapTargets gives document bounds plus every other visible layer, excluding the moving one', async () => {
+  await call('init');
+  await call('newDoc', 100, 50, 8, null);
+  await call('select', { kind: 'rect', x: 10, y: 10, w: 20, h: 20 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  const r = (await call('snapTargets', 1)).result as { x: number[]; y: number[] };
+  assert.deepEqual(r.x, [0, 50, 100]);
+  assert.deepEqual(r.y, [0, 25, 50]);
+  const r2 = (await call('snapTargets', 0)).result as { x: number[]; y: number[] };
+  assert.deepEqual(r2.x, [0, 50, 100, 10, 20, 30]);
+  assert.deepEqual(r2.y, [0, 25, 50, 10, 20, 30]);
+});
+
+test('a locked-position layer fails moveLayerStep and the step is not left open', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, null);
+  await call('setProps', 1, { locks: { position: true } });
+  await call('moveLayerBegin', 1, false, 'Move');
+  const s = await call('moveLayerStep', 3, 0);
+  assert.equal(s.error, 'layer position is locked');
+});
+
+test('selectionAt reads the selection coverage at a point, 255 with no selection', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, null);
+  assert.equal((await call('selectionAt', 3, 3)).result, 255);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  assert.equal((await call('selectionAt', 3, 3)).result, 255);
+  assert.equal((await call('selectionAt', 8, 8)).result, 0);
+  assert.equal((await call('selectionAt', -1, 3)).result, 0);
+});
+
+test('another op while a move is open commits the move first', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('moveLayerBegin', 1, false, 'Move');
+  await call('moveLayerStep', 3, 0);
+  const u = await call('undo');
+  assert.equal((u.result as { redoLabel: string }).redoLabel, 'Move');
+  assert.deepEqual(await px(1, 5), [255, 0, 0, 255]);
+});
+
+test('a Move Copy duplicate gets a name no other layer has', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, null);
+  await call('moveLayerBegin', 1, true, 'Move Copy');
+  await call('moveLayerCommit');
+  await call('moveLayerBegin', 1, true, 'Move Copy');
+  const c = await call('moveLayerCommit');
+  const names = (c.result as { layers: { name: string }[] }).layers.map(l => l.name);
+  assert.equal(new Set(names).size, 3);
+});

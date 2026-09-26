@@ -563,15 +563,15 @@ impl Engine {
         self.0.doc.transform_selection(&m, Interp::parse(interp).map_err(err)?).map_err(err)
     }
 
-    /// `bg` is empty for a normal layer, or r,g,b that fills the hole of a background layer.
-    pub fn transform_selected_pixels(&mut self, id: u32, m: Vec<f64>, interp: &str, bg: Vec<u8>) -> Result<(), JsError> {
+    /// `bg` is empty for a normal layer, or r,g,b that fills the hole of a background layer; `copy` leaves no hole.
+    pub fn transform_selected_pixels(&mut self, id: u32, m: Vec<f64>, interp: &str, bg: Vec<u8>, copy: bool) -> Result<(), JsError> {
         let m = resample::matrix(&m).map_err(err)?;
         let bg = match bg.as_slice() {
             [] => None,
             [r, g, b] => Some([*r, *g, *b]),
             _ => return Err(err("background colour must be empty or r,g,b".into())),
         };
-        self.0.doc.transform_selected_pixels(id, &m, Interp::parse(interp).map_err(err)?, bg).map_err(err)
+        self.0.doc.transform_selected_pixels(id, &m, Interp::parse(interp).map_err(err)?, bg, copy).map_err(err)
     }
 
     /// `kind` is cw|ccw|180|flipH|flipV.

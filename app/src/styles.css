@@ -10,6 +10,8 @@
   --accent-hover: #4797ff;
   --on-accent: #fff;
   --danger: #f03a3e;
+  --smart-guide: #2dd4bf;
+  --transform-box: #4797ff;
   --checker: repeating-conic-gradient(#d8d8d8 0% 25%, #a6a6a6 0% 50%);
   color-scheme: dark;
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;

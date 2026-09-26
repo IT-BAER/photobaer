@@ -265,6 +265,7 @@ impl Document {
         m: &[f64; 9],
         interp: Interp,
         bg: Option<[u8; 3]>,
+        copy: bool,
     ) -> Result<(), String> {
         self.check_idle()?;
         self.check_pixel_edit(id)?;
@@ -278,7 +279,8 @@ impl Document {
         let bg = bg.map(|c| [c[0] as f32 / 255.0, c[1] as f32 / 255.0, c[2] as f32 / 255.0, 1.0]);
         let mut layer = old.clone();
         let mut buf = vec![0f32; TILE_PIXELS * 4];
-        for (tx, ty) in tile_span(b) {
+        // A copy leaves no hole.
+        for (tx, ty) in tile_span(b).into_iter().filter(|_| !copy) {
             let Some(t) = old.get(tx, ty) else { continue };
             let (ox, oy) = (tx * TI, ty * TI);
             let mut changed = false;
@@ -757,7 +759,7 @@ pub(super) mod tests {
     #[test]
     fn lifted_selection_leaves_a_transparent_hole_in_a_normal_layer() {
         let mut d = lift_doc();
-        d.transform_selected_pixels(1, &tr(4.0, 0.0), Interp::Nearest, None).unwrap();
+        d.transform_selected_pixels(1, &tr(4.0, 0.0), Interp::Nearest, None, false).unwrap();
         assert_eq!(grid(&d, 1, [0, 0, 6, 1]), vec![[0; 4], [0; 4], [0; 4], [0; 4], [255, 0, 0, 255], [128, 0, 127, 255]]);
         assert_eq!(d.selection_bounds(), Some([4, 0, 2, 1]));
     }
@@ -765,11 +767,22 @@ pub(super) mod tests {
     #[test]
     fn lifted_selection_fills_the_hole_of_a_background_layer_with_the_background_colour() {
         let mut d = lift_doc();
-        d.transform_selected_pixels(1, &tr(4.0, 0.0), Interp::Nearest, Some([255, 255, 255])).unwrap();
+        d.transform_selected_pixels(1, &tr(4.0, 0.0), Interp::Nearest, Some([255, 255, 255]), false).unwrap();
         assert_eq!(
             grid(&d, 1, [0, 0, 6, 1]),
             vec![[255, 255, 255, 255], [255, 128, 128, 192], [0; 4], [0; 4], [255, 0, 0, 255], [128, 0, 127, 255]]
         );
+    }
+
+    #[test]
+    fn a_selected_pixel_copy_leaves_the_source_in_place() {
+        let mut d = lift_doc();
+        d.transform_selected_pixels(1, &tr(4.0, 0.0), Interp::Nearest, None, true).unwrap();
+        assert_eq!(
+            grid(&d, 1, [0, 0, 6, 1]),
+            vec![[255, 0, 0, 255], [255, 0, 0, 128], [0; 4], [0; 4], [255, 0, 0, 255], [128, 0, 127, 255]]
+        );
+        assert_eq!(d.selection_bounds(), Some([4, 0, 2, 1]));
     }
 
     #[test]
@@ -794,7 +807,7 @@ pub(super) mod tests {
         let ops: [fn(&mut Document); 4] = [
             |d| d.transform_layer(1, &tr(1.5, 0.0), Interp::Bicubic).unwrap(),
             |d| d.transform_selection(&tr(1.0, 0.0), Interp::Nearest).unwrap(),
-            |d| d.transform_selected_pixels(1, &tr(4.0, 0.0), Interp::Nearest, None).unwrap(),
+            |d| d.transform_selected_pixels(1, &tr(4.0, 0.0), Interp::Nearest, None, false).unwrap(),
             |d| d.rotate_layer_exact(1, Remap::Cw).unwrap(),
         ];
         for op in ops {

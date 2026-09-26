@@ -18,7 +18,8 @@ import { PAINT_MODES, TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveTo
 import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
 import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
 import { digitOption, dragResize, showCrosshair, stepHardness, stepSize, type DigitState } from './shell/brushKeys.ts';
-import { SelectionOverlay } from './shell/SelectionOverlay.ts';
+import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
+import { constrainedSnap, type Rect, type SnapAxes } from './shell/snapping.ts';
 import { antsLevel, contour, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from './shell/selecttools.ts';
 import { levelFor } from './view.ts';
 import { BrushLibrary } from './brushes/store.ts';
@@ -510,9 +511,9 @@ export function App() {
   useEffect(() => { viewer.current?.setTool(VIEWER_TOOL[tool] ?? null); }, [tool]);
 
   useEffect(() => {
-    if (!viewer.current) return;
-    if (tool !== 'eyedropper') { viewer.current.onPointer = () => {}; return; }
-    viewer.current.onPointer = (e: ToolPointerEvent) => {
+    const v = viewer.current;
+    if (!v || tool !== 'eyedropper') return;
+    v.onPointer = (e: ToolPointerEvent) => {
       if (e.type !== 'down') return;
       const size = SAMPLE_SIZES[toolOptions.sampleSize as string] ?? 1;
       const layerId = toolOptions.sample === 'current layer' ? active?.id ?? null : null;
@@ -520,6 +521,7 @@ export function App() {
         if (e.altKey) setBg([r, g, b]); else setFg([r, g, b]);
       });
     };
+    return () => { v.onPointer = () => {}; };
   }, [tool, toolOptions.sampleSize, toolOptions.sample, active]);
 
   useEffect(() => {
@@ -860,6 +862,169 @@ export function App() {
     return () => { v.onPointer = () => {}; overlayRef.current?.setPreview(null); };
   }, [tool, active, quickMask]);
 
+  // Move tool: drags or arrow-nudges the active (or auto-selected) layer, or the selected pixels
+  // under the pointer, as one undo step; the worker previews every offset from the gesture start.
+  const moveKeysRef = useRef<{ nudge: (dx: number, dy: number, alt: boolean) => void } | null>(null);
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v || tool !== 'move') return;
+    type Plan = { pixels: boolean; id: number; alt: boolean };
+    type Drag = {
+      origin: [number, number]; pos: [number, number]; shift: boolean; plan: Plan | null; ready: boolean; busy: boolean; failed: boolean;
+      want: [number, number]; sent: [number, number]; end: 'up' | 'cancel' | null; moving: Rect; tx: number[]; ty: number[]; lock: SnapAxes;
+    };
+    let drag: Drag | null = null;
+
+    // What a gesture moves, or null (after a message) when it cannot start. Nudges pass no point.
+    async function plan(pt: [number, number] | null, alt: boolean, auto: boolean): Promise<Plan | null> {
+      const d = docRef.current, a = activeRef.current;
+      if (!d || !a) return null;
+      let id = a.id;
+      let pixels = !!d.selection && (!pt || await client.call('selectionAt', pt[0], pt[1]) >= 128);
+      if (!pixels && auto && pt) {
+        const hit = await client.call('hitTestLayer', pt[0], pt[1], toolOptionsRef.current.autoSelectTarget === 'group');
+        if (hit !== null && hit !== a.id) { id = hit; setActive({ id: hit, target: 'pixels' }); }
+      }
+      const n = nodeById(d.layers, id);
+      if (!n) return null;
+      if (n.kind !== 'pixel') pixels = false;
+      if (pixels && n.locks.pixels) { setError('Could not use the layer because it is locked.'); return null; }
+      if (!pixels && n.locks.position) { setError(`${n.name} is locked and can't be moved.`); return null; }
+      return { pixels, id, alt };
+    }
+    function begin(p: Plan) {
+      return p.pixels ? client.call('movePixelsBegin', p.id, p.alt ? 'Move Selection Copy' : 'Move Selection', p.alt) : client.call('moveLayerBegin', p.id, p.alt, p.alt ? 'Move Copy' : 'Move');
+    }
+    const step = (p: Plan, dx: number, dy: number) => (p.pixels ? client.call('movePixelsStep', dx, dy) : client.call('moveLayerStep', dx, dy));
+    const commit = (p: Plan) => (p.pixels ? client.call('movePixelsCommit') : client.call('moveLayerCommit'));
+    const cancel = (p: Plan) => (p.pixels ? client.call('movePixelsCancel') : client.call('moveLayerCancel'));
+    const movedId = (d: DocInfo, p: Plan) => ('activeId' in d ? (d as { activeId: number }).activeId : p.id);
+    const afterBegin = (d: DocInfo, p: Plan) => show(d, p.alt ? () => ({ id: movedId(d, p), target: 'pixels' }) : undefined);
+
+    function aim(g: Drag) {
+      const r = constrainedSnap(g.moving, g.tx, g.ty, Math.round(g.pos[0] - g.origin[0]), Math.round(g.pos[1] - g.origin[1]), g.lock, v!.view.zoom, g.shift);
+      g.lock = r.lock;
+      g.want = [Math.round(r.dx), Math.round(r.dy)];
+      const d = docRef.current!;
+      const lines: [number, number, number, number][] = [];
+      if (r.lock.x) lines.push([r.lock.x.target, 0, r.lock.x.target, d.height]);
+      if (r.lock.y) lines.push([0, r.lock.y.target, d.width, r.lock.y.target]);
+      overlayRef.current?.setGuides(lines);
+      redrawOverlay();
+    }
+    // One step in flight at a time, always the latest offset; the end commits after the last step.
+    function pump(g: Drag) {
+      if (!g.ready || g.busy) return;
+      if (!g.failed && (g.want[0] !== g.sent[0] || g.want[1] !== g.sent[1])) {
+        g.busy = true;
+        g.sent = g.want;
+        step(g.plan!, ...g.want).then(show, err => { g.failed = true; setError((err as Error).message); }).finally(() => { g.busy = false; pump(g); });
+        return;
+      }
+      if (!g.end && !g.failed) return;
+      if (drag === g) drag = null;
+      overlayRef.current?.setGuides([]);
+      redrawOverlay();
+      const p = g.plan!;
+      run(null, () => (g.failed || g.end === 'cancel' ? cancel(p) : commit(p)));
+    }
+    async function start(g: Drag, e: ToolPointerEvent) {
+      const o = toolOptionsRef.current;
+      const p = await plan(g.origin, e.altKey, !!o.autoSelect !== (e.ctrlKey || e.metaKey));
+      if (!p) { if (drag === g) drag = null; return; }
+      g.plan = p;
+      try {
+        const d = await begin(p);
+        afterBegin(d, p);
+        if (o.snap) {
+          const id = movedId(d, p);
+          const [t, b] = await Promise.all([client.call('snapTargets', id), p.pixels ? docRef.current?.selection?.bounds ?? null : client.call('movingBounds', id)]);
+          g.tx = t.x;
+          g.ty = t.y;
+          if (b) g.moving = { x: b[0], y: b[1], w: b[2], h: b[3] };
+        }
+      } catch (err) {
+        setError((err as Error).message);
+        g.failed = true;
+      }
+      g.ready = true;
+      if (!g.failed) aim(g);
+      pump(g);
+    }
+
+    v.onPointer = e => {
+      if (e.type === 'down') {
+        if (drag) return;
+        const g: Drag = {
+          origin: [e.x, e.y], pos: [e.x, e.y], shift: e.shiftKey, plan: null, ready: false, busy: false, failed: false,
+          want: [0, 0], sent: [0, 0], end: null, moving: { x: 0, y: 0, w: 0, h: 0 }, tx: [], ty: [], lock: { x: null, y: null },
+        };
+        drag = g;
+        void start(g, e);
+        return;
+      }
+      const g = drag;
+      if (!g) return;
+      g.pos = [e.x, e.y];
+      g.shift = e.shiftKey;
+      if (g.ready && !g.failed) aim(g);
+      if (e.type !== 'move') g.end = e.type === 'cancel' ? 'cancel' : 'up';
+      pump(g);
+    };
+    moveKeysRef.current = {
+      nudge(dx, dy, alt) {
+        if (drag) return;
+        void plan(null, alt, false).then(p => {
+          if (!p) return;
+          // Sent back to back so no other move call can land inside this one.
+          const b = begin(p), s = step(p, dx, dy), c = commit(p);
+          return run(null, async () => { afterBegin(await b, p); await s.catch(() => {}); return c; });
+        });
+      },
+    };
+    return () => {
+      v.onPointer = () => {};
+      moveKeysRef.current = null;
+      const g = drag;
+      drag = null;
+      if (g) { g.end = 'cancel'; pump(g); }
+      overlayRef.current?.setGuides([]);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, doc?.docId]);
+
+  // Show transform controls: the active layer's bounding box with 8 handles; hovering a handle
+  // only shows a scale cursor.
+  const showTransform = tool === 'move' && !!toolOptions.showTransform;
+  useEffect(() => {
+    const v = viewer.current, c = canvas.current, overlay = overlayRef.current;
+    if (!v || !c || !overlay || !showTransform || !active || !doc) { overlay?.setBox(null); redrawOverlay(); return; }
+    let box: Rect | null = null, alive = true;
+    client.call('movingBounds', active.id).then(b => {
+      if (!alive) return;
+      box = b && { x: b[0], y: b[1], w: b[2], h: b[3] };
+      overlay.setBox(box);
+      redrawOverlay();
+    });
+    const hover = (e: PointerEvent) => {
+      const r = c.getBoundingClientRect();
+      const i = box ? boxHandles(box).findIndex(([x, y]) => {
+        const [sx, sy] = v.docToScreen(x, y);
+        return Math.hypot(sx - (e.clientX - r.left), sy - (e.clientY - r.top)) <= 7;
+      }) : -1;
+      c.style.cursor = i < 0 ? '' : HANDLE_CURSORS[i];
+    };
+    c.addEventListener('pointermove', hover);
+    return () => {
+      alive = false;
+      c.removeEventListener('pointermove', hover);
+      c.style.cursor = '';
+      overlay.setBox(null);
+      redrawOverlay();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showTransform, active?.id, doc?.version]);
+
   // Brush, pencil and eraser: pointermove samples are coalesced and sent as one strokeTo per
   // animation frame; the smoother runs on the document-space samples before they are queued.
   // Samples carry x, y, pressure (stride 3) or also tiltX, tiltY, twist for pen strokes (stride 6).
@@ -1180,6 +1345,11 @@ export function App() {
             }
           }
         }
+      }
+      else if (moveKeysRef.current && !ctrl && k.startsWith('arrow')) {
+        e.preventDefault();
+        const n = e.shiftKey ? 10 : 1;
+        moveKeysRef.current.nudge(k === 'arrowleft' ? -n : k === 'arrowright' ? n : 0, k === 'arrowup' ? -n : k === 'arrowdown' ? n : 0, e.altKey);
       }
       else if (!ctrl && !e.altKey && !e.metaKey) selectByKey(k, e.shiftKey);
     };
