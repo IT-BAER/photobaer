@@ -1832,7 +1832,7 @@ export function App() {
   return (
     <div className="app">
       <header className="menubar">
-        <img className="brand" src="./favicon.png" alt="Photobaer" width={24} height={24} />
+        <img className="brand" src="./logo-light.png" alt="Photobaer" width={24} height={24} />
         {Object.entries(menus).map(([name, items]) => (
           <div key={name} className="menu">
             <button className={menu === name ? 'open' : ''} onClick={() => setMenu(menu === name ? null : name)} onMouseEnter={() => menu && setMenu(name)}>{name}</button>
