@@ -36,6 +36,28 @@ fn collect_ids(nodes: &[Node], out: &mut Vec<u32>) {
     }
 }
 
+// Row-major 3x3 product a * b.
+fn mul3(a: &[f64; 9], b: &[f64; 9]) -> [f64; 9] {
+    let mut o = [0.0; 9];
+    for r in 0..3 {
+        for c in 0..3 {
+            o[r * 3 + c] = (0..3).map(|k| a[r * 3 + k] * b[k * 3 + c]).sum();
+        }
+    }
+    o
+}
+
+// Composes every smart object's placement with `m` (old canvas px -> new canvas px).
+fn remap_smart(nodes: &mut [Node], m: &[f64; 9]) {
+    for n in nodes {
+        match &mut n.kind {
+            Kind::Group(ch) => remap_smart(ch, m),
+            Kind::Smart(s) => s.transform = mul3(m, &s.transform),
+            _ => {}
+        }
+    }
+}
+
 // floor(x0), floor(y0), ceil(x1), ceil(y1) as [x, y, w, h]; w and h are at least 0.
 fn round_out(x0: f64, y0: f64, x1: f64, y1: f64) -> Result<[i32; 4], String> {
     let lim = (1u64 << 29) as f64;
@@ -304,6 +326,7 @@ impl Document {
             out.push((at, tiles));
         }
         self.replace_planes(out, r[2] as u32, r[3] as u32);
+        remap_smart(&mut self.nodes, &[1.0, 0.0, -r[0] as f64, 0.0, 1.0, -r[1] as f64, 0.0, 0.0, 1.0]);
         Ok(())
     }
 
@@ -482,6 +505,15 @@ impl Document {
         }
         let (nw, nh) = if matches!(kind, Remap::Cw | Remap::Ccw) { (h, w) } else { (w, h) };
         self.replace_planes(out, nw as u32, nh as u32);
+        let (fw, fh) = (w as f64, h as f64);
+        let m = match kind {
+            Remap::Cw => canvas_turn(fw, fh, 90.0).0,
+            Remap::Ccw => canvas_turn(fw, fh, 270.0).0,
+            Remap::R180 => canvas_turn(fw, fh, 180.0).0,
+            Remap::FlipH => [-1.0, 0.0, fw, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            Remap::FlipV => [1.0, 0.0, 0.0, 0.0, -1.0, fh, 0.0, 0.0, 1.0],
+        };
+        remap_smart(&mut self.nodes, &m);
         Ok(())
     }
 
@@ -532,6 +564,7 @@ impl Document {
             out.push((at, self.render_tiles(&rs, def, clip)?));
         }
         self.replace_planes(out, size[2] as u32, size[3] as u32);
+        remap_smart(&mut self.nodes, &m);
         Ok(true)
     }
 
@@ -592,6 +625,7 @@ impl Document {
         }
         self.selection = None;
         self.replace_planes(out, out_w, out_h);
+        remap_smart(&mut self.nodes, &fwd);
         Ok(())
     }
 }

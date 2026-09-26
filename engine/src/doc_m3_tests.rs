@@ -491,3 +491,104 @@ fn a_style_naming_a_missing_pattern_is_refused() {
     bad["strokes"][0]["extra"] = 1.into();
     assert!(d.set_style(3, &bad.to_string()).is_err(), "unknown keys are refused by the op too");
 }
+
+fn smart_transform(d: &Document, id: u32) -> [f64; 9] {
+    match &d.node(id).unwrap().kind {
+        Kind::Smart(s) => s.transform,
+        _ => panic!("node {id} is not smart"),
+    }
+}
+
+// Writes the manifest, loads it with every tile and blob, and writes it again.
+fn reload(d: &Document) -> (String, String) {
+    let m = d.manifest();
+    let mut e = Document::from_manifest(&m).unwrap();
+    let ids: Vec<u64> = e.loading.as_ref().unwrap().pending_ids.iter().copied().collect();
+    for id in ids {
+        e.put_tile(id, &d.tile_bytes(id).unwrap()).unwrap();
+    }
+    e.finish_load().unwrap();
+    (m, e.manifest())
+}
+
+#[test]
+fn add_special_creates_each_kind_above_a_node() {
+    let mut d = fixture_doc();
+    let b = d.blob_add(&[1, 2, 3]).unwrap();
+    assert!(b >= 20, "blob ids come from the tile counter");
+    assert!(d.blob_add(&[]).is_err());
+    let a = d.add_special(1, &json!({ "name": "Invert", "adjustment": { "kind": "invert", "params": {} } }).to_string()).unwrap();
+    let f = d.add_special(a, &json!({ "name": "Fill", "content": { "type": "solid", "color": [1, 2, 3] } }).to_string()).unwrap();
+    let smart = json!({ "name": "Placed", "smart": {
+        "link": { "type": "embedded", "id": "x" }, "source_blob": b, "source_size": [2, 2],
+        "transform": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    } });
+    let s = d.add_special(f, &smart.to_string()).unwrap();
+    let ids: Vec<u32> = d.nodes.iter().map(|n| n.id).collect();
+    assert_eq!(&ids[..4], &[1, a, f, s]);
+    assert!(matches!(d.node(a).unwrap().kind, Kind::Adjustment(_)));
+    assert!(matches!(d.node(f).unwrap().kind, Kind::Fill(_)));
+    d.set_tile_rgba8(s, 0, 0, &tile(1)).unwrap();
+    assert!(d.node(s).unwrap().pixel_tiles().unwrap().get(0, 0).is_some(), "a smart node's pixels are its cache");
+    let (m, again) = reload(&d);
+    assert_eq!(m, again);
+    assert!(m.contains(&format!("\"source\":{{\"blob\":{b}")), "{m}");
+}
+
+#[test]
+fn add_special_rejections() {
+    let mut d = fixture_doc();
+    let cases = [
+        json!({ "name": "x" }),
+        json!({ "name": "x", "adjustment": { "kind": "invert", "params": {} }, "content": { "type": "solid", "color": [0, 0, 0] } }),
+        json!({ "name": "x", "adjustment": { "kind": "invert", "params": {} }, "extra": 1 }),
+        json!({ "name": "x", "adjustment": { "kind": "invert", "params": { "extra": 1 } } }),
+        json!({ "name": "x", "content": { "type": "pattern", "pattern_id": "nope", "scale": 1.0, "angle": 0.0, "linked": true, "offset": [0.0, 0.0] } }),
+        json!({ "name": "x", "adjustment": { "kind": "color_lookup", "params": { "name": "a", "format": "cube", "table": 999, "interpolation": "trilinear", "dither": false } } }),
+        json!({ "name": "x", "smart": { "link": { "type": "embedded", "id": "x" }, "source_blob": 999, "source_size": [1, 1], "transform": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0] } }),
+    ];
+    let before = d.manifest();
+    for c in cases {
+        assert!(d.add_special(1, &c.to_string()).is_err(), "{c} must be refused");
+    }
+    assert_eq!(d.manifest(), before, "a refused op changes nothing");
+}
+
+#[test]
+fn set_blending_and_document_fields() {
+    let mut d = fixture_doc();
+    for id in [1, 2, 3] {
+        d.set_blending(id, &blending().to_string()).unwrap();
+        assert_eq!(d.node(id).unwrap().blending, serde_json::from_value::<Blending>(blending()).unwrap());
+    }
+    let mut bad = blending();
+    bad["extra"] = 1.into();
+    assert!(d.set_blending(1, &bad.to_string()).is_err());
+    d.set_document_m3(&json!({ "global_light": { "angle": 10.0, "altitude": 20.0 } }).to_string()).unwrap();
+    assert_eq!((d.global_light.angle, d.global_light.altitude), (10.0, 20.0));
+    assert_eq!(d.patterns.len(), 1, "absent fields stay");
+    let comp = |layer: u32| json!({ "layer_comps": [{
+        "id": 1, "name": "c", "comment": "", "apply_visibility": true, "apply_position": false, "apply_appearance": false,
+        "layers": [{ "id": layer, "visible": true, "position": null, "opacity": 1.0, "fill": 1.0, "blend": "normal", "style": null }]
+    }] });
+    assert!(d.set_document_m3(&comp(999).to_string()).is_err(), "a comp naming a missing layer is refused");
+    d.set_document_m3(&comp(3).to_string()).unwrap();
+    assert_eq!(d.layer_comps.len(), 1);
+    let pat = |blob: u64| json!({ "patterns": [{ "id": "q", "name": "Q", "width": 1, "height": 1, "blob": blob }] });
+    assert!(d.set_document_m3(&pat(999).to_string()).is_err(), "a pattern naming a missing blob is refused");
+    assert!(d.set_document_m3(&json!({ "extra": 1 }).to_string()).is_err());
+}
+
+#[test]
+fn canvas_ops_move_smart_transforms() {
+    let mut d = fixture_doc();
+    assert_eq!(smart_transform(&d, 4), [1.0, 0.0, 5.0, 0.0, 1.0, 7.0, 0.0, 0.0, 1.0]);
+    d.apply_crop([10.0, 20.0, 100.0, 100.0], false).unwrap();
+    assert_eq!(smart_transform(&d, 4), [1.0, 0.0, -5.0, 0.0, 1.0, -13.0, 0.0, 0.0, 1.0]);
+    let mut d = fixture_doc();
+    d.rotate_canvas_exact(Remap::Cw).unwrap();
+    assert_eq!(smart_transform(&d, 4), [0.0, -1.0, 249.0, 1.0, 0.0, 5.0, 0.0, 0.0, 1.0]);
+    let mut d = fixture_doc();
+    d.rotate_canvas_exact(Remap::FlipH).unwrap();
+    assert_eq!(smart_transform(&d, 4), [-1.0, 0.0, 251.0, 0.0, 1.0, 7.0, 0.0, 0.0, 1.0]);
+}

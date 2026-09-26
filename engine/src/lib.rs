@@ -115,6 +115,22 @@ impl Engine {
         self.0.doc.set_style(id, json).map_err(err)
     }
 
+    pub fn blob_add(&mut self, bytes: &[u8]) -> Result<u64, JsError> {
+        self.0.doc.blob_add(bytes).map_err(err)
+    }
+
+    pub fn add_special(&mut self, above: u32, json: &str) -> Result<u32, JsError> {
+        self.0.doc.add_special(above, json).map_err(err)
+    }
+
+    pub fn set_blending(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_blending(id, json).map_err(err)
+    }
+
+    pub fn set_document_m3(&mut self, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_document_m3(json).map_err(err)
+    }
+
     pub fn add_mask(&mut self, id: u32, reveal: bool) -> Result<(), JsError> {
         self.0.doc.add_mask(id, reveal).map_err(err)
     }

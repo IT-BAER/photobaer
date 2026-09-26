@@ -1165,7 +1165,7 @@ impl Document {
 
     // ---------- commands (M1.md section 4) ----------
 
-    fn add_node(&mut self, name: &str, above: u32, group: bool) -> Result<u32, String> {
+    fn add_node(&mut self, name: &str, above: u32, kind: Kind) -> Result<u32, String> {
         self.check_idle()?;
         let at = if above == 0 {
             None
@@ -1173,7 +1173,6 @@ impl Document {
             Some(self.find_path(above)?)
         };
         let id = self.alloc_node_id();
-        let kind = if group { Kind::Group(Vec::new()) } else { Kind::Pixel(Tiles::default()) };
         let node = Node::new(id, name, kind);
         match at {
             None => self.nodes.push(node),
@@ -1187,11 +1186,11 @@ impl Document {
     }
 
     pub fn add_layer(&mut self, name: &str, above: u32) -> Result<u32, String> {
-        self.add_node(name, above, false)
+        self.add_node(name, above, Kind::Pixel(Tiles::default()))
     }
 
     pub fn add_group(&mut self, name: &str, above: u32) -> Result<u32, String> {
-        self.add_node(name, above, true)
+        self.add_node(name, above, Kind::Group(Vec::new()))
     }
 
     pub fn group_nodes(&mut self, ids: &[u32]) -> Result<u32, String> {
@@ -3795,6 +3794,101 @@ impl Document {
         out
     }
 
+    /// Stores immutable bytes (a smart source, pattern pixels, a lookup table) under a new id
+    /// from the tile counter; manifests list it once a node, pattern or filter references it.
+    pub fn blob_add(&mut self, bytes: &[u8]) -> Result<u64, String> {
+        self.check_idle()?;
+        if bytes.is_empty() {
+            return Err("a blob needs at least one byte".into());
+        }
+        let id = self.alloc_tile_id();
+        self.blobs.insert(id, Arc::new(bytes.to_vec()));
+        Ok(id)
+    }
+
+    fn check_blob(&self, id: Option<u64>) -> Result<(), String> {
+        match id {
+            Some(id) if !self.blobs.contains_key(&id) => Err(format!("unknown blob {id}")),
+            _ => Ok(()),
+        }
+    }
+
+    /// Inserts an adjustment, fill or smart node above `above` (0 = on top). `json` names the
+    /// node and carries exactly one of `adjustment`, `content` or `smart`; a smart cache starts empty.
+    pub fn add_special(&mut self, above: u32, json: &str) -> Result<u32, String> {
+        let s: SpecialIn = serde_json::from_str(json).map_err(|e| format!("invalid node: {e}"))?;
+        let kind = match (s.adjustment, s.content, s.smart) {
+            (Some(a), None, None) => {
+                self.check_blob(a.blob())?;
+                Kind::Adjustment(a)
+            }
+            (None, Some(c), None) => {
+                if let Some(id) = c.pattern_id().filter(|id| !self.patterns.iter().any(|p| p.id == *id)) {
+                    return Err(format!("unknown pattern {id}"));
+                }
+                Kind::Fill(c)
+            }
+            (None, None, Some(m)) => {
+                self.check_blob(m.source_blob)?;
+                Kind::Smart(Box::new(Smart {
+                    link: m.link,
+                    source_blob: m.source_blob,
+                    source_tiles: Tiles::default(),
+                    source_size: m.source_size,
+                    transform: m.transform,
+                    warp: None,
+                    filters: Vec::new(),
+                    stack_mask: None,
+                    stack_mode: None,
+                    cache: Tiles::default(),
+                }))
+            }
+            _ => return Err("a node needs exactly one of adjustment, content and smart".into()),
+        };
+        self.add_node(&s.name, above, kind)
+    }
+
+    pub fn set_blending(&mut self, id: u32, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let b: Blending = serde_json::from_str(json).map_err(|e| format!("invalid blending options: {e}"))?;
+        self.node_mut(id)?.blending = b;
+        Ok(())
+    }
+
+    /// Replaces the document fields present in `json` (global light, patterns, layer comps).
+    pub fn set_document_m3(&mut self, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let d: DocumentM3In = serde_json::from_str(json).map_err(|e| format!("invalid document fields: {e}"))?;
+        if let Some(ps) = &d.patterns {
+            let mut ids = HashSet::new();
+            for p in ps {
+                if !ids.insert(p.id.as_str()) {
+                    return Err(format!("duplicate pattern id {}", p.id));
+                }
+                self.check_blob(Some(p.blob))?;
+            }
+        }
+        if let Some(cs) = &d.layer_comps {
+            let pats = d.patterns.as_ref().unwrap_or(&self.patterns);
+            for l in cs.iter().flat_map(|c| &c.layers) {
+                self.node(l.id)?;
+                if let Some(st) = &l.style {
+                    check_style(st, |id| pats.iter().any(|p| p.id == id))?;
+                }
+            }
+        }
+        if let Some(g) = d.global_light {
+            self.global_light = g;
+        }
+        if let Some(p) = d.patterns {
+            self.patterns = p;
+        }
+        if let Some(c) = d.layer_comps {
+            self.layer_comps = c;
+        }
+        Ok(())
+    }
+
     /// Replaces a node's layer style; `null` removes it. Adjustment layers refuse a style.
     pub fn set_style(&mut self, id: u32, json: &str) -> Result<(), String> {
         self.check_idle()?;
@@ -4566,6 +4660,38 @@ struct FilterIn {
     opacity: f32,
     blend: Blend,
     mask: Option<MaskIn<Coord>>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SpecialIn {
+    name: String,
+    #[serde(default)]
+    adjustment: Option<Adjustment>,
+    #[serde(default)]
+    content: Option<FillContent>,
+    #[serde(default)]
+    smart: Option<SmartNewIn>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SmartNewIn {
+    link: Link,
+    source_blob: Option<u64>,
+    source_size: [u32; 2],
+    transform: [f64; 9],
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DocumentM3In {
+    #[serde(default)]
+    global_light: Option<GlobalLight>,
+    #[serde(default)]
+    patterns: Option<Vec<PatternEntry>>,
+    #[serde(default)]
+    layer_comps: Option<Vec<LayerComp>>,
 }
 
 #[derive(Deserialize)]
