@@ -740,3 +740,13 @@ function plain(v: DVal): unknown {
     default: return v.v;
   }
 }
+
+// Runs parseAbr in a short-lived module worker; `bytes` is transferred (unusable afterwards).
+export function parseAbrOffThread(bytes: ArrayBuffer): Promise<AbrResult> {
+  const w = new Worker(new URL('./abr.worker.ts', import.meta.url), { type: 'module' });
+  return new Promise<AbrResult>((resolve, reject) => {
+    w.onmessage = (ev: MessageEvent<AbrResult>) => resolve(ev.data);
+    w.onerror = ev => reject(new Error(`ABR parser failed: ${ev.message}`));
+    w.postMessage(bytes, [bytes]);
+  }).finally(() => w.terminate());
+}

@@ -124,6 +124,7 @@ export class BrushLibrary {
 
   tip(id: string) { return this.#tips.get(id); }
   pattern(id: string) { return this.#builtinPatterns.get(id) ?? this.#patterns.get(id); }
+  patterns() { return [...this.#builtinPatterns.values(), ...this.#patterns.values()].map(({ id, name }) => ({ id, name })); }
 
   #userCount() { let n = 0; for (const id of this.#stored.keys()) if (!this.#builtinIds.has(id)) n++; return n; }
 

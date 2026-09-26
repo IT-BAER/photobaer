@@ -31,6 +31,7 @@ export interface StrokeParams {
   opacity?: number; flow?: number; hardness?: number; spacing?: number; angle?: number; roundness?: number;
   tip?: 'round' | 'square'; aliased?: boolean; wetEdges?: boolean; airbrush?: boolean;
   pressureSize?: boolean; pressureOpacity?: boolean;
+  stride?: 3 | 6; seed?: number;
   // UI-level flag; strokeBegin resolves it to an actual snapshot id (or omits it) before it reaches the engine.
   eraseToHistory?: boolean;
 }
@@ -197,6 +198,58 @@ function layerTile(e: Engine, ids: Sparse | undefined, tx: number, ty: number): 
   const id = ids?.find(t => t[0] === tx && t[1] === ty)?.[2];
   return id ? e.tile_bytes(BigInt(id)) : null;
 }
+
+// Sampled tips and patterns live inside an Engine instance, which a new document replaces. The worker keeps them
+// under its own stable ids and registers them lazily into whichever engine paints (the document or a preview scratch).
+type Asset = { kind: 'tip'; w: number; h: number; data: Uint8Array } | { kind: 'pattern'; w: number; h: number; data: Uint8Array; channels: number };
+const assets = new Map<number, Asset>();
+const engineIds = new WeakMap<Engine, Map<number, number>>();
+let nextAsset = 1;
+let scratch: Engine | null = null;
+
+function engineAsset(e: Engine, id: unknown, kind: Asset['kind']): number {
+  const a = typeof id === 'number' ? assets.get(id) : undefined;
+  if (!a || a.kind !== kind) throw new Error(`unknown ${kind} id ${String(id)}`);
+  let ids = engineIds.get(e);
+  if (!ids) engineIds.set(e, ids = new Map());
+  let eid = ids.get(id as number);
+  if (eid === undefined) {
+    eid = a.kind === 'tip' ? e.tip_add(a.w, a.h, a.data) : e.pattern_add(a.w, a.h, a.data, a.channels);
+    ids.set(id as number, eid);
+  }
+  return eid;
+}
+
+// Rewrites worker tip/pattern ids in stroke params to the engine's own ids.
+function withEngineAssets(e: Engine, params: Record<string, unknown>): Record<string, unknown> {
+  const p = { ...params };
+  if (p.tip === 'sampled') p.tipId = engineAsset(e, p.tipId, 'tip');
+  const db = p.dualBrush as Record<string, unknown> | undefined;
+  if (db?.tip === 'sampled') p.dualBrush = { ...db, tipId: engineAsset(e, db.tipId, 'tip') };
+  const tx = p.texture as Record<string, unknown> | undefined;
+  if (tx?.patternId !== undefined) p.texture = { ...tx, patternId: engineAsset(e, tx.patternId, 'pattern') };
+  return p;
+}
+
+function addAsset(e: Engine, a: Asset) {
+  // Validates against the engine's bounds right away so a bad bitmap fails at registration, not mid-stroke.
+  const id = nextAsset++;
+  assets.set(id, a);
+  try { engineAsset(e, id, a.kind); } catch (err) { assets.delete(id); throw err; }
+  return id;
+}
+
+function removeAsset(id: number) {
+  const a = assets.get(id);
+  if (!a) return;
+  assets.delete(id);
+  for (const e of [eng, scratch]) {
+    const eid = e ? engineIds.get(e)?.get(id) : undefined;
+    if (e && eid !== undefined) { if (a.kind === 'tip') e.tip_remove(eid); else e.pattern_remove(eid); engineIds.get(e)!.delete(id); }
+  }
+}
+
+const previewEngine = () => eng ?? (scratch ??= new Engine(1, 1, 8));
 
 const api = {
   async init() {
@@ -513,9 +566,10 @@ const api = {
   },
 
   // Opens a stroke (docs/M2.md section 4) as one undo step spanning every strokeTo until strokeEnd.
-  strokeBegin(layerId: number, target: 'pixels' | 'selection', params: StrokeParams, label: string) {
+  // Brush presets send the full engine StrokeIn shape (brushes/preset.ts toStrokeParams).
+  strokeBegin(layerId: number, target: 'pixels' | 'selection', params: StrokeParams | Record<string, unknown>, label: string) {
     const e = need();
-    const { eraseToHistory, ...rest } = params;
+    const { eraseToHistory, ...rest } = params as StrokeParams;
     const p: Record<string, unknown> = rest;
     if (eraseToHistory) {
       const snap = history.oldestSnapshot();
@@ -523,7 +577,7 @@ const api = {
     }
     history.begin(label);
     try {
-      e.stroke_begin(layerId, target, JSON.stringify(p));
+      e.stroke_begin(layerId, target, JSON.stringify(withEngineAssets(e, p)));
     } catch (err) {
       history.abort();
       throw err;
@@ -553,6 +607,19 @@ const api = {
     history.abort();
     return changed();
   },
+
+  // RGBA8 stroke preview (w x h, engine caps it at 1024 x 256); needs no open document.
+  brushPreview(params: StrokeParams | Record<string, unknown>, w: number, h: number) {
+    const e = previewEngine();
+    const px = e.brush_preview(JSON.stringify(withEngineAssets(e, params as Record<string, unknown>)), w, h);
+    return { w, h, data: px.buffer as ArrayBuffer };
+  },
+
+  // Sampled tip (8-bit alpha, row-major) / pattern (channels 1 gray or 4 RGBA); ids are stable across documents.
+  tipAdd(w: number, h: number, alpha: Uint8Array) { return addAsset(previewEngine(), { kind: 'tip', w, h, data: alpha }); },
+  tipRemove(id: number) { removeAsset(id); },
+  patternAdd(w: number, h: number, data: Uint8Array, channels: number) { return addAsset(previewEngine(), { kind: 'pattern', w, h, data, channels }); },
+  patternRemove(id: number) { removeAsset(id); },
 
   undo() { if (history.undo()) { selGen++; return changed(); } return info(); },
   redo() { if (history.redo()) { selGen++; return changed(); } return info(); },
@@ -630,7 +697,8 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
   }
 }
 
-const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel']);
+// Ops that may run while a stroke is open without committing it (they never touch the document or history).
+const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove']);
 
 // Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
 // displayTile, displayProgram and selectionMask are synchronous and read-only, so they skip the

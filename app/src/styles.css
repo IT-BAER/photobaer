@@ -174,3 +174,63 @@ dialog h2 { margin: 0 0 12px; font-size: 16px; }
 dialog label { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 dialog input, dialog select { flex: 1; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
 dialog .actions { justify-content: flex-end; margin-top: 16px; }
+
+/* Brush Settings and Brushes panels */
+.dock-tabs { flex-wrap: wrap; }
+.brush-settings, .brushes-panel { padding: 8px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.panel-note { margin: 0; color: var(--dim); }
+.brush-settings-body { display: grid; grid-template-columns: 112px 1fr; gap: 6px; min-height: 0; }
+.brush-categories { display: flex; flex-direction: column; gap: 1px; }
+.brush-category { display: flex; align-items: center; gap: 3px; border-radius: 4px; }
+.brush-category[data-active=true] { background: var(--panel-hi); }
+.brush-category button { flex: 1; text-align: left; padding: 3px 2px; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; }
+.brush-category button:disabled { color: var(--disabled); cursor: default; }
+.brush-section { min-width: 0; max-height: 360px; overflow-y: auto; }
+.brush-section h3 { margin: 0 0 4px; font-size: 12px; }
+.brush-section fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.brush-section fieldset:disabled { opacity: 0.5; }
+.param-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 4px; }
+.param-row:has(input[type=range]) { grid-template-columns: 64px 1fr 44px 16px; }
+.param-label { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.param-row input[type=number], .param-row select, .brush-toolbar input { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 1px 3px; min-width: 0; }
+.param-row input[type=range] { min-width: 0; accent-color: var(--accent); }
+.param-unit { color: var(--dim); }
+.param-toggle { display: flex; align-items: center; gap: 4px; }
+.param-pair { display: flex; gap: 12px; }
+.param-dyn { display: flex; flex-direction: column; gap: 3px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.tip-grid, .brush-list ul { list-style: none; margin: 0; padding: 0; }
+.tip-grid { display: grid; grid-template-columns: repeat(auto-fill, 38px); gap: 2px; max-height: 96px; overflow-y: auto; }
+.tip-cell { display: flex; flex-direction: column; align-items: center; padding: 1px; background: var(--bg); border: 1px solid var(--line); border-radius: 3px; color: var(--dim); cursor: pointer; }
+.tip-cell[aria-pressed=true], .brush-row[aria-pressed=true], .brush-recent button[aria-pressed=true] { border-color: var(--accent); }
+.tip-shape { display: flex; align-items: center; gap: 6px; }
+.tip-gizmo { flex: 0 0 auto; touch-action: none; }
+.gizmo-ring { fill: none; stroke: var(--line); }
+.gizmo-tip { fill: var(--panel-hi); stroke: var(--dim); }
+.gizmo-axis { stroke: var(--dim); }
+.gizmo-handle { fill: var(--accent); cursor: grab; }
+.brush-settings-preview, .brush-current { display: flex; flex-direction: column; gap: 2px; color: var(--dim); }
+.stroke-preview { width: 100%; max-width: 220px; background: #fff; border-radius: 3px; }
+.brush-row .stroke-preview { max-width: 160px; }
+.brush-mini-editor { display: flex; gap: 6px; align-items: center; }
+.brush-mini-editor > div { flex: 1; min-width: 0; }
+.brush-toolbar { display: flex; gap: 4px; }
+.brush-toolbar input { flex: 1; }
+.brush-toolbar button, .brush-recent button, .panel-footer button { display: grid; place-items: center; padding: 2px 6px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 4px; color: var(--text); cursor: pointer; }
+.brush-toolbar button[aria-pressed=true] { background: var(--accent); color: var(--on-accent); }
+.brush-toolbar [role=group] { display: flex; gap: 2px; }
+.brush-recent { display: flex; gap: 2px; flex-wrap: wrap; }
+.brush-recent button { padding: 1px; }
+.brush-list { max-height: 260px; overflow-y: auto; }
+.brush-group-head { display: flex; align-items: center; gap: 4px; width: 100%; padding: 3px 0; background: none; border: 0; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.brush-group-head small { margin-left: auto; color: var(--dim); font-weight: 400; }
+.brush-row { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 6px; width: 100%; padding: 2px 4px; background: none; border: 1px solid transparent; border-radius: 4px; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.brush-row:hover { background: var(--panel-hi); }
+.brush-row .stroke-preview { grid-column: 1 / -1; }
+.brush-row small { color: var(--dim); }
+.brush-banner { padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel-hi); }
+.brush-banner p { margin: 0; }
+.brush-banner ul { margin: 2px 0 0; padding-left: 16px; color: var(--dim); max-height: 100px; overflow-y: auto; }
+.panel-footer { display: flex; gap: 4px; }
+.context-menu { position: fixed; z-index: 50; list-style: none; margin: 0; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px #0008; }
+.context-menu button { padding: 4px 12px; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; }
+.context-menu button:hover { background: var(--accent); color: var(--on-accent); border-radius: 4px; }

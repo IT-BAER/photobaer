@@ -7,7 +7,7 @@ export interface ToolPointerEvent {
   type: 'down' | 'move' | 'up' | 'cancel';
   x: number; y: number; // document space
   pressure: number; tiltX: number; tiltY: number; twist: number;
-  pointerType: string; buttons: number;
+  pointerType: string; buttons: number; timeStamp: number;
   shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean;
 }
 
@@ -239,7 +239,7 @@ export class Viewer {
       const [x, y] = this.screenToDoc(p[0], p[1]);
       return {
         type, x, y, pressure: e.pressure, tiltX: e.tiltX, tiltY: e.tiltY, twist: e.twist,
-        pointerType: e.pointerType, buttons: e.buttons,
+        pointerType: e.pointerType, buttons: e.buttons, timeStamp: e.timeStamp,
         shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey,
       };
     };

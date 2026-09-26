@@ -14,18 +14,24 @@ import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
 import { ColorPanel } from './shell/ColorPanel.tsx';
 import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
 import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
-import { TOOLS, initialLastUsed, keyToTool, loadToolOptions, slotForKey } from './shell/tools.ts';
+import { TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
+import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
 import { hexToRgb, type Rgb } from './shell/color.ts';
 import { digitOption, dragResize, showCrosshair, stepHardness, stepSize, type DigitState } from './shell/brushKeys.ts';
 import { SelectionOverlay } from './shell/SelectionOverlay.ts';
 import { antsLevel, contour, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, type SelectMode } from './shell/selecttools.ts';
 import { levelFor } from './view.ts';
+import { BrushLibrary } from './brushes/store.ts';
+import { EngineAssets } from './brushes/engineAssets.ts';
+import { buildUpFor, presetOptions, presetStrokeParams, pushRecent, smoothingFor, type PaintTool } from './brushes/brushParams.ts';
+import { parseAbrOffThread } from './brushes/abr.ts';
+import type { BrushPreset, Dynamics } from './brushes/preset.ts';
+import { BuildUp, inputFields, strideFor, strokeSeed, type Stride } from './brushes/strokeInput.ts';
 
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
 const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso', 'magneticLasso', 'quickSelection', 'magicWand'];
 const PAINT_LABELS: Record<string, string> = { brush: 'Brush', pencil: 'Pencil', eraser: 'Eraser' };
-const AIRBRUSH_MS = 50;
 const PAINT_TOOLS = new Set(['brush', 'pencil', 'eraser']);
 
 // Select > Modify (docs/M2.md section 3): op -> [min, max, default].
@@ -133,8 +139,17 @@ export function App() {
   const [colorRangePreview, setColorRangePreview] = useState<{ w: number; h: number; data: Uint8Array; level: number } | null>(null);
   const [colorRangeOpen, setColorRangeOpen] = useState(false);
   const [optionsByTool, setOptionsByTool] = useState<Record<string, ToolOptions>>({});
-  const [dockTab, setDockTab] = useState<'color' | 'swatches'>('color');
+  const [dockTab, setDockTab] = useState<'color' | 'swatches' | 'brushSettings' | 'brushes'>('color');
+  const [recentPresets, setRecentPresets] = useState<string[]>([]);
+  const [, setLibVersion] = useState(0);
+  const protectedTexture = useRef<Dynamics['texture'] | null>(null);
   const [showAnts, setShowAnts] = useState(true);
+  // Brush library (opened at mount) and the selected preset; null paints with the plain options-bar brush.
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const brushLib = useRef<{ library: BrushLibrary; assets: EngineAssets } | null>(null);
+  const selectedPresetRef = useRef(selectedPresetId);
+  selectedPresetRef.current = selectedPresetId;
+  const strokeCounter = useRef(0);
   const activeTool = TOOLS[tool];
   const toolOptions = optionsByTool[tool] ?? loadToolOptions(activeTool);
   const setToolOptions = (v: ToolOptions) => setOptionsByTool(o => ({ ...o, [tool]: v }));
@@ -393,6 +408,24 @@ export function App() {
       lq?.setConsumer(async p => { if (p.files.length) open(await p.files[0].getFile()); });
     })();
     return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const flush = () => { void brushLib.current?.library.flush().catch(e => console.error('brush library save failed', e)); };
+    const hidden = () => { if (document.visibilityState === 'hidden') flush(); };
+    BrushLibrary.open().then(library => {
+      if (!alive) return;
+      const assets = new EngineAssets({
+        tipAdd: (w, h, alpha) => client.call('tipAdd', w, h, alpha),
+        patternAdd: (w, h, data, channels) => client.call('patternAdd', w, h, data, channels),
+      }, library);
+      brushLib.current = { library, assets };
+      setLibVersion(v => v + 1);
+    }, e => console.error('brush library unavailable', e));
+    addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', hidden);
+    return () => { alive = false; removeEventListener('pagehide', flush); document.removeEventListener('visibilitychange', hidden); };
   }, []);
 
   useEffect(() => { viewer.current?.setTool(VIEWER_TOOL[tool] ?? null); }, [tool]);
@@ -709,14 +742,15 @@ export function App() {
 
   // Brush, pencil and eraser: pointermove samples are coalesced and sent as one strokeTo per
   // animation frame; the smoother runs on the document-space samples before they are queued.
+  // Samples carry x, y, pressure (stride 3) or also tiltX, tiltY, twist for pen strokes (stride 6).
   useEffect(() => {
     const v = viewer.current;
     if (!v || !(tool === 'brush' || tool === 'pencil' || tool === 'eraser')) return;
     const st: {
-      smoother: Smoother | null; layerId: number | null; raf: number;
-      pending: number[]; last: [number, number, number] | null; lastSampleAt: number;
-      airbrush: ReturnType<typeof setInterval> | null; moved: boolean; begun: Promise<void> | null;
-    } = { smoother: null, layerId: null, raf: 0, pending: [], last: null, lastSampleAt: 0, airbrush: null, moved: false, begun: null };
+      smoother: Smoother | null; layerId: number | null; raf: number; stride: Stride;
+      pending: number[]; last: number[] | null; lastSampleAt: number;
+      buildUp: BuildUp | null; frame: number; begun: Promise<void> | null;
+    } = { smoother: null, layerId: null, raf: 0, stride: 3, pending: [], last: null, lastSampleAt: 0, buildUp: null, frame: 0, begun: null };
 
     function flush() {
       if (!st.pending.length) return;
@@ -733,106 +767,133 @@ export function App() {
       if (st.raf) return;
       st.raf = requestAnimationFrame(() => { st.raf = 0; flush(); });
     }
-    function push(p: [number, number], pressure: number) {
-      st.last = [p[0], p[1], pressure];
+    function push(p: [number, number], fields: number[]) {
+      st.last = [p[0], p[1], ...fields];
       st.lastSampleAt = performance.now();
-      st.pending.push(p[0], p[1], pressure);
+      st.pending.push(...st.last);
       schedule();
     }
 
-    async function paramsFor(x: number, y: number): Promise<StrokeParams> {
+    // The selected preset drives every paint tool except the block eraser.
+    function presetFor() {
+      if (tool === 'eraser' && toolOptionsRef.current.mode === 'block') return null;
+      return currentPreset(selectedPresetRef.current);
+    }
+
+    async function paramsFor(x: number, y: number, stride: Stride, seed: number): Promise<StrokeParams | Record<string, unknown>> {
       const o = toolOptionsRef.current;
+      const input = { stride, seed };
+      const pencilParams = async (rgb: Rgb, mode: string) => {
+        const preset = presetFor(), lib = brushLib.current;
+        if (preset && lib) await lib.assets.prepare(preset);
+        return presetStrokeParams(preset, o, { tool: 'pencil', rgba: [...rgb, 255], mode, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
+      };
       if (tool === 'pencil') {
         let rgb = fgRef.current;
         if (o.autoErase && active) {
           const [r, g, b] = await client.call('sample', x, y, 1, active.id);
           if (r === fgRef.current[0] && g === fgRef.current[1] && b === fgRef.current[2]) rgb = bgRef.current;
         }
-        return { rgba: [...rgb, 255], mode: o.mode as string, size: Number(o.size), opacity: Number(o.opacity) / 100, aliased: true, hardness: 1, flow: 1 };
+        return pencilParams(rgb, o.mode as string);
       }
+      const preset = presetFor();
+      const lib = brushLib.current;
+      if (preset && lib) await lib.assets.prepare(preset);
       if (tool === 'eraser') {
         // Looked up fresh (not a dep) so a doc update mid-drag never tears down the running stroke.
         const activeNode = active && docRef.current ? nodeById(docRef.current.layers, active.id) : undefined;
         const locked = !!activeNode?.locks.transparency;
         const mode = locked ? 'normal' : 'clear';
         const rgb = locked ? bgRef.current : fgRef.current;
-        if (o.mode === 'block') return { rgba: [...rgb, 255], mode, size: 16 / (viewer.current?.view.zoom || 1), tip: 'square', aliased: true };
-        if (o.mode === 'pencil') return { rgba: [...rgb, 255], mode, size: Number(o.size), aliased: true, opacity: Number(o.opacity) / 100, eraseToHistory: !!o.eraseToHistory };
-        return { rgba: [...rgb, 255], mode, size: Number(o.size), hardness: Number(o.hardness) / 100, opacity: Number(o.opacity) / 100, flow: Number(o.flow) / 100, eraseToHistory: !!o.eraseToHistory };
+        if (o.mode === 'block') return { rgba: [...rgb, 255], mode, size: 16 / (viewer.current?.view.zoom || 1), tip: 'square', aliased: true, ...input };
+        return presetStrokeParams(preset, o, { tool: 'eraser', rgba: [...rgb, 255], mode, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
       }
-      return {
-        rgba: [...fgRef.current, 255], mode: o.mode as string, size: Number(o.size),
-        opacity: Number(o.opacity) / 100, flow: Number(o.flow) / 100, hardness: Number(o.hardness) / 100,
-        airbrush: !!o.airbrush, wetEdges: !!o.wetEdges, pressureSize: !!o.pressureSize, pressureOpacity: !!o.pressureOpacity,
+      return presetStrokeParams(preset, o, { tool: 'brush', rgba: [...fgRef.current, 255], mode: o.mode as string, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
+    }
+
+    // One animation-frame loop per stroke while build-up or smoothing catch-up needs time-driven samples.
+    function startFrames(buildUp: boolean) {
+      st.buildUp = buildUp ? new BuildUp(performance.now()) : null;
+      const loop = (now: number) => {
+        const s = st.smoother, last = st.last;
+        if (!s || !last) { st.frame = 0; return; }
+        const caught = s.catchUp(now);
+        if (caught) push(caught, last.slice(2));
+        const n = st.buildUp?.tick(now) ?? 0;
+        for (let i = 0; i < n; i++) st.pending.push(...st.last!);
+        if (n) schedule();
+        st.frame = requestAnimationFrame(loop);
       };
+      st.frame = requestAnimationFrame(loop);
+    }
+    function stopFrames() {
+      if (st.frame) { cancelAnimationFrame(st.frame); st.frame = 0; }
+      st.buildUp = null;
+    }
+    function strokeParams(x: number, y: number, stride: Stride) {
+      return paramsFor(x, y, stride, strokeSeed(active!.id, ++strokeCounter.current));
     }
 
-    function startAirbrush() {
-      if (!toolOptionsRef.current.airbrush) return;
-      st.moved = false;
-      st.airbrush = setInterval(() => {
-        if (!st.moved && st.last) { st.pending.push(...st.last); schedule(); }
-        st.moved = false;
-      }, AIRBRUSH_MS);
-    }
-    function stopAirbrush() {
-      if (st.airbrush) { clearInterval(st.airbrush); st.airbrush = null; }
-    }
-
-    async function begin(x: number, y: number, pressure: number) {
+    async function begin(e: ToolPointerEvent) {
       if (!active) return;
-      const p = await paramsFor(x, y);
+      const stride = strideFor(e.pointerType);
+      const p = await strokeParams(e.x, e.y, stride);
       await client.call('strokeBegin', active.id, quickMask ? 'selection' : 'pixels', p, PAINT_LABELS[tool]);
       st.layerId = active.id;
-      st.smoother = new Smoother({ smoothing: Number(toolOptionsRef.current.smoothing ?? 0), adjustForZoom: true, catchUpOnEnd: true }, viewer.current?.view.zoom || 1);
-      push(st.smoother.start([x, y]), pressure);
-      startAirbrush();
+      st.stride = stride;
+      const preset = presetFor();
+      const o = toolOptionsRef.current;
+      const smoothing = smoothingFor(preset, o), buildUp = buildUpFor(preset, o, tool as PaintTool);
+      st.smoother = new Smoother(smoothing, viewer.current?.view.zoom || 1);
+      push(st.smoother.start([e.x, e.y], e.timeStamp), inputFields(e, stride));
+      if (buildUp || smoothing.catchUp) startFrames(buildUp);
     }
-    function move(x: number, y: number, pressure: number) {
+    function move(e: ToolPointerEvent) {
       if (!st.smoother) return;
-      st.moved = true;
-      push(st.smoother.move([x, y]), pressure);
+      st.buildUp?.moved(e.timeStamp);
+      push(st.smoother.move([e.x, e.y], e.timeStamp), inputFields(e, st.stride));
     }
-    async function end(x: number, y: number, pressure: number) {
+    async function end(e: ToolPointerEvent) {
       // A quick click releases before strokeBegin has answered; finish the begin first.
       await st.begun;
       if (!st.smoother) return;
-      push(st.smoother.end([x, y]), pressure);
+      push(st.smoother.end([e.x, e.y], e.timeStamp), inputFields(e, st.stride));
       flush();
-      stopAirbrush();
+      stopFrames();
       st.smoother = null;
       if (st.layerId != null && st.last) lastStrokePoint.current[st.layerId] = [st.last[0], st.last[1]];
       st.layerId = null;
       run(null, () => client.call('strokeEnd'));
     }
-    async function shiftLine(x: number, y: number, pressure: number) {
+    async function shiftLine(e: ToolPointerEvent) {
       if (!active) return;
       const from = lastStrokePoint.current[active.id];
-      if (!from) return begin(x, y, pressure).then(() => end(x, y, pressure));
-      const p = await paramsFor(from[0], from[1]);
+      if (!from) return begin(e).then(() => end(e));
+      const stride = strideFor(e.pointerType);
+      const fields = inputFields(e, stride);
+      const p = await strokeParams(from[0], from[1], stride);
       await client.call('strokeBegin', active.id, quickMask ? 'selection' : 'pixels', p, PAINT_LABELS[tool]);
-      const r = await client.call('strokeTo', Float64Array.from([from[0], from[1], 1, x, y, pressure]));
+      const r = await client.call('strokeTo', Float64Array.from([from[0], from[1], ...fields, e.x, e.y, ...fields]));
       viewer.current?.invalidate(r.version, r.dirty);
-      lastStrokePoint.current[active.id] = [x, y];
+      lastStrokePoint.current[active.id] = [e.x, e.y];
       run(null, () => client.call('strokeEnd'));
     }
 
     v.onPointer = e => {
       if (!active) return;
-      const pressure = e.pointerType === 'mouse' ? 1 : e.pressure || 0.5;
       if (e.type === 'down') {
-        if (e.shiftKey && lastStrokePoint.current[active.id]) { void shiftLine(e.x, e.y, pressure); return; }
-        st.begun = begin(e.x, e.y, pressure).catch(err => setError((err as Error).message));
+        if (e.shiftKey && lastStrokePoint.current[active.id]) { void shiftLine(e); return; }
+        st.begun = begin(e).catch(err => setError((err as Error).message));
       } else if (e.type === 'move') {
-        move(e.x, e.y, pressure);
+        move(e);
       } else {
-        void end(e.x, e.y, pressure);
+        void end(e);
       }
     };
     return () => {
       v.onPointer = () => {};
       if (st.raf) cancelAnimationFrame(st.raf);
-      stopAirbrush();
+      stopFrames();
     };
   }, [tool, active, quickMask]);
 
@@ -954,6 +1015,7 @@ export function App() {
       else if (ctrl && e.shiftKey && k === 'i') trigger('Inverse', e);
       else if (ctrl && k === 'i') trigger('Invert', e);
       else if (e.shiftKey && k === 'f6') trigger('Feather', e);
+      else if (k === 'f5' && !ctrl) { e.preventDefault(); setDockTab(t => (t === 'brushSettings' ? 'color' : 'brushSettings')); }
       else if (ctrl && k === 'h') triggerBy(l => l.endsWith('selection edges'), e);
       else if (ctrl && k === 'j') trigger('Duplicate Layer', e);
       else if (ctrl && e.altKey && k === 'g') triggerBy(l => l.endsWith('Clipping Mask'), e);
@@ -1020,6 +1082,78 @@ export function App() {
     };
   }, []);
 
+  // Brush presets: the selected preset (with a protected texture carried over) and the Brushes/Brush Settings panels.
+  function currentPreset(id: string | null): BrushPreset | null {
+    const lib = brushLib.current;
+    const p = id !== null && lib ? lib.library.list().find(x => x.id === id) ?? null : null;
+    const tex = protectedTexture.current;
+    return p && tex && p.dynamics.texture.enabled ? { ...p, dynamics: { ...p.dynamics, texture: tex } } : p;
+  }
+  const brushTarget = (PAINT_TOOLS.has(tool) ? tool : 'brush') as PaintTool;
+  const targetOptions = optionsByTool[brushTarget] ?? loadToolOptions(TOOLS[brushTarget]);
+  const presets = brushLib.current?.library.list() ?? [];
+  const selectedPreset = currentPreset(selectedPresetId);
+  const bumpLib = () => setLibVersion(v => v + 1);
+  function setTargetOption(k: string, v: number | boolean) {
+    patchToolOptions(brushTarget, { [k]: v });
+    saveToolOptions(TOOLS[brushTarget], { ...targetOptions, [k]: v });
+  }
+  function selectPreset(p: BrushPreset) {
+    const old = selectedPreset?.dynamics;
+    protectedTexture.current = old?.protectTexture && old.texture.enabled ? old.texture : null;
+    setSelectedPresetId(p.id);
+    setRecentPresets(r => pushRecent(r, p.id));
+    const patch = presetOptions(p, brushTarget);
+    patchToolOptions(brushTarget, patch);
+    saveToolOptions(TOOLS[brushTarget], { ...targetOptions, ...patch });
+    const c = p.captured?.color;
+    if (c) setFg([c[0], c[1], c[2]]);
+  }
+  function deletePreset(id: string) {
+    const lib = brushLib.current;
+    if (!lib) return;
+    lib.library.delete(id);
+    setRecentPresets(r => r.filter(x => x !== id));
+    if (selectedPresetId === id) {
+      const first = lib.library.list()[0];
+      if (first) selectPreset(first); else setSelectedPresetId(null);
+    }
+    bumpLib();
+  }
+  function editDynamics(fn: (d: Dynamics) => void) {
+    const lib = brushLib.current, p = selectedPresetId !== null ? lib?.library.list().find(x => x.id === selectedPresetId) : undefined;
+    if (!lib || !p) return;
+    const next = structuredClone(p);
+    fn(next.dynamics);
+    lib.library.save(next);
+    bumpLib();
+  }
+  const preparedPreviews = useRef(new Set<string>());
+  function previewFor(p: BrushPreset | null, o: Record<string, unknown> = {}): Record<string, unknown> {
+    const lib = brushLib.current;
+    if (p && lib && !preparedPreviews.current.has(p.id)) {
+      preparedPreviews.current.add(p.id);
+      void lib.assets.prepare(p).then(bumpLib);
+    }
+    const params = presetStrokeParams(p, o, { tool: brushTarget, rgba: [222, 224, 227, 255], mode: 'normal', bg: [255, 255, 255, 255], seed: 0, stride: 3, resolve: lib?.assets.resolve });
+    params.size = Math.min(Number(params.size), 40);
+    return params;
+  }
+  async function importAbr(f: File) {
+    const lib = brushLib.current;
+    if (!lib) return { error: 'The brush library is not available.' };
+    try {
+      const r = await parseAbrOffThread(await f.arrayBuffer());
+      const { added, warnings } = lib.library.import(r);
+      bumpLib();
+      return { added, name: f.name, report: { ...r.report, warnings: [...r.report.warnings, ...warnings] } };
+    } catch (e) {
+      return { error: `Could not read ${f.name}: ${(e as Error).message}` };
+    }
+  }
+  const preview = useRef((params: Record<string, unknown>, w: number, h: number) => client.call('brushPreview', params, w, h)).current;
+  const tipBitmap = useRef((ref: string) => brushLib.current?.library.tip(ref)).current;
+
   const deg = Math.round(((view.rot * 180) / Math.PI) % 360);
   return (
     <div className="app">
@@ -1070,10 +1204,26 @@ export function App() {
           <div className="panel-tabs dock-tabs">
             <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} onClick={() => setDockTab('color')}>Color</button>
             <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} onClick={() => setDockTab('swatches')}>Swatches</button>
+            <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} title="Brush Settings (F5)" onClick={() => setDockTab('brushSettings')}>Brush Settings</button>
+            <button className={`panel-tab${dockTab === 'brushes' ? ' active' : ''}`} onClick={() => setDockTab('brushes')}>Brushes</button>
           </div>
-          {dockTab === 'color'
-            ? <ColorPanel fg={fg} bg={bg} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} />
-            : <SwatchesPanel fg={fg} setFg={setFg} setBg={setBg} />}
+          {dockTab === 'color' && <ColorPanel fg={fg} bg={bg} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} />}
+          {dockTab === 'swatches' && <SwatchesPanel fg={fg} setFg={setFg} setBg={setBg} />}
+          {dockTab === 'brushSettings' && (
+            <BrushSettingsPanel
+              tool={brushTarget} options={targetOptions} setOption={setTargetOption} preset={selectedPreset} presets={presets}
+              selectPreset={selectPreset} editDynamics={editDynamics} patterns={brushLib.current?.library.patterns() ?? []}
+              tipBitmap={tipBitmap} preview={preview} previewParams={previewFor(selectedPreset, targetOptions)}
+            />
+          )}
+          {dockTab === 'brushes' && (
+            <BrushesPanel
+              presets={presets} selected={selectedPreset} recent={recentPresets} selectPreset={selectPreset} deletePreset={deletePreset}
+              options={targetOptions} setOption={setTargetOption} tipBitmap={tipBitmap}
+              preview={preview} previewFor={p => previewFor(p, p === selectedPreset ? targetOptions : {})} importAbr={importAbr}
+              openSettings={() => setDockTab('brushSettings')}
+            />
+          )}
           {doc && active && (
             <>
               <LayersPanel

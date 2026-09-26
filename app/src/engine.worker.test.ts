@@ -200,3 +200,51 @@ test('history lists every step and historyGoto jumps back and forward', async ()
   assert.equal(fwd.history.current, 2);
   assert.equal(fwd.layers[0].blend, 'multiply');
 });
+
+const tipParams = (tipId: number) => ({ rgba: [0, 0, 0, 255], mode: 'normal', size: 12, tip: 'sampled', tipId });
+const alphaOf = (r: { result?: unknown }) => {
+  const d = new Uint8Array((r.result as { data: ArrayBuffer }).data);
+  let sum = 0;
+  for (let i = 3; i < d.length; i += 4) sum += d[i];
+  return { length: d.length, sum };
+};
+
+test('brushPreview renders RGBA8 of the requested size, also with no document open', async () => {
+  await call('init');
+  await call('closeDoc');
+  const r = await call('brushPreview', { rgba: [0, 0, 0, 255], mode: 'normal', size: 10 }, 64, 32);
+  assert.equal(r.error, undefined);
+  const a = alphaOf(r);
+  assert.equal(a.length, 64 * 32 * 4);
+  assert.ok(a.sum > 0);
+});
+
+test('a registered tip paints in previews and strokes across documents until removed', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  const t = await call('tipAdd', 3, 3, new Uint8Array(9).fill(255));
+  const id = t.result as number;
+  assert.equal(typeof id, 'number');
+  assert.ok(alphaOf(await call('brushPreview', tipParams(id), 64, 32)).sum > 0);
+  await call('newDoc', 64, 64, 8, null);
+  const b = await call('strokeBegin', 1, 'pixels', tipParams(id), 'Brush');
+  assert.equal(b.error, undefined);
+  await call('strokeTo', Float64Array.from([10, 10, 1, 30, 30, 1]));
+  await call('strokeEnd');
+  await call('tipRemove', id);
+  assert.ok((await call('brushPreview', tipParams(id), 64, 32)).error);
+  assert.ok((await call('tipAdd', 0, 3, new Uint8Array(0))).error);
+});
+
+test('a registered pattern textures previews until removed', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  const p = await call('patternAdd', 2, 2, Uint8Array.from([0, 255, 255, 0]), 1);
+  const id = p.result as number;
+  const tex = (patternId: number) => ({ rgba: [0, 0, 0, 255], mode: 'normal', size: 10, texture: { enabled: true, patternId, mode: 'multiply', depth: 1 } });
+  const plain = alphaOf(await call('brushPreview', { rgba: [0, 0, 0, 255], mode: 'normal', size: 10 }, 64, 32)).sum;
+  assert.ok(alphaOf(await call('brushPreview', tex(id), 64, 32)).sum < plain);
+  await call('patternRemove', id);
+  assert.ok((await call('brushPreview', tex(id), 64, 32)).error);
+  assert.ok((await call('patternAdd', 2, 2, new Uint8Array(3), 1)).error);
+});
