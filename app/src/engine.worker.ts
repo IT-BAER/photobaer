@@ -999,6 +999,18 @@ const api = {
     return canvasEdit('Crop', () => e.apply_crop(...r, false));
   },
 
+  // Crop tool commit: a non-zero straighten angle turns the canvas by -angle first, same step.
+  cropTool(x: number, y: number, w: number, h: number, angle: number, deleteCropped: boolean) {
+    const e = need();
+    return canvasEdit('Crop', () => e.crop_rotated(x, y, w, h, angle, deleteCropped));
+  },
+
+  // quad = c0..c3 as flat x, y, mapped to the output's corners clockwise from the top-left.
+  perspectiveCrop(quad: number[], w: number, h: number) {
+    const e = need();
+    return canvasEdit('Perspective Crop', () => { e.perspective_crop(Float64Array.from(quad), w, h, 'bicubic'); return true; });
+  },
+
   trim(basedOn: 'transparent' | 'topLeftPixel' | 'bottomRightPixel', top: boolean, bottom: boolean, left: boolean, right: boolean) {
     const e = need();
     return canvasEdit('Trim', () => e.trim(basedOn, top, bottom, left, right));

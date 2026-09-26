@@ -110,18 +110,22 @@ export const TOOLS: Record<string, Tool> = {
   crop: {
     id: 'crop', label: 'Crop', slot: 'crop', key: 'c', cursor: 'crosshair', icon: 'Crop',
     options: [
-      { id: 'ratio', kind: 'select', label: 'Ratio', default: 'free', choices: ['free', 'original', '1:1', '4:5', '5:7', '2:3', '16:9', 'custom'] },
-      { id: 'customW', kind: 'number', label: 'W', default: 0, min: 0, max: 30000, unit: 'px' },
-      { id: 'customH', kind: 'number', label: 'H', default: 0, min: 0, max: 30000, unit: 'px' },
+      // W and H are unitless ratio numbers, used only with 'free' when both are above 0.
+      { id: 'ratio', kind: 'select', label: 'Ratio', default: 'free', choices: ['free', 'original', '1:1', '4:5', '5:7', '2:3', '16:9'] },
+      { id: 'ratioWidth', kind: 'number', label: 'W', default: 0, min: 0, max: 30000 },
+      { id: 'ratioHeight', kind: 'number', label: 'H', default: 0, min: 0, max: 30000 },
+      { id: 'deleteCroppedPixels', kind: 'boolean', label: 'Delete cropped pixels', default: true },
+      { id: 'straighten', kind: 'boolean', label: 'Straighten', default: false },
       { id: 'overlay', kind: 'select', label: 'Overlay', default: 'thirds', choices: ['none', 'thirds', 'grid', 'diagonal', 'triangle', 'golden ratio', 'golden spiral'] },
-      { id: 'deleteCropped', kind: 'boolean', label: 'Delete cropped pixels', default: true },
+      { id: 'actions', kind: 'custom', label: 'Crop actions', default: '' },
     ],
   },
   perspectiveCrop: {
     id: 'perspectiveCrop', label: 'Perspective Crop', slot: 'crop', key: 'c', cursor: 'crosshair', icon: 'Frame',
     options: [
-      { id: 'customW', kind: 'number', label: 'W', default: 0, min: 0, max: 30000, unit: 'px' },
-      { id: 'customH', kind: 'number', label: 'H', default: 0, min: 0, max: 30000, unit: 'px' },
+      // 0 = sized from the corners on the first release, which then writes the size back here.
+      { id: 'outputWidth', kind: 'number', label: 'W', default: 0, min: 0, max: 30000, unit: 'px' },
+      { id: 'outputHeight', kind: 'number', label: 'H', default: 0, min: 0, max: 30000, unit: 'px' },
     ],
   },
   eyedropper: {

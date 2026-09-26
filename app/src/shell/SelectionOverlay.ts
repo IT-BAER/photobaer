@@ -20,6 +20,9 @@ export interface TransformBox { handles: [number, number][]; ref: [number, numbe
 export interface TransformImage { source: CanvasImageSource; x: number; y: number; w: number; h: number; f: number; m: number[]; map?: (x: number, y: number) => [number, number] }
 // Warp overlay: a (3 cols + 1) x (3 rows + 1) row-major grid of Bezier control points in document px.
 export interface WarpGrid { cols: number; rows: number; points: [number, number][] }
+// Crop tool: the box and the canvas (both document px), guide lines inside the box, the size
+// readout and the straighten line being dragged.
+export interface CropOverlay { rect: BoxRect; canvas: BoxRect; lines: [number, number, number, number][]; dims: string; line: [number, number, number, number] | null }
 
 // Handle points clockwise from the top-left corner (corners at even indexes), in document px.
 export function boxHandles(r: BoxRect): [number, number][] {
@@ -44,6 +47,8 @@ export class SelectionOverlay {
   #image: TransformImage | null = null;
   #antsMatrix: number[] | null = null;
   #warp: WarpGrid | null = null;
+  #crop: CropOverlay | null = null;
+  #corners: [number, number][] | null = null;
   #dash = 0;
   #timer: ReturnType<typeof setInterval> | undefined;
   #last: [View, number, number, number] | null = null;
@@ -91,6 +96,15 @@ export class SelectionOverlay {
     this.#warp = w;
   }
 
+  setCrop(c: CropOverlay | null) {
+    this.#crop = c;
+  }
+
+  // Perspective crop corners in click order; the outline closes at 4.
+  setCorners(c: [number, number][] | null) {
+    this.#corners = c;
+  }
+
   setImage(img: TransformImage | null) {
     this.#image = img;
   }
@@ -133,6 +147,8 @@ export class SelectionOverlay {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
     if (this.#image) this.#drawImage(this.#image, view, cssW, cssH, dpr);
+    if (this.#crop) this.#drawCrop(this.#crop, view, cssW, cssH, dpr);
+    if (this.#corners) this.#drawCorners(this.#corners, view, cssW, cssH, dpr);
     if (this.#hidden) return;
     if (this.#mask) this.#drawMask(this.#mask, view, cssW, cssH, dpr);
     else if (this.#ants && this.#antsMatrix) this.#strokeSegments(this.#mapSegments(this.#ants, this.#antsScale, this.#antsMatrix), view, cssW, cssH, dpr, 1);
@@ -199,6 +215,82 @@ export class SelectionOverlay {
     ctx.stroke();
     for (const [x, y] of pts) {
       ctx.fillStyle = '#fff';
+      ctx.fillRect(x - 3.5, y - 3.5, 7, 7);
+      ctx.strokeRect(x - 3.5, y - 3.5, 7, 7);
+    }
+  }
+
+  // Shade between the canvas edge and the box (never outside the canvas), guides, frame, handles, readout.
+  #drawCrop(c: CropOverlay, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx, color = getComputedStyle(this.#canvas).getPropertyValue('--transform-box');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setLineDash([]);
+    const outline = (r: BoxRect) => {
+      const pts = boxHandles(r).filter((_, i) => i % 2 === 0).map(([x, y]) => docToScreen(view, x, y, cssW, cssH));
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (const [x, y] of pts.slice(1)) ctx.lineTo(x, y);
+      ctx.closePath();
+    };
+    ctx.save();
+    ctx.beginPath();
+    outline(c.canvas);
+    ctx.clip();
+    ctx.beginPath();
+    ctx.rect(0, 0, cssW, cssH);
+    outline(c.rect);
+    ctx.fillStyle = 'rgba(14, 16, 22, 0.62)';
+    ctx.fill('evenodd');
+    ctx.restore();
+    ctx.beginPath();
+    for (const [x0, y0, x1, y1] of c.lines) {
+      const a = docToScreen(view, x0, y0, cssW, cssH), b = docToScreen(view, x1, y1, cssW, cssH);
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+    }
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(20, 20, 20, 0.3)';
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.72)';
+    ctx.stroke();
+    ctx.beginPath();
+    outline(c.rect);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    for (const [x, y] of boxHandles(c.rect).map(([x, y]) => docToScreen(view, x, y, cssW, cssH))) {
+      ctx.fillRect(x - 4, y - 4, 8, 8);
+      ctx.strokeRect(x - 4, y - 4, 8, 8);
+    }
+    const [dx, dy] = docToScreen(view, c.rect.x, c.rect.y, cssW, cssH);
+    ctx.font = '11px system-ui, sans-serif';
+    const w = ctx.measureText(c.dims).width + 10;
+    ctx.fillStyle = color;
+    ctx.fillRect(dx + 10, dy + 10, w, 18);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(c.dims, dx + 15, dy + 23);
+    if (c.line) {
+      const a = docToScreen(view, c.line[0], c.line[1], cssW, cssH), b = docToScreen(view, c.line[2], c.line[3], cssW, cssH);
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.strokeStyle = getComputedStyle(this.#canvas).getPropertyValue('--smart-guide');
+      ctx.stroke();
+    }
+  }
+
+  #drawCorners(corners: [number, number][], view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx, pts = corners.map(([x, y]) => docToScreen(view, x, y, cssW, cssH));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    for (const [x, y] of pts) ctx.lineTo(x, y);
+    if (pts.length === 4) ctx.closePath();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = getComputedStyle(this.#canvas).getPropertyValue('--transform-box');
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    for (const [x, y] of pts) {
       ctx.fillRect(x - 3.5, y - 3.5, 7, 7);
       ctx.strokeRect(x - 3.5, y - 3.5, 7, 7);
     }

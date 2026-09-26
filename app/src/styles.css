@@ -77,8 +77,9 @@ button { font: inherit; color: inherit; }
 .options-bar label { display: flex; align-items: center; gap: 4px; }
 .options-bar input[type=number] { width: 56px; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
 .options-bar select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
-.transform-bar button { padding: 2px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
-.transform-bar button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.transform-bar button, .crop-actions button { padding: 2px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.transform-bar button.primary, .crop-actions button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.crop-actions { display: flex; gap: 6px; }
 .transform-bar .link-toggle { display: grid; place-items: center; padding: 2px 4px; color: var(--dim); }
 .transform-bar .link-toggle[aria-pressed=true] { color: var(--accent); }
 .ref-grid { display: grid; grid-template-columns: repeat(3, 8px); gap: 2px; }

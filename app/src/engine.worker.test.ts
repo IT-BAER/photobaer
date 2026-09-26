@@ -5,6 +5,7 @@ import { initSync } from './engine-pkg/photobaer_engine.js';
 import { Autosave } from './autosave.ts';
 import { FakeDir, fs } from './fake-opfs.ts';
 import { engineMesh, identityMesh } from './transform/warp.ts';
+import { croppedSize } from './crop/geometry.ts';
 
 // Runs the real worker module in Node: WASM loaded up front, worker globals and OPFS faked.
 initSync({ module: readFileSync(new URL('./engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
@@ -741,4 +742,54 @@ test('arbitrary canvas rotation is one Rotate Canvas step, a full turn makes non
   const bad = await call('rotateCanvasArbitrary', Number.NaN, 'bicubic');
   assert.equal(bad.error, 'angle must be finite');
   assert.equal(count(docOf(await call('undo')), 'Rotate Canvas'), 1, 'the refused call left no step behind');
+});
+
+test('the crop tool commits one Crop step; Delete Cropped Pixels decides what Reveal All can bring back', async () => {
+  await redOnWhite();
+  const before = await pixels(16, 16);
+  const kept = docOf(await call('cropTool', 1.5, 1.5, 6, 6, 0, false));
+  assert.deepEqual([kept.width, kept.height, kept.undoLabel, count(kept, 'Crop')], [7, 7, 'Crop', 1], 'the rect rounds out');
+  assert.deepEqual([await px(0, 0), await px(1, 1)], [[255, 255, 255, 255], RED]);
+  const back = docOf(await call('revealAll'));
+  assert.deepEqual([back.width, back.height], [16, 16]);
+  assert.deepEqual(await pixels(16, 16), before, 'hidden pixels were kept');
+  await call('undo');
+  await call('undo');
+  const cut = docOf(await call('cropTool', 1.5, 1.5, 6, 6, 0, true));
+  assert.deepEqual([cut.width, cut.height, count(cut, 'Crop')], [7, 7, 1]);
+  const none = docOf(await call('revealAll'));
+  assert.deepEqual([none.width, none.height, count(none, 'Reveal All')], [7, 7, 0], 'deleted pixels are gone');
+  const u = docOf(await call('undo'));
+  assert.deepEqual([u.width, u.height], [16, 16]);
+  assert.deepEqual(await pixels(16, 16), before);
+  const same = docOf(await call('cropTool', 0, 0, 16, 16, 0, true));
+  assert.equal(same.undoLabel, u.undoLabel, 'the untouched canvas makes no step');
+});
+
+test('a straightened crop rotates by -angle and crops the mapped bbox in the same Crop step', async () => {
+  await call('init');
+  await call('newDoc', 100, 50, 8, [255, 255, 255, 255]);
+  const d = docOf(await call('cropTool', 10, 10, 50, 20, 10, true));
+  assert.deepEqual([d.width, d.height], croppedSize({ x: 10, y: 10, w: 50, h: 20 }, 10, 100, 50), 'the readout matches the engine');
+  assert.deepEqual([d.width, d.height, d.undoLabel, count(d, 'Crop')], [53, 29, 'Crop', 1]);
+  const u = docOf(await call('undo'));
+  assert.deepEqual([u.width, u.height], [100, 50]);
+  assert.notEqual(u.undoLabel, 'Crop');
+  assert.equal((await call('cropTool', 0, 0, 10, 10, Number.NaN, true)).error, 'angle must be finite');
+});
+
+test('perspective crop is one Perspective Crop step; a collinear quad is refused and changes nothing', async () => {
+  await redSquare();
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 3, h: 3 }, 'new', false, 0, 'Rectangular Marquee');
+  const bad = await call('perspectiveCrop', [0, 0, 5, 0, 10, 0, 15, 0], 4, 4);
+  assert.equal(bad.error, 'Those four corners are degenerate; move one and try again.');
+  const same = docOf(await call('undo'));
+  assert.deepEqual([same.width, same.height, count(same, 'Perspective Crop')], [16, 16, 0]);
+  await call('redo');
+  assert.deepEqual(await px(3, 3), RED, 'pixels untouched');
+  const d = docOf(await call('perspectiveCrop', [2, 2, 6, 2, 6, 6, 2, 6], 4, 4));
+  assert.deepEqual([d.width, d.height, d.undoLabel, count(d, 'Perspective Crop')], [4, 4, 'Perspective Crop', 1]);
+  assert.equal(d.selection, null, 'the selection is cleared');
+  const c = await px(1, 1);
+  assert.ok(c.every((v, i) => Math.abs(v - RED[i]) <= 1), `${c}`);
 });

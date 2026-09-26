@@ -41,6 +41,10 @@ import { BuildUp, inputFields, strideFor, strokeSeed, type Stride } from './brus
 import { GradientEditor, type GradientEditorHandle } from './shell/GradientEditor.tsx';
 import { engineStops, rampCss, type Method } from './gradients/gradient.ts';
 import { BUILTIN_GRADIENTS, GradientLibrary, resolvePreset } from './gradients/presets.ts';
+import {
+  HANDLES, cropActive, cropBox, cropCancel, cropCommit, cropDown, cropMove, cropPointerCancel, cropRatio, cropUp, croppedSize, hitCrop,
+  newCropState, newPerspState, overlayLines, perspDown, perspMove, perspSize, perspUp, type CropCtx,
+} from './crop/geometry.ts';
 
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
@@ -926,6 +930,132 @@ export function App() {
     return () => { v.onPointer = () => {}; overlayRef.current?.setPreview(null); };
   }, [tool, active, quickMask]);
 
+  // Crop and perspective crop: pointer state in crop/geometry.ts; Enter, Esc, the bar buttons and a
+  // tool switch reach the pending crop through `cropSession`.
+  const cropSession = useRef<{ active: () => boolean; commit: () => void; cancel: () => void; draw: () => void } | null>(null);
+  const cropOptions = optionsByTool.crop ?? loadToolOptions(TOOLS.crop);
+  const cropOptionsRef = useRef(cropOptions);
+  cropOptionsRef.current = cropOptions;
+  const perspOptionsRef = useRef(optionsByTool.perspectiveCrop ?? loadToolOptions(TOOLS.perspectiveCrop));
+  perspOptionsRef.current = optionsByTool.perspectiveCrop ?? loadToolOptions(TOOLS.perspectiveCrop);
+  function setOptionsOf(toolId: 'crop' | 'perspectiveCrop', patch: Record<string, number | boolean>) {
+    patchToolOptions(toolId, patch);
+    saveToolOptions(TOOLS[toolId], { ...(toolId === 'crop' ? cropOptionsRef : perspOptionsRef).current, ...patch });
+  }
+  useEffect(() => {
+    const v = viewer.current, c = canvas.current;
+    if (!v || !c || tool !== 'crop' || !doc) return;
+    const s = newCropState();
+    const ctx = (): CropCtx => {
+      const d = docRef.current!, o = cropOptionsRef.current;
+      return { docW: d.width, docH: d.height, zoom: v.view.zoom, ratio: cropRatio(o, d.width, d.height), straighten: !!o.straighten };
+    };
+    const draw = () => {
+      const d = docRef.current, o = overlayRef.current;
+      if (!d || !o) return;
+      const rect = cropBox(s, d.width, d.height), [w, h] = croppedSize(rect, s.angle, d.width, d.height);
+      o.setCrop(rect.w > 0 && rect.h > 0 ? {
+        rect, canvas: { x: 0, y: 0, w: d.width, h: d.height }, lines: overlayLines(rect, String(cropOptionsRef.current.overlay)),
+        dims: `${w} × ${h} px`, line: s.line && [...s.line[0], ...s.line[1]],
+      } : null);
+      redrawOverlay();
+    };
+    const commit = () => {
+      const d = docRef.current;
+      if (!d) return;
+      const r = cropCommit(s, d.width, d.height);
+      draw();
+      if (!r) return;
+      const del = !!cropOptionsRef.current.deleteCroppedPixels;
+      void run('Cropping…', () => client.call('cropTool', r.rect.x, r.rect.y, r.rect.w, r.rect.h, r.angle, del));
+    };
+    const cancel = () => { cropCancel(s); setOptionsOf('crop', { straighten: false }); draw(); };
+    v.onPointer = e => {
+      const p: Pt = [e.x, e.y], mods = { shift: e.shiftKey, alt: e.altKey };
+      if (e.type === 'down') cropDown(s, p, ctx());
+      else if (e.type === 'move') cropMove(s, p, mods, ctx());
+      else if (e.type === 'cancel') cropPointerCancel(s);
+      else if (cropUp(s, p, mods, ctx()) !== null) setOptionsOf('crop', { straighten: false });
+      draw();
+    };
+    const hover = (e: PointerEvent) => {
+      const d = docRef.current;
+      if (!d || s.active) return;
+      const r = c.getBoundingClientRect(), p = v.screenToDoc(e.clientX - r.left, e.clientY - r.top);
+      const hit = cropOptionsRef.current.straighten ? null : hitCrop(cropBox(s, d.width, d.height), p, 11 / v.view.zoom);
+      c.style.cursor = hit === 'body' ? 'move' : hit ? HANDLE_CURSORS[HANDLES.indexOf(hit)] : 'crosshair';
+    };
+    const dbl = () => { if (!transformRef.current) commit(); };
+    c.addEventListener('pointermove', hover);
+    c.addEventListener('dblclick', dbl);
+    cropSession.current = { active: () => cropActive(s), commit, cancel, draw };
+    draw();
+    return () => {
+      v.onPointer = () => {};
+      c.removeEventListener('pointermove', hover);
+      c.removeEventListener('dblclick', dbl);
+      c.style.cursor = '';
+      cropSession.current = null;
+      // Leaving the tool applies a pending crop (a new document drops it).
+      if (toolRef.current !== 'crop' && cropActive(s)) commit();
+      overlayRef.current?.setCrop(null);
+      redrawOverlay();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, doc?.docId]);
+  // A canvas size change (undo, redo, Image menu) drops a pending box or quad: its doc coords are stale.
+  const cropCanvasSize = useRef('');
+  useEffect(() => {
+    const size = `${doc?.width}x${doc?.height}`, changed = cropCanvasSize.current !== '' && cropCanvasSize.current !== size;
+    cropCanvasSize.current = size;
+    if (changed) cropSession.current?.cancel(); else cropSession.current?.draw();
+  }, [doc?.width, doc?.height, cropOptions.overlay]);
+
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v || tool !== 'perspectiveCrop' || !doc) return;
+    const s = newPerspState();
+    const ctx = () => ({ docW: docRef.current!.width, docH: docRef.current!.height, zoom: v.view.zoom });
+    const draw = () => { overlayRef.current?.setCorners(s.corners.length ? [...s.corners] : null); redrawOverlay(); };
+    const commit = () => {
+      if (s.corners.length !== 4) return;
+      const o = perspOptionsRef.current, corners = s.corners, [w, h] = perspSize(corners, Number(o.outputWidth), Number(o.outputHeight));
+      // Cleared before the call so a second commit cannot resend the quad; a refused (degenerate)
+      // quad gets its corners back for another try.
+      s.corners = [];
+      draw();
+      void run('Cropping…', async () => {
+        try {
+          return await client.call('perspectiveCrop', corners.flat(), w, h);
+        } catch (e) {
+          if (!s.corners.length) { s.corners = corners; draw(); }
+          throw e;
+        }
+      });
+    };
+    const cancel = () => { s.corners = []; s.active = false; s.dragging = -1; draw(); };
+    v.onPointer = e => {
+      const p: Pt = [e.x, e.y];
+      if (e.type === 'down') perspDown(s, p, ctx());
+      else if (e.type === 'move') perspMove(s, p, ctx());
+      else if (e.type === 'cancel') { s.active = false; s.dragging = -1; }
+      else {
+        const o = perspOptionsRef.current, size = perspUp(s, p, ctx(), Number(o.outputWidth), Number(o.outputHeight));
+        if (size) setOptionsOf('perspectiveCrop', { outputWidth: size[0], outputHeight: size[1] });
+      }
+      draw();
+    };
+    cropSession.current = { active: () => s.active || s.corners.length > 0, commit, cancel, draw };
+    return () => {
+      v.onPointer = () => {};
+      cropSession.current = null;
+      if (toolRef.current !== 'perspectiveCrop') commit();
+      overlayRef.current?.setCorners(null);
+      redrawOverlay();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, doc?.docId]);
+
   // Move tool: drags or arrow-nudges the active (or auto-selected) layer, or the selected pixels
   // under the pointer, as one undo step; the worker previews every offset from the gesture start.
   const moveKeysRef = useRef<{ nudge: (dx: number, dy: number, alt: boolean) => void } | null>(null);
@@ -1664,6 +1794,12 @@ export function App() {
         if (k === 'enter') { e.preventDefault(); polygonActionsRef.current.commit(); return; }
       }
       if (transformKey(e, k, ctrl)) return;
+      if (!ctrl && (k === 'enter' || k === 'escape') && cropSession.current?.active()) {
+        e.preventDefault();
+        if (e.repeat) return;
+        if (k === 'enter') cropSession.current.commit(); else cropSession.current.cancel();
+        return;
+      }
       if (ctrl && e.altKey && k === 'n') trigger('New', e);
       else if (ctrl && k === 'o') trigger('Open', e);
       else if (ctrl && k === 's') trigger('Save project', e);
@@ -1839,6 +1975,12 @@ export function App() {
     <button type="button" className="gradient-ramp-button" aria-label="Edit gradient" title="Click to edit the gradient"
       style={{ backgroundImage: `${rampCss(gradPreset, gradOptions.method as Method)}, var(--checker)` }} onClick={editGradient} />
   );
+  const cropActions = (
+    <span className="crop-actions">
+      <button type="button" onClick={() => cropSession.current?.cancel()}>Cancel</button>
+      <button type="button" className="primary" onClick={() => cropSession.current?.commit()}>Apply</button>
+    </span>
+  );
   const menuItems = (items: Item[]): ReactNode => items.map(i => (
     <Fragment key={i.label}>
       {i.sep && <li role="separator" className="menu-sep" />}
@@ -1920,7 +2062,7 @@ export function App() {
                 t.store.set({ warp: warpBar(ws) });
               })}
             />
-          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton }} />}
+          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton, actions: cropActions }} />}
           <div className="stage">
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} />
             <canvas ref={overlayCanvas} className="overlay" />
