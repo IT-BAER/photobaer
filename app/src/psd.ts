@@ -1,5 +1,5 @@
 // PSD open/save (M1.md section 6). Runs in the engine worker (no DOM) and in Node test/corpus code.
-import { initializeCanvas, readPsd, writePsd, type BlendMode, type Layer, type PixelData, type Psd } from 'ag-psd';
+import { initializeCanvas, readPsd, writePsd, type AdjustmentLayer, type BlendMode, type Color, type Layer, type PixelData, type Psd } from 'ag-psd';
 import { Engine } from './engine-pkg/photobaer_engine.js';
 
 let canvasReady = false;
@@ -16,12 +16,184 @@ function ensureCanvas() {
 
 // Manifest tree shape from Engine.manifest() (M1.md section 2).
 interface ManifestNode {
-  id: number; name: string; kind: 'pixel' | 'group';
+  id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart';
   visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
   locks: { transparency: boolean; pixels: boolean; position: boolean };
   mask: { enabled: boolean; default: number; tiles?: Sparse } | null;
   tiles?: Sparse;
   children?: ManifestNode[];
+  adjustment?: Adjustment;
+}
+
+// Engine adjustment params (engine/src/adjust.rs) are in PSD units.
+type Adjustment = { kind: string; params: Record<string, any> };
+type Rgb = [number, number, number];
+interface Stop { position: number; midpoint: number }
+interface GradientDef { method: string; color_stops: (Stop & { color: Rgb })[]; opacity_stops: (Stop & { opacity: number })[] }
+type PsdGradient = {
+  method?: string;
+  colorStops?: { color: Color; location: number; midpoint: number }[];
+  opacityStops?: { opacity: number; location: number; midpoint: number }[];
+};
+
+const LEVELS_DEFAULT = { shadowInput: 0, highlightInput: 255, shadowOutput: 0, highlightOutput: 255, midtoneInput: 1 };
+const HUE_NAMES = ['reds', 'yellows', 'greens', 'cyans', 'blues', 'magentas'] as const;
+const HUE_BANDS = [315, 15, 75, 135, 195, 255];
+const CMYK_NAMES = ['reds', 'yellows', 'greens', 'cyans', 'blues', 'magentas', 'whites', 'neutrals', 'blacks'] as const;
+
+function rgbOf(c: Color | undefined, what: string): Rgb {
+  if (!c) return [0, 0, 0];
+  if (!('r' in c)) throw new Error(`${what} is not an RGB color`);
+  return [Math.round(c.r), Math.round(c.g), Math.round(c.b)];
+}
+const colorOf = ([r, g, b]: Rgb) => ({ r, g, b });
+
+function gradientIn(g: PsdGradient): GradientDef {
+  return {
+    method: g.method === 'perceptual' || g.method === 'linear' ? g.method : 'classic',
+    color_stops: (g.colorStops ?? []).map(s => ({ position: s.location, color: rgbOf(s.color, 'a gradient stop'), midpoint: s.midpoint })),
+    opacity_stops: (g.opacityStops ?? []).map(s => ({ position: s.location, opacity: s.opacity, midpoint: s.midpoint })),
+  };
+}
+
+function gradientOut(g: GradientDef) {
+  return {
+    colorStops: g.color_stops.map(s => ({ color: colorOf(s.color), location: s.position, midpoint: s.midpoint })),
+    opacityStops: g.opacity_stops.map(s => ({ opacity: s.opacity, location: s.position, midpoint: s.midpoint })),
+  };
+}
+
+// ag-psd adjustment -> engine params; null when the engine has no model for it.
+function adjustmentIn(e: Engine, a: AdjustmentLayer): Adjustment | null {
+  const lv = (c: typeof LEVELS_DEFAULT) => ({
+    input_black: c.shadowInput, input_white: c.highlightInput, gamma: c.midtoneInput, output_black: c.shadowOutput, output_white: c.highlightOutput,
+  });
+  switch (a.type) {
+    case 'brightness/contrast':
+      return { kind: 'brightness_contrast', params: { brightness: a.brightness ?? 0, contrast: a.contrast ?? 0, legacy: !!a.useLegacy } };
+    case 'levels':
+      return { kind: 'levels', params: {
+        composite: lv(a.rgb ?? LEVELS_DEFAULT), red: a.red ? lv(a.red) : null, green: a.green ? lv(a.green) : null, blue: a.blue ? lv(a.blue) : null,
+      } };
+    case 'curves': {
+      const chans = [a.rgb, a.red, a.green, a.blue];
+      // A pencil curve is stored as its 256 samples.
+      const pencil = chans.some(c => c) && chans.every(c => !c || (c.length === 256 && c.every((p, i) => p.input === i)));
+      const pts = (c: typeof a.rgb) => c ? c.map(p => [p.input, p.output]) : null;
+      return { kind: 'curves', params: {
+        mode: pencil ? 'pencil' : 'point', composite: pts(a.rgb) ?? [[0, 0], [255, 255]], red: pts(a.red), green: pts(a.green), blue: pts(a.blue),
+      } };
+    }
+    case 'exposure':
+      return { kind: 'exposure', params: { exposure: a.exposure ?? 0, offset: a.offset ?? 0, gamma: a.gamma ?? 1 } };
+    case 'vibrance':
+      return { kind: 'vibrance', params: { vibrance: a.vibrance ?? 0, saturation: a.saturation ?? 0 } };
+    case 'hue/saturation': {
+      const m = a.master ?? { a: 0, b: 0, c: 0, d: 0, hue: 0, saturation: 0, lightness: 0 };
+      return { kind: 'hue_saturation', params: {
+        master: { hue: m.hue, saturation: m.saturation, lightness: m.lightness },
+        ranges: HUE_NAMES.map((k, i) => {
+          const r = a[k], b = HUE_BANDS[i];
+          return r ? { bands: [r.a, r.b, r.c, r.d], hue: r.hue, saturation: r.saturation, lightness: r.lightness }
+            : { bands: [b, b + 30, b + 60, b + 90], hue: 0, saturation: 0, lightness: 0 };
+        }),
+        // The master record's a..d carry the colorize flag and values.
+        colorize: m.a !== 0, colorize_values: { hue: m.b, saturation: m.c, lightness: m.d },
+      } };
+    }
+    case 'color balance': {
+      const cb = (v?: { cyanRed: number; magentaGreen: number; yellowBlue: number }) => v ? [v.cyanRed, v.magentaGreen, v.yellowBlue] : [0, 0, 0];
+      return { kind: 'color_balance', params: {
+        shadows: cb(a.shadows), midtones: cb(a.midtones), highlights: cb(a.highlights), preserve_luminosity: !!a.preserveLuminosity,
+      } };
+    }
+    case 'black & white':
+      return { kind: 'black_white', params: {
+        reds: a.reds ?? 40, yellows: a.yellows ?? 60, greens: a.greens ?? 40, cyans: a.cyans ?? 60, blues: a.blues ?? 20, magentas: a.magentas ?? 80,
+        tint: !!a.useTint, tint_color: a.tintColor ? rgbOf(a.tintColor, 'the tint color') : [225, 211, 179],
+      } };
+    case 'photo filter':
+      return { kind: 'photo_filter', params: { color: rgbOf(a.color, 'the photo filter color'), density: a.density ?? 25, preserve_luminosity: !!a.preserveLuminosity } };
+    case 'channel mixer': {
+      const ch = (c: { red: number; green: number; blue: number; constant: number } | undefined, d: number[]) => c ? [c.red, c.green, c.blue, c.constant] : d;
+      return { kind: 'channel_mixer', params: {
+        red: ch(a.red, [100, 0, 0, 0]), green: ch(a.green, [0, 100, 0, 0]), blue: ch(a.blue, [0, 0, 100, 0]), gray: ch(a.gray, [40, 40, 20, 0]),
+        monochrome: !!a.monochrome,
+      } };
+    }
+    case 'color lookup':
+      if (a.lookupType && a.lookupType !== '3dlut') return null;
+      return { kind: 'color_lookup', params: {
+        name: a.name ?? a.lut3DFileName ?? '', format: a.lutFormat === '3dl' ? '3dl' : 'cube',
+        table: a.lut3DFileData?.length ? Number(e.blob_add(a.lut3DFileData)) : null, interpolation: 'trilinear', dither: !!a.dither,
+      } };
+    case 'invert':
+      return { kind: 'invert', params: {} };
+    case 'posterize':
+      return { kind: 'posterize', params: { levels: a.levels ?? 4 } };
+    case 'threshold':
+      return { kind: 'threshold', params: { level: a.level ?? 128 } };
+    case 'gradient map':
+      if (a.gradientType !== 'solid') return null;
+      return { kind: 'gradient_map', params: { gradient: gradientIn(a), reverse: !!a.reverse, dither: !!a.dither } };
+    case 'selective color': {
+      const p: Record<string, unknown> = { mode: a.mode ?? 'relative' };
+      for (const k of CMYK_NAMES) { const v = a[k]; p[k] = v ? [v.c, v.m, v.y, v.k] : [0, 0, 0, 0]; }
+      return { kind: 'selective_color', params: p };
+    }
+  }
+}
+
+function adjustmentOut(e: Engine, { kind, params: p }: Adjustment, warn: (m: string) => void): AdjustmentLayer {
+  const lv = (r: any) => r ? { shadowInput: r.input_black, highlightInput: r.input_white, shadowOutput: r.output_black, highlightOutput: r.output_white, midtoneInput: r.gamma } : undefined;
+  const pts = (c: [number, number][] | null) => c?.map(([input, output]) => ({ input, output }));
+  switch (kind) {
+    case 'brightness_contrast': return { type: 'brightness/contrast', brightness: p.brightness, contrast: p.contrast, useLegacy: p.legacy };
+    case 'levels': return { type: 'levels', rgb: lv(p.composite), red: lv(p.red), green: lv(p.green), blue: lv(p.blue) };
+    case 'curves': return { type: 'curves', rgb: pts(p.composite), red: pts(p.red), green: pts(p.green), blue: pts(p.blue) };
+    case 'exposure': return { type: 'exposure', exposure: p.exposure, offset: p.offset, gamma: p.gamma };
+    case 'vibrance': return { type: 'vibrance', vibrance: p.vibrance, saturation: p.saturation };
+    case 'hue_saturation': {
+      const out: any = { type: 'hue/saturation', master: {
+        a: p.colorize ? 256 : 0, b: p.colorize_values.hue, c: p.colorize_values.saturation, d: p.colorize_values.lightness, ...p.master,
+      } };
+      HUE_NAMES.forEach((k, i) => {
+        const r = p.ranges[i];
+        out[k] = { a: r.bands[0], b: r.bands[1], c: r.bands[2], d: r.bands[3], hue: r.hue, saturation: r.saturation, lightness: r.lightness };
+      });
+      return out;
+    }
+    case 'color_balance': {
+      const cb = ([cyanRed, magentaGreen, yellowBlue]: number[]) => ({ cyanRed, magentaGreen, yellowBlue });
+      return { type: 'color balance', shadows: cb(p.shadows), midtones: cb(p.midtones), highlights: cb(p.highlights), preserveLuminosity: p.preserve_luminosity };
+    }
+    case 'black_white': return {
+      type: 'black & white', reds: p.reds, yellows: p.yellows, greens: p.greens, cyans: p.cyans, blues: p.blues, magentas: p.magentas,
+      useTint: p.tint, tintColor: colorOf(p.tint_color),
+    };
+    case 'photo_filter': return { type: 'photo filter', color: colorOf(p.color), density: p.density, preserveLuminosity: p.preserve_luminosity };
+    case 'channel_mixer': {
+      const ch = ([red, green, blue, constant]: number[]) => ({ red, green, blue, constant });
+      return { type: 'channel mixer', monochrome: p.monochrome, red: ch(p.red), green: ch(p.green), blue: ch(p.blue), gray: ch(p.gray) };
+    }
+    case 'color_lookup': return {
+      type: 'color lookup', lookupType: '3dlut', name: p.name, dither: p.dither,
+      ...(p.table != null ? { lutFormat: p.format, dataOrder: 'rgb', tableOrder: 'rgb', lut3DFileData: e.tile_bytes(BigInt(p.table)), lut3DFileName: p.name } : {}),
+    };
+    case 'invert': return { type: 'invert' };
+    case 'posterize': return { type: 'posterize', levels: p.levels };
+    case 'threshold': return { type: 'threshold', level: p.level };
+    case 'gradient_map':
+      // The PSD library cannot write the interpolation method of a gradient map.
+      if (p.gradient.method !== 'classic') warn('gradient map interpolation other than classic is not stored in PSD');
+      return { type: 'gradient map', gradientType: 'solid', name: 'Custom', reverse: p.reverse, dither: p.dither, smoothness: 1, ...gradientOut(p.gradient) };
+    case 'selective_color': {
+      const out: any = { type: 'selective color', mode: p.mode };
+      for (const k of CMYK_NAMES) { const [c, m, y, kk] = p[k]; out[k] = { c, m, y, k: kk }; }
+      return out;
+    }
+  }
+  throw new Error(`unknown adjustment kind ${kind}`);
 }
 
 // A layer's straight RGBA8 tile, cropped to the document, written into `id`'s tiles.
@@ -83,7 +255,6 @@ function addMaskIfAny(e: Engine, id: number, l: Layer, w: number, h: number) {
 
 function warnKinds(l: Layer, warn: (m: string) => void) {
   if (l.text) warn('text layers were imported as pixels');
-  if (l.adjustment) warn('adjustment layers were imported as pixels');
   if (l.placedLayer) warn('smart object layers were imported as pixels');
   if (l.effects) warn('layers with effects were imported as pixels');
   if (l.vectorMask || l.realMask) warn('vector mask layers were imported as pixels');
@@ -101,13 +272,15 @@ function addNode(e: Engine, l: Layer, w: number, h: number, warn: (m: string) =>
     addMaskIfAny(e, id, l, w, h);
     return id;
   }
-  const id = e.add_layer(l.name ?? '', 0);
+  const adj = l.adjustment && adjustmentIn(e, l.adjustment);
+  if (l.adjustment && !adj) warn('adjustment layers without an engine model were imported as pixels');
+  const id = adj ? e.add_special(0, JSON.stringify({ name: l.name ?? '', adjustment: adj })) : e.add_layer(l.name ?? '', 0);
   e.set_props(id, JSON.stringify({
     visible: !l.hidden, opacity: l.opacity ?? 1, fill: l.fillOpacity ?? 1,
     blend: !l.blendMode || l.blendMode === 'pass through' ? 'normal' : l.blendMode,
     clipping: !!l.clipping, locks: locksOf(l),
   }));
-  place(e, id, l, w, h);
+  if (!adj) place(e, id, l, w, h);
   addMaskIfAny(e, id, l, w, h);
   warnKinds(l, warn);
   return id;
@@ -210,13 +383,14 @@ function maskFields(e: Engine, n: ManifestNode, w: number, h: number) {
   return { mask: { top: rect.top, left: rect.left, ...base, imageData: { width: rw, height: rh, data: rgba } } };
 }
 
-function exportNode(e: Engine, n: ManifestNode, w: number, h: number): Layer {
+function exportNode(e: Engine, n: ManifestNode, w: number, h: number, warn: (m: string) => void): Layer {
   const common = {
     name: n.name, hidden: !n.visible, opacity: n.opacity, fillOpacity: n.fill, blendMode: n.blend as BlendMode, clipping: n.clipping,
     protected: { transparency: n.locks.transparency, composite: n.locks.pixels, position: n.locks.position },
     ...maskFields(e, n, w, h),
   };
-  if (n.kind === 'group') return { ...common, children: (n.children ?? []).map(c => exportNode(e, c, w, h)) };
+  if (n.kind === 'group') return { ...common, children: (n.children ?? []).map(c => exportNode(e, c, w, h, warn)) };
+  if (n.adjustment) return { ...common, top: 0, left: 0, adjustment: adjustmentOut(e, n.adjustment, warn) };
   const rect = tileBounds(n.tiles, w, h);
   if (!rect) return { ...common, top: 0, left: 0 };
   const map = tileMap(n.tiles);
@@ -233,13 +407,15 @@ export function exportPsd(e: Engine): { bytes: Uint8Array<ArrayBuffer>; warnings
   if (e.depth() !== 8) throw new Error('16-bit PSD export is not supported yet');
   const w = e.width(), h = e.height();
   const manifest = JSON.parse(e.manifest()) as { layers: ManifestNode[] };
+  const warnings: string[] = [];
+  const warn = (m: string) => { if (!warnings.includes(m)) warnings.push(m); };
   const composite = assembleImage((tx, ty) => e.flatten_tile_rgba8(tx, ty), fullCanvas(w, h), 4, 0);
   const psd: Psd = {
     width: w, height: h, colorMode: 3, bitsPerChannel: 8,
-    children: manifest.layers.map(n => exportNode(e, n, w, h)),
+    children: manifest.layers.map(n => exportNode(e, n, w, h, warn)),
     imageData: { width: w, height: h, data: new Uint8ClampedArray(composite.buffer) },
   };
   const channels = (JSON.parse(e.channels_json()) as { channels: { id: number; name: string }[] }).channels;
-  const warnings = channels.length ? ['saved selections are not stored in PSD'] : [];
+  if (channels.length) warn('saved selections are not stored in PSD');
   return { bytes: new Uint8Array(writePsd(psd, { generateThumbnail: false })), warnings };
 }

@@ -184,3 +184,62 @@ test('exportPsd warns when the document has a saved selection channel', () => {
   assert.deepEqual(warnings, ['saved selections are not stored in PSD']);
   engine.free();
 });
+
+const cmyk = (c: number, m: number, y: number, k: number) => ({ c, m, y, k });
+const hueCh = (a: number) => ({ a, b: a + 30, c: a + 60, d: a + 90, hue: 10, saturation: -5, lightness: 0 });
+const levelsCh = (g: number) => ({ shadowInput: 20, highlightInput: 235, shadowOutput: 0, highlightOutput: 255, midtoneInput: g });
+
+function adjustmentLayers(): Layer[] {
+  const adj: NonNullable<Layer['adjustment']>[] = [
+    { type: 'brightness/contrast', brightness: 150, contrast: -50, useLegacy: true },
+    { type: 'levels', rgb: levelsCh(1.5), red: levelsCh(2) },
+    { type: 'curves', rgb: [{ input: 0, output: 0 }, { input: 128, output: 160 }, { input: 255, output: 255 }], green: [{ input: 0, output: 10 }, { input: 255, output: 245 }] },
+    { type: 'exposure', exposure: 1, offset: -0.25, gamma: 1.5 },
+    { type: 'vibrance', vibrance: 30, saturation: -10 },
+    { type: 'hue/saturation', master: { a: 0, b: 0, c: 0, d: 0, hue: 180, saturation: 0, lightness: 0 },
+      reds: hueCh(315), yellows: hueCh(15), greens: hueCh(75), cyans: hueCh(135), blues: hueCh(195), magentas: hueCh(255) },
+    { type: 'color balance', shadows: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 }, midtones: { cyanRed: 50, magentaGreen: 0, yellowBlue: -20 },
+      highlights: { cyanRed: 0, magentaGreen: 10, yellowBlue: 0 }, preserveLuminosity: false },
+    { type: 'black & white', reds: 40, yellows: 60, greens: 40, cyans: 60, blues: 20, magentas: 80, useTint: true, tintColor: { r: 206, g: 185, b: 155 } },
+    { type: 'photo filter', color: { r: 236, g: 138, b: 0 }, density: 25, preserveLuminosity: true },
+    { type: 'channel mixer', monochrome: true, red: { red: 100, green: 0, blue: 0, constant: 0 }, green: { red: 0, green: 100, blue: 0, constant: 0 },
+      blue: { red: 0, green: 0, blue: 100, constant: 0 }, gray: { red: 40, green: 40, blue: 20, constant: 0 } },
+    { type: 'color lookup', lookupType: '3dlut', name: 'warm.cube', dither: true, lutFormat: 'cube', dataOrder: 'rgb', tableOrder: 'rgb',
+      lut3DFileData: new TextEncoder().encode('LUT_3D_SIZE 2\n'), lut3DFileName: 'warm.cube' },
+    { type: 'invert' },
+    { type: 'posterize', levels: 4 },
+    { type: 'threshold', level: 128 },
+    { type: 'gradient map', gradientType: 'solid', name: 'Custom', reverse: true, dither: true, smoothness: 1,
+      colorStops: [{ color: { r: 0, g: 0, b: 0 }, location: 0, midpoint: 0.5 }, { color: { r: 255, g: 128, b: 0 }, location: 1, midpoint: 0.25 }],
+      opacityStops: [{ opacity: 1, location: 0, midpoint: 0.5 }, { opacity: 0.2, location: 1, midpoint: 0.5 }] },
+    { type: 'selective color', mode: 'absolute', reds: cmyk(10, 0, 0, 0), yellows: cmyk(0, 0, 0, 0), greens: cmyk(0, 0, 0, 0), cyans: cmyk(0, 0, 0, 0),
+      blues: cmyk(0, 0, 0, 0), magentas: cmyk(0, 0, 0, 0), whites: cmyk(0, 0, 0, 0), neutrals: cmyk(0, 0, 0, -5), blacks: cmyk(0, 0, 0, 0) },
+  ];
+  return adj.map((a, i) => ({ name: `A${i}`, adjustment: a, opacity: 0.6, blendMode: 'multiply' }));
+}
+
+type Node = { kind: string; name: string; opacity: number; blend: string; adjustment?: unknown };
+const layersOf = (e: { manifest(): string }) => (JSON.parse(e.manifest()) as { layers: Node[] }).layers;
+
+test('adjustment layers import as adjustment nodes and survive open, save, open', () => {
+  const psd = { width: 16, height: 16, colorMode: 3, bitsPerChannel: 8, children: adjustmentLayers() } as Psd;
+  const { engine, warnings } = importPsd(bytesOf(psd));
+  const first = layersOf(engine);
+  assert.equal(first.length, 16);
+  assert.ok(first.every(n => n.kind === 'adjustment' && n.opacity === 0.6 && n.blend === 'multiply'), JSON.stringify(first[0]));
+  assert.deepEqual(first[0].adjustment, { kind: 'brightness_contrast', params: { brightness: 150, contrast: -50, legacy: true } });
+  assert.deepEqual(first[9].adjustment, { kind: 'channel_mixer', params: {
+    red: [100, 0, 0, 0], green: [0, 100, 0, 0], blue: [0, 0, 100, 0], gray: [40, 40, 20, 0], monochrome: true } });
+  assert.deepEqual((first[14].adjustment as { params: { gradient: unknown } }).params.gradient, {
+    method: 'classic',
+    color_stops: [{ position: 0, color: [0, 0, 0], midpoint: 0.5 }, { position: 1, color: [255, 128, 0], midpoint: 0.25 }],
+    opacity_stops: [{ position: 0, opacity: 1, midpoint: 0.5 }, { position: 1, opacity: 0.2, midpoint: 0.5 }],
+  });
+  assert.ok(!warnings.some(w => w.includes('adjustment')), warnings.join());
+  const again = importPsd(exportPsd(engine).bytes).engine;
+  const second = layersOf(again);
+  assert.deepEqual(second.map(n => n.adjustment), first.map(n => n.adjustment));
+  const lut = (n: Node) => (n.adjustment as { params: { table: number } }).params.table;
+  assert.deepEqual([...again.tile_bytes(BigInt(lut(second[10])))], [...engine.tile_bytes(BigInt(lut(first[10])))]);
+  engine.free(); again.free();
+});
