@@ -30,7 +30,7 @@ export interface Renderer {
   draw(f: Frame): void;
 }
 
-export const BACKGROUND = [0.16, 0.17, 0.19];
+export const BACKGROUND = [19 / 255, 20 / 255, 22 / 255]; // --bg (#131416)
 
 export function slotOrigin(slot: number): [number, number, number] {
   return [(slot & 1) * 256, ((slot >> 1) & 1) * 256, slot >> 2];
