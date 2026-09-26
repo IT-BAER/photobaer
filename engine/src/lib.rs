@@ -1,4 +1,6 @@
+mod adjust;
 mod blend;
+mod content;
 mod doc;
 mod gradient;
 mod livewire;
@@ -7,6 +9,7 @@ mod region;
 mod resample;
 mod selection;
 mod stroke;
+mod styles;
 
 use blend::PaintMode;
 use doc::{Document, EngineCore, Remap, Target};
@@ -106,6 +109,10 @@ impl Engine {
     /// Partial JSON: name, visible, opacity, fill, blend, clipping, locks, mask_enabled.
     pub fn set_props(&mut self, id: u32, json: &str) -> Result<(), JsError> {
         self.0.doc.set_props(id, json).map_err(err)
+    }
+
+    pub fn set_style(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_style(id, json).map_err(err)
     }
 
     pub fn add_mask(&mut self, id: u32, reveal: bool) -> Result<(), JsError> {

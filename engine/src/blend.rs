@@ -94,6 +94,20 @@ impl Blend {
     }
 }
 
+// Stored by name, as in the manifest's node `blend`.
+impl serde::Serialize for Blend {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.name())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Blend {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Blend, D::Error> {
+        let name = <String as serde::Deserialize>::deserialize(d)?;
+        Blend::parse(&name).map_err(serde::de::Error::custom)
+    }
+}
+
 fn multiply(cb: f32, cs: f32) -> f32 {
     cb * cs
 }

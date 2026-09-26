@@ -47,3 +47,17 @@ test('falling back to an older session never overwrites it and drops the newer b
   assert.equal(kept.name, 'old', 'the commit must go to the other slot');
   assert.equal((await (await open(root)).load())?.name, 'next');
 });
+
+test('autosave writes a blob exactly once across saves', async () => {
+  const root = new FakeDir();
+  const s = await open(root);
+  s.startDocument();
+  const m = (...tiles: number[]) => JSON.stringify({ layers: [{ tiles }], blobs: [9] });
+  const calls: number[] = [];
+  const data = (id: number) => { calls.push(id); return id === 9 ? new Uint8Array([1, 2, 3]) : new Uint8Array([id]); };
+  assert.equal(await s.save('a', m(1), data, () => true), true);
+  assert.equal(await s.save('a', m(1, 2), data, () => true), true);
+  assert.deepEqual(calls.filter(id => id === 9), [9]);
+  const r = await (await open(root)).load();
+  assert.deepEqual([...await r!.tile(9)], [1, 2, 3]);
+});

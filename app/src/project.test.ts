@@ -74,3 +74,34 @@ test('a file that is not a project is rejected', async () => {
   await assert.rejects(unpackProject(gz), /not a Photobaer project/);
   await assert.rejects(unpackProject(new Blob(['plain'])), /not a Photobaer project/);
 });
+
+const manifestV4 = JSON.stringify({
+  format: 'photobaer-manifest', version: 4,
+  layers: [
+    { kind: 'adjustment', mask: { enabled: true, default: 255, tiles: [[0, 0, 21]] } },
+    {
+      kind: 'smart', mask: null, tiles: [[0, 0, 22]], smart: {
+        source: { blob: 30, tiles: [[0, 0, 23]] },
+        filters: [{ id: 1, mask: { enabled: true, default: 255, tiles: [[0, 0, 24]] } }, { id: 2, mask: null }],
+        stack_mask: { enabled: true, default: 255, tiles: [[0, 0, 25]] },
+      },
+    },
+    { kind: 'smart', mask: null, tiles: [], smart: { source: { blob: null, tiles: [] }, filters: [], stack_mask: null } },
+  ],
+  selection: null, last_selection: null, channels: [],
+  blobs: [30, 31],
+});
+
+test('tileIds walks v4 smart sources, filter and stack masks and the blob list', () => {
+  assert.deepEqual([...tileIds(manifestV4)].sort((a, b) => a - b), [21, 22, 23, 24, 25, 30, 31]);
+});
+
+test('a project with a 3-byte blob round-trips', async () => {
+  const blob = new Uint8Array([1, 2, 3]);
+  const data = (id: number) => (id === 30 ? blob : bytes(id));
+  const p = await unpackProject(await packProject(manifestV4, data));
+  assert.equal(p.manifest, manifestV4);
+  assert.equal(p.tiles.size, 7);
+  assert.deepEqual(p.tiles.get(30), blob);
+  for (const id of tileIds(manifestV4)) assert.deepEqual(p.tiles.get(id), data(id));
+});

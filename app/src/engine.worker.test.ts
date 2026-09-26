@@ -32,7 +32,12 @@ test('a new document has one Background pixel layer', async () => {
   await call('init');
   const r = await call('newDoc', 64, 64, 8, null);
   const doc = r.result as { layers: { id: number; name: string; kind: string }[] };
-  assert.deepEqual(doc.layers, [{ id: 1, name: 'Background', kind: 'pixel', visible: true, opacity: 1, fill: 1, blend: 'normal', clipping: false, locks: { transparency: false, pixels: false, position: false }, mask: null }]);
+  const range = { source: [0, 0, 255, 255], destination: [0, 0, 255, 255] };
+  const blending = {
+    blend_if: { gray: range, red: range, green: range, blue: range }, channels: [true, true, true], knockout: 'none',
+    blend_interior: false, blend_clipped: true, transparency_shapes: true, layer_mask_hides_effects: false, vector_mask_hides_effects: false,
+  };
+  assert.deepEqual(doc.layers, [{ id: 1, name: 'Background', kind: 'pixel', visible: true, opacity: 1, fill: 1, blend: 'normal', clipping: false, locks: { transparency: false, pixels: false, position: false }, mask: null, style: null, blending }]);
 });
 
 test('addLayer picks the next free default name and reports the created id', async () => {

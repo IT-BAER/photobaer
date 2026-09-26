@@ -4,13 +4,17 @@ const MAGIC = 'PBAERPRJ';
 const VERSION = 1;
 
 // v1 and v2 store a dense array of tile ids, v3 a sparse list of [tx, ty, id].
+// v4 adds smart-object tiles and a top-level list of blob ids (smart sources, patterns, lookup tables).
 type TileList = (number | [number, number, number])[];
-type ManifestNode = { tiles?: TileList; mask?: { tiles?: TileList } | null; children?: ManifestNode[] };
+type Mask = { tiles?: TileList } | null;
+type Smart = { source?: { tiles?: TileList }; filters?: { mask?: Mask }[]; stack_mask?: Mask };
+type ManifestNode = { tiles?: TileList; mask?: Mask; smart?: Smart; children?: ManifestNode[] };
 type Manifest = {
   layers: ManifestNode[];
-  selection?: { tiles?: TileList } | null;
-  last_selection?: { tiles?: TileList } | null;
+  selection?: Mask;
+  last_selection?: Mask;
   channels?: { tiles?: TileList }[];
+  blobs?: number[];
 };
 
 export function tileIds(manifest: string): Set<number> {
@@ -24,6 +28,9 @@ export function tileIds(manifest: string): Set<number> {
   const walk = (n: ManifestNode) => {
     add(n.tiles);
     add(n.mask?.tiles);
+    add(n.smart?.source?.tiles);
+    for (const f of n.smart?.filters ?? []) add(f.mask?.tiles);
+    add(n.smart?.stack_mask?.tiles);
     for (const c of n.children ?? []) walk(c);
   };
   const m = JSON.parse(manifest) as Manifest;
@@ -31,6 +38,7 @@ export function tileIds(manifest: string): Set<number> {
   add(m.selection?.tiles);
   add(m.last_selection?.tiles);
   for (const c of m.channels ?? []) add(c.tiles);
+  add(m.blobs);
   return ids;
 }
 

@@ -173,7 +173,7 @@ impl Document {
         let mut out = Vec::new();
         for id in ids {
             let n = self.node(id).expect("a listed node");
-            if !n.is_group() {
+            if n.pixel_tiles().is_ok() {
                 out.push(At::Pixels(id));
             }
             if n.mask.is_some() {

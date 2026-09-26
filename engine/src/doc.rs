@@ -4,6 +4,9 @@ mod transform;
 mod warp;
 #[path = "canvas.rs"]
 mod canvas;
+#[cfg(test)]
+#[path = "doc_m3_tests.rs"]
+mod m3_tests;
 pub use transform::Remap;
 
 use std::cell::RefCell;
@@ -12,13 +15,16 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::adjust::Adjustment;
 use crate::blend;
 use crate::blend::{blend_channel, blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blend, PaintMode};
+use crate::content::{FillContent, Filter, GlobalLight, LayerComp, Link, PatternEntry, Smart, SmartFilter, StackMode, WarpMesh};
 use crate::gradient;
 use crate::livewire::{self, LiveWire};
 use crate::pattern::Pattern;
 use crate::region;
 use crate::selection::{gaussian_kernel, Ellipse, MaskShape, Mode, Polygon, Rect, Shape};
+use crate::styles::{Blending, Style};
 use crate::stroke::{self, DualBrush, Dyn, PoseOverride, Sample, SampledTip, Source, Spacer, Tip, TipKind, TipShape};
 
 pub const TILE: usize = 256;
@@ -28,7 +34,7 @@ const TILE_BYTES_U16: usize = TILE_PIXELS * 4 * 2;
 const MASK_BYTES_U8: usize = TILE_PIXELS;
 const MASK_BYTES_U16: usize = TILE_PIXELS * 2;
 const MANIFEST_FORMAT: &str = "photobaer-manifest";
-const MANIFEST_VERSION: u32 = 3;
+const MANIFEST_VERSION: u32 = 4;
 // A tile coordinate far outside the largest canvas is a broken file, not a moved layer.
 const MAX_TILE_COORD: u32 = 1 << 20;
 // Ids travel as JS numbers; anything above 2^53 would lose precision or overflow next_id.
@@ -450,6 +456,11 @@ pub struct Channel {
 pub enum Kind {
     Pixel(Tiles),
     Group(Vec<Node>),
+    /// No pixels; unbounded, its mask bounds it.
+    Adjustment(Adjustment),
+    /// No pixels; unbounded, its mask bounds it.
+    Fill(FillContent),
+    Smart(Box<Smart>),
 }
 
 #[derive(Clone)]
@@ -464,6 +475,8 @@ pub struct Node {
     pub locks: Locks,
     pub mask: Option<Mask>,
     pub kind: Kind,
+    pub style: Option<Style>,
+    pub blending: Blending,
 }
 
 impl Node {
@@ -479,6 +492,8 @@ impl Node {
             locks: Locks::default(),
             mask: None,
             kind,
+            style: None,
+            blending: Blending::default(),
         }
     }
 
@@ -486,18 +501,47 @@ impl Node {
         matches!(self.kind, Kind::Group(_))
     }
 
+    fn kind_name(&self) -> &'static str {
+        match self.kind {
+            Kind::Pixel(_) => "pixel",
+            Kind::Group(_) => "group",
+            Kind::Adjustment(_) => "adjustment",
+            Kind::Fill(_) => "fill",
+            Kind::Smart(_) => "smart",
+        }
+    }
+
+    fn no_pixels(&self) -> String {
+        let what = match self.kind {
+            Kind::Adjustment(_) => "an adjustment layer",
+            Kind::Fill(_) => "a fill layer",
+            _ => "a group",
+        };
+        format!("node {} is {what} and has no pixels", self.id)
+    }
+
+    // A smart object's pixels are its cache.
     fn pixel_tiles(&self) -> Result<&Tiles, String> {
         match &self.kind {
             Kind::Pixel(t) => Ok(t),
-            Kind::Group(_) => Err(format!("node {} is a group and has no pixels", self.id)),
+            Kind::Smart(s) => Ok(&s.cache),
+            _ => Err(self.no_pixels()),
         }
     }
 
     fn pixel_tiles_mut(&mut self) -> Result<&mut Tiles, String> {
-        let id = self.id;
+        let msg = self.no_pixels();
         match &mut self.kind {
             Kind::Pixel(t) => Ok(t),
-            Kind::Group(_) => Err(format!("node {id} is a group and has no pixels")),
+            Kind::Smart(s) => Ok(&mut s.cache),
+            _ => Err(msg),
+        }
+    }
+
+    fn smart_mut(&mut self) -> &mut Smart {
+        match &mut self.kind {
+            Kind::Smart(s) => s,
+            _ => unreachable!("a smart slot points at a smart node"),
         }
     }
 }
@@ -523,7 +567,7 @@ fn list_mut<'a>(nodes: &'a mut Vec<Node>, path: &[usize]) -> &'a mut Vec<Node> {
     for &i in path {
         cur = match &mut cur[i].kind {
             Kind::Group(ch) => ch,
-            Kind::Pixel(_) => unreachable!("a node path only walks through groups"),
+            _ => unreachable!("a node path only walks through groups"),
         };
     }
     cur
@@ -535,7 +579,7 @@ fn node_at<'a>(nodes: &'a [Node], path: &[usize]) -> &'a Node {
     for &i in prefix {
         cur = match &cur[i].kind {
             Kind::Group(ch) => ch,
-            Kind::Pixel(_) => unreachable!("a node path only walks through groups"),
+            _ => unreachable!("a node path only walks through groups"),
         };
     }
     &cur[*last]
@@ -552,6 +596,9 @@ fn node_at_mut<'a>(nodes: &'a mut Vec<Node>, path: &[usize]) -> &'a mut Node {
 enum Slot {
     Pixels(Vec<usize>),
     Mask(Vec<usize>),
+    Source(Vec<usize>),
+    FilterMask(Vec<usize>, usize),
+    StackMask(Vec<usize>),
     Selection,
     LastSelection,
     Channel(usize),
@@ -561,6 +608,8 @@ enum Slot {
 struct Loading {
     // tile id -> (is_mask, [(slot, tx, ty)]) still waiting for pixel data.
     slots: HashMap<u64, (bool, Vec<(Slot, i32, i32)>)>,
+    // Blob ids still waiting for their bytes.
+    blobs: HashSet<u64>,
     pending_ids: HashSet<u64>,
     max_referenced_id: u64,
 }
@@ -574,6 +623,11 @@ pub struct Document {
     selection: Option<SelMask>,
     last_selection: Option<SelMask>,
     channels: Vec<Channel>,
+    global_light: GlobalLight,
+    patterns: Vec<PatternEntry>,
+    layer_comps: Vec<LayerComp>,
+    // Immutable bytes (smart sources, pattern pixels, lookup tables) with ids from `next_id`.
+    blobs: HashMap<u64, Arc<Vec<u8>>>,
     next_id: u64,
     next_node_id: u32,
     loading: Option<Loading>,
@@ -1030,6 +1084,10 @@ impl Document {
             selection: None,
             last_selection: None,
             channels: Vec::new(),
+            global_light: GlobalLight::default(),
+            patterns: Vec::new(),
+            layer_comps: Vec::new(),
+            blobs: HashMap::new(),
             next_id: 1,
             next_node_id: 2,
             loading: None,
@@ -1336,9 +1394,7 @@ impl Document {
 
     fn check_pixel_edit(&self, id: u32) -> Result<(), String> {
         let node = self.node(id)?;
-        if node.is_group() {
-            return Err(format!("node {id} is a group and has no pixels"));
-        }
+        node.pixel_tiles()?;
         if node.locks.pixels {
             return Err("layer pixels are locked".into());
         }
@@ -3324,7 +3380,7 @@ impl Document {
     }
 
     fn node_tile(&self, node: &Node, prog: &mut Program) -> Option<u64> {
-        let Kind::Pixel(tiles) = &node.kind else { return None };
+        let Ok(tiles) = node.pixel_tiles() else { return None };
         let t = self.level_tile(tiles, None, prog.level, prog.tx, prog.ty)?;
         Some(self.payload(prog, t))
     }
@@ -3354,7 +3410,7 @@ impl Document {
             return;
         }
         let src = match &node.kind {
-            Kind::Pixel(_) => match self.node_tile(node, prog) {
+            Kind::Pixel(_) | Kind::Smart(_) => match self.node_tile(node, prog) {
                 Some(k) => k,
                 None => return,
             },
@@ -3363,6 +3419,7 @@ impl Document {
                 self.emit_list(children, prog);
                 0
             }
+            Kind::Adjustment(_) | Kind::Fill(_) => return,
         };
         let mut s = Step::new(Op::Draw);
         (s.src, s.mask_kind, s.mask, s.mask_const, s.scale, s.mode, s.node) =
@@ -3381,7 +3438,8 @@ impl Document {
         let mut shape = Step::new(Op::PushShape);
         (shape.mask_kind, shape.mask, shape.mask_const, shape.scale) = (mk, mkey, mc, k);
         match &base.kind {
-            Kind::Pixel(_) => {
+            Kind::Adjustment(_) | Kind::Fill(_) => return,
+            Kind::Pixel(_) | Kind::Smart(_) => {
                 let Some(src) = self.node_tile(base, prog) else { return };
                 shape.src = src;
                 prog.steps.push(shape);
@@ -3654,30 +3712,101 @@ impl Document {
     // ---------- persistence ----------
 
     fn node_out<'a>(n: &'a Node, tiles_out: bool) -> NodeOut<'a> {
+        let mask_out = move |m: &Mask| MaskOut {
+            enabled: m.enabled,
+            default: m.default,
+            tiles: if tiles_out { Some(m.tiles.out()) } else { None },
+        };
         NodeOut {
             id: n.id,
             name: &n.name,
-            kind: if n.is_group() { "group" } else { "pixel" },
+            kind: n.kind_name(),
             visible: n.visible,
             opacity: n.opacity,
             fill: n.fill,
             blend: n.blend.name(),
             clipping: n.clipping,
             locks: n.locks,
-            mask: n.mask.as_ref().map(|m| MaskOut {
-                enabled: m.enabled,
-                default: m.default,
-                tiles: if tiles_out { Some(m.tiles.out()) } else { None },
-            }),
-            tiles: match (&n.kind, tiles_out) {
-                (Kind::Pixel(t), true) => Some(t.out()),
+            mask: n.mask.as_ref().map(mask_out),
+            style: &n.style,
+            blending: &n.blending,
+            tiles: match (n.pixel_tiles(), tiles_out) {
+                (Ok(t), true) => Some(t.out()),
                 _ => None,
             },
             children: match &n.kind {
                 Kind::Group(ch) => Some(ch.iter().map(|c| Document::node_out(c, tiles_out)).collect()),
-                Kind::Pixel(_) => None,
+                _ => None,
+            },
+            adjustment: match &n.kind {
+                Kind::Adjustment(a) => Some(a),
+                _ => None,
+            },
+            content: match &n.kind {
+                Kind::Fill(c) => Some(c),
+                _ => None,
+            },
+            smart: match &n.kind {
+                Kind::Smart(s) => Some(SmartOut {
+                    link: &s.link,
+                    source: SourceOut { blob: s.source_blob, tiles: tiles_out.then(|| s.source_tiles.out()) },
+                    source_size: s.source_size,
+                    transform: s.transform,
+                    warp: &s.warp,
+                    filters: s
+                        .filters
+                        .iter()
+                        .map(|f| FilterOut {
+                            id: f.id,
+                            filter: &f.filter,
+                            enabled: f.enabled,
+                            opacity: f.opacity,
+                            blend: f.blend,
+                            mask: f.mask.as_ref().map(mask_out),
+                        })
+                        .collect(),
+                    stack_mask: s.stack_mask.as_ref().map(mask_out),
+                    stack_mode: s.stack_mode,
+                }),
+                _ => None,
             },
         }
+    }
+
+    // Every blob id the document references, ascending.
+    fn blob_refs(&self) -> Vec<u64> {
+        fn walk(nodes: &[Node], out: &mut Vec<u64>) {
+            for n in nodes {
+                match &n.kind {
+                    Kind::Group(ch) => walk(ch, out),
+                    Kind::Adjustment(a) => out.extend(a.blob()),
+                    Kind::Smart(s) => {
+                        out.extend(s.source_blob);
+                        out.extend(s.filters.iter().filter_map(|f| f.filter.blob()));
+                    }
+                    Kind::Pixel(_) | Kind::Fill(_) => {}
+                }
+            }
+        }
+        let mut out: Vec<u64> = self.patterns.iter().map(|p| p.blob).collect();
+        walk(&self.nodes, &mut out);
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    /// Replaces a node's layer style; `null` removes it. Adjustment layers refuse a style.
+    pub fn set_style(&mut self, id: u32, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let style: Option<Style> = serde_json::from_str(json).map_err(|e| format!("invalid style: {e}"))?;
+        if let Some(st) = &style {
+            if matches!(self.node(id)?.kind, Kind::Adjustment(_)) {
+                return Err(format!("node {id} is an adjustment layer and cannot have a layer style"));
+            }
+            check_style(st, |p| self.patterns.iter().any(|e| e.id == p))?;
+        }
+        self.node_mut(id)?.style = style;
+        Ok(())
     }
 
     pub fn manifest(&self) -> String {
@@ -3699,6 +3828,10 @@ impl Document {
                 .iter()
                 .map(|c| ChannelOut { id: c.id, name: &c.name, default: c.mask.default, tiles: c.mask.tiles.out() })
                 .collect(),
+            global_light: &self.global_light,
+            patterns: &self.patterns,
+            layer_comps: &self.layer_comps,
+            blobs: self.blob_refs(),
         };
         serde_json::to_string(&m).expect("manifest serialization cannot fail")
     }
@@ -3724,15 +3857,14 @@ impl Document {
 
     fn tile_bytes_in(nodes: &[Node], id: u64) -> Option<Vec<u8>> {
         for n in nodes {
-            if let Kind::Pixel(tiles) = &n.kind {
-                if let Some(b) = find_tile(tiles, id) {
-                    return Some(b);
-                }
+            let mut planes: Vec<&Tiles> = n.pixel_tiles().into_iter().chain(n.mask.as_ref().map(|m| &m.tiles)).collect();
+            if let Kind::Smart(s) = &n.kind {
+                planes.push(&s.source_tiles);
+                let masks = s.filters.iter().filter_map(|f| f.mask.as_ref()).chain(s.stack_mask.as_ref());
+                planes.extend(masks.map(|m| &m.tiles));
             }
-            if let Some(m) = &n.mask {
-                if let Some(b) = find_tile(&m.tiles, id) {
-                    return Some(b);
-                }
+            if let Some(b) = planes.into_iter().find_map(|t| find_tile(t, id)) {
+                return Some(b);
             }
             if let Kind::Group(ch) = &n.kind {
                 if let Some(b) = Document::tile_bytes_in(ch, id) {
@@ -3744,6 +3876,9 @@ impl Document {
     }
 
     pub fn tile_bytes(&self, id: u64) -> Result<Vec<u8>, String> {
+        if let Some(b) = self.blobs.get(&id) {
+            return Ok(b.to_vec());
+        }
         Document::tile_bytes_in(&self.nodes, id)
             .or_else(|| {
                 self.selection
@@ -3780,6 +3915,11 @@ impl Document {
                         mask: None,
                         tiles: Some(l.tiles.clone()),
                         children: None,
+                        style: None,
+                        blending: None,
+                        adjustment: None,
+                        content: None,
+                        smart: None,
                     })
                     .collect();
                 let layers = spread_nodes(nodes, m.tiles_x, m.tiles_y)?;
@@ -3791,6 +3931,7 @@ impl Document {
                     None,
                     None,
                     Vec::new(),
+                    None,
                 )
             }
             2 => {
@@ -3804,6 +3945,7 @@ impl Document {
                     None,
                     None,
                     Vec::new(),
+                    None,
                 )
             }
             3 => {
@@ -3816,6 +3958,26 @@ impl Document {
                     m.selection,
                     m.last_selection,
                     m.channels,
+                    None,
+                )
+            }
+            4 => {
+                let m: ManifestV4In = serde_json::from_str(json).map_err(|e| format!("invalid manifest: {e}"))?;
+                let extras = V4Extras {
+                    global_light: m.global_light,
+                    patterns: m.patterns,
+                    layer_comps: m.layer_comps,
+                    blobs: m.blobs,
+                };
+                Document::build(
+                    Head { width: m.width, height: m.height, depth: m.depth, tiles_x: m.tiles_x, tiles_y: m.tiles_y },
+                    m.next_id,
+                    m.next_node_id,
+                    m.layers,
+                    m.selection,
+                    m.last_selection,
+                    m.channels,
+                    Some(extras),
                 )
             }
             v => Err(format!("unsupported version {v}")),
@@ -3831,6 +3993,7 @@ impl Document {
         selection: Option<SelIn>,
         last_selection: Option<SelIn>,
         channels: Vec<ChannelIn>,
+        extras: Option<V4Extras>,
     ) -> Result<Document, String> {
         let Head { width, height, depth, tiles_x, tiles_y } = head;
         validate_dims(width, height, depth)?;
@@ -3851,7 +4014,17 @@ impl Document {
             kinds: HashMap::new(),
             slots: HashMap::new(),
             max_referenced_id: 0,
+            v4: extras.is_some(),
+            patterns: HashSet::new(),
+            blob_refs: Vec::new(),
         };
+        let V4Extras { global_light, patterns, layer_comps, blobs } = extras.unwrap_or_default();
+        for p in &patterns {
+            if !ctx.patterns.insert(p.id.clone()) {
+                return Err(format!("duplicate pattern id {}", p.id));
+            }
+            ctx.blob_refs.push(p.blob);
+        }
         let mut path = Vec::new();
         let nodes = build_nodes(&layers, &mut path, &mut ctx)?;
         if next_node_id <= ctx.max_node_id {
@@ -3878,7 +4051,26 @@ impl Document {
             let mask = take_sel(&SelIn { default: c.default, tiles: c.tiles.clone() }, Slot::Channel(i), &mut ctx)?;
             chans.push(Channel { id: c.id, name: c.name.clone(), mask });
         }
-        let pending_ids: HashSet<u64> = ctx.slots.keys().copied().collect();
+        for st in layer_comps.iter().flat_map(|c| &c.layers).filter_map(|l| l.style.as_ref()) {
+            check_style(st, |id| ctx.patterns.contains(id))?;
+        }
+        let mut listed = HashSet::new();
+        for &id in &blobs {
+            if id == 0 || id > MAX_ID {
+                return Err(format!("blob id {id} out of range"));
+            }
+            if !listed.insert(id) {
+                return Err(format!("duplicate blob id {id}"));
+            }
+            if ctx.kinds.contains_key(&id) {
+                return Err(format!("id {id} is used as both a tile and a blob"));
+            }
+            ctx.max_referenced_id = ctx.max_referenced_id.max(id);
+        }
+        if let Some(id) = ctx.blob_refs.iter().find(|id| !listed.contains(id)) {
+            return Err(format!("blob {id} is referenced but not listed"));
+        }
+        let pending_ids: HashSet<u64> = ctx.slots.keys().copied().chain(listed.iter().copied()).collect();
         Ok(Document {
             width,
             height,
@@ -3887,10 +4079,15 @@ impl Document {
             selection,
             last_selection,
             channels: chans,
+            global_light,
+            patterns,
+            layer_comps,
+            blobs: HashMap::new(),
             next_id,
             next_node_id,
             loading: Some(Loading {
                 slots: ctx.slots,
+                blobs: listed,
                 pending_ids,
                 max_referenced_id: ctx.max_referenced_id,
             }),
@@ -3901,6 +4098,11 @@ impl Document {
     pub fn put_tile(&mut self, id: u64, bytes: &[u8]) -> Result<(), String> {
         let depth = self.depth;
         let loading = self.loading.as_ref().ok_or("document is not loading")?;
+        if loading.blobs.contains(&id) {
+            self.blobs.insert(id, Arc::new(bytes.to_vec()));
+            self.loading.as_mut().expect("still loading").pending_ids.remove(&id);
+            return Ok(());
+        }
         let (is_mask, slots) = loading
             .slots
             .get(&id)
@@ -3915,6 +4117,20 @@ impl Document {
                     .mask
                     .as_mut()
                     .expect("mask exists when a mask tile refers to it")
+                    .tiles
+                    .put(tx, ty, tile),
+                Slot::Source(path) => node_at_mut(&mut self.nodes, &path).smart_mut().source_tiles.put(tx, ty, tile),
+                Slot::FilterMask(path, i) => node_at_mut(&mut self.nodes, &path).smart_mut().filters[i]
+                    .mask
+                    .as_mut()
+                    .expect("a filter mask exists when a mask tile refers to it")
+                    .tiles
+                    .put(tx, ty, tile),
+                Slot::StackMask(path) => node_at_mut(&mut self.nodes, &path)
+                    .smart_mut()
+                    .stack_mask
+                    .as_mut()
+                    .expect("a stack mask exists when a mask tile refers to it")
                     .tiles
                     .put(tx, ty, tile),
                 Slot::Selection => self.selection.as_mut().expect("a selection exists").tiles.put(tx, ty, tile),
@@ -3952,6 +4168,18 @@ struct LoadCtx {
     kinds: HashMap<u64, bool>,
     slots: HashMap<u64, (bool, Vec<(Slot, i32, i32)>)>,
     max_referenced_id: u64,
+    v4: bool,
+    patterns: HashSet<String>,
+    blob_refs: Vec<u64>,
+}
+
+// A style may only name document patterns and holds at most 10 instances per list.
+fn check_style(style: &Style, has_pattern: impl Fn(&str) -> bool) -> Result<(), String> {
+    style.check()?;
+    match style.pattern_ids().find(|id| !has_pattern(id)) {
+        Some(id) => Err(format!("unknown pattern {id}")),
+        None => Ok(()),
+    }
 }
 
 // A tile grid of a v1/v2 manifest, dense and canvas sized, as sparse entries.
@@ -3991,6 +4219,11 @@ fn spread_nodes(nodes: Vec<NodeIn<u64>>, tiles_x: u32, tiles_y: u32) -> Result<V
                 },
                 tiles: n.tiles.as_deref().map(|t| spread(t, tiles_x, tiles_y)).transpose()?,
                 children: n.children.map(|c| spread_nodes(c, tiles_x, tiles_y)).transpose()?,
+                style: n.style,
+                blending: n.blending,
+                adjustment: n.adjustment,
+                content: n.content,
+                smart: n.smart,
             })
         })
         .collect()
@@ -4040,40 +4273,58 @@ fn build_nodes(in_nodes: &[NodeIn<Coord>], path: &mut Vec<usize>, ctx: &mut Load
         let blend = Blend::parse(&n.blend)?;
         unit(n.opacity, "opacity")?;
         unit(n.fill, "fill")?;
-        path.push(i);
-        let kind = match n.kind.as_str() {
-            "pixel" => {
-                if blend == Blend::PassThrough {
-                    return Err("pass through is only allowed on groups".into());
-                }
-                if n.children.is_some() {
-                    return Err("a pixel node cannot have children".into());
-                }
-                let ids = n.tiles.as_ref().ok_or("a pixel node needs a tiles array")?;
-                Kind::Pixel(take_tiles(ids, false, Slot::Pixels(path.clone()), false, ctx)?)
-            }
-            "group" => {
-                if n.tiles.is_some() {
-                    return Err("a group cannot have a tiles array".into());
-                }
-                let children = n.children.as_deref().ok_or("a group needs a children array")?;
-                Kind::Group(build_nodes(children, path, ctx)?)
-            }
+        let m3 = [n.style.is_some(), n.blending.is_some(), n.adjustment.is_some(), n.content.is_some(), n.smart.is_some()];
+        if !ctx.v4 && m3.contains(&true) {
+            return Err("styles, blending options and adjustment, fill and smart nodes need manifest v4".into());
+        }
+        let blending = match &n.blending {
+            Some(b) => b.clone(),
+            None if ctx.v4 => return Err(format!("node {} needs blending options", n.id)),
+            None => Blending::default(),
+        };
+        // Which of tiles, children, adjustment, content and smart each kind carries.
+        let want = match n.kind.as_str() {
+            "pixel" => [true, false, false, false, false],
+            "group" => [false, true, false, false, false],
+            "adjustment" => [false, false, true, false, false],
+            "fill" => [false, false, false, true, false],
+            "smart" => [true, false, false, false, true],
             other => return Err(format!("unknown node kind {other}")),
         };
-        let mask = match &n.mask {
-            None => None,
-            Some(m) => {
-                if m.default > ctx.max_mask {
-                    return Err("mask default out of range".into());
-                }
-                Some(Mask {
-                    enabled: m.enabled,
-                    default: m.default,
-                    tiles: take_tiles(&m.tiles, true, Slot::Mask(path.clone()), false, ctx)?,
-                })
+        let has = [n.tiles.is_some(), n.children.is_some(), m3[2], m3[3], m3[4]];
+        for (k, field) in ["tiles", "children", "adjustment", "content", "smart"].iter().enumerate() {
+            if has[k] != want[k] {
+                let verb = if want[k] { "needs" } else { "cannot have" };
+                return Err(format!("a {} node {verb} a {field} field", n.kind));
             }
+        }
+        if blend == Blend::PassThrough && n.kind != "group" {
+            return Err("pass through is only allowed on groups".into());
+        }
+        if let Some(st) = &n.style {
+            if n.kind == "adjustment" {
+                return Err(format!("node {} is an adjustment layer and cannot have a layer style", n.id));
+            }
+            check_style(st, |id| ctx.patterns.contains(id))?;
+        }
+        path.push(i);
+        let kind = match (n.kind.as_str(), &n.tiles, &n.children, &n.adjustment, &n.content, &n.smart) {
+            ("pixel", Some(ids), ..) => Kind::Pixel(take_tiles(ids, false, Slot::Pixels(path.clone()), false, ctx)?),
+            ("group", _, Some(children), ..) => Kind::Group(build_nodes(children, path, ctx)?),
+            ("adjustment", _, _, Some(a), ..) => {
+                ctx.blob_refs.extend(a.blob());
+                Kind::Adjustment(a.clone())
+            }
+            ("fill", _, _, _, Some(c), _) => {
+                if let Some(id) = c.pattern_id().filter(|id| !ctx.patterns.contains(*id)) {
+                    return Err(format!("unknown pattern {id}"));
+                }
+                Kind::Fill(c.clone())
+            }
+            ("smart", Some(ids), _, _, _, Some(s)) => Kind::Smart(Box::new(take_smart(s, ids, path, ctx)?)),
+            _ => unreachable!("the fields were checked against the kind"),
         };
+        let mask = n.mask.as_ref().map(|m| take_mask(m, Slot::Mask(path.clone()), ctx)).transpose()?;
         path.pop();
         out.push(Node {
             id: n.id,
@@ -4086,9 +4337,58 @@ fn build_nodes(in_nodes: &[NodeIn<Coord>], path: &mut Vec<usize>, ctx: &mut Load
             locks: n.locks,
             mask,
             kind,
+            style: n.style.clone(),
+            blending,
         });
     }
     Ok(out)
+}
+
+fn take_mask(m: &MaskIn<Coord>, slot: Slot, ctx: &mut LoadCtx) -> Result<Mask, String> {
+    if m.default > ctx.max_mask {
+        return Err("mask default out of range".into());
+    }
+    Ok(Mask { enabled: m.enabled, default: m.default, tiles: take_tiles(&m.tiles, true, slot, false, ctx)? })
+}
+
+fn take_smart(s: &SmartIn, cache: &[Coord], path: &[usize], ctx: &mut LoadCtx) -> Result<Smart, String> {
+    let cache = take_tiles(cache, false, Slot::Pixels(path.to_vec()), false, ctx)?;
+    let source_tiles = take_tiles(&s.source.tiles, false, Slot::Source(path.to_vec()), false, ctx)?;
+    ctx.blob_refs.extend(s.source.blob);
+    let mut ids = HashSet::new();
+    let mut filters = Vec::with_capacity(s.filters.len());
+    for (i, f) in s.filters.iter().enumerate() {
+        if !ids.insert(f.id) {
+            return Err(format!("duplicate smart filter id {}", f.id));
+        }
+        unit(f.opacity, "filter opacity")?;
+        if f.blend == Blend::PassThrough {
+            return Err("pass through is only allowed on groups".into());
+        }
+        ctx.blob_refs.extend(f.filter.blob());
+        let mask = f.mask.as_ref().map(|m| take_mask(m, Slot::FilterMask(path.to_vec(), i), ctx)).transpose()?;
+        filters.push(SmartFilter {
+            id: f.id,
+            filter: f.filter.clone(),
+            enabled: f.enabled,
+            opacity: f.opacity,
+            blend: f.blend,
+            mask,
+        });
+    }
+    let stack_mask = s.stack_mask.as_ref().map(|m| take_mask(m, Slot::StackMask(path.to_vec()), ctx)).transpose()?;
+    Ok(Smart {
+        link: s.link.clone(),
+        source_blob: s.source.blob,
+        source_tiles,
+        source_size: s.source_size,
+        transform: s.transform,
+        warp: s.warp.clone(),
+        filters,
+        stack_mask,
+        stack_mode: s.stack_mode,
+        cache,
+    })
 }
 
 // ---------- serde types ----------
@@ -4148,10 +4448,47 @@ struct NodeOut<'a> {
     clipping: bool,
     locks: Locks,
     mask: Option<MaskOut>,
+    style: &'a Option<Style>,
+    blending: &'a Blending,
     #[serde(skip_serializing_if = "Option::is_none")]
     tiles: Option<Vec<Coord>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     children: Option<Vec<NodeOut<'a>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    adjustment: Option<&'a Adjustment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<&'a FillContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    smart: Option<SmartOut<'a>>,
+}
+
+#[derive(Serialize)]
+struct SourceOut {
+    blob: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tiles: Option<Vec<Coord>>,
+}
+
+#[derive(Serialize)]
+struct FilterOut<'a> {
+    id: u32,
+    filter: &'a Filter,
+    enabled: bool,
+    opacity: f32,
+    blend: Blend,
+    mask: Option<MaskOut>,
+}
+
+#[derive(Serialize)]
+struct SmartOut<'a> {
+    link: &'a Link,
+    source: SourceOut,
+    source_size: [u32; 2],
+    transform: [f64; 9],
+    warp: &'a Option<WarpMesh>,
+    filters: Vec<FilterOut<'a>>,
+    stack_mask: Option<MaskOut>,
+    stack_mode: Option<StackMode>,
 }
 
 #[derive(Serialize)]
@@ -4169,6 +4506,10 @@ struct ManifestOut<'a> {
     selection: Option<SelOut>,
     last_selection: Option<SelOut>,
     channels: Vec<ChannelOut<'a>>,
+    global_light: &'a GlobalLight,
+    patterns: &'a [PatternEntry],
+    layer_comps: &'a [LayerComp],
+    blobs: Vec<u64>,
 }
 
 #[derive(Deserialize)]
@@ -4197,6 +4538,47 @@ struct NodeIn<T> {
     tiles: Option<Vec<T>>,
     #[serde(default = "no_children")]
     children: Option<Vec<NodeIn<T>>>,
+    #[serde(default)]
+    style: Option<Style>,
+    #[serde(default)]
+    blending: Option<Blending>,
+    #[serde(default)]
+    adjustment: Option<Adjustment>,
+    #[serde(default)]
+    content: Option<FillContent>,
+    #[serde(default)]
+    smart: Option<SmartIn>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SourceIn {
+    blob: Option<u64>,
+    tiles: Vec<Coord>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FilterIn {
+    id: u32,
+    filter: Filter,
+    enabled: bool,
+    opacity: f32,
+    blend: Blend,
+    mask: Option<MaskIn<Coord>>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SmartIn {
+    link: Link,
+    source: SourceIn,
+    source_size: [u32; 2],
+    transform: [f64; 9],
+    warp: Option<WarpMesh>,
+    filters: Vec<FilterIn>,
+    stack_mask: Option<MaskIn<Coord>>,
+    stack_mode: Option<StackMode>,
 }
 
 fn no_mask<T>() -> Option<MaskIn<T>> {
@@ -4261,6 +4643,39 @@ struct ManifestV3In {
     last_selection: Option<SelIn>,
     #[serde(default)]
     channels: Vec<ChannelIn>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ManifestV4In {
+    #[allow(dead_code)]
+    format: String,
+    #[allow(dead_code)]
+    version: u32,
+    width: u32,
+    height: u32,
+    depth: u8,
+    tiles_x: u32,
+    tiles_y: u32,
+    next_id: u64,
+    next_node_id: u32,
+    layers: Vec<NodeIn<Coord>>,
+    selection: Option<SelIn>,
+    last_selection: Option<SelIn>,
+    channels: Vec<ChannelIn>,
+    global_light: GlobalLight,
+    patterns: Vec<PatternEntry>,
+    layer_comps: Vec<LayerComp>,
+    blobs: Vec<u64>,
+}
+
+// The document-level fields v4 adds; v1 to v3 load with the defaults.
+#[derive(Default)]
+struct V4Extras {
+    global_light: GlobalLight,
+    patterns: Vec<PatternEntry>,
+    layer_comps: Vec<LayerComp>,
+    blobs: Vec<u64>,
 }
 
 #[derive(Deserialize)]
@@ -6059,7 +6474,7 @@ mod tests {
         assert_eq!(n.locks, Locks::default());
         assert_eq!(at(&d, 0, 0), [7, 8, 9, 255]);
         let m = manifest_value(&d);
-        assert_eq!(m["version"].as_u64().unwrap(), 3);
+        assert_eq!(m["version"].as_u64().unwrap(), 4);
         assert_eq!(m["next_node_id"].as_u64().unwrap(), 3);
     }
 
@@ -6119,7 +6534,7 @@ mod tests {
             ("unknown kind", broken(|v| v["layers"][0]["kind"] = "text".into())),
             ("opacity out of range", broken(|v| v["layers"][0]["opacity"] = 2.into())),
             ("unknown field", broken(|v| v["layers"][0]["extra"] = 1.into())),
-            ("unsupported version", broken(|v| v["version"] = 4.into())),
+            ("unsupported version", broken(|v| v["version"] = 5.into())),
             ("tiles_x mismatch", broken(|v| v["tiles_x"] = 9.into())),
         ];
         for (what, json) in cases {
@@ -6854,7 +7269,7 @@ mod tests {
         d.select_ellipse(0.0, 0.0, 200.0, 100.0, true, Mode::New).unwrap();
         d.offset_layer(1, -300, -40).unwrap();
         let m = manifest_value(&d);
-        assert_eq!(m["version"].as_u64().unwrap(), 3);
+        assert_eq!(m["version"].as_u64().unwrap(), 4);
         assert!(
             m["layers"][0]["tiles"].as_array().unwrap().iter().any(|e| e[0].as_i64().unwrap() < 0),
             "a tile outside the canvas is stored"
@@ -6892,7 +7307,7 @@ mod tests {
         assert_eq!(at(&d, 0, 0)[3], 0, "the empty dense slot stays empty");
         assert_eq!(d.flatten_tile_rgba8(1, 0).unwrap()[0..4], [7, 8, 9, 255]);
         let m = manifest_value(&d);
-        assert_eq!(m["version"].as_u64().unwrap(), 3);
+        assert_eq!(m["version"].as_u64().unwrap(), 4);
         assert_eq!(tile_id(&m["layers"][0]["tiles"], 1, 0), id, "dense slot 1 became tile (1, 0)");
         assert!(m["selection"].is_null());
         assert!(m["last_selection"].is_null());
