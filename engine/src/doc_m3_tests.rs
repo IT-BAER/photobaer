@@ -592,3 +592,296 @@ fn canvas_ops_move_smart_transforms() {
     d.rotate_canvas_exact(Remap::FlipH).unwrap();
     assert_eq!(smart_transform(&d, 4), [-1.0, 0.0, 251.0, 0.0, 1.0, 7.0, 0.0, 0.0, 1.0]);
 }
+
+// ---------- draw program v2 (docs/M3.md section 2) ----------
+
+fn px(d: &Document, x: usize, y: usize) -> [u8; 4] {
+    let t = d.flatten_tile_rgba8((x / TILE) as u32, (y / TILE) as u32).unwrap();
+    let o = ((y % TILE) * TILE + x % TILE) * 4;
+    t[o..o + 4].try_into().unwrap()
+}
+
+fn gray_doc(w: u32, h: u32, v: u8) -> Document {
+    let mut d = Document::new(w, h, 8).unwrap();
+    d.fill(1, Target::Pixels, v, v, v, 255).unwrap();
+    d
+}
+
+fn special(d: &mut Document, above: u32, v: Value) -> u32 {
+    d.add_special(above, &v.to_string()).unwrap()
+}
+
+fn invert(d: &mut Document, above: u32) -> u32 {
+    special(d, above, json!({ "name": "Invert", "adjustment": { "kind": "invert", "params": {} } }))
+}
+
+fn set_fill(d: &mut Document, id: u32, v: Value) {
+    let Kind::Fill(c) = &mut d.node_mut(id).unwrap().kind else { panic!("not a fill layer") };
+    *c = serde_json::from_value(v).unwrap();
+}
+
+fn blending_with(f: impl Fn(&mut Value)) -> String {
+    let mut b = serde_json::to_value(Blending::default()).unwrap();
+    f(&mut b);
+    b.to_string()
+}
+
+/// One color overlay: an interior effect, so fill 0 still hides everything once effects render.
+fn overlay_style(enabled: bool) -> String {
+    json!({
+        "enabled": true, "scale": 1.0, "drop_shadows": [], "inner_shadows": [],
+        "color_overlays": [{ "present": true, "enabled": enabled, "blend": "normal", "opacity": 1.0, "color": [0, 255, 0] }],
+        "gradient_overlays": [], "pattern_overlays": [], "strokes": [], "outer_glow": null, "inner_glow": null,
+        "bevel": null, "contour": null, "texture": null, "satin": null
+    })
+    .to_string()
+}
+
+#[test]
+fn invert_adjustment_goldens() {
+    let mut d = gray_doc(8, 8, 200);
+    let a = invert(&mut d, 1);
+    assert_eq!(px(&d, 3, 3), [55, 55, 55, 255]);
+    d.set_props(a, r#"{"opacity":0.25}"#).unwrap();
+    assert_eq!(px(&d, 3, 3), [164, 164, 164, 255]);
+    // Straight color is adjusted, alpha is never changed.
+    let mut d = Document::new(8, 8, 8).unwrap();
+    d.fill(1, Target::Pixels, 200, 200, 200, 128).unwrap();
+    invert(&mut d, 1);
+    assert_eq!(px(&d, 0, 0), [55, 55, 55, 128]);
+}
+
+#[test]
+fn adjust_blends_the_adjusted_color_onto_the_original() {
+    // subtract(original 204, inverted 51) = 153; the swapped order would clamp to 0.
+    let mut d = gray_doc(8, 8, 204);
+    let a = invert(&mut d, 1);
+    d.set_props(a, r#"{"blend":"subtract"}"#).unwrap();
+    assert_eq!(px(&d, 0, 0), [153, 153, 153, 255]);
+    // Dissolve turns the weight into all or nothing per pixel.
+    d.set_props(a, r#"{"blend":"dissolve","opacity":0.5}"#).unwrap();
+    let vals: HashSet<u8> = (0..8).flat_map(|y| (0..8).map(move |x| (x, y))).map(|(x, y)| px(&d, x, y)[0]).collect();
+    assert_eq!(vals, HashSet::from([51, 204]));
+}
+
+#[test]
+fn a_clipped_adjustment_weights_by_the_base_alpha() {
+    let mut d = gray_doc(8, 8, 200);
+    let l = d.add_layer("base", 1).unwrap();
+    d.fill(l, Target::Pixels, 100, 100, 100, 128).unwrap();
+    let a = invert(&mut d, l);
+    d.set_props(a, r#"{"clipping":true}"#).unwrap();
+    // Base 100 -> 100 + 55 * a (a = 128/255), then over 200: 164. Unclipped gives 105.
+    assert_eq!(px(&d, 0, 0), [164, 164, 164, 255]);
+    d.set_props(a, r#"{"clipping":false}"#).unwrap();
+    assert_eq!(px(&d, 0, 0), [105, 105, 105, 255]);
+}
+
+#[test]
+fn blend_if_goldens() {
+    let range = |s: [u8; 4]| {
+        let mut b = BlendIf::default();
+        b.gray.source = s;
+        b
+    };
+    let g = 64.0 / 255.0;
+    assert!((blend_if_weight(&range([0, 128, 255, 255]), [g; 3], [0.0; 3]) - 0.5).abs() < 1e-6);
+    assert_eq!(blend_if_weight(&BlendIf::default(), [0.0; 3], [1.0; 3]), 1.0);
+    // Draw: source alpha times the weight, over black.
+    let mut d = gray_doc(8, 8, 0);
+    let l = d.add_layer("l", 1).unwrap();
+    d.fill(l, Target::Pixels, 64, 64, 64, 255).unwrap();
+    d.set_blending(l, &blending_with(|b| b["blend_if"]["gray"]["source"] = json!([0, 128, 255, 255]))).unwrap();
+    assert_eq!(px(&d, 0, 0), [32, 32, 32, 255]);
+    // Adjust: "This Layer" is the mixed result (40 -> 84 at opacity 0.25), not the raw invert (215).
+    let mut d = gray_doc(8, 8, 40);
+    let a = invert(&mut d, 1);
+    d.set_props(a, r#"{"opacity":0.25}"#).unwrap();
+    d.set_blending(a, &blending_with(|b| b["blend_if"]["gray"]["source"] = json!([0, 0, 150, 150]))).unwrap();
+    assert_eq!(px(&d, 0, 0), [84, 84, 84, 255]);
+    // "Underlying Layer" reads the original: 40 is outside [100, 255], so nothing changes.
+    d.set_blending(a, &blending_with(|b| b["blend_if"]["gray"]["destination"] = json!([100, 100, 255, 255]))).unwrap();
+    assert_eq!(px(&d, 0, 0), [40, 40, 40, 255]);
+}
+
+#[test]
+fn knockout_punches_to_transparent() {
+    let mut d = gray_doc(8, 8, 200);
+    let l = d.add_layer("k", 1).unwrap();
+    d.fill(l, Target::Pixels, 255, 0, 0, 255).unwrap();
+    d.set_props(l, r#"{"fill":0}"#).unwrap();
+    d.set_blending(l, &blending_with(|b| b["knockout"] = "shallow".into())).unwrap();
+    assert_eq!(px(&d, 1, 1), [200, 200, 200, 255], "a layer without an enabled effect does not knock out");
+    d.set_style(l, &overlay_style(false)).unwrap();
+    assert_eq!(px(&d, 1, 1), [200, 200, 200, 255], "a disabled effect does not count");
+    d.set_style(l, &overlay_style(true)).unwrap();
+    assert_eq!(px(&d, 1, 1)[3], 0, "shallow over an opaque backdrop");
+    d.set_blending(l, &blending_with(|b| b["knockout"] = "deep".into())).unwrap();
+    assert_eq!(px(&d, 1, 1)[3], 0, "deep punches like shallow");
+    d.set_props(l, r#"{"opacity":0.6}"#).unwrap();
+    assert_eq!(px(&d, 1, 1), [200, 200, 200, 102], "alpha times 1 - shape * opacity, color kept");
+    d.set_props(l, r#"{"opacity":1}"#).unwrap();
+    let g = d.group_nodes(&[l]).unwrap();
+    d.set_props(g, r#"{"blend":"normal"}"#).unwrap();
+    assert_eq!(px(&d, 1, 1), [200, 200, 200, 255], "an isolated group bounds the knockout");
+    d.set_props(g, r#"{"blend":"pass through"}"#).unwrap();
+    assert_eq!(px(&d, 1, 1)[3], 0, "a pass-through group passes it on");
+    // A styled group knocks out by its composite alpha.
+    d.set_style(l, "null").unwrap();
+    d.set_props(l, r#"{"fill":1}"#).unwrap();
+    d.set_props(g, r#"{"blend":"normal","fill":0}"#).unwrap();
+    d.set_blending(g, &blending_with(|b| b["knockout"] = "shallow".into())).unwrap();
+    d.set_style(g, &overlay_style(true)).unwrap();
+    assert_eq!(px(&d, 1, 1)[3], 0, "a group knocks out");
+}
+
+#[test]
+fn a_styled_clipping_base_drops_its_knockout() {
+    let mut d = gray_doc(8, 8, 200);
+    let l = d.add_layer("base", 1).unwrap();
+    d.fill(l, Target::Pixels, 255, 0, 0, 128).unwrap();
+    d.set_blending(l, &blending_with(|b| b["knockout"] = "shallow".into())).unwrap();
+    d.set_style(l, &overlay_style(true)).unwrap();
+    let c = d.add_layer("clipped", l).unwrap();
+    d.fill(c, Target::Pixels, 0, 0, 255, 255).unwrap();
+    d.set_props(c, r#"{"clipping":true}"#).unwrap();
+    // A knockout would leave the backdrop at alpha 0.5 under the half-covering base (191).
+    assert_eq!(px(&d, 1, 1)[3], 255);
+    d.set_props(c, r#"{"clipping":false,"visible":false}"#).unwrap();
+    assert_eq!(px(&d, 1, 1)[3], 191, "unclipped, the same layer knocks out");
+}
+
+fn put_pattern(d: &mut Document, w: u32, h: u32, bytes: &[u8]) {
+    let blob = d.blob_add(bytes).unwrap();
+    let p = json!({ "patterns": [{ "id": "p", "name": "P", "width": w, "height": h, "blob": blob }] });
+    d.set_document_m3(&p.to_string()).unwrap();
+}
+
+fn gradient_content(angle: f32, reverse: bool) -> Value {
+    json!({ "type": "gradient", "gradient": {
+        "method": "classic",
+        "color_stops": [
+            { "position": 0.0, "color": [0, 0, 0], "midpoint": 0.5 },
+            { "position": 1.0, "color": [255, 255, 255], "midpoint": 0.5 }
+        ],
+        "opacity_stops": [
+            { "position": 0.0, "opacity": 1.0, "midpoint": 0.5 },
+            { "position": 1.0, "opacity": 1.0, "midpoint": 0.5 }
+        ]
+    }, "style": "linear", "angle": angle, "scale": 1.0, "reverse": reverse, "dither": false,
+       "align_with_layer": true, "offset": [0.0, 0.0] })
+}
+
+#[test]
+fn fill_layers_render_their_content() {
+    // Solid at opacity 0.5 over white matches a pixel layer of the same color.
+    let mut d = gray_doc(300, 8, 255);
+    let f = special(&mut d, 1, json!({ "name": "F", "content": { "type": "solid", "color": [10, 20, 30] } }));
+    d.set_props(f, r#"{"opacity":0.5}"#).unwrap();
+    let mut e = gray_doc(300, 8, 255);
+    let p = e.add_layer("p", 1).unwrap();
+    e.fill(p, Target::Pixels, 10, 20, 30, 255).unwrap();
+    e.set_props(p, r#"{"opacity":0.5}"#).unwrap();
+    for tx in 0..2 {
+        assert_eq!(d.flatten_tile_rgba8(tx, 0), e.flatten_tile_rgba8(tx, 0), "tile {tx}");
+    }
+    // Linear gradient over the document box: angle 0 runs left to right, t = (x + 0.5) / 256.
+    let mut d = Document::new(256, 4, 8).unwrap();
+    d.set_props(1, r#"{"visible":false}"#).unwrap();
+    let g = special(&mut d, 1, json!({ "name": "G", "content": gradient_content(0.0, false) }));
+    assert_eq!(px(&d, 64, 1), [64, 64, 64, 255]);
+    assert_eq!(px(&d, 127, 1), [127, 127, 127, 255]);
+    set_fill(&mut d, g, gradient_content(0.0, true));
+    assert_eq!(px(&d, 64, 1), [191, 191, 191, 255], "reverse");
+    // Angle 90 runs bottom to top.
+    let mut d = Document::new(4, 256, 8).unwrap();
+    d.set_props(1, r#"{"visible":false}"#).unwrap();
+    special(&mut d, 1, json!({ "name": "G", "content": gradient_content(90.0, false) }));
+    assert_eq!(px(&d, 1, 128), [127, 127, 127, 255]);
+    assert!(px(&d, 1, 0)[0] > 250 && px(&d, 1, 255)[0] < 5);
+}
+
+#[test]
+fn pattern_fills_tile_the_document_pattern() {
+    let mut d = Document::new(6, 2, 8).unwrap();
+    d.set_props(1, r#"{"visible":false}"#).unwrap();
+    put_pattern(&mut d, 2, 1, &[255, 0, 0, 255, 0, 0, 255, 255]);
+    let pat = |scale: f32| json!({ "type": "pattern", "pattern_id": "p", "scale": scale, "angle": 0.0, "linked": false, "offset": [0.0, 0.0] });
+    let f = special(&mut d, 1, json!({ "name": "P", "content": pat(1.0) }));
+    let row = |d: &Document| (0..6).map(|x| px(d, x, 1)).collect::<Vec<_>>();
+    let (r, b) = ([255, 0, 0, 255], [0, 0, 255, 255]);
+    assert_eq!(row(&d), [r, b, r, b, r, b]);
+    set_fill(&mut d, f, pat(2.0));
+    assert_eq!(row(&d), [r, r, b, b, r, r]);
+    // A pattern whose blob is shorter than width * height * 4 renders transparent.
+    put_pattern(&mut d, 2, 2, &[1, 2, 3, 4]);
+    assert_eq!(px(&d, 0, 0)[3], 0);
+}
+
+fn v2_doc() -> Document {
+    let mut d = Document::new(300, 260, 8).unwrap();
+    for ty in 0..2 {
+        for tx in 0..2 {
+            let t: Vec<u8> =
+                (0..TILE_PIXELS).flat_map(|p| [(p % 251) as u8, (p / 256) as u8, (tx * 90 + ty * 40) as u8, 255]).collect();
+            d.set_tile_rgba8(1, tx, ty, &t).unwrap();
+        }
+    }
+    let f = special(&mut d, 1, json!({ "name": "G", "content": gradient_content(30.0, false) }));
+    d.set_props(f, r#"{"opacity":0.5,"blend":"multiply"}"#).unwrap();
+    let a = invert(&mut d, f);
+    d.set_props(a, r#"{"opacity":0.7,"blend":"color"}"#).unwrap();
+    d.set_blending(a, &blending_with(|b| b["blend_if"]["red"]["destination"] = json!([10, 60, 200, 240]))).unwrap();
+    let l = d.add_layer("k", a).unwrap();
+    d.fill(l, Target::Pixels, 0, 200, 0, 180).unwrap();
+    d.set_props(l, r#"{"fill":0.3}"#).unwrap();
+    d.set_blending(l, &blending_with(|b| {
+        b["knockout"] = "shallow".into();
+        b["blend_if"]["gray"]["source"] = json!([0, 40, 180, 255]);
+    }))
+    .unwrap();
+    d.set_style(l, &overlay_style(true)).unwrap();
+    let base = d.add_layer("base", l).unwrap();
+    d.fill(base, Target::Pixels, 90, 90, 200, 150).unwrap();
+    let c = invert(&mut d, base);
+    d.set_props(c, r#"{"clipping":true,"opacity":0.8}"#).unwrap();
+    d
+}
+
+#[test]
+fn program_v2_round_trips_and_matches_the_display_tile() {
+    let d = v2_doc();
+    let bytes = d.display_program(0, 0, 0, &[]).unwrap();
+    assert_eq!(u32::from_le_bytes(bytes[0..4].try_into().unwrap()), 2, "program version");
+    let p = Program::decode(&bytes);
+    let adjusts: Vec<&Step> = p.steps.iter().filter(|s| s.op == Op::Adjust).collect();
+    assert_eq!(adjusts.len(), 2);
+    assert!(p.steps.iter().any(|s| s.op == Op::Knockout));
+    assert_eq!(adjusts[0].opcode, adjust::OP_INVERT);
+    assert_eq!(adjusts[0].blend_if.red.destination, [10, 60, 200, 240]);
+    assert_eq!((adjusts[0].flags & FLAG_CLIP, adjusts[1].flags & FLAG_CLIP), (0, FLAG_CLIP));
+    for level in [0, 2] {
+        let (ntx, nty) = d.level_tiles(level);
+        for ty in 0..nty {
+            for tx in 0..ntx {
+                let bytes = d.display_program(level, tx, ty, &[]).unwrap();
+                let run = Document::run_program(&Program::decode(&bytes));
+                assert_eq!(quantize_premul(&run), d.display_tile(level, tx, ty).unwrap(), "level {level} tile ({tx}, {ty})");
+            }
+        }
+    }
+}
+
+#[test]
+fn fill_payload_keys_follow_the_content() {
+    let mut d = Document::new(64, 64, 8).unwrap();
+    let f = special(&mut d, 1, json!({ "name": "F", "content": { "type": "solid", "color": [1, 2, 3] } }));
+    let keys = |d: &Document| {
+        Program::decode(&d.display_program(0, 0, 0, &[]).unwrap()).payloads.iter().map(|p| p.0).collect::<Vec<_>>()
+    };
+    let first = keys(&d);
+    assert_eq!(first.len(), 1, "the empty background ships nothing");
+    assert_eq!(keys(&d), first, "the same content gives the same key");
+    set_fill(&mut d, f, json!({ "type": "solid", "color": [1, 2, 4] }));
+    assert_ne!(keys(&d), first);
+}

@@ -1,14 +1,23 @@
-// The engine's draw program for one display tile (docs/M1.md section 3, "Draw program").
-// 32-byte header, 32-byte steps, then payloads; all little endian.
+// The engine's draw program for one display tile (docs/M1.md section 3, "Draw program";
+// version 2 in docs/M3.md section 2). 32-byte header, 72-byte steps, then payloads; little endian.
 
 export const OP = {
   draw: 0, pushTransparent: 1, pushCopy: 2, pop: 3, popLerp: 4,
   pushShape: 5, divShape: 6, mulShape: 7, subBackdrop: 8, popAddBackdrop: 9, popShape: 10,
+  adjust: 11, knockout: 12,
 } as const;
 
+/// `Adjust` opcodes, the `OP_*` constants of engine/src/adjust.rs.
+export const ADJUST = { invert: 1 } as const;
+
+export const PROGRAM_VERSION = 2;
+export const STEP_BYTES = 72;
+
 export interface Step {
-  op: number; maskKind: number; mode: number; node: number;
-  scale: number; maskConst: number; src: bigint; mask: bigint;
+  op: number; maskKind: number; mode: number; flags: number; node: number;
+  scale: number; maskConst: number; src: bigint; mask: bigint; opcode: number;
+  /// Blend If ranges: gray, red, green, blue, each source then destination [bo, bi, wi, wo].
+  blendIf: Uint8Array;
 }
 export interface Payload { key: bigint; mask: boolean; bytes: Uint8Array }
 export interface Program {
@@ -19,19 +28,20 @@ export interface Program {
 export function decodeProgram(buf: ArrayBuffer): Program {
   const v = new DataView(buf);
   const version = v.getUint32(0, true);
-  if (version !== 1) throw new Error(`unknown draw program version ${version}`);
+  if (version !== PROGRAM_VERSION) throw new Error(`unknown draw program version ${version}`);
   const nSteps = v.getUint32(24, true);
   const steps: Step[] = [];
   for (let i = 0; i < nSteps; i++) {
-    const o = 32 + i * 32;
+    const o = 32 + i * STEP_BYTES;
     steps.push({
-      op: v.getUint8(o), maskKind: v.getUint8(o + 1), mode: v.getUint8(o + 2),
+      op: v.getUint8(o), maskKind: v.getUint8(o + 1), mode: v.getUint8(o + 2), flags: v.getUint8(o + 3),
       node: v.getUint32(o + 4, true), scale: v.getFloat32(o + 8, true), maskConst: v.getFloat32(o + 12, true),
       src: v.getBigUint64(o + 16, true), mask: v.getBigUint64(o + 24, true),
+      opcode: v.getUint32(o + 32, true), blendIf: new Uint8Array(buf, o + 40, 32),
     });
   }
   const payloads: Payload[] = [];
-  let o = 32 + nSteps * 32;
+  let o = 32 + nSteps * STEP_BYTES;
   for (let i = v.getUint32(28, true); i > 0; i--) {
     const len = v.getUint32(o + 12, true);
     payloads.push({

@@ -27,6 +27,9 @@ pub enum Adjustment {
     SelectiveColor(SelectiveColor),
 }
 
+/// Draw-program `Adjust` opcodes (docs/M3.md section 2), shared with the WGSL compositor.
+pub const OP_INVERT: u32 = 1;
+
 impl Adjustment {
     /// The blob this kind reads (the color lookup table), if any.
     pub fn blob(&self) -> Option<u64> {
@@ -34,6 +37,22 @@ impl Adjustment {
             Adjustment::ColorLookup(c) => c.table,
             _ => None,
         }
+    }
+
+    /// The `Adjust` opcode, or none for a kind the compositor cannot render yet.
+    pub fn opcode(&self) -> Option<u32> {
+        match self {
+            Adjustment::Invert(_) => Some(OP_INVERT),
+            _ => None,
+        }
+    }
+}
+
+/// One straight color through the `Adjust` opcode.
+pub fn apply(opcode: u32, c: [f32; 3]) -> [f32; 3] {
+    match opcode {
+        OP_INVERT => c.map(|v| 1.0 - v),
+        _ => c,
     }
 }
 

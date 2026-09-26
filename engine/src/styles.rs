@@ -253,6 +253,21 @@ impl Style {
         overlays.chain(strokes).chain(texture)
     }
 
+    /// The master switch is on and at least one effect is present and enabled (bevel contour and
+    /// texture are parts of the bevel, not effects of their own).
+    pub fn any_effect(&self) -> bool {
+        let on = |present: bool, enabled: bool| present && enabled;
+        self.enabled
+            && (self.drop_shadows.iter().chain(&self.inner_shadows).any(|e| on(e.present, e.enabled))
+                || self.color_overlays.iter().any(|e| on(e.present, e.enabled))
+                || self.gradient_overlays.iter().any(|e| on(e.present, e.enabled))
+                || self.pattern_overlays.iter().any(|e| on(e.present, e.enabled))
+                || self.strokes.iter().any(|e| on(e.present, e.enabled))
+                || self.outer_glow.iter().chain(&self.inner_glow).any(|e| on(e.present, e.enabled))
+                || self.bevel.as_ref().is_some_and(|e| on(e.present, e.enabled))
+                || self.satin.as_ref().is_some_and(|e| on(e.present, e.enabled)))
+    }
+
     /// The list length limit of section 5.
     pub fn check(&self) -> Result<(), String> {
         let lens = [

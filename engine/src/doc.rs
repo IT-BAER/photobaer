@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::adjust::Adjustment;
+use crate::adjust::{self, Adjustment};
 use crate::blend;
 use crate::blend::{blend_channel, blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blend, PaintMode};
 use crate::content::{FillContent, Filter, GlobalLight, LayerComp, Link, PatternEntry, Smart, SmartFilter, StackMode, WarpMesh};
@@ -24,7 +24,9 @@ use crate::livewire::{self, LiveWire};
 use crate::pattern::Pattern;
 use crate::region;
 use crate::selection::{gaussian_kernel, Ellipse, MaskShape, Mode, Polygon, Rect, Shape};
-use crate::styles::{Blending, Style};
+use crate::styles::{BlendIf, Blending, Knockout, Style};
+#[cfg(test)]
+use crate::styles::BlendRange;
 use crate::stroke::{self, DualBrush, Dyn, PoseOverride, Sample, SampledTip, Source, Spacer, Tip, TipKind, TipShape};
 
 pub const TILE: usize = 256;
@@ -735,6 +737,7 @@ fn draw(
     scale: f32,
     mode: Blend,
     node_id: u32,
+    blend_if: Option<&BlendIf>,
     c: &TileCtx,
 ) {
     if scale <= 0.0 {
@@ -750,6 +753,9 @@ fn draw(
                 continue;
             }
             let mut cov = a * scale * mask.at(p);
+            if let Some(bi) = blend_if {
+                cov *= blend_if_weight(bi, [r, g, b], straight(dst, p));
+            }
             if cov <= 0.0 {
                 continue;
             }
@@ -786,6 +792,51 @@ fn draw(
             dst[o + 1] = cov * cm[1] + inv * dst[o + 1];
             dst[o + 2] = cov * cm[2] + inv * dst[o + 2];
             dst[o + 3] = cov + inv * ab;
+        }
+    }
+}
+
+// Straight color of a premultiplied buffer pixel, clamped; black where transparent.
+fn straight(buf: &[f32], p: usize) -> [f32; 3] {
+    let o = p * 4;
+    let a = buf[o + 3];
+    if a <= 0.0 {
+        return [0.0; 3];
+    }
+    std::array::from_fn(|i| (buf[o + i] / a).clamp(0.0, 1.0))
+}
+
+/// `Adjust` (docs/M3.md section 2) on the premultiplied `dst` in place: on straight color `o`,
+/// `L = o + (blend(mode, o, adjust(o)) - o) * k` with `k = scale * mask * clip`, then blend-if
+/// with "This Layer" = `L` and "Underlying Layer" = `o`. Alpha is never changed.
+fn adjust_step(dst: &mut [f32], s: &Step, mask: &MaskSrc, clip: Option<&[f32]>, c: &TileCtx) {
+    let blend_if = (s.blend_if != BlendIf::default()).then_some(&s.blend_if);
+    for y in 0..c.vh {
+        for x in 0..c.vw {
+            let p = y * TILE + x;
+            let o = p * 4;
+            let a = dst[o + 3];
+            if a <= 0.0 {
+                continue;
+            }
+            let mut k = s.scale * mask.at(p) * clip.map_or(1.0, |sh| sh[p]);
+            if k <= 0.0 {
+                continue;
+            }
+            if s.mode == Blend::Dissolve {
+                let (dx, dy) = ((c.ox + x as u32) << c.level, (c.oy + y as u32) << c.level);
+                if dissolve_hash(dx, dy, s.node) >= k {
+                    continue;
+                }
+                k = 1.0;
+            }
+            let orig = straight(dst, p);
+            let r = blend_rgb(s.mode, orig, adjust::apply(s.opcode, orig));
+            let l: [f32; 3] = std::array::from_fn(|i| orig[i] + (r[i] - orig[i]) * k);
+            let w = blend_if.map_or(1.0, |b| blend_if_weight(b, l, orig));
+            for i in 0..3 {
+                dst[o + i] = (orig[i] + (l[i] - orig[i]) * w) * a;
+            }
         }
     }
 }
@@ -895,10 +946,12 @@ enum Op {
     SubBackdrop = 8,
     PopAddBackdrop = 9,
     PopShape = 10,
+    Adjust = 11,
+    Knockout = 12,
 }
 
 #[cfg(test)]
-const OPS: [Op; 11] = [
+const OPS: [Op; 13] = [
     Op::Draw,
     Op::PushTransparent,
     Op::PushCopy,
@@ -910,10 +963,18 @@ const OPS: [Op; 11] = [
     Op::SubBackdrop,
     Op::PopAddBackdrop,
     Op::PopShape,
+    Op::Adjust,
+    Op::Knockout,
 ];
 
-/// One step; `src` 0 means the top of the stack (`Draw` pops it, `PushShape` reads it),
-/// `mask_kind` is 0 full, 1 `mask_const`, 2 the tile `mask`.
+const PROGRAM_VERSION: u32 = 2;
+const STEP_BYTES: usize = 72;
+/// `Adjust` weights by the top shape (the clip base's coverage).
+const FLAG_CLIP: u8 = 1;
+
+/// One step; `src` 0 means the top of the stack (`Draw` pops it, `PushShape` reads it,
+/// `Knockout` reads it and punches the buffer below), `mask_kind` is 0 full, 1 `mask_const`,
+/// 2 the tile `mask`. `opcode` is the `Adjust` kind, `blend_if` weights `Draw` and `Adjust`.
 struct Step {
     op: Op,
     src: u64,
@@ -923,17 +984,66 @@ struct Step {
     scale: f32,
     mode: Blend,
     node: u32,
+    flags: u8,
+    opcode: u32,
+    blend_if: BlendIf,
 }
 
 impl Step {
     fn new(op: Op) -> Step {
-        Step { op, src: 0, mask: 0, mask_kind: 0, mask_const: 0.0, scale: 1.0, mode: Blend::Normal, node: 0 }
+        Step {
+            op,
+            src: 0,
+            mask: 0,
+            mask_kind: 0,
+            mask_const: 0.0,
+            scale: 1.0,
+            mode: Blend::Normal,
+            node: 0,
+            flags: 0,
+            opcode: 0,
+            blend_if: BlendIf::default(),
+        }
     }
 }
 
+fn blend_if_bytes(b: &BlendIf) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    for (i, r) in [&b.gray, &b.red, &b.green, &b.blue].into_iter().enumerate() {
+        out[i * 8..i * 8 + 4].copy_from_slice(&r.source);
+        out[i * 8 + 4..i * 8 + 8].copy_from_slice(&r.destination);
+    }
+    out
+}
+
+/// The Blend If weight (docs/M3.md section 5): the product over gray (Lum), R, G and B of the
+/// source ("This Layer") and destination ("Underlying Layer") ramps, in 0..255 units.
+fn blend_if_weight(b: &BlendIf, src: [f32; 3], dst: [f32; 3]) -> f32 {
+    fn ramp(v: f32, [bo, bi, wi, wo]: [u8; 4]) -> f32 {
+        let v = v.clamp(0.0, 255.0);
+        let (bo, bi, wi, wo) = (bo as f32, bi as f32, wi as f32, wo as f32);
+        if v < bo || v > wo {
+            0.0
+        } else if v < bi {
+            (v - bo) / (bi - bo)
+        } else if v <= wi {
+            1.0
+        } else {
+            (wo - v) / (wo - wi)
+        }
+    }
+    let key = |c: [f32; 3], ch: usize| 255.0 * if ch == 0 { blend::lum(c) } else { c[ch - 1] };
+    [&b.gray, &b.red, &b.green, &b.blue]
+        .into_iter()
+        .enumerate()
+        .map(|(ch, r)| ramp(key(src, ch), r.source) * ramp(key(dst, ch), r.destination))
+        .product()
+}
+
 /// The ordered stack-machine ops for one display tile plus the level tiles they reference.
-/// Binary layout (docs/M1.md section 3): 32-byte header, `steps` 32-byte records, then for each
-/// payload a u64 key, u32 kind (0 RGBA8, 1 mask8), u32 byte length and that many bytes.
+/// Binary layout (docs/M1.md section 3, version 2 in docs/M3.md section 2): 32-byte header,
+/// `steps` 72-byte records, then for each payload a u64 key, u32 kind (0 RGBA8, 1 mask8), u32
+/// byte length and that many bytes.
 struct Program {
     level: u32,
     tx: u32,
@@ -957,17 +1067,22 @@ fn put64(out: &mut Vec<u8>, v: u64) {
 impl Program {
     fn encode(&self, known: &[u64]) -> Vec<u8> {
         let send: Vec<&(u64, Arc<Pixels>)> = self.payloads.iter().filter(|(k, _)| !known.contains(k)).collect();
-        let mut out = Vec::with_capacity(32 + self.steps.len() * 32 + send.len() * TILE_BYTES_U8);
-        for v in [1, self.level, self.ox, self.oy, self.vw as u32, self.vh as u32, self.steps.len() as u32, send.len() as u32] {
+        let mut out = Vec::with_capacity(32 + self.steps.len() * STEP_BYTES + send.len() * TILE_BYTES_U8);
+        let header = [self.level, self.ox, self.oy, self.vw as u32, self.vh as u32, self.steps.len() as u32, send.len() as u32];
+        put32(&mut out, PROGRAM_VERSION);
+        for v in header {
             put32(&mut out, v);
         }
         for s in &self.steps {
-            out.extend_from_slice(&[s.op as u8, s.mask_kind, s.mode.index(), 0]);
+            out.extend_from_slice(&[s.op as u8, s.mask_kind, s.mode.index(), s.flags]);
             put32(&mut out, s.node);
             out.extend_from_slice(&s.scale.to_le_bytes());
             out.extend_from_slice(&s.mask_const.to_le_bytes());
             put64(&mut out, s.src);
             put64(&mut out, s.mask);
+            put32(&mut out, s.opcode);
+            put32(&mut out, 0);
+            out.extend_from_slice(&blend_if_bytes(&s.blend_if));
         }
         for (key, px) in send {
             let bytes = px.to_bytes();
@@ -984,24 +1099,29 @@ impl Program {
         let u32at = |o: usize| u32::from_le_bytes(b[o..o + 4].try_into().unwrap());
         let u64at = |o: usize| u64::from_le_bytes(b[o..o + 8].try_into().unwrap());
         let f32at = |o: usize| f32::from_le_bytes(b[o..o + 4].try_into().unwrap());
-        assert_eq!(u32at(0), 1, "program version");
+        assert_eq!(u32at(0), PROGRAM_VERSION, "program version");
         let (n_steps, n_payloads) = (u32at(24) as usize, u32at(28) as usize);
         let steps = (0..n_steps)
             .map(|i| {
-                let o = 32 + i * 32;
+                let o = 32 + i * STEP_BYTES;
+                let range = |at: usize| -> [u8; 4] { b[at..at + 4].try_into().unwrap() };
+                let pair = |at: usize| BlendRange { source: range(at), destination: range(at + 4) };
                 Step {
                     op: OPS[b[o] as usize],
                     mask_kind: b[o + 1],
                     mode: Blend::from_index(b[o + 2]).expect("a known blend mode"),
+                    flags: b[o + 3],
                     node: u32at(o + 4),
                     scale: f32at(o + 8),
                     mask_const: f32at(o + 12),
                     src: u64at(o + 16),
                     mask: u64at(o + 24),
+                    opcode: u32at(o + 32),
+                    blend_if: BlendIf { gray: pair(o + 40), red: pair(o + 48), green: pair(o + 56), blue: pair(o + 64) },
                 }
             })
             .collect();
-        let mut o = 32 + n_steps * 32;
+        let mut o = 32 + n_steps * STEP_BYTES;
         let mut payloads = Vec::new();
         for _ in 0..n_payloads {
             let (key, kind, len) = (u64at(o), u32at(o + 8), u32at(o + 12) as usize);
@@ -3397,7 +3517,82 @@ impl Document {
         }
     }
 
-    fn emit_node(&self, node: &Node, scale: f32, mode: Blend, prog: &mut Program) {
+    // The payload key of a pixel, smart or fill node's content tile; none when it is empty.
+    fn node_src(&self, node: &Node, prog: &mut Program) -> Option<u64> {
+        match &node.kind {
+            Kind::Fill(c) => {
+                let t = self.fill_tile(c, prog.level, prog.tx, prog.ty)?;
+                Some(self.payload(prog, t))
+            }
+            _ => self.node_tile(node, prog),
+        }
+    }
+
+    // A fill layer's content rendered for one level tile (docs/M3.md section 2), cached under a
+    // key mixed from the content JSON, the pattern it reads, the document size and the tile.
+    fn fill_tile(&self, c: &FillContent, level: u32, tx: u32, ty: u32) -> Option<(u64, Arc<Pixels>)> {
+        let (ntx, nty) = self.level_tiles(level);
+        if tx >= ntx || ty >= nty {
+            return None;
+        }
+        let pattern = c.pattern_id().and_then(|id| self.patterns.iter().find(|p| p.id == id));
+        let json = serde_json::to_string(c).expect("fill content serializes");
+        let mut key = mix(0xF111_C047_E475_0001, json.len() as u64);
+        for chunk in json.as_bytes().chunks(8) {
+            let mut w = [0u8; 8];
+            w[..chunk.len()].copy_from_slice(chunk);
+            key = mix(key, u64::from_le_bytes(w));
+        }
+        let pat = pattern.map_or([0; 3], |p| [p.blob, p.width as u64, p.height as u64]);
+        for v in pat.into_iter().chain([self.width as u64, self.height as u64, self.depth as u64]) {
+            key = mix(key, v);
+        }
+        for v in [level, tx, ty] {
+            key = mix(key, v as u64);
+        }
+        let key = key | (1 << 63);
+        if let Some(px) = self.tile_cache.borrow_mut().get(key) {
+            return Some((key, px));
+        }
+        let (w, h) = (self.width as f64, self.height as f64);
+        let none = Vec::new();
+        let sample: Box<dyn Fn(f64, f64) -> [f32; 4] + '_> = match c {
+            FillContent::Solid(s) => {
+                let rgba = [s.color[0], s.color[1], s.color[2], 255].map(|v| v as f32 / 255.0);
+                Box::new(move |_, _| rgba)
+            }
+            FillContent::Gradient(g) => Box::new(g.sampler([0.0, 0.0, w, h])),
+            FillContent::Pattern(p) => match pattern {
+                Some(e) => {
+                    let bytes = self.blobs.get(&e.blob).map_or(&none, |b| b.as_ref());
+                    Box::new(p.sampler(e.width, e.height, bytes, [0.0, 0.0]))
+                }
+                None => Box::new(|_, _| [0.0; 4]),
+            },
+        };
+        // Level pixels sample at their centre in document px.
+        let (vw, vh) = self.level_valid(level, tx, ty);
+        let step = (1u32 << level) as f64;
+        let mut out = vec![0f32; TILE_PIXELS * 4];
+        for y in 0..vh {
+            let dy = ((ty as usize * TILE + y) as f64 + 0.5) * step;
+            for x in 0..vw {
+                let dx = ((tx as usize * TILE + x) as f64 + 0.5) * step;
+                let o = (y * TILE + x) * 4;
+                out[o..o + 4].copy_from_slice(&sample(dx, dy));
+            }
+        }
+        let px = Arc::new(Pixels::from_straight(self.depth, &out));
+        self.tile_cache.borrow_mut().insert(key, px.clone(), level);
+        Some((key, px))
+    }
+
+    // `Knockout` runs only on a layer with an enabled effect (docs/M3.md section 2).
+    fn knocks_out(node: &Node) -> bool {
+        node.blending.knockout != Knockout::None && node.style.as_ref().is_some_and(|s| s.any_effect())
+    }
+
+    fn emit_node(&self, node: &Node, scale: f32, mode: Blend, clipped: bool, prog: &mut Program) {
         let (mk, mkey, mc) = self.node_mask(node, prog);
         if mode == Blend::PassThrough {
             let Kind::Group(children) = &node.kind else { return };
@@ -3409,7 +3604,7 @@ impl Document {
             return;
         }
         let src = match &node.kind {
-            Kind::Pixel(_) | Kind::Smart(_) => match self.node_tile(node, prog) {
+            Kind::Pixel(_) | Kind::Smart(_) | Kind::Fill(_) => match self.node_src(node, prog) {
                 Some(k) => k,
                 None => return,
             },
@@ -3418,11 +3613,26 @@ impl Document {
                 self.emit_list(children, prog);
                 0
             }
-            Kind::Adjustment(_) | Kind::Fill(_) => return,
+            Kind::Adjustment(a) => {
+                let Some(opcode) = a.opcode() else { return };
+                let mut s = Step::new(Op::Adjust);
+                (s.mask_kind, s.mask, s.mask_const, s.scale, s.mode, s.node, s.opcode) =
+                    (mk, mkey, mc, scale, mode, node.id, opcode);
+                s.flags = if clipped { FLAG_CLIP } else { 0 };
+                s.blend_if = node.blending.blend_if.clone();
+                prog.steps.push(s);
+                return;
+            }
         };
+        if Document::knocks_out(node) {
+            let mut k = Step::new(Op::Knockout);
+            (k.src, k.mask_kind, k.mask, k.mask_const, k.scale) = (src, mk, mkey, mc, node.opacity);
+            prog.steps.push(k);
+        }
         let mut s = Step::new(Op::Draw);
         (s.src, s.mask_kind, s.mask, s.mask_const, s.scale, s.mode, s.node) =
             (src, mk, mkey, mc, scale, mode, node.id);
+        s.blend_if = node.blending.blend_if.clone();
         prog.steps.push(s);
     }
 
@@ -3437,9 +3647,9 @@ impl Document {
         let mut shape = Step::new(Op::PushShape);
         (shape.mask_kind, shape.mask, shape.mask_const, shape.scale) = (mk, mkey, mc, k);
         match &base.kind {
-            Kind::Adjustment(_) | Kind::Fill(_) => return,
-            Kind::Pixel(_) | Kind::Smart(_) => {
-                let Some(src) = self.node_tile(base, prog) else { return };
+            Kind::Adjustment(_) => return,
+            Kind::Pixel(_) | Kind::Smart(_) | Kind::Fill(_) => {
+                let Some(src) = self.node_src(base, prog) else { return };
                 shape.src = src;
                 prog.steps.push(shape);
                 prog.steps.push(Step::new(Op::PushTransparent));
@@ -3474,7 +3684,7 @@ impl Document {
         prog.steps.push(Step::new(Op::DivShape));
         for n in clipped {
             if n.visible && n.opacity > 0.0 {
-                self.emit_node(n, n.opacity * n.fill, n.blend, prog);
+                self.emit_node(n, n.opacity * n.fill, n.blend, true, prog);
             }
         }
         prog.steps.push(Step::new(Op::MulShape));
@@ -3498,7 +3708,7 @@ impl Document {
             let base = &nodes[i];
             if j == i + 1 {
                 if base.visible && base.opacity > 0.0 {
-                    self.emit_node(base, base.opacity * base.fill, base.blend, prog);
+                    self.emit_node(base, base.opacity * base.fill, base.blend, false, prog);
                 }
             } else if base.visible {
                 self.emit_clipping(base, &nodes[i + 1..j], prog);
@@ -3550,13 +3760,34 @@ impl Document {
                     stack.pop();
                 }
                 Op::Draw => {
+                    let bi = (s.blend_if != BlendIf::default()).then_some(&s.blend_if);
                     if s.src != 0 {
                         let src = Src::Tile(tiles[&s.src]);
-                        draw(stack.last_mut().expect("stack"), src, &mask, s.scale, s.mode, s.node, &c);
+                        draw(stack.last_mut().expect("stack"), src, &mask, s.scale, s.mode, s.node, bi, &c);
                     } else {
                         let g = stack.pop().expect("stack");
                         let dst = stack.last_mut().expect("stack");
-                        draw(dst, Src::Buf(&g), &mask, s.scale, s.mode, s.node, &c);
+                        draw(dst, Src::Buf(&g), &mask, s.scale, s.mode, s.node, bi, &c);
+                    }
+                }
+                Op::Adjust => {
+                    let clip = (s.flags & FLAG_CLIP != 0).then(|| shapes.last().expect("shape stack").as_slice());
+                    adjust_step(stack.last_mut().expect("stack"), s, &mask, clip, &c);
+                }
+                Op::Knockout => {
+                    // `destAlpha *= 1 - shape * opacity`; premultiplied, so every channel scales.
+                    let (top, rest) = stack.split_last_mut().expect("stack");
+                    let (dst, src) = if s.src != 0 {
+                        (top, Src::Tile(tiles[&s.src]))
+                    } else {
+                        (rest.last_mut().expect("a buffer below the top"), Src::Buf(top.as_slice()))
+                    };
+                    for y in 0..c.vh {
+                        for x in 0..c.vw {
+                            let p = y * TILE + x;
+                            let f = 1.0 - src.at(p)[3] * mask.at(p) * s.scale;
+                            dst[p * 4..p * 4 + 4].iter_mut().for_each(|v| *v *= f);
+                        }
                     }
                 }
                 Op::PopLerp => {
@@ -6926,7 +7157,7 @@ mod tests {
 
     fn payload_keys(b: &[u8]) -> Vec<u64> {
         let u32at = |o: usize| u32::from_le_bytes(b[o..o + 4].try_into().unwrap());
-        let mut o = 32 + u32at(24) as usize * 32;
+        let mut o = 32 + u32at(24) as usize * STEP_BYTES;
         let mut keys = Vec::new();
         for _ in 0..u32at(28) {
             keys.push(u64::from_le_bytes(b[o..o + 8].try_into().unwrap()));

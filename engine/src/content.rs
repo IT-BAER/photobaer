@@ -78,6 +78,78 @@ pub enum FillContent {
     Pattern(PatternFill),
 }
 
+impl GradientDef {
+    /// The normalized (and optionally reversed) stops as a gradient LUT.
+    pub fn lut(&self, reverse: bool) -> Vec<[f32; 4]> {
+        let cs = self.color_stops.iter().map(|s| gradient::ColorStop {
+            position: s.position,
+            rgb: s.color.map(|v| v as f32 / 255.0),
+            midpoint: s.midpoint,
+        });
+        let os = self.opacity_stops.iter().map(|s| gradient::OpacityStop {
+            position: s.position,
+            opacity: s.opacity,
+            midpoint: s.midpoint,
+        });
+        let mut cs = gradient::normalize_color_stops(cs.collect());
+        let mut os = gradient::normalize_opacity_stops(os.collect());
+        if reverse {
+            cs = gradient::reverse_color_stops(&cs);
+            os = gradient::reverse_opacity_stops(&os);
+        }
+        gradient::build_lut(&cs, &os, self.method)
+    }
+}
+
+impl GradientFill {
+    /// Straight RGBA at document point (x, y), laid out over the box [x, y, w, h] (docs/M3.md
+    /// section 5): center = box center + offset * half size, length (|w cos A| + |h sin A|) * scale.
+    pub fn sampler(&self, bx: [f64; 4]) -> impl Fn(f64, f64) -> [f32; 4] {
+        let lut = self.gradient.lut(self.reverse);
+        let a = (self.angle as f64).to_radians();
+        let (dx, dy) = (a.cos(), -a.sin());
+        let half = (bx[2] * dx.abs() + bx[3] * dy.abs()) * self.scale as f64 / 2.0;
+        let cx = bx[0] + bx[2] / 2.0 * (1.0 + self.offset[0] as f64);
+        let cy = bx[1] + bx[3] / 2.0 * (1.0 + self.offset[1] as f64);
+        // Linear runs through the center; the other styles start at it.
+        let (sx, sy) = if self.style == gradient::Style::Linear { (cx - dx * half, cy - dy * half) } else { (cx, cy) };
+        let (vx, vy) = (cx + dx * half - sx, cy + dy * half - sy);
+        let (style, dither) = (self.style, self.dither);
+        move |x, y| {
+            let t = gradient::style_t(style, x - sx, y - sy, vx, vy, vx * vx + vy * vy);
+            let mut c = gradient::lut_lookup(&lut, t);
+            if dither {
+                let d = gradient::dither_delta(x.floor() as i32, y.floor() as i32);
+                c[..3].iter_mut().for_each(|v| *v = (*v + d).clamp(0.0, 1.0));
+            }
+            c
+        }
+    }
+}
+
+impl PatternFill {
+    /// Straight RGBA at document point (x, y): the `w` x `h` RGBA8 pattern rotated clockwise by
+    /// `angle`, `scale` px per texel, tiled from `origin` + offset, nearest texel. Transparent
+    /// when `rgba` is not `w * h * 4` bytes long.
+    pub fn sampler<'a>(&self, w: u32, h: u32, rgba: &'a [u8], origin: [f64; 2]) -> impl Fn(f64, f64) -> [f32; 4] + 'a {
+        let ok = rgba.len() == w as usize * h as usize * 4;
+        let a = (self.angle as f64).to_radians();
+        let (c, s) = (a.cos(), a.sin());
+        let scale = (self.scale as f64).max(1e-6);
+        let (ox, oy) = (origin[0] + self.offset[0] as f64, origin[1] + self.offset[1] as f64);
+        move |x, y| {
+            if !ok {
+                return [0.0; 4];
+            }
+            let (qx, qy) = (x - ox, y - oy);
+            let u = ((qx * c + qy * s) / scale).floor() as i64;
+            let v = ((qy * c - qx * s) / scale).floor() as i64;
+            let o = ((v.rem_euclid(h as i64) * w as i64 + u.rem_euclid(w as i64)) * 4) as usize;
+            std::array::from_fn(|i| rgba[o + i] as f32 / 255.0)
+        }
+    }
+}
+
 impl FillContent {
     pub fn pattern_id(&self) -> Option<&str> {
         match self {

@@ -169,8 +169,13 @@ export class GpuCompositor {
           popped = 0;
           break;
         case OP.subBackdrop: aux = stack[stack.length - 2]; popped = 1; break;
+        case OP.knockout:
+          // A group (src 0) punches the buffer below it and stays on top.
+          if (s.src === 0n) { aux = top; dst = stack[stack.length - 2]; popped = 0; }
+          else { srcTile = this.#cache.get(s.src)!.createView(); popped = 1; }
+          break;
         case OP.popAddBackdrop: aux = top; dst = stack[stack.length - 2]; popped = 2; break;
-        default: popped = 1; break; // div/mul shape
+        default: popped = 1; break; // div/mul shape, adjust
       }
       const o = (i * stride) / 4;
       words[o + U.op] = s.op;
@@ -183,6 +188,10 @@ export class GpuCompositor {
       words[o + U.oy] = p.oy;
       words[o + U.vw] = p.vw;
       words[o + U.vh] = p.vh;
+      words[o + U.opcode] = s.opcode;
+      words[o + U.flags] = s.flags;
+      const bi = new DataView(s.blendIf.buffer, s.blendIf.byteOffset, 32);
+      for (let k = 0; k < 8; k++) words[o + U.bi0 + k] = bi.getUint32(k * 4, true);
       floats[o + U.scale] = s.scale;
       floats[o + U.mask_const] = s.maskConst;
       groups.push({
@@ -201,7 +210,8 @@ export class GpuCompositor {
         }),
       });
       for (let n = 0; n < popped; n++) this.#release(stack.pop()!);
-      if (s.op === OP.pushShape) shapes.push(out);
+      if (s.op === OP.knockout && s.src === 0n) this.#release(stack.splice(stack.length - 2, 1, out)[0]);
+      else if (s.op === OP.pushShape) shapes.push(out);
       else stack.push(out);
     }
     this.#d.queue.writeBuffer(this.#uniform, 0, words);

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initSync, Engine } from '../engine-pkg/photobaer_engine.js';
-import { OP, decodeProgram, referencedKeys, PayloadCache } from './program.ts';
+import { ADJUST, OP, decodeProgram, referencedKeys, PayloadCache } from './program.ts';
 
 initSync({ module: readFileSync(new URL('../engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
 
@@ -109,4 +109,52 @@ test('the draw op codes match the engine enum', () => {
   const rust = Object.fromEntries([...body.matchAll(/(\w+) = (\d+)/g)].map(([, name, v]) =>
     [name[0].toLowerCase() + name.slice(1), Number(v)]));
   assert.deepEqual(rust, { ...OP });
+});
+
+test('the adjust opcodes match the engine constants', () => {
+  const src = readFileSync(new URL('../../../engine/src/adjust.rs', import.meta.url), 'utf8');
+  const rust = Object.fromEntries([...src.matchAll(/pub const OP_(\w+): u32 = (\d+);/g)].map(([, name, v]) =>
+    [name.toLowerCase(), Number(v)]));
+  assert.deepEqual(rust, { ...ADJUST });
+});
+
+test('version 2 steps carry the adjust opcode, clip flag, knockout and blend-if ranges', () => {
+  const range = [0, 0, 255, 255];
+  const blending = (knockout: string, gray: number[]) => JSON.stringify({
+    blend_if: {
+      gray: { source: gray, destination: range }, red: { source: range, destination: range },
+      green: { source: range, destination: range }, blue: { source: range, destination: range },
+    },
+    channels: [true, true, true], knockout, blend_interior: false, blend_clipped: true,
+    transparency_shapes: true, layer_mask_hides_effects: false, vector_mask_hides_effects: false,
+  });
+  const e = redDoc();
+  const a = e.add_special(1, JSON.stringify({ name: 'Invert', adjustment: { kind: 'invert', params: {} } }));
+  e.set_blending(a, blending('none', [0, 128, 255, 255]));
+  const k = e.add_layer('k', a);
+  e.fill(k, 'pixels', 0, 255, 0, 255);
+  e.set_blending(k, blending('shallow', range));
+  e.set_style(k, JSON.stringify({
+    enabled: true, scale: 1, drop_shadows: [], inner_shadows: [],
+    color_overlays: [{ present: true, enabled: true, blend: 'normal', opacity: 1, color: [0, 0, 0] }],
+    gradient_overlays: [], pattern_overlays: [], strokes: [], outer_glow: null, inner_glow: null,
+    bevel: null, contour: null, texture: null, satin: null,
+  }));
+  const c = e.add_special(k, JSON.stringify({ name: 'Invert 2', adjustment: { kind: 'invert', params: {} } }));
+  e.set_props(c, JSON.stringify({ clipping: true }));
+  const p = decodeProgram(e.display_program(0, 0, 0, NONE).buffer as ArrayBuffer);
+  assert.deepEqual(p.steps.map(s => s.op), [
+    OP.draw, OP.adjust,                                  // background, unclipped invert
+    OP.pushShape, OP.pushTransparent, OP.draw, OP.divShape, // clip base: its knockout is dropped
+    OP.adjust, OP.mulShape, OP.draw, OP.popShape,           // clipped invert inside the share
+  ]);
+  const [adj, clipped] = p.steps.filter(s => s.op === OP.adjust);
+  assert.equal(adj.opcode, ADJUST.invert);
+  assert.deepEqual([adj.flags, clipped.flags], [0, 1]);
+  assert.deepEqual([...adj.blendIf.subarray(0, 8)], [0, 128, 255, 255, 0, 0, 255, 255]);
+  e.set_props(c, JSON.stringify({ clipping: false }));
+  const q = decodeProgram(e.display_program(0, 0, 0, NONE).buffer as ArrayBuffer);
+  assert.deepEqual(q.steps.map(s => s.op), [OP.draw, OP.adjust, OP.knockout, OP.draw, OP.adjust]);
+  assert.equal(q.steps[2].src, q.steps[3].src, 'the knockout shape is the layer tile');
+  assert.equal(q.steps[2].scale, 1);
 });

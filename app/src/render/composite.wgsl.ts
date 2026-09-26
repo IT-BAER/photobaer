@@ -1,14 +1,18 @@
-// The draw program of docs/M1.md section 3, one compute dispatch per step over 256x256 tiles.
+// The draw program of docs/M1.md section 3 (version 2: docs/M3.md section 2), one compute
+// dispatch per step over 256x256 tiles.
 // Buffers are premultiplied f32 RGBA (shapes keep their value in .r); this mirrors the CPU
 // reference in engine/src/doc.rs and engine/src/blend.rs channel for channel.
-import { OP } from './program.ts';
+import { ADJUST, OP } from './program.ts';
 
 /// The per-step uniform, one 32-bit word per field in this order; composite.ts writes it by name.
 export const UNIFORM_FIELDS = [
   ['op', 'u32'], ['mask_kind', 'u32'], ['mode', 'u32'], ['src_is_tile', 'u32'],
   ['node', 'u32'], ['level', 'u32'], ['ox', 'u32'], ['oy', 'u32'],
-  ['vw', 'u32'], ['vh', 'u32'], ['pad0', 'u32'], ['pad1', 'u32'],
+  ['vw', 'u32'], ['vh', 'u32'], ['opcode', 'u32'], ['flags', 'u32'],
   ['scale', 'f32'], ['mask_const', 'f32'], ['pad2', 'f32'], ['pad3', 'f32'],
+  // Blend If ranges, 4 bytes each: gray, red, green, blue, each source then destination.
+  ['bi0', 'u32'], ['bi1', 'u32'], ['bi2', 'u32'], ['bi3', 'u32'],
+  ['bi4', 'u32'], ['bi5', 'u32'], ['bi6', 'u32'], ['bi7', 'u32'],
 ] as const;
 export type UniformField = (typeof UNIFORM_FIELDS)[number][0];
 export const UNIFORM_AT = Object.fromEntries(UNIFORM_FIELDS.map(([n], i) => [n, i])) as Record<UniformField, number>;
@@ -141,6 +145,60 @@ fn dissolve_hash(x: u32, y: u32, node: u32) -> f32 {
   return f32(h >> 8u) / 16777216.0;
 }
 
+// Blend If (docs/M3.md section 5): 0 below black outer, ramp to black inner, 1, ramp down from
+// white inner to white outer, 0 above; values in 0..255.
+fn ramp(v0: f32, w: u32) -> f32 {
+  let r = round(unpack4x8unorm(w) * 255.0);
+  let v = clamp(v0, 0.0, 255.0);
+  if (v < r.x || v > r.w) { return 0.0; }
+  if (v < r.y) { return (v - r.x) / (r.y - r.x); }
+  if (v <= r.z) { return 1.0; }
+  return (r.w - v) / (r.w - r.z);
+}
+
+fn blend_if(s: vec3f, d: vec3f) -> f32 {
+  let s8 = s * 255.0;
+  let d8 = d * 255.0;
+  return ramp(lum(s) * 255.0, p.bi0) * ramp(lum(d) * 255.0, p.bi1)
+    * ramp(s8.r, p.bi2) * ramp(d8.r, p.bi3) * ramp(s8.g, p.bi4) * ramp(d8.g, p.bi5)
+    * ramp(s8.b, p.bi6) * ramp(d8.b, p.bi7);
+}
+
+fn straight(v: vec4f) -> vec3f {
+  if (v.a <= 0.0) { return vec3f(0.0); }
+  return clamp(v.rgb / v.a, vec3f(0.0), vec3f(1.0));
+}
+
+// The Adjust opcodes of engine/src/adjust.rs.
+fn adjust_rgb(c: vec3f) -> vec3f {
+  switch p.opcode {
+    case ${ADJUST.invert}u: { return vec3f(1.0) - c; }
+    default: { return c; }
+  }
+}
+
+fn dissolve_hit(xy: vec2i, k: f32) -> bool {
+  let dx = (p.ox + u32(xy.x)) << p.level;
+  let dy = (p.oy + u32(xy.y)) << p.level;
+  return dissolve_hash(dx, dy, p.node) < k;
+}
+
+// Adjust on the top buffer in place; alpha is never changed.
+fn adjust_px(xy: vec2i, dst: vec4f) -> vec4f {
+  if (dst.a <= 0.0) { return dst; }
+  var k = p.scale * mask_at(xy);
+  if ((p.flags & 1u) != 0u) { k *= textureLoad(shape_t, xy, 0).r; }
+  if (k <= 0.0) { return dst; }
+  if (p.mode == 1u) {
+    if (!dissolve_hit(xy, k)) { return dst; }
+    k = 1.0;
+  }
+  let o = straight(dst);
+  let r = blend_rgb(p.mode, o, adjust_rgb(o));
+  let l = o + (r - o) * k;
+  return vec4f((o + (l - o) * blend_if(l, o)) * dst.a, dst.a);
+}
+
 fn mask_at(xy: vec2i) -> f32 {
   switch p.mask_kind {
     case 1u: { return p.mask_const; }
@@ -160,12 +218,10 @@ fn src_at(xy: vec2i) -> vec4f {
 fn draw_px(xy: vec2i, dst: vec4f) -> vec4f {
   let s = src_at(xy);
   if (s.a <= 0.0) { return dst; }
-  var cov = s.a * p.scale * mask_at(xy);
+  var cov = s.a * p.scale * mask_at(xy) * blend_if(s.rgb, straight(dst));
   if (cov <= 0.0) { return dst; }
   if (p.mode == 1u) { // dissolve: document coordinates of the sample's top-left source pixel
-    let dx = (p.ox + u32(xy.x)) << p.level;
-    let dy = (p.oy + u32(xy.y)) << p.level;
-    if (dissolve_hash(dx, dy, p.node) >= cov) { return dst; }
+    if (!dissolve_hit(xy, cov)) { return dst; }
     cov = 1.0;
   }
   let ab = dst.a;
@@ -206,6 +262,14 @@ fn step_value(xy: vec2i) -> vec4f {
     case ${OP.mulShape}u: { return dst * textureLoad(shape_t, xy, 0).r; }
     case ${OP.subBackdrop}u: { return dst - (1.0 - textureLoad(shape_t, xy, 0).r) * textureLoad(aux_t, xy, 0); }
     case ${OP.popAddBackdrop}u: { return (1.0 - textureLoad(shape_t, xy, 0).r) * dst + textureLoad(aux_t, xy, 0); }
+    case ${OP.adjust}u: {
+      if (!inside) { return dst; }
+      return adjust_px(xy, dst);
+    }
+    case ${OP.knockout}u: {
+      if (!inside) { return dst; }
+      return dst * (1.0 - src_at(xy).a * mask_at(xy) * p.scale);
+    }
     default: { return dst; }
   }
 }
