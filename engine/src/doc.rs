@@ -1345,17 +1345,6 @@ impl Document {
         Ok(())
     }
 
-    // Canvas tiles plus the layer's tiles outside the canvas: the whole layer of an unselected edit.
-    fn whole_layer(&self, tiles: &Tiles) -> Vec<(i32, i32)> {
-        let mut out: Vec<(i32, i32)> = tiles.coords().into_iter().filter(|(tx, ty)| !self.on_canvas(*tx, *ty)).collect();
-        for ty in 0..self.tiles_y() as i32 {
-            for tx in 0..self.tiles_x() as i32 {
-                out.push((tx, ty));
-            }
-        }
-        out
-    }
-
     fn on_canvas(&self, tx: i32, ty: i32) -> bool {
         tx >= 0 && ty >= 0 && (tx as u32) < self.tiles_x() && (ty as u32) < self.tiles_y()
     }
@@ -1478,21 +1467,39 @@ impl Document {
                 return Ok(());
             }
             None => {
-                let area = self.whole_layer(self.node(id)?.pixel_tiles()?);
-                let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
-                tiles.clear();
-                if a == 0 {
-                    return Ok(());
-                }
+                // The region is the canvas: pixels outside it stay as they are.
+                let (w, h, t) = (self.width as i32, self.height as i32, TILE as i32);
                 let mut rgba = vec![0u8; TILE_BYTES_U8];
                 for px in rgba.chunks_exact_mut(4) {
                     px.copy_from_slice(&[r, g, b, a]);
                 }
-                let px = Arc::new(Pixels::from_rgba8(depth, &rgba));
-                let tile_id = self.alloc_tile_id();
+                let full = Arc::new(Pixels::from_rgba8(depth, &rgba));
+                let full_id = self.alloc_tile_id();
+                let color = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0];
+                let old = self.node(id)?.pixel_tiles()?.clone();
+                let mut fresh = Vec::new();
+                let mut buf = vec![0f32; TILE_PIXELS * 4];
+                for ty in 0..self.tiles_y() as i32 {
+                    for tx in 0..self.tiles_x() as i32 {
+                        let (ox, oy) = (tx * t, ty * t);
+                        let prev = old.get(tx, ty);
+                        let tile = if ox + t <= w && oy + t <= h {
+                            (a > 0).then(|| Tile { id: full_id, px: full.clone() })
+                        } else {
+                            for p in 0..TILE_PIXELS {
+                                let (x, y) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
+                                let v = if x < w && y < h { color } else { prev.map_or([0.0; 4], |o| o.px.rgba_f32(p)) };
+                                buf[p * 4..p * 4 + 4].copy_from_slice(&v);
+                            }
+                            let px = Pixels::from_straight(depth, &buf);
+                            px.any_alpha().then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })
+                        };
+                        fresh.push((tx, ty, tile));
+                    }
+                }
                 let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
-                for (tx, ty) in area {
-                    tiles.put(tx, ty, Some(Tile { id: tile_id, px: px.clone() }));
+                for (tx, ty, tile) in fresh {
+                    tiles.put(tx, ty, tile);
                 }
                 return Ok(());
             }
@@ -5299,6 +5306,18 @@ mod tests {
         d
     }
 
+    #[test]
+    fn fill_without_a_selection_covers_the_canvas_and_keeps_off_canvas_pixels() {
+        let mut d = Document::new(200, 100, 8).unwrap();
+        d.fill(1, Target::Pixels, 9, 9, 9, 255).unwrap();
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([0, 0, 200, 100]));
+        d.offset_layer(1, -10, 0).unwrap();
+        d.fill(1, Target::Pixels, 9, 9, 9, 255).unwrap();
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([-10, 0, 210, 100]));
+        d.fill(1, Target::Pixels, 0, 0, 0, 0).unwrap();
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([-10, 0, 10, 100]));
+    }
+
     // A layer mask's byte value at a document pixel; the default when the tile is absent.
     fn mask_at(d: &Document, id: u32, x: usize, y: usize) -> u8 {
         let (tx, ty) = ((x / TILE) as i32, (y / TILE) as i32);
@@ -5354,13 +5373,13 @@ mod tests {
 
     #[test]
     fn fill_and_manifest_share_id() {
-        let mut d = Document::new(300, 300, 8).unwrap();
+        let mut d = Document::new(512, 512, 8).unwrap();
         d.fill(1, Target::Pixels, 255, 0, 0, 255).unwrap();
         let px = d.display_tile(0, 0, 0).unwrap().unwrap();
         assert_eq!(&px[0..4], &[255, 0, 0, 255]);
         let list = manifest_value(&d)["layers"][0]["tiles"].clone();
         let ids: Vec<u64> = list.as_array().unwrap().iter().map(|v| v[2].as_u64().unwrap()).collect();
-        assert_eq!(ids.len(), 4, "a 300x300 canvas has 2x2 tiles");
+        assert_eq!(ids.len(), 4, "a 512x512 canvas has 2x2 tiles");
         assert!(ids.iter().all(|&id| id == ids[0] && id != 0));
     }
 
