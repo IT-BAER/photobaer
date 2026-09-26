@@ -1,5 +1,6 @@
 mod blend;
 mod doc;
+mod livewire;
 mod region;
 mod selection;
 
@@ -198,6 +199,57 @@ impl Engine {
     /// Adds every pixel within the selection's seed colors' range, regardless of connectivity.
     pub fn similar(&mut self, tolerance: u8, sample_all: bool, layer_id: u32) -> Result<(), JsError> {
         self.0.doc.similar(tolerance, sample_all, layer_id).map_err(err)
+    }
+
+    /// Quick selection (docs/M2.md section 3): `points` are the stroke's flat document x, y
+    /// samples, `radius` the brush radius; `mode` is a selection mode.
+    #[allow(clippy::too_many_arguments)]
+    pub fn quick_select(
+        &mut self,
+        points: Vec<f64>,
+        radius: f64,
+        sample_all: bool,
+        layer_id: u32,
+        mode: &str,
+        auto_enhance: bool,
+    ) -> Result<(), JsError> {
+        self.0
+            .doc
+            .quick_select(&points, radius, sample_all, layer_id, Mode::parse(mode).map_err(err)?, auto_enhance)
+            .map_err(err)
+    }
+
+    /// Magnetic lasso (docs/M2.md section 3): builds the gradient field once and returns the
+    /// handle for `magnetic_path`; free it with `magnetic_end`.
+    pub fn magnetic_begin(&mut self, sample_all: bool, layer_id: u32) -> Result<u32, JsError> {
+        self.0.magnetic_begin(sample_all, layer_id).map_err(err)
+    }
+
+    /// The live wire from (x0, y0) to (x1, y1) as flat x, y document pixels; `width` is the
+    /// search corridor's half-width, `contrast` (0..100 %) ignores weaker edges.
+    #[allow(clippy::too_many_arguments)]
+    pub fn magnetic_path(
+        &self,
+        handle: u32,
+        x0: i32,
+        y0: i32,
+        x1: i32,
+        y1: i32,
+        width: u32,
+        contrast: u8,
+    ) -> Result<Vec<i32>, JsError> {
+        self.0.magnetic_path(handle, x0, y0, x1, y1, width, contrast).map_err(err)
+    }
+
+    pub fn magnetic_end(&mut self, handle: u32) -> Result<(), JsError> {
+        self.0.magnetic_end(handle).map_err(err)
+    }
+
+    /// Index into a `magnetic_path` result (as point count, not array index) where the next
+    /// automatic anchor belongs, or -1 while the path is still shorter than the spacing.
+    pub fn magnetic_suggest_anchor(&self, path: Vec<i32>, frequency: u8) -> i32 {
+        let pts: Vec<(i32, i32)> = path.chunks_exact(2).map(|p| (p[0], p[1])).collect();
+        livewire::suggest_anchor(&pts, frequency).map_or(-1, |i| i as i32)
     }
 
     /// Paints a solid color into the layer through `coverage` (0..1, `w * h` long) at document

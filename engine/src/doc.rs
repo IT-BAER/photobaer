@@ -5,6 +5,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::blend::{blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blend, PaintMode};
+use crate::livewire::{self, LiveWire};
 use crate::region;
 use crate::selection::{gaussian_kernel, Ellipse, MaskShape, Mode, Polygon, Rect, Shape};
 
@@ -1924,6 +1925,31 @@ impl Document {
         self.grow_or_similar(tolerance, sample_all, layer_id, false)
     }
 
+    /// Quick selection (docs/M2.md section 3): `points` are the stroke's flat document x, y
+    /// samples, `radius` the brush radius in document pixels.
+    #[allow(clippy::too_many_arguments)]
+    pub fn quick_select(
+        &mut self,
+        points: &[f64],
+        radius: f64,
+        sample_all: bool,
+        layer_id: u32,
+        mode: Mode,
+        auto_enhance: bool,
+    ) -> Result<(), String> {
+        self.check_idle()?;
+        if points.len() % 2 != 0 {
+            return Err("quick selection points need an x and a y each".into());
+        }
+        if points.iter().any(|v| !v.is_finite()) {
+            return Err("quick selection points must be finite".into());
+        }
+        let stroke: Vec<(f64, f64)> = points.chunks_exact(2).map(|p| (p[0], p[1])).collect();
+        let src = self.sample_rgba8(sample_all, layer_id)?;
+        let cov = livewire::quick_select(&src, self.width, self.height, &stroke, radius, auto_enhance)?;
+        self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), mode)
+    }
+
     /// Quick mask (docs/M2.md section 3): paints into the selection itself, as if it were a
     /// layer mask, through `blend::paint_mask_value`; `value` (the fill color's red channel) is
     /// the painted mask value. There is no outer selection to clip this by.
@@ -3575,6 +3601,10 @@ pub struct EngineCore {
     pub doc: Document,
     snapshots: HashMap<u32, Document>,
     next_snapshot_id: u32,
+    // Magnetic lasso gradient fields, one per open lasso; they are derived from the image, so
+    // they live outside the document and never travel into a snapshot.
+    livewires: HashMap<u32, LiveWire>,
+    next_livewire_id: u32,
 }
 
 impl EngineCore {
@@ -3583,7 +3613,42 @@ impl EngineCore {
             doc,
             snapshots: HashMap::new(),
             next_snapshot_id: 0,
+            livewires: HashMap::new(),
+            next_livewire_id: 0,
         }
+    }
+
+    /// Magnetic lasso (docs/M2.md section 3): computes the gradient field of the sampled image
+    /// once and returns the handle the following `magnetic_path` calls use.
+    pub fn magnetic_begin(&mut self, sample_all: bool, layer_id: u32) -> Result<u32, String> {
+        self.doc.check_idle()?;
+        let src = self.doc.sample_rgba8(sample_all, layer_id)?;
+        let lw = LiveWire::new(&src, self.doc.width, self.doc.height);
+        let id = self.next_livewire_id;
+        self.next_livewire_id += 1;
+        self.livewires.insert(id, lw);
+        Ok(id)
+    }
+
+    /// The live wire from the last anchor to the pointer as flat x, y document pixels.
+    #[allow(clippy::too_many_arguments)]
+    pub fn magnetic_path(
+        &self,
+        handle: u32,
+        x0: i32,
+        y0: i32,
+        x1: i32,
+        y1: i32,
+        width: u32,
+        contrast: u8,
+    ) -> Result<Vec<i32>, String> {
+        self.doc.check_idle()?;
+        let lw = self.livewires.get(&handle).ok_or_else(|| format!("unknown magnetic lasso {handle}"))?;
+        Ok(lw.path((x0, y0), (x1, y1), width, contrast).into_iter().flat_map(|(x, y)| [x, y]).collect())
+    }
+
+    pub fn magnetic_end(&mut self, handle: u32) -> Result<(), String> {
+        self.livewires.remove(&handle).map(|_| ()).ok_or_else(|| format!("unknown magnetic lasso {handle}"))
     }
 
     pub fn snapshot(&mut self) -> u32 {
@@ -5517,5 +5582,71 @@ mod tests {
         let mut d = d;
         d.color_range(false, 1, "sampled", &[[255, 0, 0]], 50, 0, &[], false, false, Mode::New).unwrap();
         assert_eq!(d.selection_bounds(), Some([0, 0, 4, 8]), "the sampled preset selects the red half");
+    }
+
+    // Left half red, right half blue.
+    fn split_doc() -> Document {
+        let mut d = Document::new(8, 8, 8).unwrap();
+        d.select_rect(0.0, 0.0, 4.0, 8.0, Mode::New).unwrap();
+        d.fill(1, Target::Pixels, 230, 60, 40, 255).unwrap();
+        d.select_rect(4.0, 0.0, 4.0, 8.0, Mode::New).unwrap();
+        d.fill(1, Target::Pixels, 30, 40, 210, 255).unwrap();
+        d.deselect().unwrap();
+        d
+    }
+
+    #[test]
+    fn quick_select_takes_the_stroked_side_and_subtract_gives_it_back() {
+        let mut d = split_doc();
+        d.quick_select(&[1.5, 2.5, 1.5, 5.5], 1.0, false, 1, Mode::New, false).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 4, 8]), "the stroked side only");
+
+        d.select_all().unwrap();
+        d.quick_select(&[1.5, 2.5, 1.5, 5.5], 1.0, false, 1, Mode::Subtract, false).unwrap();
+        assert_eq!(d.selection_bounds(), Some([4, 0, 4, 8]), "subtract leaves the other side");
+
+        assert!(d.quick_select(&[1.0], 1.0, false, 1, Mode::New, false).is_err());
+        assert!(d.quick_select(&[f64::NAN, 1.0], 1.0, false, 1, Mode::New, false).is_err());
+        assert!(d.quick_select(&[], 1.0, false, 1, Mode::New, false).is_err());
+    }
+
+    #[test]
+    fn quick_select_auto_enhance_feathers_the_border() {
+        let mut d = split_doc();
+        d.quick_select(&[1.5, 2.5, 1.5, 5.5], 1.0, false, 1, Mode::New, true).unwrap();
+        let tile = d.selection_tile(0, 0, 0).unwrap().expect("a selection tile");
+        assert!(tile[4 * 256 + 1] > 230, "the stroked side stays selected");
+        let soft = (0..8).any(|x| { let v = tile[4 * 256 + x]; v > 0 && v < 255 });
+        assert!(soft, "auto enhance leaves partial coverage at the border");
+    }
+
+    #[test]
+    fn magnetic_handles_live_from_begin_to_end() {
+        let mut d = Document::new(40, 40, 8).unwrap();
+        d.fill(1, Target::Pixels, 20, 20, 20, 255).unwrap();
+        d.select_rect(10.0, 10.0, 20.0, 20.0, Mode::New).unwrap();
+        d.fill(1, Target::Pixels, 240, 240, 240, 255).unwrap();
+        d.deselect().unwrap();
+        let mut e = EngineCore::new(d);
+
+        assert!(e.magnetic_path(0, 10, 25, 25, 10, 12, 0).is_err(), "no handle yet");
+        let h = e.magnetic_begin(false, 1).unwrap();
+        let path = e.magnetic_path(h, 10, 25, 25, 10, 12, 0).unwrap();
+        assert_eq!(path.len() % 2, 0);
+        assert_eq!(&path[..2], &[10, 25]);
+        assert_eq!(&path[path.len() - 2..], &[25, 10]);
+        // Every point sits on the bright square's boundary ring, within a pixel.
+        for p in path.chunks_exact(2) {
+            let (x, y) = (p[0], p[1]);
+            let on_ring = (9..=30).contains(&x)
+                && (9..=30).contains(&y)
+                && (x <= 10 || x >= 29 || y <= 10 || y >= 29);
+            assert!(on_ring, "({x}, {y}) left the edge");
+        }
+        assert_eq!(livewire::suggest_anchor(&[(0, 0), (10, 0), (20, 0)], 91), Some(1));
+
+        e.magnetic_end(h).unwrap();
+        assert!(e.magnetic_end(h).is_err(), "the handle is freed once");
+        assert!(e.magnetic_path(h, 10, 25, 25, 10, 12, 0).is_err());
     }
 }

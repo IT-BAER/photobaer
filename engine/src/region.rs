@@ -262,16 +262,10 @@ pub fn contract(mask: &[f32], w: u32, h: u32, r: f32, apply_at_canvas_bounds: bo
     out
 }
 
-// 3x3 box average, canvas edges counted as unselected; the 1-pixel feather `border` applies on
-// top of its hard expand/contract band.
-fn box_feather1(mask: &[f32], w: usize, h: usize) -> Vec<f32> {
-    let at = |x: i32, y: i32| -> f32 {
-        if x < 0 || y < 0 || x as usize >= w || y as usize >= h {
-            0.0
-        } else {
-            mask[y as usize * w + x as usize]
-        }
-    };
+// 3x3 box average with the canvas edge clamped (no falloff invented at the canvas border); the
+// 1-pixel feather of `border` and of quick selection's auto enhance.
+pub fn feather1(mask: &[f32], w: usize, h: usize) -> Vec<f32> {
+    let at = |x: i32, y: i32| -> f32 { mask[y.clamp(0, h as i32 - 1) as usize * w + x.clamp(0, w as i32 - 1) as usize] };
     let mut out = vec![0f32; w * h];
     for y in 0..h as i32 {
         for x in 0..w as i32 {
@@ -294,7 +288,7 @@ pub fn border(mask: &[f32], w: u32, h: u32, r: f32, apply_at_canvas_bounds: bool
     let e = expand(mask, w, h, half, apply_at_canvas_bounds);
     let c = contract(mask, w, h, half, apply_at_canvas_bounds);
     let band: Vec<f32> = e.iter().zip(&c).map(|(&e, &c)| e - c).collect();
-    box_feather1(&band, w as usize, h as usize)
+    feather1(&band, w as usize, h as usize)
 }
 
 /// Rounds off the selection: each pixel becomes selected when at least half of its
