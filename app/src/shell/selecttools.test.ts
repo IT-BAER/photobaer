@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { selectMode, marqueeRect, snap45, PolygonLasso, contour, antsLevel } from './selecttools.ts';
+import { selectMode, marqueeRect, snap45, PolygonLasso, MagneticLasso, contour, antsLevel } from './selecttools.ts';
 
 test('selectMode combines modifiers, shift+alt wins', () => {
   assert.equal(selectMode('new', false, false), 'new');
@@ -93,6 +93,34 @@ test('contour: 2x2 checkerboard total length equals the edge count', () => {
   let total = 0;
   for (let i = 0; i < segs.length; i += 4) total += Math.abs(segs[i + 2] - segs[i]) + Math.abs(segs[i + 3] - segs[i + 1]);
   assert.equal(total, 8);
+});
+
+test('MagneticLasso accumulates committed path per anchor and closesAt near the first anchor', () => {
+  const m = new MagneticLasso();
+  m.start(0, 0);
+  assert.deepEqual(m.committed, [0, 0]);
+  assert.equal(m.closesAt(0.1, 0.1, 1), false); // only one anchor: not closeable yet
+  m.addAnchor([1, 1, 2, 2], 10, 0);
+  assert.deepEqual(m.committed, [0, 0, 1, 1, 2, 2, 10, 0]);
+  assert.deepEqual(m.last(), [10, 0]);
+  m.addAnchor([10, 5], 10, 10);
+  assert.equal(m.closesAt(0.5, 0.5, 1), true);
+  assert.equal(m.closesAt(5, 5, 1), false);
+});
+
+test('MagneticLasso removeLast pops an anchor and truncates the committed path to it', () => {
+  const m = new MagneticLasso();
+  m.start(0, 0);
+  m.addAnchor([1, 1], 2, 2);
+  m.addAnchor([3, 3], 4, 4);
+  m.removeLast();
+  assert.deepEqual(m.committed, [0, 0, 1, 1, 2, 2]);
+  assert.deepEqual(m.last(), [2, 2]);
+  m.removeLast();
+  assert.deepEqual(m.committed, [0, 0]);
+  assert.equal(m.anchors.length, 1);
+  m.removeLast(); // no-op with a single anchor left
+  assert.equal(m.anchors.length, 1);
 });
 
 test('antsLevel picks the smallest level that keeps the tile within cap, clamped to maxLevel and 8', () => {

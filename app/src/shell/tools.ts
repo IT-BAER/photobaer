@@ -167,7 +167,8 @@ export const TOOLS: Record<string, Tool> = {
   bucket: {
     id: 'bucket', label: 'Paint Bucket', slot: 'gradient', key: 'g', cursor: 'crosshair', icon: 'PaintBucket',
     options: [
-      { id: 'source', kind: 'select', label: 'Source', default: 'foreground', choices: ['foreground', 'background', 'pattern'] },
+      // Pattern source is not in B3 (no pattern picker yet); hidden rather than offered disabled.
+      { id: 'source', kind: 'select', label: 'Source', default: 'foreground', choices: ['foreground', 'background'] },
       { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES },
       { id: 'opacity', kind: 'percent', label: 'Opacity', default: 100, min: 0, max: 100 },
       { id: 'tolerance', kind: 'number', label: 'Tolerance', default: 32, min: 0, max: 255 },

@@ -296,6 +296,45 @@ const api = {
     return changed();
   },
 
+  magicWand(id: number, x: number, y: number, tolerance: number, antialias: boolean, contiguous: boolean, sampleAll: boolean, mode: string) {
+    const e = need();
+    history.run('Magic Wand', () => e.magic_wand(Math.floor(x), Math.floor(y), tolerance, antialias, contiguous, sampleAll, id, mode));
+    selGen++;
+    return changed();
+  },
+
+  quickSelect(id: number, points: number[], radius: number, sampleAll: boolean, mode: string, autoEnhance: boolean) {
+    const e = need();
+    if (points.length < 2) return info();
+    history.run('Quick Selection', () => e.quick_select(Float64Array.from(points), radius, sampleAll, id, mode, autoEnhance));
+    selGen++;
+    return changed();
+  },
+
+  magneticBegin(layerId: number, sampleAll: boolean) {
+    return need().magnetic_begin(sampleAll, layerId);
+  },
+
+  magneticPath(handle: number, x0: number, y0: number, x1: number, y1: number, width: number, contrast: number) {
+    return need().magnetic_path(handle, x0, y0, x1, y1, width, contrast);
+  },
+
+  magneticSuggestAnchor(path: Int32Array, frequency: number) {
+    return need().magnetic_suggest_anchor(path, frequency);
+  },
+
+  magneticEnd(handle: number) {
+    need().magnetic_end(handle);
+  },
+
+  // target is a parameter so a later batch can point bucket at the quick-mask selection channel;
+  // this batch only ever passes 'pixels'.
+  bucket(id: number, target: 'pixels' | 'selection', x: number, y: number, rgba: [number, number, number, number], mode: string, opacity: number, tolerance: number, antialias: boolean, contiguous: boolean, allLayers: boolean) {
+    const e = need();
+    history.run('Paint Bucket', () => e.bucket(id, target, Math.floor(x), Math.floor(y), ...rgba, mode, opacity, tolerance, antialias, contiguous, allLayers));
+    return changed();
+  },
+
   // Assembles selection_tile results at `level` into one coverage buffer; missing tiles fill
   // with the selection default (255 if default > 0 else 0).
   selectionMask(level: number) {

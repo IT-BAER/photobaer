@@ -15,12 +15,12 @@ import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
 import { TOOLS, initialLastUsed, keyToTool, loadToolOptions, slotForKey } from './shell/tools.ts';
 import { hexToRgb, type Rgb } from './shell/color.ts';
 import { SelectionOverlay } from './shell/SelectionOverlay.ts';
-import { antsLevel, contour, marqueeRect, PolygonLasso, selectMode, snap45, type SelectMode } from './shell/selecttools.ts';
+import { antsLevel, contour, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, type SelectMode } from './shell/selecttools.ts';
 import { levelFor } from './view.ts';
 
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
-const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso'];
+const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso', 'magneticLasso', 'quickSelection', 'magicWand'];
 
 // True only after `held` was seen released once during the drag, so a modifier already held at
 // pointer-down (consumed for add/subtract) must be released and re-pressed to engage constrain/etc.
@@ -123,6 +123,9 @@ export function App() {
   const polygonModeRef = useRef<SelectMode>('new');
   const lastPolyDownRef = useRef<{ t: number; x: number; y: number } | null>(null);
   const polygonActionsRef = useRef<{ active: () => boolean; commit: () => void; cancel: () => void; removeLast: () => void } | null>(null);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const magneticRef = useRef<{ lasso: MagneticLasso; handle: number | null; mode: SelectMode } | null>(null);
 
   function redrawOverlay() {
     const v = viewer.current;
@@ -349,9 +352,9 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc?.selGen, antsLevelValue, doc?.docId]);
 
-  // Rectangular/elliptical marquees, row/column marquees, freehand lasso and the polygonal lasso
-  // all drive the viewer's raw pointer events and the overlay preview; everything else forwards
-  // through onPointer as a no-op.
+  // Rectangular/elliptical marquees, row/column marquees, freehand lasso, the polygonal lasso,
+  // the magnetic lasso, quick selection and the magic wand all drive the viewer's raw pointer
+  // events and the overlay preview; everything else forwards through onPointer as a no-op.
   useEffect(() => {
     const v = viewer.current;
     if (!v) return;
@@ -360,6 +363,10 @@ export function App() {
       polygonRef.current = null;
       lastPolyDownRef.current = null;
       overlayRef.current?.setPreview(null);
+      if (magneticRef.current) {
+        if (magneticRef.current.handle !== null) client.call('magneticEnd', magneticRef.current.handle);
+        magneticRef.current = null;
+      }
     };
     cancelAll();
     if (!SELECT_TOOLS.includes(tool)) {
@@ -456,6 +463,95 @@ export function App() {
         lasso.add(e.shiftKey && prev ? snap45(prev, [e.x, e.y]) : [e.x, e.y]);
         overlayRef.current?.setPreview({ kind: 'path', points: lasso.flat(), closed: false });
       };
+    } else if (tool === 'magneticLasso') {
+      const finish = (points: number[], mode: SelectMode, handle: number) => {
+        const o = toolOptionsRef.current;
+        client.call('select', { kind: 'polygon', points }, mode, !!o.antiAlias, Number(o.feather), 'Magnetic Lasso').then(show);
+        client.call('magneticEnd', handle);
+        magneticRef.current = null;
+        overlayRef.current?.setPreview(null);
+      };
+      v.onPointer = e => {
+        const o = toolOptionsRef.current;
+        if (e.type === 'move') {
+          const st = magneticRef.current;
+          if (!st || st.handle === null) return;
+          const [lx, ly] = st.lasso.last();
+          client.call('magneticPath', st.handle, lx, ly, e.x, e.y, Number(o.width), Number(o.contrast)).then(path => {
+            if (magneticRef.current !== st) return;
+            client.call('magneticSuggestAnchor', path, Number(o.frequency)).then(idx => {
+              if (magneticRef.current !== st) return;
+              const split = idx > 0 && idx * 2 < path.length;
+              if (split) st.lasso.addAnchor(Array.from(path.subarray(2, idx * 2)), path[idx * 2], path[idx * 2 + 1]);
+              const tail = split ? path.subarray(idx * 2) : path;
+              overlayRef.current?.setPreview({ kind: 'path', points: [...st.lasso.committed, ...tail], closed: false });
+            });
+          });
+          return;
+        }
+        if (e.type !== 'down' || !activeRef.current) return;
+        const st = magneticRef.current;
+        if (!st) {
+          const lasso = new MagneticLasso();
+          lasso.start(e.x, e.y);
+          magneticRef.current = { lasso, handle: null, mode: selectMode(o.mode as string, e.shiftKey, e.altKey) };
+          client.call('magneticBegin', activeRef.current.id, false).then(handle => {
+            if (magneticRef.current) magneticRef.current.handle = handle;
+          });
+          overlayRef.current?.setPreview({ kind: 'path', points: lasso.committed, closed: false });
+          return;
+        }
+        const zoom = v.view.zoom;
+        if (st.lasso.closesAt(e.x, e.y, 6 / zoom) && st.handle !== null) { finish(st.lasso.committed, st.mode, st.handle); return; }
+        if (st.handle === null) return;
+        client.call('magneticPath', st.handle, ...st.lasso.last(), e.x, e.y, Number(o.width), Number(o.contrast)).then(path => {
+          if (magneticRef.current !== st) return;
+          st.lasso.addAnchor(Array.from(path.subarray(2, -2)), e.x, e.y);
+          overlayRef.current?.setPreview({ kind: 'path', points: st.lasso.committed, closed: false });
+        });
+      };
+      polygonActionsRef.current = {
+        active: () => !!magneticRef.current?.lasso.anchors.length,
+        commit: () => { const st = magneticRef.current; if (st?.handle !== null && st) finish(st.lasso.committed, st.mode, st.handle); },
+        cancel: cancelAll,
+        removeLast: () => {
+          const st = magneticRef.current;
+          st?.lasso.removeLast();
+          overlayRef.current?.setPreview(st?.lasso.anchors.length ? { kind: 'path', points: st.lasso.committed, closed: false } : null);
+        },
+      };
+      return cancelAll;
+    } else if (tool === 'quickSelection') {
+      const circle = (x: number, y: number, r: number) => ({ kind: 'ellipse' as const, x: x - r, y: y - r, w: r * 2, h: r * 2 });
+      v.onPointer = e => {
+        const o = toolOptionsRef.current;
+        const r = Number(o.size) / 2;
+        if (e.type === 'down') {
+          dragRef.current = { points: [e.x, e.y], mode: e.altKey ? 'subtract' : (o.mode as string) };
+          overlayRef.current?.setPreview(circle(e.x, e.y, r));
+          return;
+        }
+        const d = dragRef.current as { points: number[]; mode: string } | null;
+        if (e.type === 'move') {
+          if (d) {
+            const lx = d.points[d.points.length - 2], ly = d.points[d.points.length - 1];
+            if (Math.hypot(e.x - lx, e.y - ly) >= 1) d.points.push(e.x, e.y);
+          }
+          overlayRef.current?.setPreview(circle(e.x, e.y, r));
+          return;
+        }
+        dragRef.current = null;
+        overlayRef.current?.setPreview(null);
+        if (e.type === 'cancel' || !d || !activeRef.current) return;
+        client.call('quickSelect', activeRef.current.id, d.points, r, !!o.sampleAllLayers, d.mode, !!o.autoEnhance).then(show);
+      };
+    } else if (tool === 'magicWand') {
+      v.onPointer = e => {
+        if (e.type !== 'down' || !activeRef.current) return;
+        const o = toolOptionsRef.current;
+        const mode = selectMode('new', e.shiftKey, e.altKey);
+        client.call('magicWand', activeRef.current.id, e.x, e.y, Number(o.tolerance), !!o.antiAlias, !!o.contiguous, !!o.sampleAllLayers, mode).then(show);
+      };
     }
 
     polygonActionsRef.current = {
@@ -469,6 +565,24 @@ export function App() {
     };
     return cancelAll;
   }, [tool, doc?.docId]);
+
+  // Paint bucket: click fills; Alt springs to the eyedropper (sets the foreground color) instead.
+  // Runs after the selection effect above so it is not left as a no-op by that effect's early return.
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v || tool !== 'bucket') return;
+    v.onPointer = e => {
+      if (e.type !== 'down' || !active) return;
+      if (e.altKey) {
+        client.call('sample', e.x, e.y, 1, null).then(([r, g, b]) => setFg([r, g, b]));
+        return;
+      }
+      const o = toolOptionsRef.current;
+      const rgb = o.source === 'background' ? bg : fg;
+      client.call('bucket', active.id, 'pixels', e.x, e.y, [...rgb, 255], o.mode as string, Number(o.opacity) / 100, Number(o.tolerance), !!o.antiAlias, !!o.contiguous, !!o.allLayers).then(show);
+    };
+    return () => { v.onPointer = () => {}; };
+  }, [tool, active, fg, bg]);
 
   function openPicker(which: 'fg' | 'bg') {
     picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v));

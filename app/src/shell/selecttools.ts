@@ -52,6 +52,44 @@ export class PolygonLasso {
   flat(): number[] { return this.points.flat(); }
 }
 
+interface MagneticAnchor { x: number; y: number; len: number }
+
+// Tracks a magnetic lasso's traced edge: one flat polyline (`committed`) built from the live-wire
+// segments between successive anchors, plus the anchors themselves (each remembering its position
+// in `committed`) so Backspace can drop the last segment.
+export class MagneticLasso {
+  committed: number[] = [];
+  anchors: MagneticAnchor[] = [];
+
+  start(x: number, y: number) {
+    this.committed = [x, y];
+    this.anchors = [{ x, y, len: 2 }];
+  }
+
+  // `segment` is the live-wire path between the previous anchor and (x, y), excluding both endpoints.
+  addAnchor(segment: number[], x: number, y: number) {
+    this.committed.push(...segment, x, y);
+    this.anchors.push({ x, y, len: this.committed.length });
+  }
+
+  removeLast() {
+    if (this.anchors.length < 2) return;
+    this.anchors.pop();
+    this.committed.length = this.anchors.at(-1)!.len;
+  }
+
+  last(): [number, number] {
+    const a = this.anchors.at(-1)!;
+    return [a.x, a.y];
+  }
+
+  closesAt(x: number, y: number, tolDoc: number): boolean {
+    if (this.anchors.length < 2) return false;
+    const a = this.anchors[0];
+    return Math.hypot(x - a.x, y - a.y) <= tolDoc;
+  }
+}
+
 // Boundary segments (x0,y0,x1,y1,...) between inside (mask >= threshold) and outside pixels,
 // in mask pixel units. Out-of-bounds counts as outside. Adjacent unit edges on the same grid
 // line merge into one run.
