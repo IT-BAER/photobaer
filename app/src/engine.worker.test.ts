@@ -643,3 +643,102 @@ test('warp refuses the selection outline and selected pixels, and the session st
   }
   assert.equal((await call('transformWarp', null)).error, 'The transform was cancelled.');
 });
+
+type Doc = { width: number; height: number; undoLabel: string | null; history: { labels: string[] }; selection: { bounds: number[] | null } | null };
+const docOf = (r: { result?: unknown }) => r.result as Doc;
+const count = (d: Doc, label: string) => d.history.labels.filter(l => l === label).length;
+
+// Every pixel of the canvas, row-major, through the composite sampler.
+async function pixels(w: number, h: number) {
+  const out: number[][] = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) out.push(await px(x, y));
+  return out;
+}
+
+// redSquare on a white Background: a full-canvas layer, so Reveal All can find the old canvas again.
+async function redOnWhite() {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  await call('selectCommand', 'deselect');
+}
+
+test('Image > Crop needs a selection and crops to it as one Crop step', async () => {
+  await redSquare();
+  const refused = await call('cropToSelection');
+  assert.equal(refused.error, 'Make a selection to crop to.');
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  const d = docOf(await call('cropToSelection'));
+  assert.deepEqual([d.width, d.height, d.undoLabel, count(d, 'Crop')], [4, 4, 'Crop', 1]);
+  assert.deepEqual(d.selection?.bounds, [0, 0, 4, 4], 'the selection moves with the crop');
+  assert.deepEqual([await px(0, 0), await px(3, 3)], [RED, RED]);
+  const u = docOf(await call('undo'));
+  assert.deepEqual([u.width, u.height], [16, 16]);
+});
+
+test('Reveal All after Image > Crop restores the original size and pixels, then is a no-op', async () => {
+  await redOnWhite();
+  const before = await pixels(16, 16);
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('cropToSelection');
+  const d = docOf(await call('revealAll'));
+  assert.deepEqual([d.width, d.height, d.undoLabel, count(d, 'Reveal All')], [16, 16, 'Reveal All', 1]);
+  assert.deepEqual(await pixels(16, 16), before);
+  const again = docOf(await call('revealAll'));
+  assert.equal(count(again, 'Reveal All'), 1, 'no step when nothing is outside the canvas');
+});
+
+test('Trim transparent and pixel-colour modes give the expected size as one Trim step', async () => {
+  await redSquare();
+  const t = docOf(await call('trim', 'transparent', true, true, true, true));
+  assert.deepEqual([t.width, t.height, t.undoLabel, count(t, 'Trim')], [4, 4, 'Trim', 1]);
+  assert.deepEqual(await px(0, 0), RED);
+  const n = docOf(await call('trim', 'transparent', true, true, true, true));
+  assert.equal(count(n, 'Trim'), 1, 'a trim that changes nothing makes no step');
+  await call('undo');
+  const r = docOf(await call('trim', 'transparent', true, true, true, false));
+  assert.deepEqual([r.width, r.height], [14, 4], 'a side left off keeps the canvas edge');
+  await redOnWhite();
+  for (const mode of ['topLeftPixel', 'bottomRightPixel']) {
+    const c = docOf(await call('trim', mode, true, true, true, true));
+    assert.deepEqual([c.width, c.height], [4, 4], mode);
+    await call('undo');
+  }
+});
+
+test('canvas rotations and flips are one step each under their menu label', async () => {
+  await redSquare();
+  const labels = { '180': '180°', cw: '90° Clockwise', ccw: '90° Counter Clockwise', flipH: 'Flip Canvas Horizontal', flipV: 'Flip Canvas Vertical' };
+  for (const [kind, label] of Object.entries(labels)) {
+    const d = docOf(await call('rotateCanvas', kind));
+    assert.deepEqual([d.undoLabel, count(d, label)], [label, 1], kind);
+  }
+});
+
+test('rotating the canvas 90 CW then CCW restores identical pixels', async () => {
+  await call('init');
+  await call('newDoc', 8, 4, 8, null);
+  await call('select', { kind: 'rect', x: 1, y: 0, w: 2, h: 1 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  await call('selectCommand', 'deselect');
+  const before = await pixels(8, 4);
+  const cw = docOf(await call('rotateCanvas', 'cw'));
+  assert.deepEqual([cw.width, cw.height], [4, 8]);
+  assert.deepEqual([await px(3, 1), await px(3, 2), await px(0, 1)], [RED, RED, CLEAR], '(x, y) goes to (H-1-y, x)');
+  const ccw = docOf(await call('rotateCanvas', 'ccw'));
+  assert.deepEqual([ccw.width, ccw.height], [8, 4]);
+  assert.deepEqual(await pixels(8, 4), before);
+});
+
+test('arbitrary canvas rotation is one Rotate Canvas step, a full turn makes none, a bad angle is reported', async () => {
+  await redSquare();
+  const d = docOf(await call('rotateCanvasArbitrary', 30, 'bicubic'));
+  assert.deepEqual([d.undoLabel, count(d, 'Rotate Canvas')], ['Rotate Canvas', 1]);
+  assert.ok(d.width > 16 && d.height > 16);
+  const n = docOf(await call('rotateCanvasArbitrary', 360, 'bilinear'));
+  assert.equal(count(n, 'Rotate Canvas'), 1);
+  const bad = await call('rotateCanvasArbitrary', Number.NaN, 'bicubic');
+  assert.equal(bad.error, 'angle must be finite');
+  assert.equal(count(docOf(await call('undo')), 'Rotate Canvas'), 1, 'the refused call left no step behind');
+});

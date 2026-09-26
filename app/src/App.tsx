@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { client } from './client.ts';
 import { Viewer, type ToolPointerEvent, type ViewerTool } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
@@ -68,6 +68,7 @@ function makeLatch(held: boolean) {
 }
 
 type Rgba = [number, number, number, number];
+type TrimBase = 'transparent' | 'topLeftPixel' | 'bottomRightPixel';
 
 // Edit > Fill: only contents, color and pattern persist across openings.
 const FILL_KEY = 'photobaer:fill';
@@ -88,7 +89,8 @@ interface StrokeForm { width: number; color: Rgb; location: StrokeSelectionParam
 const STROKE_DEFAULT: StrokeForm = { width: 3, color: [0, 0, 0], location: 'inside', mode: 'normal', opacity: 100, preserve: false };
 type CreateResult = DocInfo & { created: number };
 type SelectAfter = (d: DocInfo) => Active;
-interface Item { label: string; keys?: string; run: () => void; off?: boolean; sub?: Item[] }
+// `sep` draws a separator line above the item.
+interface Item { label: string; keys?: string; run: () => void; off?: boolean; sub?: Item[]; sep?: boolean }
 
 // Default and undo/redo fallback: the topmost root layer, pixels target.
 function fallbackActive(d: DocInfo): Active {
@@ -150,6 +152,8 @@ export function App() {
   const colorRangeDialog = useRef<HTMLDialogElement>(null);
   const saveSelDialog = useRef<HTMLDialogElement>(null);
   const loadSelDialog = useRef<HTMLDialogElement>(null);
+  const trimDialog = useRef<HTMLDialogElement>(null);
+  const rotateDialog = useRef<HTMLDialogElement>(null);
   const colorRangeCanvas = useRef<HTMLCanvasElement>(null);
   const picker = useRef<ColorPickerHandle>(null);
   const viewer = useRef<Viewer | null>(null);
@@ -478,6 +482,18 @@ export function App() {
     ],
     Image: [
       { label: 'Invert', keys: 'Ctrl+I', run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, quickMask ? 'selection' : active!.target)), off: !has },
+      {
+        label: 'Image Rotation', keys: '›', run: () => {}, off: !has, sep: true, sub: [
+          ...([['180', '180°'], ['cw', '90° Clockwise'], ['ccw', '90° Counter Clockwise']] as [Command, string][])
+            .map(([c, label]) => ({ label, run: () => run('Rotating…', () => client.call('rotateCanvas', c)) })),
+          { label: 'Arbitrary…', run: () => { setMenu(null); rotateDialog.current?.showModal(); } },
+          ...([['flipH', 'Flip Canvas Horizontal'], ['flipV', 'Flip Canvas Vertical']] as [Command, string][])
+            .map(([c, label], i) => ({ label, sep: i === 0, run: () => run('Flipping…', () => client.call('rotateCanvas', c)) })),
+        ],
+      },
+      { label: 'Crop', run: () => run('Cropping…', () => client.call('cropToSelection')), off: !doc?.selection },
+      { label: 'Trim…', run: () => { setMenu(null); trimDialog.current?.showModal(); }, off: !has },
+      { label: 'Reveal All', run: () => run('Revealing…', () => client.call('revealAll')), off: !has },
     ],
     Select: [
       { label: 'All', keys: 'Ctrl+A', run: () => run(null, () => client.call('selectCommand', 'all')), off: !has },
@@ -1824,10 +1840,13 @@ export function App() {
       style={{ backgroundImage: `${rampCss(gradPreset, gradOptions.method as Method)}, var(--checker)` }} onClick={editGradient} />
   );
   const menuItems = (items: Item[]): ReactNode => items.map(i => (
-    <li key={i.label} className={i.sub ? 'has-sub' : undefined}>
-      <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={i.run}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
-      {i.sub && !i.off && <ul role="menu" aria-label={i.label}>{menuItems(i.sub)}</ul>}
-    </li>
+    <Fragment key={i.label}>
+      {i.sep && <li role="separator" className="menu-sep" />}
+      <li className={i.sub ? 'has-sub' : undefined}>
+        <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={i.run}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
+        {i.sub && !i.off && <ul role="menu" aria-label={i.label}>{menuItems(i.sub)}</ul>}
+      </li>
+    </Fragment>
   ));
   return (
     <div className="app">
@@ -2105,6 +2124,51 @@ export function App() {
           </select></label>
           <div className="actions">
             <button type="button" onClick={() => loadSelDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={trimDialog}>
+        <form onSubmit={e => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          const on = (k: string) => f.get(k) === 'on';
+          trimDialog.current?.close();
+          run('Trimming…', () => client.call('trim', String(f.get('basedOn')) as TrimBase, on('top'), on('bottom'), on('left'), on('right')));
+        }}>
+          <h2>Trim</h2>
+          <fieldset className="stroke-location trim-group">
+            <legend>Based On</legend>
+            {([['transparent', 'Transparent Pixels'], ['topLeftPixel', 'Top Left Pixel Color'], ['bottomRightPixel', 'Bottom Right Pixel Color']] as [TrimBase, string][]).map(([v, l]) => (
+              <label key={v}><input type="radio" name="basedOn" value={v} defaultChecked={v === 'transparent'} /> {l}</label>
+            ))}
+          </fieldset>
+          <fieldset className="stroke-location">
+            <legend>Trim Away</legend>
+            {['Top', 'Bottom', 'Left', 'Right'].map(l => (
+              <label key={l}><input type="checkbox" name={l.toLowerCase()} defaultChecked /> {l}</label>
+            ))}
+          </fieldset>
+          <div className="actions">
+            <button type="button" onClick={() => trimDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={rotateDialog}>
+        <form onSubmit={e => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          rotateDialog.current?.close();
+          run('Rotating…', () => client.call('rotateCanvasArbitrary', Number(f.get('angle')), String(f.get('interp')) as 'nearest' | 'bilinear' | 'bicubic'));
+        }}>
+          <h2>Rotate Canvas</h2>
+          <label>Angle <input name="angle" type="number" min={-360} max={360} step="any" defaultValue={0} required /> ° clockwise</label>
+          <label>Interpolation <select name="interp" defaultValue="bicubic">
+            <option value="nearest">Nearest Neighbor</option><option value="bilinear">Bilinear</option><option value="bicubic">Bicubic</option>
+          </select></label>
+          <div className="actions">
+            <button type="button" onClick={() => rotateDialog.current?.close()}>Cancel</button>
             <button type="submit" className="primary">OK</button>
           </div>
         </form>

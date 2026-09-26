@@ -65,7 +65,8 @@ export class Viewer {
   get size() { return [this.#w, this.#h] as const; }
 
   setDoc(d: ViewDoc | null) {
-    const fresh = !d || !this.#doc || d.docId !== this.#doc.docId;
+    // A canvas size change (crop, trim, rotation, their undo) refits like a new document.
+    const fresh = !d || !this.#doc || d.docId !== this.#doc.docId || d.width !== this.#doc.width || d.height !== this.#doc.height;
     this.#doc = d;
     if (fresh) {
       this.#resetCache();

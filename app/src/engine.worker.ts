@@ -205,7 +205,26 @@ function applyTransform(e: Engine, kind: TransformKind, id: number, m: Transform
   else e.transform_selection(f, interp);
 }
 
-const WARP_LAYER_ONLY = 'Warp bends a whole layer; deselect to warp it.';
+const CANVAS_REMAPS = { '180': '180°', cw: '90° Clockwise', ccw: '90° Counter Clockwise', flipH: 'Flip Canvas Horizontal', flipV: 'Flip Canvas Vertical' };
+
+// One step for an engine canvas op; a false result (nothing to change) records none.
+function canvasEdit(label: string, fn: () => boolean) {
+  history.begin(label);
+  let done: boolean;
+  try {
+    done = fn();
+  } catch (err) {
+    history.restoreOpen();
+    history.abort();
+    throw err;
+  }
+  if (!done) { history.abort(); return info()!; }
+  history.commit();
+  selGen++;
+  return changed();
+}
+
+const WARP_LAYER_ONLY ='Warp bends a whole layer; deselect to warp it.';
 const sameOp = (a: TransformOp, b: TransformOp) => typeof a === 'string' || typeof b === 'string' ? a === b : a.length === b.length && a.every((v, i) => v === b[i]);
 
 // Puts the document back to the state the session's transform applies to.
@@ -969,6 +988,35 @@ const api = {
     const e = need();
     history.run(label, () => e.rotate_layer_exact(id, kind));
     return changed();
+  },
+
+  // Image menu canvas commands: every plane moves with the canvas, so the selection changes too.
+  cropToSelection() {
+    const e = need();
+    const sel = (JSON.parse(e.channels_json()) as { selection: { bounds: Box | null } | null }).selection;
+    const r = intersect(sel?.bounds ?? null, [0, 0, e.width(), e.height()]);
+    if (!r) throw new Error('Make a selection to crop to.');
+    return canvasEdit('Crop', () => e.apply_crop(...r, false));
+  },
+
+  trim(basedOn: 'transparent' | 'topLeftPixel' | 'bottomRightPixel', top: boolean, bottom: boolean, left: boolean, right: boolean) {
+    const e = need();
+    return canvasEdit('Trim', () => e.trim(basedOn, top, bottom, left, right));
+  },
+
+  revealAll() {
+    const e = need();
+    return canvasEdit('Reveal All', () => e.reveal_all());
+  },
+
+  rotateCanvas(kind: '180' | 'cw' | 'ccw' | 'flipH' | 'flipV') {
+    const e = need();
+    return canvasEdit(CANVAS_REMAPS[kind], () => { e.rotate_canvas_exact(kind); return true; });
+  },
+
+  rotateCanvasArbitrary(deg: number, interp: 'nearest' | 'bilinear' | 'bicubic') {
+    const e = need();
+    return canvasEdit('Rotate Canvas', () => e.rotate_canvas(deg, interp));
   },
 
   setProps(id: number, props: Partial<{

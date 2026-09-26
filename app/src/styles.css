@@ -38,6 +38,7 @@ button { font: inherit; color: inherit; }
 .menu li.has-sub { position: relative; }
 .menu li.has-sub > ul { display: none; top: -5px; left: 100%; margin: 0 0 0 2px; }
 .menu li.has-sub:hover > ul, .menu li.has-sub:focus-within > ul { display: block; }
+.menu li.menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
 .context-menu { position: fixed; z-index: 20; }
 .context-menu > ul { top: 0; margin: 0; }
 .scrim { position: fixed; inset: 0; z-index: 10; }
@@ -264,6 +265,7 @@ dialog .actions { justify-content: flex-end; margin-top: 16px; }
 .stroke-location legend { color: var(--dim); }
 .stroke-location label { margin: 0; }
 .stroke-location input { flex: none; }
+.trim-group { flex-direction: column; gap: 4px; }
 dialog input[type=checkbox], dialog input[type=radio] { flex: none; }
 dialog button.gradient-swatch { width: 40px; height: 22px; padding: 0; flex: none; border: 1px solid var(--line); border-radius: 4px; }
 
