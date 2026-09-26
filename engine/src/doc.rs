@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::blend::{blend_rgb, dissolve_hash, paint_pixel, Blend, PaintMode};
+use crate::blend::{blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blend, PaintMode};
 use crate::region;
 use crate::selection::{gaussian_kernel, Ellipse, MaskShape, Mode, Polygon, Rect, Shape};
 
@@ -500,6 +500,7 @@ pub struct Document {
 pub enum Target {
     Pixels,
     Mask,
+    Selection,
 }
 
 impl Target {
@@ -507,6 +508,7 @@ impl Target {
         match s {
             "pixels" => Ok(Target::Pixels),
             "mask" => Ok(Target::Mask),
+            "selection" => Ok(Target::Selection),
             other => Err(format!("unknown target {other}")),
         }
     }
@@ -1356,6 +1358,13 @@ impl Document {
         self.check_idle()?;
         let depth = self.depth;
         let max = max_value(depth) as f32;
+        // Quick mask (docs/M2.md section 3): the selection itself is the mask being filled, so
+        // there is no further selection to clip it by.
+        if target == Target::Selection {
+            let value = if depth == 8 { r as u32 } else { r as u32 * 257 };
+            self.selection = Some(SelMask { default: value, tiles: Tiles::default() });
+            return Ok(());
+        }
         if target == Target::Mask {
             let value = if depth == 8 { r as u32 } else { r as u32 * 257 };
             self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
@@ -1410,8 +1419,8 @@ impl Document {
     /// Pixels become transparent, a mask becomes 0; the selection limits the effect.
     pub fn clear(&mut self, id: u32, target: Target) -> Result<(), String> {
         self.check_idle()?;
-        if target == Target::Mask {
-            return self.fill(id, Target::Mask, 0, 0, 0, 0);
+        if target == Target::Mask || target == Target::Selection {
+            return self.fill(id, target, 0, 0, 0, 0);
         }
         self.check_pixel_edit(id)?;
         let area = match self.selected_tiles() {
@@ -1435,6 +1444,7 @@ impl Document {
         let tiles = match target {
             Target::Pixels => node.pixel_tiles()?,
             Target::Mask => &node.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?.tiles,
+            Target::Selection => unreachable!("callers never remap the selection through a node"),
         };
         let src: Vec<((i32, i32), u64, Arc<Pixels>)> = tiles
             .coords()
@@ -1462,6 +1472,9 @@ impl Document {
 
     pub fn invert(&mut self, id: u32, target: Target) -> Result<(), String> {
         self.check_idle()?;
+        if target == Target::Selection {
+            return self.invert_selection();
+        }
         if target == Target::Pixels {
             self.check_pixel_edit(id)?;
         } else if self.node(id)?.mask.is_none() {
@@ -1478,6 +1491,7 @@ impl Document {
                         area.into_iter().filter(|(tx, ty)| tiles.get(*tx, *ty).is_some()).collect();
                     self.edit_pixel_tiles(id, &area, true, |[r, g, b, a]| [1.0 - r, 1.0 - g, 1.0 - b, a])
                 }
+                Target::Selection => unreachable!("handled above"),
             };
         }
         let fresh = self.remap_tiles(id, target, |px| px.inverted())?;
@@ -1496,6 +1510,7 @@ impl Document {
                     m.tiles.put(tx, ty, Some(t));
                 }
             }
+            Target::Selection => unreachable!("handled above"),
         }
         Ok(())
     }
@@ -1822,6 +1837,59 @@ impl Document {
         self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), mode)
     }
 
+    /// Color Range (docs/M2.md section 3), plugged into the shared selection combine path.
+    #[allow(clippy::too_many_arguments)]
+    pub fn color_range(
+        &mut self,
+        sample_all: bool,
+        layer_id: u32,
+        preset: &str,
+        samples: &[[u8; 3]],
+        fuzziness: u8,
+        range: u8,
+        center: &[(f64, f64)],
+        localized: bool,
+        invert: bool,
+        mode: Mode,
+    ) -> Result<(), String> {
+        self.check_idle()?;
+        let src = self.sample_rgba8(sample_all, layer_id)?;
+        let cov = region::color_range(&src, self.width, self.height, preset, samples, fuzziness, range, center, localized, invert)?;
+        self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), mode)
+    }
+
+    /// Grayscale preview of `color_range`'s coverage for the dialog, without touching the
+    /// selection; `level` downsamples by `2^level` (nearest-neighbour) so a big canvas stays
+    /// cheap to redraw live.
+    #[allow(clippy::too_many_arguments)]
+    pub fn color_range_preview(
+        &self,
+        level: u32,
+        sample_all: bool,
+        layer_id: u32,
+        preset: &str,
+        samples: &[[u8; 3]],
+        fuzziness: u8,
+        range: u8,
+        center: &[(f64, f64)],
+        localized: bool,
+        invert: bool,
+    ) -> Result<Vec<u8>, String> {
+        let src = self.sample_rgba8(sample_all, layer_id)?;
+        let cov = region::color_range(&src, self.width, self.height, preset, samples, fuzziness, range, center, localized, invert)?;
+        let step = 1usize << level.min(8);
+        let (w, h) = (self.width as usize, self.height as usize);
+        let (pw, ph) = (w.div_ceil(step), h.div_ceil(step));
+        let mut out = vec![0u8; pw * ph];
+        for py in 0..ph {
+            for px in 0..pw {
+                let (x, y) = ((px * step).min(w - 1), (py * step).min(h - 1));
+                out[py * pw + px] = (cov[y * w + x] * 255.0).round().clamp(0.0, 255.0) as u8;
+            }
+        }
+        Ok(out)
+    }
+
     // Whether each canvas pixel is >= 0.5 selected, doc-sized; used as the seed set of grow/similar.
     fn selection_seed_mask(&self) -> Result<Vec<bool>, String> {
         let sel = self.selection.as_ref().ok_or("nothing is selected")?;
@@ -1856,6 +1924,52 @@ impl Document {
         self.grow_or_similar(tolerance, sample_all, layer_id, false)
     }
 
+    /// Quick mask (docs/M2.md section 3): paints into the selection itself, as if it were a
+    /// layer mask, through `blend::paint_mask_value`; `value` (the fill color's red channel) is
+    /// the painted mask value. There is no outer selection to clip this by.
+    fn paint_coverage_selection(
+        &mut self,
+        x: i32,
+        y: i32,
+        w: u32,
+        h: u32,
+        coverage: &[f32],
+        value: u8,
+        mode: PaintMode,
+        opacity: f32,
+    ) -> Result<(), String> {
+        let opacity = opacity.clamp(0.0, 1.0);
+        let target = value as f32 / 255.0;
+        let mut sel = self.selection.take().unwrap_or_default();
+        for (tx, ty) in self.tiles_of_rect(x, y, x + w as i32, y + h as i32) {
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            let cell = |px_: i32, py: i32| -> f32 {
+                let (dx, dy) = (ox + px_ - x, oy + py - y);
+                if dx < 0 || dx >= w as i32 || dy < 0 || dy >= h as i32 {
+                    0.0
+                } else {
+                    coverage[(dy * w as i32 + dx) as usize]
+                }
+            };
+            let touches = (0..TILE as i32).any(|py| (0..TILE as i32).any(|px_| cell(px_, py) > 0.0));
+            if !touches {
+                continue;
+            }
+            let mut values = vec![0f32; TILE_PIXELS];
+            for py in 0..TILE as i32 {
+                for px_ in 0..TILE as i32 {
+                    let p = (py * TILE as i32 + px_) as usize;
+                    let old = self.sel_at(&sel, ox + px_, oy + py);
+                    let c = (cell(px_, py) * opacity).clamp(0.0, 1.0);
+                    values[p] = paint_mask_value(mode, old, target, c);
+                }
+            }
+            self.set_sel_tile(&mut sel, tx, ty, &values);
+        }
+        self.selection = Some(sel);
+        Ok(())
+    }
+
     /// Paints a solid color into the layer at document rect (x, y, w, h) through `coverage`
     /// (0..1, `coverage.len() == w * h`) times `opacity` times the selection, using the blend
     /// math in `blend::paint_pixel`. Honors the transparency lock and errors on the pixel lock;
@@ -1864,6 +1978,7 @@ impl Document {
     pub fn paint_coverage(
         &mut self,
         id: u32,
+        target: Target,
         x: i32,
         y: i32,
         w: u32,
@@ -1874,10 +1989,16 @@ impl Document {
         opacity: f32,
     ) -> Result<(), String> {
         self.check_idle()?;
-        self.check_pixel_edit(id)?;
         if coverage.len() != (w * h) as usize {
             return Err("paint coverage buffer must match w*h".into());
         }
+        if target == Target::Selection {
+            return self.paint_coverage_selection(x, y, w, h, coverage, rgba[0], mode, opacity);
+        }
+        if target != Target::Pixels {
+            return Err("paint_coverage only supports the pixels or selection target".into());
+        }
+        self.check_pixel_edit(id)?;
         let keep_alpha = self.node(id)?.locks.transparency;
         let depth = self.depth;
         let rgb = [rgba[0] as f32 / 255.0, rgba[1] as f32 / 255.0, rgba[2] as f32 / 255.0];
@@ -1931,6 +2052,7 @@ impl Document {
     pub fn bucket(
         &mut self,
         id: u32,
+        target: Target,
         x: i32,
         y: i32,
         rgba: [u8; 4],
@@ -1942,13 +2064,15 @@ impl Document {
         all_layers: bool,
     ) -> Result<(), String> {
         self.check_idle()?;
-        self.check_pixel_edit(id)?;
+        if target == Target::Pixels {
+            self.check_pixel_edit(id)?;
+        }
         if x < 0 || y < 0 || x as u32 >= self.width || y as u32 >= self.height {
             return Err("bucket seed must be inside the canvas".into());
         }
         let src = self.sample_rgba8(all_layers, id)?;
         let cov = region::flood(&src, self.width, self.height, (x as u32, y as u32), tolerance, contiguous, antialias);
-        self.paint_coverage(id, 0, 0, self.width, self.height, &cov, rgba, mode, opacity)
+        self.paint_coverage(id, target, 0, 0, self.width, self.height, &cov, rgba, mode, opacity)
     }
 
     pub fn has_selection(&self) -> bool {
@@ -2072,6 +2196,35 @@ impl Document {
         Ok(())
     }
 
+    /// Full doc-sized selection coverage, 0..1, defaulting to unselected when nothing is selected.
+    fn selection_values(&self) -> Vec<f32> {
+        let sel = self.selection.clone().unwrap_or_default();
+        let (w, h) = (self.width as i32, self.height as i32);
+        let mut out = vec![0f32; (w * h) as usize];
+        for y in 0..h {
+            for x in 0..w {
+                out[(y * w + x) as usize] = self.sel_at(&sel, x, y);
+            }
+        }
+        out
+    }
+
+    /// Select > Modify (docs/M2.md section 3): `op` is "border", "smooth", "expand" or "contract".
+    pub fn modify_selection(&mut self, op: &str, r: f64, canvas_bounds: bool) -> Result<(), String> {
+        self.check_idle()?;
+        self.selection.as_ref().ok_or("nothing is selected")?;
+        let vals = self.selection_values();
+        let (w, h) = (self.width, self.height);
+        let out = match op {
+            "expand" => region::expand(&vals, w, h, r as f32, canvas_bounds),
+            "contract" => region::contract(&vals, w, h, r as f32, canvas_bounds),
+            "border" => region::border(&vals, w, h, r as f32, canvas_bounds),
+            "smooth" => region::smooth(&vals, w, h, r as u32, canvas_bounds),
+            other => return Err(format!("unknown modify op {other}")),
+        };
+        self.select_shape(&MaskShape::new(w as i32, h as i32, out), Mode::New)
+    }
+
     pub fn delete_channel(&mut self, id: u32) -> Result<(), String> {
         self.check_idle()?;
         let at = self
@@ -2080,6 +2233,45 @@ impl Document {
             .position(|c| c.id == id)
             .ok_or_else(|| format!("unknown channel {id}"))?;
         self.channels.remove(at);
+        Ok(())
+    }
+
+    /// Combines the current selection into an existing saved channel (M2.md "combine into an
+    /// existing channel").
+    pub fn combine_into_channel(&mut self, channel: u32, mode: Mode) -> Result<(), String> {
+        self.check_idle()?;
+        let sel = self.selection.clone().unwrap_or_default();
+        let old = self
+            .channels
+            .iter()
+            .find(|c| c.id == channel)
+            .ok_or_else(|| format!("unknown channel {channel}"))?
+            .mask
+            .clone();
+        let max = self.max();
+        let mut merged = SelMask {
+            default: (mode.combine(old.default as f32 / max, sel.default as f32 / max).clamp(0.0, 1.0) * max).round() as u32,
+            tiles: Tiles::default(),
+        };
+        let mut area: Vec<(i32, i32)> = sel.tiles.coords();
+        for at in old.tiles.coords() {
+            if !area.contains(&at) {
+                area.push(at);
+            }
+        }
+        let mut values = vec![0f32; TILE_PIXELS];
+        for (tx, ty) in area {
+            if !self.on_canvas(tx, ty) {
+                continue;
+            }
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            for p in 0..TILE_PIXELS {
+                let (x, y) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
+                values[p] = mode.combine(self.sel_at(&old, x, y), self.sel_at(&sel, x, y)).clamp(0.0, 1.0);
+            }
+            self.set_sel_tile(&mut merged, tx, ty, &values);
+        }
+        self.channels.iter_mut().find(|c| c.id == channel).expect("checked above").mask = merged;
         Ok(())
     }
 
@@ -4912,6 +5104,19 @@ mod tests {
         assert!(d.load_selection(ch, false, Mode::New).is_err());
     }
 
+    #[test]
+    fn combine_into_channel_unions_the_selection_into_a_saved_channel() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        d.select_rect(0.0, 0.0, 50.0, 50.0, Mode::New).unwrap();
+        let ch = d.save_selection("a").unwrap();
+        d.select_rect(100.0, 100.0, 50.0, 50.0, Mode::New).unwrap();
+        d.combine_into_channel(ch, Mode::Add).unwrap();
+        d.select_rect(0.0, 0.0, 1.0, 1.0, Mode::New).unwrap();
+        d.load_selection(ch, false, Mode::New).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 150, 150]), "both rects joined into the channel");
+        assert!(d.combine_into_channel(999, Mode::Add).is_err());
+    }
+
     // ---------- layer bounds (M2.md section 5) ----------
 
     #[test]
@@ -5174,23 +5379,23 @@ mod tests {
     #[test]
     fn bucket_normal_mode_blends_at_the_given_opacity() {
         let mut d = doc_bg(100, 150, 200);
-        d.bucket(1, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 0.5, 32, false, true, false).unwrap();
+        d.bucket(1, Target::Pixels, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 0.5, 32, false, true, false).unwrap();
         near(at(&d, 0, 0), [178, 75, 100, 255]);
     }
 
     #[test]
     fn bucket_behind_only_paints_transparent_pixels() {
         let mut d = Document::new(4, 4, 8).unwrap();
-        d.bucket(1, 0, 0, [0, 255, 0, 255], PaintMode::Behind, 1.0, 0, false, false, false).unwrap();
+        d.bucket(1, Target::Pixels, 0, 0, [0, 255, 0, 255], PaintMode::Behind, 1.0, 0, false, false, false).unwrap();
         assert_eq!(at(&d, 0, 0), [0, 255, 0, 255]);
-        d.bucket(1, 0, 0, [255, 0, 0, 255], PaintMode::Behind, 1.0, 255, false, false, false).unwrap();
+        d.bucket(1, Target::Pixels, 0, 0, [255, 0, 0, 255], PaintMode::Behind, 1.0, 255, false, false, false).unwrap();
         assert_eq!(at(&d, 0, 0), [0, 255, 0, 255], "opaque already, behind changes nothing");
     }
 
     #[test]
     fn bucket_clear_mode_erases_towards_transparent() {
         let mut d = doc_bg(10, 20, 30);
-        d.bucket(1, 0, 0, [0, 0, 0, 0], PaintMode::Clear, 0.5, 0, false, true, false).unwrap();
+        d.bucket(1, Target::Pixels, 0, 0, [0, 0, 0, 0], PaintMode::Clear, 0.5, 0, false, true, false).unwrap();
         assert_eq!(at(&d, 0, 0)[3], 128, "50% opacity clear halves alpha");
     }
 
@@ -5198,7 +5403,7 @@ mod tests {
     fn bucket_respects_the_transparency_lock() {
         let mut d = doc_bg(10, 20, 30);
         set(&mut d, 1, r#"{"locks":{"transparency":true}}"#);
-        d.bucket(1, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 1.0, 32, false, true, false).unwrap();
+        d.bucket(1, Target::Pixels, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 1.0, 32, false, true, false).unwrap();
         let px = at(&d, 0, 0);
         assert_eq!(px[3], 255, "alpha stays locked");
         assert_eq!(px[0], 255, "color still paints under the lock");
@@ -5209,7 +5414,7 @@ mod tests {
         let mut d = doc_bg(10, 20, 30);
         set(&mut d, 1, r#"{"locks":{"pixels":true}}"#);
         assert_eq!(
-            d.bucket(1, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 1.0, 32, false, true, false)
+            d.bucket(1, Target::Pixels, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 1.0, 32, false, true, false)
                 .unwrap_err(),
             "layer pixels are locked"
         );
@@ -5219,8 +5424,98 @@ mod tests {
     fn bucket_is_clipped_to_the_selection() {
         let mut d = doc_bg(10, 20, 30);
         d.select_rect(0.0, 0.0, 4.0, 8.0, Mode::New).unwrap();
-        d.bucket(1, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 1.0, 32, false, true, false).unwrap();
+        d.bucket(1, Target::Pixels, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 1.0, 32, false, true, false).unwrap();
         assert_eq!(at(&d, 0, 0)[0], 255, "painted inside the selection");
         assert_eq!(at(&d, 5, 0), [10, 20, 30, 255], "untouched outside the selection");
+    }
+
+    // ---------- B3 E2: Select > Modify ----------
+
+    #[test]
+    fn modify_selection_expand_contract_border_smooth() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        assert_eq!(d.modify_selection("expand", 2.0, true).unwrap_err(), "nothing is selected");
+
+        d.select_rect(10.0, 10.0, 4.0, 4.0, Mode::New).unwrap();
+        d.modify_selection("expand", 2.0, true).unwrap();
+        assert_eq!(d.selection_bounds(), Some([8, 8, 8, 8]), "grew by 2px on every side");
+
+        d.select_rect(10.0, 10.0, 4.0, 4.0, Mode::New).unwrap();
+        d.modify_selection("contract", 1.0, true).unwrap();
+        assert_eq!(d.selection_bounds(), Some([11, 11, 2, 2]), "shrank by 1px on every side");
+
+        d.select_rect(10.0, 10.0, 20.0, 20.0, Mode::New).unwrap();
+        d.modify_selection("border", 2.0, true).unwrap();
+        assert_eq!(sel(&d, 19, 19), 0.0, "the far interior is untouched");
+        assert!(sel(&d, 10, 19) > 0.0, "the band straddles the original edge");
+
+        d.select_rect(10.0, 10.0, 4.0, 4.0, Mode::New).unwrap();
+        d.modify_selection("smooth", 1.0, true).unwrap();
+        assert_eq!(d.selection_bounds(), Some([10, 10, 4, 4]));
+
+        assert_eq!(d.modify_selection("nonsense", 1.0, true).unwrap_err(), "unknown modify op nonsense");
+    }
+
+    // ---------- B3 E2: quick mask (Target::Selection) ----------
+
+    #[test]
+    fn quick_mask_fill_invert_clear_target_selection() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        d.fill(1, Target::Selection, 200, 0, 0, 0).unwrap();
+        assert_eq!(sel(&d, 5, 5), 200.0 / 255.0);
+        d.invert(1, Target::Selection).unwrap();
+        assert!((sel(&d, 5, 5) - (1.0 - 200.0 / 255.0)).abs() < 1e-6);
+        d.clear(1, Target::Selection).unwrap();
+        assert_eq!(sel(&d, 5, 5), 0.0);
+    }
+
+    #[test]
+    fn quick_mask_round_trips_through_paint_coverage() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        d.select_rect(0.0, 0.0, 10.0, 8.0, Mode::New).unwrap();
+        let tile = d.selection_tile(0, 0, 0).unwrap().unwrap();
+        let coverage: Vec<f32> = tile.iter().map(|&v| v as f32 / 255.0).collect();
+        let mut d2 = Document::new(256, 256, 8).unwrap();
+        d2.paint_coverage(
+            1,
+            Target::Selection,
+            0,
+            0,
+            256,
+            256,
+            &coverage,
+            [255, 255, 255, 255],
+            PaintMode::Blend(Blend::Normal),
+            1.0,
+        )
+        .unwrap();
+        assert_eq!(d2.selection_tile(0, 0, 0).unwrap().unwrap(), tile, "quick mask round trip reproduces the same bytes");
+    }
+
+    #[test]
+    fn quick_mask_bucket_paints_the_selection_channel() {
+        let mut d = Document::new(4, 4, 8).unwrap();
+        d.bucket(1, Target::Selection, 0, 0, [255, 255, 255, 255], PaintMode::Blend(Blend::Normal), 1.0, 0, false, true, false)
+            .unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 4, 4]));
+    }
+
+    // ---------- B3 E2: color range ----------
+
+    #[test]
+    fn color_range_selects_the_sampled_region_and_preview_leaves_the_selection_alone() {
+        let d = two_region_doc(); // left half red, right half blue
+        assert_eq!(
+            d.color_range_preview(0, false, 1, "bogus preset", &[], 0, 0, &[], false, false).unwrap_err(),
+            "unknown color range preset bogus preset"
+        );
+        let preview = d.color_range_preview(0, false, 1, "sampled", &[[255, 0, 0]], 50, 0, &[], false, false).unwrap();
+        assert!(!d.has_selection(), "the preview does not touch the selection");
+        assert_eq!(preview[0], 255, "the red half previews fully covered");
+        assert_eq!(preview[preview.len() - 1], 0, "the blue half previews uncovered");
+
+        let mut d = d;
+        d.color_range(false, 1, "sampled", &[[255, 0, 0]], 50, 0, &[], false, false, Mode::New).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 4, 8]), "the sampled preset selects the red half");
     }
 }

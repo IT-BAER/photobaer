@@ -22,6 +22,22 @@ fn rect_js(r: Option<[i32; 4]>) -> JsValue {
     }
 }
 
+// Color Range's sample colors and localized-falloff centers cross wasm as flat arrays
+// (wasm-bindgen has no `Vec<[u8; 3]>` / `Vec<(f64, f64)>` binding).
+fn to_samples(flat: &[u8]) -> Result<Vec<[u8; 3]>, JsError> {
+    if flat.len() % 3 != 0 {
+        return Err(err("color range samples must be flat r,g,b triples".into()));
+    }
+    Ok(flat.chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect())
+}
+
+fn to_points(flat: &[f64]) -> Result<Vec<(f64, f64)>, JsError> {
+    if flat.len() % 2 != 0 {
+        return Err(err("color range center must be flat x,y pairs".into()));
+    }
+    Ok(flat.chunks_exact(2).map(|c| (c[0], c[1])).collect())
+}
+
 #[wasm_bindgen]
 impl Engine {
     #[wasm_bindgen(constructor)]
@@ -185,11 +201,13 @@ impl Engine {
     }
 
     /// Paints a solid color into the layer through `coverage` (0..1, `w * h` long) at document
-    /// rect (x, y, w, h); `mode` is a blend mode name, "behind" or "clear".
+    /// rect (x, y, w, h); `mode` is a blend mode name, "behind" or "clear". `target` is "pixels"
+    /// or "selection" (quick mask: paints the selection itself, `r` is the mask value).
     #[allow(clippy::too_many_arguments)]
     pub fn paint_coverage(
         &mut self,
         id: u32,
+        target: &str,
         x: i32,
         y: i32,
         w: u32,
@@ -204,15 +222,28 @@ impl Engine {
     ) -> Result<(), JsError> {
         self.0
             .doc
-            .paint_coverage(id, x, y, w, h, &coverage, [r, g, b, a], PaintMode::parse(mode).map_err(err)?, opacity)
+            .paint_coverage(
+                id,
+                Target::parse(target).map_err(err)?,
+                x,
+                y,
+                w,
+                h,
+                &coverage,
+                [r, g, b, a],
+                PaintMode::parse(mode).map_err(err)?,
+                opacity,
+            )
             .map_err(err)
     }
 
     /// Paint bucket (docs/M2.md section 4): flood fill from (x, y) then `paint_coverage`.
+    /// `target` is "pixels" or "selection" (quick mask).
     #[allow(clippy::too_many_arguments)]
     pub fn bucket(
         &mut self,
         id: u32,
+        target: &str,
         x: i32,
         y: i32,
         r: u8,
@@ -230,6 +261,7 @@ impl Engine {
             .doc
             .bucket(
                 id,
+                Target::parse(target).map_err(err)?,
                 x,
                 y,
                 [r, g, b, a],
@@ -271,6 +303,64 @@ impl Engine {
 
     pub fn delete_channel(&mut self, id: u32) -> Result<(), JsError> {
         self.0.doc.delete_channel(id).map_err(err)
+    }
+
+    pub fn combine_into_channel(&mut self, channel: u32, mode: &str) -> Result<(), JsError> {
+        self.0.doc.combine_into_channel(channel, Mode::parse(mode).map_err(err)?).map_err(err)
+    }
+
+    /// Select > Modify (docs/M2.md section 3): `op` is "border", "smooth", "expand" or "contract".
+    pub fn modify_selection(&mut self, op: &str, r: f64, canvas_bounds: bool) -> Result<(), JsError> {
+        self.0.doc.modify_selection(op, r, canvas_bounds).map_err(err)
+    }
+
+    /// Color Range (docs/M2.md section 3): `preset` is "sampled", a hue name (reds/yellows/
+    /// greens/cyans/blues/magentas), a luminance band (highlights/midtones/shadows) or
+    /// "skin tones". `samples` is flat r,g,b triples, `center` flat x,y pairs (localized falloff
+    /// origins); `mode` is a selection mode.
+    #[allow(clippy::too_many_arguments)]
+    pub fn color_range(
+        &mut self,
+        sample_all: bool,
+        layer_id: u32,
+        preset: &str,
+        samples: Vec<u8>,
+        fuzziness: u8,
+        range: u8,
+        center: Vec<f64>,
+        localized: bool,
+        invert: bool,
+        mode: &str,
+    ) -> Result<(), JsError> {
+        let samples = to_samples(&samples)?;
+        let center = to_points(&center)?;
+        self.0
+            .doc
+            .color_range(sample_all, layer_id, preset, &samples, fuzziness, range, &center, localized, invert, Mode::parse(mode).map_err(err)?)
+            .map_err(err)
+    }
+
+    /// Grayscale preview of `color_range` for the dialog; does not touch the selection.
+    #[allow(clippy::too_many_arguments)]
+    pub fn color_range_preview(
+        &self,
+        level: u32,
+        sample_all: bool,
+        layer_id: u32,
+        preset: &str,
+        samples: Vec<u8>,
+        fuzziness: u8,
+        range: u8,
+        center: Vec<f64>,
+        localized: bool,
+        invert: bool,
+    ) -> Result<Vec<u8>, JsError> {
+        let samples = to_samples(&samples)?;
+        let center = to_points(&center)?;
+        self.0
+            .doc
+            .color_range_preview(level, sample_all, layer_id, preset, &samples, fuzziness, range, &center, localized, invert)
+            .map_err(err)
     }
 
     /// `{ selection: null | { default, bounds }, has_last_selection, channels: [{ id, name }] }`.

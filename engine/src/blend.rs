@@ -334,6 +334,24 @@ pub fn paint_pixel(mode: PaintMode, backdrop: [f32; 4], rgb: [f32; 3], cov: f32,
     }
 }
 
+/// Paints into a single-channel mask value (quick mask / layer mask), the scalar analogue of
+/// `paint_pixel` for a backdrop that has no separate alpha: "clear" erases towards 0, "behind" is
+/// a no-op (a mask has no transparency to paint under), a blend mode treats `old`/`target` as a
+/// gray backdrop/source.
+pub fn paint_mask_value(mode: PaintMode, old: f32, target: f32, cov: f32) -> f32 {
+    if cov <= 0.0 {
+        return old;
+    }
+    match mode {
+        PaintMode::Clear => old * (1.0 - cov),
+        PaintMode::Behind => old,
+        PaintMode::Blend(b) => {
+            let blended = if b.is_passthrough_of_source() { target } else { blend_rgb(b, [old; 3], [target; 3])[0] };
+            old * (1.0 - cov) + blended * cov
+        }
+    }
+}
+
 /// Deterministic per document pixel and node, in 0..1. Used by `dissolve`.
 pub fn dissolve_hash(x: u32, y: u32, node_id: u32) -> f32 {
     let mut h = x
