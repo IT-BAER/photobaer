@@ -82,6 +82,53 @@ test('labels list applied then undone steps, and goto jumps to any state', () =>
   assert.equal(s.live(), 3);
 });
 
+test('begin/commit collapses a multi-call stroke into one undo step', () => {
+  const s = store();
+  const h = new History(s);
+  h.begin('Brush');
+  s.value = 'a';
+  s.value = 'ab';
+  h.commit();
+  assert.equal(h.undoLabel, 'Brush');
+  assert.equal(s.live(), 1);
+  assert.ok(h.undo());
+  assert.equal(s.value, '');
+});
+
+test('begin/abort drops the pending snapshot; the caller is responsible for reverting the document', () => {
+  const s = store();
+  const h = new History(s);
+  h.begin('Brush');
+  s.value = 'a'; // in real use the engine already reverted itself (e.g. stroke_cancel) before abort() runs
+  h.abort();
+  assert.equal(h.undoLabel, null);
+  assert.equal(s.live(), 0);
+  assert.equal(s.value, 'a');
+});
+
+test('begin errors when a step is already open; commit/abort error when none is open', () => {
+  const s = store();
+  const h = new History(s);
+  assert.throws(() => h.commit());
+  assert.throws(() => h.abort());
+  h.begin('Brush');
+  assert.throws(() => h.begin('Other'));
+  h.abort();
+});
+
+test('oldestSnapshot is the earliest snapshot still kept, null when history is empty', () => {
+  const s = store();
+  const h = new History(s);
+  assert.equal(h.oldestSnapshot(), null);
+  h.run('A', () => { s.value = 'a'; });
+  const first = h.oldestSnapshot();
+  h.run('B', () => { s.value = 'ab'; });
+  assert.equal(h.oldestSnapshot(), first);
+  h.undo();
+  h.undo();
+  assert.equal(h.oldestSnapshot(), null);
+});
+
 test('clear frees everything', () => {
   const s = store();
   const h = new History(s);

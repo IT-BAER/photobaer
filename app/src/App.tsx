@@ -6,7 +6,8 @@ import { makeTileSource, gpuTestHook } from './render/tiles.ts';
 import { locate, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
-import type { AutosaveState, DocInfo } from './engine.worker.ts';
+import type { AutosaveState, DocInfo, StrokeParams } from './engine.worker.ts';
+import { Smoother } from './shell/smoothing.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
 import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
 import { ColorPanel } from './shell/ColorPanel.tsx';
@@ -21,6 +22,8 @@ import { levelFor } from './view.ts';
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
 const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso', 'magneticLasso', 'quickSelection', 'magicWand'];
+const PAINT_LABELS: Record<string, string> = { brush: 'Brush', pencil: 'Pencil', eraser: 'Eraser' };
+const AIRBRUSH_MS = 50;
 
 // Select > Modify (docs/M2.md section 3): op -> [min, max, default].
 const MODIFY_OPS: Record<'border' | 'smooth' | 'expand' | 'contract', { label: string; min: number; max: number; default: number }> = {
@@ -145,6 +148,9 @@ export function App() {
   const activeRef = useRef(active);
   activeRef.current = active;
   const magneticRef = useRef<{ lasso: MagneticLasso; handle: number | null; mode: SelectMode } | null>(null);
+  // Last dab of the previous stroke per layer, so Shift+click can draw a straight line from it
+  // (the engine has no last-dab accessor).
+  const lastStrokePoint = useRef<Record<number, [number, number]>>({});
 
   function redrawOverlay() {
     const v = viewer.current;
@@ -688,6 +694,128 @@ export function App() {
     return () => { v.onPointer = () => {}; };
   }, [tool, active, fg, bg, quickMask]);
 
+  // Brush, pencil and eraser: pointermove samples are coalesced and sent as one strokeTo per
+  // animation frame; the smoother runs on the document-space samples before they are queued.
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v || !(tool === 'brush' || tool === 'pencil' || tool === 'eraser')) return;
+    const st: {
+      smoother: Smoother | null; layerId: number | null; raf: number;
+      pending: number[]; last: [number, number, number] | null;
+      airbrush: ReturnType<typeof setInterval> | null; moved: boolean; begun: Promise<void> | null;
+    } = { smoother: null, layerId: null, raf: 0, pending: [], last: null, airbrush: null, moved: false, begun: null };
+
+    function flush() {
+      if (!st.pending.length) return;
+      const samples = Float64Array.from(st.pending.splice(0));
+      client.call('strokeTo', samples).then(r => viewer.current?.invalidate(r.version, r.dirty), e => setError((e as Error).message));
+    }
+    function schedule() {
+      if (st.raf) return;
+      st.raf = requestAnimationFrame(() => { st.raf = 0; flush(); });
+    }
+    function push(p: [number, number], pressure: number) {
+      st.last = [p[0], p[1], pressure];
+      st.pending.push(p[0], p[1], pressure);
+      schedule();
+    }
+
+    async function paramsFor(x: number, y: number): Promise<StrokeParams> {
+      const o = toolOptionsRef.current;
+      if (tool === 'pencil') {
+        let rgb = fgRef.current;
+        if (o.autoErase && active) {
+          const [r, g, b] = await client.call('sample', x, y, 1, active.id);
+          if (r === fgRef.current[0] && g === fgRef.current[1] && b === fgRef.current[2]) rgb = bgRef.current;
+        }
+        return { rgba: [...rgb, 255], mode: o.mode as string, size: Number(o.size), opacity: Number(o.opacity) / 100, aliased: true, hardness: 1, flow: 1 };
+      }
+      if (tool === 'eraser') {
+        // Looked up fresh (not a dep) so a doc update mid-drag never tears down the running stroke.
+        const activeNode = active && docRef.current ? nodeById(docRef.current.layers, active.id) : undefined;
+        const locked = !!activeNode?.locks.transparency;
+        const mode = locked ? 'normal' : 'clear';
+        const rgb = locked ? bgRef.current : fgRef.current;
+        if (o.mode === 'block') return { rgba: [...rgb, 255], mode, size: 16 / (viewer.current?.view.zoom || 1), tip: 'square', aliased: true };
+        if (o.mode === 'pencil') return { rgba: [...rgb, 255], mode, size: Number(o.size), aliased: true, opacity: Number(o.opacity) / 100, eraseToHistory: !!o.eraseToHistory };
+        return { rgba: [...rgb, 255], mode, size: Number(o.size), hardness: Number(o.hardness) / 100, opacity: Number(o.opacity) / 100, flow: Number(o.flow) / 100, eraseToHistory: !!o.eraseToHistory };
+      }
+      return {
+        rgba: [...fgRef.current, 255], mode: o.mode as string, size: Number(o.size),
+        opacity: Number(o.opacity) / 100, flow: Number(o.flow) / 100, hardness: Number(o.hardness) / 100,
+        airbrush: !!o.airbrush, wetEdges: !!o.wetEdges, pressureSize: !!o.pressureSize, pressureOpacity: !!o.pressureOpacity,
+      };
+    }
+
+    function startAirbrush() {
+      if (!toolOptionsRef.current.airbrush) return;
+      st.moved = false;
+      st.airbrush = setInterval(() => {
+        if (!st.moved && st.last) { st.pending.push(...st.last); schedule(); }
+        st.moved = false;
+      }, AIRBRUSH_MS);
+    }
+    function stopAirbrush() {
+      if (st.airbrush) { clearInterval(st.airbrush); st.airbrush = null; }
+    }
+
+    async function begin(x: number, y: number, pressure: number) {
+      if (!active) return;
+      const p = await paramsFor(x, y);
+      await client.call('strokeBegin', active.id, quickMask ? 'selection' : 'pixels', p, PAINT_LABELS[tool]);
+      st.layerId = active.id;
+      st.smoother = new Smoother({ smoothing: Number(toolOptionsRef.current.smoothing ?? 0), adjustForZoom: true, catchUpOnEnd: true }, viewer.current?.view.zoom || 1);
+      push(st.smoother.start([x, y]), pressure);
+      startAirbrush();
+    }
+    function move(x: number, y: number, pressure: number) {
+      if (!st.smoother) return;
+      st.moved = true;
+      push(st.smoother.move([x, y]), pressure);
+    }
+    async function end(x: number, y: number, pressure: number) {
+      // A quick click releases before strokeBegin has answered; finish the begin first.
+      await st.begun;
+      if (!st.smoother) return;
+      push(st.smoother.end([x, y]), pressure);
+      flush();
+      stopAirbrush();
+      st.smoother = null;
+      if (st.layerId != null && st.last) lastStrokePoint.current[st.layerId] = [st.last[0], st.last[1]];
+      st.layerId = null;
+      run(null, () => client.call('strokeEnd'));
+    }
+    async function shiftLine(x: number, y: number, pressure: number) {
+      if (!active) return;
+      const from = lastStrokePoint.current[active.id];
+      if (!from) return begin(x, y, pressure).then(() => end(x, y, pressure));
+      const p = await paramsFor(from[0], from[1]);
+      await client.call('strokeBegin', active.id, quickMask ? 'selection' : 'pixels', p, PAINT_LABELS[tool]);
+      const r = await client.call('strokeTo', Float64Array.from([from[0], from[1], 1, x, y, pressure]));
+      viewer.current?.invalidate(r.version, r.dirty);
+      lastStrokePoint.current[active.id] = [x, y];
+      run(null, () => client.call('strokeEnd'));
+    }
+
+    v.onPointer = e => {
+      if (!active) return;
+      const pressure = e.pointerType === 'mouse' ? 1 : e.pressure || 0.5;
+      if (e.type === 'down') {
+        if (e.shiftKey && lastStrokePoint.current[active.id]) { void shiftLine(e.x, e.y, pressure); return; }
+        st.begun = begin(e.x, e.y, pressure).catch(err => setError((err as Error).message));
+      } else if (e.type === 'move') {
+        move(e.x, e.y, pressure);
+      } else {
+        void end(e.x, e.y, pressure);
+      }
+    };
+    return () => {
+      v.onPointer = () => {};
+      if (st.raf) cancelAnimationFrame(st.raf);
+      stopAirbrush();
+    };
+  }, [tool, active, quickMask]);
+
   function openPicker(which: 'fg' | 'bg') {
     picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v));
   }
@@ -725,7 +853,9 @@ export function App() {
       if (it && !it.off) it.run();
     };
     const down = (e: KeyboardEvent) => {
-      if (e.target instanceof Element && e.target.closest('input, select, dialog')) return;
+      // A closed <dialog> can keep focus on its OK button; only an open dialog or a live field swallows keys.
+      const t = e.target instanceof Element ? e.target : null;
+      if (t && (t.closest('dialog[open]') || (t.closest('input, select') && !t.closest('dialog:not([open])')))) return;
       const k = e.key.toLowerCase(), ctrl = e.ctrlKey || e.metaKey;
       if (polygonActionsRef.current?.active()) {
         if (k === 'escape') { e.preventDefault(); polygonActionsRef.current.cancel(); return; }

@@ -62,6 +62,21 @@ export function visibleTiles(v: View, w: number, h: number, level: number, docW:
   return out.sort((a, b) => d(a) - d(b));
 }
 
+// A stroke frame's dirty doc rect only refetches the tiles it overlaps; every other entry current at
+// `version - 1` (strokeTo bumps the version by exactly one) moves to `version`. Entries that were
+// already stale stay stale. An empty rect (no dab this frame) refetches nothing new.
+export function invalidateEntries(cache: Map<string, { version: number }>, version: number, rect: readonly number[]) {
+  const hit = rect.length === 4;
+  const [rx, ry, rw, rh] = rect;
+  for (const [key, e] of cache) {
+    const [level, tx, ty] = key.split('/').map(Number);
+    const size = TILE << level;
+    const x0 = tx * size, y0 = ty * size;
+    const intersects = hit && rx < x0 + size && rx + rw > x0 && ry < y0 + size && ry + rh > y0;
+    if (!intersects && e.version === version - 1) e.version = version;
+  }
+}
+
 // Row-major 2x3 affine matrix from document coordinates to WebGPU/WebGL clip space.
 export function clipMatrix(v: View, w: number, h: number): number[] {
   const c = Math.cos(v.rot), s = Math.sin(v.rot);

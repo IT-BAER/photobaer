@@ -26,6 +26,14 @@ export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?
 export type OpenResult = DocInfo & { warnings: string[] };
 export type AutosaveState = 'off' | 'other-tab' | 'idle' | 'saving' | 'saved' | 'error';
 export type WorkerEvent = { event: 'autosave'; state: AutosaveState; detail?: string };
+export interface StrokeParams {
+  rgba: [number, number, number, number]; mode: string; size: number;
+  opacity?: number; flow?: number; hardness?: number; spacing?: number; angle?: number; roundness?: number;
+  tip?: 'round' | 'square'; aliased?: boolean; wetEdges?: boolean; airbrush?: boolean;
+  pressureSize?: boolean; pressureOpacity?: boolean;
+  // UI-level flag; strokeBegin resolves it to an actual snapshot id (or omits it) before it reaches the engine.
+  eraseToHistory?: boolean;
+}
 
 // A new document has one pixel layer with node id 1.
 const BACKGROUND = 1;
@@ -41,6 +49,7 @@ let again = false;
 let booted = false;
 let lastState: AutosaveState = 'off';
 let selGen = 0;
+let strokeOpen = false;
 
 const history = new History({
   snapshot: () => eng!.snapshot(),
@@ -503,6 +512,48 @@ const api = {
     return n ? [Math.round(r / n), Math.round(g / n), Math.round(b / n), Math.round(a / n)] : [0, 0, 0, 0];
   },
 
+  // Opens a stroke (docs/M2.md section 4) as one undo step spanning every strokeTo until strokeEnd.
+  strokeBegin(layerId: number, target: 'pixels' | 'selection', params: StrokeParams, label: string) {
+    const e = need();
+    const { eraseToHistory, ...rest } = params;
+    const p: Record<string, unknown> = rest;
+    if (eraseToHistory) {
+      const snap = history.oldestSnapshot();
+      if (snap !== null) p.eraseToHistory = snap;
+    }
+    history.begin(label);
+    try {
+      e.stroke_begin(layerId, target, JSON.stringify(p));
+    } catch (err) {
+      history.abort();
+      throw err;
+    }
+    strokeOpen = true;
+    return info();
+  },
+
+  // Bumps version by exactly one (the viewer's dirty-rect invalidation relies on it) but never schedules autosave; only
+  // strokeEnd commits the history step and schedules the save.
+  strokeTo(samples: Float64Array) {
+    const dirty = need().stroke_to(samples);
+    version++;
+    return { version, dirty: Array.from(dirty) };
+  },
+
+  strokeEnd() {
+    need().stroke_end();
+    strokeOpen = false;
+    history.commit();
+    return changed();
+  },
+
+  strokeCancel() {
+    need().stroke_cancel();
+    strokeOpen = false;
+    history.abort();
+    return changed();
+  },
+
   undo() { if (history.undo()) { selGen++; return changed(); } return info(); },
   redo() { if (history.redo()) { selGen++; return changed(); } return info(); },
   historyGoto(n: number) { need(); if (history.goto(n)) { selGen++; return changed(); } return info(); },
@@ -579,12 +630,18 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
   }
 }
 
+const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel']);
+
 // Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
 // displayTile, displayProgram and selectionMask are synchronous and read-only, so they skip the
 // queue and the viewer keeps drawing.
 let queue = Promise.resolve();
 onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[] }>) => {
   const { id, op, args } = ev.data;
-  if (op === 'displayTile' || op === 'displayProgram' || op === 'selectionMask' || op === 'colorRangePreview') void handle(id, op, args);
-  else queue = queue.then(() => handle(id, op, args));
+  if (op === 'displayTile' || op === 'displayProgram' || op === 'selectionMask' || op === 'colorRangePreview') { void handle(id, op, args); return; }
+  queue = queue.then(() => {
+    // Any other op queued while a stroke is open first commits it, so undo/save never see a half stroke.
+    if (strokeOpen && !STROKE_OPS.has(op) && eng) { eng.stroke_end(); strokeOpen = false; history.commit(); changed(); }
+    return handle(id, op, args);
+  });
 };

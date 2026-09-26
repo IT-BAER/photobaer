@@ -1,5 +1,5 @@
 import { FLOATS_PER_INSTANCE, type Renderer } from './render/renderer.ts';
-import { TILE, clipMatrix, docToScreen, fit, levelFor, panBy, screenToDoc, visibleTiles, zoomAt, type View } from './view.ts';
+import { TILE, clipMatrix, docToScreen, fit, invalidateEntries, levelFor, panBy, screenToDoc, visibleTiles, zoomAt, type View } from './view.ts';
 
 // hand/zoom/rotate drive the viewer itself; any other tool id gets raw pointer events via onPointer.
 export type ViewerTool = 'hand' | 'zoom' | 'zoomOut' | 'rotate' | null;
@@ -64,6 +64,16 @@ export class Viewer {
       this.#resetCache();
       if (d) this.setView(fit(d.width, d.height, this.#w, this.#h));
     }
+    this.redraw();
+  }
+
+  // A live stroke frame: only the tiles the dirty rect overlaps get refetched, every other cache
+  // entry (any level) is kept and just moves to the new version. Used instead of setDoc so a
+  // stroke's per-frame update never pays for a full-cache refetch.
+  invalidate(version: number, rect: readonly number[]) {
+    if (!this.#doc) return;
+    this.#doc = { ...this.#doc, version };
+    invalidateEntries(this.#cache, version, rect);
     this.redraw();
   }
 

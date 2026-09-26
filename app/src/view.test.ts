@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { docToScreen, screenToDoc, zoomAt, panBy, fit, levelFor, visibleTiles, clipMatrix, type View } from './view.ts';
+import { docToScreen, screenToDoc, zoomAt, panBy, fit, levelFor, visibleTiles, clipMatrix, invalidateEntries, type View } from './view.ts';
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 const W = 800, H = 600;
@@ -62,6 +62,31 @@ test('visibleTiles covers the viewport and stays inside the document', () => {
   assert.ok(c.length > 0 && c.length < 12);
   for (const [tx, ty] of c) assert.ok(tx >= 0 && ty >= 0);
   assert.deepEqual(c[0], [0, 0]);
+});
+
+test('invalidateEntries revalidates tiles outside the dirty rect, leaves intersecting ones stale', () => {
+  const cache = new Map([
+    ['0/0/0', { version: 1 }], // doc px 0..256
+    ['0/1/0', { version: 1 }], // doc px 256..512
+    ['1/0/0', { version: 1 }], // level 1 tile covers 0..512
+  ]);
+  invalidateEntries(cache, 2, [10, 10, 5, 5]);
+  assert.equal(cache.get('0/0/0')!.version, 1); // intersects: stays stale, refetched
+  assert.equal(cache.get('0/1/0')!.version, 2); // no intersection: revalidated
+  assert.equal(cache.get('1/0/0')!.version, 1); // also covers the rect: stale
+});
+
+test('invalidateEntries with an empty rect revalidates everything without refetching', () => {
+  const cache = new Map([['0/0/0', { version: 1 }], ['0/5/5', { version: 1 }]]);
+  invalidateEntries(cache, 2, []);
+  for (const e of cache.values()) assert.equal(e.version, 2);
+});
+
+test('invalidateEntries keeps entries that were already stale before the stroke frame stale', () => {
+  // '0/3/3' still holds version 0 from before an earlier full change (e.g. an off-screen tile after Fill).
+  const cache = new Map([['0/0/0', { version: 1 }], ['0/3/3', { version: 0 }]]);
+  invalidateEntries(cache, 2, [10, 10, 5, 5]);
+  assert.equal(cache.get('0/3/3')!.version, 0);
 });
 
 test('clipMatrix maps the view center to clip origin and a screen corner to (-1, 1)', () => {

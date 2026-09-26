@@ -12,6 +12,7 @@ export class History {
   #limit: number;
   #undo: Step[] = [];
   #redo: Step[] = [];
+  #open: Step | null = null;
 
   constructor(s: Snapshots, limit = 50) {
     this.#s = s;
@@ -40,7 +41,38 @@ export class History {
       this.#s.drop(snap);
       throw e;
     }
-    this.#undo.push({ label, snap });
+    this.#push({ label, snap });
+  }
+
+  // Multi-call ops (a stroke) span several `stroke_to` calls; begin() takes the snapshot once so
+  // they land as one undo step. Caller must commit() or abort() before starting another run/begin.
+  begin(label: string) {
+    if (this.#open) throw new Error('a history step is already open');
+    this.#open = { label, snap: this.#s.snapshot() };
+  }
+
+  commit() {
+    const open = this.#open;
+    if (!open) throw new Error('no history step is open');
+    this.#open = null;
+    this.#push(open);
+  }
+
+  // Drops the pending snapshot; the caller (e.g. the engine's own stroke_cancel) is responsible
+  // for reverting the document itself.
+  abort() {
+    if (!this.#open) throw new Error('no history step is open');
+    this.#s.drop(this.#open.snap);
+    this.#open = null;
+  }
+
+  // The earliest snapshot still kept (the state before the first undo step), or null with no history.
+  oldestSnapshot(): number | null {
+    return this.#undo[0]?.snap ?? null;
+  }
+
+  #push(step: Step) {
+    this.#undo.push(step);
     this.#free(this.#redo.splice(0));
     if (this.#undo.length > this.#limit) this.#free(this.#undo.splice(0, this.#undo.length - this.#limit));
   }
