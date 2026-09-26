@@ -4,11 +4,13 @@ mod gradient;
 mod livewire;
 mod pattern;
 mod region;
+mod resample;
 mod selection;
 mod stroke;
 
 use blend::PaintMode;
-use doc::{Document, EngineCore, Target};
+use doc::{Document, EngineCore, Remap, Target};
+use resample::Interp;
 use selection::Mode;
 use wasm_bindgen::prelude::*;
 
@@ -547,5 +549,56 @@ impl Engine {
 
     pub fn finish_load(&mut self) -> Result<(), JsError> {
         self.0.doc.finish_load().map_err(err)
+    }
+
+    /// Resamples a layer's pixels and mask by a forward 3x3 matrix (row-major, source -> dest
+    /// document px): `interp` is nearest|bilinear|bicubic|bicubicSharper|bicubicSmoother|lanczos3.
+    pub fn transform_layer(&mut self, id: u32, m: Vec<f64>, interp: &str) -> Result<(), JsError> {
+        let m = resample::matrix(&m).map_err(err)?;
+        self.0.doc.transform_layer(id, &m, Interp::parse(interp).map_err(err)?).map_err(err)
+    }
+
+    pub fn transform_selection(&mut self, m: Vec<f64>, interp: &str) -> Result<(), JsError> {
+        let m = resample::matrix(&m).map_err(err)?;
+        self.0.doc.transform_selection(&m, Interp::parse(interp).map_err(err)?).map_err(err)
+    }
+
+    /// `bg` is empty for a normal layer, or r,g,b that fills the hole of a background layer.
+    pub fn transform_selected_pixels(&mut self, id: u32, m: Vec<f64>, interp: &str, bg: Vec<u8>) -> Result<(), JsError> {
+        let m = resample::matrix(&m).map_err(err)?;
+        let bg = match bg.as_slice() {
+            [] => None,
+            [r, g, b] => Some([*r, *g, *b]),
+            _ => return Err(err("background colour must be empty or r,g,b".into())),
+        };
+        self.0.doc.transform_selected_pixels(id, &m, Interp::parse(interp).map_err(err)?, bg).map_err(err)
+    }
+
+    /// `kind` is cw|ccw|180|flipH|flipV.
+    pub fn rotate_layer_exact(&mut self, id: u32, kind: &str) -> Result<(), JsError> {
+        self.0.doc.rotate_layer_exact(id, Remap::parse(kind).map_err(err)?).map_err(err)
+    }
+
+    /// Bilinear preview into a proxy scaled by `f`: straight RGBA8 of the proxy-pixel rect.
+    #[allow(clippy::too_many_arguments)]
+    pub fn transform_preview(
+        &self,
+        id: u32,
+        m: Vec<f64>,
+        f: f64,
+        selected: bool,
+        x: i32,
+        y: i32,
+        w: u32,
+        h: u32,
+    ) -> Result<Vec<u8>, JsError> {
+        let m = resample::matrix(&m).map_err(err)?;
+        self.0.doc.transform_preview(id, &m, f, selected, [x, y, w as i32, h as i32]).map_err(err)
+    }
+
+    /// Warps a layer's pixels and mask by a Bezier mesh: JSON `{cols, rows, points: [[x, y], ...]
+    /// ((3 cols + 1) x (3 rows + 1), row-major, document px), columnStops, rowStops}`.
+    pub fn warp_layer(&mut self, id: u32, mesh: &str, interp: &str) -> Result<(), JsError> {
+        self.0.doc.warp_layer(id, mesh, Interp::parse(interp).map_err(err)?).map_err(err)
     }
 }

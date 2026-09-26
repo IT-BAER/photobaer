@@ -1,3 +1,9 @@
+#[path = "transform.rs"]
+mod transform;
+#[path = "warp.rs"]
+mod warp;
+pub use transform::Remap;
+
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -31,6 +37,18 @@ fn max_value(depth: u8) -> u32 {
         255
     } else {
         65535
+    }
+}
+
+// round(x * max) clamped to 0..=max (halves away from zero, NaN -> 0). The f64 add is exact, so
+// truncation equals f32::round without its library call.
+#[inline(always)]
+fn quantize(x: f32, max: f32) -> u32 {
+    let y = x * max;
+    if y > 0.0 {
+        ((y as f64 + 0.5) as u32).min(max as u32)
+    } else {
+        0
     }
 }
 
@@ -174,21 +192,19 @@ impl Pixels {
     // Straight RGBA in 0..1, quantized to the document depth.
     fn from_straight(depth: u8, v: &[f32]) -> Pixels {
         let max = max_value(depth) as f32;
-        let q = |x: &f32| (x * max).round().clamp(0.0, max);
         if depth == 8 {
-            Pixels::U8(v.iter().map(|x| q(x) as u8).collect::<Vec<_>>().into_boxed_slice())
+            Pixels::U8(v.iter().map(|x| quantize(*x, max) as u8).collect::<Vec<_>>().into_boxed_slice())
         } else {
-            Pixels::U16(v.iter().map(|x| q(x) as u16).collect::<Vec<_>>().into_boxed_slice())
+            Pixels::U16(v.iter().map(|x| quantize(*x, max) as u16).collect::<Vec<_>>().into_boxed_slice())
         }
     }
 
     fn mask_from_norm(depth: u8, v: &[f32]) -> Pixels {
         let max = max_value(depth) as f32;
-        let q = |x: &f32| (x * max).round().clamp(0.0, max);
         if depth == 8 {
-            Pixels::Mask8(v.iter().map(|x| q(x) as u8).collect::<Vec<_>>().into_boxed_slice())
+            Pixels::Mask8(v.iter().map(|x| quantize(*x, max) as u8).collect::<Vec<_>>().into_boxed_slice())
         } else {
-            Pixels::Mask16(v.iter().map(|x| q(x) as u16).collect::<Vec<_>>().into_boxed_slice())
+            Pixels::Mask16(v.iter().map(|x| quantize(*x, max) as u16).collect::<Vec<_>>().into_boxed_slice())
         }
     }
 
