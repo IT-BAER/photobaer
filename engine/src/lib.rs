@@ -1,5 +1,6 @@
 mod blend;
 mod doc;
+mod gradient;
 mod livewire;
 mod pattern;
 mod region;
@@ -374,6 +375,27 @@ impl Engine {
                 all_layers,
             )
             .map_err(err)
+    }
+
+    /// Fill (B6 spec v1 Part E1): `target` is "pixels". `params_json` is `{source: "solid" |
+    /// "pattern" | "history", rgba?, patternId?, snapshotId?, mode, opacity, preserveTransparency}`.
+    pub fn fill_ex(&mut self, id: u32, target: &str, params_json: &str) -> Result<(), JsError> {
+        self.0.fill_ex(id, target, params_json).map_err(err)
+    }
+
+    /// Stroke ring (B6 spec v1 Part E2): `params_json` is `{width, rgba, location: "inside" |
+    /// "center" | "outside", mode, opacity, preserveTransparency}`. Needs a selection.
+    pub fn stroke_selection(&mut self, id: u32, params_json: &str) -> Result<(), JsError> {
+        self.0.stroke_selection(id, params_json).map_err(err)
+    }
+
+    /// Gradient render (B6 spec v1 Part E3): `target` is "pixels", "mask" or "selection".
+    /// `params_json` is `{stops[{position, rgb, midpoint}], opacityStops[{position, opacity,
+    /// midpoint}], method: "perceptual" | "linear" | "classic", style: "linear" | "radial" |
+    /// "angle" | "reflected" | "diamond", start: {x, y}, end: {x, y}, reverse, dither,
+    /// transparency, opacity}`.
+    pub fn gradient(&mut self, id: u32, target: &str, params_json: &str) -> Result<(), JsError> {
+        self.0.gradient(id, target, params_json).map_err(err)
     }
 
     pub fn has_selection(&self) -> bool {

@@ -4,7 +4,9 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::blend;
 use crate::blend::{blend_channel, blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blend, PaintMode};
+use crate::gradient;
 use crate::livewire::{self, LiveWire};
 use crate::pattern::Pattern;
 use crate::region;
@@ -249,6 +251,33 @@ impl Pixels {
 pub struct Tile {
     pub id: u64,
     pub px: Arc<Pixels>,
+}
+
+/// `fill_ex`'s color source (B6 spec v1 Part E1).
+pub enum FillSource {
+    Solid([u8; 4]),
+    Pattern(Arc<Pattern>),
+    /// The same layer id's pixel tiles in a history snapshot.
+    History(Tiles),
+}
+
+/// Fill's per-pixel color and alpha at document coords `(gx, gy)` (B6 spec v1 Part E1): a solid
+/// color, a tiled pattern (scale 1, angle 0, from the document origin, own RGBA), or a history
+/// snapshot's straight rgba, `hist_tile`/`p` being that tile and pixel index when `src` is History.
+fn fill_src_sample(src: &FillSource, hist_tile: Option<&Pixels>, p: usize, gx: i32, gy: i32) -> ([f32; 3], f32) {
+    match src {
+        FillSource::Solid([r, g, b, a]) => {
+            ([*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0], *a as f32 / 255.0)
+        }
+        FillSource::Pattern(pat) => {
+            let [r, g, b, a] = pat.sample_rgba(gx, gy, 1.0);
+            ([r, g, b], a)
+        }
+        FillSource::History(_) => {
+            let hp = hist_tile.map_or([0.0; 4], |px| px.rgba_f32(p));
+            ([hp[0], hp[1], hp[2]], hp[3])
+        }
+    }
 }
 
 /// Selection coverage over one tile.
@@ -1469,6 +1498,423 @@ impl Document {
             }
         };
         self.edit_pixel_tiles(id, &area, false, |_| [0.0; 4])
+    }
+
+    /// Fill (B6 spec v1 Part E1 / item 2b): `target` is pixels, the layer mask (painted with the
+    /// source's luminance, through the same selection-gated weighting) or the selection/quick
+    /// mask (no outer selection to clip it by, like `paint_coverage_selection`).
+    pub fn fill_ex(
+        &mut self,
+        id: u32,
+        target: Target,
+        src: &FillSource,
+        mode: PaintMode,
+        opacity: f32,
+        preserve_transparency: bool,
+    ) -> Result<(), String> {
+        self.check_idle()?;
+        let opacity = opacity.clamp(0.0, 1.0);
+        match target {
+            Target::Pixels => self.fill_ex_pixels(id, src, mode, opacity, preserve_transparency),
+            Target::Mask => self.fill_ex_mask(id, src, mode, opacity),
+            Target::Selection => self.fill_ex_selection(src, mode, opacity),
+        }
+    }
+
+    fn fill_ex_pixels(
+        &mut self,
+        id: u32,
+        src: &FillSource,
+        mode: PaintMode,
+        opacity: f32,
+        preserve_transparency: bool,
+    ) -> Result<(), String> {
+        self.check_pixel_edit(id)?;
+        let keep_alpha = preserve_transparency || self.node(id)?.locks.transparency;
+        let depth = self.depth;
+        let (w, h) = (self.width as i32, self.height as i32);
+        let [rx, ry, rw, rh] = self.selection_bounds().unwrap_or([0, 0, w, h]);
+        if rw <= 0 || rh <= 0 {
+            return Ok(());
+        }
+        let selected = self.selection.is_some();
+        let mut out: Vec<((i32, i32), Option<Pixels>)> = Vec::new();
+        for (tx, ty) in self.tiles_of_rect(rx, ry, rx + rw, ry + rh) {
+            let old_tile = self.node(id)?.pixel_tiles()?.get(tx, ty).map(|t| t.px.clone());
+            let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
+            let hist_tile = match src {
+                FillSource::History(tiles) => tiles.get(tx, ty).map(|t| t.px.clone()),
+                _ => None,
+            };
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            let mut fresh = vec![0f32; TILE_PIXELS * 4];
+            let mut any = false;
+            for py in 0..TILE as i32 {
+                for px_ in 0..TILE as i32 {
+                    let p = (py * TILE as i32 + px_) as usize;
+                    let old = old_tile.as_deref().map_or([0.0; 4], |px| px.rgba_f32(p));
+                    let (gx, gy) = (ox + px_, oy + py);
+                    let new = if gx < rx || gx >= rx + rw || gy < ry || gy >= ry + rh {
+                        old
+                    } else {
+                        let (src_rgb, src_a) = fill_src_sample(src, hist_tile.as_deref(), p, gx, gy);
+                        let u = cov.at(p).clamp(0.0, 1.0);
+                        let c = (src_a * u * opacity).clamp(0.0, 1.0);
+                        paint_pixel(mode, old, src_rgb, c, keep_alpha)
+                    };
+                    any |= new[3] > 0.0;
+                    fresh[p * 4..p * 4 + 4].copy_from_slice(&new);
+                }
+            }
+            out.push(((tx, ty), any.then(|| Pixels::from_straight(depth, &fresh))));
+        }
+        let mut tiles_out = Vec::with_capacity(out.len());
+        for (at, px) in out {
+            tiles_out.push((at, px.map(|px| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })));
+        }
+        let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+        for ((tx, ty), t) in tiles_out {
+            tiles.put(tx, ty, t);
+        }
+        Ok(())
+    }
+
+    /// Layer mask target (item 2b): same `p = srcA * u * opacity` weighting as the pixel fill, but
+    /// the painted value is the source's luminance and there is no transparency to preserve.
+    fn fill_ex_mask(&mut self, id: u32, src: &FillSource, mode: PaintMode, opacity: f32) -> Result<(), String> {
+        let depth = self.depth;
+        self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
+        let (w, h) = (self.width as i32, self.height as i32);
+        let [rx, ry, rw, rh] = self.selection_bounds().unwrap_or([0, 0, w, h]);
+        if rw <= 0 || rh <= 0 {
+            return Ok(());
+        }
+        let selected = self.selection.is_some();
+        let mut out: Vec<((i32, i32), Option<Pixels>)> = Vec::new();
+        for (tx, ty) in self.tiles_of_rect(rx, ry, rx + rw, ry + rh) {
+            let old_tile = self.node(id)?.mask.as_ref().expect("checked").tiles.get(tx, ty).map(|t| t.px.clone());
+            let default = self.node(id)?.mask.as_ref().expect("checked").default;
+            let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
+            let hist_tile = match src {
+                FillSource::History(tiles) => tiles.get(tx, ty).map(|t| t.px.clone()),
+                _ => None,
+            };
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            let def = default as f32 / max_value(depth) as f32;
+            let mut fresh = vec![0f32; TILE_PIXELS];
+            for py in 0..TILE as i32 {
+                for px_ in 0..TILE as i32 {
+                    let p = (py * TILE as i32 + px_) as usize;
+                    let old = old_tile.as_deref().map_or(def, |px| px.mask_f32(p));
+                    let (gx, gy) = (ox + px_, oy + py);
+                    fresh[p] = if gx < rx || gx >= rx + rw || gy < ry || gy >= ry + rh {
+                        old
+                    } else {
+                        let (src_rgb, src_a) = fill_src_sample(src, hist_tile.as_deref(), p, gx, gy);
+                        let u = cov.at(p).clamp(0.0, 1.0);
+                        let c = (src_a * u * opacity).clamp(0.0, 1.0);
+                        paint_mask_value(mode, old, blend::lum(src_rgb), c)
+                    };
+                }
+            }
+            let px = Pixels::mask_from_norm(depth, &fresh);
+            let uniform = match &px {
+                Pixels::Mask8(d) => d.iter().all(|v| *v as u32 == default),
+                Pixels::Mask16(d) => d.iter().all(|v| *v as u32 == default),
+                _ => false,
+            };
+            out.push(((tx, ty), (!uniform).then_some(px)));
+        }
+        let mut tiles_out = Vec::with_capacity(out.len());
+        for (at, px) in out {
+            tiles_out.push((at, px.map(|px| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })));
+        }
+        let m = self.node_mut(id)?.mask.as_mut().expect("checked");
+        for ((tx, ty), t) in tiles_out {
+            m.tiles.put(tx, ty, t);
+        }
+        Ok(())
+    }
+
+    /// Selection / quick mask target (item 2b): paints into the selection itself, as if it were a
+    /// layer mask (mirrors `paint_coverage_selection`); there is no outer selection to clip it by,
+    /// so `u = 1` and the region is always the whole document.
+    fn fill_ex_selection(&mut self, src: &FillSource, mode: PaintMode, opacity: f32) -> Result<(), String> {
+        let (w, h) = (self.width as i32, self.height as i32);
+        let mut sel = self.selection.take().unwrap_or_default();
+        for (tx, ty) in self.tiles_of_rect(0, 0, w, h) {
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            let hist_tile = match src {
+                FillSource::History(tiles) => tiles.get(tx, ty).map(|t| t.px.clone()),
+                _ => None,
+            };
+            let mut values = vec![0f32; TILE_PIXELS];
+            for py in 0..TILE as i32 {
+                for px_ in 0..TILE as i32 {
+                    let p = (py * TILE as i32 + px_) as usize;
+                    let (gx, gy) = (ox + px_, oy + py);
+                    let old = self.sel_at(&sel, gx, gy);
+                    if gx >= w || gy >= h {
+                        values[p] = old;
+                        continue;
+                    }
+                    let (src_rgb, src_a) = fill_src_sample(src, hist_tile.as_deref(), p, gx, gy);
+                    let c = (src_a * opacity).clamp(0.0, 1.0);
+                    values[p] = paint_mask_value(mode, old, blend::lum(src_rgb), c);
+                }
+            }
+            self.set_sel_tile(&mut sel, tx, ty, &values);
+        }
+        self.selection = Some(sel);
+        Ok(())
+    }
+
+    /// Stroke ring (B6 spec v1 Part E2): `width` in document px (rounded, clamped 1..250),
+    /// `location` inside/center/outside. Errors without a selection or on an empty ring; applies
+    /// through `fill_ex` with the ring standing in for the selection, then restores it.
+    pub fn stroke_selection(
+        &mut self,
+        id: u32,
+        width: f32,
+        rgba: [u8; 4],
+        location: &str,
+        mode: PaintMode,
+        opacity: f32,
+        preserve_transparency: bool,
+    ) -> Result<(), String> {
+        self.check_idle()?;
+        if self.selection.is_none() {
+            return Err("Make a selection to stroke.".into());
+        }
+        self.check_pixel_edit(id)?;
+        let w_px = width.round().clamp(1.0, 250.0);
+        let s = self.selection_values();
+        let (w, h) = (self.width, self.height);
+        let sub = |a: &[f32], b: &[f32]| -> Vec<f32> { a.iter().zip(b).map(|(&x, &y)| (x - y).max(0.0)).collect() };
+        let ring = match location {
+            "outside" => {
+                let e = region::expand_soft(&s, w, h, w_px, false);
+                sub(&e, &s)
+            }
+            "center" => {
+                let e = region::expand_soft(&s, w, h, (w_px / 2.0).ceil(), false);
+                let c = region::contract_soft(&s, w, h, (w_px / 2.0).floor(), false);
+                sub(&e, &c)
+            }
+            "inside" => {
+                let c = region::contract_soft(&s, w, h, w_px, false);
+                sub(&s, &c)
+            }
+            other => return Err(format!("unknown stroke location {other}")),
+        };
+        if ring.iter().all(|&v| v <= 0.0) {
+            return Err("Stroke produced no pixels.".into());
+        }
+        let saved = self.selection.take();
+        self.select_shape(&MaskShape::new(w as i32, h as i32, ring), Mode::New)?;
+        let result = self.fill_ex(id, Target::Pixels, &FillSource::Solid(rgba), mode, opacity, preserve_transparency);
+        self.selection = saved;
+        result
+    }
+
+    /// Gradient render (B6 spec v1 Part E3): normalizes the stops, reverses them if asked, builds
+    /// a 1024-entry LUT, then paints per pixel at `t = style_t(pixel centre - start, end - start)`,
+    /// dithering R/G/B (not alpha) and forcing alpha to 1 when `transparency` is off, through the
+    /// same region/coverage/target dispatch as `fill_ex`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn gradient(
+        &mut self,
+        id: u32,
+        target: Target,
+        color_stops: Vec<gradient::ColorStop>,
+        opacity_stops: Vec<gradient::OpacityStop>,
+        method: gradient::Method,
+        style: gradient::Style,
+        start: (f64, f64),
+        end: (f64, f64),
+        reverse: bool,
+        dither: bool,
+        transparency: bool,
+        opacity: f32,
+    ) -> Result<(), String> {
+        self.check_idle()?;
+        let mut color_stops = gradient::normalize_color_stops(color_stops);
+        let mut opacity_stops = gradient::normalize_opacity_stops(opacity_stops);
+        if reverse {
+            color_stops = gradient::reverse_color_stops(&color_stops);
+            opacity_stops = gradient::reverse_opacity_stops(&opacity_stops);
+        }
+        let lut = gradient::build_lut(&color_stops, &opacity_stops, method);
+        let opacity = opacity.clamp(0.0, 1.0);
+        let (dx, dy) = (end.0 - start.0, end.1 - start.1);
+        let l2 = dx * dx + dy * dy;
+        let sample = |gx: i32, gy: i32| -> [f32; 4] {
+            let (px, py) = (gx as f64 + 0.5 - start.0, gy as f64 + 0.5 - start.1);
+            let t = gradient::style_t(style, px, py, dx, dy, l2);
+            let [mut r, mut g, mut b, mut a] = gradient::lut_lookup(&lut, t);
+            if dither {
+                let d = gradient::dither_delta(gx, gy);
+                r = (r + d).clamp(0.0, 1.0);
+                g = (g + d).clamp(0.0, 1.0);
+                b = (b + d).clamp(0.0, 1.0);
+            }
+            if !transparency {
+                a = 1.0;
+            }
+            [r, g, b, a]
+        };
+        match target {
+            Target::Pixels => self.gradient_pixels(id, &sample, opacity),
+            Target::Mask => self.gradient_mask(id, &sample, opacity),
+            Target::Selection => self.gradient_selection(id, &sample, opacity),
+        }
+    }
+
+    /// The raster-mode region (B6 spec v1 Part E3): selection bounds ∩ doc, else the layer's
+    /// non-transparent tight bounds ∩ doc, else the doc.
+    fn gradient_region(&self, id: u32) -> Result<[i32; 4], String> {
+        let (w, h) = (self.width as i32, self.height as i32);
+        let clip = |b: [i32; 4]| -> [i32; 4] {
+            let (x0, y0) = (b[0].max(0), b[1].max(0));
+            let (x1, y1) = ((b[0] + b[2]).min(w), (b[1] + b[3]).min(h));
+            [x0, y0, (x1 - x0).max(0), (y1 - y0).max(0)]
+        };
+        if let Some(b) = self.selection_bounds() {
+            return Ok(clip(b));
+        }
+        if let Some(b) = self.layer_bounds(id)? {
+            return Ok(clip(b));
+        }
+        Ok([0, 0, w, h])
+    }
+
+    fn gradient_pixels(&mut self, id: u32, sample: &impl Fn(i32, i32) -> [f32; 4], opacity: f32) -> Result<(), String> {
+        self.check_pixel_edit(id)?;
+        let keep_alpha = self.node(id)?.locks.transparency;
+        let depth = self.depth;
+        let [rx, ry, rw, rh] = self.gradient_region(id)?;
+        if rw <= 0 || rh <= 0 {
+            return Ok(());
+        }
+        let selected = self.selection.is_some();
+        let mut out: Vec<((i32, i32), Option<Pixels>)> = Vec::new();
+        for (tx, ty) in self.tiles_of_rect(rx, ry, rx + rw, ry + rh) {
+            let old_tile = self.node(id)?.pixel_tiles()?.get(tx, ty).map(|t| t.px.clone());
+            let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            let mut fresh = vec![0f32; TILE_PIXELS * 4];
+            let mut any = false;
+            for py in 0..TILE as i32 {
+                for px_ in 0..TILE as i32 {
+                    let p = (py * TILE as i32 + px_) as usize;
+                    let old = old_tile.as_deref().map_or([0.0; 4], |px| px.rgba_f32(p));
+                    let (gx, gy) = (ox + px_, oy + py);
+                    let new = if gx < rx || gx >= rx + rw || gy < ry || gy >= ry + rh {
+                        old
+                    } else {
+                        let [r, g, b, a] = sample(gx, gy);
+                        let u = cov.at(p).clamp(0.0, 1.0);
+                        let c = (a * u * opacity).clamp(0.0, 1.0);
+                        paint_pixel(PaintMode::Blend(Blend::Normal), old, [r, g, b], c, keep_alpha)
+                    };
+                    any |= new[3] > 0.0;
+                    fresh[p * 4..p * 4 + 4].copy_from_slice(&new);
+                }
+            }
+            out.push(((tx, ty), any.then(|| Pixels::from_straight(depth, &fresh))));
+        }
+        let mut tiles_out = Vec::with_capacity(out.len());
+        for (at, px) in out {
+            tiles_out.push((at, px.map(|px| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })));
+        }
+        let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+        for ((tx, ty), t) in tiles_out {
+            tiles.put(tx, ty, t);
+        }
+        Ok(())
+    }
+
+    /// Layer mask target: same coverage weighting as the pixel path, painted as the sampled
+    /// colour's luminance (mirrors `fill_ex_mask`).
+    fn gradient_mask(&mut self, id: u32, sample: &impl Fn(i32, i32) -> [f32; 4], opacity: f32) -> Result<(), String> {
+        let depth = self.depth;
+        self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
+        let [rx, ry, rw, rh] = self.gradient_region(id)?;
+        if rw <= 0 || rh <= 0 {
+            return Ok(());
+        }
+        let selected = self.selection.is_some();
+        let mut out: Vec<((i32, i32), Option<Pixels>)> = Vec::new();
+        for (tx, ty) in self.tiles_of_rect(rx, ry, rx + rw, ry + rh) {
+            let old_tile = self.node(id)?.mask.as_ref().expect("checked").tiles.get(tx, ty).map(|t| t.px.clone());
+            let default = self.node(id)?.mask.as_ref().expect("checked").default;
+            let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            let def = default as f32 / max_value(depth) as f32;
+            let mut fresh = vec![0f32; TILE_PIXELS];
+            for py in 0..TILE as i32 {
+                for px_ in 0..TILE as i32 {
+                    let p = (py * TILE as i32 + px_) as usize;
+                    let old = old_tile.as_deref().map_or(def, |px| px.mask_f32(p));
+                    let (gx, gy) = (ox + px_, oy + py);
+                    fresh[p] = if gx < rx || gx >= rx + rw || gy < ry || gy >= ry + rh {
+                        old
+                    } else {
+                        let [r, g, b, a] = sample(gx, gy);
+                        let u = cov.at(p).clamp(0.0, 1.0);
+                        let c = (a * u * opacity).clamp(0.0, 1.0);
+                        paint_mask_value(PaintMode::Blend(Blend::Normal), old, blend::lum([r, g, b]), c)
+                    };
+                }
+            }
+            let px = Pixels::mask_from_norm(depth, &fresh);
+            let uniform = match &px {
+                Pixels::Mask8(d) => d.iter().all(|v| *v as u32 == default),
+                Pixels::Mask16(d) => d.iter().all(|v| *v as u32 == default),
+                _ => false,
+            };
+            out.push(((tx, ty), (!uniform).then_some(px)));
+        }
+        let mut tiles_out = Vec::with_capacity(out.len());
+        for (at, px) in out {
+            tiles_out.push((at, px.map(|px| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })));
+        }
+        let m = self.node_mut(id)?.mask.as_mut().expect("checked");
+        for ((tx, ty), t) in tiles_out {
+            m.tiles.put(tx, ty, t);
+        }
+        Ok(())
+    }
+
+    /// Selection / quick mask target: painted as the sampled colour's luminance, `u = 1` (mirrors
+    /// `fill_ex_selection`), but still bounded by the same region as the other two targets.
+    fn gradient_selection(&mut self, id: u32, sample: &impl Fn(i32, i32) -> [f32; 4], opacity: f32) -> Result<(), String> {
+        let [rx, ry, rw, rh] = self.gradient_region(id)?;
+        if rw <= 0 || rh <= 0 {
+            return Ok(());
+        }
+        let mut sel = self.selection.take().unwrap_or_default();
+        for (tx, ty) in self.tiles_of_rect(rx, ry, rx + rw, ry + rh) {
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            let mut values = vec![0f32; TILE_PIXELS];
+            for py in 0..TILE as i32 {
+                for px_ in 0..TILE as i32 {
+                    let p = (py * TILE as i32 + px_) as usize;
+                    let (gx, gy) = (ox + px_, oy + py);
+                    let old = self.sel_at(&sel, gx, gy);
+                    values[p] = if gx < rx || gx >= rx + rw || gy < ry || gy >= ry + rh {
+                        old
+                    } else {
+                        let [r, g, b, a] = sample(gx, gy);
+                        let c = (a * opacity).clamp(0.0, 1.0);
+                        paint_mask_value(PaintMode::Blend(Blend::Normal), old, blend::lum([r, g, b]), c)
+                    };
+                }
+            }
+            self.set_sel_tile(&mut sel, tx, ty, &values);
+        }
+        self.selection = Some(sel);
+        Ok(())
     }
 
     // Copy on write: every source tile id maps to one new tile, so shared tiles stay shared.
@@ -4082,6 +4528,106 @@ struct StrokeIn {
     dual_brush: DualBrushIn,
 }
 
+/// `fill_ex` JSON params (B6 spec v1 Part E1): `source` is "solid", "pattern" or "history".
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FillExIn {
+    source: String,
+    #[serde(default)]
+    rgba: Option<[u8; 4]>,
+    #[serde(default)]
+    pattern_id: Option<u32>,
+    #[serde(default)]
+    snapshot_id: Option<u32>,
+    mode: String,
+    #[serde(default = "one")]
+    opacity: f32,
+    #[serde(default)]
+    preserve_transparency: bool,
+}
+
+/// `stroke_selection` JSON params (B6 spec v1 Part E2): `location` is "inside", "center" or
+/// "outside".
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StrokeSelIn {
+    width: f32,
+    rgba: [u8; 4],
+    location: String,
+    mode: String,
+    #[serde(default = "one")]
+    opacity: f32,
+    #[serde(default)]
+    preserve_transparency: bool,
+}
+
+/// `gradient` JSON params (B6 spec v1 Part E3): `stops`/`opacityStops` are normalized inside
+/// `Document::gradient`; `start`/`end` are document pixel coordinates.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct GradientIn {
+    #[serde(default)]
+    stops: Vec<ColorStopIn>,
+    #[serde(default)]
+    opacity_stops: Vec<OpacityStopIn>,
+    #[serde(default = "perceptual_method")]
+    method: String,
+    #[serde(default = "linear_style")]
+    style: String,
+    start: PointIn,
+    end: PointIn,
+    #[serde(default)]
+    reverse: bool,
+    #[serde(default = "yes")]
+    dither: bool,
+    #[serde(default = "yes")]
+    transparency: bool,
+    #[serde(default = "one")]
+    opacity: f32,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ColorStopIn {
+    position: f32,
+    rgb: [u8; 3],
+    #[serde(default = "half")]
+    midpoint: f32,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct OpacityStopIn {
+    position: f32,
+    #[serde(default = "one")]
+    opacity: f32,
+    #[serde(default = "half")]
+    midpoint: f32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PointIn {
+    x: f64,
+    y: f64,
+}
+
+fn half() -> f32 {
+    0.5
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn perceptual_method() -> String {
+    "perceptual".into()
+}
+
+fn linear_style() -> String {
+    "linear".into()
+}
+
 fn one() -> f32 {
     1.0
 }
@@ -4449,6 +4995,80 @@ impl EngineCore {
         self.patterns.remove(&id);
     }
 
+    /// Fill (B6 spec v1 Part E1 / item 2b): `target` is "pixels", "mask" or "selection".
+    /// `params_json` is `{source, rgba?, patternId?, snapshotId?, mode, opacity,
+    /// preserveTransparency}`.
+    pub fn fill_ex(&mut self, id: u32, target: &str, params_json: &str) -> Result<(), String> {
+        let target = Target::parse(target)?;
+        let p: FillExIn = serde_json::from_str(params_json).map_err(|e| format!("bad fill params: {e}"))?;
+        let mode = PaintMode::parse(&p.mode)?;
+        let src = match p.source.as_str() {
+            "solid" => FillSource::Solid(p.rgba.ok_or("solid fill needs rgba")?),
+            "pattern" => {
+                let pid = p.pattern_id.ok_or("pattern fill needs patternId")?;
+                FillSource::Pattern(self.patterns.get(&pid).ok_or_else(|| format!("unknown pattern {pid}"))?.clone())
+            }
+            "history" => {
+                let tiles = p
+                    .snapshot_id
+                    .and_then(|id| self.snapshots.get(&id))
+                    .and_then(|snap| snap.node(id).ok())
+                    .and_then(|n| n.pixel_tiles().ok())
+                    .ok_or("Fill needs a pixel layer.")?;
+                FillSource::History(tiles.clone())
+            }
+            other => return Err(format!("unknown fill source {other}")),
+        };
+        self.doc.fill_ex(id, target, &src, mode, p.opacity, p.preserve_transparency)
+    }
+
+    /// Stroke ring (B6 spec v1 Part E2): `params_json` is `{width, rgba, location, mode, opacity,
+    /// preserveTransparency}`.
+    pub fn stroke_selection(&mut self, id: u32, params_json: &str) -> Result<(), String> {
+        let p: StrokeSelIn = serde_json::from_str(params_json).map_err(|e| format!("bad stroke params: {e}"))?;
+        let mode = PaintMode::parse(&p.mode)?;
+        self.doc.stroke_selection(id, p.width, p.rgba, &p.location, mode, p.opacity, p.preserve_transparency)
+    }
+
+    /// Gradient render (B6 spec v1 Part E3): `target` is "pixels", "mask" or "selection".
+    /// `params_json` is `{stops[{position, rgb, midpoint}], opacityStops[{position, opacity,
+    /// midpoint}], method, style, start: {x, y}, end: {x, y}, reverse, dither, transparency,
+    /// opacity}`.
+    pub fn gradient(&mut self, id: u32, target: &str, params_json: &str) -> Result<(), String> {
+        let target = Target::parse(target)?;
+        let p: GradientIn = serde_json::from_str(params_json).map_err(|e| format!("bad gradient params: {e}"))?;
+        let method = gradient::Method::parse(&p.method)?;
+        let style = gradient::Style::parse(&p.style)?;
+        let color_stops = p
+            .stops
+            .into_iter()
+            .map(|s| gradient::ColorStop {
+                position: s.position,
+                rgb: [s.rgb[0] as f32 / 255.0, s.rgb[1] as f32 / 255.0, s.rgb[2] as f32 / 255.0],
+                midpoint: s.midpoint,
+            })
+            .collect();
+        let opacity_stops = p
+            .opacity_stops
+            .into_iter()
+            .map(|s| gradient::OpacityStop { position: s.position, opacity: s.opacity, midpoint: s.midpoint })
+            .collect();
+        self.doc.gradient(
+            id,
+            target,
+            color_stops,
+            opacity_stops,
+            method,
+            style,
+            (p.start.x, p.start.y),
+            (p.end.x, p.end.y),
+            p.reverse,
+            p.dither,
+            p.transparency,
+            p.opacity,
+        )
+    }
+
     /// Magnetic lasso (docs/M2.md section 3): computes the gradient field of the sampled image
     /// once and returns the handle the following `magnetic_path` calls use.
     pub fn magnetic_begin(&mut self, sample_all: bool, layer_id: u32) -> Result<u32, String> {
@@ -4659,6 +5279,18 @@ mod tests {
         let mut d = Document::new(256, 256, 8).unwrap();
         d.fill(1, Target::Pixels, r, g, b, 255).unwrap();
         d
+    }
+
+    // A layer mask's byte value at a document pixel; the default when the tile is absent.
+    fn mask_at(d: &Document, id: u32, x: usize, y: usize) -> u8 {
+        let (tx, ty) = ((x / TILE) as i32, (y / TILE) as i32);
+        let (px, py) = (x % TILE, y % TILE);
+        let m = d.node(id).unwrap().mask.as_ref().unwrap();
+        let v = match m.tiles.get(tx, ty) {
+            Some(t) => t.px.mask_f32(py * TILE + px),
+            None => m.default as f32 / 255.0,
+        };
+        (v * 255.0).round() as u8
     }
 
     fn manifest_value(d: &Document) -> Value {
@@ -6490,6 +7122,693 @@ mod tests {
         d.bucket(1, Target::Selection, 0, 0, [255, 255, 255, 255], PaintMode::Blend(Blend::Normal), 1.0, 0, false, true, false)
             .unwrap();
         assert_eq!(d.selection_bounds(), Some([0, 0, 4, 4]));
+    }
+
+    // ---------- B6 Part E: fill_ex ----------
+
+    #[test]
+    fn fill_ex_solid_no_selection_is_plain_source_over() {
+        let mut d = doc_bg(10, 20, 30);
+        d.fill_ex(1, Target::Pixels, &FillSource::Solid([200, 100, 50, 255]), PaintMode::Blend(Blend::Normal), 1.0, false)
+            .unwrap();
+        assert_eq!(at(&d, 5, 5), [200, 100, 50, 255]);
+    }
+
+    #[test]
+    fn fill_ex_soft_selection_weights_coverage_by_u_times_opacity() {
+        let mut d = doc_bg(0, 0, 0);
+        // A 50%-coverage selection tile via a half-alpha rect (fractional edge -> antialiased row),
+        // simplified here to a hard rect covering the whole canvas so u = 1, and opacity carries
+        // the weighting: p = srcA(1.0) * u(1.0) * opacity(0.4).
+        d.select_rect(0.0, 0.0, 256.0, 256.0, Mode::New).unwrap();
+        d.fill_ex(1, Target::Pixels, &FillSource::Solid([255, 255, 255, 255]), PaintMode::Blend(Blend::Normal), 0.4, false)
+            .unwrap();
+        near(at(&d, 5, 5), [102, 102, 102, 255]); // 0*0.6 + 255*0.4 = 102
+    }
+
+    #[test]
+    fn fill_ex_preserve_transparency_keeps_dest_alpha_and_skips_empty_pixels() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        // Half the tile opaque red, half transparent.
+        d.set_tile_rgba8(1, 0, 0, &{
+            let mut v = vec![0u8; TILE_BYTES_U8];
+            for y in 0..TILE {
+                for x in 0..TILE {
+                    let o = (y * TILE + x) * 4;
+                    if x < 128 {
+                        v[o..o + 4].copy_from_slice(&[255, 0, 0, 255]);
+                    }
+                }
+            }
+            v
+        })
+        .unwrap();
+        d.fill_ex(1, Target::Pixels, &FillSource::Solid([0, 0, 255, 255]), PaintMode::Blend(Blend::Normal), 1.0, true).unwrap();
+        assert_eq!(at(&d, 5, 5), [0, 0, 255, 255], "opaque pixel repaints, alpha unchanged");
+        assert_eq!(at(&d, 200, 5), [0, 0, 0, 0], "transparent pixel stays empty under preserve transparency");
+    }
+
+    #[test]
+    fn fill_ex_layer_transparency_lock_ors_into_preserve() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        d.set_tile_rgba8(1, 0, 0, &opaque(255, 0, 0)).unwrap();
+        set(&mut d, 1, r#"{"locks":{"transparency":true}}"#);
+        d.fill_ex(1, Target::Pixels, &FillSource::Solid([0, 0, 255, 128]), PaintMode::Blend(Blend::Normal), 1.0, false)
+            .unwrap();
+        assert_eq!(at(&d, 5, 5)[3], 255, "the layer lock forces preserve transparency even though the param is false");
+    }
+
+    #[test]
+    fn fill_ex_blend_mode_multiply_darkens() {
+        let mut d = doc_bg(200, 200, 200);
+        d.fill_ex(1, Target::Pixels, &FillSource::Solid([100, 150, 250, 255]), PaintMode::Blend(Blend::Multiply), 1.0, false)
+            .unwrap();
+        // multiply(200/255, 100/255)*255 rounds to 78.
+        near(at(&d, 5, 5), [78, 118, 196, 255]);
+    }
+
+    #[test]
+    fn fill_ex_pattern_source_uses_the_pattern_rgba_tiled_from_the_origin() {
+        let mut d = doc_bg(0, 0, 0);
+        // 2x2 colour checker, tiled from the document origin (0, 0).
+        let data = [255, 0, 0, 0, 0, 255, 0, 0, 0, 0, 255, 0, 255, 255, 0, 0];
+        let pattern = std::sync::Arc::new(Pattern::new(2, 2, &data, 4).unwrap());
+        d.fill_ex(1, Target::Pixels, &FillSource::Pattern(pattern), PaintMode::Blend(Blend::Normal), 1.0, false).unwrap();
+        assert_eq!(at(&d, 0, 0), [255, 0, 0, 255]);
+        assert_eq!(at(&d, 1, 0), [0, 255, 0, 255]);
+        assert_eq!(at(&d, 0, 1), [0, 0, 255, 255]);
+        assert_eq!(at(&d, 1, 1), [255, 255, 0, 255]);
+        assert_eq!(at(&d, 2, 0), [255, 0, 0, 255], "tiles every 2px from the origin");
+    }
+
+    #[test]
+    fn fill_ex_history_source_reads_the_snapshot_pixels() {
+        let mut ec = EngineCore::new(doc_bg(1, 2, 3));
+        ec.doc.set_tile_rgba8(1, 0, 0, &opaque(9, 8, 7)).unwrap();
+        let snap = ec.doc.clone();
+        ec.snapshots.insert(0, snap);
+        ec.doc.set_tile_rgba8(1, 0, 0, &opaque(50, 50, 50)).unwrap();
+        ec.fill_ex(
+            1,
+            "pixels",
+            r#"{"source":"history","snapshotId":0,"mode":"normal","opacity":1.0,"preserveTransparency":false}"#,
+        )
+        .unwrap();
+        assert_eq!(at(&ec.doc, 5, 5), [9, 8, 7, 255]);
+    }
+
+    #[test]
+    fn fill_ex_history_missing_snapshot_errors_with_the_generic_message() {
+        let mut ec = EngineCore::new(doc_bg(1, 2, 3));
+        let err = ec
+            .fill_ex(1, "pixels", r#"{"source":"history","mode":"normal","opacity":1.0,"preserveTransparency":false}"#)
+            .unwrap_err();
+        assert_eq!(err, "Fill needs a pixel layer.");
+    }
+
+    #[test]
+    fn fill_ex_mask_target_paints_the_masks_luminance_through_the_selection() {
+        let mut d = doc_bg(0, 0, 0);
+        d.add_mask(1, true).unwrap();
+        d.select_rect(0.0, 0.0, 128.0, 256.0, Mode::New).unwrap();
+        d.fill_ex(1, Target::Mask, &FillSource::Solid([0, 0, 0, 255]), PaintMode::Blend(Blend::Normal), 1.0, false).unwrap();
+        // Black over a white mask, full coverage inside the selection: mask goes to 0.
+        assert_eq!(mask_at(&d, 1, 5, 5), 0);
+        assert_eq!(mask_at(&d, 1, 200, 5), 255, "outside the selection the mask is untouched");
+    }
+
+    #[test]
+    fn fill_ex_selection_target_paints_the_quick_mask_with_no_outer_clip() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        d.select_rect(0.0, 0.0, 10.0, 10.0, Mode::New).unwrap(); // an existing selection must not clip this
+        d.fill_ex(1, Target::Selection, &FillSource::Solid([200, 200, 200, 255]), PaintMode::Blend(Blend::Normal), 1.0, false)
+            .unwrap();
+        assert!((sel(&d, 5, 5) - 200.0 / 255.0).abs() < 1e-6);
+        assert!((sel(&d, 200, 200) - 200.0 / 255.0).abs() < 1e-6, "the whole document is repainted, not just the old selection");
+    }
+
+    // ---------- B6 Part E: stroke_selection ----------
+
+    // The ring the spec formula predicts (B6 spec v1 Part E2), read straight off `Document`'s own
+    // private helpers so the golden checks the wiring, not a re-derivation of the EDT math (already
+    // covered by region.rs's own tests).
+    fn expected_ring(d: &Document, location: &str, w_px: f32) -> Vec<u8> {
+        let s = d.selection_values();
+        let (w, h) = (d.width, d.height);
+        let sub = |a: &[f32], b: &[f32]| -> Vec<f32> { a.iter().zip(b).map(|(&x, &y)| (x - y).max(0.0)).collect() };
+        let ring = match location {
+            "outside" => {
+                let e = region::expand_soft(&s, w, h, w_px, false);
+                sub(&e, &s)
+            }
+            "center" => {
+                let e = region::expand_soft(&s, w, h, (w_px / 2.0).ceil(), false);
+                let c = region::contract_soft(&s, w, h, (w_px / 2.0).floor(), false);
+                sub(&e, &c)
+            }
+            "inside" => {
+                let c = region::contract_soft(&s, w, h, w_px, false);
+                sub(&s, &c)
+            }
+            other => panic!("unknown location {other}"),
+        };
+        ring.iter().map(|&v| (v.clamp(0.0, 1.0) * 255.0).round() as u8).collect()
+    }
+
+    fn painted_alpha(d: &Document, w: usize, h: usize) -> Vec<u8> {
+        let f = d.flatten_tile_rgba8(0, 0).unwrap();
+        let mut out = Vec::with_capacity(w * h);
+        for y in 0..h {
+            for x in 0..w {
+                out.push(f[(y * TILE + x) * 4 + 3]);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn stroke_selection_ring_matches_the_region_formula_for_a_10x10_square() {
+        for &w_px in &[1.0f32, 2.0, 3.0] {
+            for location in ["inside", "center", "outside"] {
+                let mut d = Document::new(40, 40, 8).unwrap();
+                d.select_rect(15.0, 15.0, 10.0, 10.0, Mode::New).unwrap();
+                let expected = expected_ring(&d, location, w_px);
+                d.stroke_selection(1, w_px, [255, 255, 255, 255], location, PaintMode::Blend(Blend::Normal), 1.0, false)
+                    .unwrap();
+                assert_eq!(painted_alpha(&d, 40, 40), expected, "location={location} w={w_px}");
+            }
+        }
+    }
+
+    #[test]
+    fn stroke_selection_center_at_width_one_equals_outside() {
+        let mut inside_d = Document::new(40, 40, 8).unwrap();
+        inside_d.select_rect(15.0, 15.0, 10.0, 10.0, Mode::New).unwrap();
+        let mut outside_d = inside_d.clone();
+        inside_d.stroke_selection(1, 1.0, [255, 255, 255, 255], "center", PaintMode::Blend(Blend::Normal), 1.0, false).unwrap();
+        outside_d.stroke_selection(1, 1.0, [255, 255, 255, 255], "outside", PaintMode::Blend(Blend::Normal), 1.0, false).unwrap();
+        assert_eq!(painted_alpha(&inside_d, 40, 40), painted_alpha(&outside_d, 40, 40));
+    }
+
+    #[test]
+    fn stroke_selection_no_inside_ring_along_a_canvas_touching_edge() {
+        let mut d = Document::new(40, 40, 8).unwrap();
+        d.select_rect(0.0, 15.0, 10.0, 10.0, Mode::New).unwrap(); // touches x = 0
+        d.stroke_selection(1, 3.0, [255, 255, 255, 255], "inside", PaintMode::Blend(Blend::Normal), 1.0, false).unwrap();
+        // Rows away from the selection's own top/bottom edge (which do erode, corner effects
+        // aside): the canvas-edge column itself gets no inside ring.
+        for y in 19..21 {
+            assert_eq!(at(&d, 0, y)[3], 0, "no inside ring at the canvas edge, y={y}");
+        }
+        assert!(at(&d, 9, 20)[3] > 0, "the ring still paints along the non-edge sides");
+    }
+
+    #[test]
+    fn stroke_selection_requires_a_selection() {
+        let mut d = Document::new(40, 40, 8).unwrap();
+        let err = d.stroke_selection(1, 3.0, [0, 0, 0, 255], "inside", PaintMode::Blend(Blend::Normal), 1.0, false).unwrap_err();
+        assert_eq!(err, "Make a selection to stroke.");
+    }
+
+    #[test]
+    fn stroke_selection_empty_ring_errors() {
+        let mut d = Document::new(40, 40, 8).unwrap();
+        d.select_rect(0.0, 0.0, 40.0, 40.0, Mode::New).unwrap(); // full-canvas selection: outside expands into nothing new
+        let err = d.stroke_selection(1, 3.0, [0, 0, 0, 255], "outside", PaintMode::Blend(Blend::Normal), 1.0, false).unwrap_err();
+        assert_eq!(err, "Stroke produced no pixels.");
+    }
+
+    #[test]
+    fn stroke_selection_width_rounds_and_clamps_1_to_250() {
+        let mut d = Document::new(40, 40, 8).unwrap();
+        d.select_rect(15.0, 15.0, 10.0, 10.0, Mode::New).unwrap();
+        let expected = expected_ring(&d, "outside", 1.0);
+        d.stroke_selection(1, 0.4, [255, 255, 255, 255], "outside", PaintMode::Blend(Blend::Normal), 1.0, false).unwrap();
+        assert_eq!(painted_alpha(&d, 40, 40), expected, "0.4 rounds and clamps up to 1");
+    }
+
+    // ---------- B6 Part E: gradient ----------
+
+    fn bw_stops() -> Vec<gradient::ColorStop> {
+        vec![
+            gradient::ColorStop { position: 0.0, rgb: [0.0; 3], midpoint: 0.5 },
+            gradient::ColorStop { position: 1.0, rgb: [1.0; 3], midpoint: 0.5 },
+        ]
+    }
+
+    fn painted_rgba(d: &Document, w: usize, h: usize) -> Vec<[u8; 4]> {
+        let f = d.flatten_tile_rgba8(0, 0).unwrap();
+        let mut out = Vec::with_capacity(w * h);
+        for y in 0..h {
+            for x in 0..w {
+                let o = (y * TILE + x) * 4;
+                out.push([f[o], f[o + 1], f[o + 2], f[o + 3]]);
+            }
+        }
+        out
+    }
+
+    // The style-t/LUT math the gradient formula predicts (B6 spec v1 Part E3), read straight off
+    // gradient.rs's own public functions so the golden checks the wiring, not a re-derivation of
+    // the math (already covered by gradient.rs's own tests).
+    #[allow(clippy::too_many_arguments)]
+    fn expected_gradient(
+        style: gradient::Style,
+        method: gradient::Method,
+        color_stops: &[gradient::ColorStop],
+        opacity_stops: &[gradient::OpacityStop],
+        start: (f64, f64),
+        end: (f64, f64),
+        reverse: bool,
+        dither: bool,
+        transparency: bool,
+        w: i32,
+        h: i32,
+    ) -> Vec<[u8; 4]> {
+        let mut cs = gradient::normalize_color_stops(color_stops.to_vec());
+        let mut os = gradient::normalize_opacity_stops(opacity_stops.to_vec());
+        if reverse {
+            cs = gradient::reverse_color_stops(&cs);
+            os = gradient::reverse_opacity_stops(&os);
+        }
+        let lut = gradient::build_lut(&cs, &os, method);
+        let (dx, dy) = (end.0 - start.0, end.1 - start.1);
+        let l2 = dx * dx + dy * dy;
+        let mut out = Vec::with_capacity((w * h) as usize);
+        for gy in 0..h {
+            for gx in 0..w {
+                let (px, py) = (gx as f64 + 0.5 - start.0, gy as f64 + 0.5 - start.1);
+                let t = gradient::style_t(style, px, py, dx, dy, l2);
+                let [mut r, mut g, mut b, mut a] = gradient::lut_lookup(&lut, t);
+                if dither {
+                    let d = gradient::dither_delta(gx, gy);
+                    r = (r + d).clamp(0.0, 1.0);
+                    g = (g + d).clamp(0.0, 1.0);
+                    b = (b + d).clamp(0.0, 1.0);
+                }
+                if !transparency {
+                    a = 1.0;
+                }
+                // Source-over onto a fully transparent backdrop: when the composited alpha ends
+                // up at 0, `paint_pixel` discards the colour too (there is nothing to show it).
+                if a <= 0.0 {
+                    r = 0.0;
+                    g = 0.0;
+                    b = 0.0;
+                }
+                out.push([
+                    (r * 255.0).round() as u8,
+                    (g * 255.0).round() as u8,
+                    (b * 255.0).round() as u8,
+                    (a * 255.0).round() as u8,
+                ]);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn gradient_five_styles_classic_on_an_8x8() {
+        for style_name in ["linear", "radial", "angle", "reflected", "diamond"] {
+            let mut d = Document::new(8, 8, 8).unwrap();
+            let style = gradient::Style::parse(style_name).unwrap();
+            let expected =
+                expected_gradient(style, gradient::Method::Classic, &bw_stops(), &[], (0.5, 0.5), (7.5, 7.5), false, false, true, 8, 8);
+            d.gradient(
+                1,
+                Target::Pixels,
+                bw_stops(),
+                vec![],
+                gradient::Method::Classic,
+                style,
+                (0.5, 0.5),
+                (7.5, 7.5),
+                false,
+                false,
+                true,
+                1.0,
+            )
+            .unwrap();
+            assert_eq!(painted_rgba(&d, 8, 8), expected, "style={style_name}");
+        }
+    }
+
+    #[test]
+    fn gradient_three_methods_on_a_black_to_white_linear_row() {
+        for method_name in ["classic", "linear", "perceptual"] {
+            let mut d = Document::new(8, 1, 8).unwrap();
+            let method = gradient::Method::parse(method_name).unwrap();
+            let expected =
+                expected_gradient(gradient::Style::Linear, method, &bw_stops(), &[], (0.5, 0.0), (7.5, 0.0), false, false, true, 8, 1);
+            d.gradient(
+                1,
+                Target::Pixels,
+                bw_stops(),
+                vec![],
+                method,
+                gradient::Style::Linear,
+                (0.5, 0.0),
+                (7.5, 0.0),
+                false,
+                false,
+                true,
+                1.0,
+            )
+            .unwrap();
+            assert_eq!(painted_rgba(&d, 8, 1), expected, "method={method_name}");
+        }
+    }
+
+    #[test]
+    fn gradient_midpoint_0_25_moves_the_50pct_point() {
+        let mut stops = bw_stops();
+        stops[0].midpoint = 0.25;
+        let mut d = Document::new(8, 1, 8).unwrap();
+        let expected =
+            expected_gradient(gradient::Style::Linear, gradient::Method::Classic, &stops, &[], (0.5, 0.0), (7.5, 0.0), false, false, true, 8, 1);
+        d.gradient(
+            1,
+            Target::Pixels,
+            stops,
+            vec![],
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.5, 0.0),
+            (7.5, 0.0),
+            false,
+            false,
+            true,
+            1.0,
+        )
+        .unwrap();
+        assert_eq!(painted_rgba(&d, 8, 1), expected);
+    }
+
+    #[test]
+    fn gradient_reverse_flips_the_ramp() {
+        let mut d = Document::new(8, 1, 8).unwrap();
+        let expected =
+            expected_gradient(gradient::Style::Linear, gradient::Method::Classic, &bw_stops(), &[], (0.5, 0.0), (7.5, 0.0), true, false, true, 8, 1);
+        d.gradient(
+            1,
+            Target::Pixels,
+            bw_stops(),
+            vec![],
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.5, 0.0),
+            (7.5, 0.0),
+            true,
+            false,
+            true,
+            1.0,
+        )
+        .unwrap();
+        let got = painted_rgba(&d, 8, 1);
+        assert_eq!(got, expected);
+        assert_eq!(got[0], [255, 255, 255, 255], "reversed: white first");
+        assert_eq!(got[7], [0, 0, 0, 255], "reversed: black last");
+    }
+
+    #[test]
+    fn gradient_dither_on_vs_off_exact_bytes() {
+        for dither in [false, true] {
+            let mut d = Document::new(8, 8, 8).unwrap();
+            let expected = expected_gradient(
+                gradient::Style::Linear,
+                gradient::Method::Classic,
+                &bw_stops(),
+                &[],
+                (0.5, 0.0),
+                (7.5, 0.0),
+                false,
+                dither,
+                true,
+                8,
+                8,
+            );
+            d.gradient(
+                1,
+                Target::Pixels,
+                bw_stops(),
+                vec![],
+                gradient::Method::Classic,
+                gradient::Style::Linear,
+                (0.5, 0.0),
+                (7.5, 0.0),
+                false,
+                dither,
+                true,
+                1.0,
+            )
+            .unwrap();
+            assert_eq!(painted_rgba(&d, 8, 8), expected, "dither={dither}");
+        }
+        let mut off = Document::new(8, 8, 8).unwrap();
+        off.gradient(
+            1,
+            Target::Pixels,
+            bw_stops(),
+            vec![],
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.5, 0.0),
+            (7.5, 0.0),
+            false,
+            false,
+            true,
+            1.0,
+        )
+        .unwrap();
+        let mut on = Document::new(8, 8, 8).unwrap();
+        on.gradient(
+            1,
+            Target::Pixels,
+            bw_stops(),
+            vec![],
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.5, 0.0),
+            (7.5, 0.0),
+            false,
+            true,
+            true,
+            1.0,
+        )
+        .unwrap();
+        assert_ne!(painted_rgba(&off, 8, 8), painted_rgba(&on, 8, 8), "dither changes at least one byte");
+    }
+
+    #[test]
+    fn gradient_transparency_off_forces_alpha_1() {
+        let stops = vec![
+            gradient::ColorStop { position: 0.0, rgb: [1.0, 0.0, 0.0], midpoint: 0.5 },
+            gradient::ColorStop { position: 1.0, rgb: [0.0, 0.0, 1.0], midpoint: 0.5 },
+        ];
+        let ops = vec![
+            gradient::OpacityStop { position: 0.0, opacity: 0.0, midpoint: 0.5 },
+            gradient::OpacityStop { position: 1.0, opacity: 1.0, midpoint: 0.5 },
+        ];
+        let mut d = Document::new(8, 1, 8).unwrap();
+        d.gradient(
+            1,
+            Target::Pixels,
+            stops,
+            ops,
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.5, 0.0),
+            (7.5, 0.0),
+            false,
+            false,
+            false,
+            1.0,
+        )
+        .unwrap();
+        let got = painted_rgba(&d, 8, 1);
+        assert!(got.iter().all(|p| p[3] == 255), "transparency:false forces every sampled alpha to 1 before compositing");
+    }
+
+    #[test]
+    fn gradient_opacity_stops_scale_the_painted_alpha() {
+        let stops =
+            vec![gradient::ColorStop { position: 0.0, rgb: [1.0, 0.0, 0.0], midpoint: 0.5 }, gradient::ColorStop {
+                position: 1.0,
+                rgb: [1.0, 0.0, 0.0],
+                midpoint: 0.5,
+            }];
+        let ops = vec![
+            gradient::OpacityStop { position: 0.0, opacity: 0.0, midpoint: 0.5 },
+            gradient::OpacityStop { position: 1.0, opacity: 1.0, midpoint: 0.5 },
+        ];
+        let mut d = Document::new(8, 1, 8).unwrap();
+        let expected = expected_gradient(
+            gradient::Style::Linear,
+            gradient::Method::Classic,
+            &stops,
+            &ops,
+            (0.5, 0.0),
+            (7.5, 0.0),
+            false,
+            false,
+            true,
+            8,
+            1,
+        );
+        d.gradient(
+            1,
+            Target::Pixels,
+            stops,
+            ops,
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.5, 0.0),
+            (7.5, 0.0),
+            false,
+            false,
+            true,
+            1.0,
+        )
+        .unwrap();
+        let got = painted_rgba(&d, 8, 1);
+        assert_eq!(got, expected);
+        assert_eq!(got[0][3], 0, "opacity stop 0 at position 0");
+        assert_eq!(got[7][3], 255, "opacity stop 1 at position 1");
+    }
+
+    #[test]
+    fn gradient_region_uses_the_layers_tight_bounds_when_there_is_no_selection() {
+        let mut d = Document::new(20, 20, 8).unwrap();
+        // Paint only a 4x4 opaque block: the layer's tight bounds.
+        d.set_tile_rgba8(1, 0, 0, &{
+            let mut v = vec![0u8; TILE_BYTES_U8];
+            for y in 2..6 {
+                for x in 2..6 {
+                    let o = (y * TILE + x) * 4;
+                    v[o..o + 4].copy_from_slice(&[0, 0, 0, 255]);
+                }
+            }
+            v
+        })
+        .unwrap();
+        d.gradient(
+            1,
+            Target::Pixels,
+            bw_stops(),
+            vec![],
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.0, 0.0),
+            (20.0, 0.0),
+            false,
+            false,
+            true,
+            1.0,
+        )
+        .unwrap();
+        assert_eq!(at(&d, 10, 10), [0, 0, 0, 0], "outside the layer's tight bounds, the gradient never touches this pixel");
+        assert_ne!(at(&d, 3, 3), [0, 0, 0, 255], "inside the tight bounds the gradient repainted the pixel");
+    }
+
+    #[test]
+    fn gradient_layer_transparency_lock_keeps_dest_alpha_and_skips_empty_pixels() {
+        let mut d = Document::new(256, 256, 8).unwrap();
+        d.set_tile_rgba8(1, 0, 0, &{
+            let mut v = vec![0u8; TILE_BYTES_U8];
+            for y in 0..TILE {
+                for x in 0..TILE {
+                    let o = (y * TILE + x) * 4;
+                    if x < 128 {
+                        v[o..o + 4].copy_from_slice(&[255, 0, 0, 255]);
+                    }
+                }
+            }
+            v
+        })
+        .unwrap();
+        set(&mut d, 1, r#"{"locks":{"transparency":true}}"#);
+        let stops = vec![
+            gradient::ColorStop { position: 0.0, rgb: [0.0, 0.0, 1.0], midpoint: 0.5 },
+            gradient::ColorStop { position: 1.0, rgb: [0.0, 0.0, 1.0], midpoint: 0.5 },
+        ];
+        d.gradient(
+            1,
+            Target::Pixels,
+            stops,
+            vec![],
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.0, 0.0),
+            (256.0, 0.0),
+            false,
+            false,
+            true,
+            1.0,
+        )
+        .unwrap();
+        assert_eq!(at(&d, 5, 5)[3], 255, "opaque pixel keeps its alpha under the layer's transparency lock");
+        assert_eq!(at(&d, 200, 5), [0, 0, 0, 0], "transparent pixel stays empty under the layer's transparency lock");
+    }
+
+    #[test]
+    fn gradient_mask_target_paints_the_masks_luminance() {
+        let mut d = Document::new(8, 1, 8).unwrap();
+        d.add_mask(1, true).unwrap();
+        d.gradient(
+            1,
+            Target::Mask,
+            bw_stops(),
+            vec![],
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.5, 0.0),
+            (7.5, 0.0),
+            false,
+            false,
+            true,
+            1.0,
+        )
+        .unwrap();
+        assert_eq!(mask_at(&d, 1, 0, 0), 0, "black end of the ramp painted into the mask");
+        assert_eq!(mask_at(&d, 1, 7, 0), 255, "white end of the ramp painted into the mask");
+    }
+
+    #[test]
+    fn gradient_selection_target_paints_the_quick_mask() {
+        let mut d = Document::new(8, 1, 8).unwrap();
+        d.gradient(
+            1,
+            Target::Selection,
+            bw_stops(),
+            vec![],
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.5, 0.0),
+            (7.5, 0.0),
+            false,
+            false,
+            true,
+            1.0,
+        )
+        .unwrap();
+        assert!((sel(&d, 0, 0) - 0.0).abs() < 1e-6);
+        assert!((sel(&d, 7, 0) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn engine_gradient_parses_camelcase_json_params_and_paints() {
+        let mut ec = EngineCore::new(Document::new(8, 1, 8).unwrap());
+        ec.gradient(
+            1,
+            "pixels",
+            r#"{"stops":[{"position":0.0,"rgb":[0,0,0]},{"position":1.0,"rgb":[255,255,255]}],
+                "opacityStops":[],"method":"classic","style":"linear",
+                "start":{"x":0.5,"y":0.0},"end":{"x":7.5,"y":0.0},
+                "reverse":false,"dither":false,"transparency":true,"opacity":1.0}"#,
+        )
+        .unwrap();
+        assert_eq!(at(&ec.doc, 0, 0), [0, 0, 0, 255]);
+        assert_eq!(at(&ec.doc, 7, 0), [255, 255, 255, 255]);
     }
 
     // ---------- B3 E2: color range ----------

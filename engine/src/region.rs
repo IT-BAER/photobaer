@@ -262,6 +262,64 @@ pub fn contract(mask: &[f32], w: u32, h: u32, r: f32, apply_at_canvas_bounds: bo
     out
 }
 
+/// Soft (1-px antialiased) expand for the stroke ring (B6 spec v1 Part E2): same padding and exact
+/// EDT as `expand`, but the threshold is a `clamp(r + 0.5 - d, 0, 1)` ramp instead of a hard cut.
+/// `r <= 0` is the identity (expanding by nothing is no change), not a half-pixel erosion of `mask`
+/// itself: the stroke ring's `center` formula at width 1 relies on `E(1) - C(0) == E(1) - mask`.
+pub fn expand_soft(mask: &[f32], w: u32, h: u32, r: f32, apply_at_canvas_bounds: bool) -> Vec<f32> {
+    if r <= 0.0 {
+        return mask.to_vec();
+    }
+    let (w, h) = (w as i32, h as i32);
+    let pad = r.ceil().max(0.0) as i32 + 2;
+    let (pw, ph) = ((w + 2 * pad) as usize, (h + 2 * pad) as usize);
+    let mut inside = vec![false; pw * ph];
+    for py in 0..ph as i32 {
+        for px in 0..pw as i32 {
+            inside[(py * pw as i32 + px) as usize] = hard_extended(mask, w, h, px - pad, py - pad, apply_at_canvas_bounds);
+        }
+    }
+    let dist2 = edt2(&inside, pw, ph);
+    let mut out = vec![0f32; (w * h) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            let p = ((y + pad) as usize) * pw + (x + pad) as usize;
+            let d = dist2[p].max(0.0).sqrt() as f32;
+            out[(y * w + x) as usize] = (r + 0.5 - d).clamp(0.0, 1.0);
+        }
+    }
+    out
+}
+
+/// Soft (1-px antialiased) contract for the stroke ring (B6 spec v1 Part E2): the inverse distance
+/// transform (to the nearest cell with `S < 0.5`), `1 - clamp(r + 0.5 - d_out, 0, 1)`. `r <= 0` is
+/// the identity, for the same reason as `expand_soft`.
+pub fn contract_soft(mask: &[f32], w: u32, h: u32, r: f32, apply_at_canvas_bounds: bool) -> Vec<f32> {
+    if r <= 0.0 {
+        return mask.to_vec();
+    }
+    let (w, h) = (w as i32, h as i32);
+    let pad = r.ceil().max(0.0) as i32 + 2;
+    let (pw, ph) = ((w + 2 * pad) as usize, (h + 2 * pad) as usize);
+    let mut background = vec![false; pw * ph];
+    for py in 0..ph as i32 {
+        for px in 0..pw as i32 {
+            background[(py * pw as i32 + px) as usize] =
+                !hard_extended(mask, w, h, px - pad, py - pad, apply_at_canvas_bounds);
+        }
+    }
+    let dist2 = edt2(&background, pw, ph);
+    let mut out = vec![0f32; (w * h) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            let p = ((y + pad) as usize) * pw + (x + pad) as usize;
+            let d = dist2[p].max(0.0).sqrt() as f32;
+            out[(y * w + x) as usize] = 1.0 - (r + 0.5 - d).clamp(0.0, 1.0);
+        }
+    }
+    out
+}
+
 // 3x3 box average with the canvas edge clamped (no falloff invented at the canvas border); the
 // 1-pixel feather of `border` and of quick selection's auto enhance.
 pub fn feather1(mask: &[f32], w: usize, h: usize) -> Vec<f32> {
@@ -575,6 +633,41 @@ mod tests {
         assert_eq!(eroded[3 * 7 + 3], 1.0, "the interior survives");
         let kept = contract(&mask, 7, 7, 1.0, false);
         assert!(kept.iter().all(|&v| v == 1.0), "edges do not shrink when the canvas bound doesn't apply");
+    }
+
+    // ---------- B6 E: Stroke ring E(r)/C(r) ----------
+
+    #[test]
+    fn expand_soft_is_a_one_pixel_aa_ramp_at_the_radius() {
+        let mut mask = vec![0f32; 9 * 9];
+        mask[4 * 9 + 4] = 1.0;
+        let out = expand_soft(&mask, 9, 9, 2.0, true);
+        assert_eq!(out[4 * 9 + 4], 1.0, "distance 0: clamp(2.5-0)=1");
+        assert!((out[6 * 9 + 4] - 0.5).abs() < 1e-6, "distance 2: clamp(2.5-2)=0.5");
+        assert_eq!(out[7 * 9 + 4], 0.0, "distance 3: clamp(2.5-3,0,1)=0");
+        assert!((out[5 * 9 + 4] - 1.0).abs() < 1e-6, "distance 1: clamp(2.5-1,0,1)=1");
+    }
+
+    #[test]
+    fn contract_soft_erodes_and_replicates_the_edge() {
+        let mask = vec![1f32; 7 * 7];
+        // apply_at_canvas_bounds = true: the canvas edge counts as background, so it erodes.
+        let eroded = contract_soft(&mask, 7, 7, 1.0, true);
+        assert!((eroded[0] - 0.5).abs() < 1e-6, "corner, distance 1 to the background: 1-clamp(1.5-1,0,1)=0.5");
+        assert!((eroded[1] - 0.5).abs() < 1e-6, "distance 1 straight up to the background: 1-clamp(1.5-1,0,1)=0.5");
+        assert_eq!(eroded[3 * 7 + 3], 1.0, "far interior: no background within reach, stays 1");
+        // apply_at_canvas_bounds = false: edge replication means no background exists at all.
+        let kept = contract_soft(&mask, 7, 7, 1.0, false);
+        assert!(kept.iter().all(|&v| v == 1.0), "no unselected pixel anywhere, so nothing erodes");
+    }
+
+    #[test]
+    fn expand_soft_and_contract_soft_are_the_identity_at_radius_zero() {
+        // A non-0/1 value at 0.7 checks this returns the original soft mask, not a re-thresholded one.
+        let mask = vec![0.0, 0.7, 1.0, 0.0];
+        assert_eq!(expand_soft(&mask, 2, 2, 0.0, true), mask);
+        assert_eq!(contract_soft(&mask, 2, 2, 0.0, true), mask);
+        assert_eq!(expand_soft(&mask, 2, 2, -1.0, true), mask, "a negative radius is also the identity");
     }
 
     #[test]

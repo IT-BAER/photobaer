@@ -141,7 +141,7 @@ fn soft_light(cb: f32, cs: f32) -> f32 {
     }
 }
 
-fn lum(c: [f32; 3]) -> f32 {
+pub(crate) fn lum(c: [f32; 3]) -> f32 {
     0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]
 }
 

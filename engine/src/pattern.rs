@@ -1,45 +1,66 @@
 //! Fill/texture pattern registry (B5 spec v2 Part E2): a luminance grid sampled by texture and
 //! dual-brush blending. Lives outside the document/snapshots, like sampled brush tips (E1.11).
 
-/// A registered pattern: `w * h` luminance texels in 0..1, row-major.
+/// A registered pattern: `w * h` texels, row-major, stored both as luminance (0..1, for texture
+/// and dual-brush sampling) and as RGBA (0..1 per channel, for Fill's colour source).
 pub struct Pattern {
     w: u32,
     h: u32,
     lum: Vec<f32>,
+    rgba: Vec<[f32; 4]>,
 }
 
 impl Pattern {
     /// `data` is `w * h` gray bytes (`channels == 1`) or `w * h * 4` RGBA bytes (`channels == 4`,
-    /// alpha ignored); luminance uses the same 0.3/0.59/0.11 weights as `blend::lum`.
+    /// alpha ignored, stored as 1.0); luminance uses the same 0.3/0.59/0.11 weights as `blend::lum`.
     pub fn new(w: u32, h: u32, data: &[u8], channels: u8) -> Result<Pattern, String> {
         if !(1..=4096).contains(&w) || !(1..=4096).contains(&h) {
             return Err("a pattern must be 1..=4096 px per side".into());
         }
         let n = (w * h) as usize;
-        let lum = match channels {
+        let (lum, rgba): (Vec<f32>, Vec<[f32; 4]>) = match channels {
             1 => {
                 if data.len() != n {
                     return Err("a gray pattern's bytes must be w * h long".into());
                 }
-                data.iter().map(|&v| v as f32 / 255.0).collect()
+                let lum: Vec<f32> = data.iter().map(|&v| v as f32 / 255.0).collect();
+                let rgba = lum.iter().map(|&v| [v, v, v, 1.0]).collect();
+                (lum, rgba)
             }
             4 => {
                 if data.len() != n * 4 {
                     return Err("an rgba pattern's bytes must be w * h * 4 long".into());
                 }
-                data.chunks_exact(4)
+                let lum = data
+                    .chunks_exact(4)
                     .map(|c| (0.3 * c[0] as f32 + 0.59 * c[1] as f32 + 0.11 * c[2] as f32) / 255.0)
-                    .collect()
+                    .collect();
+                let rgba = data
+                    .chunks_exact(4)
+                    .map(|c| [c[0] as f32 / 255.0, c[1] as f32 / 255.0, c[2] as f32 / 255.0, 1.0])
+                    .collect();
+                (lum, rgba)
             }
             other => return Err(format!("unsupported pattern channel count {other}")),
         };
-        Ok(Pattern { w, h, lum })
+        Ok(Pattern { w, h, lum, rgba })
     }
 
     fn texel(&self, x: i32, y: i32) -> f32 {
         let tx = x.rem_euclid(self.w as i32) as usize;
         let ty = y.rem_euclid(self.h as i32) as usize;
         self.lum[ty * self.w as usize + tx]
+    }
+
+    /// The tiled colour at pixel `(x, y)` for Fill's pattern source (B6 spec v1 Part E1): the
+    /// pattern's own RGBA, alpha always 1.
+    pub fn sample_rgba(&self, x: i32, y: i32, scale: f32) -> [f32; 4] {
+        let scale = if scale <= 0.0 { 1.0 } else { scale };
+        let tx = (x as f32 / scale).floor() as i32;
+        let ty = (y as f32 / scale).floor() as i32;
+        let tx = tx.rem_euclid(self.w as i32) as usize;
+        let ty = ty.rem_euclid(self.h as i32) as usize;
+        self.rgba[ty * self.w as usize + tx]
     }
 
     /// The raw 0..1 luminance at pixel `(x, y)`, tiled at `scale` document pixels per texel
@@ -86,6 +107,21 @@ mod tests {
     fn rgba_luminance_uses_the_blend_weights() {
         let p = Pattern::new(1, 1, &[255, 0, 0, 255], 4).unwrap();
         assert!((p.sample_raw(0, 0, 1.0) - 0.3).abs() < 1e-6);
+    }
+
+    #[test]
+    fn sample_rgba_keeps_the_pattern_colour_alpha_one() {
+        // A 2x2 checker: red/green over blue/yellow, alpha ignored on input.
+        let data = [255, 0, 0, 10, 0, 255, 0, 20, 0, 0, 255, 30, 255, 255, 0, 40];
+        let p = Pattern::new(2, 2, &data, 4).unwrap();
+        assert_eq!(p.sample_rgba(0, 0, 1.0), [1.0, 0.0, 0.0, 1.0]);
+        assert_eq!(p.sample_rgba(1, 0, 1.0), [0.0, 1.0, 0.0, 1.0]);
+        assert_eq!(p.sample_rgba(0, 1, 1.0), [0.0, 0.0, 1.0, 1.0]);
+        assert_eq!(p.sample_rgba(1, 1, 1.0), [1.0, 1.0, 0.0, 1.0]);
+        assert_eq!(p.sample_rgba(2, 0, 1.0), [1.0, 0.0, 0.0, 1.0], "wraps positive");
+        let gray = Pattern::new(1, 1, &[64], 1).unwrap();
+        let v = 64.0 / 255.0;
+        assert_eq!(gray.sample_rgba(0, 0, 1.0), [v, v, v, 1.0]);
     }
 
     #[test]
