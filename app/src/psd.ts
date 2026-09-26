@@ -1,5 +1,8 @@
 // PSD open/save (M1.md section 6). Runs in the engine worker (no DOM) and in Node test/corpus code.
-import { initializeCanvas, readPsd, writePsd, type AdjustmentLayer, type BlendMode, type Color, type Layer, type PixelData, type Psd } from 'ag-psd';
+import {
+  initializeCanvas, readPsd, writePsd, type AdjustmentLayer, type BlendMode, type Color, type EffectContour, type Layer, type LayerEffectsInfo,
+  type LinkedFile, type PixelData, type Psd, type VectorContent,
+} from 'ag-psd';
 import { Engine } from './engine-pkg/photobaer_engine.js';
 
 let canvasReady = false;
@@ -23,6 +26,8 @@ interface ManifestNode {
   tiles?: Sparse;
   children?: ManifestNode[];
   adjustment?: Adjustment;
+  content?: any; style?: any; blending: any;
+  smart?: { link: any; source: { blob: number | null }; source_size: [number, number]; transform: number[]; warp: unknown; filters: unknown[] };
 }
 
 // Engine adjustment params (engine/src/adjust.rs) are in PSD units.
@@ -48,9 +53,9 @@ function rgbOf(c: Color | undefined, what: string): Rgb {
 }
 const colorOf = ([r, g, b]: Rgb) => ({ r, g, b });
 
-function gradientIn(g: PsdGradient): GradientDef {
+function gradientIn(g: PsdGradient, method = g.method): GradientDef {
   return {
-    method: g.method === 'perceptual' || g.method === 'linear' ? g.method : 'classic',
+    method: method === 'perceptual' || method === 'linear' ? method : 'classic',
     color_stops: (g.colorStops ?? []).map(s => ({ position: s.location, color: rgbOf(s.color, 'a gradient stop'), midpoint: s.midpoint })),
     opacity_stops: (g.opacityStops ?? []).map(s => ({ position: s.location, opacity: s.opacity, midpoint: s.midpoint })),
   };
@@ -196,6 +201,297 @@ function adjustmentOut(e: Engine, { kind, params: p }: Adjustment, warn: (m: str
   throw new Error(`unknown adjustment kind ${kind}`);
 }
 
+// Fill content, layer styles and blending options (docs/M3.md sections 4 and 5). ag-psd gives opacity,
+// noise, range, jitter, strength and scale as fractions, sizes and distances as pixel units, spread as percent.
+type Warn = (m: string) => void;
+const LINEAR = { name: 'Linear', points: [[0, 0], [255, 255]], mode: 'point', anti_alias: false };
+const BLACK_WHITE: GradientDef = {
+  method: 'classic',
+  color_stops: [{ position: 0, color: [0, 0, 0], midpoint: 0.5 }, { position: 1, color: [255, 255, 255], midpoint: 0.5 }],
+  opacity_stops: [{ position: 0, opacity: 1, midpoint: 0.5 }, { position: 1, opacity: 1, midpoint: 0.5 }],
+};
+const BEVEL_STYLES: Record<string, string> = { outer: 'outer bevel', inner: 'inner bevel', emboss: 'emboss', pillow: 'pillow emboss', stroke_emboss: 'stroke emboss' };
+const px = (value: number) => ({ units: 'Pixels' as const, value });
+const xy = (o?: { x: number; y: number }) => [o?.x ?? 0, o?.y ?? 0];
+const snake = (s: string) => s.replace(/ /g, '_');
+const spaced = (s: string) => s.replace(/_/g, ' ');
+
+function contourIn(c: EffectContour | undefined, antiAlias?: boolean) {
+  if (!c?.curve?.length) return { ...LINEAR, anti_alias: !!antiAlias };
+  return { name: c.name, points: c.curve.map(p => [p.x, p.y]), mode: 'point', anti_alias: !!antiAlias };
+}
+function contourOut(c: any, warn: Warn): EffectContour {
+  if (c.mode === 'pencil') warn('pencil contours are saved as smooth curves in PSD');
+  return { name: c.name, curve: c.points.map(([x, y]: number[]) => ({ x, y })) };
+}
+
+function gradientFillIn(g: any, warn: Warn) {
+  if (g.type === 'noise') warn('noise gradients were imported as a black to white gradient');
+  return {
+    gradient: g.type === 'noise' ? BLACK_WHITE : gradientIn(g, g.interpolationMethod), style: g.style ?? 'linear', angle: g.angle ?? 90,
+    scale: g.scale ?? 1, reverse: !!g.reverse, dither: !!g.dither, align_with_layer: g.align ?? true, offset: xy(g.offset),
+  };
+}
+function gradientFillOut(g: any) {
+  const [x, y] = g.offset;
+  return {
+    name: 'Custom', type: 'solid' as const, ...gradientOut(g.gradient), interpolationMethod: g.gradient.method, style: g.style, angle: g.angle,
+    scale: g.scale, reverse: g.reverse, dither: g.dither, align: g.align_with_layer, offset: { x, y },
+  };
+}
+
+// ag-psd reads neither scale nor angle of a pattern fill layer or stroke, and cannot write `linked`.
+function patternFillOut(p: any, names: Map<string, string>, warn: Warn) {
+  if (p.scale !== 1 || p.angle !== 0 || !p.linked) warn('pattern scale, angle and link of fill layers and strokes are not stored in PSD');
+  const [x, y] = p.offset;
+  return { type: 'pattern' as const, name: names.get(p.pattern_id) ?? '', id: p.pattern_id, phase: { x, y } };
+}
+
+function fillIn(v: VectorContent, pats: Set<string>, warn: Warn) {
+  if (v.type === 'color') return { type: 'solid', color: rgbOf(v.color, 'a fill color') };
+  if (v.type === 'pattern' && pats.has(v.id)) {
+    return { type: 'pattern', pattern_id: v.id, scale: 1, angle: 0, linked: v.linked ?? true, offset: xy(v.phase) };
+  }
+  if (v.type === 'pattern') {
+    warn('fill layers with a missing pattern were imported as black');
+    return { type: 'solid', color: [0, 0, 0] };
+  }
+  return { type: 'gradient', ...gradientFillIn(v, warn) };
+}
+function fillOut(c: any, names: Map<string, string>, warn: Warn): VectorContent {
+  if (c.type === 'solid') return { type: 'color', color: colorOf(c.color) };
+  if (c.type === 'gradient') return gradientFillOut(c);
+  return patternFillOut(c, names, warn);
+}
+
+function shadowIn(s: any, drop: boolean) {
+  return {
+    present: s.present ?? true, enabled: !!s.enabled, blend: s.blendMode ?? 'multiply', opacity: s.opacity ?? 0.75,
+    color: s.color ? rgbOf(s.color, 'a shadow color') : [0, 0, 0], use_global_light: s.useGlobalLight ?? true, angle: s.angle ?? 120,
+    distance: s.distance?.value ?? 5, spread: (s.choke?.value ?? 0) / 100, size: s.size?.value ?? 5,
+    contour: contourIn(s.contour, s.antialiased), noise: s.noise ?? 0, knocks_out: drop && (s.layerConceals ?? true),
+  };
+}
+function shadowOut(s: any, drop: boolean, warn: Warn) {
+  return {
+    present: s.present, enabled: s.enabled, blendMode: s.blend, opacity: s.opacity, color: colorOf(s.color), useGlobalLight: s.use_global_light,
+    angle: s.angle, distance: px(s.distance), choke: px(s.spread * 100), size: px(s.size), contour: contourOut(s.contour, warn),
+    antialiased: s.contour.anti_alias, noise: s.noise, ...(drop ? { layerConceals: s.knocks_out } : {}),
+  };
+}
+
+function glowIn(g: any, warn: Warn) {
+  const grad = g.gradient && g.gradient.type === 'solid';
+  if (g.gradient && !grad) warn('noise gradients were imported as a black to white gradient');
+  return {
+    present: g.present ?? true, enabled: !!g.enabled, blend: g.blendMode ?? 'screen', opacity: g.opacity ?? 0.75,
+    fill: grad ? { type: 'gradient', gradient: gradientIn(g.gradient, g.interpolationMethod) }
+      : { type: 'color', color: g.color ? rgbOf(g.color, 'a glow color') : [255, 255, 190] },
+    technique: g.technique ?? 'softer', spread: (g.choke?.value ?? 0) / 100, size: g.size?.value ?? 5, range: g.range ?? 0.5,
+    jitter: g.jitter ?? 0, noise: g.noise ?? 0, contour: contourIn(g.contour, g.antialiased), source: g.source ?? 'edge',
+  };
+}
+function glowOut(g: any, inner: boolean, warn: Warn) {
+  const fill = g.fill.type === 'gradient'
+    ? { gradient: { name: 'Custom', type: 'solid', ...gradientOut(g.fill.gradient) }, interpolationMethod: g.fill.gradient.method }
+    : { color: colorOf(g.fill.color) };
+  return {
+    present: g.present, enabled: g.enabled, blendMode: g.blend, opacity: g.opacity, ...fill, technique: g.technique, choke: px(g.spread * 100),
+    size: px(g.size), range: g.range, jitter: g.jitter, noise: g.noise, contour: contourOut(g.contour, warn), antialiased: g.contour.anti_alias,
+    ...(inner ? { source: g.source } : {}),
+  };
+}
+
+function styleIn(fx: LayerEffectsInfo, warn: Warn) {
+  const b: any = fx.bevel, p: any = fx.patternOverlay;
+  return {
+    enabled: !fx.disabled, scale: fx.scale ?? 1,
+    drop_shadows: (fx.dropShadow ?? []).map(s => shadowIn(s, true)), inner_shadows: (fx.innerShadow ?? []).map(s => shadowIn(s, false)),
+    color_overlays: (fx.solidFill ?? []).map(c => ({
+      present: c.present ?? true, enabled: !!c.enabled, blend: c.blendMode ?? 'normal', opacity: c.opacity ?? 1,
+      color: c.color ? rgbOf(c.color, 'an overlay color') : [128, 128, 128],
+    })),
+    gradient_overlays: (fx.gradientOverlay ?? []).map(g => ({
+      present: g.present ?? true, enabled: !!g.enabled, blend: g.blendMode ?? 'normal', opacity: g.opacity ?? 1,
+      gradient: gradientFillIn({ ...g, ...g.gradient, style: g.type }, warn),
+    })),
+    pattern_overlays: p?.pattern ? [{
+      present: p.present ?? true, enabled: !!p.enabled, blend: p.blendMode ?? 'normal', opacity: p.opacity ?? 1,
+      pattern: { pattern_id: p.pattern.id, scale: p.scale ?? 1, angle: p.angle ?? 0, linked: p.align ?? true, offset: xy(p.phase) },
+    }] : [],
+    strokes: (fx.stroke ?? []).map(s => ({
+      present: s.present ?? true, enabled: !!s.enabled, size: s.size?.value ?? 3, position: s.position ?? 'outside',
+      blend: s.blendMode ?? 'normal', opacity: s.opacity ?? 1, overprint: !!s.overprint,
+      fill: s.fillType === 'gradient' && s.gradient ? { type: 'gradient', ...gradientFillIn(s.gradient, warn) }
+        : s.fillType === 'pattern' && s.pattern
+          ? { type: 'pattern', pattern_id: s.pattern.id, scale: 1, angle: 0, linked: (s.pattern as any).linked ?? true, offset: xy((s.pattern as any).phase) }
+          : { type: 'solid', color: s.color ? rgbOf(s.color, 'a stroke color') : [0, 0, 0] },
+    })),
+    outer_glow: fx.outerGlow ? glowIn(fx.outerGlow, warn) : null,
+    inner_glow: fx.innerGlow ? glowIn(fx.innerGlow, warn) : null,
+    bevel: b ? {
+      present: b.present ?? true, enabled: !!b.enabled, style: Object.keys(BEVEL_STYLES).find(k => BEVEL_STYLES[k] === b.style) ?? 'inner',
+      technique: snake(b.technique ?? 'smooth'), depth: b.strength ?? 1, direction: b.direction ?? 'up', size: b.size?.value ?? 5,
+      soften: b.soften?.value ?? 0, use_global_light: b.useGlobalLight ?? true, angle: b.angle ?? 120, altitude: b.altitude ?? 30,
+      gloss_contour: contourIn(b.contour, b.antialiasGloss), highlight_blend: b.highlightBlendMode ?? 'screen',
+      highlight_color: b.highlightColor ? rgbOf(b.highlightColor, 'a bevel color') : [255, 255, 255], highlight_opacity: b.highlightOpacity ?? 0.75,
+      shadow_blend: b.shadowBlendMode ?? 'multiply', shadow_color: b.shadowColor ? rgbOf(b.shadowColor, 'a bevel color') : [0, 0, 0],
+      shadow_opacity: b.shadowOpacity ?? 0.75,
+    } : null,
+    contour: b?.useShape !== undefined ? { present: true, enabled: !!b.useShape, contour: { ...LINEAR, anti_alias: true }, range: b.range ?? 1 } : null,
+    texture: b?.useTexture !== undefined && b.pattern ? {
+      present: true, enabled: !!b.useTexture, pattern_id: b.pattern.id, scale: b.scale ?? 1, depth: 1, invert: !!b.invert,
+      linked: b.align ?? true, offset: xy(b.phase),
+    } : null,
+    satin: fx.satin ? {
+      present: fx.satin.present ?? true, enabled: !!fx.satin.enabled, blend: fx.satin.blendMode ?? 'multiply', opacity: fx.satin.opacity ?? 0.5,
+      color: fx.satin.color ? rgbOf(fx.satin.color, 'a satin color') : [0, 0, 0], angle: fx.satin.angle ?? 19,
+      distance: fx.satin.distance?.value ?? 11, size: fx.satin.size?.value ?? 14, contour: contourIn(fx.satin.contour, fx.satin.antialiased),
+      invert: fx.satin.invert ?? true,
+    } : null,
+  };
+}
+
+function styleOut(st: any, names: Map<string, string>, warn: Warn): LayerEffectsInfo {
+  const out: any = {
+    disabled: !st.enabled, scale: st.scale,
+    dropShadow: st.drop_shadows.map((s: any) => shadowOut(s, true, warn)), innerShadow: st.inner_shadows.map((s: any) => shadowOut(s, false, warn)),
+    solidFill: st.color_overlays.map((c: any) => ({ present: c.present, enabled: c.enabled, blendMode: c.blend, opacity: c.opacity, color: colorOf(c.color) })),
+    gradientOverlay: st.gradient_overlays.map((g: any) => {
+      const { interpolationMethod, style, angle, scale, reverse, dither, align, offset, ...gradient } = gradientFillOut(g.gradient);
+      return { present: g.present, enabled: g.enabled, blendMode: g.blend, opacity: g.opacity, gradient, interpolationMethod, type: style, angle, scale, reverse, dither, align, offset };
+    }),
+    stroke: st.strokes.map((s: any) => {
+      const base = { present: s.present, enabled: s.enabled, size: px(s.size), position: s.position, blendMode: s.blend, opacity: s.opacity, overprint: s.overprint };
+      if (s.fill.type === 'solid') return { ...base, fillType: 'color', color: colorOf(s.fill.color) };
+      if (s.fill.type === 'gradient') return { ...base, fillType: 'gradient', gradient: gradientFillOut(s.fill) };
+      const { name, id, phase } = patternFillOut(s.fill, names, warn);
+      return { ...base, fillType: 'pattern', pattern: { name, id, phase } };
+    }),
+  };
+  if (st.pattern_overlays.length > 1) warn('only the first pattern overlay is stored in PSD');
+  const p = st.pattern_overlays[0];
+  if (p) {
+    const [x, y] = p.pattern.offset;
+    out.patternOverlay = {
+      present: p.present, enabled: p.enabled, blendMode: p.blend, opacity: p.opacity, pattern: { name: names.get(p.pattern.pattern_id) ?? '', id: p.pattern.pattern_id },
+      scale: p.pattern.scale, angle: p.pattern.angle, align: p.pattern.linked, phase: { x, y },
+    };
+  }
+  if (st.outer_glow) out.outerGlow = glowOut(st.outer_glow, false, warn);
+  if (st.inner_glow) out.innerGlow = glowOut(st.inner_glow, true, warn);
+  const b = st.bevel, c = st.contour, t = st.texture;
+  if (b) {
+    out.bevel = {
+      present: b.present, enabled: b.enabled, style: BEVEL_STYLES[b.style], technique: spaced(b.technique), strength: b.depth, direction: b.direction,
+      size: px(b.size), soften: px(b.soften), useGlobalLight: b.use_global_light, angle: b.angle, altitude: b.altitude,
+      contour: contourOut(b.gloss_contour, warn), antialiasGloss: b.gloss_contour.anti_alias,
+      highlightBlendMode: b.highlight_blend, highlightColor: colorOf(b.highlight_color), highlightOpacity: b.highlight_opacity,
+      shadowBlendMode: b.shadow_blend, shadowColor: colorOf(b.shadow_color), shadowOpacity: b.shadow_opacity,
+    };
+    if (c) {
+      if (JSON.stringify(c.contour.points) !== JSON.stringify(LINEAR.points)) warn('bevel contour curves are not stored in PSD');
+      Object.assign(out.bevel, { useShape: c.enabled, range: c.range });
+    }
+    if (t) {
+      if (t.depth !== 1) warn('bevel texture depth is not stored in PSD');
+      const [x, y] = t.offset;
+      Object.assign(out.bevel, {
+        useTexture: t.enabled, pattern: { name: names.get(t.pattern_id) ?? '', id: t.pattern_id }, scale: t.scale, invert: t.invert, align: t.linked, phase: { x, y },
+      });
+    }
+  }
+  const s = st.satin;
+  if (s) {
+    out.satin = {
+      present: s.present, enabled: s.enabled, blendMode: s.blend, opacity: s.opacity, color: colorOf(s.color), angle: s.angle,
+      distance: px(s.distance), size: px(s.size), contour: contourOut(s.contour, warn), antialiased: s.contour.anti_alias, invert: s.invert,
+    };
+  }
+  return out;
+}
+
+const RANGE_DEFAULT = [0, 0, 255, 255];
+function blendingIn(l: Layer) {
+  const r = l.blendingRanges, rs = r?.ranges ?? [];
+  const range = (s?: number[], d?: number[]) => ({ source: s ?? RANGE_DEFAULT, destination: d ?? RANGE_DEFAULT });
+  const restricted = l.channelBlendingRestrictions ?? [];
+  return {
+    blend_if: {
+      gray: range(r?.compositeGrayBlendSource, r?.compositeGraphBlendDestinationRange),
+      red: range(rs[0]?.sourceRange, rs[0]?.destRange), green: range(rs[1]?.sourceRange, rs[1]?.destRange), blue: range(rs[2]?.sourceRange, rs[2]?.destRange),
+    },
+    channels: [0, 1, 2].map(c => !restricted.includes(c)), knockout: l.knockout ? 'shallow' : 'none',
+    blend_interior: !!l.blendInteriorElements, blend_clipped: l.blendClippendElements ?? true, transparency_shapes: l.transparencyShapesLayer ?? true,
+    layer_mask_hides_effects: false, vector_mask_hides_effects: false,
+  };
+}
+// Mask-hides-effects is not written (docs/M3.md section 5).
+function blendingOut(b: any, warn: Warn): Partial<Layer> {
+  if (b.knockout === 'deep') warn('deep knockout is saved as shallow in PSD');
+  const restricted = [0, 1, 2].filter(c => !b.channels[c]);
+  // ag-psd drops the last entry when it reads `brst` back.
+  if (restricted.length) warn('blending channel restrictions are not fully read back from PSD');
+  const bi = b.blend_if;
+  return {
+    blendingRanges: {
+      compositeGrayBlendSource: bi.gray.source, compositeGraphBlendDestinationRange: bi.gray.destination,
+      ranges: [bi.red, bi.green, bi.blue].map((r: any) => ({ sourceRange: r.source, destRange: r.destination })),
+    },
+    ...(restricted.length ? { channelBlendingRestrictions: restricted } : {}),
+    knockout: b.knockout !== 'none', blendInteriorElements: b.blend_interior, blendClippendElements: b.blend_clipped, transparencyShapesLayer: b.transparency_shapes,
+  };
+}
+
+const patternIdsOf = (st: any): string[] => [
+  ...st.pattern_overlays.map((p: any) => p.pattern.pattern_id), ...st.strokes.filter((s: any) => s.fill.type === 'pattern').map((s: any) => s.fill.pattern_id),
+  ...(st.texture ? [st.texture.pattern_id] : []),
+];
+
+// Source px -> document projective transform (row-major 3x3) mapping the source rect onto the corner quad
+// [x0, y0 (top left), x1, y1, x2, y2, x3, y3 (bottom left)].
+function quadTransform(q: number[], w: number, h: number): number[] {
+  const [x0, y0, x1, y1, x2, y2, x3, y3] = q;
+  const dx3 = x0 - x1 + x2 - x3, dy3 = y0 - y1 + y2 - y3;
+  let g = 0, k = 0;
+  if (dx3 !== 0 || dy3 !== 0) {
+    const dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2, den = dx1 * dy2 - dx2 * dy1;
+    g = (dx3 * dy2 - dx2 * dy3) / den;
+    k = (dx1 * dy3 - dx3 * dy1) / den;
+  }
+  return [(x1 - x0 + g * x1) / w, (x3 - x0 + k * x3) / h, x0, (y1 - y0 + g * y1) / w, (y3 - y0 + k * y3) / h, y0, g / w, k / h, 1];
+}
+function quadOf(t: number[], w: number, h: number): number[] {
+  return [[0, 0], [w, 0], [w, h], [0, h]].flatMap(([x, y]) => {
+    const d = t[6] * x + t[7] * y + t[8];
+    return [(t[0] * x + t[1] * y + t[2]) / d, (t[3] * x + t[4] * y + t[5]) / d];
+  });
+}
+// ag-psd writes an identity custom mesh when a placed layer has no warp.
+function isIdentityWarp(wp: any): boolean {
+  if (!wp || wp.style === 'none') return true;
+  const pts = wp.customEnvelopeWarp?.meshPoints, b = wp.bounds;
+  if (wp.style !== 'custom' || !pts || pts.length !== 16 || !b) return false;
+  const [l, t, r, btm] = [b.left.value, b.top.value, b.right.value, b.bottom.value];
+  return pts.every((p: { x: number; y: number }, i: number) =>
+    Math.abs(p.x - (l + (r - l) * (i % 4) / 3)) < 1e-6 && Math.abs(p.y - (t + (btm - t) * Math.floor(i / 4) / 3)) < 1e-6);
+}
+
+function smartIn(e: Engine, l: Layer, files: Map<string, LinkedFile>, warn: Warn) {
+  const pl = l.placedLayer!;
+  const f = files.get(pl.id);
+  if (!f) warn('smart object sources missing from the file were not imported');
+  if (pl.filter?.list?.length) warn('smart filters were not imported');
+  if (!isIdentityWarp(pl.warp)) warn('smart object warps were not imported');
+  const w = Math.max(1, Math.round(pl.width ?? l.imageData?.width ?? 1)), h = Math.max(1, Math.round(pl.height ?? l.imageData?.height ?? 1));
+  return {
+    link: f && !f.data ? { type: 'linked', name: f.linkedFile?.fullPath || f.name, handle: '' } : { type: 'embedded', id: pl.id },
+    source_blob: f?.data?.length ? Number(e.blob_add(f.data)) : null, source_size: [w, h],
+    transform: quadTransform(pl.nonAffineTransform ?? pl.transform, w, h),
+  };
+}
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // A layer's straight RGBA8 tile, cropped to the document, written into `id`'s tiles.
 export function place(e: Engine, id: number, l: { imageData?: PixelData; left?: number; top?: number }, w: number, h: number) {
   const img = l.imageData;
@@ -255,12 +551,22 @@ function addMaskIfAny(e: Engine, id: number, l: Layer, w: number, h: number) {
 
 function warnKinds(l: Layer, warn: (m: string) => void) {
   if (l.text) warn('text layers were imported as pixels');
-  if (l.placedLayer) warn('smart object layers were imported as pixels');
-  if (l.effects) warn('layers with effects were imported as pixels');
   if (l.vectorMask || l.realMask) warn('vector mask layers were imported as pixels');
 }
 
-function addNode(e: Engine, l: Layer, w: number, h: number, warn: (m: string) => void): number {
+interface ImportCtx { e: Engine; w: number; h: number; warn: Warn; files: Map<string, LinkedFile>; pats: Set<string> }
+
+// Blending options and layer style, shared by every kind; adjustment layers take no style.
+function addM3Props({ e, warn, pats }: ImportCtx, id: number, l: Layer, adjustment: boolean) {
+  e.set_blending(id, JSON.stringify(blendingIn(l)));
+  if (!l.effects || adjustment) return;
+  const st = styleIn(l.effects, warn);
+  if (patternIdsOf(st).every(p => pats.has(p))) e.set_style(id, JSON.stringify(st));
+  else warn('layer styles that use a missing pattern were not imported');
+}
+
+function addNode(c: ImportCtx, l: Layer): number {
+  const { e, w, h, warn } = c;
   if (l.children) {
     const id = e.add_group(l.name ?? '', 0);
     e.set_props(id, JSON.stringify({
@@ -268,22 +574,38 @@ function addNode(e: Engine, l: Layer, w: number, h: number, warn: (m: string) =>
       clipping: !!l.clipping, locks: locksOf(l),
     }));
     let idx = 0;
-    for (const child of l.children) e.move_node(addNode(e, child, w, h, warn), id, idx++);
+    for (const child of l.children) e.move_node(addNode(c, child), id, idx++);
     addMaskIfAny(e, id, l, w, h);
+    addM3Props(c, id, l, false);
     return id;
   }
   const adj = l.adjustment && adjustmentIn(e, l.adjustment);
   if (l.adjustment && !adj) warn('adjustment layers without an engine model were imported as pixels');
-  const id = adj ? e.add_special(0, JSON.stringify({ name: l.name ?? '', adjustment: adj })) : e.add_layer(l.name ?? '', 0);
+  // A shape layer (fill content plus vector mask) keeps its stored raster: vector masks have no model yet.
+  const special = adj ? { adjustment: adj } : l.vectorFill && !l.vectorMask ? { content: fillIn(l.vectorFill, c.pats, warn) }
+    : l.placedLayer ? { smart: smartIn(e, l, c.files, warn) } : null;
+  const id = special ? e.add_special(0, JSON.stringify({ name: l.name ?? '', ...special })) : e.add_layer(l.name ?? '', 0);
   e.set_props(id, JSON.stringify({
     visible: !l.hidden, opacity: l.opacity ?? 1, fill: l.fillOpacity ?? 1,
     blend: !l.blendMode || l.blendMode === 'pass through' ? 'normal' : l.blendMode,
     clipping: !!l.clipping, locks: locksOf(l),
   }));
-  if (!adj) place(e, id, l, w, h);
+  // A smart object's layer pixels become its cache; fill and adjustment layers render from their params.
+  if (!special || 'smart' in special) place(e, id, l, w, h);
   addMaskIfAny(e, id, l, w, h);
+  addM3Props(c, id, l, !!adj);
   warnKinds(l, warn);
   return id;
+}
+
+// Document patterns and global light (image resources 1037/1049, default 120/30).
+function importDocument(e: Engine, psd: Psd): Set<string> {
+  const patterns = (psd.patterns ?? []).map(p => ({
+    id: p.id, name: p.name, width: p.bounds.w, height: p.bounds.h, blob: Number(e.blob_add(p.data)),
+  }));
+  const r = psd.imageResources;
+  e.set_document_m3(JSON.stringify({ global_light: { angle: r?.globalAngle ?? 120, altitude: r?.globalAltitude ?? 30 }, patterns }));
+  return new Set(patterns.map(p => p.id));
 }
 
 function isEmptyPlaceholder(l: Layer): boolean {
@@ -310,7 +632,8 @@ export function importPsd(bytes: Uint8Array): { engine: Engine; warnings: string
     if (flat) {
       place(e, 1, psd, w, h);
     } else {
-      for (const l of children) addNode(e, l, w, h, warn);
+      const c: ImportCtx = { e, w, h, warn, files: new Map((psd.linkedFiles ?? []).map(f => [f.id, f])), pats: importDocument(e, psd) };
+      for (const l of children) addNode(c, l);
       e.delete_node(1);
     }
     return { engine: e, warnings };
@@ -383,20 +706,39 @@ function maskFields(e: Engine, n: ManifestNode, w: number, h: number) {
   return { mask: { top: rect.top, left: rect.left, ...base, imageData: { width: rw, height: rh, data: rgba } } };
 }
 
-function exportNode(e: Engine, n: ManifestNode, w: number, h: number, warn: (m: string) => void): Layer {
+interface ExportCtx { e: Engine; w: number; h: number; warn: Warn; names: Map<string, string>; files: Map<string, LinkedFile> }
+
+// ag-psd refuses placed layer ids that are not GUIDs; other ids get one derived from the node id.
+function smartOut({ e, warn, files }: ExportCtx, n: ManifestNode): Partial<Layer> {
+  const s = n.smart!;
+  if (s.filters.length) warn('smart filters are not stored in PSD yet');
+  if (s.warp) warn('smart object warps are not stored in PSD yet');
+  const embedded = s.link.type === 'embedded';
+  const id = embedded && GUID.test(s.link.id) ? s.link.id : `00000000-0000-4000-8000-${n.id.toString(16).padStart(12, '0')}`;
+  if (!embedded) warn('linked smart objects are saved without their source file');
+  if (!embedded) files.set(id, { id, name: s.link.name });
+  else if (s.source.blob != null && !files.has(id)) files.set(id, { id, name: n.name, data: e.tile_bytes(BigInt(s.source.blob)) });
+  const [sw, sh] = s.source_size, q = quadOf(s.transform, sw, sh);
+  return { placedLayer: { id, placed: id, type: 'raster', transform: q, nonAffineTransform: q, width: sw, height: sh } };
+}
+
+function exportNode(x: ExportCtx, n: ManifestNode): Layer {
+  const { e, w, h, warn } = x;
   const common = {
     name: n.name, hidden: !n.visible, opacity: n.opacity, fillOpacity: n.fill, blendMode: n.blend as BlendMode, clipping: n.clipping,
     protected: { transparency: n.locks.transparency, composite: n.locks.pixels, position: n.locks.position },
-    ...maskFields(e, n, w, h),
+    ...maskFields(e, n, w, h), ...blendingOut(n.blending, warn), ...(n.style ? { effects: styleOut(n.style, x.names, warn) } : {}),
   };
-  if (n.kind === 'group') return { ...common, children: (n.children ?? []).map(c => exportNode(e, c, w, h, warn)) };
+  if (n.kind === 'group') return { ...common, children: (n.children ?? []).map(c => exportNode(x, c)) };
   if (n.adjustment) return { ...common, top: 0, left: 0, adjustment: adjustmentOut(e, n.adjustment, warn) };
+  if (n.content) return { ...common, top: 0, left: 0, vectorFill: fillOut(n.content, x.names, warn) };
+  const placed = n.smart ? smartOut(x, n) : {};
   const rect = tileBounds(n.tiles, w, h);
-  if (!rect) return { ...common, top: 0, left: 0 };
+  if (!rect) return { ...common, ...placed, top: 0, left: 0 };
   const map = tileMap(n.tiles);
   const data = assembleImage((tx, ty) => tileAt(e, map, tx, ty), rect, 4, 0);
   const rw = rect.right - rect.left, rh = rect.bottom - rect.top;
-  return { ...common, top: rect.top, left: rect.left, imageData: { width: rw, height: rh, data: new Uint8ClampedArray(data.buffer) } };
+  return { ...common, ...placed, top: rect.top, left: rect.left, imageData: { width: rw, height: rh, data: new Uint8ClampedArray(data.buffer) } };
 }
 
 // ag-psd's typed Psd/ImageResources (node_modules/ag-psd/src/psd.ts) only carry alpha-channel
@@ -406,15 +748,25 @@ export function exportPsd(e: Engine): { bytes: Uint8Array<ArrayBuffer>; warnings
   ensureCanvas();
   if (e.depth() !== 8) throw new Error('16-bit PSD export is not supported yet');
   const w = e.width(), h = e.height();
-  const manifest = JSON.parse(e.manifest()) as { layers: ManifestNode[] };
+  const manifest = JSON.parse(e.manifest()) as {
+    layers: ManifestNode[]; global_light: { angle: number; altitude: number };
+    patterns: { id: string; name: string; width: number; height: number; blob: number }[];
+  };
   const warnings: string[] = [];
   const warn = (m: string) => { if (!warnings.includes(m)) warnings.push(m); };
   const composite = assembleImage((tx, ty) => e.flatten_tile_rgba8(tx, ty), fullCanvas(w, h), 4, 0);
+  const x: ExportCtx = { e, w, h, warn, names: new Map(manifest.patterns.map(p => [p.id, p.name])), files: new Map() };
+  const { angle, altitude } = manifest.global_light;
   const psd: Psd = {
     width: w, height: h, colorMode: 3, bitsPerChannel: 8,
-    children: manifest.layers.map(n => exportNode(e, n, w, h, warn)),
+    children: manifest.layers.map(n => exportNode(x, n)),
     imageData: { width: w, height: h, data: new Uint8ClampedArray(composite.buffer) },
+    imageResources: { globalAngle: Math.round(angle), globalAltitude: Math.round(altitude) },
+    patterns: manifest.patterns.map(p => ({
+      id: p.id, name: p.name, x: 0, y: 0, bounds: { x: 0, y: 0, w: p.width, h: p.height }, data: e.tile_bytes(BigInt(p.blob)),
+    })),
   };
+  if (x.files.size) psd.linkedFiles = [...x.files.values()];
   const channels = (JSON.parse(e.channels_json()) as { channels: { id: number; name: string }[] }).channels;
   if (channels.length) warn('saved selections are not stored in PSD');
   return { bytes: new Uint8Array(writePsd(psd, { generateThumbnail: false })), warnings };

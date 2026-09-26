@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { writePsd, readPsd, type Layer, type Psd, type PixelData } from 'ag-psd';
-import { initSync } from './engine-pkg/photobaer_engine.js';
+import { initSync, Engine } from './engine-pkg/photobaer_engine.js';
 import { importPsd, exportPsd } from './psd.ts';
 
 initSync({ module: readFileSync(new URL('./engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
@@ -242,4 +242,116 @@ test('adjustment layers import as adjustment nodes and survive open, save, open'
   const lut = (n: Node) => (n.adjustment as { params: { table: number } }).params.table;
   assert.deepEqual([...again.tile_bytes(BigInt(lut(second[10])))], [...engine.tile_bytes(BigInt(lut(first[10])))]);
   engine.free(); again.free();
+});
+
+// PSD-representable M3 fixtures (docs/M3.md sections 4 to 6).
+const linear = { name: 'Linear', points: [[0, 0], [255, 255]], mode: 'point', anti_alias: false };
+const gradDef = {
+  method: 'perceptual',
+  color_stops: [{ position: 0, color: [0, 0, 0], midpoint: 0.5 }, { position: 1, color: [255, 128, 0], midpoint: 0.25 }],
+  opacity_stops: [{ position: 0, opacity: 1, midpoint: 0.5 }, { position: 1, opacity: 0.5, midpoint: 0.5 }],
+};
+const gradFill = { gradient: gradDef, style: 'radial', angle: 30, scale: 1.5, reverse: true, dither: true, align_with_layer: false, offset: [0.1, -0.2] };
+const patFill = { pattern_id: 'pat-1', scale: 1, angle: 0, linked: true, offset: [3, 4] };
+const shadow = (knocks_out: boolean) => ({
+  present: true, enabled: true, blend: 'multiply', opacity: 0.75, color: [0, 0, 0], use_global_light: true, angle: 120,
+  distance: 5, spread: 0.25, size: 5, contour: { ...linear, anti_alias: true }, noise: 0.5, knocks_out,
+});
+const glow = (source: string, fill: unknown) => ({
+  present: true, enabled: false, blend: 'screen', opacity: 0.75, fill, technique: 'precise', spread: 0.1, size: 5, range: 0.5,
+  jitter: 0.25, noise: 0, contour: linear, source,
+});
+const psdStyle = {
+  enabled: true, scale: 2,
+  drop_shadows: [shadow(true), { ...shadow(false), enabled: false }],
+  inner_shadows: [shadow(false)],
+  color_overlays: [{ present: true, enabled: true, blend: 'normal', opacity: 1, color: [128, 128, 128] }],
+  gradient_overlays: [{ present: true, enabled: true, blend: 'overlay', opacity: 0.5, gradient: gradFill }],
+  pattern_overlays: [{ present: true, enabled: true, blend: 'normal', opacity: 1, pattern: { ...patFill, scale: 2, angle: 15, linked: false } }],
+  strokes: [
+    { present: true, enabled: true, size: 3, position: 'outside', blend: 'normal', opacity: 1, overprint: true, fill: { type: 'solid', color: [9, 8, 7] } },
+    { present: true, enabled: true, size: 2, position: 'center', blend: 'normal', opacity: 1, overprint: false, fill: { type: 'gradient', ...gradFill } },
+    { present: true, enabled: false, size: 1, position: 'inside', blend: 'normal', opacity: 1, overprint: false, fill: { type: 'pattern', ...patFill } },
+  ],
+  outer_glow: glow('edge', { type: 'color', color: [255, 255, 190] }),
+  inner_glow: glow('center', { type: 'gradient', gradient: gradDef }),
+  bevel: {
+    present: true, enabled: true, style: 'stroke_emboss', technique: 'chisel_soft', depth: 2, direction: 'down', size: 5, soften: 2,
+    use_global_light: false, angle: 60, altitude: 30, gloss_contour: linear, highlight_blend: 'screen', highlight_color: [255, 255, 255],
+    highlight_opacity: 0.75, shadow_blend: 'multiply', shadow_color: [0, 0, 0], shadow_opacity: 0.75,
+  },
+  contour: { present: true, enabled: true, contour: { ...linear, anti_alias: true }, range: 0.5 },
+  texture: { present: true, enabled: false, pattern_id: 'pat-1', scale: 2, depth: 1, invert: true, linked: true, offset: [1, 2] },
+  satin: { present: true, enabled: true, blend: 'multiply', opacity: 0.5, color: [0, 0, 0], angle: 19, distance: 11, size: 14, contour: linear, invert: true },
+};
+const blending = {
+  blend_if: {
+    gray: { source: [10, 20, 200, 230], destination: [0, 0, 255, 255] },
+    red: { source: [1, 2, 3, 4], destination: [0, 0, 255, 255] },
+    green: { source: [0, 0, 255, 255], destination: [5, 6, 7, 8] },
+    blue: { source: [0, 0, 255, 255], destination: [0, 0, 255, 255] },
+  },
+  channels: [true, true, true], knockout: 'shallow', blend_interior: true, blend_clipped: false, transparency_shapes: false,
+  layer_mask_hides_effects: false, vector_mask_hides_effects: false,
+};
+const SO_ID = '20953ddb-9391-11ec-b4f1-c15674f50bc4';
+
+function m3Doc(): Engine {
+  const e = new Engine(16, 16, 8);
+  const pat = e.blob_add(new Uint8Array([1, 2, 3, 255, 4, 5, 6, 255, 7, 8, 9, 255, 10, 11, 12, 255]));
+  e.set_document_m3(JSON.stringify({ global_light: { angle: 90, altitude: 45 }, patterns: [{ id: 'pat-1', name: 'P', width: 2, height: 2, blob: Number(pat) }] }));
+  e.add_special(0, JSON.stringify({ name: 'Solid', content: { type: 'solid', color: [1, 2, 3] } }));
+  e.add_special(0, JSON.stringify({ name: 'Gradient', content: { type: 'gradient', ...gradFill } }));
+  e.add_special(0, JSON.stringify({ name: 'Pattern', content: { type: 'pattern', ...patFill } }));
+  const styled = e.add_layer('Styled', 0);
+  e.set_tile_rgba8(styled, 0, 0, new Uint8Array(256 * 256 * 4).fill(200));
+  e.set_style(styled, JSON.stringify(psdStyle));
+  e.set_blending(styled, JSON.stringify(blending));
+  const src = e.blob_add(new Uint8Array([137, 80, 78, 71, 1, 2, 3]));
+  const smart = e.add_special(0, JSON.stringify({ name: 'Smart', smart: {
+    link: { type: 'embedded', id: SO_ID }, source_blob: Number(src), source_size: [4, 4], transform: [2, 0, 3, 0, 2, 4, 0, 0, 1],
+  } }));
+  e.set_tile_rgba8(smart, 0, 0, new Uint8Array(256 * 256 * 4).fill(90));
+  e.delete_node(1);
+  return e;
+}
+
+type M3Node = Node & { content?: any; style?: any; blending?: any; smart?: any };
+const m3Of = (e: Engine) => JSON.parse(e.manifest()) as { layers: M3Node[]; global_light: unknown; patterns: { id: string; blob: number }[] };
+
+test('fill layers, layer styles, blending options, global light, patterns and smart objects survive save, open', () => {
+  const e = m3Doc();
+  const { bytes, warnings: saveWarnings } = exportPsd(e);
+  assert.deepEqual(saveWarnings, []);
+  const { engine: again, warnings } = importPsd(bytes);
+  assert.deepEqual(warnings, []);
+  const [a, b] = [m3Of(e), m3Of(again)];
+  assert.deepEqual(b.layers.map(n => [n.kind, n.name]), a.layers.map(n => [n.kind, n.name]));
+  assert.deepEqual(b.global_light, { angle: 90, altitude: 45 });
+  assert.deepEqual(b.patterns.map(p => ({ ...p, blob: [...again.tile_bytes(BigInt(p.blob))] })),
+    a.patterns.map(p => ({ ...p, blob: [...e.tile_bytes(BigInt(p.blob))] })));
+  for (let i = 0; i < a.layers.length; i++) {
+    assert.deepEqual(b.layers[i].content, a.layers[i].content, a.layers[i].name);
+    assert.deepEqual(b.layers[i].style, a.layers[i].style, a.layers[i].name);
+    assert.deepEqual(b.layers[i].blending, a.layers[i].blending, a.layers[i].name);
+  }
+  const [sa, sb] = [a.layers[4].smart, b.layers[4].smart];
+  assert.deepEqual(sb.link, sa.link);
+  assert.deepEqual(sb.source_size, sa.source_size);
+  assert.deepEqual(sb.transform, sa.transform);
+  assert.deepEqual([...again.tile_bytes(BigInt(sb.source.blob))], [...e.tile_bytes(BigInt(sa.source.blob))]);
+  // Export crops layers to the 16x16 canvas.
+  const tile = (en: Engine, n: any) => { const t = en.tile_bytes(BigInt(n.tiles[0][2])); return Array.from({ length: 16 }, (_, y) => [...t.subarray(y * 1024, y * 1024 + 64)]); };
+  assert.deepEqual(tile(again, b.layers[4]), tile(e, a.layers[4]), 'smart object cache pixels');
+  e.free(); again.free();
+});
+
+test('PSD save warns about M3 settings it cannot store', () => {
+  const e = m3Doc();
+  const top = (JSON.parse(e.manifest()) as { layers: { id: number }[] }).layers[4].id;
+  e.set_blending(top, JSON.stringify({ ...blending, knockout: 'deep' }));
+  e.add_special(0, JSON.stringify({ name: 'Scaled', content: { type: 'pattern', ...patFill, scale: 2 } }));
+  const { warnings } = exportPsd(e);
+  assert.deepEqual(new Set(warnings), new Set(['pattern scale, angle and link of fill layers and strokes are not stored in PSD', 'deep knockout is saved as shallow in PSD']));
+  e.free();
 });

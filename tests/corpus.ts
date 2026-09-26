@@ -70,6 +70,7 @@ export function unsupported(psd: Psd): string | null {
       }
       // A shape layer's stored raster already has its vector mask applied; a pixel layer's does not.
       if (l.vectorMask && !l.vectorFill) return `${name}: vectorMask`;
+      if (l.vectorFill && !l.vectorMask) return `${name}: fill layer`;
       if (l.children && l.blendMode === 'dissolve') return `${name}: dissolve group`;
       // Photoshop stores full 0..255 Blend If ranges on every layer; those change nothing.
       const br = l.blendingRanges;
