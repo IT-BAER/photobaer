@@ -208,6 +208,38 @@ impl Shape for Polygon {
     }
 }
 
+/// Coverage from an arbitrary precomputed buffer (flood fill, grow/similar, color range...),
+/// full document size, origin (0, 0); pixels outside `w`x`h` are 0.
+pub struct MaskShape {
+    w: i32,
+    h: i32,
+    data: Vec<f32>,
+}
+
+impl MaskShape {
+    pub fn new(w: i32, h: i32, data: Vec<f32>) -> MaskShape {
+        assert_eq!(data.len(), (w * h) as usize, "mask buffer size must match w*h");
+        MaskShape { w, h, data }
+    }
+}
+
+impl Shape for MaskShape {
+    fn bounds(&self) -> (f64, f64, f64, f64) {
+        (0.0, 0.0, self.w as f64, self.h as f64)
+    }
+
+    fn row(&self, y: i32, x0: i32, out: &mut [f32]) {
+        if y < 0 || y >= self.h {
+            out.fill(0.0);
+            return;
+        }
+        for (i, v) in out.iter_mut().enumerate() {
+            let x = x0 + i as i32;
+            *v = if x < 0 || x >= self.w { 0.0 } else { self.data[(y * self.w + x) as usize] };
+        }
+    }
+}
+
 /// Normalized 1D Gaussian with sigma = radius / 3, truncated at 3 sigma, so the visible falloff
 /// ends at `radius` pixels. Always an odd length.
 pub fn gaussian_kernel(radius: f64) -> Vec<f32> {
@@ -280,6 +312,17 @@ mod tests {
         let c = cover(&ring, 12, 12);
         assert_eq!(c[5 * 12 + 5], 0.0, "the inner square is a hole");
         assert_eq!(c[1 * 12 + 1], 1.0);
+    }
+
+    #[test]
+    fn mask_shape_reads_the_buffer_and_clips_outside_bounds() {
+        let s = MaskShape::new(2, 2, vec![0.25, 0.5, 0.75, 1.0]);
+        assert_eq!(s.bounds(), (0.0, 0.0, 2.0, 2.0));
+        let c = cover(&s, 2, 2);
+        assert_eq!(c, vec![0.25, 0.5, 0.75, 1.0]);
+        let mut out = vec![9.0; 4];
+        s.row(-1, 0, &mut out);
+        assert_eq!(out, vec![0.0; 4]);
     }
 
     #[test]

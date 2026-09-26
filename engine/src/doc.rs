@@ -4,8 +4,9 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::blend::{blend_rgb, dissolve_hash, Blend};
-use crate::selection::{gaussian_kernel, Ellipse, Mode, Polygon, Rect, Shape};
+use crate::blend::{blend_rgb, dissolve_hash, paint_pixel, Blend, PaintMode};
+use crate::region;
+use crate::selection::{gaussian_kernel, Ellipse, MaskShape, Mode, Polygon, Rect, Shape};
 
 pub const TILE: usize = 256;
 const TILE_PIXELS: usize = TILE * TILE;
@@ -1746,6 +1747,208 @@ impl Document {
         }
         self.selection = Some(sel);
         Ok(())
+    }
+
+    // ---------- flood fill family (docs/M2.md section 3 magic wand, section 4 paint bucket) ----------
+
+    // The document's RGBA8 buffer for flood fill / paint bucket sampling: the flattened
+    // composite when `sample_all`, or one layer's straight pixels (offset aware; outside its
+    // tiles is transparent) otherwise. Depths above 8 bit are normalized down to 8-bit units so
+    // the flood fill's tolerance stays in one scale.
+    fn sample_rgba8(&self, sample_all: bool, layer_id: u32) -> Result<Vec<u8>, String> {
+        let (w, h) = (self.width as i32, self.height as i32);
+        let mut out = vec![0u8; (self.width * self.height * 4) as usize];
+        if sample_all {
+            for ty in 0..self.tiles_y() {
+                for tx in 0..self.tiles_x() {
+                    let tile = self.flatten_tile_rgba8(tx, ty)?;
+                    let (ox, oy) = (tx as i32 * TILE as i32, ty as i32 * TILE as i32);
+                    for y in 0..TILE as i32 {
+                        if oy + y >= h {
+                            break;
+                        }
+                        for x in 0..TILE as i32 {
+                            if ox + x >= w {
+                                break;
+                            }
+                            let so = ((y * TILE as i32 + x) * 4) as usize;
+                            let dst = (((oy + y) * w + ox + x) * 4) as usize;
+                            out[dst..dst + 4].copy_from_slice(&tile[so..so + 4]);
+                        }
+                    }
+                }
+            }
+            return Ok(out);
+        }
+        let node = self.node(layer_id)?;
+        if node.is_group() {
+            return Err(format!("node {layer_id} is a group and has no pixels"));
+        }
+        let tiles = node.pixel_tiles()?;
+        for y in 0..h {
+            for x in 0..w {
+                let (tx, ty) = (x.div_euclid(TILE as i32), y.div_euclid(TILE as i32));
+                let p = (y.rem_euclid(TILE as i32) * TILE as i32 + x.rem_euclid(TILE as i32)) as usize;
+                let rgba = tiles.get(tx, ty).map_or([0.0; 4], |t| t.px.rgba_f32(p));
+                let o = ((y * w + x) * 4) as usize;
+                for c in 0..4 {
+                    out[o + c] = (rgba[c] * 255.0).round().clamp(0.0, 255.0) as u8;
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// Magic wand (docs/M2.md section 3): flood fill from (x, y) plugged into the shared
+    /// selection combine path.
+    #[allow(clippy::too_many_arguments)]
+    pub fn magic_wand(
+        &mut self,
+        x: i32,
+        y: i32,
+        tolerance: u8,
+        antialias: bool,
+        contiguous: bool,
+        sample_all: bool,
+        layer_id: u32,
+        mode: Mode,
+    ) -> Result<(), String> {
+        self.check_idle()?;
+        if x < 0 || y < 0 || x as u32 >= self.width || y as u32 >= self.height {
+            return Err("magic wand seed must be inside the canvas".into());
+        }
+        let src = self.sample_rgba8(sample_all, layer_id)?;
+        let cov = region::flood(&src, self.width, self.height, (x as u32, y as u32), tolerance, contiguous, antialias);
+        self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), mode)
+    }
+
+    // Whether each canvas pixel is >= 0.5 selected, doc-sized; used as the seed set of grow/similar.
+    fn selection_seed_mask(&self) -> Result<Vec<bool>, String> {
+        let sel = self.selection.as_ref().ok_or("nothing is selected")?;
+        let (w, h) = (self.width as i32, self.height as i32);
+        let mut out = vec![false; (w * h) as usize];
+        for y in 0..h {
+            for x in 0..w {
+                out[(y * w + x) as usize] = self.sel_at(sel, x, y) >= 0.5;
+            }
+        }
+        Ok(out)
+    }
+
+    fn grow_or_similar(&mut self, tolerance: u8, sample_all: bool, layer_id: u32, contiguous: bool) -> Result<(), String> {
+        self.check_idle()?;
+        let seeds = self.selection_seed_mask()?;
+        if !seeds.iter().any(|&s| s) {
+            return Err("nothing is selected".into());
+        }
+        let src = self.sample_rgba8(sample_all, layer_id)?;
+        let cov = region::grow_similar(&src, self.width, self.height, &seeds, tolerance, contiguous);
+        self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), Mode::Add)
+    }
+
+    /// Grows the selection with a contiguous flood from the seed colors' per-channel range.
+    pub fn grow(&mut self, tolerance: u8, sample_all: bool, layer_id: u32) -> Result<(), String> {
+        self.grow_or_similar(tolerance, sample_all, layer_id, true)
+    }
+
+    /// Adds every pixel within the seed colors' per-channel range, regardless of connectivity.
+    pub fn similar(&mut self, tolerance: u8, sample_all: bool, layer_id: u32) -> Result<(), String> {
+        self.grow_or_similar(tolerance, sample_all, layer_id, false)
+    }
+
+    /// Paints a solid color into the layer at document rect (x, y, w, h) through `coverage`
+    /// (0..1, `coverage.len() == w * h`) times `opacity` times the selection, using the blend
+    /// math in `blend::paint_pixel`. Honors the transparency lock and errors on the pixel lock;
+    /// only tiles the rect and a nonzero coverage cell overlap are rewritten.
+    #[allow(clippy::too_many_arguments)]
+    pub fn paint_coverage(
+        &mut self,
+        id: u32,
+        x: i32,
+        y: i32,
+        w: u32,
+        h: u32,
+        coverage: &[f32],
+        rgba: [u8; 4],
+        mode: PaintMode,
+        opacity: f32,
+    ) -> Result<(), String> {
+        self.check_idle()?;
+        self.check_pixel_edit(id)?;
+        if coverage.len() != (w * h) as usize {
+            return Err("paint coverage buffer must match w*h".into());
+        }
+        let keep_alpha = self.node(id)?.locks.transparency;
+        let depth = self.depth;
+        let rgb = [rgba[0] as f32 / 255.0, rgba[1] as f32 / 255.0, rgba[2] as f32 / 255.0];
+        let opacity = opacity.clamp(0.0, 1.0);
+        let selected = self.selection.is_some();
+        let mut out: Vec<((i32, i32), Option<Pixels>)> = Vec::new();
+        for (tx, ty) in self.tiles_of_rect(x, y, x + w as i32, y + h as i32) {
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            let cell = |px_: i32, py: i32| -> f32 {
+                let (dx, dy) = (ox + px_ - x, oy + py - y);
+                if dx < 0 || dx >= w as i32 || dy < 0 || dy >= h as i32 {
+                    0.0
+                } else {
+                    coverage[(dy * w as i32 + dx) as usize]
+                }
+            };
+            let touches = (0..TILE as i32).any(|py| (0..TILE as i32).any(|px_| cell(px_, py) > 0.0));
+            if !touches {
+                continue;
+            }
+            let old_tile = self.node(id)?.pixel_tiles()?.get(tx, ty).map(|t| t.px.clone());
+            let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
+            let mut fresh = vec![0f32; TILE_PIXELS * 4];
+            let mut any = false;
+            for py in 0..TILE as i32 {
+                for px_ in 0..TILE as i32 {
+                    let p = (py * TILE as i32 + px_) as usize;
+                    let old = old_tile.as_deref().map_or([0.0; 4], |px| px.rgba_f32(p));
+                    let c = (cell(px_, py) * opacity * cov.at(p)).clamp(0.0, 1.0);
+                    let new = paint_pixel(mode, old, rgb, c, keep_alpha);
+                    any |= new[3] > 0.0;
+                    fresh[p * 4..p * 4 + 4].copy_from_slice(&new);
+                }
+            }
+            out.push(((tx, ty), any.then(|| Pixels::from_straight(depth, &fresh))));
+        }
+        let mut tiles_out = Vec::with_capacity(out.len());
+        for (at, px) in out {
+            tiles_out.push((at, px.map(|px| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })));
+        }
+        let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+        for ((tx, ty), t) in tiles_out {
+            tiles.put(tx, ty, t);
+        }
+        Ok(())
+    }
+
+    /// Paint bucket (docs/M2.md section 4): flood fill from (x, y) on the chosen source, then
+    /// `paint_coverage` over the whole canvas.
+    #[allow(clippy::too_many_arguments)]
+    pub fn bucket(
+        &mut self,
+        id: u32,
+        x: i32,
+        y: i32,
+        rgba: [u8; 4],
+        mode: PaintMode,
+        opacity: f32,
+        tolerance: u8,
+        antialias: bool,
+        contiguous: bool,
+        all_layers: bool,
+    ) -> Result<(), String> {
+        self.check_idle()?;
+        self.check_pixel_edit(id)?;
+        if x < 0 || y < 0 || x as u32 >= self.width || y as u32 >= self.height {
+            return Err("bucket seed must be inside the canvas".into());
+        }
+        let src = self.sample_rgba8(all_layers, id)?;
+        let cov = region::flood(&src, self.width, self.height, (x as u32, y as u32), tolerance, contiguous, antialias);
+        self.paint_coverage(id, 0, 0, self.width, self.height, &cov, rgba, mode, opacity)
     }
 
     pub fn has_selection(&self) -> bool {
@@ -4863,5 +5066,161 @@ mod tests {
         for (what, json) in cases {
             assert!(Document::from_manifest(&json).is_err(), "{what} must be rejected");
         }
+    }
+
+    // ---------- B3 E1: flood fill family (docs/M2.md magic wand, paint bucket) ----------
+
+    // 256x256 doc, background split red (x<4) / blue (x>=4) inside an 8x8 corner.
+    fn two_region_doc() -> Document {
+        let mut d = doc_bg(0, 0, 255);
+        d.select_rect(0.0, 0.0, 4.0, 8.0, Mode::New).unwrap();
+        d.fill(1, Target::Pixels, 255, 0, 0, 255).unwrap();
+        d.deselect().unwrap();
+        d
+    }
+
+    #[test]
+    fn magic_wand_selects_the_contiguous_region_only() {
+        let mut d = two_region_doc();
+        d.select_rect(7.0, 0.0, 1.0, 1.0, Mode::New).unwrap();
+        d.fill(1, Target::Pixels, 255, 0, 0, 255).unwrap(); // a stray red pixel, not 4-connected
+        d.deselect().unwrap();
+        d.magic_wand(0, 0, 32, false, true, false, 1, Mode::New).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 4, 8]));
+    }
+
+    #[test]
+    fn magic_wand_non_contiguous_reaches_a_disconnected_match() {
+        let mut d = two_region_doc();
+        d.select_rect(7.0, 0.0, 1.0, 1.0, Mode::New).unwrap();
+        d.fill(1, Target::Pixels, 255, 0, 0, 255).unwrap();
+        d.deselect().unwrap();
+        d.magic_wand(0, 0, 32, false, false, false, 1, Mode::New).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 8, 8]), "the stray pixel widens the bounds");
+    }
+
+    #[test]
+    fn magic_wand_tolerance_edge_cases() {
+        let mut d = two_region_doc();
+        d.magic_wand(0, 0, 0, false, true, false, 1, Mode::New).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 4, 8]), "exact match only");
+        d.magic_wand(0, 0, 255, false, true, false, 1, Mode::New).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 256, 256]), "tolerance 255 reaches everything");
+    }
+
+    #[test]
+    fn magic_wand_works_on_a_16_bit_document() {
+        let mut d = Document::new(8, 8, 16).unwrap();
+        d.fill(1, Target::Pixels, 0, 0, 255, 255).unwrap();
+        d.select_rect(0.0, 0.0, 4.0, 8.0, Mode::New).unwrap();
+        d.fill(1, Target::Pixels, 255, 0, 0, 255).unwrap();
+        d.deselect().unwrap();
+        d.magic_wand(0, 0, 32, false, true, false, 1, Mode::New).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 4, 8]));
+    }
+
+    #[test]
+    fn magic_wand_sample_all_floods_the_flattened_composite_not_the_active_layer() {
+        let mut d = Document::new(8, 8, 8).unwrap();
+        d.select_rect(0.0, 0.0, 4.0, 8.0, Mode::New).unwrap();
+        d.fill(1, Target::Pixels, 0, 0, 255, 255).unwrap();
+        d.select_rect(4.0, 0.0, 4.0, 8.0, Mode::New).unwrap();
+        d.fill(1, Target::Pixels, 0, 255, 0, 255).unwrap();
+        d.deselect().unwrap();
+        let top = d.add_layer("top", 1).unwrap();
+        d.fill(top, Target::Pixels, 255, 0, 0, 128).unwrap();
+
+        d.magic_wand(0, 0, 0, false, true, false, top, Mode::New).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 8, 8]), "the active layer is uniform");
+
+        d.magic_wand(0, 0, 0, false, true, true, top, Mode::New).unwrap();
+        assert_eq!(d.selection_bounds(), Some([0, 0, 4, 8]), "the composite differs across the bg split");
+    }
+
+    #[test]
+    fn grow_is_contiguous_and_similar_is_not_on_a_three_region_fixture() {
+        let mut d = Document::new(7, 1, 8).unwrap();
+        let vals = [0u8, 40, 200, 200, 0, 200, 200];
+        for (x, v) in vals.iter().enumerate() {
+            d.select_rect(x as f64, 0.0, 1.0, 1.0, Mode::New).unwrap();
+            d.fill(1, Target::Pixels, *v, 0, 0, 255).unwrap();
+        }
+        let sel_at = |d: &Document, x: usize| -> u8 { d.selection_tile(0, 0, 0).unwrap().map_or(0, |b| b[x]) };
+
+        d.select_rect(0.0, 0.0, 1.0, 1.0, Mode::New).unwrap();
+        d.grow(40, false, 1).unwrap();
+        assert_eq!(
+            (0..7).map(|x| sel_at(&d, x) > 0).collect::<Vec<_>>(),
+            vec![true, true, false, false, false, false, false],
+            "grow is contiguous"
+        );
+
+        d.select_rect(0.0, 0.0, 1.0, 1.0, Mode::New).unwrap();
+        d.similar(40, false, 1).unwrap();
+        assert_eq!(
+            (0..7).map(|x| sel_at(&d, x) > 0).collect::<Vec<_>>(),
+            vec![true, true, false, false, true, false, false],
+            "similar reaches the disconnected match"
+        );
+    }
+
+    #[test]
+    fn grow_and_similar_error_when_nothing_is_selected() {
+        let mut d = doc_bg(1, 2, 3);
+        assert_eq!(d.grow(10, false, 1).unwrap_err(), "nothing is selected");
+        assert_eq!(d.similar(10, false, 1).unwrap_err(), "nothing is selected");
+    }
+
+    #[test]
+    fn bucket_normal_mode_blends_at_the_given_opacity() {
+        let mut d = doc_bg(100, 150, 200);
+        d.bucket(1, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 0.5, 32, false, true, false).unwrap();
+        near(at(&d, 0, 0), [178, 75, 100, 255]);
+    }
+
+    #[test]
+    fn bucket_behind_only_paints_transparent_pixels() {
+        let mut d = Document::new(4, 4, 8).unwrap();
+        d.bucket(1, 0, 0, [0, 255, 0, 255], PaintMode::Behind, 1.0, 0, false, false, false).unwrap();
+        assert_eq!(at(&d, 0, 0), [0, 255, 0, 255]);
+        d.bucket(1, 0, 0, [255, 0, 0, 255], PaintMode::Behind, 1.0, 255, false, false, false).unwrap();
+        assert_eq!(at(&d, 0, 0), [0, 255, 0, 255], "opaque already, behind changes nothing");
+    }
+
+    #[test]
+    fn bucket_clear_mode_erases_towards_transparent() {
+        let mut d = doc_bg(10, 20, 30);
+        d.bucket(1, 0, 0, [0, 0, 0, 0], PaintMode::Clear, 0.5, 0, false, true, false).unwrap();
+        assert_eq!(at(&d, 0, 0)[3], 128, "50% opacity clear halves alpha");
+    }
+
+    #[test]
+    fn bucket_respects_the_transparency_lock() {
+        let mut d = doc_bg(10, 20, 30);
+        set(&mut d, 1, r#"{"locks":{"transparency":true}}"#);
+        d.bucket(1, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 1.0, 32, false, true, false).unwrap();
+        let px = at(&d, 0, 0);
+        assert_eq!(px[3], 255, "alpha stays locked");
+        assert_eq!(px[0], 255, "color still paints under the lock");
+    }
+
+    #[test]
+    fn bucket_errors_when_pixels_are_locked() {
+        let mut d = doc_bg(10, 20, 30);
+        set(&mut d, 1, r#"{"locks":{"pixels":true}}"#);
+        assert_eq!(
+            d.bucket(1, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 1.0, 32, false, true, false)
+                .unwrap_err(),
+            "layer pixels are locked"
+        );
+    }
+
+    #[test]
+    fn bucket_is_clipped_to_the_selection() {
+        let mut d = doc_bg(10, 20, 30);
+        d.select_rect(0.0, 0.0, 4.0, 8.0, Mode::New).unwrap();
+        d.bucket(1, 0, 0, [255, 0, 0, 255], PaintMode::Blend(Blend::Normal), 1.0, 32, false, true, false).unwrap();
+        assert_eq!(at(&d, 0, 0)[0], 255, "painted inside the selection");
+        assert_eq!(at(&d, 5, 0), [10, 20, 30, 255], "untouched outside the selection");
     }
 }

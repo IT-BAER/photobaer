@@ -1,7 +1,9 @@
 mod blend;
 mod doc;
+mod region;
 mod selection;
 
+use blend::PaintMode;
 use doc::{Document, EngineCore, Target};
 use selection::Mode;
 use wasm_bindgen::prelude::*;
@@ -151,6 +153,94 @@ impl Engine {
     /// Gaussian blur of the selection mask with sigma = radius / 3.
     pub fn feather_selection(&mut self, radius: f64) -> Result<(), JsError> {
         self.0.doc.feather_selection(radius).map_err(err)
+    }
+
+    /// Magic wand (docs/M2.md section 3): flood fill from (x, y), `mode` is a selection mode.
+    #[allow(clippy::too_many_arguments)]
+    pub fn magic_wand(
+        &mut self,
+        x: i32,
+        y: i32,
+        tolerance: u8,
+        antialias: bool,
+        contiguous: bool,
+        sample_all: bool,
+        layer_id: u32,
+        mode: &str,
+    ) -> Result<(), JsError> {
+        self.0
+            .doc
+            .magic_wand(x, y, tolerance, antialias, contiguous, sample_all, layer_id, Mode::parse(mode).map_err(err)?)
+            .map_err(err)
+    }
+
+    /// Adds a contiguous flood from the selection's seed colors' range to the selection.
+    pub fn grow(&mut self, tolerance: u8, sample_all: bool, layer_id: u32) -> Result<(), JsError> {
+        self.0.doc.grow(tolerance, sample_all, layer_id).map_err(err)
+    }
+
+    /// Adds every pixel within the selection's seed colors' range, regardless of connectivity.
+    pub fn similar(&mut self, tolerance: u8, sample_all: bool, layer_id: u32) -> Result<(), JsError> {
+        self.0.doc.similar(tolerance, sample_all, layer_id).map_err(err)
+    }
+
+    /// Paints a solid color into the layer through `coverage` (0..1, `w * h` long) at document
+    /// rect (x, y, w, h); `mode` is a blend mode name, "behind" or "clear".
+    #[allow(clippy::too_many_arguments)]
+    pub fn paint_coverage(
+        &mut self,
+        id: u32,
+        x: i32,
+        y: i32,
+        w: u32,
+        h: u32,
+        coverage: Vec<f32>,
+        r: u8,
+        g: u8,
+        b: u8,
+        a: u8,
+        mode: &str,
+        opacity: f32,
+    ) -> Result<(), JsError> {
+        self.0
+            .doc
+            .paint_coverage(id, x, y, w, h, &coverage, [r, g, b, a], PaintMode::parse(mode).map_err(err)?, opacity)
+            .map_err(err)
+    }
+
+    /// Paint bucket (docs/M2.md section 4): flood fill from (x, y) then `paint_coverage`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn bucket(
+        &mut self,
+        id: u32,
+        x: i32,
+        y: i32,
+        r: u8,
+        g: u8,
+        b: u8,
+        a: u8,
+        mode: &str,
+        opacity: f32,
+        tolerance: u8,
+        antialias: bool,
+        contiguous: bool,
+        all_layers: bool,
+    ) -> Result<(), JsError> {
+        self.0
+            .doc
+            .bucket(
+                id,
+                x,
+                y,
+                [r, g, b, a],
+                PaintMode::parse(mode).map_err(err)?,
+                opacity,
+                tolerance,
+                antialias,
+                contiguous,
+                all_layers,
+            )
+            .map_err(err)
     }
 
     pub fn has_selection(&self) -> bool {

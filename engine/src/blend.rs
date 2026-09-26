@@ -243,6 +243,97 @@ pub fn blend_rgb(mode: Blend, cb: [f32; 3], cs: [f32; 3]) -> [f32; 3] {
     [out[0].clamp(0.0, 1.0), out[1].clamp(0.0, 1.0), out[2].clamp(0.0, 1.0)]
 }
 
+/// A paint bucket / brush color, composited with an ordinary blend mode or one of the two paint
+/// modes docs/M2.md doesn't cover with `Blend`: "behind" only paints under existing alpha (like
+/// painting on the back of transparent film), "clear" erases towards transparent.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum PaintMode {
+    Blend(Blend),
+    Behind,
+    Clear,
+}
+
+impl PaintMode {
+    pub fn parse(s: &str) -> Result<PaintMode, String> {
+        match s {
+            "behind" => Ok(PaintMode::Behind),
+            "clear" => Ok(PaintMode::Clear),
+            other => Blend::parse(other).map(PaintMode::Blend),
+        }
+    }
+}
+
+/// Straight-alpha source-over composite of `rgb` into `backdrop`, `cov` (0..1) already folding in
+/// paint coverage, opacity and the selection. `keep_alpha` (transparency lock) keeps the
+/// backdrop's alpha. "clear" instead scales alpha towards 0; "behind" compisites the backdrop
+/// *over* the paint, so it only shows through where the backdrop is already transparent.
+pub fn paint_pixel(mode: PaintMode, backdrop: [f32; 4], rgb: [f32; 3], cov: f32, keep_alpha: bool) -> [f32; 4] {
+    let [cb0, cb1, cb2, ab] = backdrop;
+    if cov <= 0.0 {
+        return backdrop;
+    }
+    match mode {
+        PaintMode::Clear => {
+            if keep_alpha {
+                return backdrop;
+            }
+            let a = ab * (1.0 - cov);
+            if a <= 0.0 {
+                [0.0; 4]
+            } else {
+                [cb0, cb1, cb2, a]
+            }
+        }
+        PaintMode::Behind => {
+            let as_ = cov;
+            if ab >= 1.0 {
+                return backdrop;
+            }
+            let ao = ab + as_ * (1.0 - ab);
+            let out = [
+                (ab * cb0 + as_ * (1.0 - ab) * rgb[0]) / ao,
+                (ab * cb1 + as_ * (1.0 - ab) * rgb[1]) / ao,
+                (ab * cb2 + as_ * (1.0 - ab) * rgb[2]) / ao,
+                ao,
+            ];
+            if keep_alpha {
+                [out[0], out[1], out[2], ab]
+            } else {
+                out
+            }
+        }
+        PaintMode::Blend(b) => {
+            let as_ = cov;
+            let ao = as_ + ab * (1.0 - as_);
+            if ao <= 0.0 {
+                return [0.0; 4];
+            }
+            let cm = if b.is_passthrough_of_source() || ab <= 0.0 {
+                rgb
+            } else {
+                let bl = blend_rgb(b, [cb0, cb1, cb2], rgb);
+                [
+                    (1.0 - ab) * rgb[0] + ab * bl[0],
+                    (1.0 - ab) * rgb[1] + ab * bl[1],
+                    (1.0 - ab) * rgb[2] + ab * bl[2],
+                ]
+            };
+            let cb = [cb0, cb1, cb2];
+            let out = [
+                (as_ * cm[0] + ab * (1.0 - as_) * cb[0]) / ao,
+                (as_ * cm[1] + ab * (1.0 - as_) * cb[1]) / ao,
+                (as_ * cm[2] + ab * (1.0 - as_) * cb[2]) / ao,
+                ao,
+            ];
+            if keep_alpha {
+                [out[0], out[1], out[2], ab]
+            } else {
+                out
+            }
+        }
+    }
+}
+
 /// Deterministic per document pixel and node, in 0..1. Used by `dissolve`.
 pub fn dissolve_hash(x: u32, y: u32, node_id: u32) -> f32 {
     let mut h = x
@@ -364,6 +455,58 @@ mod tests {
         }
         assert!(Blend::parse("Normal").is_err());
         assert!(Blend::parse("passthrough").is_err());
+    }
+
+    #[test]
+    fn paint_pixel_normal_mode_is_plain_source_over() {
+        let bd = [0.6, 0.4, 0.2, 0.5];
+        let got = paint_pixel(PaintMode::Blend(Blend::Normal), bd, [1.0, 0.0, 0.0], 0.5, false);
+        // as=0.5, ab=0.5 -> ao=0.75; co = (0.5*1 + 0.5*0.5*cb)/0.75 per channel.
+        let want_r = (0.5 * 1.0 + 0.5 * 0.5 * 0.6) / 0.75;
+        let want_g = (0.5 * 0.0 + 0.5 * 0.5 * 0.4) / 0.75;
+        assert!((got[0] - want_r).abs() < 1e-6, "{got:?}");
+        assert!((got[1] - want_g).abs() < 1e-6, "{got:?}");
+        assert!((got[3] - 0.75).abs() < 1e-6);
+    }
+
+    #[test]
+    fn paint_pixel_transparency_lock_keeps_alpha() {
+        let bd = [0.6, 0.4, 0.2, 0.5];
+        let got = paint_pixel(PaintMode::Blend(Blend::Normal), bd, [1.0, 0.0, 0.0], 1.0, true);
+        assert_eq!(got[3], 0.5, "locked alpha stays");
+        assert!((got[0] - 1.0).abs() < 1e-6, "color still paints at full coverage");
+    }
+
+    #[test]
+    fn paint_pixel_clear_reduces_alpha_towards_zero() {
+        let bd = [0.6, 0.4, 0.2, 0.8];
+        let got = paint_pixel(PaintMode::Clear, bd, [0.0; 3], 0.5, false);
+        assert!((got[3] - 0.4).abs() < 1e-6);
+        let full = paint_pixel(PaintMode::Clear, bd, [0.0; 3], 1.0, false);
+        assert_eq!(full, [0.0; 4], "full clear leaves nothing");
+    }
+
+    #[test]
+    fn paint_pixel_behind_only_shows_through_transparent_backdrop() {
+        // Opaque backdrop: behind paints nothing.
+        let opaque = [0.6, 0.4, 0.2, 1.0];
+        assert_eq!(paint_pixel(PaintMode::Behind, opaque, [1.0, 0.0, 0.0], 1.0, false), opaque);
+        // Fully transparent backdrop: behind paints the color at full coverage.
+        let empty = [0.0, 0.0, 0.0, 0.0];
+        let got = paint_pixel(PaintMode::Behind, empty, [1.0, 0.5, 0.0], 1.0, false);
+        assert!((got[0] - 1.0).abs() < 1e-6 && (got[1] - 0.5).abs() < 1e-6 && (got[3] - 1.0).abs() < 1e-6);
+        // Half transparent backdrop under full coverage: the backdrop sits over the paint.
+        let half = paint_pixel(PaintMode::Behind, [0.0, 0.0, 1.0, 0.5], [1.0, 0.0, 0.0], 1.0, false);
+        let want = [0.5, 0.0, 0.5, 1.0];
+        assert!(half.iter().zip(want).all(|(g, w)| (g - w).abs() < 1e-6), "{half:?}");
+    }
+
+    #[test]
+    fn paint_pixel_parses_blend_and_special_modes() {
+        assert_eq!(PaintMode::parse("normal").unwrap(), PaintMode::Blend(Blend::Normal));
+        assert_eq!(PaintMode::parse("behind").unwrap(), PaintMode::Behind);
+        assert_eq!(PaintMode::parse("clear").unwrap(), PaintMode::Clear);
+        assert!(PaintMode::parse("nope").is_err());
     }
 
     #[test]
