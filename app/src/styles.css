@@ -25,7 +25,7 @@ button { font: inherit; color: inherit; }
 .app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
 
 .menubar { display: flex; align-items: center; gap: 2px; padding: 0 8px; height: 32px; background: var(--panel); border-bottom: 1px solid var(--line); position: relative; z-index: 20; }
-.brand { font-weight: 700; color: var(--accent); margin-right: 12px; }
+.brand { display: block; margin-right: 12px; }
 .menu { position: relative; }
 .menu > button { background: none; border: 0; padding: 4px 10px; border-radius: 4px; cursor: default; }
 .menu > button:hover, .menu > button.open { background: var(--panel-hi); }
