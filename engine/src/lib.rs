@@ -3,6 +3,7 @@ mod doc;
 mod livewire;
 mod region;
 mod selection;
+mod stroke;
 
 use blend::PaintMode;
 use doc::{Document, EngineCore, Target};
@@ -250,6 +251,29 @@ impl Engine {
     pub fn magnetic_suggest_anchor(&self, path: Vec<i32>, frequency: u8) -> i32 {
         let pts: Vec<(i32, i32)> = path.chunks_exact(2).map(|p| (p[0], p[1])).collect();
         livewire::suggest_anchor(&pts, frequency).map_or(-1, |i| i as i32)
+    }
+
+    /// Opens a stroke (docs/M2.md section 4) on `layer_id`. `target` is "pixels" or "selection"
+    /// (quick mask). `params_json` is `{ rgba, mode, size, opacity, flow, hardness, spacing,
+    /// angle, roundness, tip, aliased, wetEdges, airbrush, pressureSize, pressureOpacity,
+    /// eraseToHistory }`; only rgba, mode and size are required.
+    pub fn stroke_begin(&mut self, layer_id: u32, target: &str, params_json: &str) -> Result<(), JsError> {
+        self.0.stroke_begin(layer_id, target, params_json).map_err(err)
+    }
+
+    /// One batch of input samples as flat x, y, pressure triples. Returns the changed document
+    /// rect as [x, y, w, h], empty when the stroke placed no dab.
+    pub fn stroke_to(&mut self, samples: Vec<f64>) -> Result<Vec<i32>, JsError> {
+        self.0.stroke_to(&samples).map_err(err)
+    }
+
+    pub fn stroke_end(&mut self) -> Result<(), JsError> {
+        self.0.stroke_end().map_err(err)
+    }
+
+    /// Ends the stroke and puts the stroke-start tiles back.
+    pub fn stroke_cancel(&mut self) -> Result<(), JsError> {
+        self.0.stroke_cancel().map_err(err)
     }
 
     /// Paints a solid color into the layer through `coverage` (0..1, `w * h` long) at document
