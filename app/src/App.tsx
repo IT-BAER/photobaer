@@ -14,9 +14,23 @@ import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
 import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
 import { TOOLS, initialLastUsed, keyToTool, loadToolOptions, slotForKey } from './shell/tools.ts';
 import { hexToRgb, type Rgb } from './shell/color.ts';
+import { SelectionOverlay } from './shell/SelectionOverlay.ts';
+import { antsLevel, contour, marqueeRect, PolygonLasso, selectMode, snap45, type SelectMode } from './shell/selecttools.ts';
+import { levelFor } from './view.ts';
 
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
+const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso'];
+
+// True only after `held` was seen released once during the drag, so a modifier already held at
+// pointer-down (consumed for add/subtract) must be released and re-pressed to engage constrain/etc.
+function makeLatch(held: boolean) {
+  let latched = !held;
+  return (down: boolean) => {
+    if (!down) latched = true;
+    return latched && down;
+  };
+}
 
 type Rgba = [number, number, number, number];
 type CreateResult = DocInfo & { created: number };
@@ -74,8 +88,11 @@ async function saveBlob(blob: Blob, name: string, mime: string, ext: string) {
 
 export function App() {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const overlayCanvas = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<SelectionOverlay | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const newDialog = useRef<HTMLDialogElement>(null);
+  const featherDialog = useRef<HTMLDialogElement>(null);
   const picker = useRef<ColorPickerHandle>(null);
   const viewer = useRef<Viewer | null>(null);
   const [doc, setDoc] = useState<DocInfo | null>(null);
@@ -92,12 +109,27 @@ export function App() {
   const [quickMask, setQuickMask] = useState(false);
   const [optionsByTool, setOptionsByTool] = useState<Record<string, ToolOptions>>({});
   const [dockTab, setDockTab] = useState<'color' | 'swatches'>('color');
+  const [showAnts, setShowAnts] = useState(true);
   const activeTool = TOOLS[tool];
   const toolOptions = optionsByTool[tool] ?? loadToolOptions(activeTool);
   const setToolOptions = (v: ToolOptions) => setOptionsByTool(o => ({ ...o, [tool]: v }));
   const [active, setActive] = useState<Active | null>(null);
   const docRef = useRef(doc);
   docRef.current = doc;
+  const toolOptionsRef = useRef(toolOptions);
+  toolOptionsRef.current = toolOptions;
+  const dragRef = useRef<Record<string, unknown> | null>(null);
+  const polygonRef = useRef<PolygonLasso | null>(null);
+  const polygonModeRef = useRef<SelectMode>('new');
+  const lastPolyDownRef = useRef<{ t: number; x: number; y: number } | null>(null);
+  const polygonActionsRef = useRef<{ active: () => boolean; commit: () => void; cancel: () => void; removeLast: () => void } | null>(null);
+
+  function redrawOverlay() {
+    const v = viewer.current;
+    if (!v) return;
+    const [w, h] = v.size;
+    overlayRef.current?.draw(v.view, w, h, v.dpr);
+  }
 
   function show(d: DocInfo | null, selectAfter?: SelectAfter) {
     setDoc(d);
@@ -214,6 +246,7 @@ export function App() {
       { label: doc?.undoLabel ? `Undo ${doc.undoLabel}` : 'Undo', keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
       { label: doc?.redoLabel ? `Redo ${doc.redoLabel}` : 'Redo', keys: 'Shift+Ctrl+Z', run: () => run(null, () => client.call('redo')), off: !doc?.redoLabel },
       { label: 'Fill with foreground color', keys: 'Alt+Backspace', run: () => run('Filling…', () => client.call('command', 'fill', active!.id, active!.target, [...fg, 255] as Rgba)), off: !has },
+      { label: 'Clear', keys: 'Delete', run: () => active && run('Clearing…', () => client.call('clearSelected', active.id, active.target)), off: !doc?.selection || !active },
     ],
     Layer: [
       { label: 'New Layer', run: newLayer, off: !has },
@@ -230,12 +263,20 @@ export function App() {
     Image: [
       { label: 'Invert', keys: 'Ctrl+I', run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, active!.target)), off: !has },
     ],
+    Select: [
+      { label: 'All', keys: 'Ctrl+A', run: () => run(null, () => client.call('selectCommand', 'all')), off: !has },
+      { label: 'Deselect', keys: 'Ctrl+D', run: () => run(null, () => client.call('selectCommand', 'deselect')), off: !doc?.selection },
+      { label: 'Reselect', keys: 'Shift+Ctrl+D', run: () => run(null, () => client.call('selectCommand', 'reselect')), off: !doc?.hasLastSelection },
+      { label: 'Inverse', keys: 'Shift+Ctrl+I', run: () => run(null, () => client.call('selectCommand', 'inverse')), off: !doc?.selection },
+      { label: 'Feather…', keys: 'Shift+F6', run: () => { setMenu(null); featherDialog.current?.showModal(); }, off: !doc?.selection },
+    ],
     View: [
       { label: 'Zoom in', keys: 'Ctrl++', run: () => { setMenu(null); viewer.current?.zoomBy(2); }, off: !has },
       { label: 'Zoom out', keys: 'Ctrl+-', run: () => { setMenu(null); viewer.current?.zoomBy(0.5); }, off: !has },
       { label: 'Fit on screen', keys: 'Ctrl+0', run: () => { setMenu(null); viewer.current?.fit(); }, off: !has },
       { label: '100%', keys: 'Ctrl+1', run: () => { setMenu(null); viewer.current?.actualPixels(); }, off: !has },
       { label: 'Reset rotation', keys: 'Esc', run: () => { setMenu(null); viewer.current?.resetRotation(); }, off: !has },
+      { label: showAnts ? 'Hide selection edges' : 'Show selection edges', keys: 'Ctrl+H', run: () => { setMenu(null); setShowAnts(v => !v); }, off: !has },
     ],
   };
   const menusRef = useRef(menus);
@@ -250,7 +291,8 @@ export function App() {
         if (!alive) return;
         setRenderer(r.kind === 'webgpu' ? 'WebGPU' : 'WebGL2');
         const v = new Viewer(canvas.current!, r, makeTileSource(client, r));
-        v.onView = x => setView({ zoom: x.zoom * v.dpr, rot: x.rot });
+        overlayRef.current = new SelectionOverlay(overlayCanvas.current!);
+        v.onView = x => { setView({ zoom: x.zoom * v.dpr, rot: x.rot }); redrawOverlay(); };
         viewer.current = v;
         (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client, ...gpuTestHook(client, r) };
         show(await client.call('init'));
@@ -279,6 +321,154 @@ export function App() {
       });
     };
   }, [tool, toolOptions.sampleSize, toolOptions.sample, active]);
+
+  useEffect(() => {
+    if (!canvas.current) return;
+    const ro = new ResizeObserver(redrawOverlay);
+    ro.observe(canvas.current);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => { overlayRef.current?.setHidden(!showAnts); redrawOverlay(); }, [showAnts]);
+
+  const dpr = viewer.current?.dpr ?? (window.devicePixelRatio || 1);
+  const antsLevelValue = doc ? antsLevel(levelFor(view.zoom, dpr, doc.maxLevel), doc.width, doc.height, doc.maxLevel) : 0;
+
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    if (!doc?.selection) { overlay.setAnts(null, 1); redrawOverlay(); return; }
+    const docId = doc.docId;
+    let alive = true;
+    client.call('selectionMask', antsLevelValue).then(r => {
+      if (!alive || r.docId !== docId || docRef.current?.docId !== docId) return;
+      overlay.setAnts(r.data ? contour(new Uint8Array(r.data), r.w, r.h) : null, 1 << antsLevelValue);
+      redrawOverlay();
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc?.selGen, antsLevelValue, doc?.docId]);
+
+  // Rectangular/elliptical marquees, row/column marquees, freehand lasso and the polygonal lasso
+  // all drive the viewer's raw pointer events and the overlay preview; everything else forwards
+  // through onPointer as a no-op.
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v) return;
+    const cancelAll = () => {
+      dragRef.current = null;
+      polygonRef.current = null;
+      lastPolyDownRef.current = null;
+      overlayRef.current?.setPreview(null);
+    };
+    cancelAll();
+    if (!SELECT_TOOLS.includes(tool)) {
+      v.onPointer = () => {};
+      polygonActionsRef.current = null;
+      return cancelAll;
+    }
+
+    const shapeKind = () => (tool === 'marqueeEllipse' ? 'ellipse' as const : 'rect' as const);
+    const marqueeOpts = () => {
+      const o = toolOptionsRef.current;
+      return { style: o.style as 'normal' | 'fixed ratio' | 'fixed size', ratioW: Number(o.ratioW), ratioH: Number(o.ratioH), fixedW: Number(o.fixedW), fixedH: Number(o.fixedH) };
+    };
+
+    function commitPolygon() {
+      const lasso = polygonRef.current;
+      polygonRef.current = null;
+      lastPolyDownRef.current = null;
+      overlayRef.current?.setPreview(null);
+      if (!lasso) return;
+      const o = toolOptionsRef.current;
+      client.call('select', { kind: 'polygon', points: lasso.flat() }, polygonModeRef.current, !!o.antiAlias, Number(o.feather), 'Polygonal Lasso').then(show);
+    }
+
+    if (tool === 'marqueeRect' || tool === 'marqueeEllipse') {
+      v.onPointer = e => {
+        if (e.type === 'down') {
+          dragRef.current = { start: [e.x, e.y], mode: selectMode(toolOptionsRef.current.mode as string, e.shiftKey, e.altKey), shiftLatch: makeLatch(e.shiftKey), altLatch: makeLatch(e.altKey) };
+        } else {
+          const d = dragRef.current as { start: [number, number]; mode: SelectMode; shiftLatch: (b: boolean) => boolean; altLatch: (b: boolean) => boolean } | null;
+          if (!d) return;
+          const r = marqueeRect(d.start, [e.x, e.y], { ...marqueeOpts(), constrain: d.shiftLatch(e.shiftKey), fromCenter: d.altLatch(e.altKey) });
+          if (e.type === 'move') { overlayRef.current?.setPreview({ kind: shapeKind(), ...r }); return; }
+          dragRef.current = null;
+          overlayRef.current?.setPreview(null);
+          if (e.type === 'cancel') return;
+          const o = toolOptionsRef.current;
+          client.call('select', { kind: shapeKind(), ...r }, d.mode, tool === 'marqueeEllipse' && !!o.antiAlias, Number(o.feather), TOOLS[tool].label).then(show);
+        }
+      };
+    } else if (tool === 'marqueeRow' || tool === 'marqueeColumn') {
+      v.onPointer = e => {
+        if (e.type !== 'down') return;
+        const d = docRef.current;
+        if (!d) return;
+        const mode = selectMode(toolOptionsRef.current.mode as string, e.shiftKey, e.altKey);
+        const shape = tool === 'marqueeRow'
+          ? { kind: 'rect' as const, x: 0, y: Math.floor(e.y), w: d.width, h: 1 }
+          : { kind: 'rect' as const, x: Math.floor(e.x), y: 0, w: 1, h: d.height };
+        client.call('select', shape, mode, false, 0, TOOLS[tool].label).then(show);
+      };
+    } else if (tool === 'lasso') {
+      v.onPointer = e => {
+        if (e.type === 'down') {
+          dragRef.current = { points: [e.x, e.y], mode: selectMode(toolOptionsRef.current.mode as string, e.shiftKey, e.altKey), altLatch: makeLatch(e.altKey), straight: null };
+          return;
+        }
+        const d = dragRef.current as { points: number[]; mode: SelectMode; altLatch: (b: boolean) => boolean; straight: [number, number] | null } | null;
+        if (!d) return;
+        if (e.type === 'move') {
+          if (d.altLatch(e.altKey)) { d.straight = [e.x, e.y]; } else {
+            if (d.straight) { d.points.push(d.straight[0], d.straight[1]); d.straight = null; }
+            const lx = d.points[d.points.length - 2], ly = d.points[d.points.length - 1];
+            if (Math.hypot(e.x - lx, e.y - ly) >= 0.5) d.points.push(e.x, e.y);
+          }
+          const pts = d.straight ? [...d.points, d.straight[0], d.straight[1]] : d.points;
+          overlayRef.current?.setPreview({ kind: 'path', points: pts, closed: false });
+          return;
+        }
+        dragRef.current = null;
+        overlayRef.current?.setPreview(null);
+        if (e.type === 'cancel') return;
+        if (d.straight) d.points.push(d.straight[0], d.straight[1]);
+        const o = toolOptionsRef.current;
+        client.call('select', { kind: 'polygon', points: d.points }, d.mode, !!o.antiAlias, Number(o.feather), 'Lasso').then(show);
+      };
+    } else if (tool === 'polygonalLasso') {
+      v.onPointer = e => {
+        if (e.type === 'move') {
+          const lasso = polygonRef.current;
+          if (lasso && lasso.points.length) overlayRef.current?.setPreview({ kind: 'path', points: [...lasso.flat(), e.x, e.y], closed: false });
+          return;
+        }
+        if (e.type !== 'down') return;
+        const zoom = v.view.zoom;
+        const lasso = polygonRef.current ?? (polygonRef.current = new PolygonLasso());
+        if (lasso.points.length === 0) polygonModeRef.current = selectMode(toolOptionsRef.current.mode as string, e.shiftKey, e.altKey);
+        const now = performance.now();
+        const last = lastPolyDownRef.current;
+        const dbl = !!last && now - last.t < 300 && Math.hypot(e.x - last.x, e.y - last.y) <= 3 / zoom;
+        lastPolyDownRef.current = { t: now, x: e.x, y: e.y };
+        if (lasso.points.length && (lasso.closesAt([e.x, e.y], 6 / zoom) || dbl)) { commitPolygon(); return; }
+        const prev = lasso.points.at(-1);
+        lasso.add(e.shiftKey && prev ? snap45(prev, [e.x, e.y]) : [e.x, e.y]);
+        overlayRef.current?.setPreview({ kind: 'path', points: lasso.flat(), closed: false });
+      };
+    }
+
+    polygonActionsRef.current = {
+      active: () => !!polygonRef.current?.points.length,
+      commit: commitPolygon,
+      cancel: cancelAll,
+      removeLast: () => {
+        polygonRef.current?.removeLast();
+        overlayRef.current?.setPreview(polygonRef.current?.points.length ? { kind: 'path', points: polygonRef.current.flat(), closed: false } : null);
+      },
+    };
+    return cancelAll;
+  }, [tool, doc?.docId]);
 
   function openPicker(which: 'fg' | 'bg') {
     picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v));
@@ -319,12 +509,23 @@ export function App() {
     const down = (e: KeyboardEvent) => {
       if (e.target instanceof Element && e.target.closest('input, select, dialog')) return;
       const k = e.key.toLowerCase(), ctrl = e.ctrlKey || e.metaKey;
+      if (polygonActionsRef.current?.active()) {
+        if (k === 'escape') { e.preventDefault(); polygonActionsRef.current.cancel(); return; }
+        if (k === 'backspace') { e.preventDefault(); polygonActionsRef.current.removeLast(); return; }
+        if (k === 'enter') { e.preventDefault(); polygonActionsRef.current.commit(); return; }
+      }
       if (ctrl && e.altKey && k === 'n') trigger('New', e);
       else if (ctrl && k === 'o') trigger('Open', e);
       else if (ctrl && k === 's') trigger('Save project', e);
       else if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) trigger('Redo', e);
       else if (ctrl && k === 'z') trigger('Undo', e);
+      else if (ctrl && k === 'a') trigger('All', e);
+      else if (ctrl && e.shiftKey && k === 'd') trigger('Reselect', e);
+      else if (ctrl && k === 'd') trigger('Deselect', e);
+      else if (ctrl && e.shiftKey && k === 'i') trigger('Inverse', e);
       else if (ctrl && k === 'i') trigger('Invert', e);
+      else if (e.shiftKey && k === 'f6') trigger('Feather', e);
+      else if (ctrl && k === 'h') triggerBy(l => l.endsWith('selection edges'), e);
       else if (ctrl && k === 'j') trigger('Duplicate Layer', e);
       else if (ctrl && e.altKey && k === 'g') triggerBy(l => l.endsWith('Clipping Mask'), e);
       else if (ctrl && e.shiftKey && k === 'g') trigger('Ungroup Layers', e);
@@ -334,6 +535,7 @@ export function App() {
       else if (ctrl && k === '0') trigger('Fit', e);
       else if (ctrl && k === '1') trigger('100%', e);
       else if (e.altKey && k === 'backspace') trigger('Fill', e);
+      else if (k === 'delete' || k === 'backspace') trigger('Clear', e);
       else if (k === 'escape') { setMenu(null); viewer.current?.resetRotation(); }
       else if (k === ' ' && ctrl && e.altKey) { e.preventDefault(); viewer.current?.setSpring('zoomOut'); }
       else if (k === ' ' && ctrl) { e.preventDefault(); viewer.current?.setSpring('zoom'); }
@@ -393,6 +595,7 @@ export function App() {
           <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} />
           <div className="stage">
             <canvas ref={canvas} />
+            <canvas ref={overlayCanvas} className="overlay" />
             {!doc && !busy && (
               <div className="welcome">
                 <h1>Photobaer</h1>
@@ -431,7 +634,7 @@ export function App() {
         <span>{doc ? `${doc.width} × ${doc.height} px, ${doc.depth}-bit` : 'No document'}</span>
         <span>{Math.round(view.zoom * 1000) / 10}%</span>
         <span>{deg ? `${deg}°` : ''}</span>
-        <span className="grow">{doc ? `${activeTool.label}: drag to use, Space to pan, wheel to zoom` : ''}</span>
+        <span className="grow">{doc ? (SELECT_TOOLS.includes(tool) ? 'drag to select, Shift add, Alt subtract' : `${activeTool.label}: drag to use, Space to pan, wheel to zoom`) : ''}</span>
         <span>{AUTOSAVE_TEXT[autosave]}</span>
         <span>{renderer}</span>
       </footer>
@@ -448,6 +651,21 @@ export function App() {
           <div className="actions">
             <button type="button" onClick={() => newDialog.current?.close()}>Cancel</button>
             <button type="submit" className="primary">Create</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={featherDialog}>
+        <form onSubmit={e => {
+          e.preventDefault();
+          const r = Number(new FormData(e.currentTarget).get('radius'));
+          featherDialog.current?.close();
+          run(null, () => client.call('selectCommand', 'feather', r));
+        }}>
+          <h2>Feather Selection</h2>
+          <label>Feather radius <input name="radius" type="number" min={0.1} max={1000} step={0.1} defaultValue={1} required /> px</label>
+          <div className="actions">
+            <button type="button" onClick={() => featherDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
           </div>
         </form>
       </dialog>

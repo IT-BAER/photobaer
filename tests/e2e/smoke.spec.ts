@@ -6,7 +6,7 @@ import { readPsd, writePsdUint8Array } from 'ag-psd';
 // Screenshot of the canvas centre pixel as [r, g, b]. In a 1x1 PNG every row filter leaves the only
 // pixel unchanged, so the inflated bytes are the filter byte followed by the raw pixel.
 async function centerPixel(page: Page) {
-  const b = (await page.locator('canvas').boundingBox())!;
+  const b = (await page.locator('canvas').first().boundingBox())!;
   const png = await page.screenshot({ clip: { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2), width: 1, height: 1 } });
   const idat: Buffer[] = [];
   for (let o = 8; o < png.length; o += 12 + png.readUInt32BE(o)) {

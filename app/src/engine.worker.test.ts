@@ -144,6 +144,50 @@ test('closing a document and creating the next one right away keeps the new auto
   assert.equal(JSON.parse(r.manifest).width, 512);
 });
 
+test('select with feather is one history step, and undo clears the selection', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  const r = await call('select', { kind: 'rect', x: 10, y: 10, w: 20, h: 20 }, 'new', false, 5, 'Rectangular Marquee');
+  const sel = r.result as { undoLabel: string; history: { labels: string[] }; selection: { bounds: number[] } | null };
+  assert.equal(sel.undoLabel, 'Rectangular Marquee');
+  assert.equal(sel.history.labels.length, 1);
+  assert.ok(sel.selection);
+  const u = await call('undo');
+  assert.equal((u.result as { selection: unknown }).selection, null);
+});
+
+test('a zero-size marquee in add mode is a no-op with no history step', async () => {
+  await call('init');
+  const before = (await call('newDoc', 64, 64, 8, null)).result as { version: number };
+  const r = await call('select', { kind: 'rect', x: 10, y: 10, w: 0, h: 0 }, 'add', false, 0, 'Rectangular Marquee');
+  assert.equal((r.result as { version: number }).version, before.version);
+});
+
+test('selectionMask assembles tiles at a level, filling missing tiles with the default', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 64, h: 64 }, 'new', false, 0, 'Rectangular Marquee');
+  const m = await call('selectionMask', 0);
+  const r = m.result as { w: number; h: number; data: ArrayBuffer | null };
+  assert.equal(r.w, 64);
+  assert.equal(r.h, 64);
+  assert.ok(r.data);
+  assert.equal(new Uint8Array(r.data!)[0], 255);
+  await call('selectCommand', 'deselect');
+  const empty = (await call('selectionMask', 0)).result as { data: ArrayBuffer | null };
+  assert.equal(empty.data, null);
+});
+
+test('clearSelected only clears with a selection and labels the step', async () => {
+  await call('init');
+  const before = (await call('newDoc', 64, 64, 8, null)).result as { version: number };
+  const noop = await call('clearSelected', 1, 'pixels');
+  assert.equal((noop.result as { version: number }).version, before.version);
+  await call('selectCommand', 'all');
+  const cleared = await call('clearSelected', 1, 'pixels');
+  assert.equal((cleared.result as { undoLabel: string }).undoLabel, 'Clear');
+});
+
 test('history lists every step and historyGoto jumps back and forward', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);

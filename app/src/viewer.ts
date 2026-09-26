@@ -1,5 +1,5 @@
 import { FLOATS_PER_INSTANCE, type Renderer } from './render/renderer.ts';
-import { TILE, clipMatrix, fit, levelFor, panBy, screenToDoc, visibleTiles, zoomAt, type View } from './view.ts';
+import { TILE, clipMatrix, docToScreen, fit, levelFor, panBy, screenToDoc, visibleTiles, zoomAt, type View } from './view.ts';
 
 // hand/zoom/rotate drive the viewer itself; any other tool id gets raw pointer events via onPointer.
 export type ViewerTool = 'hand' | 'zoom' | 'zoomOut' | 'rotate' | null;
@@ -80,6 +80,7 @@ export class Viewer {
   // A spring-loaded key override, e.g. held Space; null restores the active tool's own behavior.
   setSpring(t: ViewerTool) { this.#spring = t; }
   screenToDoc(sx: number, sy: number): [number, number] { return screenToDoc(this.view, sx, sy, this.#w, this.#h); }
+  docToScreen(dx: number, dy: number): [number, number] { return docToScreen(this.view, dx, dy, this.#w, this.#h); }
   zoomBy(f: number) { this.setView(zoomAt(this.view, f, this.#w / 2, this.#h / 2, this.#w, this.#h)); }
   resetRotation() { this.setView({ ...this.view, rot: 0 }); }
 

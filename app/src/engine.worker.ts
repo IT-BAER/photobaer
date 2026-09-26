@@ -17,7 +17,11 @@ export interface DocInfo {
   undoLabel: string | null; redoLabel: string | null;
   layers: LayerNode[];
   history: { labels: string[]; current: number };
+  selection: { bounds: [number, number, number, number] | null; default: number } | null;
+  hasLastSelection: boolean;
+  selGen: number;
 }
+export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?: number; w?: number; h?: number; points?: number[] };
 export type OpenResult = DocInfo & { warnings: string[] };
 export type AutosaveState = 'off' | 'other-tab' | 'idle' | 'saving' | 'saved' | 'error';
 export type WorkerEvent = { event: 'autosave'; state: AutosaveState; detail?: string };
@@ -35,6 +39,7 @@ let saving: Promise<void> | null = null;
 let again = false;
 let booted = false;
 let lastState: AutosaveState = 'off';
+let selGen = 0;
 
 const history = new History({
   snapshot: () => eng!.snapshot(),
@@ -49,12 +54,19 @@ const emit = (state: AutosaveState, detail?: string) => {
 
 function info(): DocInfo | null {
   if (!eng) return null;
+  const ch = JSON.parse(eng.channels_json()) as {
+    selection: { default: number; bounds: [number, number, number, number] | null } | null;
+    has_last_selection: boolean;
+  };
   return {
     docId, version, name,
     width: eng.width(), height: eng.height(), depth: eng.depth(), maxLevel: eng.max_level(),
     undoLabel: history.undoLabel, redoLabel: history.redoLabel,
     layers: JSON.parse(eng.layers_json()),
     history: { labels: history.labels, current: history.current },
+    selection: ch.selection && { bounds: ch.selection.bounds, default: ch.selection.default },
+    hasLastSelection: ch.has_last_selection,
+    selGen,
   };
 }
 
@@ -93,6 +105,7 @@ function adopt(e: Engine, n: string, restored = false) {
   name = n;
   docId++;
   version++;
+  selGen++;
   if (!restored) {
     autosave?.startDocument();
     scheduleSave(0);
@@ -240,6 +253,71 @@ const api = {
     return changed();
   },
 
+  select(shape: SelectShape, mode: string, antialias: boolean, feather: number, label: string) {
+    const e = need();
+    const empty = shape.kind === 'polygon' ? (shape.points?.length ?? 0) < 6 : shape.w! < 1 || shape.h! < 1;
+    if (empty) {
+      if (mode !== 'new') return info();
+      history.run('Deselect', () => e.deselect());
+      selGen++;
+      return changed();
+    }
+    history.run(label, () => {
+      if (shape.kind === 'rect') e.select_rect(shape.x!, shape.y!, shape.w!, shape.h!, mode);
+      else if (shape.kind === 'ellipse') e.select_ellipse(shape.x!, shape.y!, shape.w!, shape.h!, antialias, mode);
+      else e.select_polygon(Float64Array.from(shape.points!), antialias, mode);
+      if (feather > 0 && e.has_selection()) e.feather_selection(feather);
+    });
+    selGen++;
+    return changed();
+  },
+
+  selectCommand(op: 'all' | 'deselect' | 'reselect' | 'inverse' | 'feather', radius?: number) {
+    const e = need();
+    const labels = { all: 'Select All', deselect: 'Deselect', reselect: 'Reselect', inverse: 'Select Inverse', feather: 'Feather' };
+    const hasLast = () => (JSON.parse(e.channels_json()) as { has_last_selection: boolean }).has_last_selection;
+    const noop = op === 'reselect' ? !hasLast() : op !== 'all' && !e.has_selection();
+    if (noop) return info();
+    history.run(labels[op], () => {
+      if (op === 'all') e.select_all();
+      else if (op === 'deselect') e.deselect();
+      else if (op === 'reselect') e.reselect();
+      else if (op === 'inverse') e.invert_selection();
+      else e.feather_selection(radius!);
+    });
+    selGen++;
+    return changed();
+  },
+
+  clearSelected(id: number, target: 'pixels' | 'mask') {
+    const e = need();
+    if (!e.has_selection()) return info();
+    history.run('Clear', () => e.clear(id, target));
+    return changed();
+  },
+
+  // Assembles selection_tile results at `level` into one coverage buffer; missing tiles fill
+  // with the selection default (255 if default > 0 else 0).
+  selectionMask(level: number) {
+    const e = need();
+    const scale = 1 << level;
+    const w = Math.ceil(e.width() / scale), h = Math.ceil(e.height() / scale);
+    const ch = JSON.parse(e.channels_json()) as { selection: { default: number } | null };
+    if (!ch.selection) return { docId, version, w, h, data: null };
+    const fill = ch.selection.default > 0 ? 255 : 0;
+    const data = new Uint8Array(w * h);
+    if (fill) data.fill(fill);
+    for (let ty = 0; ty < Math.ceil(h / 256); ty++) {
+      for (let tx = 0; tx < Math.ceil(w / 256); tx++) {
+        const tile = e.selection_tile(level, tx, ty) as Uint8Array | undefined;
+        if (!tile) continue;
+        const x0 = tx * 256, y0 = ty * 256, tw = Math.min(256, w - x0), th = Math.min(256, h - y0);
+        for (let y = 0; y < th; y++) data.set(tile.subarray(y * 256, y * 256 + tw), (y0 + y) * w + x0);
+      }
+    }
+    return { docId, version, w, h, data: data.buffer as ArrayBuffer };
+  },
+
   addLayer(above: number, name?: string) {
     const e = need();
     let created = 0;
@@ -331,9 +409,9 @@ const api = {
     return n ? [Math.round(r / n), Math.round(g / n), Math.round(b / n), Math.round(a / n)] : [0, 0, 0, 0];
   },
 
-  undo() { if (history.undo()) return changed(); return info(); },
-  redo() { if (history.redo()) return changed(); return info(); },
-  historyGoto(n: number) { need(); if (history.goto(n)) return changed(); return info(); },
+  undo() { if (history.undo()) { selGen++; return changed(); } return info(); },
+  redo() { if (history.redo()) { selGen++; return changed(); } return info(); },
+  historyGoto(n: number) { need(); if (history.goto(n)) { selGen++; return changed(); } return info(); },
 
   displayTile(level: number, tx: number, ty: number) {
     const e = need();
@@ -407,11 +485,11 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 }
 
 // Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
-// displayTile and displayProgram are synchronous and read-only, so they skip the queue and the
-// viewer keeps drawing.
+// displayTile, displayProgram and selectionMask are synchronous and read-only, so they skip the
+// queue and the viewer keeps drawing.
 let queue = Promise.resolve();
 onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[] }>) => {
   const { id, op, args } = ev.data;
-  if (op === 'displayTile' || op === 'displayProgram') void handle(id, op, args);
+  if (op === 'displayTile' || op === 'displayProgram' || op === 'selectionMask') void handle(id, op, args);
   else queue = queue.then(() => handle(id, op, args));
 };

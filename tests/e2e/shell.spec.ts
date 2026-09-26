@@ -105,7 +105,7 @@ test('eyedropper 5x5 returns the known mean of a test image', async ({ page }) =
   // (= document center for a fitted, unrotated view).
   await page.keyboard.press('i');
   await page.getByRole('combobox', { name: 'Sample size' }).selectOption('5x5');
-  const box = (await page.locator('canvas').boundingBox())!;
+  const box = (await page.locator('canvas').first().boundingBox())!;
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   const [r, g, b] = expectedMean();
   await expect(page.locator('.toolbar .chip.fg')).toHaveCSS('background-color', `rgb(${r}, ${g}, ${b})`);
