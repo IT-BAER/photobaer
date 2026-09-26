@@ -35,6 +35,11 @@ button { font: inherit; color: inherit; }
 .menu li button:disabled { color: var(--disabled); }
 .menu kbd { font: inherit; color: var(--dim); }
 .menu li button:hover:not(:disabled) kbd { color: var(--on-accent); }
+.menu li.has-sub { position: relative; }
+.menu li.has-sub > ul { display: none; top: -5px; left: 100%; margin: 0 0 0 2px; }
+.menu li.has-sub:hover > ul, .menu li.has-sub:focus-within > ul { display: block; }
+.context-menu { position: fixed; z-index: 20; }
+.context-menu > ul { top: 0; margin: 0; }
 .scrim { position: fixed; inset: 0; z-index: 10; }
 
 .swatch { margin-left: auto; display: flex; align-items: center; }
@@ -71,6 +76,13 @@ button { font: inherit; color: inherit; }
 .options-bar label { display: flex; align-items: center; gap: 4px; }
 .options-bar input[type=number] { width: 56px; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
 .options-bar select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
+.transform-bar button { padding: 2px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.transform-bar button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.transform-bar .link-toggle { display: grid; place-items: center; padding: 2px 4px; color: var(--dim); }
+.transform-bar .link-toggle[aria-pressed=true] { color: var(--accent); }
+.ref-grid { display: grid; grid-template-columns: repeat(3, 8px); gap: 2px; }
+.ref-grid button { width: 8px; height: 8px; padding: 0; border-radius: 1px; }
+.ref-grid button:hover { background: var(--accent); }
 
 .dock-tabs { padding: 6px 8px 0; }
 .panel-tab.active { background: var(--accent); color: var(--on-accent); }

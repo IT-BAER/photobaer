@@ -3,6 +3,7 @@ import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
 import { packProject, unpackProject, tileIds } from './project.ts';
 import { importPsd, exportPsd } from './psd.ts';
+import { denormalize, isIdentity } from './transform/matrix.ts';
 
 export interface LayerNode {
   id: number; name: string; kind: 'pixel' | 'group';
@@ -25,7 +26,7 @@ export interface DocInfo {
 export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?: number; w?: number; h?: number; points?: number[] };
 export type OpenResult = DocInfo & { warnings: string[] };
 export type AutosaveState = 'off' | 'other-tab' | 'idle' | 'saving' | 'saved' | 'error';
-export type WorkerEvent = { event: 'autosave'; state: AutosaveState; detail?: string };
+export type WorkerEvent = { event: 'autosave'; state: AutosaveState; detail?: string } | { event: 'transformCancelled'; doc: DocInfo | null };
 export interface StrokeParams {
   rgba: [number, number, number, number]; mode: string; size: number;
   opacity?: number; flow?: number; hardness?: number; spacing?: number; angle?: number; roundness?: number;
@@ -71,6 +72,10 @@ let strokeOpen = false;
 // Move tool live session: a snapshot taken right after any duplicate, restored and replayed
 // from on every step so the previewed offset never compounds.
 let moveSession: { liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number } | null = null;
+// Free transform / Transform Selection session: one open history step. `hidden` is the document
+// with the source removed (the UI previews it), `refined` the matrix last rendered for real.
+type TransformKind = 'layer' | 'pixels' | 'selection';
+let transformSession: { id: number; kind: TransformKind; hidden: number; refined: number[] | null } | null = null;
 // Open live-preview session (Fill/Stroke dialogs): one history step, rerun from its start on every change.
 let previewOpen = false;
 let previewError: string | null = null;
@@ -184,10 +189,27 @@ function endPreview(commit: boolean) {
   if (commit) { const e = previewError; previewError = null; throw new Error(e!); }
 }
 
+function applyTransform(e: Engine, kind: TransformKind, id: number, m: number[], interp: string) {
+  const f = Float64Array.from(m);
+  if (kind === 'layer') e.transform_layer(id, f, interp, true);
+  else if (kind === 'pixels') e.transform_selected_pixels(id, f, interp, new Uint8Array(), false);
+  else e.transform_selection(f, interp);
+}
+
+type Box = [number, number, number, number];
+function intersect(a: Box | null, b: Box | null): Box | null {
+  if (!a || !b) return null;
+  const x0 = Math.max(a[0], b[0]), y0 = Math.max(a[1], b[1]);
+  const x1 = Math.min(a[0] + a[2], b[0] + b[2]), y1 = Math.min(a[1] + a[3], b[1] + b[3]);
+  return x1 > x0 && y1 > y0 ? [x0, y0, x1 - x0, y1 - y0] : null;
+}
+
 function scheduleSave(ms: number) {
   if (!autosave) return;
   clearTimeout(timer);
   timer = setTimeout(() => {
+    // A transform session hides its source pixels; commit and cancel schedule the next save.
+    if (transformSession) return;
     if (saving) { again = true; return; }
     saving = runSave().finally(() => {
       saving = null;
@@ -786,6 +808,114 @@ const api = {
     return changed();
   },
 
+  // Opens a transform session on the layer, its selected pixels or the selection. The preview
+  // source comes back as straight RGBA8 at scale f (longest side <= maxSide) over doc rect
+  // (x, y, w, h) / f; the live document then shows the layer without the source.
+  transformBegin(id: number, kind: TransformKind, label: string, maxSide = 2048) {
+    const e = need();
+    const sel = (JSON.parse(e.channels_json()) as { selection: { bounds: Box | null } | null }).selection;
+    if (kind !== 'layer' && !sel) throw new Error('Make a selection first.');
+    const layer = kind === 'selection' ? null : e.layer_bounds(id) as Box | null;
+    const found = kind === 'layer' ? layer : kind === 'pixels' ? intersect(sel!.bounds, layer) : sel!.bounds;
+    const bounds = found && Array.from(found) as Box;
+    if (!bounds) throw new Error(kind === 'selection' ? 'Make a selection first.' : 'There are no pixels to transform.');
+    let image = null, data: ArrayBuffer | null = null;
+    if (kind !== 'selection') {
+      let f = Math.min(1, maxSide / Math.max(bounds[2], bounds[3]));
+      if (f >= 0.9) f = 1;
+      const x0 = Math.floor(bounds[0] * f), y0 = Math.floor(bounds[1] * f);
+      const w = Math.ceil((bounds[0] + bounds[2]) * f) - x0, h = Math.ceil((bounds[1] + bounds[3]) * f) - y0;
+      data = e.transform_preview(id, Float64Array.of(1, 0, 0, 0, 1, 0, 0, 0, 1), f, kind === 'pixels', x0, y0, w, h).buffer as ArrayBuffer;
+      image = { x: x0, y: y0, w, h, f };
+    }
+    history.begin(label);
+    try {
+      if (kind !== 'selection') e.clear(id, 'pixels');
+    } catch (err) {
+      history.restoreOpen();
+      history.abort();
+      throw err;
+    }
+    transformSession = { id, kind, hidden: e.snapshot(), refined: null };
+    version++;
+    return { ...info()!, bounds, image, data };
+  },
+
+  // Renders the session's real result (bicubic) into the live document.
+  // Refine, unrefine and commit do nothing once another op has cancelled the session.
+  transformRefine(m: number[]) {
+    const e = need(), s = transformSession;
+    if (!s) return info();
+    history.restoreOpen();
+    try {
+      applyTransform(e, s.kind, s.id, m, 'bicubic');
+    } catch (err) {
+      e.restore(s.hidden);
+      s.refined = null;
+      version++;
+      throw err;
+    }
+    s.refined = m;
+    version++;
+    return info()!;
+  },
+
+  transformUnrefine() {
+    const e = need(), s = transformSession;
+    if (!s) return info();
+    e.restore(s.hidden);
+    s.refined = null;
+    version++;
+    return info()!;
+  },
+
+  // Commits `m` as one history step under the session label; null (unmodified) commits nothing.
+  transformCommit(m: number[] | null) {
+    const e = need(), s = transformSession;
+    if (!s) throw new Error('The transform was cancelled.');
+    if (!m) return api.transformCancel();
+    try {
+      if (!s.refined || s.refined.some((v, i) => v !== m[i])) {
+        history.restoreOpen();
+        applyTransform(e, s.kind, s.id, m, 'bicubic');
+      }
+    } catch (err) {
+      api.transformCancel();
+      throw err;
+    }
+    transformSession = null;
+    e.drop_snapshot(s.hidden);
+    history.commit();
+    selGen++;
+    return changed();
+  },
+
+  transformCancel() {
+    const s = transformSession;
+    if (!s) return info();
+    transformSession = null;
+    need().drop_snapshot(s.hidden);
+    history.restoreOpen();
+    history.abort();
+    selGen++;
+    return changed();
+  },
+
+  // Replays the unit-square transform `n` on the layer's tight bounds; the mask stays.
+  transformAgain(id: number, n: number[], interp: string) {
+    const e = need(), b = e.layer_bounds(id) as Box | null;
+    const m = b && denormalize(n, { x: b[0], y: b[1], w: b[2], h: b[3] });
+    if (!m || isIdentity(m)) throw new Error('Transform Again changed nothing.');
+    history.run('Transform Again', () => e.transform_layer(id, Float64Array.from(m), interp, false));
+    return changed();
+  },
+
+  rotateExact(id: number, kind: 'cw' | 'ccw' | '180' | 'flipH' | 'flipV', label: string) {
+    const e = need();
+    history.run(label, () => e.rotate_layer_exact(id, kind));
+    return changed();
+  },
+
   setProps(id: number, props: Partial<{
     name: string; visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
     locks: Partial<{ transparency: boolean; pixels: boolean; position: boolean }>; mask_enabled: boolean;
@@ -968,6 +1098,8 @@ const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', '
 const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd']);
 // An open move session commits before any other op, so history never sees a half move.
 const MOVE_OPS = new Set<keyof Api>(['moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds']);
+// An open transform session is cancelled by any other op: only the UI knows its current matrix.
+const TRANSFORM_OPS = new Set<keyof Api>(['transformRefine', 'transformUnrefine', 'transformCommit', 'transformCancel', 'sample', 'snapTargets', 'movingBounds', 'selectionAt']);
 
 // Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
 // displayTile, displayProgram and selectionMask are synchronous and read-only, so they skip the
@@ -982,6 +1114,7 @@ onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[] }>) =
     // Anything but a preview rerun, its end or a read cancels an open preview.
     if (previewOpen && !PREVIEW_OPS.has(op) && eng) { try { endPreview(false); } catch { /* cancel never throws */ } version++; }
     if (moveSession && !MOVE_OPS.has(op) && eng) api.moveLayerCommit();
+    if (transformSession && !TRANSFORM_OPS.has(op) && eng) postMessage({ event: 'transformCancelled', doc: api.transformCancel() } satisfies WorkerEvent);
     return handle(id, op, args);
   });
 };

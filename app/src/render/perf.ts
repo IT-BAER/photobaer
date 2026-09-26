@@ -5,7 +5,8 @@ import type { Viewer } from '../viewer.ts';
 // settles, i.e. after the full worker round trip (postMessage + engine stroke_to + postMessage back).
 export interface Marks { sampled: number; sent: number; resolved: number }
 export interface Breakdown { queue: number[]; worker: number[]; draw: number[]; work: number[] }
-export interface PerfProbe { recordSample(version: number, marks: Marks): void; samples(): number[]; breakdown(): Breakdown }
+// recordPreview: the main-thread work of one free transform preview frame (state update and overlay draw), ms.
+export interface PerfProbe { recordSample(version: number, marks: Marks): void; samples(): number[]; breakdown(): Breakdown; recordPreview(ms: number): void; previews(): number[] }
 
 /// Test-only, behind `?perftest=1` (like gpuTestHook): for each strokeTo, the time from the pointer
 /// sample that produced it to the first viewer frame that actually drew that version, split into the
@@ -31,5 +32,9 @@ export function perfTestHook(viewer: Viewer): PerfProbe | null {
     work.push(Math.max(m.resolved, readyAt) - m.sent);
     pending.delete(version);
   };
-  return { recordSample: (version, marks) => pending.set(version, marks), samples: () => total, breakdown: () => ({ queue, worker, draw, work }) };
+  const previews: number[] = [];
+  return {
+    recordSample: (version, marks) => pending.set(version, marks), samples: () => total, breakdown: () => ({ queue, worker, draw, work }),
+    recordPreview: ms => previews.push(ms), previews: () => previews,
+  };
 }

@@ -11,9 +11,10 @@ const root = new FakeDir();
 Object.defineProperty(navigator, 'storage', { value: { getDirectory: async () => root } });
 Object.defineProperty(navigator, 'locks', { value: { request: (_n: string, _o: unknown, cb: (l: object) => unknown) => cb({}) } });
 const replies = new Map<number, (m: { result?: unknown; error?: string }) => void>();
+const events: unknown[] = [];
 const g = globalThis as unknown as { postMessage(m: { id?: number; result?: unknown; error?: string }): void; onmessage: ((e: { data: unknown }) => void) | null };
 g.onmessage = null;
-g.postMessage = m => { if (m.id !== undefined) replies.get(m.id)?.(m); };
+g.postMessage = m => { if (m.id !== undefined) replies.get(m.id)?.(m); else events.push(m); };
 await import('./engine.worker.ts');
 
 let nextId = 0;
@@ -142,6 +143,26 @@ test('closing a document and creating the next one right away keeps the new auto
   const r = await (await Autosave.fromRoot(root as unknown as FileSystemDirectoryHandle)).load();
   assert.ok(r, 'the new document must be restorable');
   assert.equal(JSON.parse(r.manifest).width, 512);
+});
+
+test('an autosave never stores the hidden source of an open transform session', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, [255, 0, 0, 255]);
+  await new Promise(r => setTimeout(r, 1300));
+  await call('setProps', 1, { name: 'Renamed' });
+  await call('transformBegin', 1, 'layer', 'Free Transform');
+  await new Promise(r => setTimeout(r, 1300));
+  const r = await (await Autosave.fromRoot(root as unknown as FileSystemDirectoryHandle)).load();
+  await call('transformCancel');
+  assert.ok(r);
+  assert.ok(JSON.parse(r.manifest).layers[0].tiles.length > 0, 'the saved layer keeps its pixels');
+});
+
+test('transformCommit without an open session fails instead of reporting success', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, [255, 0, 0, 255]);
+  const r = await call('transformCommit', [1, 0, 1, 0, 1, 0, 0, 0, 1]);
+  assert.ok(r.error);
 });
 
 test('select with feather is one history step, and undo clears the selection', async () => {
@@ -448,4 +469,111 @@ test('a Move Copy duplicate gets a name no other layer has', async () => {
   const c = await call('moveLayerCommit');
   const names = (c.result as { layers: { name: string }[] }).layers.map(l => l.name);
   assert.equal(new Set(names).size, 3);
+});
+
+// A red 4 x 4 square at (2, 2) on layer 1 of a transparent 16 x 16 document, no selection.
+async function redSquare() {
+  await call('init');
+  await call('newDoc', 16, 16, 8, null);
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  await call('selectCommand', 'deselect');
+}
+const translate = (dx: number, dy: number) => [1, 0, dx, 0, 1, dy, 0, 0, 1];
+const RED = [255, 0, 0, 255], CLEAR = [0, 0, 0, 0];
+
+test('a free transform session hides the layer, refines on request and commits one Free Transform step', async () => {
+  await redSquare();
+  const b = (await call('transformBegin', 1, 'layer', 'Free Transform')).result as { bounds: number[]; image: { x: number; y: number; w: number; h: number; f: number }; data: ArrayBuffer };
+  assert.deepEqual(b.bounds, [2, 2, 4, 4]);
+  assert.deepEqual(b.image, { x: 2, y: 2, w: 4, h: 4, f: 1 });
+  assert.deepEqual(Array.from(new Uint8Array(b.data).subarray(0, 4)), RED, 'the preview source holds the layer pixels');
+  assert.deepEqual(await px(3, 3), CLEAR, 'the live document shows the layer without its pixels');
+  await call('transformRefine', translate(8, 0));
+  assert.deepEqual(await px(11, 3), RED);
+  await call('transformUnrefine');
+  assert.deepEqual(await px(11, 3), CLEAR);
+  const c = await call('transformCommit', translate(8, 8));
+  const doc = c.result as { undoLabel: string; history: { labels: string[] } };
+  assert.equal(doc.undoLabel, 'Free Transform');
+  assert.equal(doc.history.labels.filter(l => l === 'Free Transform').length, 1);
+  assert.deepEqual([await px(11, 11), await px(3, 3)], [RED, CLEAR]);
+  await call('undo');
+  assert.deepEqual([await px(3, 3), await px(11, 11)], [RED, CLEAR]);
+});
+
+test('cancel and an unmodified commit restore the document with no history step', async () => {
+  await redSquare();
+  await call('transformBegin', 1, 'layer', 'Free Transform');
+  await call('transformRefine', translate(5, 0));
+  const c = await call('transformCancel');
+  assert.equal((c.result as { undoLabel: string }).undoLabel, 'Deselect');
+  assert.deepEqual(await px(3, 3), RED);
+  await call('transformBegin', 1, 'layer', 'Free Transform');
+  const n = await call('transformCommit', null);
+  assert.equal((n.result as { undoLabel: string }).undoLabel, 'Deselect');
+  assert.deepEqual(await px(3, 3), RED);
+});
+
+test('a session on selected pixels lifts them and moves them with the selection', async () => {
+  await redSquare();
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 2, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  const b = (await call('transformBegin', 1, 'pixels', 'Free Transform')).result as { bounds: number[] };
+  assert.deepEqual(b.bounds, [2, 2, 2, 4]);
+  assert.deepEqual([await px(2, 3), await px(4, 3)], [CLEAR, RED]);
+  await call('transformCommit', translate(10, 0));
+  assert.deepEqual([await px(12, 3), await px(2, 3), await px(4, 3)], [RED, CLEAR, RED]);
+  assert.equal((await call('selectionAt', 12, 3)).result, 255);
+  assert.equal((await call('selectionAt', 2, 3)).result, 0);
+});
+
+test('Transform Selection needs a selection and transforms only the selection', async () => {
+  await redSquare();
+  assert.equal((await call('transformBegin', 1, 'selection', 'Transform Selection')).error, 'Make a selection first.');
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  const b = (await call('transformBegin', 1, 'selection', 'Transform Selection')).result as { image: unknown };
+  assert.equal(b.image, null);
+  const c = await call('transformCommit', [2, 0, 0, 0, 2, 0, 0, 0, 1]);
+  assert.equal((c.result as { undoLabel: string }).undoLabel, 'Transform Selection');
+  assert.equal((c.result as { selection: { bounds: number[] } }).selection.bounds.join(), '0,0,8,8');
+  assert.deepEqual(await px(3, 3), RED);
+});
+
+test('another op during a transform session cancels it, tells the UI and late session calls do nothing', async () => {
+  await redSquare();
+  await call('transformBegin', 1, 'layer', 'Free Transform');
+  await call('transformRefine', translate(8, 0));
+  events.length = 0;
+  const r = await call('addLayer', 1);
+  assert.equal((r.result as { undoLabel: string }).undoLabel, 'New Layer');
+  const ev = events.filter(e => (e as { event: string }).event === 'transformCancelled') as { doc: { undoLabel: string } }[];
+  assert.deepEqual(ev.map(e => e.doc.undoLabel), ['Deselect'], 'one event carrying the document after the cancel');
+  assert.deepEqual(await px(3, 3), RED);
+  for (const op of ['transformRefine', 'transformUnrefine'] as const) {
+    const late = await call(op, translate(8, 0));
+    assert.equal(late.error, undefined, op);
+  }
+  assert.equal((await call('transformCommit', translate(8, 0))).error, 'The transform was cancelled.', 'a late commit is reported, not recorded');
+  assert.deepEqual([await px(3, 3), await px(11, 3)], [RED, CLEAR]);
+  assert.equal((await call('transformCancel')).error, undefined);
+  assert.equal(events.filter(e => (e as { event: string }).event === 'transformCancelled').length, 1, 'an explicit cancel is not reported back');
+});
+
+test('rotateExact is a single step under the given label', async () => {
+  await redSquare();
+  const r = await call('rotateExact', 1, 'flipH', 'Flip Horizontal');
+  assert.equal((r.result as { undoLabel: string }).undoLabel, 'Flip Horizontal');
+});
+
+test('transformAgain replays a normalized transform on the layer tight bounds as one Transform Again step', async () => {
+  await redSquare();
+  // Scale 2 about the centre of the unit square.
+  const n = [2, 0, -0.5, 0, 2, -0.5, 0, 0, 1];
+  const a = await call('transformAgain', 1, n, 'nearest');
+  assert.equal((a.result as { undoLabel: string }).undoLabel, 'Transform Again');
+  assert.deepEqual([await px(0, 0), await px(7, 7), await px(8, 8)], [RED, RED, CLEAR]);
+  assert.equal((await call('transformAgain', 1, [1, 0, 0, 0, 1, 0, 0, 0, 1], 'bicubic')).error, 'Transform Again changed nothing.');
+  await call('addLayer', 1);
+  assert.equal((await call('transformAgain', 2, n, 'bicubic')).error, 'Transform Again changed nothing.');
+  assert.equal(((await call('undo')).result as { undoLabel: string }).undoLabel, 'Transform Again');
 });

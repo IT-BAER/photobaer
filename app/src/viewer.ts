@@ -27,6 +27,8 @@ export class Viewer {
   view: View = { zoom: 1, rot: 0, cx: 0, cy: 0 };
   onView: (v: View) => void = () => {};
   onPointer: (e: ToolPointerEvent) => void = () => {};
+  // A modal session (free transform) takes the pointer from any tool; Space and the middle button still pan.
+  intercept: ((e: ToolPointerEvent) => void) | null = null;
   // Fires once per version, the first time a drawn frame has every visible-level tile it needs
   // (ignoring the coarse top-level fallback, which a live stroke's dirty rect always keeps stale).
   // `readyAt` is when the last tile the frame needed was stored (performance.now()).
@@ -227,6 +229,9 @@ export class Viewer {
     return slot;
   }
 
+  #mode(): ViewerTool { return this.#spring ?? (this.intercept ? null : this.#tool); }
+  #emit(e: ToolPointerEvent) { (this.intercept ?? this.onPointer)(e); }
+
   #bindInput() {
     const c = this.#canvas;
     let last: [number, number] | null = null;
@@ -248,14 +253,14 @@ export class Viewer {
       c.setPointerCapture(e.pointerId);
       last = local(e);
       downAt = last;
-      const mode = e.button === 1 ? 'hand' : this.#spring ?? this.#tool;
-      if (mode !== 'hand' && mode !== 'zoom' && mode !== 'zoomOut' && mode !== 'rotate') this.onPointer(toolEvent('down', e, last));
+      const mode = e.button === 1 ? 'hand' : this.#mode();
+      if (mode !== 'hand' && mode !== 'zoom' && mode !== 'zoomOut' && mode !== 'rotate') this.#emit(toolEvent('down', e, last));
       e.preventDefault();
     });
     c.addEventListener('pointermove', e => {
       if (!last) return;
       const p = local(e);
-      const mode = e.buttons & 4 ? 'hand' : this.#spring ?? this.#tool;
+      const mode = e.buttons & 4 ? 'hand' : this.#mode();
       if (mode === 'rotate') {
         const a0 = Math.atan2(last[1] - this.#h / 2, last[0] - this.#w / 2);
         const a1 = Math.atan2(p[1] - this.#h / 2, p[0] - this.#w / 2);
@@ -263,13 +268,13 @@ export class Viewer {
       } else if (mode === 'hand') {
         this.setView(panBy(this.view, p[0] - last[0], p[1] - last[1]));
       } else if (mode !== 'zoom' && mode !== 'zoomOut') {
-        this.onPointer(toolEvent('move', e, p));
+        this.#emit(toolEvent('move', e, p));
       }
       last = p;
     });
     const end = (e: PointerEvent) => {
       if (last && downAt) {
-        const mode = e.button === 1 ? 'hand' : this.#spring ?? this.#tool;
+        const mode = e.button === 1 ? 'hand' : this.#mode();
         const clicked = Math.hypot(last[0] - downAt[0], last[1] - downAt[1]) < 3;
         if (mode === 'zoom' || mode === 'zoomOut') {
           if (clicked) {
@@ -277,7 +282,7 @@ export class Viewer {
             this.setView(zoomAt(this.view, out ? 0.5 : 2, last[0], last[1], this.#w, this.#h));
           }
         } else if (mode !== 'hand' && mode !== 'rotate') {
-          this.onPointer(toolEvent(e.type === 'pointercancel' ? 'cancel' : 'up', e, last));
+          this.#emit(toolEvent(e.type === 'pointercancel' ? 'cancel' : 'up', e, last));
         }
       }
       last = null;

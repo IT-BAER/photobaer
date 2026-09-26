@@ -12,6 +12,13 @@ export interface CursorState { x: number; y: number; sizeDoc: number; shape: 'ro
 export interface BoxRect { x: number; y: number; w: number; h: number }
 export const HANDLE_CURSORS = ['nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize'];
 
+// Free transform overlay: the 8 dest handle points (clockwise from the top-left corner, corners at
+// even indexes), the dest reference point and an optional size readout, all in document px.
+export interface TransformBox { handles: [number, number][]; ref: [number, number]; dims: { text: string; at: [number, number] } | null }
+// Preview source: image pixel (i, j) sits at document ((x + i) / f, (y + j) / f) before the
+// row-major 3x3 matrix `m` maps it.
+export interface TransformImage { source: CanvasImageSource; x: number; y: number; w: number; h: number; f: number; m: number[] }
+
 // Handle points clockwise from the top-left corner (corners at even indexes), in document px.
 export function boxHandles(r: BoxRect): [number, number][] {
   const { x, y, w, h } = r, mx = x + w / 2, my = y + h / 2;
@@ -31,6 +38,9 @@ export class SelectionOverlay {
   #cursor: CursorState | null = null;
   #guides: [number, number, number, number][] = [];
   #box: BoxRect | null = null;
+  #transform: TransformBox | null = null;
+  #image: TransformImage | null = null;
+  #antsMatrix: number[] | null = null;
   #dash = 0;
   #timer: ReturnType<typeof setInterval> | undefined;
   #last: [View, number, number, number] | null = null;
@@ -70,6 +80,19 @@ export class SelectionOverlay {
     this.#box = r;
   }
 
+  setTransform(t: TransformBox | null) {
+    this.#transform = t;
+  }
+
+  setImage(img: TransformImage | null) {
+    this.#image = img;
+  }
+
+  // Draws the marching ants mapped through a row-major 3x3 matrix (the outline of a transform preview).
+  setAntsMatrix(m: number[] | null) {
+    this.#antsMatrix = m;
+  }
+
   // Quick mask: `coverage` is the selectionMask byte buffer (255 = selected); unselected pixels
   // are drawn as a 50% red tint. Pass null to go back to marching ants.
   setMaskOverlay(coverage: Uint8Array | null, w: number, h: number, scale: number) {
@@ -102,11 +125,14 @@ export class SelectionOverlay {
     const ctx = this.#ctx;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
+    if (this.#image) this.#drawImage(this.#image, view, cssW, cssH, dpr);
     if (this.#hidden) return;
     if (this.#mask) this.#drawMask(this.#mask, view, cssW, cssH, dpr);
+    else if (this.#ants && this.#antsMatrix) this.#strokeSegments(this.#mapSegments(this.#ants, this.#antsScale, this.#antsMatrix), view, cssW, cssH, dpr, 1);
     else if (this.#ants) this.#strokeSegments(this.#segmentsFor(this.#ants), view, cssW, cssH, dpr, this.#antsScale);
     if (this.#preview) this.#strokeSegments(this.#previewSegments(this.#preview), view, cssW, cssH, dpr, 1);
     if (this.#box) this.#drawBox(this.#box, view, cssW, cssH, dpr);
+    if (this.#transform) this.#drawTransform(this.#transform, view, cssW, cssH, dpr);
     if (this.#guides.length) this.#drawGuides(view, cssW, cssH, dpr);
     if (this.#cursor) this.#drawCursor(this.#cursor, view, cssW, cssH, dpr);
   }
@@ -168,6 +194,106 @@ export class SelectionOverlay {
       ctx.fillRect(x - 3.5, y - 3.5, 7, 7);
       ctx.strokeRect(x - 3.5, y - 3.5, 7, 7);
     }
+  }
+
+  // Affine matrices draw in one call; a projective one is drawn as an 8 x 8 mesh of affine triangles.
+  #drawImage(img: TransformImage, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx, m = img.m;
+    const o = docToScreen(view, 0, 0, cssW, cssH), ex = docToScreen(view, 1, 0, cssW, cssH), ey = docToScreen(view, 0, 1, cssW, cssH);
+    const [a, b, c, d, e, f] = [(ex[0] - o[0]) * dpr, (ex[1] - o[1]) * dpr, (ey[0] - o[0]) * dpr, (ey[1] - o[1]) * dpr, o[0] * dpr, o[1] * dpr];
+    const toDevice = (i: number, j: number): [number, number] => {
+      const x = (img.x + i) / img.f, y = (img.y + j) / img.f, w = m[6] * x + m[7] * y + m[8];
+      const u = (m[0] * x + m[1] * y + m[2]) / w, v = (m[3] * x + m[4] * y + m[5]) / w;
+      return [a * u + c * v + e, b * u + d * v + f];
+    };
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'low';
+    if (m[6] === 0 && m[7] === 0) {
+      const p0 = toDevice(0, 0), px = toDevice(1, 0), py = toDevice(0, 1);
+      ctx.setTransform(px[0] - p0[0], px[1] - p0[1], py[0] - p0[0], py[1] - p0[1], p0[0], p0[1]);
+      ctx.drawImage(img.source, 0, 0);
+      return;
+    }
+    const n = 8, sx = img.w / n, sy = img.h / n;
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const s00: [number, number] = [i * sx, j * sy], s10: [number, number] = [(i + 1) * sx, j * sy];
+        const s01: [number, number] = [i * sx, (j + 1) * sy], s11: [number, number] = [(i + 1) * sx, (j + 1) * sy];
+        for (const tri of [[s00, s10, s11], [s00, s11, s01]]) this.#drawTriangle(img, tri, tri.map(p => toDevice(p[0], p[1])));
+      }
+    }
+  }
+
+  // Draws the source triangle `s` (image px) onto the device triangle `t`, clipped with a 0.5 px
+  // overlap so neighbouring triangles leave no seam. Only the triangle's source box is drawn.
+  #drawTriangle(img: TransformImage, s: [number, number][], t: [number, number][]) {
+    const ctx = this.#ctx;
+    const [[x0, y0], [x1, y1], [x2, y2]] = s, [[u0, v0], [u1, v1], [u2, v2]] = t;
+    const det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+    if (!det) return;
+    const a = ((u1 - u0) * (y2 - y0) - (u2 - u0) * (y1 - y0)) / det, c = ((u2 - u0) * (x1 - x0) - (u1 - u0) * (x2 - x0)) / det;
+    const b = ((v1 - v0) * (y2 - y0) - (v2 - v0) * (y1 - y0)) / det, d = ((v2 - v0) * (x1 - x0) - (v1 - v0) * (x2 - x0)) / det;
+    const cx = (u0 + u1 + u2) / 3, cy = (v0 + v1 + v2) / 3;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.beginPath();
+    for (const [u, v] of t) {
+      const l = Math.hypot(u - cx, v - cy) || 1;
+      ctx.lineTo(u + ((u - cx) / l) * 0.5, v + ((v - cy) / l) * 0.5);
+    }
+    ctx.clip();
+    ctx.setTransform(a, b, c, d, u0 - a * x0 - c * y0, v0 - b * x0 - d * y0);
+    const sx = Math.max(0, Math.floor(Math.min(x0, x1, x2)) - 1), sy = Math.max(0, Math.floor(Math.min(y0, y1, y2)) - 1);
+    const sw = Math.min(img.w, Math.ceil(Math.max(x0, x1, x2)) + 1) - sx, sh = Math.min(img.h, Math.ceil(Math.max(y0, y1, y2)) + 1) - sy;
+    ctx.drawImage(img.source, sx, sy, sw, sh, sx, sy, sw, sh);
+    ctx.restore();
+  }
+
+  #drawTransform(t: TransformBox, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const pts = t.handles.map(([x, y]) => docToScreen(view, x, y, cssW, cssH));
+    const color = getComputedStyle(this.#canvas).getPropertyValue('--transform-box');
+    ctx.beginPath();
+    for (let i = 0; i < 8; i += 2) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath();
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    for (const [x, y] of pts) {
+      ctx.fillRect(x - 3.5, y - 3.5, 7, 7);
+      ctx.strokeRect(x - 3.5, y - 3.5, 7, 7);
+    }
+    const [rx, ry] = docToScreen(view, t.ref[0], t.ref[1], cssW, cssH);
+    ctx.beginPath();
+    ctx.arc(rx, ry, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(rx - 7, ry); ctx.lineTo(rx + 7, ry);
+    ctx.moveTo(rx, ry - 7); ctx.lineTo(rx, ry + 7);
+    ctx.stroke();
+    if (t.dims) {
+      const [dx, dy] = docToScreen(view, t.dims.at[0], t.dims.at[1], cssW, cssH);
+      ctx.font = '11px system-ui, sans-serif';
+      const w = ctx.measureText(t.dims.text).width + 10;
+      ctx.fillStyle = color;
+      ctx.fillRect(dx + 12, dy + 12, w, 18);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(t.dims.text, dx + 17, dy + 25);
+    }
+  }
+
+  #mapSegments(flat: Float32Array, scale: number, m: number[]): [number, number, number, number][] {
+    const map = (x: number, y: number) => {
+      const w = m[6] * x + m[7] * y + m[8];
+      return [(m[0] * x + m[1] * y + m[2]) / w, (m[3] * x + m[4] * y + m[5]) / w];
+    };
+    const out: [number, number, number, number][] = [];
+    for (let i = 0; i < flat.length; i += 4) out.push([...map(flat[i] * scale, flat[i + 1] * scale), ...map(flat[i + 2] * scale, flat[i + 3] * scale)] as [number, number, number, number]);
+    return out;
   }
 
   #segmentsFor(flat: Float32Array): [number, number, number, number][] {

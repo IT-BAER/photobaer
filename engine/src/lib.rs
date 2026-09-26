@@ -552,10 +552,11 @@ impl Engine {
     }
 
     /// Resamples a layer's pixels and mask by a forward 3x3 matrix (row-major, source -> dest
-    /// document px): `interp` is nearest|bilinear|bicubic|bicubicSharper|bicubicSmoother|lanczos3.
-    pub fn transform_layer(&mut self, id: u32, m: Vec<f64>, interp: &str) -> Result<(), JsError> {
+    /// document px): `interp` is nearest|bilinear|bicubic|bicubicSharper|bicubicSmoother|lanczos3;
+    /// `mask` false leaves the layer mask as it is.
+    pub fn transform_layer(&mut self, id: u32, m: Vec<f64>, interp: &str, mask: bool) -> Result<(), JsError> {
         let m = resample::matrix(&m).map_err(err)?;
-        self.0.doc.transform_layer(id, &m, Interp::parse(interp).map_err(err)?).map_err(err)
+        self.0.doc.transform_layer_with(id, &m, Interp::parse(interp).map_err(err)?, mask).map_err(err)
     }
 
     pub fn transform_selection(&mut self, m: Vec<f64>, interp: &str) -> Result<(), JsError> {

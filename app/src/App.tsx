@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { client } from './client.ts';
 import { Viewer, type ToolPointerEvent, type ViewerTool } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
@@ -18,8 +18,14 @@ import { PAINT_MODES, TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveTo
 import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
 import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
 import { digitOption, dragResize, showCrosshair, stepHardness, stepSize, type DigitState } from './shell/brushKeys.ts';
-import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
-import { constrainedSnap, type Rect, type SnapAxes } from './shell/snapping.ts';
+import { HANDLE_CURSORS, SelectionOverlay, boxHandles, type TransformImage } from './shell/SelectionOverlay.ts';
+import { constrainedSnap, snapOffset, type Rect, type SnapAxes } from './shell/snapping.ts';
+import { MODES, TransformBar, TransformBarStore } from './shell/TransformBar.tsx';
+import { IDENTITY, isIdentity, normalize, type Mat3, type Pt } from './transform/matrix.ts';
+import {
+  commandState, drag as dragState, handlePoints, hitTest, initialState, matrixOf, numericValues, opFor, refPoint, setNumeric, setReference,
+  setReferenceNormalized, type Command, type Hit, type Mode, type Mods, type TState,
+} from './transform/session.ts';
 import { antsLevel, contour, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from './shell/selecttools.ts';
 import { levelFor } from './view.ts';
 import { BrushLibrary } from './brushes/store.ts';
@@ -78,7 +84,7 @@ interface StrokeForm { width: number; color: Rgb; location: StrokeSelectionParam
 const STROKE_DEFAULT: StrokeForm = { width: 3, color: [0, 0, 0], location: 'inside', mode: 'normal', opacity: 100, preserve: false };
 type CreateResult = DocInfo & { created: number };
 type SelectAfter = (d: DocInfo) => Active;
-interface Item { label: string; keys?: string; run: () => void; off?: boolean }
+interface Item { label: string; keys?: string; run: () => void; off?: boolean; sub?: Item[] }
 
 // Default and undo/redo fallback: the topmost root layer, pixels target.
 function fallbackActive(d: DocInfo): Active {
@@ -192,6 +198,19 @@ export function App() {
   const polygonRef = useRef<PolygonLasso | null>(null);
   const polygonModeRef = useRef<SelectMode>('new');
   const lastPolyDownRef = useRef<{ t: number; x: number; y: number } | null>(null);
+  type TSession = {
+    s: TState; mode: Mode; linked: boolean; snap: boolean; kind: 'layer' | 'pixels' | 'selection'; img: TransformImage | null;
+    // Earlier states for Ctrl+Z inside the session.
+    undo: TState[];
+    gen: number; refine: 'none' | 'pending' | 'done'; timer: ReturnType<typeof setTimeout> | undefined; frame: number;
+    drag: { hit: Exclude<Hit, null>; start: TState; from: Pt; to: Pt; mods: Mods } | null;
+    tx: number[]; ty: number[]; lock: SnapAxes; store: TransformBarStore; off: () => void;
+  };
+  const transformRef = useRef<TSession | null>(null);
+  // The last committed transform relative to the unit square of its source bounds.
+  const againRef = useRef<{ n: Mat3; interp: string } | null>(null);
+  const [transformStore, setTransformStore] = useState<TransformBarStore | null>(null);
+  const [transformMenu, setTransformMenu] = useState<[number, number] | null>(null);
   const polygonActionsRef = useRef<{ active: () => boolean; commit: () => void; cancel: () => void; removeLast: () => void } | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -228,6 +247,8 @@ export function App() {
 
   async function run(label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) {
     setMenu(null);
+    // Any other worker call cancels an open transform session.
+    if (transformRef.current) endTransform(false);
     if (label) setBusy(label);
     try {
       show(await p(), selectAfter);
@@ -419,6 +440,16 @@ export function App() {
       { label: 'Fill with Background Color', keys: 'Ctrl+Backspace', run: () => quickFill(bg, 'Fill with Background Color'), off: !has || !active },
       { label: 'Stroke…', run: () => openPreviewDialog('stroke'), off: !doc?.selection || !active },
       { label: 'Clear', keys: 'Delete', run: () => active && run('Clearing…', () => client.call('clearSelected', active.id, quickMask ? 'selection' : active.target)), off: !doc?.selection || !active },
+      { label: 'Free Transform', keys: 'Ctrl+T', run: () => void startTransform(), off: !has || !active },
+      {
+        label: 'Transform', keys: '›', run: () => {}, off: !has || !active, sub: [
+          { label: 'Again', keys: 'Shift+Ctrl+T', run: transformAgain, off: !!transformStore },
+          ...MODES.filter(([m]) => m !== 'free').map(([m, label]) => ({ label, run: () => transformMode(m), off: m === 'warp' })),
+          ...['Split Warp Horizontally', 'Split Warp Vertically', 'Split Warp Crosswise', 'Remove Warp Split'].map(label => ({ label, run: () => {}, off: true })),
+          ...([['180', 'Rotate 180°'], ['cw', 'Rotate 90° Clockwise'], ['ccw', 'Rotate 90° Counter Clockwise'], ['flipH', 'Flip Horizontal'], ['flipV', 'Flip Vertical']] as [Command, string][])
+            .map(([c, label]) => ({ label, run: () => transformRemap(c, label) })),
+        ],
+      },
     ],
     Layer: [
       { label: 'New Layer', run: newLayer, off: !has },
@@ -451,6 +482,7 @@ export function App() {
       { label: quickMask ? 'Exit Quick Mask Mode' : 'Edit in Quick Mask Mode', keys: 'Q', run: () => { setMenu(null); setQuickMask(v => !v); }, off: !has },
       { label: 'Load Selection…', run: () => { setMenu(null); loadSelDialog.current?.showModal(); }, off: !doc?.channels.length },
       { label: 'Save Selection…', run: () => { setMenu(null); saveSelDialog.current?.showModal(); }, off: !doc?.selection },
+      { label: 'Transform Selection', run: () => void startTransform('free', true), off: !has || !!transformStore },
     ],
     View: [
       { label: 'Zoom in', keys: 'Ctrl++', run: () => { setMenu(null); viewer.current?.zoomBy(2); }, off: !has },
@@ -466,7 +498,10 @@ export function App() {
 
   useEffect(() => {
     let alive = true;
-    client.onEvent = e => { if (e.event === 'autosave') setAutosave(e.state); };
+    client.onEvent = e => {
+      if (e.event === 'autosave') setAutosave(e.state);
+      else if (e.event === 'transformCancelled' && closeTransform()) show(e.doc);
+    };
     (async () => {
       try {
         const r = await createRenderer(canvas.current!, new URLSearchParams(location.search).get('renderer'));
@@ -1025,6 +1060,203 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showTransform, active?.id, doc?.version]);
 
+  // Free transform session (Ctrl+T): pointer, keys, options bar and context menu edit a TState; the
+  // overlay previews the lifted pixels and 500 ms after the last change the worker renders the result.
+  function transformDraw(t: TSession) {
+    t.frame = 0;
+    const t0 = performance.now(), m = matrixOf(t.s), o = overlayRef.current!, g = t.drag;
+    o.setImage(t.img && t.refine !== 'done' ? { ...t.img, m } : null);
+    o.setAntsMatrix(t.kind !== 'layer' ? m : null);
+    const b = t.s.bounds, scaling = g?.hit.kind === 'handle' && g.hit.i % 2 === 0 && opFor(g.hit, g.mods, t.mode) === 'scale';
+    const dims = scaling ? { text: `${Math.round(Math.abs(t.s.p.sx) * b.w)} × ${Math.round(Math.abs(t.s.p.sy) * b.h)} px`, at: g!.to } : null;
+    o.setTransform({ handles: handlePoints(t.s), ref: refPoint(t.s), dims });
+    redrawOverlay();
+    perfRef.current?.recordPreview(performance.now() - t0);
+  }
+  function transformRefine(t: TSession) {
+    if (transformRef.current !== t) return;
+    const gen = t.gen;
+    t.refine = 'pending';
+    client.call('transformRefine', matrixOf(t.s)).then(d => {
+      if (transformRef.current !== t || t.gen !== gen) return;
+      t.refine = 'done';
+      show(d);
+      transformDraw(t);
+    }, err => {
+      if (t.gen === gen) t.refine = 'none';
+      setError((err as Error).message);
+    });
+  }
+  function transformChange(t: TSession, s: TState, checkpoint: boolean) {
+    if (checkpoint) t.undo.push(t.s);
+    t.s = s;
+    t.gen++;
+    if (t.refine !== 'none') {
+      t.refine = 'none';
+      client.call('transformUnrefine').then(d => { if (transformRef.current === t) show(d); }, err => setError((err as Error).message));
+    }
+    t.store.set({ values: numericValues(s) });
+    t.frame ||= requestAnimationFrame(() => transformDraw(t));
+    clearTimeout(t.timer);
+    t.timer = setTimeout(() => transformRefine(t), 500);
+  }
+  function transformDragStep(t: TSession) {
+    const g = t.drag!, zoom = viewer.current!.view.zoom;
+    const next = dragState(g.start, g.hit, opFor(g.hit, g.mods, t.mode), g.mods, g.from, g.to, {
+      linked: t.linked,
+      snapMove: t.snap ? (box, dx, dy) => { const r = snapOffset(box, t.tx, t.ty, dx, dy, t.lock, zoom); t.lock = r.lock; return [r.dx, r.dy]; } : undefined,
+      snapPoint: t.snap ? p => { const r = snapOffset({ x: p[0], y: p[1], w: 0, h: 0 }, t.tx, t.ty, 0, 0, { x: null, y: null }, zoom); return [p[0] + r.dx, p[1] + r.dy]; } : undefined,
+    });
+    if (next) transformChange(t, next, false);
+  }
+  const eventMods = (e: { shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean }): Mods => ({ shift: e.shiftKey, alt: e.altKey, ctrl: e.ctrlKey || e.metaKey });
+  function transformPointer(t: TSession, e: ToolPointerEvent) {
+    if (e.type === 'down') {
+      const v = viewer.current!, toScreen = (p: Pt) => v.docToScreen(p[0], p[1]);
+      const hit = hitTest(t.s, toScreen, toScreen([e.x, e.y]));
+      if (!hit) { endTransform(true); return; }
+      t.lock = { x: null, y: null };
+      t.drag = { hit, start: t.s, from: [e.x, e.y], to: [e.x, e.y], mods: eventMods(e) };
+      return;
+    }
+    const g = t.drag;
+    if (!g) return;
+    g.to = [e.x, e.y];
+    g.mods = eventMods(e);
+    if (e.type === 'cancel') transformChange(t, g.start, false);
+    else transformDragStep(t);
+    if (e.type === 'move') return;
+    t.drag = null;
+    if (e.type === 'up' && t.s !== g.start) t.undo.push(g.start);
+    t.frame ||= requestAnimationFrame(() => transformDraw(t));
+  }
+  // A modifier pressed or released mid-drag re-evaluates the operation.
+  function transformModifier(e: KeyboardEvent) {
+    const t = transformRef.current;
+    if (!t?.drag || !/^(Shift|Alt|Control|Meta)$/.test(e.key)) return false;
+    e.preventDefault();
+    t.drag.mods = eventMods(e);
+    transformDragStep(t);
+    return true;
+  }
+  function transformKey(e: KeyboardEvent, k: string, ctrl: boolean): boolean {
+    const t = transformRef.current;
+    if (!t) return false;
+    if (transformModifier(e)) return true;
+    if (k === 'enter') { e.preventDefault(); endTransform(true); }
+    else if (k === 'escape') { e.preventDefault(); endTransform(false); }
+    else if (ctrl && !e.shiftKey && k === 'z') {
+      e.preventDefault();
+      const prev = t.drag ? undefined : t.undo.pop();
+      if (prev) transformChange(t, prev, false);
+    } else if (!ctrl && k.startsWith('arrow')) {
+      e.preventDefault();
+      const n = e.shiftKey ? 10 : 1, [x, y] = refPoint(t.s);
+      transformChange(t, setReference(t.s, [x + (k === 'arrowleft' ? -n : k === 'arrowright' ? n : 0), y + (k === 'arrowup' ? -n : k === 'arrowdown' ? n : 0)]), true);
+    } else if (k === ' ' || (ctrl && ['+', '=', '-', '0', '1'].includes(k))) return false;
+    // Any other shortcut could reach the worker, which cancels the session behind the UI's back.
+    else if (ctrl || e.altKey) e.preventDefault();
+    return true;
+  }
+  function withTransform(f: (t: TSession) => void) {
+    const t = transformRef.current;
+    setTransformMenu(null);
+    if (t) f(t);
+  }
+  const transformCommand = (c: Command) => withTransform(t => transformChange(t, commandState(t.s, c), true));
+  const setTransformMode = (t: TSession, m: Mode) => { t.mode = m; t.store.set({ mode: m }); };
+  // Edit > Transform: inside a session these change it, outside they start one or act directly.
+  function transformMode(m: Mode) {
+    if (transformRef.current) withTransform(t => setTransformMode(t, m));
+    else void startTransform(m);
+  }
+  function transformRemap(c: Command, label: string) {
+    setMenu(null);
+    const a = activeRef.current;
+    if (transformRef.current) transformCommand(c);
+    else if (a) void run(null, () => client.call('rotateExact', a.id, c, label));
+  }
+  function transformAgain() {
+    const g = againRef.current, a = activeRef.current;
+    if (!g) { setMenu(null); setError('There is no transform to repeat.'); return; }
+    if (a) void run(null, () => client.call('transformAgain', a.id, g.n, g.interp));
+  }
+
+  async function startTransform(mode: Mode = 'free', selection = false) {
+    setMenu(null);
+    const d = docRef.current, a = activeRef.current, v = viewer.current, c = canvas.current;
+    if (!d || !a || !v || !c || transformRef.current) return;
+    const n = nodeById(d.layers, a.id);
+    if (!n) return;
+    const kind = selection ? 'selection' : d.selection ? 'pixels' : 'layer';
+    if (kind === 'pixels' && n.locks.pixels) { setError('Could not use the layer because it is locked.'); return; }
+    if (kind === 'layer' && n.locks.position) { setError(`${n.name} is locked and can't be moved.`); return; }
+    let r;
+    try {
+      r = await client.call('transformBegin', a.id, kind, selection ? 'Transform Selection' : 'Free Transform');
+    } catch (err) {
+      setError((err as Error).message);
+      return;
+    }
+    let img: TransformImage | null = null;
+    if (r.image && r.data) {
+      const src = document.createElement('canvas');
+      src.width = r.image.w;
+      src.height = r.image.h;
+      src.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(r.data), r.image.w, r.image.h), 0, 0);
+      img = { source: src, ...r.image, m: IDENTITY };
+    }
+    const s = initialState({ x: r.bounds[0], y: r.bounds[1], w: r.bounds[2], h: r.bounds[3] });
+    const store = new TransformBarStore({ mode, values: numericValues(s), linked: true, snap: true });
+    const dbl = () => endTransform(true);
+    const ctx = (e: MouseEvent) => { e.preventDefault(); setTransformMenu([e.clientX, e.clientY]); };
+    const keyUp = (e: KeyboardEvent) => { transformModifier(e); };
+    c.addEventListener('dblclick', dbl);
+    c.addEventListener('contextmenu', ctx);
+    addEventListener('keyup', keyUp);
+    const t: TSession = {
+      s, mode, linked: true, snap: true, kind, img, undo: [], gen: 0, refine: 'none', timer: undefined, frame: 0, drag: null,
+      tx: [], ty: [], lock: { x: null, y: null }, store,
+      off: () => { c.removeEventListener('dblclick', dbl); c.removeEventListener('contextmenu', ctx); removeEventListener('keyup', keyUp); },
+    };
+    transformRef.current = t;
+    v.intercept = e => transformPointer(t, e);
+    setTransformStore(store);
+    show(r);
+    transformDraw(t);
+    client.call('snapTargets', a.id).then(g => { t.tx = g.x; t.ty = g.y; }, () => {});
+  }
+  // Tears down the session UI only; the caller settles the worker side.
+  function closeTransform() {
+    const t = transformRef.current;
+    if (!t) return null;
+    transformRef.current = null;
+    clearTimeout(t.timer);
+    cancelAnimationFrame(t.frame);
+    t.off();
+    if (viewer.current) viewer.current.intercept = null;
+    const o = overlayRef.current;
+    o?.setImage(null);
+    o?.setTransform(null);
+    o?.setAntsMatrix(null);
+    redrawOverlay();
+    setTransformStore(null);
+    setTransformMenu(null);
+    return t;
+  }
+  // Commits (one undo step, nothing when unmodified) or cancels the open session.
+  function endTransform(commit: boolean) {
+    const t = closeTransform();
+    if (!t) return;
+    const m = isIdentity(matrixOf(t.s)) ? null : matrixOf(t.s);
+    void run(null, async () => {
+      if (!commit) return client.call('transformCancel');
+      const d = await client.call('transformCommit', m);
+      if (m) againRef.current = { n: normalize(m, t.s.bounds), interp: 'bicubic' };
+      return d;
+    });
+  }
+
   // Brush, pencil and eraser: pointermove samples are coalesced and sent as one strokeTo per
   // animation frame; the smoother runs on the document-space samples before they are queued.
   // Samples carry x, y, pressure (stride 3) or also tiltX, tiltY, twist for pen strokes (stride 6).
@@ -1267,7 +1499,7 @@ export function App() {
   }
 
   useEffect(() => {
-    const find = (pred: (label: string) => boolean) => Object.values(menusRef.current).flat().find(i => pred(i.label));
+    const find = (pred: (label: string) => boolean) => Object.values(menusRef.current).flat().flatMap(i => [i, ...(i.sub ?? [])]).find(i => pred(i.label));
     const trigger = (label: string, e: KeyboardEvent) => {
       const it = find(l => l.startsWith(label));
       e.preventDefault();
@@ -1289,6 +1521,7 @@ export function App() {
         if (k === 'backspace') { e.preventDefault(); polygonActionsRef.current.removeLast(); return; }
         if (k === 'enter') { e.preventDefault(); polygonActionsRef.current.commit(); return; }
       }
+      if (transformKey(e, k, ctrl)) return;
       if (ctrl && e.altKey && k === 'n') trigger('New', e);
       else if (ctrl && k === 'o') trigger('Open', e);
       else if (ctrl && k === 's') trigger('Save project', e);
@@ -1299,6 +1532,8 @@ export function App() {
       else if (ctrl && k === 'd') trigger('Deselect', e);
       else if (ctrl && e.shiftKey && k === 'i') trigger('Inverse', e);
       else if (ctrl && k === 'i') trigger('Invert', e);
+      else if (ctrl && e.shiftKey && k === 't') triggerBy(l => l === 'Again', e);
+      else if (ctrl && k === 't') trigger('Free Transform', e);
       else if (e.shiftKey && k === 'f6') trigger('Feather', e);
       else if (e.shiftKey && !ctrl && k === 'f5') triggerBy(l => l === 'Fill…', e);
       else if (k === 'f5' && !ctrl) { e.preventDefault(); setDockTab(t => (t === 'brushSettings' ? 'color' : 'brushSettings')); }
@@ -1462,6 +1697,12 @@ export function App() {
     <button type="button" className="gradient-ramp-button" aria-label="Edit gradient" title="Click to edit the gradient"
       style={{ backgroundImage: `${rampCss(gradPreset, gradOptions.method as Method)}, var(--checker)` }} onClick={editGradient} />
   );
+  const menuItems = (items: Item[]): ReactNode => items.map(i => (
+    <li key={i.label} className={i.sub ? 'has-sub' : undefined}>
+      <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={i.run}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
+      {i.sub && !i.off && <ul role="menu" aria-label={i.label}>{menuItems(i.sub)}</ul>}
+    </li>
+  ));
   return (
     <div className="app">
       <header className="menubar">
@@ -1470,18 +1711,33 @@ export function App() {
           <div key={name} className="menu">
             <button className={menu === name ? 'open' : ''} onClick={() => setMenu(menu === name ? null : name)} onMouseEnter={() => menu && setMenu(name)}>{name}</button>
             {menu === name && (
-              <ul role="menu">
-                {items.map(i => (
-                  <li key={i.label}>
-                    <button role="menuitem" disabled={i.off} onClick={i.run}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
-                  </li>
-                ))}
-              </ul>
+              <ul role="menu">{menuItems(items)}</ul>
             )}
           </div>
         ))}
       </header>
       {menu && <div className="scrim" onClick={() => setMenu(null)} />}
+      {transformMenu && transformStore && (
+        <>
+          <div className="scrim" onClick={() => setTransformMenu(null)} onContextMenu={e => { e.preventDefault(); setTransformMenu(null); }} />
+          <div className="menu context-menu" style={{ left: transformMenu[0], top: transformMenu[1] }}>
+            <ul role="menu" aria-label="Transform">
+              {([
+                ...MODES.map(([m, label]) => ({ label, run: () => withTransform(t => setTransformMode(t, m)), off: m === 'warp' })),
+                { label: 'Rotate 180°', run: () => transformCommand('180') },
+                { label: 'Rotate 90° CW', run: () => transformCommand('cw') },
+                { label: 'Rotate 90° CCW', run: () => transformCommand('ccw') },
+                { label: 'Flip Horizontal', run: () => transformCommand('flipH') },
+                { label: 'Flip Vertical', run: () => transformCommand('flipV') },
+                { label: 'Apply', run: () => endTransform(true) },
+                { label: 'Cancel', run: () => endTransform(false) },
+              ] as { label: string; run: () => void; off?: boolean }[]).map(i => (
+                <li key={i.label}><button role="menuitem" disabled={i.off} onClick={i.run}><span>{i.label}</span></button></li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
       <main className="workspace with-sidebar">
         <ToolBar
           active={tool} setActive={setTool} lastUsed={lastUsed} setLastUsed={setLastUsed}
@@ -1489,7 +1745,17 @@ export function App() {
           quickMask={quickMask} setQuickMask={setQuickMask}
         />
         <div className="stage-column">
-          <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton }} />
+          {transformStore ? (
+            <TransformBar
+              store={transformStore}
+              setMode={m => withTransform(t => setTransformMode(t, m))}
+              setSnap={b => withTransform(t => { t.snap = b; t.store.set({ snap: b }); })}
+              setLinked={b => withTransform(t => { t.linked = b; t.store.set({ linked: b }); })}
+              setReference={(u, v) => withTransform(t => transformChange(t, setReferenceNormalized(t.s, u, v), true))}
+              setNumeric={(f, v) => withTransform(t => transformChange(t, setNumeric(t.s, f, v, t.linked), true))}
+              apply={() => endTransform(true)} cancel={() => endTransform(false)}
+            />
+          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton }} />}
           <div className="stage">
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} />
             <canvas ref={overlayCanvas} className="overlay" />

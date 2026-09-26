@@ -62,3 +62,50 @@ test('brush stroke work stays under 16ms per frame at p95 on a 4K doc', async ({
   expect(percentile([...breakdown.work].sort((a, b) => a - b), 0.95)).toBeLessThan(16);
   expect(percentile([...samples].sort((a, b) => a - b), 0.95)).toBeLessThan(2 * 1000 / 60);
 });
+
+// Free transform preview: the main-thread work per frame (session state and overlay draw of the
+// lifted pixels) must fit in a frame at 4K, for the affine path and the projective mesh.
+test('free transform preview work stays under 16ms per frame at p95 on a 4K doc', async ({ page }) => {
+  type Probe = { photobaer: { client: { call: (op: string, ...a: unknown[]) => Promise<unknown> }; perf: { previews(): number[] } } };
+  await page.goto('/?perftest=1');
+  await newDoc(page, 3840, 2160);
+  await page.getByRole('button', { name: 'New layer' }).click();
+  await page.keyboard.press('d');
+  await page.evaluate(() => (window as unknown as Probe).photobaer.client.call('select', { kind: 'rect', x: 200, y: 200, w: 3400, h: 1800 }, 'new', false, 0, 'Rectangular Marquee'));
+  await page.keyboard.press('Alt+Backspace');
+  await expect(page.locator('.history-row').last()).toHaveText('Fill with Foreground Color');
+  await page.keyboard.press('Control+d');
+  await expect(page.locator('.history-row').last()).toHaveText('Deselect');
+  await page.keyboard.press('Control+t');
+  await expect(page.getByRole('toolbar', { name: 'Transform options' })).toBeVisible();
+
+  const dragCorner = async (from: [number, number], to: [number, number]) => {
+    const [x0, y0] = await screenPoint(page, ...from);
+    await page.mouse.move(x0, y0);
+    await page.mouse.down();
+    for (let i = 1; i <= 40; i++) {
+      const [x, y] = await screenPoint(page, from[0] + ((to[0] - from[0]) * i) / 40, from[1] + ((to[1] - from[1]) * i) / 40);
+      await page.mouse.move(x, y);
+      await page.waitForTimeout(1000 / 60);
+    }
+    await page.mouse.up();
+  };
+  await dragCorner([3600, 2000], [2800, 1600]);
+  const affine = await page.evaluate(() => (window as unknown as Probe).photobaer.perf.previews().length);
+  await page.keyboard.down('Control'); // distort: the preview draws the projective mesh
+  await dragCorner([200, 200], [600, 400]);
+  await page.keyboard.up('Control');
+  await page.keyboard.press('Escape');
+
+  const previews = await page.evaluate(() => (window as unknown as Probe).photobaer.perf.previews());
+  const stats = (xs: number[]) => {
+    const s = [...xs].sort((a, b) => a - b);
+    return { text: `n=${s.length} p50=${percentile(s, 0.5).toFixed(2)} p95=${percentile(s, 0.95).toFixed(2)} max=${s[s.length - 1].toFixed(2)}`, p95: percentile(s, 0.95) };
+  };
+  const a = stats(previews.slice(0, affine)), p = stats(previews.slice(affine));
+  console.log(`transform preview ms affine: ${a.text}; projective: ${p.text}`);
+  expect(affine).toBeGreaterThan(10);
+  expect(previews.length - affine).toBeGreaterThan(10);
+  expect(a.p95).toBeLessThan(16);
+  expect(p.p95).toBeLessThan(16);
+});

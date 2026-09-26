@@ -197,6 +197,11 @@ impl Document {
     /// Resamples a layer's pixels (all of them, off-canvas included, no dest clip) and its mask,
     /// whose area outside the old mask content keeps the mask default.
     pub fn transform_layer(&mut self, id: u32, m: &[f64; 9], interp: Interp) -> Result<(), String> {
+        self.transform_layer_with(id, m, interp, true)
+    }
+
+    /// `transform_layer`; with `with_mask` false the layer mask is left as it is.
+    pub fn transform_layer_with(&mut self, id: u32, m: &[f64; 9], interp: Interp, with_mask: bool) -> Result<(), String> {
         self.check_idle()?;
         self.check_pixel_edit(id)?;
         if self.node(id)?.locks.position {
@@ -211,7 +216,7 @@ impl Document {
             }
             None => None,
         };
-        let mask = self.node(id)?.mask.as_ref().map(|mk| (mk.default, mk.tiles.clone()));
+        let mask = self.node(id)?.mask.as_ref().filter(|_| with_mask).map(|mk| (mk.default, mk.tiles.clone()));
         let mask = match mask.and_then(|(def, tiles)| tile_rect(&tiles).map(|r| (def, tiles, r))) {
             Some((def, tiles, r)) => {
                 check_area(r)?;
@@ -624,6 +629,15 @@ pub(super) mod tests {
             // Outside the old mask content the mask keeps its default.
             assert_eq!(get_mask(&d, 1, 6, 6), 255, "{k:?}");
         }
+    }
+
+    #[test]
+    fn a_pixels_only_transform_leaves_the_mask_untouched() {
+        let base = sample_doc();
+        let mut d = base.clone();
+        d.transform_layer_with(1, &tr(3.0, -2.0), Interp::Bicubic, false).unwrap();
+        assert_eq!(grid(&d, 1, [8, 3, 3, 3]), grid(&base, 1, [5, 5, 3, 3]));
+        assert_eq!(mask_grid(&d, 1, [0, 0, 16, 16]), mask_grid(&base, 1, [0, 0, 16, 16]));
     }
 
     #[test]
