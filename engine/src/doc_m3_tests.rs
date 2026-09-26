@@ -845,6 +845,11 @@ fn v2_doc() -> Document {
     d.fill(base, Target::Pixels, 90, 90, 200, 150).unwrap();
     let c = invert(&mut d, base);
     d.set_props(c, r#"{"clipping":true,"opacity":0.8}"#).unwrap();
+    let lv = special(&mut d, c, json!({ "name": "L", "adjustment": levels(20, 235, 1.3) }));
+    let hs = special(&mut d, lv, json!({ "name": "H", "adjustment": hue_sat(40.0) }));
+    d.set_props(hs, r#"{"opacity":0.9,"blend":"overlay"}"#).unwrap();
+    let gm = special(&mut d, hs, json!({ "name": "G", "adjustment": gradient_map() }));
+    d.set_props(gm, r#"{"opacity":0.4}"#).unwrap();
     d
 }
 
@@ -855,9 +860,16 @@ fn program_v2_round_trips_and_matches_the_display_tile() {
     assert_eq!(u32::from_le_bytes(bytes[0..4].try_into().unwrap()), 2, "program version");
     let p = Program::decode(&bytes);
     let adjusts: Vec<&Step> = p.steps.iter().filter(|s| s.op == Op::Adjust).collect();
-    assert_eq!(adjusts.len(), 2);
+    assert_eq!(adjusts.len(), 5);
     assert!(p.steps.iter().any(|s| s.op == Op::Knockout));
-    assert_eq!(adjusts[0].opcode, adjust::OP_INVERT);
+    let opcodes: Vec<u32> = adjusts.iter().map(|s| s.opcode).collect();
+    assert_eq!(opcodes, [adjust::OP_INVERT, adjust::OP_INVERT, adjust::OP_TABLE, adjust::OP_HUE_SATURATION, adjust::OP_GRADIENT_MAP]);
+    assert_eq!((adjusts[0].src, adjusts[1].src), (0, 0), "invert has no data");
+    let data: Vec<u64> = adjusts[2..].iter().map(|s| s.src).collect();
+    assert_eq!(p.data.iter().map(|d| d.0).collect::<Vec<_>>(), data);
+    assert_eq!(p.data[2].1.len(), 1 + 4096 * 3);
+    let q = Program::decode(&d.display_program(0, 0, 0, &data).unwrap());
+    assert!(q.data.is_empty(), "known data keys are left out");
     assert_eq!(adjusts[0].blend_if.red.destination, [10, 60, 200, 240]);
     assert_eq!((adjusts[0].flags & FLAG_CLIP, adjusts[1].flags & FLAG_CLIP), (0, FLAG_CLIP));
     for level in [0, 2] {
@@ -884,4 +896,125 @@ fn fill_payload_keys_follow_the_content() {
     assert_eq!(keys(&d), first, "the same content gives the same key");
     set_fill(&mut d, f, json!({ "type": "solid", "color": [1, 2, 4] }));
     assert_ne!(keys(&d), first);
+}
+
+// ---------- adjustment kinds on the compositor (docs/M3.md section 3) ----------
+
+/// The 8-bit color of an opaque `bg` pixel under one adjustment layer.
+fn adjusted(bg: [u8; 3], adjustment: Value) -> [u8; 3] {
+    let mut d = Document::new(4, 4, 8).unwrap();
+    d.fill(1, Target::Pixels, bg[0], bg[1], bg[2], 255).unwrap();
+    special(&mut d, 1, json!({ "name": "A", "adjustment": adjustment }));
+    let p = px(&d, 1, 1);
+    [p[0], p[1], p[2]]
+}
+
+fn kind(kind: &str, params: Value) -> Value {
+    json!({ "kind": kind, "params": params })
+}
+
+fn bc(brightness: f64, contrast: f64, legacy: bool) -> Value {
+    kind("brightness_contrast", json!({ "brightness": brightness, "contrast": contrast, "legacy": legacy }))
+}
+
+fn levels(ib: u8, iw: u8, gamma: f64) -> Value {
+    let r = json!({ "input_black": ib, "input_white": iw, "gamma": gamma, "output_black": 0, "output_white": 255 });
+    kind("levels", json!({ "composite": r, "red": null, "green": null, "blue": null }))
+}
+
+fn hue_sat(hue: f64) -> Value {
+    let ranges: Vec<Value> = (0..6)
+        .map(|i| {
+            let a = (315.0 + 60.0 * i as f64) % 360.0;
+            json!({ "bands": [a, (a + 30.0) % 360.0, (a + 60.0) % 360.0, (a + 90.0) % 360.0], "hue": 0.0, "saturation": 0.0, "lightness": 0.0 })
+        })
+        .collect();
+    kind("hue_saturation", json!({
+        "master": { "hue": hue, "saturation": 0.0, "lightness": 0.0 }, "ranges": ranges,
+        "colorize": false, "colorize_values": { "hue": 0.0, "saturation": 25.0, "lightness": 0.0 }
+    }))
+}
+
+fn black_white() -> Value {
+    kind("black_white", json!({ "reds": 40.0, "yellows": 60.0, "greens": 40.0, "cyans": 60.0, "blues": 20.0, "magentas": 80.0, "tint": false, "tint_color": [206, 185, 155] }))
+}
+
+fn gradient_map() -> Value {
+    let mut g = gradient_content(0.0, false)["gradient"].clone();
+    g["method"] = "classic".into();
+    kind("gradient_map", json!({ "gradient": g, "reverse": false, "dither": false }))
+}
+
+fn gray3(v: u8) -> [u8; 3] {
+    [v; 3]
+}
+
+#[test]
+fn table_adjustment_goldens() {
+    assert_eq!(adjusted(gray3(128), bc(150.0, 0.0, false)), gray3(203));
+    assert_eq!(adjusted(gray3(100), bc(0.0, 100.0, false)), gray3(49));
+    assert_eq!(adjusted(gray3(100), bc(50.0, 0.0, true)), gray3(164), "legacy");
+    assert_eq!(adjusted(gray3(100), levels(20, 235, 1.0)), gray3(95));
+    assert_eq!(adjusted(gray3(64), levels(0, 255, 2.0)), gray3(128));
+    assert_eq!(adjusted(gray3(128), kind("exposure", json!({ "exposure": 1.0, "offset": 0.0, "gamma": 1.0 }))), gray3(176));
+    assert_eq!(adjusted(gray3(100), kind("posterize", json!({ "levels": 4 }))), gray3(85));
+    assert_eq!(adjusted([127, 128, 200], kind("threshold", json!({ "level": 128 }))), [0, 255, 255]);
+}
+
+#[test]
+fn per_pixel_adjustment_goldens() {
+    let photo = kind("photo_filter", json!({ "color": [236, 138, 0], "density": 25.0, "preserve_luminosity": false }));
+    assert_eq!(adjusted(gray3(128), photo), [126, 113, 96]);
+    let balance = kind("color_balance", json!({ "shadows": [0.0, 0.0, 0.0], "midtones": [50.0, 0.0, 0.0], "highlights": [0.0, 0.0, 0.0], "preserve_luminosity": false }));
+    assert_eq!(adjusted(gray3(128), balance)[0], 217);
+    let mixer = kind("channel_mixer", json!({ "red": [100.0, 0.0, 0.0, 0.0], "green": [0.0, 100.0, 0.0, 0.0], "blue": [0.0, 0.0, 100.0, 0.0], "gray": [40.0, 40.0, 20.0, 0.0], "monochrome": true }));
+    assert_eq!(adjusted([255, 0, 0], mixer), gray3(102));
+    assert_eq!(adjusted([255, 0, 0], black_white()), gray3(102));
+    assert_eq!(adjusted([255, 255, 0], black_white()), gray3(153));
+    assert_eq!(adjusted([255, 0, 0], gradient_map()), gray3(77));
+    assert_eq!(adjusted([255, 0, 0], hue_sat(180.0)), [0, 255, 255]);
+}
+
+#[test]
+fn a_cube_with_a_bad_line_errs_naming_it() {
+    let err = adjust::parse_cube(b"TITLE \"t\"\nLUT_3D_SIZE 2\n0 0 0\n1 0 x\n").unwrap_err();
+    assert!(err.starts_with("line 4:"), "{err}");
+    let err = adjust::parse_cube(b"LUT_3D_SIZE 2\n0 0 0\n").unwrap_err();
+    assert!(err.starts_with("line 3:"), "{err}");
+    let lut = adjust::parse_cube(b"# c\nLUT_3D_SIZE 2\n0 0 0\n1 0 0\n0 1 0\n1 1 0\n0 0 1\n1 0 1\n0 1 1\n1 1 1\n").unwrap();
+    assert_eq!((lut.size, lut.one_d, lut.data.len()), (2, false, 24));
+    let err = adjust::parse_3dl(b"0 1023\n0 0 0\nfoo 1 2\n").unwrap_err();
+    assert!(err.starts_with("line 3:"), "{err}");
+}
+
+#[test]
+fn a_color_lookup_renders_its_cube() {
+    // An inverting 3D table: every node maps to 1 - its input.
+    let mut cube = String::from("LUT_3D_SIZE 2\n");
+    for b in 0..2 {
+        for g in 0..2 {
+            for r in 0..2 {
+                cube += &format!("{} {} {}\n", 1 - r, 1 - g, 1 - b);
+            }
+        }
+    }
+    let mut d = Document::new(4, 4, 8).unwrap();
+    d.fill(1, Target::Pixels, 200, 100, 0, 255).unwrap();
+    let blob = d.blob_add(cube.as_bytes()).unwrap();
+    for interp in ["tetrahedral", "trilinear"] {
+        let a = special(&mut d, 1, json!({ "name": "L", "adjustment": kind("color_lookup", json!({ "name": "inv.cube", "format": "cube", "table": blob, "interpolation": interp, "dither": false })) }));
+        assert_eq!(px(&d, 1, 1), [55, 155, 255, 255], "{interp}");
+        d.delete_node(a).unwrap();
+    }
+}
+
+#[test]
+fn neutral_params_emit_no_adjust_step() {
+    let identity = kind("curves", json!({ "mode": "point", "composite": [[0, 0], [255, 255]], "red": null, "green": null, "blue": null }));
+    for a in [bc(0.0, 0.0, false), levels(0, 255, 1.0), identity, hue_sat(0.0), kind("exposure", json!({ "exposure": 0.0, "offset": 0.0, "gamma": 1.0 }))] {
+        let mut d = gray_doc(8, 8, 90);
+        special(&mut d, 1, json!({ "name": "A", "adjustment": a.clone() }));
+        let p = Program::decode(&d.display_program(0, 0, 0, &[]).unwrap());
+        assert!(p.steps.iter().all(|s| s.op != Op::Adjust), "{a}");
+    }
 }

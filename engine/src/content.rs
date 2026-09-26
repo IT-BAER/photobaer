@@ -81,23 +81,32 @@ pub enum FillContent {
 impl GradientDef {
     /// The normalized (and optionally reversed) stops as a gradient LUT.
     pub fn lut(&self, reverse: bool) -> Vec<[f32; 4]> {
-        let cs = self.color_stops.iter().map(|s| gradient::ColorStop {
-            position: s.position,
-            rgb: s.color.map(|v| v as f32 / 255.0),
-            midpoint: s.midpoint,
-        });
+        let cs = self.color_stops(reverse);
         let os = self.opacity_stops.iter().map(|s| gradient::OpacityStop {
             position: s.position,
             opacity: s.opacity,
             midpoint: s.midpoint,
         });
-        let mut cs = gradient::normalize_color_stops(cs.collect());
         let mut os = gradient::normalize_opacity_stops(os.collect());
         if reverse {
-            cs = gradient::reverse_color_stops(&cs);
             os = gradient::reverse_opacity_stops(&os);
         }
         gradient::build_lut(&cs, &os, self.method)
+    }
+
+    /// `n` colours of the normalized (and optionally reversed) color stops, opacity ignored.
+    pub fn color_table(&self, reverse: bool, n: usize) -> Vec<[f32; 3]> {
+        gradient::color_table(&self.color_stops(reverse), self.method, n)
+    }
+
+    fn color_stops(&self, reverse: bool) -> Vec<gradient::ColorStop> {
+        let cs = self.color_stops.iter().map(|s| gradient::ColorStop {
+            position: s.position,
+            rgb: s.color.map(|v| v as f32 / 255.0),
+            midpoint: s.midpoint,
+        });
+        let cs = gradient::normalize_color_stops(cs.collect());
+        if reverse { gradient::reverse_color_stops(&cs) } else { cs }
     }
 }
 

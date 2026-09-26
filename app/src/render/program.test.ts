@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initSync, Engine } from '../engine-pkg/photobaer_engine.js';
-import { ADJUST, OP, decodeProgram, referencedKeys, PayloadCache } from './program.ts';
+import { ADJUST, OP, PAYLOAD, decodeProgram, referencedKeys, PayloadCache } from './program.ts';
 
 initSync({ module: readFileSync(new URL('../engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
 
@@ -23,7 +23,7 @@ test('a one-layer program decodes to one draw step with its tile payload', () =>
   assert.equal(p.steps[0].scale, 1);
   assert.equal(p.steps[0].maskKind, 0);
   assert.equal(p.payloads.length, 1);
-  assert.equal(p.payloads[0].mask, false);
+  assert.equal(p.payloads[0].kind, PAYLOAD.rgba);
   assert.equal(p.payloads[0].bytes.length, 256 * 256 * 4);
   assert.deepEqual([...p.payloads[0].bytes.subarray(0, 4)], [255, 0, 0, 255]);
   assert.deepEqual(referencedKeys(p), [p.steps[0].src]);
@@ -157,4 +157,21 @@ test('version 2 steps carry the adjust opcode, clip flag, knockout and blend-if 
   assert.deepEqual(q.steps.map(s => s.op), [OP.draw, OP.adjust, OP.knockout, OP.draw, OP.adjust]);
   assert.equal(q.steps[2].src, q.steps[3].src, 'the knockout shape is the layer tile');
   assert.equal(q.steps[2].scale, 1);
+});
+
+test('an adjustment ships its data block as a kind 2 payload the step references', () => {
+  const e = redDoc();
+  const rec = { input_black: 20, input_white: 235, gamma: 1, output_black: 0, output_white: 255 };
+  e.add_special(1, JSON.stringify({ name: 'Levels', adjustment: { kind: 'levels', params: { composite: rec, red: null, green: null, blue: null } } }));
+  const p = decodeProgram(e.display_program(0, 0, 0, NONE).buffer as ArrayBuffer);
+  const adj = p.steps.find(s => s.op === OP.adjust)!;
+  assert.equal(adj.opcode, ADJUST.table);
+  const data = p.payloads.find(t => t.key === adj.src)!;
+  assert.equal(data.kind, PAYLOAD.data);
+  assert.equal(data.bytes.length, (2 + 3 * 65536) * 4);
+  const f = new Float32Array(data.bytes.slice().buffer);
+  assert.deepEqual([f[0], f[1]], [0, 65536], 'interpolated, 65536 entries');
+  assert.ok(referencedKeys(p).includes(adj.src));
+  const q = decodeProgram(e.display_program(0, 0, 0, BigUint64Array.from([adj.src])).buffer as ArrayBuffer);
+  assert.equal(q.payloads.filter(t => t.kind === PAYLOAD.data).length, 0, 'a known data key is left out');
 });

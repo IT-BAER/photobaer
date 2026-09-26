@@ -635,6 +635,8 @@ pub struct Document {
     loading: Option<Loading>,
     // Reduced tiles for display levels >= 1, keyed by content, shared by clones. Never persisted.
     tile_cache: Arc<RefCell<TileCache>>,
+    // Compiled `Adjust` data by params key: (opcode, data key, data); none = neutral.
+    adjust_cache: RefCell<HashMap<u64, Option<(u32, u64, Arc<Vec<f32>>)>>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -809,7 +811,7 @@ fn straight(buf: &[f32], p: usize) -> [f32; 3] {
 /// `Adjust` (docs/M3.md section 2) on the premultiplied `dst` in place: on straight color `o`,
 /// `L = o + (blend(mode, o, adjust(o)) - o) * k` with `k = scale * mask * clip`, then blend-if
 /// with "This Layer" = `L` and "Underlying Layer" = `o`. Alpha is never changed.
-fn adjust_step(dst: &mut [f32], s: &Step, mask: &MaskSrc, clip: Option<&[f32]>, c: &TileCtx) {
+fn adjust_step(dst: &mut [f32], s: &Step, data: &[f32], mask: &MaskSrc, clip: Option<&[f32]>, c: &TileCtx) {
     let blend_if = (s.blend_if != BlendIf::default()).then_some(&s.blend_if);
     for y in 0..c.vh {
         for x in 0..c.vw {
@@ -823,15 +825,15 @@ fn adjust_step(dst: &mut [f32], s: &Step, mask: &MaskSrc, clip: Option<&[f32]>, 
             if k <= 0.0 {
                 continue;
             }
+            let (dx, dy) = ((c.ox + x as u32) << c.level, (c.oy + y as u32) << c.level);
             if s.mode == Blend::Dissolve {
-                let (dx, dy) = ((c.ox + x as u32) << c.level, (c.oy + y as u32) << c.level);
                 if dissolve_hash(dx, dy, s.node) >= k {
                     continue;
                 }
                 k = 1.0;
             }
             let orig = straight(dst, p);
-            let r = blend_rgb(s.mode, orig, adjust::apply(s.opcode, orig));
+            let r = blend_rgb(s.mode, orig, adjust::apply(s.opcode, data, orig, dx, dy));
             let l: [f32; 3] = std::array::from_fn(|i| orig[i] + (r[i] - orig[i]) * k);
             let w = blend_if.map_or(1.0, |b| blend_if_weight(b, l, orig));
             for i in 0..3 {
@@ -1042,8 +1044,8 @@ fn blend_if_weight(b: &BlendIf, src: [f32; 3], dst: [f32; 3]) -> f32 {
 
 /// The ordered stack-machine ops for one display tile plus the level tiles they reference.
 /// Binary layout (docs/M1.md section 3, version 2 in docs/M3.md section 2): 32-byte header,
-/// `steps` 72-byte records, then for each payload a u64 key, u32 kind (0 RGBA8, 1 mask8), u32
-/// byte length and that many bytes.
+/// `steps` 72-byte records, then for each payload a u64 key, u32 kind (0 RGBA8, 1 mask8, 2 `Adjust`
+/// data as f32 LE), u32 byte length and that many bytes. Tiles come first, then data.
 struct Program {
     level: u32,
     tx: u32,
@@ -1054,6 +1056,8 @@ struct Program {
     vh: usize,
     steps: Vec<Step>,
     payloads: Vec<(u64, Arc<Pixels>)>,
+    // `Adjust` data blocks, referenced by the step's `src`.
+    data: Vec<(u64, Arc<Vec<f32>>)>,
 }
 
 fn put32(out: &mut Vec<u8>, v: u32) {
@@ -1067,8 +1071,10 @@ fn put64(out: &mut Vec<u8>, v: u64) {
 impl Program {
     fn encode(&self, known: &[u64]) -> Vec<u8> {
         let send: Vec<&(u64, Arc<Pixels>)> = self.payloads.iter().filter(|(k, _)| !known.contains(k)).collect();
+        let data: Vec<&(u64, Arc<Vec<f32>>)> = self.data.iter().filter(|(k, _)| !known.contains(k)).collect();
         let mut out = Vec::with_capacity(32 + self.steps.len() * STEP_BYTES + send.len() * TILE_BYTES_U8);
-        let header = [self.level, self.ox, self.oy, self.vw as u32, self.vh as u32, self.steps.len() as u32, send.len() as u32];
+        let n = (send.len() + data.len()) as u32;
+        let header = [self.level, self.ox, self.oy, self.vw as u32, self.vh as u32, self.steps.len() as u32, n];
         put32(&mut out, PROGRAM_VERSION);
         for v in header {
             put32(&mut out, v);
@@ -1090,6 +1096,12 @@ impl Program {
             put32(&mut out, u32::from(matches!(px.as_ref(), Pixels::Mask8(_) | Pixels::Mask16(_))));
             put32(&mut out, bytes.len() as u32);
             out.extend_from_slice(&bytes);
+        }
+        for (key, d) in data {
+            put64(&mut out, *key);
+            put32(&mut out, 2);
+            put32(&mut out, (d.len() * 4) as u32);
+            d.iter().for_each(|v| out.extend_from_slice(&v.to_le_bytes()));
         }
         out
     }
@@ -1122,11 +1134,16 @@ impl Program {
             })
             .collect();
         let mut o = 32 + n_steps * STEP_BYTES;
-        let mut payloads = Vec::new();
+        let (mut payloads, mut data) = (Vec::new(), Vec::new());
         for _ in 0..n_payloads {
             let (key, kind, len) = (u64at(o), u32at(o + 8), u32at(o + 12) as usize);
-            let px = Pixels::from_bytes(8, kind == 1, &b[o + 16..o + 16 + len]).expect("payload bytes");
-            payloads.push((key, Arc::new(px)));
+            let bytes = &b[o + 16..o + 16 + len];
+            if kind == 2 {
+                let floats = bytes.chunks_exact(4).map(|c| f32::from_le_bytes(c.try_into().unwrap())).collect();
+                data.push((key, Arc::new(floats)));
+            } else {
+                payloads.push((key, Arc::new(Pixels::from_bytes(8, kind == 1, bytes).expect("payload bytes"))));
+            }
             o += 16 + len;
         }
         Program {
@@ -1139,6 +1156,7 @@ impl Program {
             vh: u32at(20) as usize,
             steps,
             payloads,
+            data,
         }
     }
 }
@@ -1212,6 +1230,7 @@ impl Document {
             next_node_id: 2,
             loading: None,
             tile_cache: Arc::new(RefCell::new(TileCache::default())),
+            adjust_cache: RefCell::default(),
         })
     }
 
@@ -3587,6 +3606,37 @@ impl Document {
         Some((key, px))
     }
 
+    // An adjustment's opcode, data key and data, cached by its params (which name its blob; blobs
+    // never change). None when neutral or when its table does not parse (no step either way).
+    fn compiled(&self, a: &Adjustment) -> Option<(u32, u64, Arc<Vec<f32>>)> {
+        let json = serde_json::to_string(a).expect("adjustment serializes");
+        let mut key = mix(0x0AD7_0000_0000_0001, json.len() as u64);
+        for chunk in json.as_bytes().chunks(8) {
+            let mut w = [0u8; 8];
+            w[..chunk.len()].copy_from_slice(chunk);
+            key = mix(key, u64::from_le_bytes(w));
+        }
+        if let Some(hit) = self.adjust_cache.borrow().get(&key) {
+            return hit.clone();
+        }
+        // Errors (a missing or bad table) are not cached: a loading blob may still arrive.
+        let compiled = a.compile(&self.blobs).ok()?.map(|c| {
+            let mut dk = mix(0xDA7A_0000_0000_0002, c.opcode as u64);
+            for pair in c.data.chunks(2) {
+                dk = mix(dk, pair[0].to_bits() as u64 | (pair.get(1).map_or(0, |v| v.to_bits() as u64) << 32));
+            }
+            dk = mix(dk, c.data.len() as u64);
+            (c.opcode, dk | (1 << 63), Arc::new(c.data))
+        });
+        let mut cache = self.adjust_cache.borrow_mut();
+        // ponytail: dropped wholesale past 64 param sets; an LRU if live edits thrash it.
+        if cache.len() >= 64 {
+            cache.clear();
+        }
+        cache.insert(key, compiled.clone());
+        compiled
+    }
+
     // `Knockout` runs only on a layer with an enabled effect (docs/M3.md section 2).
     fn knocks_out(node: &Node) -> bool {
         node.blending.knockout != Knockout::None && node.style.as_ref().is_some_and(|s| s.any_effect())
@@ -3614,10 +3664,14 @@ impl Document {
                 0
             }
             Kind::Adjustment(a) => {
-                let Some(opcode) = a.opcode() else { return };
+                let Some((opcode, key, data)) = self.compiled(a) else { return };
+                if !data.is_empty() && !prog.data.iter().any(|(k, _)| *k == key) {
+                    prog.data.push((key, data.clone()));
+                }
                 let mut s = Step::new(Op::Adjust);
                 (s.mask_kind, s.mask, s.mask_const, s.scale, s.mode, s.node, s.opcode) =
                     (mk, mkey, mc, scale, mode, node.id, opcode);
+                s.src = if data.is_empty() { 0 } else { key };
                 s.flags = if clipped { FLAG_CLIP } else { 0 };
                 s.blend_if = node.blending.blend_if.clone();
                 prog.steps.push(s);
@@ -3733,6 +3787,7 @@ impl Document {
             vh,
             steps: Vec::new(),
             payloads: Vec::new(),
+            data: Vec::new(),
         };
         self.emit_list(&self.nodes, &mut prog);
         Ok(prog)
@@ -3741,6 +3796,7 @@ impl Document {
     /// One display tile as premultiplied f32 RGBA, by running its draw program.
     fn run_program(prog: &Program) -> Vec<f32> {
         let tiles: HashMap<u64, &Pixels> = prog.payloads.iter().map(|(k, p)| (*k, p.as_ref())).collect();
+        let data: HashMap<u64, &[f32]> = prog.data.iter().map(|(k, d)| (*k, d.as_slice())).collect();
         let c = TileCtx { level: prog.level, ox: prog.ox, oy: prog.oy, vw: prog.vw, vh: prog.vh };
         let mut stack: Vec<Vec<f32>> = vec![vec![0f32; TILE_PIXELS * 4]];
         let mut shapes: Vec<Vec<f32>> = Vec::new();
@@ -3772,7 +3828,8 @@ impl Document {
                 }
                 Op::Adjust => {
                     let clip = (s.flags & FLAG_CLIP != 0).then(|| shapes.last().expect("shape stack").as_slice());
-                    adjust_step(stack.last_mut().expect("stack"), s, &mask, clip, &c);
+                    let d = if s.src != 0 { data[&s.src] } else { &[] };
+                    adjust_step(stack.last_mut().expect("stack"), s, d, &mask, clip, &c);
                 }
                 Op::Knockout => {
                     // `destAlpha *= 1 - shape * opacity`; premultiplied, so every channel scales.
@@ -4417,6 +4474,7 @@ impl Document {
                 max_referenced_id: ctx.max_referenced_id,
             }),
             tile_cache: Arc::new(RefCell::new(TileCache::default())),
+            adjust_cache: RefCell::default(),
         })
     }
 

@@ -1,10 +1,11 @@
 import { COMPOSITE_WGSL, QUANTIZE_WGSL, UNIFORM_AT as U, UNIFORM_FIELDS } from './composite.wgsl.ts';
-import { OP, PayloadCache, referencedKeys, type Payload, type Program } from './program.ts';
+import { OP, PAYLOAD, PayloadCache, referencedKeys, type Payload, type Program } from './program.ts';
 
 const TILE = 256;
 const WG = TILE / 8;
 const UNIFORM_BYTES = UNIFORM_FIELDS.length * 4;
-// Tiles are 256 KiB (RGBA8) or 64 KiB (mask); the bound is what the GPU keeps of one document.
+// Tiles are 256 KiB (RGBA8) or 64 KiB (mask), `Adjust` data up to 16 MB; the bound is what the GPU
+// keeps of one document.
 const PAYLOAD_BYTES = 64 << 20;
 
 /// Runs one draw program per display tile: a stack of premultiplied f32 RGBA tiles, one compute
@@ -19,10 +20,11 @@ export class GpuCompositor {
   #zero: GPUTexture;
   #dummy8: GPUTextureView;
   #dummyMask: GPUTextureView;
+  #dummyData: GPUBuffer;
   #out8: GPUTexture;
   #uniform: GPUBuffer | null = null;
   #stride: number;
-  #cache = new PayloadCache<GPUTexture>(PAYLOAD_BYTES, t => t.destroy());
+  #cache = new PayloadCache<GPUTexture | GPUBuffer>(PAYLOAD_BYTES, t => t.destroy());
   #readback: GPUBuffer | null = null;
 
   constructor(device: GPUDevice) {
@@ -38,6 +40,7 @@ export class GpuCompositor {
         { binding: 4, visibility: GPUShaderStage.COMPUTE, texture: tex('float') },
         { binding: 5, visibility: GPUShaderStage.COMPUTE, texture: tex('float') },
         { binding: 6, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba32float', viewDimension: '2d' } },
+        { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
       ],
     });
     this.#quantLayout = device.createBindGroupLayout({
@@ -63,6 +66,7 @@ export class GpuCompositor {
       device.createTexture({ size: [1, 1], format, usage: GPUTextureUsage.TEXTURE_BINDING }).createView();
     this.#dummy8 = dummy('rgba8unorm');
     this.#dummyMask = dummy('r8unorm');
+    this.#dummyData = device.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE });
   }
 
   /// Payload keys the GPU already holds; the worker leaves their bytes out of the next program.
@@ -86,6 +90,7 @@ export class GpuCompositor {
     this.#pool = [];
     this.#uniform?.destroy();
     this.#readback?.destroy();
+    this.#dummyData.destroy();
   }
 
   /// Composites one tile and copies it into `target` at `origin`. Returns false when a referenced
@@ -158,21 +163,21 @@ export class GpuCompositor {
       switch (s.op) {
         case OP.draw:
           if (s.src === 0n) { aux = top; dst = stack[stack.length - 2]; popped = 2; }
-          else { srcTile = this.#cache.get(s.src)!.createView(); popped = 1; }
+          else { srcTile = this.#tex(s.src); popped = 1; }
           break;
         case OP.pushTransparent: dst = this.#zero; popped = 0; break;
         case OP.pushCopy: popped = 0; break;
         case OP.popLerp: aux = top; dst = stack[stack.length - 2]; popped = 2; break;
         case OP.pushShape:
           if (s.src === 0n) aux = top;
-          else srcTile = this.#cache.get(s.src)!.createView();
+          else srcTile = this.#tex(s.src);
           popped = 0;
           break;
         case OP.subBackdrop: aux = stack[stack.length - 2]; popped = 1; break;
         case OP.knockout:
           // A group (src 0) punches the buffer below it and stays on top.
           if (s.src === 0n) { aux = top; dst = stack[stack.length - 2]; popped = 0; }
-          else { srcTile = this.#cache.get(s.src)!.createView(); popped = 1; }
+          else { srcTile = this.#tex(s.src); popped = 1; }
           break;
         case OP.popAddBackdrop: aux = top; dst = stack[stack.length - 2]; popped = 2; break;
         default: popped = 1; break; // div/mul shape, adjust
@@ -204,8 +209,9 @@ export class GpuCompositor {
             { binding: 2, resource: aux.createView() },
             { binding: 3, resource: (shapes[shapes.length - 1] ?? this.#zero).createView() },
             { binding: 4, resource: srcTile },
-            { binding: 5, resource: s.maskKind === 2 ? this.#cache.get(s.mask)!.createView() : this.#dummyMask },
+            { binding: 5, resource: s.maskKind === 2 ? this.#tex(s.mask) : this.#dummyMask },
             { binding: 6, resource: out.createView() },
+            { binding: 7, resource: { buffer: s.op === OP.adjust && s.src !== 0n ? this.#cache.get(s.src) as GPUBuffer : this.#dummyData } },
           ],
         }),
       });
@@ -230,14 +236,21 @@ export class GpuCompositor {
   // WebGPU does not report free VRAM, so the budget shrinks when an upload runs out of memory.
   // The failed payload is dropped; the next program for its tile ships it again.
   #upload(t: Payload) {
-    const bytes = t.mask ? TILE * TILE : TILE * TILE * 4;
     this.#d.pushErrorScope('out-of-memory');
-    const tex = this.#d.createTexture({
-      size: [TILE, TILE], format: t.mask ? 'r8unorm' : 'rgba8unorm',
-      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-    });
-    this.#d.queue.writeTexture({ texture: tex }, t.bytes, { bytesPerRow: bytes / TILE, rowsPerImage: TILE }, [TILE, TILE, 1]);
-    this.#cache.set(t.key, tex, bytes);
+    if (t.kind === PAYLOAD.data) {
+      const buf = this.#d.createBuffer({ size: t.bytes.length, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+      this.#d.queue.writeBuffer(buf, 0, t.bytes);
+      this.#cache.set(t.key, buf, t.bytes.length);
+    } else {
+      const mask = t.kind === PAYLOAD.mask;
+      const bytes = mask ? TILE * TILE : TILE * TILE * 4;
+      const tex = this.#d.createTexture({
+        size: [TILE, TILE], format: mask ? 'r8unorm' : 'rgba8unorm',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+      });
+      this.#d.queue.writeTexture({ texture: tex }, t.bytes, { bytesPerRow: bytes / TILE, rowsPerImage: TILE }, [TILE, TILE, 1]);
+      this.#cache.set(t.key, tex, bytes);
+    }
     void this.#d.popErrorScope().then(err => {
       if (!err) return;
       this.#cache.delete(t.key);
@@ -245,6 +258,8 @@ export class GpuCompositor {
       console.warn('GPU out of memory, payload budget now', this.#cache.limit, 'bytes');
     });
   }
+
+  #tex(key: bigint) { return (this.#cache.get(key) as GPUTexture).createView(); }
 
   #buffer() {
     return this.#d.createTexture({

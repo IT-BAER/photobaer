@@ -26,6 +26,8 @@ struct P { ${UNIFORM_FIELDS.map(([n, t]) => `${n}: ${t}`).join(', ')} };
 @group(0) @binding(4) var src_t: texture_2d<f32>;
 @group(0) @binding(5) var mask_t: texture_2d<f32>;
 @group(0) @binding(6) var out_t: texture_storage_2d<rgba32float, write>;
+// The \`Adjust\` step's data block (engine/src/adjust.rs documents each opcode's layout).
+@group(0) @binding(7) var<storage, read> adj: array<f32>;
 
 const EPS = 1e-5;
 
@@ -169,18 +171,208 @@ fn straight(v: vec4f) -> vec3f {
   return clamp(v.rgb / v.a, vec3f(0.0), vec3f(1.0));
 }
 
-// The Adjust opcodes of engine/src/adjust.rs.
-fn adjust_rgb(c: vec3f) -> vec3f {
+// ---------- Adjust kernels: engine/src/adjust.rs \`apply\` op for op ----------
+
+fn rem360(h: f32) -> f32 { return h - 360.0 * floor(h / 360.0); }
+
+fn rgb_to_hsl(c: vec3f) -> vec3f {
+  let mx = max(c.r, max(c.g, c.b));
+  let mn = min(c.r, min(c.g, c.b));
+  let l = (mx + mn) * 0.5;
+  let d = mx - mn;
+  if (d <= 0.0) { return vec3f(0.0, 0.0, l); }
+  let s = select(d / (mx + mn), d / (2.0 - mx - mn), l > 0.5);
+  var h: f32;
+  if (mx == c.r) { h = (c.g - c.b) / d + select(0.0, 6.0, c.g < c.b); }
+  else if (mx == c.g) { h = (c.b - c.r) / d + 2.0; }
+  else { h = (c.r - c.g) / d + 4.0; }
+  return vec3f(h * 60.0, s, l);
+}
+
+fn hsl_to_rgb(h: f32, s: f32, l: f32) -> vec3f {
+  let a = s * min(l, 1.0 - l);
+  let k = (vec3f(0.0, 8.0, 4.0) + rem360(h) / 30.0) % 12.0;
+  return clamp(vec3f(l) - a * clamp(min(k - 3.0, 9.0 - k), vec3f(-1.0), vec3f(1.0)), vec3f(0.0), vec3f(1.0));
+}
+
+fn sat_by(s: f32, g: f32) -> f32 {
+  var v = s;
+  if (g < 0.0) { v = s * (1.0 + g / 100.0); }
+  else if (g >= 100.0) { v = 1.0; }
+  else if (g > 0.0) { v = s / (1.0 - g / 100.0); }
+  return clamp(v, 0.0, 1.0);
+}
+
+fn light_by(l: f32, g: f32) -> f32 {
+  return clamp(select(l + (1.0 - l) * g / 100.0, l * (1.0 + g / 100.0), g < 0.0), 0.0, 1.0);
+}
+
+fn hue_weight(h: f32, o: u32) -> f32 {
+  let a = adj[o];
+  let u = rem360(h - a);
+  let b = rem360(adj[o + 1u] - a);
+  let c = rem360(adj[o + 2u] - a);
+  let d = rem360(adj[o + 3u] - a);
+  if (u < b) { return u / b; }
+  if (u <= c) { return 1.0; }
+  if (u < d) { return (d - u) / (d - c); }
+  return 0.0;
+}
+
+// Channel indices of the largest, middle and smallest value; ties keep channel order.
+fn order(c: vec3f) -> vec3u {
+  var i = vec3u(0u, 1u, 2u);
+  if (c[i.y] > c[i.x]) { i = i.yxz; }
+  if (c[i.z] > c[i.y]) {
+    i = i.xzy;
+    if (c[i.y] > c[i.x]) { i = i.yxz; }
+  }
+  return i;
+}
+
+fn table_at(ch: u32, v: f32) -> f32 {
+  let n = u32(adj[1]);
+  let base = 2u + ch * n;
+  let pos = clamp(v, 0.0, 1.0) * f32(n - 1u);
+  if (adj[0] != 0.0) { return adj[base + u32(floor(pos + 0.5))]; }
+  let i = min(u32(floor(pos)), n - 2u);
+  let a = adj[base + i];
+  return a + (adj[base + i + 1u] - a) * (pos - f32(i));
+}
+
+fn rgb_at(o: u32) -> vec3f { return vec3f(adj[o], adj[o + 1u], adj[o + 2u]); }
+
+fn lookup_3d(c: vec3f, dxy: vec2u) -> vec3f {
+  let n = u32(adj[0]);
+  let nf = f32(n - 1u);
+  var dither = 0.0;
+  if (adj[8] != 0.0) { dither = (dissolve_hash(dxy.x, dxy.y, 0u) - 0.5) / nf; }
+  let lo = rgb_at(1u);
+  let span = rgb_at(4u) - lo;
+  let t = select(vec3f(0.0), (c - lo) / span, span > vec3f(0.0));
+  let pos = clamp(clamp(t, vec3f(0.0), vec3f(1.0)) + dither, vec3f(0.0), vec3f(1.0)) * nf;
+  let i0 = min(vec3u(floor(pos)), vec3u(n - 2u));
+  let f = pos - vec3f(i0);
+  let o000 = 9u + (((i0.z * n) + i0.y) * n + i0.x) * 3u;
+  let sr = 3u;
+  let sg = n * 3u;
+  let sb = n * n * 3u;
+  let c000 = rgb_at(o000);
+  let c100 = rgb_at(o000 + sr);
+  let c010 = rgb_at(o000 + sg);
+  let c001 = rgb_at(o000 + sb);
+  let c110 = rgb_at(o000 + sr + sg);
+  let c101 = rgb_at(o000 + sr + sb);
+  let c011 = rgb_at(o000 + sg + sb);
+  let c111 = rgb_at(o000 + sr + sg + sb);
+  var res: vec3f;
+  if (adj[7] != 0.0) {
+    let r00 = mix(c000, c100, f.x);
+    let r10 = mix(c010, c110, f.x);
+    let r01 = mix(c001, c101, f.x);
+    let r11 = mix(c011, c111, f.x);
+    res = mix(mix(r00, r10, f.y), mix(r01, r11, f.y), f.z);
+  } else if (f.x > f.y) {
+    if (f.y > f.z) { res = (1.0 - f.x) * c000 + (f.x - f.y) * c100 + (f.y - f.z) * c110 + f.z * c111; }
+    else if (f.x > f.z) { res = (1.0 - f.x) * c000 + (f.x - f.z) * c100 + (f.z - f.y) * c101 + f.y * c111; }
+    else { res = (1.0 - f.z) * c000 + (f.z - f.x) * c001 + (f.x - f.y) * c101 + f.y * c111; }
+  } else if (f.z > f.y) {
+    res = (1.0 - f.z) * c000 + (f.z - f.y) * c001 + (f.y - f.x) * c011 + f.x * c111;
+  } else if (f.z > f.x) {
+    res = (1.0 - f.y) * c000 + (f.y - f.z) * c010 + (f.z - f.x) * c011 + f.x * c111;
+  } else {
+    res = (1.0 - f.y) * c000 + (f.y - f.x) * c010 + (f.x - f.z) * c110 + f.z * c111;
+  }
+  return clamp(res, vec3f(0.0), vec3f(1.0));
+}
+
+fn adjust_rgb(c: vec3f, dxy: vec2u) -> vec3f {
+  let z = vec3f(0.0);
+  let one = vec3f(1.0);
   switch p.opcode {
-    case ${ADJUST.invert}u: { return vec3f(1.0) - c; }
+    case ${ADJUST.invert}u: { return one - c; }
+    case ${ADJUST.table}u: { return vec3f(table_at(0u, c.r), table_at(1u, c.g), table_at(2u, c.b)); }
+    case ${ADJUST.vibrance}u: {
+      let hsl = rgb_to_hsl(c);
+      if (hsl.y <= 0.0 && adj[0] >= 0.0 && adj[1] >= 0.0) { return c; }
+      let s1 = sat_by(hsl.y, adj[1]);
+      let d0 = rem360(hsl.x - 25.0);
+      let dist = min(d0, 360.0 - d0);
+      let skin = select(0.5 + 0.5 * dist / 40.0, 1.0, dist >= 40.0);
+      return hsl_to_rgb(hsl.x, sat_by(s1, adj[0] * (1.0 - s1) * skin), hsl.z);
+    }
+    case ${ADJUST.hue_saturation}u: {
+      let hsl = rgb_to_hsl(c);
+      if (adj[0] != 0.0) { return hsl_to_rgb(adj[4], adj[5] / 100.0, light_by(hsl.z, adj[6])); }
+      var dv = vec3f(adj[1], adj[2], adj[3]);
+      for (var r = 0u; r < 6u; r++) {
+        let o = 7u + r * 7u;
+        dv += rgb_at(o + 4u) * hue_weight(hsl.x, o);
+      }
+      return hsl_to_rgb(hsl.x + dv.x, sat_by(hsl.y, dv.y), light_by(hsl.z, dv.z));
+    }
+    case ${ADJUST.color_balance}u: {
+      let ws = clamp((c - 0.333) / -0.25 + 0.5, z, one) * 0.7;
+      let wm = clamp((c - 0.333) / 0.25 + 0.5, z, one) * clamp((c - 0.667) / -0.25 + 0.5, z, one) * 0.7;
+      let wh = clamp((c - 0.667) / 0.25 + 0.5, z, one) * 0.7;
+      let res = clamp(c + rgb_at(1u) * ws + rgb_at(4u) * wm + rgb_at(7u) * wh, z, one);
+      if (adj[0] != 0.0) { return clamp(set_lum(res, lum(c)), z, one); }
+      return res;
+    }
+    case ${ADJUST.black_white}u: {
+      // Families: 0 reds, 1 yellows, 2 greens, 3 cyans, 4 blues, 5 magentas.
+      let i = order(c);
+      let g = clamp(c[i.z] + (c[i.x] - c[i.y]) * adj[2u * i.x] + (c[i.y] - c[i.z]) * adj[(3u + 2u * i.z) % 6u], 0.0, 1.0);
+      if (adj[6] != 0.0) { return hsl_to_rgb(adj[7], adj[8], g); }
+      return vec3f(g);
+    }
+    case ${ADJUST.photo_filter}u: {
+      let res = clamp(c * rgb_at(1u), z, one);
+      if (adj[0] != 0.0) { return clamp(set_lum(res, lum(c)), z, one); }
+      return res;
+    }
+    case ${ADJUST.channel_mixer}u: {
+      let row = vec3f(dot(rgb_at(0u), c) + adj[3], dot(rgb_at(4u), c) + adj[7], dot(rgb_at(8u), c) + adj[11]);
+      return clamp(row, z, one);
+    }
+    case ${ADJUST.selective_color}u: {
+      let i = order(c);
+      let mx = c[i.x];
+      let mn = c[i.z];
+      var w: array<f32, 9>;
+      w[2u * i.x] = mx - c[i.y];
+      w[(3u + 2u * i.z) % 6u] = c[i.y] - mn;
+      w[6] = max(2.0 * mn - 1.0, 0.0);
+      w[8] = max(1.0 - 2.0 * mx, 0.0);
+      w[7] = 1.0 - w[6] - w[8];
+      let k = 1.0 - mx;
+      var v = vec4f(one - c - vec3f(k), k);
+      var acc = vec4f(0.0);
+      for (var f = 0u; f < 9u; f++) {
+        let o = 1u + f * 4u;
+        acc += vec4f(adj[o], adj[o + 1u], adj[o + 2u], adj[o + 3u]) * w[f];
+      }
+      v = clamp(v + select(v * acc, acc, adj[0] != 0.0), vec4f(0.0), vec4f(1.0));
+      return clamp(one - v.xyz - vec3f(v.w), z, one);
+    }
+    case ${ADJUST.gradient_map}u: {
+      var t = lum(c);
+      if (adj[0] != 0.0) { t += (dissolve_hash(dxy.x, dxy.y, 0u) - 0.5) / 4095.0; }
+      let pos = clamp(t, 0.0, 1.0) * 4095.0;
+      let i = min(u32(floor(pos)), 4094u);
+      let a = rgb_at(1u + i * 3u);
+      return a + (rgb_at(4u + i * 3u) - a) * (pos - f32(i));
+    }
+    case ${ADJUST.color_lookup}u: { return lookup_3d(c, dxy); }
     default: { return c; }
   }
 }
 
+fn doc_px(xy: vec2i) -> vec2u { return vec2u(p.ox + u32(xy.x), p.oy + u32(xy.y)) << vec2u(p.level); }
+
 fn dissolve_hit(xy: vec2i, k: f32) -> bool {
-  let dx = (p.ox + u32(xy.x)) << p.level;
-  let dy = (p.oy + u32(xy.y)) << p.level;
-  return dissolve_hash(dx, dy, p.node) < k;
+  let d = doc_px(xy);
+  return dissolve_hash(d.x, d.y, p.node) < k;
 }
 
 // Adjust on the top buffer in place; alpha is never changed.
@@ -194,7 +386,7 @@ fn adjust_px(xy: vec2i, dst: vec4f) -> vec4f {
     k = 1.0;
   }
   let o = straight(dst);
-  let r = blend_rgb(p.mode, o, adjust_rgb(o));
+  let r = blend_rgb(p.mode, o, adjust_rgb(o, doc_px(xy)));
   let l = o + (r - o) * k;
   return vec4f((o + (l - o) * blend_if(l, o)) * dst.a, dst.a);
 }

@@ -145,7 +145,7 @@ fn midpoint_remap(u: f32, m: f32) -> f32 {
     u.clamp(0.0, 1.0).powf(k)
 }
 
-fn srgb_to_linear(c: f32) -> f32 {
+pub(crate) fn srgb_to_linear(c: f32) -> f32 {
     if c <= 0.04045 {
         c / 12.92
     } else {
@@ -153,7 +153,7 @@ fn srgb_to_linear(c: f32) -> f32 {
     }
 }
 
-fn linear_to_srgb(c: f32) -> f32 {
+pub(crate) fn linear_to_srgb(c: f32) -> f32 {
     if c <= 0.0031308 {
         12.92 * c
     } else {
@@ -253,6 +253,11 @@ pub fn build_lut(color_stops: &[ColorStop], opacity_stops: &[OpacityStop], metho
             [r, g, b, opacity_at(opacity_stops, t)]
         })
         .collect()
+}
+
+/// `n` colours sampled at `t_i = i/(n-1)`, without opacity.
+pub fn color_table(color_stops: &[ColorStop], method: Method, n: usize) -> Vec<[f32; 3]> {
+    (0..n).map(|i| color_at(color_stops, i as f32 / (n - 1) as f32, method)).collect()
 }
 
 /// Linear interpolation between the LUT's neighbouring entries at `t` (0..1).

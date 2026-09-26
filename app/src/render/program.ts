@@ -8,7 +8,13 @@ export const OP = {
 } as const;
 
 /// `Adjust` opcodes, the `OP_*` constants of engine/src/adjust.rs.
-export const ADJUST = { invert: 1 } as const;
+export const ADJUST = {
+  invert: 1, table: 2, vibrance: 3, hue_saturation: 4, color_balance: 5, black_white: 6,
+  photo_filter: 7, channel_mixer: 8, selective_color: 9, gradient_map: 10, color_lookup: 11,
+} as const;
+
+/// Payload kinds: an RGBA8 tile, a mask8 tile, or an `Adjust` data block (f32 LE).
+export const PAYLOAD = { rgba: 0, mask: 1, data: 2 } as const;
 
 export const PROGRAM_VERSION = 2;
 export const STEP_BYTES = 72;
@@ -19,7 +25,7 @@ export interface Step {
   /// Blend If ranges: gray, red, green, blue, each source then destination [bo, bi, wi, wo].
   blendIf: Uint8Array;
 }
-export interface Payload { key: bigint; mask: boolean; bytes: Uint8Array }
+export interface Payload { key: bigint; kind: number; bytes: Uint8Array }
 export interface Program {
   level: number; ox: number; oy: number; vw: number; vh: number;
   steps: Step[]; payloads: Payload[];
@@ -46,7 +52,7 @@ export function decodeProgram(buf: ArrayBuffer): Program {
     const len = v.getUint32(o + 12, true);
     payloads.push({
       key: v.getBigUint64(o, true),
-      mask: v.getUint32(o + 8, true) === 1,
+      kind: v.getUint32(o + 8, true),
       bytes: new Uint8Array(buf, o + 16, len),
     });
     o += 16 + len;
@@ -57,7 +63,8 @@ export function decodeProgram(buf: ArrayBuffer): Program {
   };
 }
 
-/// Every payload key the steps reference (0 means the top of the stack, not a tile).
+/// Every payload key the steps reference (0 means the top of the stack, not a tile; an `Adjust`
+/// src is its data block).
 export function referencedKeys(p: Program): bigint[] {
   const out = new Set<bigint>();
   for (const s of p.steps) {

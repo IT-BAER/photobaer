@@ -38,20 +38,32 @@ test('layer opacity and an offset layer that sticks out of the canvas are render
 
 test('features the engine cannot render yet are skipped with a reason', async () => {
   const img = image(W, H, pattern);
-  const r = await checkPsd('d.psd', psd([{ name: 'bg', imageData: img }, { name: 'adj', adjustment: { type: 'invert' } }], img));
+  const effects = { solidFill: [{ enabled: true, blendMode: 'normal' as const, opacity: 1, color: { r: 0, g: 0, b: 0 } }] };
+  const r = await checkPsd('d.psd', psd([{ name: 'bg', imageData: img, effects }], img));
   assert.equal(r.status, 'skip');
-  assert.match(r.reason!, /adjustment/);
+  assert.match(r.reason!, /effects/);
 });
 
-test('default Blend If ranges are rendered, custom ranges are skipped', async () => {
+test('an adjustment layer renders', async () => {
+  const img = image(W, H, pattern);
+  const inverted = image(W, H, (x, y) => [...pattern(x, y).slice(0, 3).map(v => 255 - v), 255]);
+  const r = await checkPsd('e.psd', psd([{ name: 'bg', imageData: img }, { name: 'adj', adjustment: { type: 'invert' } }], inverted));
+  assert.equal(r.status, 'pass', JSON.stringify(r));
+});
+
+test('Blend If ranges are rendered', async () => {
   const img = image(W, H, pattern);
   const full = { sourceRange: [0, 0, 255, 255], destRange: [0, 0, 255, 255] };
   const ranges = (source: number[]) => ({ compositeGrayBlendSource: source, compositeGraphBlendDestinationRange: [0, 0, 255, 255], ranges: [full, full, full] });
   const ok = await checkPsd('f.psd', psd([{ name: 'bg', imageData: img, blendingRanges: ranges([0, 0, 255, 255]) }], img));
   assert.equal(ok.status, 'pass', JSON.stringify(ok));
-  const custom = await checkPsd('g.psd', psd([{ name: 'bg', imageData: img, blendingRanges: ranges([0, 0, 128, 200]) }], img));
-  assert.equal(custom.status, 'skip');
-  assert.match(custom.reason!, /blendingRanges/);
+  // Gray source white 128..200 hides the bright pixels of the only layer.
+  const kept = image(W, H, (x, y) => {
+    const [r, g, b] = pattern(x, y), v = 0.3 * r + 0.59 * g + 0.11 * b;
+    return v > 200 ? [0, 0, 0, 0] : [r, g, b, 255];
+  });
+  const custom = await checkPsd('g.psd', psd([{ name: 'bg', imageData: img, blendingRanges: ranges([0, 0, 128, 200]) }], kept));
+  assert.notEqual(custom.status, 'skip', JSON.stringify(custom));
 });
 
 test('shape layers render their stored raster, vector masks on pixel layers are skipped', async () => {

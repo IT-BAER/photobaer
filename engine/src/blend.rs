@@ -176,7 +176,7 @@ fn clip_color(mut c: [f32; 3]) -> [f32; 3] {
     c
 }
 
-fn set_lum(c: [f32; 3], l: f32) -> [f32; 3] {
+pub(crate) fn set_lum(c: [f32; 3], l: f32) -> [f32; 3] {
     let d = l - lum(c);
     clip_color([c[0] + d, c[1] + d, c[2] + d])
 }
