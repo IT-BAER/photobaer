@@ -225,7 +225,10 @@ function exportNode(e: Engine, n: ManifestNode, w: number, h: number): Layer {
   return { ...common, top: rect.top, left: rect.left, imageData: { width: rw, height: rh, data: new Uint8ClampedArray(data.buffer) } };
 }
 
-export function exportPsd(e: Engine): Uint8Array<ArrayBuffer> {
+// ag-psd's typed Psd/ImageResources (node_modules/ag-psd/src/psd.ts) only carry alpha-channel
+// *names* (imageResources.alphaChannelNames/alphaIdentifiers), not pixel data for extra alpha
+// channels; there is no field to round-trip saved-selection channel bitmaps through a PSD.
+export function exportPsd(e: Engine): { bytes: Uint8Array<ArrayBuffer>; warnings: string[] } {
   ensureCanvas();
   if (e.depth() !== 8) throw new Error('16-bit PSD export is not supported yet');
   const w = e.width(), h = e.height();
@@ -236,5 +239,7 @@ export function exportPsd(e: Engine): Uint8Array<ArrayBuffer> {
     children: manifest.layers.map(n => exportNode(e, n, w, h)),
     imageData: { width: w, height: h, data: new Uint8ClampedArray(composite.buffer) },
   };
-  return new Uint8Array(writePsd(psd, { generateThumbnail: false }));
+  const channels = (JSON.parse(e.channels_json()) as { channels: { id: number; name: string }[] }).channels;
+  const warnings = channels.length ? ['saved selections are not stored in PSD'] : [];
+  return { bytes: new Uint8Array(writePsd(psd, { generateThumbnail: false })), warnings };
 }

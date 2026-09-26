@@ -89,7 +89,7 @@ function roundOpacity(json: string): string {
 
 test('import, export, re-import round trips the tree and every tile', () => {
   const a = importPsd(bytesOf(richPsd()));
-  const bytes2 = exportPsd(a.engine);
+  const { bytes: bytes2 } = exportPsd(a.engine);
   const b = importPsd(bytes2);
   assert.equal(roundOpacity(a.engine.layers_json()), roundOpacity(b.engine.layers_json()));
   for (let ty = 0; ty < Math.ceil(a.engine.height() / 256); ty++) {
@@ -147,7 +147,7 @@ test('an exported layer covering one tile is written at that tile\'s bounding re
     children: [{ name: 'L', top: 10, left: 10, imageData: solid(20, 20, [1, 2, 3, 255]) }],
   };
   const { engine } = importPsd(bytesOf(psd));
-  const bytes = exportPsd(engine);
+  const { bytes } = exportPsd(engine);
   const back = readPsd(bytes, { skipLayerImageData: true, skipCompositeImageData: true, skipThumbnail: true });
   const l = back.children![0];
   assert.ok((l.right! - l.left!) <= 256, `right-left ${l.right! - l.left!}`);
@@ -161,7 +161,7 @@ test('exportPsd composite equals the engine flatten output', () => {
     children: [{ name: 'L', top: 0, left: 0, imageData: solid(4, 4, [11, 22, 33, 255]) }],
   };
   const { engine } = importPsd(bytesOf(psd));
-  const bytes = exportPsd(engine);
+  const { bytes } = exportPsd(engine);
   const back = readPsd(bytes, { useImageData: true, skipThumbnail: true });
   const flat = engine.flatten_tile_rgba8(0, 0);
   for (let y = 0; y < 4; y++) {
@@ -170,5 +170,17 @@ test('exportPsd composite equals the engine flatten output', () => {
       assert.deepEqual([...flat.slice(o, o + 4)], [...back.imageData!.data.slice(r, r + 4)]);
     }
   }
+  engine.free();
+});
+
+// ag-psd only carries alpha-channel names (imageResources.alphaChannelNames), not pixel data for
+// extra channels, so a saved selection warns and is dropped rather than round-tripped.
+test('exportPsd warns when the document has a saved selection channel', () => {
+  const psd: Psd = { width: 4, height: 4, colorMode: 3, bitsPerChannel: 8, children: [{ name: 'L', top: 0, left: 0, imageData: solid(4, 4, [1, 2, 3, 255]) }] };
+  const { engine } = importPsd(bytesOf(psd));
+  engine.select_rect(0, 0, 2, 2, 'new');
+  engine.save_selection('Alpha 1');
+  const { warnings } = exportPsd(engine);
+  assert.deepEqual(warnings, ['saved selections are not stored in PSD']);
   engine.free();
 });

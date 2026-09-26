@@ -14,6 +14,7 @@ export class SelectionOverlay {
   #antsScale = 1;
   #preview: Preview = null;
   #hidden = false;
+  #mask: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number } | null = null;
   #dash = 0;
   #timer: ReturnType<typeof setInterval> | undefined;
   #last: [View, number, number, number] | null = null;
@@ -38,6 +39,22 @@ export class SelectionOverlay {
     this.#hidden = b;
   }
 
+  // Quick mask: `coverage` is the selectionMask byte buffer (255 = selected); unselected pixels
+  // are drawn as a 50% red tint. Pass null to go back to marching ants.
+  setMaskOverlay(coverage: Uint8Array | null, w: number, h: number, scale: number) {
+    if (!coverage) { this.#mask = null; return; }
+    const canvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : document.createElement('canvas');
+    if (!(canvas instanceof OffscreenCanvas)) { canvas.width = w; canvas.height = h; }
+    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+    const img = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      img.data[i * 4] = 255;
+      img.data[i * 4 + 3] = Math.round((255 - coverage[i]) * 0.5);
+    }
+    ctx.putImageData(img, 0, 0);
+    this.#mask = { canvas, w, h, scale };
+  }
+
   #syncTimer() {
     const active = !!this.#ants || !!this.#preview;
     if (active && !this.#timer) this.#timer = setInterval(() => {
@@ -55,7 +72,8 @@ export class SelectionOverlay {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
     if (this.#hidden) return;
-    if (this.#ants) this.#strokeSegments(this.#segmentsFor(this.#ants), view, cssW, cssH, dpr, this.#antsScale);
+    if (this.#mask) this.#drawMask(this.#mask, view, cssW, cssH, dpr);
+    else if (this.#ants) this.#strokeSegments(this.#segmentsFor(this.#ants), view, cssW, cssH, dpr, this.#antsScale);
     if (this.#preview) this.#strokeSegments(this.#previewSegments(this.#preview), view, cssW, cssH, dpr, 1);
   }
 
@@ -86,6 +104,20 @@ export class SelectionOverlay {
       out.push([cx + rx * Math.cos(a0), cy + ry * Math.sin(a0), cx + rx * Math.cos(a1), cy + ry * Math.sin(a1)]);
     }
     return out;
+  }
+
+  // Blits the per-tile-scaled mask canvas at doc origin, using the same view transform as the ants.
+  #drawMask(mask: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number }, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx;
+    const o = docToScreen(view, 0, 0, cssW, cssH);
+    const ex = docToScreen(view, 1, 0, cssW, cssH);
+    const ey = docToScreen(view, 0, 1, cssW, cssH);
+    const a = (ex[0] - o[0]) * dpr * mask.scale, b = (ex[1] - o[1]) * dpr * mask.scale;
+    const c = (ey[0] - o[0]) * dpr * mask.scale, d = (ey[1] - o[1]) * dpr * mask.scale;
+    ctx.setTransform(a, b, c, d, o[0] * dpr, o[1] * dpr);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(mask.canvas, 0, 0);
+    ctx.imageSmoothingEnabled = true;
   }
 
   // Sets ctx.setTransform to dpr * doc->screen * scale, then strokes the segments (in that local

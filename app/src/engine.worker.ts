@@ -20,6 +20,7 @@ export interface DocInfo {
   selection: { bounds: [number, number, number, number] | null; default: number } | null;
   hasLastSelection: boolean;
   selGen: number;
+  channels: { id: number; name: string }[];
 }
 export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?: number; w?: number; h?: number; points?: number[] };
 export type OpenResult = DocInfo & { warnings: string[] };
@@ -57,6 +58,7 @@ function info(): DocInfo | null {
   const ch = JSON.parse(eng.channels_json()) as {
     selection: { default: number; bounds: [number, number, number, number] | null } | null;
     has_last_selection: boolean;
+    channels: { id: number; name: string }[];
   };
   return {
     docId, version, name,
@@ -67,6 +69,7 @@ function info(): DocInfo | null {
     selection: ch.selection && { bounds: ch.selection.bounds, default: ch.selection.default },
     hasLastSelection: ch.has_last_selection,
     selGen,
+    channels: ch.channels,
   };
 }
 
@@ -246,7 +249,7 @@ const api = {
     return { ...adopt(e, file.name.replace(/\.[^.]+$/, '')), warnings: [] };
   },
 
-  command(op: 'fill' | 'invert', id: number, target: 'pixels' | 'mask', rgba?: [number, number, number, number]) {
+  command(op: 'fill' | 'invert', id: number, target: 'pixels' | 'mask' | 'selection', rgba?: [number, number, number, number]) {
     const e = need();
     if (op === 'fill') history.run('Fill', () => e.fill(id, target, ...rgba!));
     else history.run('Invert', () => e.invert(id, target));
@@ -289,7 +292,7 @@ const api = {
     return changed();
   },
 
-  clearSelected(id: number, target: 'pixels' | 'mask') {
+  clearSelected(id: number, target: 'pixels' | 'mask' | 'selection') {
     const e = need();
     if (!e.has_selection()) return info();
     history.run('Clear', () => e.clear(id, target));
@@ -332,6 +335,58 @@ const api = {
   bucket(id: number, target: 'pixels' | 'selection', x: number, y: number, rgba: [number, number, number, number], mode: string, opacity: number, tolerance: number, antialias: boolean, contiguous: boolean, allLayers: boolean) {
     const e = need();
     history.run('Paint Bucket', () => e.bucket(id, target, Math.floor(x), Math.floor(y), ...rgba, mode, opacity, tolerance, antialias, contiguous, allLayers));
+    return changed();
+  },
+
+  modifySelection(op: 'border' | 'smooth' | 'expand' | 'contract', radius: number, canvasBounds: boolean) {
+    const e = need();
+    const labels = { border: 'Border', smooth: 'Smooth', expand: 'Expand', contract: 'Contract' };
+    history.run(labels[op], () => e.modify_selection(op, radius, canvasBounds));
+    selGen++;
+    return changed();
+  },
+
+  grow(id: number, tolerance: number, sampleAll: boolean) {
+    const e = need();
+    history.run('Grow', () => e.grow(tolerance, sampleAll, id));
+    selGen++;
+    return changed();
+  },
+
+  similar(id: number, tolerance: number, sampleAll: boolean) {
+    const e = need();
+    history.run('Similar', () => e.similar(tolerance, sampleAll, id));
+    selGen++;
+    return changed();
+  },
+
+  colorRange(id: number, sampleAll: boolean, preset: string, samples: number[], fuzziness: number, range: number, center: number[], localized: boolean, invert: boolean) {
+    const e = need();
+    history.run('Color Range', () => e.color_range(sampleAll, id, preset, Uint8Array.from(samples), fuzziness, range, Float64Array.from(center), localized, invert, 'new'));
+    selGen++;
+    return changed();
+  },
+
+  // Read-only grayscale preview for the Color Range dialog; does not touch history/selection.
+  colorRangePreview(level: number, id: number, sampleAll: boolean, preset: string, samples: number[], fuzziness: number, range: number, center: number[], localized: boolean, invert: boolean) {
+    const e = need();
+    const scale = 1 << level;
+    const w = Math.ceil(e.width() / scale), h = Math.ceil(e.height() / scale);
+    const data = e.color_range_preview(level, sampleAll, id, preset, Uint8Array.from(samples), fuzziness, range, Float64Array.from(center), localized, invert);
+    return { w, h, data: data.buffer as ArrayBuffer };
+  },
+
+  saveSelection(name: string | null, channel: number | null, mode: string) {
+    const e = need();
+    if (!e.has_selection()) return info();
+    history.run('Save Selection', () => { if (channel !== null) e.combine_into_channel(channel, mode); else e.save_selection(name!); });
+    return changed();
+  },
+
+  loadSelection(channel: number, invert: boolean, mode: string) {
+    const e = need();
+    history.run('Load Selection', () => e.load_selection(channel, invert, mode));
+    selGen++;
     return changed();
   },
 
@@ -493,9 +548,10 @@ const api = {
     return packProject(e.manifest(), id => e.tile_bytes(BigInt(id)));
   },
 
-  savePsd(): Blob {
+  savePsd(): { blob: Blob; warnings: string[] } {
     const e = need();
-    return new Blob([exportPsd(e)], { type: 'image/vnd.adobe.photoshop' });
+    const { bytes, warnings } = exportPsd(e);
+    return { blob: new Blob([bytes], { type: 'image/vnd.adobe.photoshop' }), warnings };
   },
 
   async closeDoc() {
@@ -529,6 +585,6 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 let queue = Promise.resolve();
 onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[] }>) => {
   const { id, op, args } = ev.data;
-  if (op === 'displayTile' || op === 'displayProgram' || op === 'selectionMask') void handle(id, op, args);
+  if (op === 'displayTile' || op === 'displayProgram' || op === 'selectionMask' || op === 'colorRangePreview') void handle(id, op, args);
   else queue = queue.then(() => handle(id, op, args));
 };

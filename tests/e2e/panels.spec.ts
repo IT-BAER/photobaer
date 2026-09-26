@@ -44,7 +44,7 @@ test('layers and history panels: create, edit, reorder and time travel', async (
   await page.locator('.mask-chip').click();
 
   await page.getByRole('button', { name: 'Image' }).click();
-  await page.getByText('Invert').click();
+  await page.getByRole('menuitem', { name: /^Invert/ }).click();
   await expect(page.getByRole('option', { name: 'Invert' })).toBeVisible();
 
   expect(errors).toEqual([]);

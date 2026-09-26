@@ -43,6 +43,21 @@ async function sample(page: Page, x: number, y: number): Promise<[number, number
   return page.evaluate(([x, y]) => (window as unknown as Photobaer).photobaer.client.call('sample', x, y, 1, null), [x, y]) as Promise<[number, number, number, number]>;
 }
 
+// selectionMask's coverage bytes as a plain array (structured-clone-safe), or null (no selection channel).
+async function maskBytes(page: Page, level = 0): Promise<number[] | null> {
+  return page.evaluate(async level => {
+    const r = (await (window as unknown as Photobaer).photobaer.client.call('selectionMask', level)) as { data: ArrayBuffer | null };
+    return r.data ? Array.from(new Uint8Array(r.data)) : null;
+  }, level);
+}
+
+async function openMenuItem(page: Page, menu: string, label: string) {
+  await page.getByRole('button', { name: menu, exact: true }).click();
+  await page.getByRole('menuitem', { name: new RegExp(`^${label}`) }).click();
+}
+
+const dialog = (page: Page) => page.locator('dialog[open]');
+
 // Selects a rectangle and fills it black, leaving the rest of the (white) canvas untouched: a
 // simple two-color fixture built from already-covered primitives (marquee select + fill) rather
 // than an OffscreenCanvas/PNG round trip, so wand and bucket exercise the same document state a
@@ -132,4 +147,93 @@ test('magnetic lasso: anchors placed by click, Enter closes and produces a selec
   await page.keyboard.press('Delete');
   await expect.poll(() => sample(page, 100, 100)).toEqual([0, 0, 0, 0]); // inside the traced square: cleared
   await expect.poll(() => sample(page, 5, 5)).toEqual([255, 255, 255, 255]); // outside: untouched
+});
+
+test('color range dialog opens and OK selects the shadows on a two-color doc', async ({ page }) => {
+  await page.goto('/');
+  await newDoc(page, 200, 200);
+  await page.keyboard.press('d');
+  await paintBlackSquare(page, [50, 50], [150, 150]);
+
+  await openMenuItem(page, 'Select', 'Color Range');
+  await expect(dialog(page)).toBeVisible();
+  await dialog(page).locator('select').first().selectOption('shadows');
+  await dialog(page).getByRole('button', { name: 'OK' }).click();
+  await expect(page.locator('.history-row').last()).toHaveText('Color Range');
+
+  await page.keyboard.press('Delete');
+  await expect.poll(() => sample(page, 100, 100)).toEqual([0, 0, 0, 0]); // inside the black square: cleared
+  await expect.poll(() => sample(page, 10, 10)).toEqual([255, 255, 255, 255]); // white background: untouched
+});
+
+test('color range sampled: clicking the preview takes a sample and OK selects that color', async ({ page }) => {
+  await page.goto('/');
+  await newDoc(page, 200, 200);
+  await page.keyboard.press('d');
+  await paintBlackSquare(page, [50, 50], [150, 150]);
+
+  await openMenuItem(page, 'Select', 'Color Range');
+  const ok = dialog(page).getByRole('button', { name: 'OK' });
+  await expect(ok).toBeDisabled(); // nothing sampled yet
+  await dialog(page).locator('canvas.color-range-preview').click(); // center: inside the black square
+  await expect(ok).toBeEnabled();
+  await ok.click();
+  await expect(page.locator('.history-row').last()).toHaveText('Color Range');
+
+  await page.keyboard.press('Delete');
+  await expect.poll(() => sample(page, 100, 100)).toEqual([0, 0, 0, 0]);
+  await expect.poll(() => sample(page, 10, 10)).toEqual([255, 255, 255, 255]);
+});
+
+test('quick mask mode round trip (Q, Q) leaves the selection mask unchanged', async ({ page }) => {
+  await page.goto('/');
+  await newDoc(page, 100, 100);
+  await page.keyboard.press('m');
+  await dragDoc(page, [20, 20], [60, 60]);
+
+  const before = await maskBytes(page);
+  await page.keyboard.press('q');
+  const toolbar = page.getByRole('button', { name: 'Toggle quick mask' });
+  await expect(toolbar).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('q');
+  await expect(toolbar).toHaveAttribute('aria-pressed', 'false');
+  const after = await maskBytes(page);
+  expect(after).toEqual(before);
+});
+
+test('save selection then load selection restores the same selected region', async ({ page }) => {
+  await page.goto('/');
+  await newDoc(page, 150, 150);
+  await page.keyboard.press('d');
+  await page.keyboard.press('m');
+  await dragDoc(page, [30, 30], [80, 80]);
+
+  await openMenuItem(page, 'Select', 'Save Selection');
+  await dialog(page).getByRole('button', { name: 'OK' }).click();
+  await expect(page.locator('.history-row').last()).toHaveText('Save Selection');
+
+  await page.keyboard.press('Control+d');
+  await openMenuItem(page, 'Select', 'Load Selection');
+  await dialog(page).getByRole('button', { name: 'OK' }).click();
+  await expect(page.locator('.history-row').last()).toHaveText('Load Selection');
+
+  await page.keyboard.press('Delete');
+  await expect.poll(() => sample(page, 55, 55)).toEqual([0, 0, 0, 0]); // inside the restored selection: cleared
+  await expect.poll(() => sample(page, 120, 120)).toEqual([255, 255, 255, 255]); // outside: untouched
+});
+
+test('Select > Modify > Expand grows the selection bounds', async ({ page }) => {
+  await page.goto('/');
+  await newDoc(page, 200, 200);
+  await page.keyboard.press('d');
+  await page.keyboard.press('m');
+  await dragDoc(page, [50, 50], [100, 100]);
+
+  await openMenuItem(page, 'Select', 'Expand');
+  await dialog(page).getByRole('button', { name: 'OK' }).click();
+  await expect(page.locator('.history-row').last()).toHaveText('Expand');
+
+  await page.keyboard.press('Delete');
+  await expect.poll(() => sample(page, 47, 75)).toEqual([0, 0, 0, 0]); // just outside the original bounds: expanded selection reaches it
+  await expect.poll(() => sample(page, 20, 75)).toEqual([255, 255, 255, 255]); // far outside: untouched
 });

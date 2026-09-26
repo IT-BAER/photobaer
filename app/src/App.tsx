@@ -22,6 +22,15 @@ const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
 const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso', 'magneticLasso', 'quickSelection', 'magicWand'];
 
+// Select > Modify (docs/M2.md section 3): op -> [min, max, default].
+const MODIFY_OPS: Record<'border' | 'smooth' | 'expand' | 'contract', { label: string; min: number; max: number; default: number }> = {
+  border: { label: 'Border', min: 1, max: 200, default: 10 },
+  smooth: { label: 'Smooth', min: 1, max: 100, default: 2 },
+  expand: { label: 'Expand', min: 1, max: 500, default: 5 },
+  contract: { label: 'Contract', min: 1, max: 500, default: 5 },
+};
+const COLOR_RANGE_PRESETS = ['sampled', 'reds', 'yellows', 'greens', 'cyans', 'blues', 'magentas', 'highlights', 'midtones', 'shadows', 'skin tones'];
+
 // True only after `held` was seen released once during the drag, so a modifier already held at
 // pointer-down (consumed for add/subtract) must be released and re-pressed to engage constrain/etc.
 function makeLatch(held: boolean) {
@@ -93,6 +102,11 @@ export function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const newDialog = useRef<HTMLDialogElement>(null);
   const featherDialog = useRef<HTMLDialogElement>(null);
+  const modifyDialog = useRef<HTMLDialogElement>(null);
+  const colorRangeDialog = useRef<HTMLDialogElement>(null);
+  const saveSelDialog = useRef<HTMLDialogElement>(null);
+  const loadSelDialog = useRef<HTMLDialogElement>(null);
+  const colorRangeCanvas = useRef<HTMLCanvasElement>(null);
   const picker = useRef<ColorPickerHandle>(null);
   const viewer = useRef<Viewer | null>(null);
   const [doc, setDoc] = useState<DocInfo | null>(null);
@@ -107,6 +121,11 @@ export function App() {
   const [tool, setTool] = useState('move');
   const [lastUsed, setLastUsed] = useState(initialLastUsed());
   const [quickMask, setQuickMask] = useState(false);
+  const [modifyOp, setModifyOp] = useState<keyof typeof MODIFY_OPS>('expand');
+  const [colorRange, setColorRange] = useState({ preset: 'sampled', fuzziness: 40, range: 100, localized: false, invert: false });
+  const [colorRangeSamples, setColorRangeSamples] = useState<{ rgb: [number, number, number]; x: number; y: number }[]>([]);
+  const [colorRangePreview, setColorRangePreview] = useState<{ w: number; h: number; data: Uint8Array; level: number } | null>(null);
+  const [colorRangeOpen, setColorRangeOpen] = useState(false);
   const [optionsByTool, setOptionsByTool] = useState<Record<string, ToolOptions>>({});
   const [dockTab, setDockTab] = useState<'color' | 'swatches'>('color');
   const [showAnts, setShowAnts] = useState(true);
@@ -174,7 +193,9 @@ export function App() {
     if (!d) return;
     setBusy('Saving PSD…');
     try {
-      await saveBlob(await client.call('savePsd'), `${d.name}.psd`, 'image/vnd.adobe.photoshop', 'psd');
+      const { blob, warnings } = await client.call('savePsd');
+      await saveBlob(blob, `${d.name}.psd`, 'image/vnd.adobe.photoshop', 'psd');
+      if (warnings.length) setError(`Saved with warnings: ${warnings.join('; ')}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -208,6 +229,41 @@ export function App() {
     } finally {
       setBusy(null);
     }
+  }
+
+  function openModify(op: keyof typeof MODIFY_OPS) {
+    setMenu(null);
+    setModifyOp(op);
+    modifyDialog.current?.showModal();
+  }
+
+  // Grow/Similar (docs/M2.md section 3) reuse the magic wand tool's tolerance/sample-all-layers
+  // options; there is no dialog for them.
+  function growOrSimilar(op: 'grow' | 'similar') {
+    return () => {
+      if (!active) return;
+      const o = optionsByTool.magicWand ?? loadToolOptions(TOOLS.magicWand);
+      run(op === 'grow' ? 'Growing…' : 'Selecting similar…', () => client.call(op, active.id, Number(o.tolerance), !!o.sampleAllLayers));
+    };
+  }
+
+  function openColorRange() {
+    if (!active) return;
+    setMenu(null);
+    setColorRangeSamples([]);
+    setColorRangePreview(null);
+    setColorRangeOpen(true);
+    colorRangeDialog.current?.showModal();
+  }
+
+  function closeColorRange() {
+    setColorRangeOpen(false);
+    colorRangeDialog.current?.close();
+  }
+
+  // Smallest level keeping the preview's longer side at or under 400px.
+  function previewLevel(w: number, h: number) {
+    return Math.max(0, Math.ceil(Math.log2(Math.max(w, h) / 400)));
   }
 
   function createNew(e: FormEvent<HTMLFormElement>) {
@@ -248,8 +304,8 @@ export function App() {
     Edit: [
       { label: doc?.undoLabel ? `Undo ${doc.undoLabel}` : 'Undo', keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
       { label: doc?.redoLabel ? `Redo ${doc.redoLabel}` : 'Redo', keys: 'Shift+Ctrl+Z', run: () => run(null, () => client.call('redo')), off: !doc?.redoLabel },
-      { label: 'Fill with foreground color', keys: 'Alt+Backspace', run: () => run('Filling…', () => client.call('command', 'fill', active!.id, active!.target, [...fg, 255] as Rgba)), off: !has },
-      { label: 'Clear', keys: 'Delete', run: () => active && run('Clearing…', () => client.call('clearSelected', active.id, active.target)), off: !doc?.selection || !active },
+      { label: 'Fill with foreground color', keys: 'Alt+Backspace', run: () => run('Filling…', () => client.call('command', 'fill', active!.id, quickMask ? 'selection' : active!.target, [...fg, 255] as Rgba)), off: !has },
+      { label: 'Clear', keys: 'Delete', run: () => active && run('Clearing…', () => client.call('clearSelected', active.id, quickMask ? 'selection' : active.target)), off: !doc?.selection || !active },
     ],
     Layer: [
       { label: 'New Layer', run: newLayer, off: !has },
@@ -264,14 +320,24 @@ export function App() {
       { label: node?.mask?.enabled === false ? 'Enable Layer Mask' : 'Disable Layer Mask', run: toggleMaskEnabled, off: !has || !node?.mask },
     ],
     Image: [
-      { label: 'Invert', keys: 'Ctrl+I', run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, active!.target)), off: !has },
+      { label: 'Invert', keys: 'Ctrl+I', run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, quickMask ? 'selection' : active!.target)), off: !has },
     ],
     Select: [
       { label: 'All', keys: 'Ctrl+A', run: () => run(null, () => client.call('selectCommand', 'all')), off: !has },
       { label: 'Deselect', keys: 'Ctrl+D', run: () => run(null, () => client.call('selectCommand', 'deselect')), off: !doc?.selection },
       { label: 'Reselect', keys: 'Shift+Ctrl+D', run: () => run(null, () => client.call('selectCommand', 'reselect')), off: !doc?.hasLastSelection },
       { label: 'Inverse', keys: 'Shift+Ctrl+I', run: () => run(null, () => client.call('selectCommand', 'inverse')), off: !doc?.selection },
+      { label: 'Color Range…', run: () => openColorRange(), off: !has },
+      { label: 'Border…', run: () => openModify('border'), off: !doc?.selection },
+      { label: 'Smooth…', run: () => openModify('smooth'), off: !doc?.selection },
+      { label: 'Expand…', run: () => openModify('expand'), off: !doc?.selection },
+      { label: 'Contract…', run: () => openModify('contract'), off: !doc?.selection },
       { label: 'Feather…', keys: 'Shift+F6', run: () => { setMenu(null); featherDialog.current?.showModal(); }, off: !doc?.selection },
+      { label: 'Grow', run: growOrSimilar('grow'), off: !doc?.selection },
+      { label: 'Similar', run: growOrSimilar('similar'), off: !doc?.selection },
+      { label: quickMask ? 'Exit Quick Mask Mode' : 'Edit in Quick Mask Mode', keys: 'Q', run: () => { setMenu(null); setQuickMask(v => !v); }, off: !has },
+      { label: 'Load Selection…', run: () => { setMenu(null); loadSelDialog.current?.showModal(); }, off: !doc?.channels.length },
+      { label: 'Save Selection…', run: () => { setMenu(null); saveSelDialog.current?.showModal(); }, off: !doc?.selection },
     ],
     View: [
       { label: 'Zoom in', keys: 'Ctrl++', run: () => { setMenu(null); viewer.current?.zoomBy(2); }, off: !has },
@@ -334,23 +400,61 @@ export function App() {
 
   useEffect(() => { overlayRef.current?.setHidden(!showAnts); redrawOverlay(); }, [showAnts]);
 
+  useEffect(() => {
+    if (!colorRangeOpen || !doc || !active) return;
+    const level = previewLevel(doc.width, doc.height);
+    // Nothing sampled yet selects nothing: a black preview the user clicks to take the first sample.
+    if (colorRange.preset === 'sampled' && !colorRangeSamples.length) {
+      const w = Math.ceil(doc.width / (1 << level)), h = Math.ceil(doc.height / (1 << level));
+      setColorRangePreview({ w, h, data: new Uint8Array(w * h), level });
+      return;
+    }
+    const samplesFlat = colorRangeSamples.flatMap(s => s.rgb);
+    const centerFlat = colorRangeSamples.flatMap(s => [s.x, s.y]);
+    let alive = true;
+    client.call('colorRangePreview', level, active.id, false, colorRange.preset, samplesFlat, colorRange.fuzziness, colorRange.range, centerFlat, colorRange.localized, colorRange.invert).then(r => {
+      if (!alive) return;
+      setColorRangePreview({ w: r.w, h: r.h, data: new Uint8Array(r.data), level });
+    }, e => { if (alive) setError((e as Error).message); });
+    return () => { alive = false; };
+  }, [colorRangeOpen, doc?.docId, doc?.selGen, active?.id, colorRange, colorRangeSamples]);
+
+  useEffect(() => {
+    const c = colorRangeCanvas.current;
+    if (!c || !colorRangePreview) return;
+    const { w, h, data } = colorRangePreview;
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d')!;
+    const img = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      img.data[i * 4] = data[i]; img.data[i * 4 + 1] = data[i]; img.data[i * 4 + 2] = data[i]; img.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }, [colorRangePreview]);
+
   const dpr = viewer.current?.dpr ?? (window.devicePixelRatio || 1);
   const antsLevelValue = doc ? antsLevel(levelFor(view.zoom, dpr, doc.maxLevel), doc.width, doc.height, doc.maxLevel) : 0;
 
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
-    if (!doc?.selection) { overlay.setAnts(null, 1); redrawOverlay(); return; }
+    if (!doc) { overlay.setAnts(null, 1); overlay.setMaskOverlay(null, 0, 0, 1); redrawOverlay(); return; }
+    if (!quickMask && !doc.selection) { overlay.setAnts(null, 1); overlay.setMaskOverlay(null, 0, 0, 1); redrawOverlay(); return; }
     const docId = doc.docId;
     let alive = true;
     client.call('selectionMask', antsLevelValue).then(r => {
       if (!alive || r.docId !== docId || docRef.current?.docId !== docId) return;
-      overlay.setAnts(r.data ? contour(new Uint8Array(r.data), r.w, r.h) : null, 1 << antsLevelValue);
+      const bytes = r.data ? new Uint8Array(r.data) : new Uint8Array(r.w * r.h).fill(255);
+      if (quickMask) { overlay.setMaskOverlay(bytes, r.w, r.h, 1 << antsLevelValue); overlay.setAnts(null, 1); } else {
+        overlay.setMaskOverlay(null, 0, 0, 1);
+        overlay.setAnts(r.data ? contour(bytes, r.w, r.h) : null, 1 << antsLevelValue);
+      }
       redrawOverlay();
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc?.selGen, antsLevelValue, doc?.docId]);
+  }, [doc?.selGen, antsLevelValue, doc?.docId, quickMask]);
 
   // Rectangular/elliptical marquees, row/column marquees, freehand lasso, the polygonal lasso,
   // the magnetic lasso, quick selection and the magic wand all drive the viewer's raw pointer
@@ -579,10 +683,10 @@ export function App() {
       }
       const o = toolOptionsRef.current;
       const rgb = o.source === 'background' ? bg : fg;
-      client.call('bucket', active.id, 'pixels', e.x, e.y, [...rgb, 255], o.mode as string, Number(o.opacity) / 100, Number(o.tolerance), !!o.antiAlias, !!o.contiguous, !!o.allLayers).then(show);
+      client.call('bucket', active.id, quickMask ? 'selection' : 'pixels', e.x, e.y, [...rgb, 255], o.mode as string, Number(o.opacity) / 100, Number(o.tolerance), !!o.antiAlias, !!o.contiguous, !!o.allLayers).then(show);
     };
     return () => { v.onPointer = () => {}; };
-  }, [tool, active, fg, bg]);
+  }, [tool, active, fg, bg, quickMask]);
 
   function openPicker(which: 'fg' | 'bg') {
     picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v));
@@ -780,6 +884,115 @@ export function App() {
           <div className="actions">
             <button type="button" onClick={() => featherDialog.current?.close()}>Cancel</button>
             <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={modifyDialog}>
+        <form onSubmit={e => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          modifyDialog.current?.close();
+          run(null, () => client.call('modifySelection', modifyOp, Number(f.get('radius')), f.get('canvasBounds') === 'on'));
+        }}>
+          <h2>{MODIFY_OPS[modifyOp].label} Selection</h2>
+          <label>Radius <input name="radius" type="number" min={MODIFY_OPS[modifyOp].min} max={MODIFY_OPS[modifyOp].max} defaultValue={MODIFY_OPS[modifyOp].default} required /> px</label>
+          <label><input name="canvasBounds" type="checkbox" /> Apply effect at canvas bounds</label>
+          <div className="actions">
+            <button type="button" onClick={() => modifyDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={saveSelDialog}>
+        <form onSubmit={e => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          const channel = f.get('channel');
+          saveSelDialog.current?.close();
+          run(null, () => client.call('saveSelection', channel ? null : String(f.get('name')), channel ? Number(channel) : null, String(f.get('mode'))));
+        }}>
+          <h2>Save Selection</h2>
+          <label>Channel
+            <select name="channel" defaultValue="">
+              <option value="">New channel</option>
+              {doc?.channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+          <label>Name <input name="name" type="text" defaultValue={`Selection ${(doc?.channels.length ?? 0) + 1}`} /></label>
+          <label>Operation <select name="mode" defaultValue="new">
+            <option value="new">Replace</option><option value="add">Add to channel</option>
+            <option value="subtract">Subtract from channel</option><option value="intersect">Intersect with channel</option>
+          </select></label>
+          <div className="actions">
+            <button type="button" onClick={() => saveSelDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={loadSelDialog}>
+        <form onSubmit={e => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          loadSelDialog.current?.close();
+          run(null, () => client.call('loadSelection', Number(f.get('channel')), f.get('invert') === 'on', String(f.get('mode'))));
+        }}>
+          <h2>Load Selection</h2>
+          <label>Channel <select name="channel" defaultValue={doc?.channels[0]?.id}>
+            {doc?.channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select></label>
+          <label><input name="invert" type="checkbox" /> Invert</label>
+          <label>Operation <select name="mode" defaultValue="new">
+            <option value="new">New Selection</option><option value="add">Add to Selection</option>
+            <option value="subtract">Subtract from Selection</option><option value="intersect">Intersect with Selection</option>
+          </select></label>
+          <div className="actions">
+            <button type="button" onClick={() => loadSelDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={colorRangeDialog} onClose={() => setColorRangeOpen(false)}>
+        <form onSubmit={e => {
+          e.preventDefault();
+          if (!active) return;
+          const samplesFlat = colorRangeSamples.flatMap(s => s.rgb);
+          const centerFlat = colorRangeSamples.flatMap(s => [s.x, s.y]);
+          closeColorRange();
+          run(null, () => client.call('colorRange', active.id, false, colorRange.preset, samplesFlat, colorRange.fuzziness, colorRange.range, centerFlat, colorRange.localized, colorRange.invert));
+        }}>
+          <h2>Color Range</h2>
+          <label>Select <select value={colorRange.preset} onChange={e => setColorRange({ ...colorRange, preset: e.target.value })}>
+            {COLOR_RANGE_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
+          </select></label>
+          <canvas
+            ref={colorRangeCanvas} className="color-range-preview"
+            onClick={e => {
+              if (!colorRangePreview) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const cx = Math.round((e.clientX - rect.left) * (colorRangePreview.w / rect.width));
+              const cy = Math.round((e.clientY - rect.top) * (colorRangePreview.h / rect.height));
+              const x = cx * (1 << colorRangePreview.level), y = cy * (1 << colorRangePreview.level);
+              if (e.altKey) {
+                setColorRangeSamples(s => {
+                  if (!s.length) return s;
+                  let best = 0, bestD = Infinity;
+                  s.forEach((p, i) => { const d = Math.hypot(p.x - x, p.y - y); if (d < bestD) { bestD = d; best = i; } });
+                  return s.filter((_, i) => i !== best);
+                });
+                return;
+              }
+              client.call('sample', x, y, 1, null).then(([r, g, b]) => {
+                setColorRangeSamples(s => (e.shiftKey ? [...s, { rgb: [r, g, b], x, y }] : [{ rgb: [r, g, b], x, y }]));
+              });
+            }}
+          />
+          <label>Fuzziness <input type="range" min={0} max={200} value={colorRange.fuzziness} onChange={e => setColorRange({ ...colorRange, fuzziness: Number(e.target.value) })} /> {colorRange.fuzziness}</label>
+          <label>Range <input type="range" min={0} max={100} value={colorRange.range} onChange={e => setColorRange({ ...colorRange, range: Number(e.target.value) })} /> {colorRange.range}%</label>
+          <label><input type="checkbox" checked={colorRange.localized} onChange={e => setColorRange({ ...colorRange, localized: e.target.checked })} /> Localized color clusters</label>
+          <label><input type="checkbox" checked={colorRange.invert} onChange={e => setColorRange({ ...colorRange, invert: e.target.checked })} /> Invert</label>
+          <div className="actions">
+            <button type="button" onClick={closeColorRange}>Cancel</button>
+            <button type="submit" className="primary" disabled={colorRange.preset === 'sampled' && !colorRangeSamples.length}>OK</button>
           </div>
         </form>
       </dialog>
