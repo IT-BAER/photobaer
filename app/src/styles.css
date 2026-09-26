@@ -10,6 +10,7 @@
   --accent-hover: #4797ff;
   --on-accent: #fff;
   --danger: #f03a3e;
+  --checker: repeating-conic-gradient(#d8d8d8 0% 25%, #a6a6a6 0% 50%);
   color-scheme: dark;
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -234,3 +235,38 @@ dialog .actions { justify-content: flex-end; margin-top: 16px; }
 .context-menu { position: fixed; z-index: 50; list-style: none; margin: 0; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px #0008; }
 .context-menu button { padding: 4px 12px; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; }
 .context-menu button:hover { background: var(--accent); color: var(--on-accent); border-radius: 4px; }
+
+/* Options bar segmented control and gradient ramp */
+.opt-segmented { display: flex; gap: 1px; }
+.opt-segmented button { padding: 2px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 0; color: var(--dim); cursor: pointer; text-transform: capitalize; }
+.opt-segmented button:first-child { border-radius: 4px 0 0 4px; }
+.opt-segmented button:last-child { border-radius: 0 4px 4px 0; }
+.opt-segmented button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.gradient-ramp-button { width: 96px; height: 20px; padding: 0; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.gradient-ramp-button:hover { border-color: var(--accent); }
+
+/* Fill/Stroke dialogs */
+.stroke-location { display: flex; gap: 12px; margin: 8px 0; padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px; }
+.stroke-location legend { color: var(--dim); }
+.stroke-location label { margin: 0; }
+.stroke-location input { flex: none; }
+dialog input[type=checkbox], dialog input[type=radio] { flex: none; }
+dialog button.gradient-swatch { width: 40px; height: 22px; padding: 0; flex: none; border: 1px solid var(--line); border-radius: 4px; }
+
+/* Gradient editor; ramps are drawn over var(--checker) */
+.gradient-ramp-button, .gradient-chip, .gradient-ramp { background-size: 100% 100%, 8px 8px; }
+dialog.gradient-editor { width: 620px; max-width: calc(100vw - 32px); }
+.gradient-presets { display: grid; grid-template-columns: repeat(auto-fill, 44px); gap: 4px; max-height: 104px; overflow-y: auto; padding: 2px; }
+dialog .gradient-chip { width: 44px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 4px; }
+.gradient-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0; }
+.gradient-row label { margin: 0; }
+.gradient-row input[type=number] { width: 60px; flex: none; }
+dialog .gradient-row > button { display: flex; align-items: center; gap: 4px; padding: 4px 10px; }
+.gradient-ramp { height: 28px; margin: 0 8px; border: 1px solid var(--line); border-radius: 2px; }
+.gradient-rail { position: relative; height: 18px; margin: 2px 8px; }
+dialog .gradient-stop { position: absolute; top: 2px; width: 12px; height: 14px; padding: 0; transform: translateX(-50%); border: 1px solid var(--text); border-radius: 2px; box-shadow: 0 0 0 1px #0008; cursor: ew-resize; }
+dialog .gradient-stop[aria-pressed=true] { outline: 2px solid var(--accent); outline-offset: 1px; }
+dialog .gradient-midpoint { position: absolute; top: 5px; width: 8px; height: 8px; padding: 0; transform: translateX(-50%) rotate(45deg); background: var(--dim); border: 0; border-radius: 1px; cursor: pointer; }
+dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
+.gradient-noise { display: flex; flex-direction: column; gap: 2px; }
+.gradient-noise .gradient-row { margin: 0; }

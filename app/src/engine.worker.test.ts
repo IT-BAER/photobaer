@@ -248,3 +248,67 @@ test('a registered pattern textures previews until removed', async () => {
   assert.ok((await call('brushPreview', tex(id), 64, 32)).error);
   assert.ok((await call('patternAdd', 2, 2, new Uint8Array(3), 1)).error);
 });
+
+const px = async (x: number, y: number) => (await call('sample', x, y, 1, 1)).result as number[];
+const solid = (rgba: number[]) => ({ source: 'solid', rgba, mode: 'normal', opacity: 1, preserveTransparency: false });
+
+test('fillEx paints a solid source under its own undo label', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  const r = await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill with Foreground Color');
+  assert.equal((r.result as { undoLabel: string }).undoLabel, 'Fill with Foreground Color');
+  assert.deepEqual(await px(3, 3), [255, 0, 0, 255]);
+});
+
+test('fillEx pattern uses the worker pattern id and history needs a snapshot', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  const none = await call('fillEx', 1, 'pixels', { source: 'history', mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
+  assert.equal(none.error, 'Fill needs a pixel layer.');
+  const id = (await call('patternAdd', 2, 2, Uint8Array.from([0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 255]), 4)).result as number;
+  await call('fillEx', 1, 'pixels', { source: 'pattern', patternId: id, mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
+  assert.deepEqual([await px(0, 0), await px(1, 0)], [[0, 0, 0, 255], [255, 255, 255, 255]]);
+  const h = await call('fillEx', 1, 'pixels', { source: 'history', mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
+  assert.equal(h.error, undefined);
+  assert.deepEqual(await px(0, 0), [255, 255, 255, 255]);
+});
+
+test('a preview session reruns from the same base, cancels without a step and commits as one', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill', true);
+  await call('fillEx', 1, 'pixels', { ...solid([0, 0, 255, 255]), opacity: 0.5 }, 'Fill', true);
+  assert.deepEqual(await px(1, 1), [128, 128, 255, 255]);
+  const c = await call('previewEnd', false);
+  assert.equal((c.result as { undoLabel: string | null }).undoLabel, null);
+  assert.deepEqual(await px(1, 1), [255, 255, 255, 255]);
+  await call('fillEx', 1, 'pixels', solid([0, 255, 0, 255]), 'Fill', true);
+  const ok = await call('previewEnd', true);
+  assert.deepEqual((ok.result as { history: { labels: string[] } }).history.labels, ['Fill']);
+  assert.deepEqual(await px(1, 1), [0, 255, 0, 255]);
+});
+
+test('strokeSelection needs a selection and lands as Stroke', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  const p = { width: 2, rgba: [0, 0, 0, 255], location: 'inside', mode: 'normal', opacity: 1, preserveTransparency: false };
+  assert.equal((await call('strokeSelection', 1, p)).error, 'Make a selection to stroke.');
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  const r = await call('strokeSelection', 1, p);
+  assert.equal((r.result as { undoLabel: string }).undoLabel, 'Stroke');
+  assert.deepEqual([await px(4, 4), await px(7, 7)], [[0, 0, 0, 255], [255, 255, 255, 255]]);
+});
+
+test('gradient renders a black to white row as one Gradient step', async () => {
+  await call('init');
+  await call('newDoc', 16, 4, 8, [255, 0, 0, 255]);
+  const r = await call('gradient', 1, 'pixels', {
+    stops: [{ position: 0, rgb: [0, 0, 0], midpoint: 0.5 }, { position: 1, rgb: [255, 255, 255], midpoint: 0.5 }],
+    opacityStops: [], method: 'classic', style: 'linear', start: { x: 0, y: 2 }, end: { x: 16, y: 2 },
+    reverse: false, dither: false, transparency: true, opacity: 1,
+  });
+  assert.equal((r.result as { undoLabel: string }).undoLabel, 'Gradient');
+  const row = await Promise.all(Array.from({ length: 16 }, (_, x) => px(x, 1)));
+  assert.ok(row.every((p, i) => i === 0 || p[0] >= row[i - 1][0]));
+  assert.ok(row[0][0] < 16 && row[15][0] > 239);
+});

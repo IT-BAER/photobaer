@@ -1,5 +1,6 @@
 import { BLEND_MODES } from '../layers.ts';
-export type OptionKind = 'number' | 'percent' | 'select' | 'boolean';
+// 'custom' options are drawn by the host (OptionsBar `custom`); 'segmented' is a button group over `choices`.
+export type OptionKind = 'number' | 'percent' | 'select' | 'boolean' | 'segmented' | 'custom';
 export interface OptionSchema {
   id: string; kind: OptionKind; label: string; default: number | string | boolean;
   min?: number; max?: number; unit?: string; choices?: string[];
@@ -10,7 +11,7 @@ export interface Tool {
 }
 export interface Slot { id: string; key: string; tools: string[] }
 
-const PAINT_MODES = [...BLEND_MODES, 'behind', 'clear'];
+export const PAINT_MODES = [...BLEND_MODES, 'behind', 'clear'];
 
 const SELECT_COMMON: OptionSchema[] = [
   { id: 'mode', kind: 'select', label: 'Mode', default: 'new', choices: ['new', 'add', 'subtract', 'intersect'] },
@@ -158,13 +159,13 @@ export const TOOLS: Record<string, Tool> = {
   gradient: {
     id: 'gradient', label: 'Gradient', slot: 'gradient', key: 'g', cursor: 'crosshair', icon: 'Blend',
     options: [
-      { id: 'style', kind: 'select', label: 'Style', default: 'linear', choices: ['linear', 'radial', 'angle', 'reflected', 'diamond'] },
+      { id: 'gradient', kind: 'custom', label: 'Gradient', default: 'builtin.fgToBg' },
+      { id: 'style', kind: 'segmented', label: 'Style', default: 'linear', choices: ['linear', 'radial', 'angle', 'reflected', 'diamond'] },
       { id: 'opacity', kind: 'percent', label: 'Opacity', default: 100, min: 0, max: 100 },
-      { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES },
       { id: 'reverse', kind: 'boolean', label: 'Reverse', default: false },
       { id: 'dither', kind: 'boolean', label: 'Dither', default: true },
-      { id: 'transparency', kind: 'boolean', label: 'Transparency', default: true },
       { id: 'method', kind: 'select', label: 'Method', default: 'perceptual', choices: ['perceptual', 'linear', 'classic'] },
+      { id: 'transparency', kind: 'boolean', label: 'Transparency', default: true },
     ],
   },
   bucket: {

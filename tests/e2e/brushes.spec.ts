@@ -68,7 +68,8 @@ test('F5 toggles Brush Settings; enabling size jitter changes the live preview',
   await settings.getByLabel('Enable Shape Dynamics').check();
   await settings.getByRole('tab', { name: 'Shape Dynamics' }).click();
   await settings.getByLabel('Size Jitter value').fill('100');
-  await expect.poll(() => previewData(page, 'settings')).not.toBe(before);
+  // Under a loaded two-browser run one Firefox evaluate round trip can take about 2 s; the preview itself lands in ms.
+  await expect.poll(() => previewData(page, 'settings'), { timeout: 15_000 }).not.toBe(before);
   await page.locator('.status').click();
   await page.keyboard.press('F5');
   await expect(settings).toHaveCount(0);

@@ -7,19 +7,19 @@ import { perfTestHook, type PerfProbe } from './render/perf.ts';
 import { locate, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
-import type { AutosaveState, DocInfo, StrokeParams } from './engine.worker.ts';
+import type { AutosaveState, DocInfo, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
 import { Smoother } from './shell/smoothing.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
 import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
 import { ColorPanel } from './shell/ColorPanel.tsx';
 import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
 import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
-import { TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
+import { PAINT_MODES, TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
 import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
-import { hexToRgb, type Rgb } from './shell/color.ts';
+import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
 import { digitOption, dragResize, showCrosshair, stepHardness, stepSize, type DigitState } from './shell/brushKeys.ts';
 import { SelectionOverlay } from './shell/SelectionOverlay.ts';
-import { antsLevel, contour, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, type SelectMode } from './shell/selecttools.ts';
+import { antsLevel, contour, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from './shell/selecttools.ts';
 import { levelFor } from './view.ts';
 import { BrushLibrary } from './brushes/store.ts';
 import { EngineAssets } from './brushes/engineAssets.ts';
@@ -27,6 +27,9 @@ import { buildUpFor, presetOptions, presetStrokeParams, pushRecent, smoothingFor
 import { parseAbrOffThread } from './brushes/abr.ts';
 import type { BrushPreset, Dynamics } from './brushes/preset.ts';
 import { BuildUp, inputFields, strideFor, strokeSeed, type Stride } from './brushes/strokeInput.ts';
+import { GradientEditor, type GradientEditorHandle } from './shell/GradientEditor.tsx';
+import { engineStops, rampCss, type Method } from './gradients/gradient.ts';
+import { BUILTIN_GRADIENTS, GradientLibrary, resolvePreset } from './gradients/presets.ts';
 
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
@@ -54,6 +57,24 @@ function makeLatch(held: boolean) {
 }
 
 type Rgba = [number, number, number, number];
+
+// Edit > Fill: only contents, color and pattern persist across openings.
+const FILL_KEY = 'photobaer:fill';
+const FILL_CONTENTS = { foreground: 'Foreground Color', background: 'Background Color', color: 'Color…', pattern: 'Pattern', history: 'History', black: 'Black', gray: '50% Gray', white: 'White' };
+type FillContents = keyof typeof FILL_CONTENTS;
+interface FillForm { contents: FillContents; color: Rgb; pattern: string; mode: string; opacity: number; preserve: boolean }
+function loadFillForm(): FillForm {
+  const f: FillForm = { contents: 'foreground', color: [0, 0, 0], pattern: '', mode: 'normal', opacity: 100, preserve: false };
+  try {
+    const s = JSON.parse(localStorage.getItem(FILL_KEY) ?? 'null') as Partial<FillForm> | null;
+    if (s && typeof s.contents === 'string' && s.contents in FILL_CONTENTS) f.contents = s.contents;
+    if (Array.isArray(s?.color) && s.color.length === 3 && s.color.every(c => Number.isInteger(c) && c >= 0 && c <= 255)) f.color = s.color;
+    if (typeof s?.pattern === 'string') f.pattern = s.pattern;
+  } catch { /* unavailable or corrupt: defaults */ }
+  return f;
+}
+interface StrokeForm { width: number; color: Rgb; location: StrokeSelectionParams['location']; mode: string; opacity: number; preserve: boolean }
+const STROKE_DEFAULT: StrokeForm = { width: 3, color: [0, 0, 0], location: 'inside', mode: 'normal', opacity: 100, preserve: false };
 type CreateResult = DocInfo & { created: number };
 type SelectAfter = (d: DocInfo) => Active;
 interface Item { label: string; keys?: string; run: () => void; off?: boolean }
@@ -178,6 +199,16 @@ export function App() {
   // (the engine has no last-dab accessor).
   const lastStrokePoint = useRef<Record<number, [number, number]>>({});
   const perfRef = useRef<PerfProbe | null>(null);
+  // Fill/Stroke dialogs preview live; closing ends the preview session, committing only after OK.
+  const fillDialog = useRef<HTMLDialogElement>(null);
+  const strokeDialog = useRef<HTMLDialogElement>(null);
+  const [fillForm, setFillForm] = useState<FillForm>(loadFillForm);
+  const [strokeForm, setStrokeForm] = useState<StrokeForm>(STROKE_DEFAULT);
+  const [previewDialog, setPreviewDialog] = useState<'fill' | 'stroke' | null>(null);
+  const previewRef = useRef<{ open: boolean; commit: boolean; pending: Promise<unknown> }>({ open: false, commit: false, pending: Promise.resolve() });
+  const gradEditor = useRef<GradientEditorHandle>(null);
+  const gradLib = useRef<GradientLibrary | null>(null);
+  gradLib.current ??= new GradientLibrary();
 
   function redrawOverlay() {
     const v = viewer.current;
@@ -264,6 +295,51 @@ export function App() {
     }
   }
 
+  function editTarget(a: Active) { return quickMask ? 'selection' as const : a.target; }
+
+  function openPreviewDialog(which: 'fill' | 'stroke') {
+    setMenu(null);
+    if (!active || !node) return;
+    if (node.locks.pixels) { setError('Could not use the layer because it is locked.'); return; }
+    if (which === 'fill') setFillForm(loadFillForm());
+    else setStrokeForm(f => ({ ...f, mode: 'normal', opacity: 100, preserve: false }));
+    previewRef.current = { open: true, commit: false, pending: Promise.resolve() };
+    setPreviewDialog(which);
+    (which === 'fill' ? fillDialog : strokeDialog).current?.showModal();
+  }
+
+  async function fillParams(f: FillForm): Promise<FillParams> {
+    const base = { mode: f.mode, opacity: f.opacity / 100, preserveTransparency: f.preserve };
+    if (f.contents === 'history') return { source: 'history', ...base };
+    if (f.contents === 'pattern') {
+      const lib = brushLib.current;
+      const ref = f.pattern || lib?.library.patterns()[0]?.id;
+      const id = ref && lib ? await lib.assets.pattern(ref) : undefined;
+      if (id === undefined) throw new Error('The pattern is not available.');
+      return { source: 'pattern', patternId: id, ...base };
+    }
+    const rgb = { foreground: fg, background: bg, color: f.color, black: [0, 0, 0], gray: [128, 128, 128], white: [255, 255, 255] }[f.contents] as Rgb;
+    return { source: 'solid', rgba: [...rgb, 255], ...base };
+  }
+
+  // Closing by OK, Cancel or Escape: wait for the last preview rerun, then commit or restore.
+  function endPreviewDialog() {
+    const st = previewRef.current;
+    if (!st.open) return;
+    st.open = false;
+    if (previewDialog === 'fill') {
+      const { contents, color, pattern } = fillForm;
+      try { localStorage.setItem(FILL_KEY, JSON.stringify({ contents, color, pattern })); } catch { /* session-only */ }
+    }
+    setPreviewDialog(null);
+    run(null, () => st.pending.catch(() => {}).then(() => client.call('previewEnd', st.commit)));
+  }
+
+  function quickFill(rgb: Rgb, label: string) {
+    if (!active) return;
+    run(null, () => client.call('fillEx', active.id, editTarget(active), { source: 'solid', rgba: [...rgb, 255], mode: 'normal', opacity: 1, preserveTransparency: false }, label));
+  }
+
   function openModify(op: keyof typeof MODIFY_OPS) {
     setMenu(null);
     setModifyOp(op);
@@ -337,7 +413,10 @@ export function App() {
     Edit: [
       { label: doc?.undoLabel ? `Undo ${doc.undoLabel}` : 'Undo', keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
       { label: doc?.redoLabel ? `Redo ${doc.redoLabel}` : 'Redo', keys: 'Shift+Ctrl+Z', run: () => run(null, () => client.call('redo')), off: !doc?.redoLabel },
-      { label: 'Fill with foreground color', keys: 'Alt+Backspace', run: () => run('Filling…', () => client.call('command', 'fill', active!.id, quickMask ? 'selection' : active!.target, [...fg, 255] as Rgba)), off: !has },
+      { label: 'Fill…', keys: 'Shift+F5', run: () => openPreviewDialog('fill'), off: !has || !active },
+      { label: 'Fill with Foreground Color', keys: 'Alt+Backspace', run: () => quickFill(fg, 'Fill with Foreground Color'), off: !has || !active },
+      { label: 'Fill with Background Color', keys: 'Ctrl+Backspace', run: () => quickFill(bg, 'Fill with Background Color'), off: !has || !active },
+      { label: 'Stroke…', run: () => openPreviewDialog('stroke'), off: !doc?.selection || !active },
       { label: 'Clear', keys: 'Delete', run: () => active && run('Clearing…', () => client.call('clearSelected', active.id, quickMask ? 'selection' : active.target)), off: !doc?.selection || !active },
     ],
     Layer: [
@@ -470,6 +549,22 @@ export function App() {
     }, e => { if (alive) setError((e as Error).message); });
     return () => { alive = false; };
   }, [colorRangeOpen, doc?.docId, doc?.selGen, active?.id, colorRange, colorRangeSamples]);
+
+  useEffect(() => {
+    const st = previewRef.current;
+    if (!previewDialog || !active || !st.open) return;
+    const a = active;
+    st.pending = (async () => {
+      const d = previewDialog === 'fill'
+        ? await fillParams(fillForm).then(p => (st.open ? client.call('fillEx', a.id, editTarget(a), p, 'Fill', true) : null))
+        : st.open ? await client.call('strokeSelection', a.id, {
+          width: Math.min(250, Math.max(1, Math.round(strokeForm.width) || 1)), rgba: [...strokeForm.color, 255], location: strokeForm.location,
+          mode: strokeForm.mode, opacity: strokeForm.opacity / 100, preserveTransparency: strokeForm.preserve,
+        }, true) : null;
+      if (d) show(d);
+    })().catch(e => setError((e as Error).message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewDialog, fillForm, strokeForm]);
 
   useEffect(() => {
     const c = colorRangeCanvas.current;
@@ -739,6 +834,31 @@ export function App() {
     };
     return () => { v.onPointer = () => {}; };
   }, [tool, active, fg, bg, quickMask]);
+
+  // Gradient: drag from start to end with a live line; Shift snaps to 45 degrees keeping the length.
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v || tool !== 'gradient') return;
+    let start: [number, number] | null = null;
+    const endOf = (e: ToolPointerEvent) => (e.shiftKey ? snap45Length(start!, [e.x, e.y]) : [e.x, e.y] as [number, number]);
+    v.onPointer = e => {
+      if (e.type === 'down') { start = active ? [e.x, e.y] : null; return; }
+      if (!start) return;
+      const end = endOf(e);
+      if (e.type === 'move') { overlayRef.current?.setPreview({ kind: 'path', points: [...start, ...end], closed: false }); return; }
+      const from = start;
+      start = null;
+      overlayRef.current?.setPreview(null);
+      if (e.type === 'cancel' || !active || Math.hypot(end[0] - from[0], end[1] - from[1]) < 1e-6) return;
+      const o = toolOptionsRef.current;
+      const g = resolvePreset(gradLib.current!.get(String(o.gradient)) ?? BUILTIN_GRADIENTS[0], fgRef.current, bgRef.current);
+      run(null, () => client.call('gradient', active.id, editTarget(active), {
+        ...engineStops(g), method: o.method as Method, style: o.style as GradientParams['style'], start: { x: from[0], y: from[1] }, end: { x: end[0], y: end[1] },
+        reverse: !!o.reverse, dither: !!o.dither, transparency: !!o.transparency, opacity: Number(o.opacity) / 100,
+      }));
+    };
+    return () => { v.onPointer = () => {}; overlayRef.current?.setPreview(null); };
+  }, [tool, active, quickMask]);
 
   // Brush, pencil and eraser: pointermove samples are coalesced and sent as one strokeTo per
   // animation frame; the smoother runs on the document-space samples before they are queued.
@@ -1015,6 +1135,7 @@ export function App() {
       else if (ctrl && e.shiftKey && k === 'i') trigger('Inverse', e);
       else if (ctrl && k === 'i') trigger('Invert', e);
       else if (e.shiftKey && k === 'f6') trigger('Feather', e);
+      else if (e.shiftKey && !ctrl && k === 'f5') triggerBy(l => l === 'Fill…', e);
       else if (k === 'f5' && !ctrl) { e.preventDefault(); setDockTab(t => (t === 'brushSettings' ? 'color' : 'brushSettings')); }
       else if (ctrl && k === 'h') triggerBy(l => l.endsWith('selection edges'), e);
       else if (ctrl && k === 'j') trigger('Duplicate Layer', e);
@@ -1025,7 +1146,9 @@ export function App() {
       else if (ctrl && k === '-') trigger('Zoom out', e);
       else if (ctrl && k === '0') trigger('Fit', e);
       else if (ctrl && k === '1') trigger('100%', e);
-      else if (e.altKey && k === 'backspace') trigger('Fill', e);
+      else if (e.altKey && !ctrl && (k === 'backspace' || k === 'delete')) triggerBy(l => l === 'Fill with Foreground Color', e);
+      else if (ctrl && !e.altKey && (k === 'backspace' || k === 'delete')) triggerBy(l => l === 'Fill with Background Color', e);
+      else if (e.shiftKey && k === 'backspace') triggerBy(l => l === 'Fill…', e);
       else if (k === 'delete' || k === 'backspace') trigger('Clear', e);
       else if (k === 'escape') { setMenu(null); viewer.current?.resetRotation(); }
       else if (k === ' ' && ctrl && e.altKey) { e.preventDefault(); viewer.current?.setSpring('zoomOut'); }
@@ -1155,6 +1278,20 @@ export function App() {
   const tipBitmap = useRef((ref: string) => brushLib.current?.library.tip(ref)).current;
 
   const deg = Math.round(((view.rot * 180) / Math.PI) % 360);
+  const gradOptions = optionsByTool.gradient ?? loadToolOptions(TOOLS.gradient);
+  const gradPreset = resolvePreset(gradLib.current.get(String(gradOptions.gradient)) ?? BUILTIN_GRADIENTS[0], fg, bg);
+  function editGradient() {
+    gradEditor.current?.open(gradPreset, g => {
+      const p = gradLib.current!.add(g);
+      const next = { ...gradOptions, gradient: p.id, method: g.interpolation };
+      patchToolOptions('gradient', next);
+      saveToolOptions(TOOLS.gradient, next);
+    });
+  }
+  const gradientButton = (
+    <button type="button" className="gradient-ramp-button" aria-label="Edit gradient" title="Click to edit the gradient"
+      style={{ backgroundImage: `${rampCss(gradPreset, gradOptions.method as Method)}, var(--checker)` }} onClick={editGradient} />
+  );
   return (
     <div className="app">
       <header className="menubar">
@@ -1182,9 +1319,9 @@ export function App() {
           quickMask={quickMask} setQuickMask={setQuickMask}
         />
         <div className="stage-column">
-          <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} />
+          <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton }} />
           <div className="stage">
-            <canvas ref={canvas} />
+            <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} />
             <canvas ref={overlayCanvas} className="overlay" />
             {!doc && !busy && (
               <div className="welcome">
@@ -1245,6 +1382,57 @@ export function App() {
         <span>{renderer}</span>
       </footer>
       <ColorPicker ref={picker} />
+      <GradientEditor ref={gradEditor} presets={gradLib.current.list()} fg={fg} bg={bg} pickColor={(rgb, title, commit) => picker.current?.open(rgb, title, commit)} />
+      <dialog ref={fillDialog} aria-label="Fill" onClose={endPreviewDialog}>
+        <form onSubmit={e => { e.preventDefault(); previewRef.current.commit = true; fillDialog.current?.close(); }}>
+          <h2>Fill</h2>
+          <label>Contents <select name="contents" value={fillForm.contents} onChange={e => setFillForm({ ...fillForm, contents: e.currentTarget.value as FillContents })}>
+            {Object.entries(FILL_CONTENTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select></label>
+          <label>Custom color <button type="button" className="gradient-swatch" aria-label="Custom fill color" style={{ background: rgbToHex(fillForm.color) }}
+            onClick={() => picker.current?.open(fillForm.color, 'Fill Color', c => setFillForm(f => ({ ...f, color: c, contents: 'color' })))} /></label>
+          {fillForm.contents === 'pattern' && (
+            <label>Pattern <select name="pattern" value={fillForm.pattern || brushLib.current?.library.patterns()[0]?.id} onChange={e => setFillForm({ ...fillForm, pattern: e.currentTarget.value })}>
+              {brushLib.current?.library.patterns().map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select></label>
+          )}
+          <label>Mode <select name="mode" value={fillForm.mode} onChange={e => setFillForm({ ...fillForm, mode: e.currentTarget.value })}>
+            {PAINT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+          </select></label>
+          <label>Opacity <input name="opacity" type="number" min={0} max={100} value={fillForm.opacity}
+            onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillForm({ ...fillForm, opacity: Math.min(100, Math.max(0, v)) }); }} /> %</label>
+          <label><input name="preserve" type="checkbox" checked={fillForm.preserve} onChange={e => setFillForm({ ...fillForm, preserve: e.currentTarget.checked })} /> Preserve Transparency</label>
+          <div className="actions">
+            <button type="button" onClick={() => fillDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={strokeDialog} aria-label="Stroke" onClose={endPreviewDialog}>
+        <form onSubmit={e => { e.preventDefault(); previewRef.current.commit = true; strokeDialog.current?.close(); }}>
+          <h2>Stroke</h2>
+          <label>Width <input name="width" type="number" min={1} max={250} value={strokeForm.width}
+            onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setStrokeForm({ ...strokeForm, width: Math.min(250, Math.max(1, Math.round(v))) }); }} /> px</label>
+          <label>Color <button type="button" className="gradient-swatch" aria-label="Stroke color" style={{ background: rgbToHex(strokeForm.color) }}
+            onClick={() => picker.current?.open(strokeForm.color, 'Stroke Color', c => setStrokeForm(f => ({ ...f, color: c })))} /></label>
+          <fieldset className="stroke-location">
+            <legend>Location</legend>
+            {(['inside', 'center', 'outside'] as const).map(l => (
+              <label key={l}><input type="radio" name="location" value={l} checked={strokeForm.location === l} onChange={() => setStrokeForm({ ...strokeForm, location: l })} /> {l[0].toUpperCase() + l.slice(1)}</label>
+            ))}
+          </fieldset>
+          <label>Mode <select name="mode" value={strokeForm.mode} onChange={e => setStrokeForm({ ...strokeForm, mode: e.currentTarget.value })}>
+            {PAINT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+          </select></label>
+          <label>Opacity <input name="opacity" type="number" min={0} max={100} value={strokeForm.opacity}
+            onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setStrokeForm({ ...strokeForm, opacity: Math.min(100, Math.max(0, v)) }); }} /> %</label>
+          <label><input name="preserve" type="checkbox" checked={strokeForm.preserve} onChange={e => setStrokeForm({ ...strokeForm, preserve: e.currentTarget.checked })} /> Preserve Transparency</label>
+          <div className="actions">
+            <button type="button" onClick={() => strokeDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
       <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.pbaer,.psd"
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) open(f); }} />
       <dialog ref={newDialog}>

@@ -55,3 +55,12 @@ test('prepare skips computed tips, disabled sections and missing records, and su
   await a.prepare(preset('bad', null, null));
   assert.equal(calls.length, 2);
 });
+
+test('pattern registers a library pattern once for Edit > Fill and misses stay undefined', async () => {
+  const { api, calls } = fake();
+  const a = new EngineAssets(api, lib);
+  assert.equal(await a.pattern('p1'), 10);
+  assert.equal(await a.pattern('p1'), 10);
+  assert.equal(await a.pattern('nope'), undefined);
+  assert.deepEqual(calls, ['pattern 1x1:1']);
+});

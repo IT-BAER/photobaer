@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { selectMode, marqueeRect, snap45, PolygonLasso, MagneticLasso, contour, antsLevel } from './selecttools.ts';
+import { selectMode, marqueeRect, snap45, snap45Length, PolygonLasso, MagneticLasso, contour, antsLevel } from './selecttools.ts';
 
 test('selectMode combines modifiers, shift+alt wins', () => {
   assert.equal(selectMode('new', false, false), 'new');
@@ -128,4 +128,12 @@ test('antsLevel picks the smallest level that keeps the tile within cap, clamped
   assert.equal(antsLevel(2, 8000, 8000, 8), 2);
   assert.equal(antsLevel(0, 100, 100, 8), 0);
   assert.equal(antsLevel(0, 1000000, 1000000, 3), 3);
+});
+
+test('snap45Length rotates to the nearest 8-way direction keeping the full length', () => {
+  const [x, y] = snap45Length([0, 0], [10, 3]);
+  assert.ok(Math.abs(x - Math.hypot(10, 3)) < 1e-9 && Math.abs(y) < 1e-9);
+  const [dx, dy] = snap45Length([2, 2], [2 + 4, 2 - 5]);
+  const len = Math.hypot(4, 5);
+  assert.ok(Math.abs(dx - (2 + len / Math.SQRT2)) < 1e-9 && Math.abs(dy - (2 - len / Math.SQRT2)) < 1e-9);
 });

@@ -40,6 +40,14 @@ export function snap45(from: [number, number], to: [number, number]): [number, n
   return [from[0] + proj * Math.cos(angle), from[1] + proj * Math.sin(angle)];
 }
 
+// Rotates `to` around `from` onto the nearest 45 degree direction, keeping the drag length.
+export function snap45Length(from: [number, number], to: [number, number]): [number, number] {
+  const dx = to[0] - from[0], dy = to[1] - from[1];
+  const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+  const len = Math.hypot(dx, dy);
+  return [from[0] + len * Math.cos(angle), from[1] + len * Math.sin(angle)];
+}
+
 export class PolygonLasso {
   points: [number, number][] = [];
   add(p: [number, number]) { this.points.push(p); }

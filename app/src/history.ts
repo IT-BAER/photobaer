@@ -58,6 +58,12 @@ export class History {
     this.#push(open);
   }
 
+  // Puts the document back to the open step's starting state (a live preview rerun or cancel).
+  restoreOpen() {
+    if (!this.#open) throw new Error('no history step is open');
+    this.#s.restore(this.#open.snap);
+  }
+
   // Drops the pending snapshot; the caller (e.g. the engine's own stroke_cancel) is responsible
   // for reverting the document itself.
   abort() {

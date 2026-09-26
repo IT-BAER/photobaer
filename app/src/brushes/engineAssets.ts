@@ -30,6 +30,12 @@ export class EngineAssets {
     await Promise.all(refs.map(([kind, ref]) => this.#register(kind, ref)));
   }
 
+  // Worker id of a library pattern (Edit > Fill), registering it on first use; undefined when it cannot be.
+  async pattern(ref: string): Promise<number | undefined> {
+    await this.#register('pattern', ref);
+    return this.resolve('pattern', ref);
+  }
+
   #register(kind: Kind, ref: string): Promise<void> {
     const key = `${kind}:${ref}`;
     if (this.#ids.has(key)) return Promise.resolve();

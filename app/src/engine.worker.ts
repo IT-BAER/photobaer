@@ -36,6 +36,23 @@ export interface StrokeParams {
   eraseToHistory?: boolean;
 }
 
+type Rgba = [number, number, number, number];
+// Engine fill_ex / stroke_selection / gradient params (opacity 0..1); patternId is a worker asset id.
+export interface FillParams {
+  source: 'solid' | 'pattern' | 'history'; rgba?: Rgba; patternId?: number;
+  mode: string; opacity: number; preserveTransparency: boolean;
+}
+export interface StrokeSelectionParams {
+  width: number; rgba: Rgba; location: 'inside' | 'center' | 'outside'; mode: string; opacity: number; preserveTransparency: boolean;
+}
+export interface GradientParams {
+  stops: { position: number; rgb: [number, number, number]; midpoint: number }[];
+  opacityStops: { position: number; opacity: number; midpoint: number }[];
+  method: 'perceptual' | 'linear' | 'classic'; style: 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond';
+  start: { x: number; y: number }; end: { x: number; y: number };
+  reverse: boolean; dither: boolean; transparency: boolean; opacity: number;
+}
+
 // A new document has one pixel layer with node id 1.
 const BACKGROUND = 1;
 
@@ -51,6 +68,9 @@ let booted = false;
 let lastState: AutosaveState = 'off';
 let selGen = 0;
 let strokeOpen = false;
+// Open live-preview session (Fill/Stroke dialogs): one history step, rerun from its start on every change.
+let previewOpen = false;
+let previewError: string | null = null;
 
 const history = new History({
   snapshot: () => eng!.snapshot(),
@@ -130,6 +150,35 @@ function changed() {
   version++;
   scheduleSave(1000);
   return info()!;
+}
+
+// One undo step, or with `preview` a rerun inside the open preview session (no autosave until previewEnd).
+function edit(label: string, preview: boolean, fn: () => void) {
+  if (!preview) {
+    history.run(label, fn);
+    return changed();
+  }
+  if (previewOpen) history.restoreOpen(); else { history.begin(label); previewOpen = true; }
+  try {
+    fn();
+    previewError = null;
+  } catch (err) {
+    history.restoreOpen();
+    previewError = err instanceof Error ? err.message : String(err);
+    version++;
+    throw err;
+  }
+  version++;
+  return info()!;
+}
+
+function endPreview(commit: boolean) {
+  if (!previewOpen) return;
+  previewOpen = false;
+  if (commit && previewError === null) { history.commit(); return; }
+  history.restoreOpen();
+  history.abort();
+  if (commit) { const e = previewError; previewError = null; throw new Error(e!); }
 }
 
 function scheduleSave(ms: number) {
@@ -316,6 +365,35 @@ const api = {
     if (op === 'fill') history.run('Fill', () => e.fill(id, target, ...rgba!));
     else history.run('Invert', () => e.invert(id, target));
     return changed();
+  },
+
+  // Edit > Fill and the quick fills. A history source reads the oldest kept snapshot, like erase-to-history.
+  fillEx(id: number, target: 'pixels' | 'mask' | 'selection', params: FillParams, label: string, preview = false) {
+    const e = need();
+    const p: Record<string, unknown> = { ...params };
+    if (params.source === 'pattern') p.patternId = engineAsset(e, params.patternId, 'pattern');
+    if (params.source === 'history') {
+      const snap = history.oldestSnapshot();
+      if (snap === null) throw new Error('Fill needs a pixel layer.');
+      p.snapshotId = snap;
+    }
+    return edit(label, preview, () => e.fill_ex(id, target, JSON.stringify(p)));
+  },
+
+  strokeSelection(id: number, params: StrokeSelectionParams, preview = false) {
+    const e = need();
+    return edit('Stroke', preview, () => e.stroke_selection(id, JSON.stringify(params)));
+  },
+
+  previewEnd(commit: boolean) {
+    need();
+    endPreview(commit);
+    return changed();
+  },
+
+  gradient(id: number, target: 'pixels' | 'mask' | 'selection', params: GradientParams) {
+    const e = need();
+    return edit('Gradient', false, () => e.gradient(id, target, JSON.stringify(params)));
   },
 
   select(shape: SelectShape, mode: string, antialias: boolean, feather: number, label: string) {
@@ -699,6 +777,7 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 
 // Ops that may run while a stroke is open without committing it (they never touch the document or history).
 const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove']);
+const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd']);
 
 // Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
 // displayTile, displayProgram and selectionMask are synchronous and read-only, so they skip the
@@ -710,6 +789,8 @@ onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[] }>) =
   queue = queue.then(() => {
     // Any other op queued while a stroke is open first commits it, so undo/save never see a half stroke.
     if (strokeOpen && !STROKE_OPS.has(op) && eng) { eng.stroke_end(); strokeOpen = false; history.commit(); changed(); }
+    // Anything but a preview rerun, its end or a read cancels an open preview.
+    if (previewOpen && !PREVIEW_OPS.has(op) && eng) { try { endPreview(false); } catch { /* cancel never throws */ } version++; }
     return handle(id, op, args);
   });
 };

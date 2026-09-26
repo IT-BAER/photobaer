@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { saveToolOptions, type Tool } from './tools.ts';
 
 export type ToolOptions = Record<string, number | string | boolean>;
@@ -19,6 +20,15 @@ function Control({ tool, values, setValues, option: { id, kind, label, min, max,
         <input type="checkbox" checked={value as boolean} onChange={e => commit(e.currentTarget.checked)} />
         {label}
       </label>
+    );
+  }
+  if (kind === 'segmented') {
+    return (
+      <div className="opt-segmented" role="group" aria-label={label}>
+        {choices?.map(c => (
+          <button key={c} type="button" aria-pressed={value === c} onClick={() => commit(c)}>{c}</button>
+        ))}
+      </div>
     );
   }
   if (kind === 'select') {
@@ -43,13 +53,15 @@ function Control({ tool, values, setValues, option: { id, kind, label, min, max,
   );
 }
 
-interface Props { tool: Tool; values: ToolOptions; setValues: (v: ToolOptions) => void }
+interface Props { tool: Tool; values: ToolOptions; setValues: (v: ToolOptions) => void; custom?: Record<string, ReactNode> }
 
-export function OptionsBar({ tool, values, setValues }: Props) {
+export function OptionsBar({ tool, values, setValues, custom = {} }: Props) {
   return (
     <div className="options-bar" role="toolbar" aria-label={`${tool.label} options`}>
       <span className="options-tool-label">{tool.label}</span>
-      {tool.options.map(o => <Control key={o.id} tool={tool} values={values} setValues={setValues} option={o} />)}
+      {tool.options.map(o => (o.kind === 'custom'
+        ? <span key={o.id}>{custom[o.id]}</span>
+        : <Control key={o.id} tool={tool} values={values} setValues={setValues} option={o} />))}
     </div>
   );
 }

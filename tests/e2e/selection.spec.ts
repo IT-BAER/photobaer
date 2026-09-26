@@ -58,7 +58,7 @@ test('rectangular marquee constrains a fill to the selection', async ({ page }) 
   await page.keyboard.press('Alt+Backspace');
   await expect.poll(() => sample(page, 70, 70)).toEqual([0, 0, 0, 255]);
   await expect.poll(() => sample(page, 150, 150)).toEqual([255, 255, 255, 255]);
-  await expect(page.locator('.history-row')).toHaveText(['Initial state', 'Rectangular Marquee', 'Fill']);
+  await expect(page.locator('.history-row')).toHaveText(['Initial state', 'Rectangular Marquee', 'Fill with Foreground Color']);
   expect(errors).toEqual([]);
 });
 
