@@ -29,6 +29,10 @@ export class Viewer {
   onPointer: (e: ToolPointerEvent) => void = () => {};
   // A modal session (free transform) takes the pointer from any tool; Space and the middle button still pan.
   intercept: ((e: ToolPointerEvent) => void) | null = null;
+  // Checked on a left-button pointerdown before any tool dispatch (docs/M4.md section 12: dragging an
+  // existing guide works regardless of the active tool); returning true means it already took over via
+  // `intercept`, so the normal tool/hand/zoom dispatch for this pointer is skipped entirely.
+  guideHit: ((sx: number, sy: number) => boolean) | null = null;
   // Fires once per version, the first time a drawn frame has every visible-level tile it needs
   // (ignoring the coarse top-level fallback, which a live stroke's dirty rect always keeps stale).
   // `readyAt` is when the last tile the frame needed was stored (performance.now()).
@@ -251,9 +255,10 @@ export class Viewer {
     };
     c.addEventListener('pointerdown', e => {
       if (e.button !== 0 && e.button !== 1) return;
-      c.setPointerCapture(e.pointerId);
       last = local(e);
       downAt = last;
+      if (e.button === 0 && this.guideHit?.(last[0], last[1])) { c.setPointerCapture(e.pointerId); e.preventDefault(); return; }
+      c.setPointerCapture(e.pointerId);
       const mode = e.button === 1 ? 'hand' : this.#mode();
       if (mode !== 'hand' && mode !== 'zoom' && mode !== 'zoomOut' && mode !== 'rotate') this.#emit(toolEvent('down', e, last));
       e.preventDefault();

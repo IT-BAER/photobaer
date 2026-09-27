@@ -11,6 +11,7 @@ import type { ColorPickerHandle } from '../shell/ColorPicker.tsx';
 import type { GradientEditorHandle } from '../shell/GradientEditor.tsx';
 import { rgbToHex } from '../shell/color.ts';
 import { PAINT_MODES } from '../shell/tools.ts';
+import { RULER_UNITS, unitToPx, type RulerUnit } from '../shell/units.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo } from '../worker/types.ts';
 import {
   COLOR_RANGE_PRESETS, FILL_CONTENTS, FILL_LAYERS, MODIFY_OPS,
@@ -472,6 +473,78 @@ export function ColorRangeDialog({ colorRangeDialog, setColorRangeOpen, active, 
         <div className="actions">
           <button type="button" onClick={closeColorRange}>Cancel</button>
           <button type="submit" className="primary" disabled={colorRange.preset === 'sampled' && !colorRangeSamples.length}>OK</button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+// docs/M4.md section 12: position is relative to the canvas (artboard targeting is B18, not landed yet).
+export function NewGuideDialog({ newGuideDialog, run, doc, rulerUnit }: { newGuideDialog: DialogRef; run: Run; doc: DocInfo | null; rulerUnit: RulerUnit }) {
+  return (
+    <dialog ref={newGuideDialog}>
+      <form onSubmit={e => {
+        e.preventDefault();
+        if (!doc) return;
+        const f = new FormData(e.currentTarget);
+        const orientation = String(f.get('orientation'));
+        const unit = String(f.get('unit')) as RulerUnit;
+        const value = Number(f.get('position'));
+        const docSize = orientation === 'horizontal' ? doc.height : doc.width;
+        newGuideDialog.current?.close();
+        run(null, () => client.call('addGuide', orientation === 'horizontal' ? 'y' : 'x', unitToPx(value, unit, doc.resolution, docSize), 0));
+      }}>
+        <h2>New Guide</h2>
+        <fieldset className="stroke-location">
+          <legend>Orientation</legend>
+          <label><input type="radio" name="orientation" value="horizontal" defaultChecked /> Horizontal</label>
+          <label><input type="radio" name="orientation" value="vertical" /> Vertical</label>
+        </fieldset>
+        <label>Position <input name="position" type="number" step="any" defaultValue={0} required />
+          <select name="unit" defaultValue={rulerUnit}>{RULER_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
+        </label>
+        <div className="actions">
+          <button type="button" onClick={() => newGuideDialog.current?.close()}>Cancel</button>
+          <button type="submit" className="primary">OK</button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+export function NewGuideLayoutDialog({ newGuideLayoutDialog, run, doc }: { newGuideLayoutDialog: DialogRef; run: Run; doc: DocInfo | null }) {
+  return (
+    <dialog ref={newGuideLayoutDialog}>
+      <form onSubmit={e => {
+        e.preventDefault();
+        if (!doc) return;
+        const f = new FormData(e.currentTarget);
+        const on = (k: string) => f.get(k) === 'on';
+        const num = (k: string) => Number(f.get(k));
+        const margins = on('margins') ? [num('top'), num('left'), num('bottom'), num('right')] as [number, number, number, number] : null;
+        newGuideLayoutDialog.current?.close();
+        run(null, () => client.call('newGuideLayout', {
+          rect: [0, 0, doc.width, doc.height], columns: num('columns'), columnGutter: num('columnGutter'),
+          rows: num('rows'), rowGutter: num('rowGutter'), margins, clearExisting: on('clearExisting'), artboard: 0,
+        }));
+      }}>
+        <h2>New Guide Layout</h2>
+        <label>Columns <input name="columns" type="number" min={0} max={100} defaultValue={3} required /></label>
+        <label>Column Gutter <input name="columnGutter" type="number" min={0} max={500} defaultValue={20} required /> px</label>
+        <label>Rows <input name="rows" type="number" min={0} max={100} defaultValue={0} required /></label>
+        <label>Row Gutter <input name="rowGutter" type="number" min={0} max={500} defaultValue={20} required /> px</label>
+        <fieldset className="stroke-location trim-group">
+          <legend>Margins</legend>
+          <label><input name="margins" type="checkbox" /> Use margins</label>
+          <label>Top <input name="top" type="number" min={0} max={2000} defaultValue={0} /></label>
+          <label>Left <input name="left" type="number" min={0} max={2000} defaultValue={0} /></label>
+          <label>Bottom <input name="bottom" type="number" min={0} max={2000} defaultValue={0} /></label>
+          <label>Right <input name="right" type="number" min={0} max={2000} defaultValue={0} /></label>
+        </fieldset>
+        <label><input name="clearExisting" type="checkbox" defaultChecked /> Clear existing guides</label>
+        <div className="actions">
+          <button type="button" onClick={() => newGuideLayoutDialog.current?.close()}>Cancel</button>
+          <button type="submit" className="primary">OK</button>
         </div>
       </form>
     </dialog>

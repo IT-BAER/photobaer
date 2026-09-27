@@ -41,6 +41,8 @@ export interface MenuCtx {
   showStyles: boolean; setShowStyles: SetState<boolean>; showPatterns: boolean; setShowPatterns: SetState<boolean>;
   showGradients: boolean; setShowGradients: SetState<boolean>;
   showRulers: boolean; setShowRulers: SetState<boolean>; showPixelGrid: boolean; setShowPixelGrid: SetState<boolean>;
+  showGuides: boolean; setShowGuides: SetState<boolean>; showGrid: boolean; setShowGrid: SetState<boolean>;
+  newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef;
 }
 
 export function buildMenus(c: MenuCtx) {
@@ -54,6 +56,7 @@ export function buildMenus(c: MenuCtx) {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog,
   } = c;
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
@@ -227,7 +230,14 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Reset rotation', keys: 'Esc', run: () => { setMenu(null); viewer.current?.resetRotation(); }, off: !has },
       { label: showAnts ? 'Hide selection edges' : 'Show selection edges', keys: 'Ctrl+H', run: () => { setMenu(null); setShowAnts(v => !v); }, off: !has },
       { label: showRulers ? 'Hide Rulers' : 'Show Rulers', keys: 'Ctrl+R', run: () => { setMenu(null); setShowRulers(v => !v); } },
-      { label: showPixelGrid ? 'Hide Pixel Grid' : 'Show Pixel Grid', keys: 'Ctrl+\'', run: () => { setMenu(null); setShowPixelGrid(v => !v); } },
+      { label: showGuides ? 'Hide Guides' : 'Show Guides', keys: 'Ctrl+;', run: () => { setMenu(null); setShowGuides(v => !v); }, off: !has },
+      { label: doc?.guidesLocked ? 'Unlock Guides' : 'Lock Guides', keys: 'Ctrl+Alt+;', run: () => run(null, () => client.call('setGuidesLocked', !doc?.guidesLocked)), off: !has },
+      { label: 'Clear Guides', run: () => run(null, () => client.call('clearGuides', 'all', 0)), off: !doc?.guides.length },
+      { label: 'New Guide…', run: () => { setMenu(null); newGuideDialog.current?.showModal(); }, off: !has },
+      { label: 'New Guide Layout…', run: () => { setMenu(null); newGuideLayoutDialog.current?.showModal(); }, off: !has },
+      { label: 'New Guides From Shape', run: () => node && run(null, () => client.call('newGuidesFromShape', [node.id])), off: !node },
+      { label: showGrid ? 'Hide Grid' : 'Show Grid', keys: 'Ctrl+\'', sep: true, run: () => { setMenu(null); setShowGrid(v => !v); } },
+      { label: showPixelGrid ? 'Hide Pixel Grid' : 'Show Pixel Grid', run: () => { setMenu(null); setShowPixelGrid(v => !v); } },
     ],
     Window: [
       { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); } },

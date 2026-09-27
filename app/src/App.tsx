@@ -26,7 +26,7 @@ import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
 import { hexToRgb, type Rgb } from './shell/color.ts';
 import type { DigitState } from './shell/brushKeys.ts';
 import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
-import { Rulers } from './shell/rulers.ts';
+import { Rulers, hitGuide, rulerDragToDoc, type DragGuide } from './shell/rulers.ts';
 import { loadPreferences } from './shell/preferences.ts';
 import type { Rect } from './shell/snapping.ts';
 import { MODES, TransformBar, TransformBarStore } from './shell/TransformBar.tsx';
@@ -56,7 +56,8 @@ import { usePaintTool } from './app/paintTool.ts';
 import { useShortcuts } from './app/shortcuts.ts';
 import {
   AdjustDialog, BlurDialog, ColorRangeDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, NewImageDialog, RotateDialog, SaveSelectionDialog, ScaleEffectsDialog, StrokeDialog, TrimDialog,
+  LoadSelectionDialog, ModifyDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, RotateDialog, SaveSelectionDialog,
+  ScaleEffectsDialog, StrokeDialog, TrimDialog,
 } from './app/Dialogs.tsx';
 
 export function App() {
@@ -68,6 +69,9 @@ export function App() {
   const pixelGridCanvas = useRef<HTMLCanvasElement>(null);
   const rulersRef = useRef<Rulers | null>(null);
   const prefs = useRef(loadPreferences());
+  const dragGuideRef = useRef<DragGuide | null>(null);
+  const newGuideDialog = useRef<HTMLDialogElement>(null);
+  const newGuideLayoutDialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const newDialog = useRef<HTMLDialogElement>(null);
   const featherDialog = useRef<HTMLDialogElement>(null);
@@ -105,6 +109,11 @@ export function App() {
   const [showAnts, setShowAnts] = useState(true);
   const [showRulers, setShowRulers] = useState(false);
   const [showPixelGrid, setShowPixelGrid] = useState(false);
+  const [showGuides, setShowGuides] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
+  // Mirrors the ruler/guide/grid toggles for the mount-frozen guide-drag closures below (docRef pattern).
+  const rulerFlagsRef = useRef({ showRulers, showPixelGrid, showGuides, showGrid });
+  rulerFlagsRef.current = { showRulers, showPixelGrid, showGuides, showGrid };
   const [showLayerComps, setShowLayerComps] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [showAdjustments, setShowAdjustments] = useState(false);
@@ -189,17 +198,97 @@ export function App() {
     overlayRef.current?.draw(v.view, w, h, v.dpr);
   }
 
-  // Document resolution isn't wired into DocInfo yet (engine work outside this batch); the Units &
-  // Rulers screen-resolution preference stands in until it lands.
   function redrawRulers() {
-    const v = viewer.current;
-    if (!v || !doc) return;
+    const v = viewer.current, d = docRef.current;
+    if (!v || !d) return;
+    const { showRulers, showPixelGrid, showGuides, showGrid } = rulerFlagsRef.current;
     const [w, h] = v.size;
     rulersRef.current?.setUnit(prefs.current.rulerUnit);
-    rulersRef.current?.setResolution(prefs.current.screenResolution);
+    rulersRef.current?.setResolution(d.resolution);
     rulersRef.current?.setShowRulers(showRulers);
     rulersRef.current?.setShowPixelGrid(showPixelGrid);
-    rulersRef.current?.draw(v.view, w, h, v.dpr, doc.width, doc.height);
+    rulersRef.current?.setShowGuides(showGuides);
+    rulersRef.current?.setGuideColor(prefs.current.guideColor);
+    rulersRef.current?.setGuides(d.guides);
+    rulersRef.current?.setDragGuide(dragGuideRef.current);
+    rulersRef.current?.setShowGrid(showGrid);
+    rulersRef.current?.setGridColor(prefs.current.gridColor);
+    rulersRef.current?.setGrid(d.grid.spacing_x, d.grid.spacing_y, prefs.current.subdivisions);
+    rulersRef.current?.draw(v.view, w, h, v.dpr, d.width, d.height);
+  }
+
+  // A guide grab (docs/M4.md section 12): hit-test on pointerdown, then a modal drag session that
+  // previews the live position and commits (move/add) or deletes (dropped back onto its ruler) on release.
+  function guideHit(sx: number, sy: number): boolean {
+    const v = viewer.current, d = docRef.current;
+    if (!v || !d || d.guidesLocked) return false;
+    const [w, h] = v.size;
+    const id = hitGuide(d.guides, v.view, sx, sy, w, h);
+    if (id === null) return false;
+    const guide = d.guides.find(g => g.id === id);
+    if (!guide) return false;
+    v.intercept = e => {
+      if (e.type === 'up' || e.type === 'cancel') {
+        v.intercept = null;
+        const drag = dragGuideRef.current;
+        dragGuideRef.current = null;
+        if (e.type === 'up' && drag) {
+          const [dsx] = v.docToScreen(e.x, e.y);
+          const [, dsy] = v.docToScreen(e.x, e.y);
+          const dropped = drag.axis === 'x' ? dsx < 0 : dsy < 0;
+          if (dropped) run(null, () => client.call('deleteGuide', guide.id));
+          else run(null, () => client.call('moveGuide', guide.id, drag.pos));
+        } else {
+          redrawRulers();
+        }
+        return;
+      }
+      dragGuideRef.current = { id: guide.id, axis: guide.axis, pos: guide.axis === 'x' ? e.x : e.y };
+      redrawRulers();
+    };
+    return true;
+  }
+
+  // Ruler drag creates a new guide (docs/M4.md section 12); Alt swaps the ruler's default axis.
+  function rulerGuideStart(defaultAxis: 'x' | 'y') {
+    return (down: Event) => {
+      const e = down as PointerEvent;
+      const v = viewer.current, c = canvas.current;
+      if (!v || !c || !docRef.current) return;
+      const el = e.currentTarget as Element;
+      el.setPointerCapture(e.pointerId);
+      const axis = e.altKey ? (defaultAxis === 'x' ? 'y' : 'x') : defaultAxis;
+      const track = (raw: Event) => {
+        const ev = raw as PointerEvent;
+        const r = c.getBoundingClientRect();
+        const sx = ev.clientX - r.left, sy = ev.clientY - r.top;
+        const [w, h] = v.size;
+        const pos = rulerDragToDoc(v.view, axis, axis === 'x' ? sx : sy, w, h);
+        dragGuideRef.current = { id: -1, axis, pos };
+        redrawRulers();
+      };
+      const up = (raw: Event) => {
+        track(raw);
+        const drag = dragGuideRef.current;
+        dragGuideRef.current = null;
+        el.removeEventListener('pointermove', track);
+        el.removeEventListener('pointerup', up);
+        el.removeEventListener('pointercancel', cancel);
+        if (drag) run(null, () => client.call('addGuide', drag.axis, drag.pos, 0));
+        else redrawRulers();
+      };
+      const cancel = () => {
+        dragGuideRef.current = null;
+        el.removeEventListener('pointermove', track);
+        el.removeEventListener('pointerup', up);
+        el.removeEventListener('pointercancel', cancel);
+        redrawRulers();
+      };
+      track(down);
+      el.addEventListener('pointermove', track);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', cancel);
+    };
   }
 
   function show(d: DocInfo | null, selectAfter?: SelectAfter) {
@@ -665,6 +754,7 @@ export function App() {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog,
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
@@ -684,6 +774,9 @@ export function App() {
         overlayRef.current = new SelectionOverlay(overlayCanvas.current!);
         rulersRef.current = new Rulers(rulerTop.current!, rulerLeft.current!, pixelGridCanvas.current!);
         v.onView = x => { setView({ zoom: x.zoom * v.dpr, rot: x.rot }); redrawOverlay(); redrawRulers(); };
+        v.guideHit = guideHit;
+        rulerTop.current?.addEventListener('pointerdown', rulerGuideStart('y'));
+        rulerLeft.current?.addEventListener('pointerdown', rulerGuideStart('x'));
         viewer.current = v;
         perfRef.current = perfTestHook(v);
         (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client, ...gpuTestHook(client, r), ...(perfRef.current ? { perf: perfRef.current } : {}) };
@@ -731,7 +824,7 @@ export function App() {
   }, []);
 
   useEffect(() => { overlayRef.current?.setHidden(!showAnts); redrawOverlay(); }, [showAnts]);
-  useEffect(redrawRulers, [showRulers, showPixelGrid, doc?.docId, doc?.width, doc?.height]);
+  useEffect(redrawRulers, [showRulers, showPixelGrid, showGuides, showGrid, doc]);
 
   useEffect(() => {
     if (!colorRangeOpen || !doc || !active) return;
@@ -1218,6 +1311,8 @@ export function App() {
       <SaveSelectionDialog saveSelDialog={saveSelDialog} run={run} doc={doc} />
       <LoadSelectionDialog loadSelDialog={loadSelDialog} run={run} doc={doc} />
       <TrimDialog trimDialog={trimDialog} run={run} />
+      <NewGuideDialog newGuideDialog={newGuideDialog} run={run} doc={doc} rulerUnit={prefs.current.rulerUnit} />
+      <NewGuideLayoutDialog newGuideLayoutDialog={newGuideLayoutDialog} run={run} doc={doc} />
       {doc && styleDialog && nodeById(doc.layers, styleDialog.id) && (
         <LayerStyleDialog
           key={styleDialog.n} doc={doc} node={nodeById(doc.layers, styleDialog.id)!} page={styleDialog.page}
