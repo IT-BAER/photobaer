@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FIELD_SPECS, defaultAdjustment, getPath, setPath, type Kind } from './adjustments.ts';
+import { ADJUSTMENT_KINDS, FIELD_SPECS, defaultAdjustment, defaultDestructive, getPath, setPath, type AnyKind, type Kind } from './adjustments.ts';
 
 test('every generic field path resolves in its kind\'s defaults, inside the field\'s range', () => {
-  for (const [kind, specs] of Object.entries(FIELD_SPECS) as [Kind, NonNullable<(typeof FIELD_SPECS)[Kind]>][]) {
-    const params = defaultAdjustment(kind).params;
+  for (const [kind, specs] of Object.entries(FIELD_SPECS) as [AnyKind, NonNullable<(typeof FIELD_SPECS)[AnyKind]>][]) {
+    const params = ADJUSTMENT_KINDS.includes(kind as Kind) ? defaultAdjustment(kind as Kind).params : defaultDestructive(kind as Exclude<AnyKind, Kind>).params;
     for (const s of specs) {
       const v = getPath(params, s.path);
       if (s.type === 'number') {

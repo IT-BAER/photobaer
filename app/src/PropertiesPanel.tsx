@@ -4,7 +4,7 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { client } from './client.ts';
-import type { Adjustment, DocInfo, LayerNode } from './engine.worker.ts';
+import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode } from './engine.worker.ts';
 import { locate } from './layers.ts';
 import {
   EDIT_LABEL, FIELD_SPECS, defaultAdjustment, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
@@ -16,7 +16,7 @@ type Run = (label: string | null, p: () => Promise<DocInfo | null>) => Promise<v
 export type OpenGradientEditor = (g: Gradient, onOk: (g: Gradient) => void) => void;
 export type PickLookupFile = (onLoaded: (name: string, table: number, format: 'cube' | '3dl') => void) => void;
 // `live` marks a slider drag in progress; the drag ends with one more call with `live` false.
-type OnChange = (a: Adjustment, live: boolean) => void;
+type OnChange = (a: Adjustment | DestructiveAdjustment, live: boolean) => void;
 
 // Slider plus a number field that commits on Enter or blur, so typing makes one edit.
 function NumberField({ spec, value, set }: { spec: Extract<FieldSpec, { type: 'number' }>; value: number; set: (v: number, live: boolean) => void }) {
@@ -76,7 +76,7 @@ export function Field({ spec, params, onChange }: { spec: FieldSpec; params: obj
 // `histogramId` names the layer whose histogram Levels/Curves show (0: the composite);
 // `sampleCanvas` is absent where canvas clicks cannot reach the body (the modal dialogs).
 export function AdjustmentBody({ adjustment, onChange, openGradientEditor, pickLookupFile, histogramId, sampleCanvas }: {
-  adjustment: Adjustment; onChange: OnChange; openGradientEditor: OpenGradientEditor; pickLookupFile: PickLookupFile;
+  adjustment: Adjustment | DestructiveAdjustment; onChange: OnChange; openGradientEditor: OpenGradientEditor; pickLookupFile: PickLookupFile;
   histogramId: number; sampleCanvas?: SampleCanvas;
 }) {
   const { kind } = adjustment;
@@ -132,7 +132,9 @@ export function PropertiesPanel({ doc, node, run, openGradientEditor, pickLookup
   const title = EDIT_LABEL[adjustment.kind];
   // A slider drag previews through the worker's preview session and commits once on release.
   const dragging = useRef(false);
-  const change: OnChange = (next, live) => {
+  // Properties only ever holds a layer kind, so the body hands back one.
+  const change: OnChange = (edited, live) => {
+    const next = edited as Adjustment;
     if (live) { dragging.current = true; void run(null, () => client.call('setAdjustment', node.id, next, title, true)); return; }
     if (dragging.current) { dragging.current = false; void run(null, () => client.call('previewEnd', true)); return; }
     void run(null, () => client.call('setAdjustment', node.id, next, title));

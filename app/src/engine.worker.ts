@@ -5,6 +5,9 @@ import { packProject, unpackProject, tileIds } from './project.ts';
 import { importPsd, exportPsd } from './psd.ts';
 import { denormalize, isIdentity } from './transform/matrix.ts';
 import type { Blending, LayerStyle } from './layerStyle.ts';
+import { DESTRUCTIVE_KINDS } from './adjustments.ts';
+
+const DESTRUCTIVE = new Set<string>(DESTRUCTIVE_KINDS);
 
 // A fill layer's content (docs/M3.md section 4); field names match the engine JSON verbatim.
 export interface GradientDef {
@@ -42,6 +45,16 @@ export type Adjustment =
   | { kind: 'threshold'; params: { level: number } }
   | { kind: 'gradient_map'; params: { gradient: GradientDef; reverse: boolean; dither: boolean } }
   | { kind: 'selective_color'; params: { mode: 'relative' | 'absolute'; reds: Quad; yellows: Quad; greens: Quad; cyans: Quad; blues: Quad; magentas: Quad; whites: Quad; neutrals: Quad; blacks: Quad } };
+
+// The destructive-only kinds (docs/M3.md section 3, 17-25): Image menu commands, never layers.
+type ToneRange = { amount: number; tone: number; radius: number };
+export type DestructiveAdjustment =
+  | { kind: 'shadows_highlights'; params: { shadows: ToneRange; highlights: ToneRange; color_correction: number; midtone_contrast: number; black_clip: number; white_clip: number } }
+  | { kind: 'hdr_toning'; params: { method: 'local_adaptation' | 'exposure_gamma' | 'highlight_compression' | 'equalize_histogram'; radius: number; strength: number; detail: number; shadow: number; highlight: number; exposure: number; gamma: number; vibrance: number; saturation: number } }
+  | { kind: 'desaturate'; params: Record<string, never> }
+  | { kind: 'match_color'; params: { luminance: number; color_intensity: number; fade: number; neutralize: boolean } }
+  | { kind: 'replace_color'; params: { target_color: [number, number, number]; fuzziness: number; range: number; localized: boolean; hue: number; saturation: number; lightness: number } }
+  | { kind: 'equalize' | 'auto_tone' | 'auto_contrast' | 'auto_color'; params: Record<string, never> };
 
 export interface LayerNode {
   id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart';
@@ -1180,9 +1193,10 @@ const api = {
 
   // Image > Adjustments: destructive apply on the layer's pixels; `preview` reruns inside the open
   // preview session opened by the dialog (see `previewEnd`), like `fillEx`.
-  adjust(id: number, adjustment: Adjustment, label: string, preview = false) {
+  adjust(id: number, adjustment: Adjustment | DestructiveAdjustment, label: string, preview = false) {
     const e = need();
-    return edit(label, preview, () => e.apply_adjustment(id, 'pixels', JSON.stringify(adjustment)));
+    const json = JSON.stringify(adjustment);
+    return edit(label, preview, () => (DESTRUCTIVE.has(adjustment.kind) ? e.apply_destructive(id, json) : e.apply_adjustment(id, 'pixels', json)));
   },
 
   // Layer > Rasterize > Fill Content.

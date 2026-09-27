@@ -504,7 +504,7 @@ pub fn box_blur(p: &Plane, radius: f32) -> Plane {
 }
 
 // Box radii of the three-pass Gaussian approximation for `sigma` ("boxes for Gauss", n = 3).
-fn gauss_boxes(sigma: f64) -> [usize; 3] {
+pub(crate) fn gauss_boxes(sigma: f64) -> [usize; 3] {
     let wi = (12.0 * sigma * sigma / 3.0 + 1.0).sqrt();
     let wl = wi.floor() as i64 - (wi.floor() as i64 + 1) % 2;
     let wf = wl as f64;

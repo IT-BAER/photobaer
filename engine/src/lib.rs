@@ -172,6 +172,11 @@ impl Engine {
         self.0.doc.apply_adjustment(id, Target::parse(target).map_err(err)?, json).map_err(err)
     }
 
+    /// Destructive apply of a destructive-only kind (shadows/highlights .. auto color).
+    pub fn apply_destructive(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.apply_destructive(id, json).map_err(err)
+    }
+
     /// Renders a fill layer into pixel tiles over the document bounds, keeping its id.
     pub fn rasterize_fill(&mut self, id: u32) -> Result<(), JsError> {
         self.0.doc.rasterize_fill(id).map_err(err)

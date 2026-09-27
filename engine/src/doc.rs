@@ -2291,6 +2291,71 @@ impl Document {
         Ok(())
     }
 
+    /// Destructive apply of a destructive-only kind (docs/M3.md section 3, kinds 17-25). Statistics
+    /// and blurs see the region = layer content bounds x selection bounds as one buffer; the result
+    /// is quantized, then mixed by selection coverage (D12) on the color channels; alpha untouched.
+    pub fn apply_destructive(&mut self, id: u32, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        self.check_pixel_edit(id)?;
+        let kind: adjust::Destructive = serde_json::from_str(json).map_err(|e| format!("invalid adjustment: {e}"))?;
+        kind.validate()?;
+        let Some([mut x0, mut y0, w, h]) = self.layer_bounds(id)? else { return Ok(()) };
+        let (mut x1, mut y1) = (x0 + w, y0 + h);
+        let selected = self.selection.is_some();
+        if selected {
+            let Some([sx, sy, sw, sh]) = self.selection_bounds() else { return Ok(()) };
+            (x0, y0, x1, y1) = (x0.max(sx), y0.max(sy), x1.min(sx + sw), y1.min(sy + sh));
+            if x1 <= x0 || y1 <= y0 {
+                return Ok(());
+            }
+        }
+        // ponytail: one f32 RGBA buffer for the region (32 B/px with the original, about 48 B/px for
+        // shadows/highlights' blur planes, ~800 MB at 4096 x 4096); strip it if larger layers matter.
+        let (w, h) = ((x1 - x0) as usize, (y1 - y0) as usize);
+        let src = self.node(id)?.pixel_tiles()?;
+        let touched: Vec<((i32, i32), Arc<Pixels>)> = src
+            .iter()
+            .filter(|((tx, ty), _)| {
+                let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+                ox < x1 && oy < y1 && ox + TILE as i32 > x0 && oy + TILE as i32 > y0
+            })
+            .map(|(&at, t)| (at, t.px.clone()))
+            .collect();
+        // Region pixels of one tile as (tile index, buffer index).
+        let spans = |tx: i32, ty: i32| {
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            (y0.max(oy)..y1.min(oy + TILE as i32)).flat_map(move |y| {
+                (x0.max(ox)..x1.min(ox + TILE as i32))
+                    .map(move |x| (((y - oy) * TILE as i32 + x - ox) as usize, ((y - y0) as usize * w + (x - x0) as usize)))
+            })
+        };
+        let mut buf = vec![0f32; w * h * 4];
+        for ((tx, ty), px) in &touched {
+            for (p, b) in spans(*tx, *ty) {
+                buf[b * 4..b * 4 + 4].copy_from_slice(&px.rgba_f32(p));
+            }
+        }
+        adjust::destructive(&kind, &mut buf, w, h);
+        let max = max_value(self.depth) as f32;
+        let mut out = Vec::with_capacity(touched.len());
+        for ((tx, ty), old) in touched {
+            let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
+            let mut px = (*old).clone();
+            for (p, b) in spans(tx, ty) {
+                let o = old.rgba_f32(p);
+                let c = cov.at(p).clamp(0.0, 1.0);
+                let mix = |i: usize| o[i] + ((buf[b * 4 + i].clamp(0.0, 1.0) * max).round() / max - o[i]) * c;
+                px.set_rgba_f32(p, [mix(0), mix(1), mix(2), o[3]]);
+            }
+            out.push(((tx, ty), Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
+        }
+        let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+        for ((tx, ty), t) in out {
+            tiles.put(tx, ty, Some(t));
+        }
+        Ok(())
+    }
+
     fn check_tile_coord(&self, tx: u32, ty: u32) -> Result<(), String> {
         if tx >= self.tiles_x() || ty >= self.tiles_y() {
             return Err("tile coordinate out of range".into());

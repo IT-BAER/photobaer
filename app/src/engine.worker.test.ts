@@ -6,7 +6,7 @@ import { Autosave } from './autosave.ts';
 import { FakeDir, fs } from './fake-opfs.ts';
 import { engineMesh, identityMesh } from './transform/warp.ts';
 import { croppedSize } from './crop/geometry.ts';
-import { ADJUSTMENT_KINDS, MENU_LABEL, defaultAdjustment } from './adjustments.ts';
+import { ADJUSTMENT_KINDS, DESTRUCTIVE_KINDS, DESTRUCTIVE_LABEL, MENU_LABEL, defaultAdjustment, defaultDestructive } from './adjustments.ts';
 import { defaultBlending, defaultEffect, emptyStyle, type LayerStyle } from './layerStyle.ts';
 
 // Runs the real worker module in Node: WASM loaded up front, worker globals and OPFS faked.
@@ -236,6 +236,28 @@ test('adjust applies destructively, mixes by selection coverage, and a preview c
   const cancelled = await call('previewEnd', false);
   assert.equal((cancelled.result as { undoLabel: string | null }).undoLabel, 'Fill', 'the preview session drops, leaving the last committed step');
   assert.deepEqual(await px(3, 3), [200, 200, 200, 255], 'cancel restores the untouched tile');
+});
+
+test('each destructive-only command is one undo step under its menu label', async () => {
+  await call('init');
+  const doc = (await call('newDoc', 8, 8, 8, [200, 100, 50, 255])).result as { history: { labels: string[] } };
+  let steps = doc.history.labels.length;
+  for (const kind of DESTRUCTIVE_KINDS) {
+    const r = await call('adjust', 1, defaultDestructive(kind), DESTRUCTIVE_LABEL[kind]);
+    assert.equal(r.error, undefined, `${kind}: ${r.error}`);
+    const info = r.result as { undoLabel: string; history: { labels: string[] } };
+    assert.equal(info.undoLabel, DESTRUCTIVE_LABEL[kind]);
+    assert.equal(info.history.labels.length, ++steps, `${kind} adds exactly one step`);
+  }
+  // A dialog kind previews live and commits once.
+  const sh = defaultDestructive('shadows_highlights');
+  await call('adjust', 1, sh, 'Shadows/Highlights', true);
+  await call('adjust', 1, sh, 'Shadows/Highlights', true);
+  const done = (await call('previewEnd', true)).result as { undoLabel: string; history: { labels: string[] } };
+  assert.equal(done.undoLabel, 'Shadows/Highlights');
+  assert.equal(done.history.labels.length, steps + 1);
+  const bad = await call('adjust', 1, { kind: 'match_color', params: { luminance: 500, color_intensity: 100, fade: 0, neutralize: false } }, 'Match Color');
+  assert.ok(bad.error?.includes('luminance'), `expected an error naming luminance, got ${bad.error}`);
 });
 
 test('every kind\'s default params create an adjustment layer under its menu label', async () => {

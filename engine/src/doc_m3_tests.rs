@@ -1541,3 +1541,153 @@ fn create_layers_splits_behind_planes_and_keeps_the_render() {
     assert!(worst <= 1, "flattened result moved by {worst}");
     assert!(d.create_layers_from_style(l).unwrap_err().contains("no layer effects"));
 }
+
+// ---------- destructive-only adjustments (M3.md section 3 kinds 17-25, B6) ----------
+
+// A w x h document whose layer 1 holds `rgb` (3 bytes per pixel, row-major) at full alpha.
+fn rgb_doc(w: usize, h: usize, rgb: &[u8]) -> Document {
+    let mut d = Document::new(w as u32, h as u32, 8).unwrap();
+    let mut t = vec![0u8; TILE_BYTES_U8];
+    for (i, c) in rgb.chunks_exact(3).enumerate() {
+        let o = ((i / w) * TILE + i % w) * 4;
+        t[o..o + 4].copy_from_slice(&[c[0], c[1], c[2], 255]);
+    }
+    d.set_tile_rgba8(1, 0, 0, &t).unwrap();
+    d
+}
+
+fn destructive(d: &mut Document, kind: &str, params: Value) {
+    d.apply_destructive(1, &json!({ "kind": kind, "params": params }).to_string()).unwrap();
+}
+
+fn shadows_highlights() -> Value {
+    json!({
+        "shadows": { "amount": 35.0, "tone": 50.0, "radius": 30.0 },
+        "highlights": { "amount": 0.0, "tone": 50.0, "radius": 30.0 },
+        "color_correction": 20.0, "midtone_contrast": 0.0, "black_clip": 0.01, "white_clip": 0.01
+    })
+}
+
+#[test]
+fn desaturate_takes_the_mean_of_max_and_min() {
+    let mut d = rgb_doc(2, 2, &[200, 100, 50].repeat(4));
+    destructive(&mut d, "desaturate", json!({}));
+    assert_eq!(px(&d, 1, 1), [125, 125, 125, 255]);
+}
+
+#[test]
+fn equalize_maps_a_two_value_image_to_black_and_white() {
+    let mut d = rgb_doc(4, 1, &[[60; 3], [60; 3], [180; 3], [180; 3]].concat());
+    destructive(&mut d, "equalize", json!({}));
+    assert_eq!((px(&d, 0, 0), px(&d, 3, 0)), ([0, 0, 0, 255], [255, 255, 255, 255]));
+}
+
+#[test]
+fn equalize_builds_its_histogram_over_the_selection_region() {
+    let mut d = rgb_doc(6, 1, &[[60; 3], [60; 3], [120; 3], [120; 3], [180; 3], [180; 3]].concat());
+    d.select_rect(0.0, 0.0, 4.0, 1.0, Mode::New).unwrap();
+    destructive(&mut d, "equalize", json!({}));
+    let row: Vec<u8> = (0..6).map(|x| px(&d, x, 0)[0]).collect();
+    assert_eq!(row, [0, 0, 255, 255, 180, 180], "180 is outside the region and the selection");
+}
+
+#[test]
+fn auto_contrast_stretches_a_50_to_200_ramp_to_full_range() {
+    let ramp: Vec<u8> = (50..=200u8).flat_map(|v| [v; 3]).collect();
+    let mut d = rgb_doc(151, 1, &ramp);
+    destructive(&mut d, "auto_contrast", json!({}));
+    let row: Vec<u8> = (0..151).map(|x| px(&d, x, 0)[0]).collect();
+    assert_eq!((row[0], row[150]), (0, 255));
+    assert!(row.windows(2).all(|w| w[0] <= w[1]), "monotonic");
+    assert_eq!(row[75], ((125.0 - 50.0) / 150.0 * 255.0f64).round() as u8);
+}
+
+#[test]
+fn auto_tone_stretches_each_channel_and_auto_color_moves_the_median_to_128() {
+    let px5 = [[0, 10, 20], [10, 20, 30], [20, 30, 40], [30, 40, 50], [255, 240, 230]];
+    let mut d = rgb_doc(5, 1, &px5.concat());
+    destructive(&mut d, "auto_tone", json!({}));
+    assert_eq!(px(&d, 0, 0), [0, 0, 0, 255]);
+    assert_eq!(px(&d, 4, 0), [255, 255, 255, 255]);
+
+    let mut d = rgb_doc(5, 1, &[[0; 3], [10; 3], [20; 3], [30; 3], [255; 3]].concat());
+    destructive(&mut d, "auto_color", json!({}));
+    let row: Vec<u8> = (0..5).map(|x| px(&d, x, 0)[0]).collect();
+    assert_eq!((row[0], row[2], row[4]), (0, 128, 255), "median 20 lands on the 128 target");
+}
+
+#[test]
+fn shadows_highlights_defaults_lift_gray_02_to_03305() {
+    let mut d = rgb_doc(2, 2, &[51; 12]);
+    destructive(&mut d, "shadows_highlights", shadows_highlights());
+    assert_eq!(px(&d, 0, 0), [84, 84, 84, 255], "0.3305 * 255 = 84.3");
+    let kind = serde_json::from_value(json!({ "kind": "shadows_highlights", "params": shadows_highlights() })).unwrap();
+    let mut buf = [0.2, 0.2, 0.2, 1.0].repeat(4);
+    crate::adjust::destructive(&kind, &mut buf, 2, 2);
+    assert!((buf[0] - 0.3305).abs() < 1e-4, "{}", buf[0]);
+}
+
+#[test]
+fn hdr_toning_matches_the_independent_node_reference() {
+    let r: Value = serde_json::from_str(include_str!("testdata/hdr_toning.json")).unwrap();
+    let (w, h) = (r["w"].as_u64().unwrap() as usize, r["h"].as_u64().unwrap() as usize);
+    let input: Vec<u8> = r["input"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u8).collect();
+    for case in r["cases"].as_array().unwrap() {
+        let mut d = rgb_doc(w, h, &input);
+        destructive(&mut d, "hdr_toning", case["params"].clone());
+        let want = case["out"].as_array().unwrap();
+        let mut worst = 0;
+        for i in 0..w * h {
+            let got = px(&d, i % w, i / w);
+            for ch in 0..3 {
+                worst = worst.max(got[ch].abs_diff(want[i * 3 + ch].as_u64().unwrap() as u8));
+            }
+        }
+        assert!(worst <= 1, "{}: max diff {worst}/255", case["name"]);
+    }
+}
+
+#[test]
+fn destructive_half_coverage_selection_mixes_half_way() {
+    let mut d = rgb_doc(4, 4, &[200, 100, 50].repeat(16));
+    d.fill(0, Target::Selection, 128, 128, 128, 255).unwrap(); // coverage 128/255
+    destructive(&mut d, "desaturate", json!({}));
+    assert_eq!(px(&d, 2, 2), [162, 113, 88, 255], "halfway to 125 gray");
+}
+
+#[test]
+fn match_color_neutralize_and_fade() {
+    let params = |fade: f32| json!({ "luminance": 100.0, "color_intensity": 100.0, "fade": fade, "neutralize": true });
+    let mut d = rgb_doc(2, 2, &[200, 100, 50].repeat(4));
+    destructive(&mut d, "match_color", params(0.0));
+    assert_eq!(px(&d, 0, 0), [117, 117, 117, 255], "every channel moves to the mean of the means");
+    let mut d = rgb_doc(2, 2, &[200, 100, 50].repeat(4));
+    destructive(&mut d, "match_color", params(50.0));
+    assert_eq!(px(&d, 0, 0), [158, 108, 83, 255]);
+}
+
+#[test]
+fn replace_color_shifts_the_matching_hue_only() {
+    let mut d = rgb_doc(2, 1, &[255, 0, 0, 0, 0, 255]);
+    let p = json!({ "target_color": [255, 0, 0], "fuzziness": 40.0, "range": 0.0, "localized": false, "hue": 120.0, "saturation": 0.0, "lightness": 0.0 });
+    destructive(&mut d, "replace_color", p);
+    assert_eq!((px(&d, 0, 0), px(&d, 1, 0)), ([0, 255, 0, 255], [0, 0, 255, 255]));
+}
+
+#[test]
+fn destructive_alpha_untouched_and_params_validated() {
+    let mut d = Document::new(4, 4, 8).unwrap();
+    d.fill(1, Target::Pixels, 200, 100, 50, 128).unwrap();
+    destructive(&mut d, "desaturate", json!({}));
+    let t = d.node(1).unwrap().pixel_tiles().unwrap().get(0, 0).unwrap().px.rgba_f32(0);
+    assert_eq!(t.map(|v| (v * 255.0).round() as u8), [125, 125, 125, 128]);
+
+    let mut bad = shadows_highlights();
+    bad["shadows"]["amount"] = 150.0.into();
+    let err = d.apply_destructive(1, &json!({ "kind": "shadows_highlights", "params": bad }).to_string()).unwrap_err();
+    assert!(err.contains("shadows.amount"), "{err}");
+    let hdr = json!({ "kind": "hdr_toning", "params": { "method": "local_adaptation", "radius": 16.0, "strength": 0.5, "detail": 30.0,
+        "shadow": 0.0, "highlight": 0.0, "exposure": 0.0, "gamma": 0.0, "vibrance": 20.0, "saturation": 20.0 } });
+    assert!(d.apply_destructive(1, &hdr.to_string()).unwrap_err().contains("gamma"));
+    assert!(d.apply_destructive(1, r#"{"kind":"invert","params":{}}"#).unwrap_err().contains("invalid"));
+}

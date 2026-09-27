@@ -13,8 +13,8 @@ import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
 import { LayerStyleDialog, type StylePage } from './LayerStyleDialog.tsx';
 import { EFFECT_KINDS, EFFECT_LABEL, styleRefusal } from './layerStyle.ts';
 import type { SampleCanvas } from './LevelsCurvesBody.tsx';
-import { ADJUSTMENT_KINDS, MENU_LABEL, SHORTCUT, defaultAdjustment, type Kind } from './adjustments.ts';
-import type { Adjustment, AutosaveState, DocInfo, FillContent, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
+import { ADJUSTMENT_KINDS, COMMAND_LABEL, DESTRUCTIVE_LABEL, MENU_LABEL, SHORTCUT, defaultAdjustment, defaultDestructive, type DestructiveKind, type Kind } from './adjustments.ts';
+import type { Adjustment, AutosaveState, DestructiveAdjustment, DocInfo, FillContent, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
 import { Smoother } from './shell/smoothing.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
 import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
@@ -293,7 +293,7 @@ export function App() {
   const [previewDialog, setPreviewDialog] = useState<'fill' | 'stroke' | 'adjust' | null>(null);
   // Image > Adjustments: the dialog's params; its live preview reruns debounced (`adjustTimer`).
   const adjustDialog = useRef<HTMLDialogElement>(null);
-  const [adjustForm, setAdjustForm] = useState<Adjustment | null>(null);
+  const [adjustForm, setAdjustForm] = useState<Adjustment | DestructiveAdjustment | null>(null);
   // Bumped per dialog open so the body refetches its histogram and resets its channel.
   const [adjustSession, setAdjustSession] = useState(0);
   const adjustTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -484,11 +484,11 @@ export function App() {
     run(null, () => st.pending.catch(() => {}).then(() => client.call('previewEnd', st.commit)));
   }
 
-  function openAdjust(kind: Kind) {
+  function openAdjust(kind: Kind | DestructiveKind) {
     setMenu(null);
     if (!active || !node) return;
     if (node.locks.pixels) { setError('Could not use the layer because it is locked.'); return; }
-    const start = (a: Adjustment) => {
+    const start = (a: Adjustment | DestructiveAdjustment) => {
       previewRef.current = { open: true, commit: false, pending: Promise.resolve() };
       setAdjustForm(a);
       setAdjustSession(n => n + 1);
@@ -497,13 +497,20 @@ export function App() {
     };
     // Color Lookup picks its table first (D9); cancelling the picker opens nothing.
     if (kind === 'color_lookup') pickLookupFile((name, table, format) => start({ kind, params: { name, format, table, interpolation: 'tetrahedral', dither: false } }));
-    else start(defaultAdjustment(kind));
+    else start(kind in DESTRUCTIVE_LABEL ? defaultDestructive(kind as DestructiveKind) : defaultAdjustment(kind as Kind));
   }
 
-  function adjustPreview(a: Adjustment) {
+  // Destructive kinds without params apply at once as one undo step.
+  function applyDestructive(kind: DestructiveKind) {
+    setMenu(null);
+    if (!active) return;
+    run(`${DESTRUCTIVE_LABEL[kind]}…`,() => client.call('adjust', active.id, defaultDestructive(kind), DESTRUCTIVE_LABEL[kind]));
+  }
+
+  function adjustPreview(a: Adjustment | DestructiveAdjustment) {
     const st = previewRef.current, id = activeRef.current?.id;
     if (!st.open || id === undefined) return;
-    st.pending = client.call('adjust', id, a, MENU_LABEL[a.kind], true).then(d => show(d), e => setError((e as Error).message));
+    st.pending = client.call('adjust', id, a, COMMAND_LABEL[a.kind], true).then(d => show(d), e => setError((e as Error).message));
   }
 
   // Levels/Curves eyedroppers: the next canvas click samples the composite (one pixel) instead of
@@ -634,6 +641,8 @@ export function App() {
   const styled = doc ? flatNodes(doc.layers).filter(n => n.style) : [];
   const anyStyled = styled.length > 0;
   const allEffectsHidden = anyStyled && styled.every(n => !n.style!.enabled);
+  // Destructive adjustments need a pixel layer's pixels as the target.
+  const pixelsOff = node?.kind !== 'pixel' || active?.target !== 'pixels' || quickMask;
 
   const menus: Record<string, Item[]> = {
     File: [
@@ -714,10 +723,20 @@ export function App() {
     ],
     Image: [
       {
-        label: 'Adjustments', keys: '›', run: () => {}, off: !has || !active, sub: ADJUSTMENT_KINDS.map(kind => kind === 'invert'
+        label: 'Adjustments', keys: '›', run: () => {}, off: !has || !active, sub: ADJUSTMENT_KINDS.map<Item>(kind => kind === 'invert'
           ? { label: 'Invert', keys: 'Ctrl+I', sep: true, run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, quickMask ? 'selection' : active!.target)) }
-          : { label: `${MENU_LABEL[kind]}…`, keys: SHORTCUT[kind], run: () => openAdjust(kind), off: node?.kind !== 'pixel' || active?.target !== 'pixels' || quickMask }),
+          : { label: `${MENU_LABEL[kind]}…`, keys: SHORTCUT[kind], run: () => openAdjust(kind), off: pixelsOff }).concat([
+          { label: 'Shadows/Highlights…', sep: true, run: () => openAdjust('shadows_highlights'), off: pixelsOff },
+          { label: 'HDR Toning…', run: () => openAdjust('hdr_toning'), off: pixelsOff },
+          { label: 'Desaturate', keys: 'Ctrl+Shift+U', sep: true, run: () => applyDestructive('desaturate'), off: pixelsOff },
+          { label: 'Match Color…', run: () => openAdjust('match_color'), off: pixelsOff },
+          { label: 'Replace Color…', run: () => openAdjust('replace_color'), off: pixelsOff },
+          { label: 'Equalize', run: () => applyDestructive('equalize'), off: pixelsOff },
+        ]),
       },
+      { label: 'Auto Tone', keys: 'Ctrl+Shift+L', run: () => applyDestructive('auto_tone'), off: !has || !active || pixelsOff },
+      { label: 'Auto Contrast', keys: 'Ctrl+Alt+Shift+L', run: () => applyDestructive('auto_contrast'), off: !has || !active || pixelsOff },
+      { label: 'Auto Color', keys: 'Ctrl+Shift+B', run: () => applyDestructive('auto_color'), off: !has || !active || pixelsOff },
       {
         label: 'Image Rotation', keys: '›', run: () => {}, off: !has, sep: true, sub: [
           ...([['180', '180°'], ['cw', '90° Clockwise'], ['ccw', '90° Counter Clockwise']] as [Command, string][])
@@ -2062,6 +2081,10 @@ export function App() {
       else if (ctrl && k === 'd') trigger('Deselect', e);
       else if (ctrl && e.shiftKey && k === 'i') trigger('Inverse', e);
       else if (ctrl && k === 'i') adjustment('Invert', e);
+      else if (ctrl && e.altKey && e.shiftKey && k === 'l') trigger('Auto Contrast', e);
+      else if (ctrl && e.shiftKey && !e.altKey && k === 'l') trigger('Auto Tone', e);
+      else if (ctrl && e.shiftKey && !e.altKey && k === 'u') adjustment('Desaturate', e);
+      else if (ctrl && e.shiftKey && !e.altKey && k === 'b') trigger('Auto Color', e);
       else if (ctrl && !e.altKey && k === 'l') adjustment('Levels…', e);
       else if (ctrl && !e.altKey && k === 'm') adjustment('Curves…', e);
       else if (ctrl && !e.altKey && k === 'u') adjustment('Hue/Saturation…', e);
@@ -2440,9 +2463,9 @@ export function App() {
           </div>
         </form>
       </dialog>
-      <dialog ref={adjustDialog} aria-label={adjustForm ? MENU_LABEL[adjustForm.kind] : 'Adjustment'} onClose={endPreviewDialog}>
+      <dialog ref={adjustDialog} aria-label={adjustForm ? COMMAND_LABEL[adjustForm.kind] : 'Adjustment'} onClose={endPreviewDialog}>
         <form onSubmit={e => { e.preventDefault(); previewRef.current.commit = true; adjustDialog.current?.close(); }}>
-          <h2>{adjustForm && MENU_LABEL[adjustForm.kind]}</h2>
+          <h2>{adjustForm && COMMAND_LABEL[adjustForm.kind]}</h2>
           {adjustForm && (
             <AdjustmentBody key={adjustSession} adjustment={adjustForm} onChange={a => setAdjustForm(a)} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} histogramId={active?.id ?? 0} />
           )}

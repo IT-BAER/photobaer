@@ -82,12 +82,6 @@ impl Adjustment {
     /// fields are already bounded by type or by a later clamp (invert, gradient map, color
     /// lookup beyond its own LUT-size check) have nothing to add here.
     pub fn validate(&self) -> Result<(), String> {
-        let range = |field: &str, v: f32, lo: f32, hi: f32| -> Result<(), String> {
-            if v < lo || v > hi {
-                return Err(format!("{field} must be between {lo} and {hi}, got {v}"));
-            }
-            Ok(())
-        };
         match self {
             Adjustment::BrightnessContrast(p) => {
                 let (b, c) = if p.legacy { (100.0, 100.0) } else { (150.0, 100.0) };
@@ -335,6 +329,13 @@ impl Adjustment {
             }
         }
     }
+}
+
+fn range(field: &str, v: f32, lo: f32, hi: f32) -> Result<(), String> {
+    if v < lo || v > hi {
+        return Err(format!("{field} must be between {lo} and {hi}, got {v}"));
+    }
+    Ok(())
 }
 
 // A TABLE block sampling each channel function at `i / (TABLE_N - 1)`, clamped to 0..1.
@@ -1026,4 +1027,451 @@ pub struct SelectiveColor {
     pub whites: [f32; 4],
     pub neutrals: [f32; 4],
     pub blacks: [f32; 4],
+}
+
+// ---------- destructive-only kinds (docs/M3.md section 3, kinds 17-25) ----------
+
+/// A kind that only exists as an Image menu command, never as a layer: `{ "kind", "params" }`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "params", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Destructive {
+    ShadowsHighlights(ShadowsHighlights),
+    HdrToning(HdrToning),
+    Desaturate(NoParams),
+    MatchColor(MatchColor),
+    ReplaceColor(ReplaceColor),
+    Equalize(NoParams),
+    AutoTone(NoParams),
+    AutoContrast(NoParams),
+    AutoColor(NoParams),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NoParams {}
+
+/// Amount and tone in percent, radius in px.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ToneRange {
+    pub amount: f32,
+    pub tone: f32,
+    pub radius: f32,
+}
+
+/// Clips are percent of the pixels (0..50).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShadowsHighlights {
+    pub shadows: ToneRange,
+    pub highlights: ToneRange,
+    pub color_correction: f32,
+    pub midtone_contrast: f32,
+    pub black_clip: f32,
+    pub white_clip: f32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HdrMethod {
+    LocalAdaptation,
+    ExposureGamma,
+    HighlightCompression,
+    EqualizeHistogram,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HdrToning {
+    pub method: HdrMethod,
+    pub radius: f32,
+    pub strength: f32,
+    pub detail: f32,
+    pub shadow: f32,
+    pub highlight: f32,
+    pub exposure: f32,
+    pub gamma: f32,
+    pub vibrance: f32,
+    pub saturation: f32,
+}
+
+/// Luminance and color intensity 0..200 %, fade 0..100 %; the source is the image itself.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MatchColor {
+    pub luminance: f32,
+    pub color_intensity: f32,
+    pub fade: f32,
+    pub neutralize: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReplaceColor {
+    pub target_color: [u8; 3],
+    pub fuzziness: f32,
+    pub range: f32,
+    pub localized: bool,
+    pub hue: f32,
+    pub saturation: f32,
+    pub lightness: f32,
+}
+
+impl Destructive {
+    /// Trust-boundary range check (docs/M3.md section 3); errors name the field.
+    pub fn validate(&self) -> Result<(), String> {
+        match self {
+            Destructive::ShadowsHighlights(p) => {
+                for (name, t) in [("shadows", &p.shadows), ("highlights", &p.highlights)] {
+                    range(&format!("{name}.amount"), t.amount, 0.0, 100.0)?;
+                    range(&format!("{name}.tone"), t.tone, 0.0, 100.0)?;
+                    range(&format!("{name}.radius"), t.radius, 0.0, 2500.0)?;
+                }
+                range("color_correction", p.color_correction, -100.0, 100.0)?;
+                range("midtone_contrast", p.midtone_contrast, -100.0, 100.0)?;
+                range("black_clip", p.black_clip, 0.0, 50.0)?;
+                range("white_clip", p.white_clip, 0.0, 50.0)
+            }
+            Destructive::HdrToning(p) => {
+                range("radius", p.radius, 1.0, 500.0)?;
+                range("strength", p.strength, 0.0, 1.0)?;
+                range("detail", p.detail, -100.0, 300.0)?;
+                range("shadow", p.shadow, -100.0, 100.0)?;
+                range("highlight", p.highlight, -100.0, 100.0)?;
+                range("exposure", p.exposure, -20.0, 20.0)?;
+                range("gamma", p.gamma, 0.1, 9.99)?;
+                range("vibrance", p.vibrance, -100.0, 100.0)?;
+                range("saturation", p.saturation, -100.0, 100.0)
+            }
+            Destructive::MatchColor(p) => {
+                range("luminance", p.luminance, 0.0, 200.0)?;
+                range("color_intensity", p.color_intensity, 0.0, 200.0)?;
+                range("fade", p.fade, 0.0, 100.0)
+            }
+            Destructive::ReplaceColor(p) => {
+                range("fuzziness", p.fuzziness, 0.0, 200.0)?;
+                range("range", p.range, 0.0, 100.0)?;
+                range("hue", p.hue, -180.0, 180.0)?;
+                range("saturation", p.saturation, -100.0, 100.0)?;
+                range("lightness", p.lightness, -100.0, 100.0)
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
+/// Runs a destructive kind over a straight RGBA buffer (`w x h`, 0..1) in place; alpha is never
+/// written. Histograms skip pixels with alpha 0; blurs and means see every pixel.
+pub fn destructive(kind: &Destructive, px: &mut [f32], w: usize, h: usize) {
+    match kind {
+        Destructive::Desaturate(_) => map_rgb(px, |c| {
+            let [hi, _, lo] = order(c);
+            [(c[hi] + c[lo]) / 2.0; 3]
+        }),
+        Destructive::Equalize(_) => {
+            let hist = histograms(px)[0];
+            let Some(first) = hist.iter().position(|&n| n > 0) else { return };
+            let cdf = cumulative(&hist);
+            let cdf0 = cdf[first];
+            if cdf0 >= 1.0 {
+                return;
+            }
+            map_rgb(px, |c| c.map(|v| ((cdf[bin(v)] - cdf0) / (1.0 - cdf0)).clamp(0.0, 1.0)));
+        }
+        Destructive::AutoTone(_) | Destructive::AutoContrast(_) | Destructive::AutoColor(_) => {
+            let hs = histograms(px);
+            let rec = |hist: &[u32; 256], midtone: bool| {
+                let (mut b, mut wt) = (from_bottom(hist, 0.1), from_top(hist, 0.1));
+                if wt <= b {
+                    (b, wt) = (0, 255);
+                }
+                let mut gamma = 1.0;
+                if midtone {
+                    let p = (from_bottom(hist, 50.0) as f32 - b as f32) / (wt - b) as f32;
+                    if p > 0.0 && p < 1.0 {
+                        gamma = (p.ln() / (128.0f32 / 255.0).ln()).clamp(0.01, 9.99);
+                    }
+                }
+                LevelsRecord { input_black: b as u8, input_white: wt as u8, gamma, output_black: 0, output_white: 255 }
+            };
+            let levels = match kind {
+                Destructive::AutoContrast(_) => Levels { composite: rec(&hs[0], false), red: None, green: None, blue: None },
+                _ => {
+                    let color = matches!(kind, Destructive::AutoColor(_));
+                    let [r, g, b] = [1, 2, 3].map(|ch| Some(rec(&hs[ch], color)));
+                    let composite = LevelsRecord { input_black: 0, input_white: 255, gamma: 1.0, output_black: 0, output_white: 255 };
+                    Levels { composite, red: r, green: g, blue: b }
+                }
+            };
+            if let Ok(Some(t)) = Adjustment::Levels(levels).compile(&HashMap::new()) {
+                map_rgb(px, |c| apply(t.opcode, &t.data, c, 0, 0));
+            }
+        }
+        Destructive::MatchColor(p) => {
+            let hs = histograms(px);
+            let n = hs[1].iter().sum::<u32>() as f32;
+            if n == 0.0 {
+                return;
+            }
+            let means: [f32; 3] =
+                std::array::from_fn(|ch| hs[ch + 1].iter().enumerate().map(|(i, &c)| i as f32 * c as f32).sum::<f32>() / n / 255.0);
+            let gray = means.iter().sum::<f32>() / 3.0;
+            let keep = 1.0 - p.fade / 100.0;
+            // The source is the image itself: its deviation equals the target's, so the
+            // intensity scale `1 + (src / std - 1) * intensity` stays 1.
+            map_rgb(px, |c| {
+                std::array::from_fn(|ch| {
+                    let mean = means[ch];
+                    let target = if p.neutralize { gray } else { mean };
+                    let v = mean + (target - mean) * p.luminance / 100.0;
+                    (c[ch] + (v + (c[ch] - mean) - c[ch]) * keep).clamp(0.0, 1.0)
+                })
+            });
+        }
+        Destructive::ReplaceColor(p) => {
+            let hsb = |c: [f32; 3]| {
+                let (mx, mn) = (c[0].max(c[1]).max(c[2]), c[0].min(c[1]).min(c[2]));
+                [rgb_to_hsl(c)[0], if mx > 0.0 { (mx - mn) / mx } else { 0.0 }, mx]
+            };
+            let t = hsb(p.target_color.map(|v| v as f32 / 255.0));
+            let radius = p.fuzziness * if p.localized { 1.0 - p.range / 100.0 * 0.5 } else { 1.0 } / 200.0;
+            map_rgb(px, |c| {
+                let s = hsb(c);
+                let dh = (s[0] - t[0]).rem_euclid(360.0);
+                let dh = dh.min(360.0 - dh) / 180.0;
+                let d = (dh * dh * s[1].min(t[1]) + (s[1] - t[1]).powi(2) + (s[2] - t[2]).powi(2)).sqrt();
+                let w = if radius >= 1.0 {
+                    1.0
+                } else if radius <= 0.0 {
+                    (d == 0.0) as u8 as f32
+                } else {
+                    (1.0 - d / radius).clamp(0.0, 1.0)
+                };
+                if w <= 0.0 {
+                    return c;
+                }
+                let [h, s, l] = rgb_to_hsl(c);
+                hsl_to_rgb(h + p.hue * w, sat_by(s, p.saturation * w), light_by(l, p.lightness * w))
+            });
+        }
+        Destructive::ShadowsHighlights(p) => shadows_highlights(p, px, w, h),
+        Destructive::HdrToning(p) => hdr_toning(p, px, w, h),
+    }
+}
+
+fn map_rgb(px: &mut [f32], f: impl Fn([f32; 3]) -> [f32; 3]) {
+    for c in px.chunks_exact_mut(4) {
+        let out = f([c[0], c[1], c[2]]);
+        c[..3].copy_from_slice(&out);
+    }
+}
+
+fn luma(c: &[f32]) -> f32 {
+    lum([c[0], c[1], c[2]])
+}
+
+fn bin(v: f32) -> usize {
+    (v.clamp(0.0, 1.0) * 255.0).round() as usize
+}
+
+// Luminosity, R, G and B counts of the pixels with alpha above 0.
+fn histograms(px: &[f32]) -> [[u32; 256]; 4] {
+    let mut h = [[0u32; 256]; 4];
+    for c in px.chunks_exact(4).filter(|c| c[3] > 0.0) {
+        h[0][bin(luma(c))] += 1;
+        for ch in 0..3 {
+            h[ch + 1][bin(c[ch])] += 1;
+        }
+    }
+    h
+}
+
+// Cumulative count / total per bin.
+fn cumulative(h: &[u32; 256]) -> [f32; 256] {
+    let total = h.iter().sum::<u32>().max(1) as f32;
+    let mut acc = 0;
+    std::array::from_fn(|i| {
+        acc += h[i];
+        acc as f32 / total
+    })
+}
+
+// The first non-empty bin whose cumulative count reaches `pct` % of the total, from the dark end.
+fn from_bottom(h: &[u32; 256], pct: f32) -> usize {
+    let need = h.iter().sum::<u32>() as f32 * pct / 100.0;
+    let mut acc = 0;
+    (0..256)
+        .find(|&i| {
+            acc += h[i];
+            acc > 0 && acc as f32 >= need
+        })
+        .unwrap_or(0)
+}
+
+// The same from the light end.
+fn from_top(h: &[u32; 256], pct: f32) -> usize {
+    let need = h.iter().sum::<u32>() as f32 * pct / 100.0;
+    let mut acc = 0;
+    (0..256)
+        .rev()
+        .find(|&i| {
+            acc += h[i];
+            acc > 0 && acc as f32 >= need
+        })
+        .unwrap_or(255)
+}
+
+// Gaussian with sigma = radius / 2 as three running-sum box passes, edges clamp.
+fn blur(v: &[f32], w: usize, h: usize, radius: f32) -> Vec<f32> {
+    let mut out = v.to_vec();
+    if radius <= 0.0 {
+        return out;
+    }
+    for r in crate::styles::gauss_boxes(radius as f64 / 2.0) {
+        let r = r.min(w.max(h));
+        if r > 0 {
+            out = box_pass(&box_pass(&out, w, h, r, true), w, h, r, false);
+        }
+    }
+    out
+}
+
+fn box_pass(src: &[f32], w: usize, h: usize, r: usize, horizontal: bool) -> Vec<f32> {
+    let (len, lines, step, stride) = if horizontal { (w, h, 1, w) } else { (h, w, w, 1) };
+    let mut out = vec![0f32; src.len()];
+    let n = (2 * r + 1) as f64;
+    let r = r as isize;
+    for line in 0..lines {
+        let at = |i: isize| src[line * stride + i.clamp(0, len as isize - 1) as usize * step] as f64;
+        let mut sum: f64 = (-r..=r).map(at).sum();
+        for i in 0..len as isize {
+            out[line * stride + i as usize * step] = (sum / n) as f32;
+            sum += at(i + r + 1) - at(i - r);
+        }
+    }
+    out
+}
+
+fn smoothstep(x: f32) -> f32 {
+    let t = x.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+// Scales a pixel's channels from luminance `old` to `new`, keeping the hue.
+fn scale_lum(c: &mut [f32], old: f32, new: f32) {
+    for v in &mut c[..3] {
+        *v = if old <= 0.0 { new } else { *v * new / old }.clamp(0.0, 1.0);
+    }
+}
+
+fn shadows_highlights(p: &ShadowsHighlights, px: &mut [f32], w: usize, h: usize) {
+    let (ls, lh) = (p.shadows.amount / 100.0, p.highlights.amount / 100.0);
+    if ls > 0.0 || lh > 0.0 {
+        let u: Vec<f32> = px.chunks_exact(4).map(|c| luma(c).clamp(0.0, 1.0)).collect();
+        let sb = (ls > 0.0).then(|| blur(&u, w, h, p.shadows.radius));
+        let hb = (lh > 0.0).then(|| blur(&u, w, h, p.highlights.radius));
+        let (ts, th) = ((p.shadows.tone / 100.0).max(0.02), (p.highlights.tone / 100.0).max(0.02));
+        let f = p.color_correction / 100.0;
+        for (i, c) in px.chunks_exact_mut(4).enumerate() {
+            let wl = u[i];
+            let mut e = 1.0;
+            if let Some(b) = &sb {
+                let k = smoothstep((ts - b[i]) / ts);
+                if k > 0.0 {
+                    e /= 1.0 + 2.0 * ls * k;
+                }
+            }
+            if let Some(b) = &hb {
+                let k = smoothstep((b[i] - (1.0 - th)) / th);
+                if k > 0.0 {
+                    e *= 1.0 + 2.0 * lh * k;
+                }
+            }
+            if e == 1.0 || wl <= 0.0 {
+                continue;
+            }
+            let s = wl.powf(e);
+            let mut out = [c[0], c[1], c[2]].map(|v| (v * s / wl).clamp(0.0, 1.0));
+            if f != 0.0 {
+                let [hh, ss, l] = rgb_to_hsl(out);
+                out = hsl_to_rgb(hh, (ss * (1.0 + f * (s - wl).abs() * 2.0)).clamp(0.0, 1.0), l);
+            }
+            c[..3].copy_from_slice(&out);
+        }
+    }
+    if p.midtone_contrast != 0.0 {
+        let u = p.midtone_contrast / 100.0;
+        let k = if u >= 0.0 { 1.0 + 2.0 * u } else { 1.0 / (1.0 - 2.0 * u) };
+        map_rgb(px, |c| c.map(|v| if v < 0.5 { 0.5 * (v / 0.5).powf(k) } else { 1.0 - 0.5 * ((1.0 - v) / 0.5).powf(k) }));
+    }
+    if p.black_clip > 0.0 || p.white_clip > 0.0 {
+        let hist = histograms(px)[0];
+        let (b, t) = (from_bottom(&hist, p.black_clip), from_top(&hist, p.white_clip));
+        if t > b && (b > 0 || t < 255) {
+            let (b, t) = (b as f32 / 255.0, t as f32 / 255.0);
+            map_rgb(px, |c| c.map(|v| ((v - b) / (t - b)).clamp(0.0, 1.0)));
+        }
+    }
+}
+
+fn hdr_toning(p: &HdrToning, px: &mut [f32], w: usize, h: usize) {
+    match p.method {
+        HdrMethod::ExposureGamma => {
+            if p.exposure != 0.0 || p.gamma != 1.0 {
+                let (a, n) = (p.exposure.exp2(), 1.0 / p.gamma);
+                map_rgb(px, |c| c.map(|v| linear_to_srgb((srgb_to_linear(v) * a).max(0.0).powf(n)).clamp(0.0, 1.0)));
+            }
+        }
+        // Reinhard with white = the largest luminance acts only above 1, which 8/16-bit data
+        // never reaches: an identity here.
+        HdrMethod::HighlightCompression => {}
+        HdrMethod::EqualizeHistogram => {
+            let hist = histograms(px)[0];
+            if hist.iter().any(|&n| n > 0) {
+                let cdf = cumulative(&hist);
+                for c in px.chunks_exact_mut(4) {
+                    let o = luma(c).clamp(0.0, 1.0);
+                    scale_lum(c, o, cdf[bin(o)]);
+                }
+            }
+        }
+        HdrMethod::LocalAdaptation => {
+            let l: Vec<f32> = px.chunks_exact(4).map(|c| luma(c).max(1e-4).ln()).collect();
+            let b = blur(&l, w, h, p.radius);
+            let mean = (b.iter().map(|&v| v as f64).sum::<f64>() / b.len().max(1) as f64) as f32;
+            let (k, d) = (1.0 - p.strength.clamp(0.0, 1.0) * 0.5, 1.0 + p.detail / 100.0);
+            for (i, c) in px.chunks_exact_mut(4).enumerate() {
+                let m = mean + (b[i] - mean) * k + (l[i] - b[i]) * d;
+                let mut f = m.exp().clamp(0.0, 1.0);
+                let base = b[i].exp().clamp(0.0, 1.0);
+                if p.shadow != 0.0 {
+                    f = f.powf(1.0 / (1.0 + p.shadow / 100.0 * (1.0 - base))).clamp(0.0, 1.0);
+                }
+                if p.highlight != 0.0 {
+                    f = f.powf(1.0 + p.highlight / 100.0 * base).clamp(0.0, 1.0);
+                }
+                if p.exposure != 0.0 {
+                    f = (f * p.exposure.exp2()).clamp(0.0, 1.0);
+                }
+                if p.gamma != 1.0 {
+                    f = f.powf(1.0 / p.gamma).clamp(0.0, 1.0);
+                }
+                let o = luma(c).clamp(0.0, 1.0);
+                scale_lum(c, o, f);
+            }
+        }
+    }
+    if p.vibrance != 0.0 || p.saturation != 0.0 {
+        map_rgb(px, |c| {
+            let [hh, s, l] = rgb_to_hsl(c);
+            let mut s = sat_by(s, p.saturation);
+            if p.vibrance != 0.0 {
+                let dist = (hh - 25.0).rem_euclid(360.0);
+                let dist = dist.min(360.0 - dist);
+                let skin = if dist >= 40.0 { 1.0 } else { 1.0 - 0.5 * (1.0 - dist / 40.0) };
+                s = sat_by(s, p.vibrance * (1.0 - s) * skin);
+            }
+            hsl_to_rgb(hh, s, l)
+        });
+    }
 }

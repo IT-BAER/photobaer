@@ -1,9 +1,11 @@
 // The 16 adjustment layer kinds (docs/M3.md section 3, B5): catalogue order, undo labels (B5-5),
 // neutral defaults and the generic per-field renderer's field lists (m3-inv-a.md section 7 ranges).
-import type { Adjustment, GradientDef, HueRange } from './engine.worker.ts';
+import type { Adjustment, DestructiveAdjustment, GradientDef, HueRange } from './engine.worker.ts';
 import type { Gradient } from './gradients/gradient.ts';
 
 export type Kind = Adjustment['kind'];
+export type DestructiveKind = DestructiveAdjustment['kind'];
+export type AnyKind = Kind | DestructiveKind;
 
 // Catalogue order everywhere: menu, panel, PSD mapping (docs/M3.md section 3).
 export const ADJUSTMENT_KINDS: Kind[] = [
@@ -29,6 +31,30 @@ export const EDIT_LABEL: Record<Kind, string> = {
 export const SHORTCUT: Partial<Record<Kind, string>> = {
   levels: 'Ctrl+L', curves: 'Ctrl+M', hue_saturation: 'Ctrl+U', color_balance: 'Ctrl+B', black_white: 'Ctrl+Alt+Shift+B',
 };
+
+// Destructive-only kinds (docs/M3.md section 3, 17-25) in Image > Adjustments order; the autos sit in Image.
+export const DESTRUCTIVE_KINDS: DestructiveKind[] = [
+  'shadows_highlights', 'hdr_toning', 'desaturate', 'match_color', 'replace_color', 'equalize', 'auto_tone', 'auto_contrast', 'auto_color',
+];
+export const DESTRUCTIVE_LABEL: Record<DestructiveKind, string> = {
+  shadows_highlights: 'Shadows/Highlights', hdr_toning: 'HDR Toning', desaturate: 'Desaturate', match_color: 'Match Color',
+  replace_color: 'Replace Color', equalize: 'Equalize', auto_tone: 'Auto Tone', auto_contrast: 'Auto Contrast', auto_color: 'Auto Color',
+};
+export const COMMAND_LABEL: Record<AnyKind, string> = { ...MENU_LABEL, ...DESTRUCTIVE_LABEL };
+
+/** Section 3 defaults of a destructive-only kind; the kinds without params apply at once. */
+export function defaultDestructive(kind: DestructiveKind): DestructiveAdjustment {
+  switch (kind) {
+    case 'shadows_highlights': return { kind, params: {
+      shadows: { amount: 35, tone: 50, radius: 30 }, highlights: { amount: 0, tone: 50, radius: 30 },
+      color_correction: 20, midtone_contrast: 0, black_clip: 0.01, white_clip: 0.01,
+    } };
+    case 'hdr_toning': return { kind, params: { method: 'local_adaptation', radius: 16, strength: 0.5, detail: 30, shadow: 0, highlight: 0, exposure: 0, gamma: 1, vibrance: 20, saturation: 20 } };
+    case 'match_color': return { kind, params: { luminance: 100, color_intensity: 100, fade: 0, neutralize: false } };
+    case 'replace_color': return { kind, params: { target_color: [255, 255, 255], fuzziness: 40, range: 0, localized: false, hue: 0, saturation: 0, lightness: 0 } };
+    default: return { kind, params: {} };
+  }
+}
 
 const DEFAULT_GRADIENT_MAP_GRADIENT: GradientDef = {
   method: 'classic',
@@ -85,7 +111,7 @@ const rangeFields = (i: number, name: string): FieldSpec[] => [
 
 // Every kind but invert (a note), levels and curves (LevelsCurvesBody), gradient map (its own body)
 // and color lookup (file-picker body).
-export const FIELD_SPECS: Partial<Record<Kind, FieldSpec[]>> = {
+export const FIELD_SPECS: Partial<Record<AnyKind, FieldSpec[]>> = {
   brightness_contrast: [num('Brightness', 'brightness', -150, 150), num('Contrast', 'contrast', -50, 100), check('Use legacy', 'legacy')],
   exposure: [num('Exposure', 'exposure', -20, 20, 0.01), num('Offset', 'offset', -0.5, 0.5, 0.001), num('Gamma', 'gamma', 0.1, 9.99, 0.01)],
   vibrance: [num('Vibrance', 'vibrance', -100, 100), num('Saturation', 'saturation', -100, 100)],
@@ -113,6 +139,24 @@ export const FIELD_SPECS: Partial<Record<Kind, FieldSpec[]>> = {
     { type: 'select', label: 'Mode', path: 'mode', options: [['relative', 'Relative'], ['absolute', 'Absolute']] },
     ...quad('Reds', 'reds', -100, 100), ...quad('Yellows', 'yellows', -100, 100), ...quad('Greens', 'greens', -100, 100), ...quad('Cyans', 'cyans', -100, 100),
     ...quad('Blues', 'blues', -100, 100), ...quad('Magentas', 'magentas', -100, 100), ...quad('Whites', 'whites', -100, 100), ...quad('Neutrals', 'neutrals', -100, 100), ...quad('Blacks', 'blacks', -100, 100),
+  ],  shadows_highlights: [
+    num('Shadows Amount', 'shadows.amount', 0, 100), num('Shadows Tone', 'shadows.tone', 0, 100), num('Shadows Radius', 'shadows.radius', 0, 2500),
+    num('Highlights Amount', 'highlights.amount', 0, 100), num('Highlights Tone', 'highlights.tone', 0, 100), num('Highlights Radius', 'highlights.radius', 0, 2500),
+    num('Color Correction', 'color_correction', -100, 100), num('Midtone Contrast', 'midtone_contrast', -100, 100),
+    num('Black Clip %', 'black_clip', 0, 50, 0.01), num('White Clip %', 'white_clip', 0, 50, 0.01),
+  ],
+  hdr_toning: [
+    { type: 'select', label: 'Method', path: 'method', options: [['local_adaptation', 'Local Adaptation'], ['exposure_gamma', 'Exposure and Gamma'], ['highlight_compression', 'Highlight Compression'], ['equalize_histogram', 'Equalize Histogram']] },
+    num('Radius', 'radius', 1, 500), num('Strength', 'strength', 0, 1, 0.01), num('Detail', 'detail', -100, 300),
+    num('Shadow', 'shadow', -100, 100), num('Highlight', 'highlight', -100, 100),
+    num('Exposure', 'exposure', -20, 20, 0.01), num('Gamma', 'gamma', 0.1, 9.99, 0.01),
+    num('Vibrance', 'vibrance', -100, 100), num('Saturation', 'saturation', -100, 100),
+  ],
+  match_color: [num('Luminance', 'luminance', 0, 200), num('Color Intensity', 'color_intensity', 0, 200), num('Fade', 'fade', 0, 100), check('Neutralize', 'neutralize')],
+  replace_color: [
+    num('Color R', 'target_color.0', 0, 255), num('Color G', 'target_color.1', 0, 255), num('Color B', 'target_color.2', 0, 255),
+    num('Fuzziness', 'fuzziness', 0, 200), check('Localized color clusters', 'localized'), num('Range', 'range', 0, 100),
+    num('Hue', 'hue', -180, 180), num('Saturation', 'saturation', -100, 100), num('Lightness', 'lightness', -100, 100),
   ],
 };
 
@@ -122,7 +166,7 @@ export function getPath(params: object, path: string): unknown {
 }
 
 /** Returns a new adjustment with `path` set to `value`, cloning only the touched branch. */
-export function setPath(adjustment: Adjustment, path: string, value: unknown): Adjustment {
+export function setPath<A extends Adjustment | DestructiveAdjustment>(adjustment: A, path: string, value: unknown): A {
   const keys = path.split('.');
   const clone = (v: unknown, i: number): unknown => {
     if (i === keys.length) return value;
@@ -131,7 +175,7 @@ export function setPath(adjustment: Adjustment, path: string, value: unknown): A
     (child as Record<string, unknown>)[k] = clone((v as Record<string, unknown>)?.[k], i + 1);
     return child;
   };
-  return { ...adjustment, params: clone(adjustment.params, 0) } as Adjustment;
+  return { ...adjustment, params: clone(adjustment.params, 0) } as A;
 }
 
 export const gradientDefToUi = (g: GradientDef): Gradient => ({
