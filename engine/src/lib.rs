@@ -14,6 +14,7 @@ mod selection;
 mod stroke;
 mod styles;
 mod text;
+mod typeset;
 
 use blend::PaintMode;
 use doc::{Document, EngineCore, Remap, Target};

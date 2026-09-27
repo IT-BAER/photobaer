@@ -178,6 +178,12 @@ impl Registry {
         pick_style(&faces, style).map(|i| faces[i].id)
     }
 
+    /// Font file bytes and collection index of a face.
+    #[allow(dead_code)]
+    pub fn data(&self, id: u32) -> Option<(&[u8], u32)> {
+        self.faces.iter().find(|f| f.info.id == id).map(|f| (&f.data[..], f.index))
+    }
+
     fn parsed(&self, id: u32) -> Option<ttf_parser::Face<'_>> {
         let f = self.faces.iter().find(|f| f.info.id == id)?;
         ttf_parser::Face::parse(&f.data, f.index).ok()
