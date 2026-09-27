@@ -206,6 +206,14 @@ export function patternRefs(value: unknown): string[] {
   return ids;
 }
 
+/** Picker entries: document patterns, then presets whose id the document lacks; `query` matches names case-insensitively. */
+export function patternChoices(doc: { id: string; name: string }[], presets: { id: string; name: string }[], query: string) {
+  const q = query.trim().toLowerCase();
+  const have = new Set(doc.map(p => p.id));
+  return [...doc.map(p => ({ id: p.id, name: p.name, preset: false })), ...presets.filter(p => !have.has(p.id)).map(p => ({ id: p.id, name: p.name, preset: true }))]
+    .filter(c => c.name.toLowerCase().includes(q));
+}
+
 // Saved styles (Styles page, New Style, Styles panel) in localStorage, oldest first; no built-in presets.
 // A storage that throws keeps them in memory for the session. Every read and write deep-copies.
 export interface SavedStyle { id: string; name: string; style: LayerStyle; blending: Blending }
@@ -234,9 +242,14 @@ export class StyleLibrary {
   save(name: string, style: LayerStyle, blending: Blending): SavedStyle {
     const s: SavedStyle = { id: crypto.randomUUID(), name: name.trim() || `Style ${this.#styles.length + 1}`, style: structuredClone(style), blending: structuredClone(blending) };
     this.#styles.push(s);
-    try { this.#store?.setItem(STYLES_KEY, JSON.stringify(this.#styles)); } catch { /* session-only */ }
+    this.#write();
     return structuredClone(s);
   }
+
+  remove(id: string) { this.#styles = this.#styles.filter(s => s.id !== id); this.#write(); }
+  clear() { this.#styles = []; this.#write(); }
+
+  #write() { try { this.#store?.setItem(STYLES_KEY, JSON.stringify(this.#styles)); } catch { /* session-only */ } }
 
   apply(id: string): { style: LayerStyle; blending: Blending } | undefined {
     const s = this.#styles.find(x => x.id === id);

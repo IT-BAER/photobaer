@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CONTOUR_PRESETS, StyleLibrary, defaultBlending, defaultEffect, effectRows, emptyStyle, patternRefs, setEffectEnabled, setIn, type LayerStyle } from './layerStyle.ts';
+import { CONTOUR_PRESETS, StyleLibrary, defaultBlending, defaultEffect, effectRows, emptyStyle, patternChoices, patternRefs, setEffectEnabled, setIn, type LayerStyle } from './layerStyle.ts';
 
 test('18 contour presets on whole 0..255 levels, three in pencil mode, starting at Linear', () => {
   assert.equal(CONTOUR_PRESETS.length, 18);
@@ -63,4 +63,28 @@ test('patternRefs lists every pattern id a style or fill content names', () => {
   const style: LayerStyle = { ...emptyStyle(), pattern_overlays: [defaultEffect('pattern_overlays', 'a') as unknown as LayerStyle['pattern_overlays'][0]], texture: defaultEffect('texture', 'b') as unknown as LayerStyle['texture'] };
   assert.deepEqual(patternRefs(style).sort(), ['a', 'b']);
   assert.deepEqual(patternRefs({ type: 'pattern', pattern_id: 'c' }), ['c']);
+});
+
+test('saved styles delete one entry or clear all, persisting each change', () => {
+  const data: Record<string, string> = {};
+  const storage = { getItem: (k: string) => data[k] ?? null, setItem: (k: string, v: string) => { data[k] = v; } };
+  const lib = new StyleLibrary(storage);
+  const a = lib.save('A', emptyStyle(), defaultBlending());
+  lib.save('B', emptyStyle(), defaultBlending());
+  lib.remove(a.id);
+  assert.deepEqual(new StyleLibrary(storage).list().map(s => s.name), ['B']);
+  lib.remove('missing');
+  lib.clear();
+  assert.deepEqual(new StyleLibrary(storage).list(), []);
+});
+
+test('pattern choices list document patterns, then presets the document lacks, filtered by name', () => {
+  const doc = [{ id: 'd1', name: 'Bricks' }, { id: 'p2', name: 'Hatch copy' }];
+  const presets = [{ id: 'p1', name: 'Canvas' }, { id: 'p2', name: 'Hatch' }, { id: 'p3', name: 'Cross Hatch' }];
+  assert.deepEqual(patternChoices(doc, presets, ''), [
+    { id: 'd1', name: 'Bricks', preset: false }, { id: 'p2', name: 'Hatch copy', preset: false },
+    { id: 'p1', name: 'Canvas', preset: true }, { id: 'p3', name: 'Cross Hatch', preset: true },
+  ]);
+  assert.deepEqual(patternChoices(doc, presets, ' HATCH ').map(c => c.id), ['p2', 'p3']);
+  assert.deepEqual(patternChoices([], [], 'x'), []);
 });

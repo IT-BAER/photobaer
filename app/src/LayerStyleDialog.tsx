@@ -5,6 +5,8 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { client } from './client.ts';
 import type { DocInfo, FillContent, GlobalLight, LayerNode } from './engine.worker.ts';
+import type { BrushLibrary } from './brushes/store.ts';
+import { PatternPicker, adoptPatterns } from './PresetPanels.tsx';
 import { Field, type OpenGradientEditor } from './PropertiesPanel.tsx';
 import { getPath, gradientDefToUi, uiToGradientDef, type FieldSpec } from './adjustments.ts';
 import { BLEND_MODES } from './layers.ts';
@@ -12,7 +14,7 @@ import { rampCss } from './gradients/gradient.ts';
 import { rgbToHex, type Rgb } from './shell/color.ts';
 import {
   CONTOUR_PRESETS, EFFECT_KINDS, EFFECT_LABEL, MAX_INSTANCES, MULTI, defaultGradientParams, effectDefault, emptyStyle, instances,
-  saveEffectDefault, setIn, withInstances, type BlendRange, type Blending, type Contour, type EffectKind, type LayerStyle, type Quad,
+  saveEffectDefault, setIn, withInstances, type BlendRange, type Blending, type Contour, type EffectKind, type LayerStyle, type Quad, type StyleLibrary,
 } from './layerStyle.ts';
 
 export type StylePage = 'styles' | 'blending' | { kind: EffectKind; index: number };
@@ -107,22 +109,6 @@ function ContourGrid({ value, set }: { value: Contour; set: (c: Contour) => void
   );
 }
 
-function PatternPicker({ patterns, value, set }: { patterns: DocInfo['patterns']; value: string; set: (id: string) => void }) {
-  const [q, setQ] = useState('');
-  if (!patterns.length) return <p className="adjustment-note">This document has no patterns.</p>;
-  const shown = patterns.filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
-  return (
-    <div className="style-pattern-picker">
-      <input type="search" placeholder="Search patterns" aria-label="Search patterns" value={q} onChange={e => setQ(e.currentTarget.value)} />
-      <div className="style-pattern-grid">
-        {shown.map(p => (
-          <button key={p.id} type="button" aria-pressed={p.id === value} className={p.id === value ? 'active' : ''} onClick={() => set(p.id)}>{p.name}</button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // One blend-if bar: [black outer, black inner, white inner, white outer]; Alt-drag splits a handle.
 function BlendIfBar({ label, value, set }: { label: string; value: Quad; set: (q: Quad) => void }) {
   const bar = useRef<HTMLDivElement>(null);
@@ -186,13 +172,13 @@ function Swatch({ style }: { style: LayerStyle }) {
   );
 }
 
-export function LayerStyleDialog({ doc, node, page: initialPage, onDoc, onError, onClose, openGradientEditor, pickColor }: {
-  doc: DocInfo; node: LayerNode; page: StylePage;
+export function LayerStyleDialog({ doc, node, page: initialPage, library, styles, onDoc, onError, onClose, openGradientEditor, pickColor }: {
+  doc: DocInfo; node: LayerNode; page: StylePage; library: BrushLibrary | null; styles: StyleLibrary;
   onDoc: (d: DocInfo) => void; onError: (m: string) => void; onClose: () => void;
   openGradientEditor: OpenGradientEditor; pickColor: (rgb: Rgb, title: string, commit: (rgb: Rgb) => void) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const firstPattern = doc.patterns[0]?.id ?? '';
+  const firstPattern = doc.patterns[0]?.id ?? library?.patterns()[0]?.id ?? '';
   const [style, setStyle] = useState<LayerStyle>(() => {
     const s = structuredClone(node.style) ?? emptyStyle();
     if (typeof initialPage === 'object' && !instances(s, initialPage.kind).length) {
@@ -207,6 +193,7 @@ export function LayerStyleDialog({ doc, node, page: initialPage, onDoc, onError,
   const [page, setPage] = useState<StylePage>(initialPage);
   const [preview, setPreview] = useState(true);
   const [blendIfChannel, setBlendIfChannel] = useState<keyof Blending['blend_if']>('gray');
+  const [styleName, setStyleName] = useState<string | null>(null);
   const session = useRef({ open: false, timer: undefined as ReturnType<typeof setTimeout> | undefined, pending: Promise.resolve() as Promise<unknown>, closed: false });
 
   useEffect(() => { dialog.current?.showModal(); }, []);
@@ -215,7 +202,7 @@ export function LayerStyleDialog({ doc, node, page: initialPage, onDoc, onError,
     const s = session.current;
     s.open = true;
     const args = [node.id, style, blending, fill, lightChanged ? light : null, true] as const;
-    s.pending = s.pending.then(() => client.call('setLayerStyle', ...args)).then(onDoc, e => onError((e as Error).message));
+    s.pending = s.pending.then(() => adoptPatterns(doc, library, style)).then(() => client.call('setLayerStyle', ...args)).then(onDoc, e => onError((e as Error).message));
   };
   // Every edit reruns the preview 70 ms after the last change.
   useEffect(() => {
@@ -237,7 +224,7 @@ export function LayerStyleDialog({ doc, node, page: initialPage, onDoc, onError,
     clearTimeout(s.timer);
     if (commit) {
       const args = [node.id, style, blending, fill, lightChanged ? light : null, true] as const;
-      s.pending = s.pending.catch(() => {}).then(() => client.call('setLayerStyle', ...args)).then(() => client.call('previewEnd', true));
+      s.pending = s.pending.catch(() => {}).then(() => adoptPatterns(doc, library, style)).then(() => client.call('setLayerStyle', ...args)).then(() => client.call('previewEnd', true));
     } else if (s.open) {
       s.pending = s.pending.catch(() => {}).then(() => client.call('previewEnd', false));
     }
@@ -348,7 +335,7 @@ export function LayerStyleDialog({ doc, node, page: initialPage, onDoc, onError,
       case 'pattern':
         return (
           <div key={spec.path} className="adjustment-field"><span>{spec.label}</span>
-            <PatternPicker patterns={doc.patterns} value={String(value)} set={id => set(spec.path, id)} />
+            <PatternPicker doc={doc} library={library} value={String(value)} set={id => set(spec.path, id)} onDoc={onDoc} onError={onError} />
           </div>
         );
       case 'gradient': {
@@ -378,7 +365,16 @@ export function LayerStyleDialog({ doc, node, page: initialPage, onDoc, onError,
   }
 
   function renderPage() {
-    if (page === 'styles') return <p className="adjustment-note">No saved styles yet.</p>;
+    if (page === 'styles') {
+      const saved = styles.list();
+      if (!saved.length) return <p className="adjustment-note">No saved styles yet.</p>;
+      const use = (id: string) => { const a = styles.apply(id); if (a) { setStyle(a.style); setBlending(a.blending); } };
+      return (
+        <ul className="style-library-list" aria-label="Saved styles">
+          {saved.map(x => <li key={x.id}><button type="button" className="style-library-name" onClick={() => use(x.id)}>{x.name}</button></li>)}
+        </ul>
+      );
+    }
     if (page === 'blending') {
       const range = blending.blend_if[blendIfChannel];
       const setRange = (k: keyof BlendRange, q: Quad) => setBlending(setIn(blending, `blend_if.${blendIfChannel}.${k}`, q));
@@ -473,6 +469,13 @@ export function LayerStyleDialog({ doc, node, page: initialPage, onDoc, onError,
           <button type="button" onClick={() => finish(false)}>Cancel</button>
           <label className="adjustment-check"><input type="checkbox" checked={preview} onChange={ev => setPreview(ev.currentTarget.checked)} /> Preview</label>
           <label className="adjustment-check"><input type="checkbox" checked={style.enabled} onChange={ev => setStyle({ ...style, enabled: ev.currentTarget.checked })} /> Effects On</label>
+          <button type="button" onClick={() => setStyleName('')}>New Style…</button>
+          {styleName !== null && (
+            <form className="layer-style-new" onSubmit={ev => { ev.preventDefault(); styles.save(styleName, style, blending); setStyleName(null); }}>
+              <input autoFocus aria-label="Style name" placeholder="Style name" value={styleName} onChange={ev => setStyleName(ev.currentTarget.value)} />
+              <button type="submit">Save</button>
+            </form>
+          )}
           <Swatch style={style} />
         </div>
       </div>

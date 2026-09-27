@@ -356,8 +356,15 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .layer-style-dialog .contour-grid button { padding: 2px; line-height: 0; }
 .layer-style-dialog .contour-grid button.active, .layer-style-dialog .style-pattern-grid button.active { border-color: var(--accent); }
 .style-pattern-picker { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-.style-pattern-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 4px; max-height: 140px; overflow-y: auto; }
-.layer-style-dialog .style-pattern-grid button { padding: 4px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+.style-pattern-grid { display: grid; grid-template-columns: repeat(auto-fill, 62px); gap: 4px; max-height: 196px; overflow-y: auto; }
+.style-pattern-grid button { padding: 2px; line-height: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.style-pattern-grid button.active { border-color: var(--accent); }
+.gradient-preset-grid { display: grid; grid-template-columns: repeat(auto-fill, 40px); gap: 4px; }
+.gradient-preset-grid button { width: 40px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.style-library-list { margin: 4px 0; padding: 0; list-style: none; max-height: 160px; overflow-y: auto; }
+.style-library-list li { display: flex; align-items: center; gap: 4px; }
+.style-library-list .style-library-name { flex: 1; text-align: left; }
+.layer-style-new { display: flex; flex-direction: column; gap: 4px; }
 .blend-if-row { margin: 8px 0; }
 .blend-if-bar { position: relative; height: 12px; margin: 6px 6px 14px; background: linear-gradient(to right, #000, #fff); border: 1px solid var(--line); }
 .blend-if-handle { position: absolute; top: 12px; width: 10px; height: 10px; margin-left: -5px; clip-path: polygon(50% 0, 100% 100%, 0 100%); cursor: ew-resize; touch-action: none; }

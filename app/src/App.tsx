@@ -11,9 +11,10 @@ import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { AdjustmentBody, PropertiesPanel, SmartFiltersPanel, filterLabel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
 import { LayerStyleDialog, type StylePage } from './LayerStyleDialog.tsx';
-import { EFFECT_KINDS, EFFECT_LABEL, styleRefusal } from './layerStyle.ts';
+import { EFFECT_KINDS, EFFECT_LABEL, StyleLibrary, styleRefusal, type SavedStyle } from './layerStyle.ts';
+import { GradientsPanel, PatternPicker, PatternsPanel, StylesPanel, adoptPatterns } from './PresetPanels.tsx';
 import type { SampleCanvas } from './LevelsCurvesBody.tsx';
-import { ADJUSTMENT_KINDS, COMMAND_LABEL, DESTRUCTIVE_LABEL, MENU_LABEL, SHORTCUT, defaultAdjustment, defaultDestructive, type DestructiveKind, type Kind } from './adjustments.ts';
+import { ADJUSTMENT_KINDS, COMMAND_LABEL, DESTRUCTIVE_LABEL, MENU_LABEL, SHORTCUT, defaultAdjustment, defaultDestructive, uiToGradientDef, type DestructiveKind, type Kind } from './adjustments.ts';
 import type { Adjustment, AutosaveState, DestructiveAdjustment, DocInfo, FillContent, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
 import { Smoother } from './shell/smoothing.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
@@ -47,7 +48,7 @@ import type { BrushPreset, Dynamics } from './brushes/preset.ts';
 import { BuildUp, inputFields, strideFor, strokeSeed, type Stride } from './brushes/strokeInput.ts';
 import { GradientEditor, type GradientEditorHandle } from './shell/GradientEditor.tsx';
 import { engineStops, rampCss, type Method } from './gradients/gradient.ts';
-import { BUILTIN_GRADIENTS, GradientLibrary, resolvePreset } from './gradients/presets.ts';
+import { BUILTIN_GRADIENTS, GradientLibrary, resolvePreset, type GradientPreset } from './gradients/presets.ts';
 import {
   HANDLES, cropActive, cropBox, cropCancel, cropCommit, cropDown, cropMove, cropPointerCancel, cropRatio, cropUp, croppedSize, hitCrop,
   newCropState, newPerspState, overlayLines, perspDown, perspMove, perspSize, perspUp, type CropCtx,
@@ -99,19 +100,21 @@ function loadFillForm(): FillForm {
 interface StrokeForm { width: number; color: Rgb; location: StrokeSelectionParams['location']; mode: string; opacity: number; preserve: boolean }
 const STROKE_DEFAULT: StrokeForm = { width: 3, color: [0, 0, 0], location: 'inside', mode: 'normal', opacity: 100, preserve: false };
 
-// Layer > New Fill Layer / Layer Content Options (docs/M3.md section 4). The dialog title differs
-// from the undo label for gradient and pattern (gap B7-3); the gradient itself is fixed black to
-// white, classic, two stops (gap B7-1) -- this dialog never edits the stops.
-const FILL_LAYER_TITLES = { solid: 'Solid Color', gradient: 'Gradient Fill', pattern: 'Pattern Fill' } as const;
-const FILL_LAYER_LABELS = { solid: 'Solid Color', gradient: 'Gradient', pattern: 'Pattern' } as const;
-const FILL_LAYER_NAMES = { solid: 'Color Fill', gradient: 'Gradient Fill', pattern: 'Pattern Fill' } as const;
+// Layer > New Fill Layer / Layer Content Options (docs/M3.md section 4): per fill type the dialog title,
+// the undo label and the new layer's name. The dialog's gradient is black to white, classic, two stops;
+// it never edits the stops.
+const FILL_LAYERS = {
+  solid: { title: 'Solid Color', label: 'Solid Color', name: 'Color Fill' },
+  gradient: { title: 'Gradient Fill', label: 'Gradient', name: 'Gradient Fill' },
+  pattern: { title: 'Pattern Fill', label: 'Pattern', name: 'Pattern Fill' },
+} as const;
 const DEFAULT_GRADIENT = {
   method: 'classic' as const,
   color_stops: [{ position: 0, color: [0, 0, 0] as [number, number, number], midpoint: 0.5 }, { position: 1, color: [255, 255, 255] as [number, number, number], midpoint: 0.5 }],
   opacity_stops: [{ position: 0, opacity: 1, midpoint: 0.5 }, { position: 1, opacity: 1, midpoint: 0.5 }],
 };
 interface FillContentForm {
-  type: keyof typeof FILL_LAYER_TITLES;
+  type: keyof typeof FILL_LAYERS;
   color: Rgb; style: 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond'; angle: number; scalePct: number;
   reverse: boolean; dither: boolean; alignWithLayer: boolean; patternId: string; linked: boolean;
 }
@@ -256,6 +259,11 @@ export function App() {
   const [showLayerComps, setShowLayerComps] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [showAdjustments, setShowAdjustments] = useState(false);
+  const [showStyles, setShowStyles] = useState(false);
+  const [showPatterns, setShowPatterns] = useState(false);
+  const [showGradients, setShowGradients] = useState(false);
+  const styleLib = useRef<StyleLibrary | null>(null);
+  styleLib.current ??= new StyleLibrary();
   // Brush library (opened at mount) and the selected preset; null paints with the plain options-bar brush.
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const brushLib = useRef<{ library: BrushLibrary; assets: EngineAssets } | null>(null);
@@ -490,12 +498,39 @@ export function App() {
     if (!active || !fillContentMode) return;
     const content = fillContentFromForm(fillContentForm);
     fillContentDialog.current?.close();
+    const adopt = () => (doc ? adoptPatterns(doc, brushLib.current?.library ?? null, content) : Promise.resolve(null));
     if (fillContentMode.kind === 'create') {
       const { type } = fillContentMode;
-      run(null, () => client.call('newFillLayer', active.id, content, FILL_LAYER_NAMES[type], FILL_LAYER_LABELS[type]), selectCreated);
+      run(null, () => adopt().then(() => client.call('newFillLayer', active.id, content, FILL_LAYERS[type].name, FILL_LAYERS[type].label)), selectCreated);
     } else {
-      run(null, () => client.call('setFillContent', [fillContentMode.id], content));
+      const { id } = fillContentMode;
+      run(null, () => adopt().then(() => client.call('setFillContent', [id], content)));
     }
+  }
+
+  // Patterns and Gradients panels: a double click adds a fill layer above the active one.
+  function panelFillLayer(content: FillContent) {
+    if (!active) return;
+    const { name } = FILL_LAYERS[content.type];
+    const adopt = () => (doc ? adoptPatterns(doc, brushLib.current?.library ?? null, content) : Promise.resolve(null));
+    run(null, () => adopt().then(() => client.call('newFillLayer', active.id, content, name, name)), selectCreated);
+  }
+
+  function gradientFillLayer(p: GradientPreset) {
+    const o = gradOptions;
+    panelFillLayer({
+      type: 'gradient', gradient: uiToGradientDef(resolvePreset(p, fg, bg)), style: o.style as GradientParams['style'], angle: 90, scale: 1,
+      reverse: !!o.reverse, dither: !!o.dither, align_with_layer: true, offset: [0, 0],
+    });
+  }
+
+  // Styles panel: a saved style (effects and blending) replaces the active layer's as one "Layer Style" step.
+  function applySavedStyle(saved: SavedStyle) {
+    if (!doc || !node) return;
+    const why = styleRefusal(node);
+    if (why) { setError(why); return; }
+    const { id, fill } = node;
+    run(null, () => adoptPatterns(doc, brushLib.current?.library ?? null, saved.style).then(() => client.call('setLayerStyle', id, saved.style, saved.blending, fill, null)));
   }
 
   function openPreviewDialog(which: 'fill' | 'stroke') {
@@ -627,7 +662,7 @@ export function App() {
   function quickFillLayer(type: FillContentForm['type']) {
     if (!active) return;
     const content = fillContentFromForm({ type, color: fg, style: 'linear', angle: 90, scalePct: 100, reverse: false, dither: false, alignWithLayer: true, patternId: doc?.patterns[0]?.id ?? '', linked: true });
-    run(null, () => client.call('newFillLayer', active.id, content, FILL_LAYER_NAMES[type], FILL_LAYER_LABELS[type]), selectCreated);
+    run(null, () => client.call('newFillLayer', active.id, content, FILL_LAYERS[type].name, FILL_LAYERS[type].label), selectCreated);
   }
 
   function quickFill(rgb: Rgb, label: string) {
@@ -939,6 +974,9 @@ export function App() {
       { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); } },
       { label: showLayerComps ? 'Hide Layer Comps' : 'Show Layer Comps', run: () => { setMenu(null); setShowLayerComps(v => !v); } },
       { label: showProperties ? 'Hide Properties' : 'Show Properties', run: () => { setMenu(null); setShowProperties(v => !v); } },
+      { label: showStyles ? 'Hide Styles' : 'Show Styles', run: () => { setMenu(null); setShowStyles(v => !v); } },
+      { label: showPatterns ? 'Hide Patterns' : 'Show Patterns', run: () => { setMenu(null); setShowPatterns(v => !v); } },
+      { label: showGradients ? 'Hide Gradients' : 'Show Gradients', run: () => { setMenu(null); setShowGradients(v => !v); } },
     ],
   };
   const menusRef = useRef(menus);
@@ -2555,6 +2593,12 @@ export function App() {
             />
           )}
           {doc && active && showAdjustments && <AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} />}
+          {doc && showStyles && <StylesPanel styles={styleLib.current} node={node ?? null} apply={applySavedStyle} />}
+          {doc && active && showPatterns && (
+            <PatternsPanel doc={doc} library={brushLib.current?.library ?? null} onDoc={d => show(d)} onError={setError}
+              fill={id => panelFillLayer({ type: 'pattern', pattern_id: id, scale: 1, angle: 0, linked: true, offset: [0, 0] })} />
+          )}
+          {doc && active && showGradients && <GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} />}
           {doc && showProperties && node?.kind === 'adjustment' && node.adjustment && (
             <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}
@@ -2651,7 +2695,7 @@ export function App() {
       <input ref={lutInput} type="file" hidden accept=".cube,.3dl" onChange={e => { const f = e.currentTarget.files?.[0]; if (f) void loadLookupFile(f); }} />
       <dialog ref={fillContentDialog}>
         <form onSubmit={e => { e.preventDefault(); submitFillContent(); }}>
-          <h2>{FILL_LAYER_TITLES[fillContentForm.type]}</h2>
+          <h2>{FILL_LAYERS[fillContentForm.type].title}</h2>
           {fillContentForm.type === 'solid' && (
             <label>Color <button type="button" className="gradient-swatch" aria-label="Fill color" style={{ background: rgbToHex(fillContentForm.color) }}
               onClick={() => picker.current?.open(fillContentForm.color, 'Fill Color', c => setFillContentForm(f => ({ ...f, color: c })))} /></label>
@@ -2670,11 +2714,10 @@ export function App() {
           )}
           {fillContentForm.type === 'pattern' && (
             <>
-              {doc?.patterns.length ? (
-                <label>Pattern <select value={fillContentForm.patternId || doc.patterns[0].id} onChange={e => setFillContentForm({ ...fillContentForm, patternId: e.currentTarget.value })}>
-                  {doc.patterns.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select></label>
-              ) : <p>This document has no patterns.</p>}
+              {doc && (
+                <PatternPicker doc={doc} library={brushLib.current?.library ?? null} value={fillContentForm.patternId} onDoc={d => show(d)} onError={setError}
+                  set={id => setFillContentForm(f => ({ ...f, patternId: id }))} />
+              )}
               <label>Scale <input type="number" min={1} max={1000} value={fillContentForm.scalePct} onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillContentForm({ ...fillContentForm, scalePct: Math.min(1000, Math.max(1, v)) }); }} /> %</label>
               <label>Angle <input type="number" value={fillContentForm.angle} onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillContentForm({ ...fillContentForm, angle: v }); }} /> °</label>
               <label><input type="checkbox" checked={fillContentForm.linked} onChange={e => setFillContentForm({ ...fillContentForm, linked: e.currentTarget.checked })} /> Link with layer</label>
@@ -2682,7 +2725,7 @@ export function App() {
           )}
           <div className="actions">
             <button type="button" onClick={() => fillContentDialog.current?.close()}>Cancel</button>
-            <button type="submit" className="primary" disabled={fillContentForm.type === 'pattern' && !doc?.patterns.length}>OK</button>
+            <button type="submit" className="primary" disabled={fillContentForm.type === 'pattern' && !fillContentForm.patternId}>OK</button>
           </div>
         </form>
       </dialog>
@@ -2810,6 +2853,7 @@ export function App() {
       {doc && styleDialog && nodeById(doc.layers, styleDialog.id) && (
         <LayerStyleDialog
           key={styleDialog.n} doc={doc} node={nodeById(doc.layers, styleDialog.id)!} page={styleDialog.page}
+          library={brushLib.current?.library ?? null} styles={styleLib.current}
           onDoc={d => show(d)} onError={m => setError(m)} onClose={() => setStyleDialog(null)}
           openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickColor={(rgb, title, commit) => picker.current?.open(rgb, title, commit)}
         />
