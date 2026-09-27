@@ -212,7 +212,7 @@ impl Document {
         let pixels = match (&placed, self.layer_bounds(id)?) {
             (Some((t, warp)), _) => {
                 let (src, size) = self.placement_source(id)?;
-                Some(self.smart_render(&src, size, t, warp.as_ref())?)
+                Some(self.smart_cache(id, &src, size, t, warp.as_ref())?)
             }
             (None, Some(b)) => {
                 check_area(b)?;

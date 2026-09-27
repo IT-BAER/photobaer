@@ -246,6 +246,59 @@ impl Engine {
         self.0.doc.convert_to_smart(&ids, json).map_err(err)
     }
 
+    // ---------- smart filters (docs/M3.md section 7) ----------
+
+    /// Appends filter JSON `{ kind, params }`; returns the filter id.
+    pub fn add_smart_filter(&mut self, id: u32, json: &str) -> Result<u32, JsError> {
+        self.0.doc.add_smart_filter(id, json).map_err(err)
+    }
+
+    /// JSON `{ filter?, enabled?, opacity?, blend? }`.
+    pub fn set_smart_filter(&mut self, id: u32, filter_id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_smart_filter(id, filter_id, json).map_err(err)
+    }
+
+    pub fn remove_smart_filter(&mut self, id: u32, filter_id: u32) -> Result<(), JsError> {
+        self.0.doc.remove_smart_filter(id, filter_id).map_err(err)
+    }
+
+    pub fn clear_smart_filters(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.clear_smart_filters(id).map_err(err)
+    }
+
+    pub fn toggle_smart_filters(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.toggle_smart_filters(id).map_err(err)
+    }
+
+    /// Filter `filter_id`'s mask, or the stack mask for 0.
+    pub fn add_filter_mask(&mut self, id: u32, filter_id: u32, reveal: bool) -> Result<(), JsError> {
+        self.0.doc.add_filter_mask(id, filter_id, reveal).map_err(err)
+    }
+
+    /// PSD import: one 8-bit mask tile of filter `filter_id` (0 = the stack mask), no re-render.
+    pub fn set_filter_mask_tile8(&mut self, id: u32, filter_id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), JsError> {
+        self.0.doc.set_filter_mask_tile8(id, filter_id, tx, ty, data).map_err(err)
+    }
+
+    pub fn delete_filter_masks(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.delete_filter_masks(id).map_err(err)
+    }
+
+    pub fn toggle_filter_masks(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.toggle_filter_masks(id).map_err(err)
+    }
+
+    /// The pixel layer `id` alone with neutral layer properties, at its bounds (the Convert for
+    /// Smart Filters source).
+    pub fn extract_layer(&self, id: u32) -> Result<Engine, JsError> {
+        Ok(Engine(EngineCore::new(self.0.doc.extract_layer(id).map_err(err)?)))
+    }
+
+    /// JSON `{ link_id, source_blob }`; keeps the layer id.
+    pub fn convert_for_smart_filters(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.convert_for_smart_filters(id, json).map_err(err)
+    }
+
     pub fn set_blending(&mut self, id: u32, json: &str) -> Result<(), JsError> {
         self.0.doc.set_blending(id, json).map_err(err)
     }

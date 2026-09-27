@@ -15,6 +15,9 @@ const TI: i32 = TILE as i32;
 enum At {
     Pixels(u32),
     Mask(u32),
+    // A smart object's filter mask (filter index) or its stack mask.
+    FilterMask(u32, usize),
+    StackMask(u32),
     Selection,
     LastSelection,
     Channel(usize),
@@ -201,6 +204,12 @@ impl Document {
             if n.mask.is_some() {
                 out.push(At::Mask(id));
             }
+            if let Kind::Smart(s) = &n.kind {
+                out.extend(s.filters.iter().enumerate().filter(|(_, f)| f.mask.is_some()).map(|(i, _)| At::FilterMask(id, i)));
+                if s.stack_mask.is_some() {
+                    out.push(At::StackMask(id));
+                }
+            }
         }
         if self.selection.is_some() {
             out.push(At::Selection);
@@ -220,8 +229,8 @@ impl Document {
         };
         match at {
             At::Pixels(id) => (self.node(id).and_then(|n| n.pixel_tiles()).expect("a listed plane").clone(), None),
-            At::Mask(id) => {
-                let m = self.node(id).expect("a listed plane").mask.as_ref().expect("a listed plane");
+            At::Mask(_) | At::FilterMask(..) | At::StackMask(_) => {
+                let m = self.plane_mask(at).expect("a listed plane");
                 (m.tiles.clone(), Some(m.default))
             }
             At::Selection => sel(self.selection.as_ref()),
@@ -245,6 +254,10 @@ impl Document {
             let slot = match at {
                 At::Pixels(id) => self.node_mut(id).and_then(|n| n.pixel_tiles_mut()).expect("a listed plane"),
                 At::Mask(id) => &mut self.node_mut(id).expect("a listed plane").mask.as_mut().expect("a listed plane").tiles,
+                At::FilterMask(id, i) => {
+                    &mut self.node_mut(id).expect("a listed plane").smart_mut().filters[i].mask.as_mut().expect("a listed plane").tiles
+                }
+                At::StackMask(id) => &mut self.node_mut(id).expect("a listed plane").smart_mut().stack_mask.as_mut().expect("a listed plane").tiles,
                 At::Selection => &mut self.selection.as_mut().expect("a listed plane").tiles,
                 At::LastSelection => &mut self.last_selection.as_mut().expect("a listed plane").tiles,
                 At::Channel(i) => &mut self.channels[i].mask.tiles,
@@ -291,9 +304,19 @@ impl Document {
         out
     }
 
+    // A node mask plane's mask.
+    fn plane_mask(&self, at: At) -> Option<&Mask> {
+        match at {
+            At::Mask(id) => self.node(id).ok()?.mask.as_ref(),
+            At::FilterMask(id, i) => self.smart(id).ok()?.filters[i].mask.as_ref(),
+            At::StackMask(id) => self.smart(id).ok()?.stack_mask.as_ref(),
+            _ => None,
+        }
+    }
+
     // Tight bounds of the mask pixels that differ from its default.
-    fn mask_bounds(&self, id: u32) -> Option<[i32; 4]> {
-        let m = self.node(id).ok()?.mask.as_ref()?;
+    fn mask_bounds(&self, at: At) -> Option<[i32; 4]> {
+        let m = self.plane_mask(at)?;
         let def = m.default as f32 / self.max();
         let mut bb: Option<(i32, i32, i32, i32)> = None;
         for (tx, ty) in m.tiles.coords() {
@@ -465,7 +488,7 @@ impl Document {
         for at in self.planes() {
             let b = match at {
                 At::Pixels(id) => self.layer_bounds(id)?,
-                At::Mask(id) => self.mask_bounds(id),
+                At::Mask(_) | At::FilterMask(..) | At::StackMask(_) => self.mask_bounds(at),
                 _ => None,
             };
             if let Some(b) = b {

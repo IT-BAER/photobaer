@@ -4,11 +4,11 @@ import { Viewer, type ToolPointerEvent, type ViewerTool } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
 import { makeTileSource, gpuTestHook } from './render/tiles.ts';
 import { perfTestHook, type PerfProbe } from './render/perf.ts';
-import { flatNodes, locate, nodeById } from './layers.ts';
+import { BLEND_MODES, flatNodes, locate, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
-import { AdjustmentBody, PropertiesPanel, type PickLookupFile } from './PropertiesPanel.tsx';
+import { AdjustmentBody, PropertiesPanel, SmartFiltersPanel, filterLabel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
 import { LayerStyleDialog, type StylePage } from './LayerStyleDialog.tsx';
 import { EFFECT_KINDS, EFFECT_LABEL, styleRefusal } from './layerStyle.ts';
@@ -333,6 +333,10 @@ export function App() {
   const [styleDialog, setStyleDialog] = useState<{ id: number; page: StylePage; n: number } | null>(null);
   const globalLightDialog = useRef<HTMLDialogElement>(null);
   const scaleEffectsDialog = useRef<HTMLDialogElement>(null);
+  // Filter > Blur > Gaussian Blur and Layer > Smart Filter > Blending Options (smart filters, section 7).
+  const blurDialog = useRef<HTMLDialogElement>(null);
+  const filterBlendDialog = useRef<HTMLDialogElement>(null);
+  const [filterBlend, setFilterBlend] = useState<{ id: number; fid: number; blend: string; opacity: number } | null>(null);
   const gradLib = useRef<GradientLibrary | null>(null);
   gradLib.current ??= new GradientLibrary();
 
@@ -730,11 +734,36 @@ export function App() {
     { label: 'Rasterize', sep: true, run: () => node && run('Rasterizing…', () => client.call('rasterizeSmart', node.id, 'Rasterize')), off: !smart },
   ];
 
+  // ---------- smart filters (docs/M3.md section 7) ----------
+  const filters = smart?.filters ?? [];
+  const filterMasks = !!smart?.stack_mask || filters.some(f => f.mask);
+  const masksOn = !!smart?.stack_mask?.enabled || filters.some(f => f.mask?.enabled);
+  const toggleLabel = filters.some(f => f.enabled) ? 'Disable Smart Filters' : 'Enable Smart Filters';
+  const maskLabel = masksOn ? 'Disable Filter Mask' : 'Enable Filter Mask';
+  const filterCommand = (op: 'toggle' | 'clear' | 'deleteMasks' | 'toggleMasks', label: string) =>
+    () => node && run(null, () => client.call('smartFilterCommand', node.id, op, label));
+  function openFilterBlend() {
+    setMenu(null);
+    const top = filters.at(-1);
+    if (!node || !top) return;
+    setFilterBlend({ id: node.id, fid: top.id, blend: top.blend, opacity: Math.round(top.opacity * 100) });
+    filterBlendDialog.current?.showModal();
+  }
+  const smartFilterItems: Item[] = [
+    { label: toggleLabel, run: filterCommand('toggle', toggleLabel), off: !filters.length },
+    { label: 'Delete Filter Mask', run: filterCommand('deleteMasks', 'Delete Filter Mask'), off: !filterMasks },
+    { label: maskLabel, run: filterCommand('toggleMasks', maskLabel), off: !filterMasks },
+    { label: 'Blending Options…', sep: true, run: openFilterBlend, off: !filters.length },
+    { label: 'Clear Smart Filters', sep: true, run: filterCommand('clear', 'Clear Smart Filters'), off: !filters.length },
+  ];
+
   const styled = doc ? flatNodes(doc.layers).filter(n => n.style) : [];
   const anyStyled = styled.length > 0;
   const allEffectsHidden = anyStyled && styled.every(n => !n.style!.enabled);
   // Destructive adjustments need a pixel layer's pixels as the target.
   const pixelsOff = node?.kind !== 'pixel' || active?.target !== 'pixels' || quickMask;
+  // The 16 layer kinds also run on a smart object, where they add a smart filter.
+  const hostOff = pixelsOff && !(node?.kind === 'smart' && active?.target === 'pixels' && !quickMask);
 
   const menus: Record<string, Item[]> = {
     File: [
@@ -797,6 +826,7 @@ export function App() {
       },
       { label: 'Layer Content Options…', run: openLayerContentOptions, off: !has || node?.kind !== 'fill' },
       { label: 'Smart Objects', keys: '›', run: () => {}, off: !has || !node, sub: smartItems },
+      { label: 'Smart Filter', keys: '›', run: () => {}, off: !has || !smart, sub: smartFilterItems },
       {
         label: 'Layer Style', keys: '›', run: () => {}, off: !has || !node, sub: [
           { label: 'Blending Options…', run: () => openLayerStyle('blending') },
@@ -821,7 +851,7 @@ export function App() {
       {
         label: 'Adjustments', keys: '›', run: () => {}, off: !has || !active, sub: ADJUSTMENT_KINDS.map<Item>(kind => kind === 'invert'
           ? { label: 'Invert', keys: 'Ctrl+I', sep: true, run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, quickMask ? 'selection' : active!.target)) }
-          : { label: `${MENU_LABEL[kind]}…`, keys: SHORTCUT[kind], run: () => openAdjust(kind), off: pixelsOff }).concat([
+          : { label: `${MENU_LABEL[kind]}…`, keys: SHORTCUT[kind], run: () => openAdjust(kind), off: hostOff }).concat([
           { label: 'Shadows/Highlights…', sep: true, run: () => openAdjust('shadows_highlights'), off: pixelsOff },
           { label: 'HDR Toning…', run: () => openAdjust('hdr_toning'), off: pixelsOff },
           { label: 'Desaturate', keys: 'Ctrl+Shift+U', sep: true, run: () => applyDestructive('desaturate'), off: pixelsOff },
@@ -863,6 +893,14 @@ export function App() {
       { label: 'Load Selection…', run: () => { setMenu(null); loadSelDialog.current?.showModal(); }, off: !doc?.channels.length },
       { label: 'Save Selection…', run: () => { setMenu(null); saveSelDialog.current?.showModal(); }, off: !doc?.selection },
       { label: 'Transform Selection', run: () => void startTransform('free', true), off: !has || !!transformStore },
+    ],
+    Filter: [
+      { label: 'Convert for Smart Filters', run: () => node && run('Converting…', () => client.call('convertForSmartFilters', node.id)), off: !has || node?.kind !== 'pixel' },
+      {
+        label: 'Blur', keys: '›', sep: true, run: () => {}, off: !has || !smart, sub: [
+          { label: 'Gaussian Blur…', run: () => { setMenu(null); blurDialog.current?.showModal(); } },
+        ],
+      },
     ],
     View: [
       { label: 'Zoom in', keys: 'Ctrl++', run: () => { setMenu(null); viewer.current?.zoomBy(2); }, off: !has },
@@ -2495,6 +2533,9 @@ export function App() {
           {doc && showProperties && node?.kind === 'adjustment' && node.adjustment && (
             <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}
+          {doc && showProperties && node?.kind === 'smart' && node.smart && (
+            <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
+          )}
           {doc && active && (
             <>
               <LayersPanel
@@ -2763,6 +2804,48 @@ export function App() {
             <button type="submit" className="primary">OK</button>
           </div>
         </form>
+      </dialog>
+      <dialog ref={blurDialog}>
+        <form onSubmit={e => {
+          e.preventDefault();
+          const radius = Number(new FormData(e.currentTarget).get('radius'));
+          blurDialog.current?.close();
+          if (node) run(null, () => client.call('addSmartFilter', node.id, { kind: 'gaussian_blur', params: { radius } }, 'Gaussian Blur'));
+        }}>
+          <h2>Gaussian Blur</h2>
+          <label>Radius <input name="radius" type="number" min={0.1} max={250} step={0.1} defaultValue={2} required /> px</label>
+          <div className="actions">
+            <button type="button" onClick={() => blurDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={filterBlendDialog} onClose={() => setFilterBlend(null)}>
+        {filterBlend && (
+          <form onSubmit={e => {
+            e.preventDefault();
+            const f = filterBlend;
+            filterBlendDialog.current?.close();
+            run(null, () => client.call('setSmartFilter', f.id, f.fid, { blend: f.blend, opacity: f.opacity / 100 }, 'Blending Options'));
+          }}>
+            <h2>Blending Options</h2>
+            <label>Filter <select value={filterBlend.fid} onChange={e => {
+              const f = filters.find(x => x.id === Number(e.currentTarget.value));
+              if (f) setFilterBlend({ ...filterBlend, fid: f.id, blend: f.blend, opacity: Math.round(f.opacity * 100) });
+            }}>
+              {[...filters].reverse().map(f => <option key={f.id} value={f.id}>{filterLabel(f.filter)}</option>)}
+            </select></label>
+            <label>Mode <select value={filterBlend.blend} onChange={e => setFilterBlend({ ...filterBlend, blend: e.currentTarget.value })}>
+              {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+            </select></label>
+            <label>Opacity <input type="number" min={0} max={100} step={1} value={filterBlend.opacity}
+              onChange={e => { const v = e.currentTarget.valueAsNumber; if (Number.isFinite(v)) setFilterBlend({ ...filterBlend, opacity: Math.min(100, Math.max(0, v)) }); }} /> %</label>
+            <div className="actions">
+              <button type="button" onClick={() => filterBlendDialog.current?.close()}>Cancel</button>
+              <button type="submit" className="primary">OK</button>
+            </div>
+          </form>
+        )}
       </dialog>
       <dialog ref={scaleEffectsDialog}>
         <form key={node?.style ? `${node.id}/${node.style.scale}` : ''} onSubmit={e => {

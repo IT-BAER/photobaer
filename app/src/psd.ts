@@ -1,7 +1,7 @@
 // PSD open/save (M1.md section 6). Runs in the engine worker (no DOM) and in Node test/corpus code.
 import {
   initializeCanvas, readPsd, writePsd, type AdjustmentLayer, type BlendMode, type Color, type EffectContour, type Layer, type LayerEffectsInfo,
-  type LinkedFile, type PixelData, type Psd, type VectorContent,
+  type Filter, type LinkedFile, type PixelData, type PlacedLayerFilter, type Psd, type VectorContent,
 } from 'ag-psd';
 import { Engine } from './engine-pkg/photobaer_engine.js';
 
@@ -27,11 +27,16 @@ interface ManifestNode {
   children?: ManifestNode[];
   adjustment?: Adjustment;
   content?: any; style?: any; blending: any;
-  smart?: { link: any; source: { blob: number | null }; source_size: [number, number]; transform: number[]; warp: unknown; filters: unknown[] };
+  smart?: {
+    link: any; source: { blob: number | null }; source_size: [number, number]; transform: number[]; warp: unknown;
+    filters: SmartFilterOut[]; stack_mask: { enabled: boolean; default: number; tiles?: Sparse } | null;
+  };
 }
 
 // Engine adjustment params (engine/src/adjust.rs) are in PSD units.
 type Adjustment = { kind: string; params: Record<string, any> };
+type SmartFilterOut = { id: number; filter: Adjustment; enabled: boolean; opacity: number; blend: string; mask: object | null };
+type FilterMasks = NonNullable<Psd['filterEffectsMasks']>;
 type Rgb = [number, number, number];
 interface Stop { position: number; midpoint: number }
 interface GradientDef { method: string; color_stops: (Stop & { color: Rgb })[]; opacity_stops: (Stop & { opacity: number })[] }
@@ -481,7 +486,6 @@ function smartIn(e: Engine, l: Layer, files: Map<string, LinkedFile>, warn: Warn
   const pl = l.placedLayer!;
   const f = files.get(pl.id);
   if (!f) warn('smart object sources missing from the file were not imported');
-  if (pl.filter?.list?.length) warn('smart filters were not imported');
   if (!isIdentityWarp(pl.warp)) warn('smart object warps were not imported');
   const w = Math.max(1, Math.round(pl.width ?? l.imageData?.width ?? 1)), h = Math.max(1, Math.round(pl.height ?? l.imageData?.height ?? 1));
   return {
@@ -558,6 +562,91 @@ function warnKinds(l: Layer, warn: (m: string) => void) {
 export interface PendingSource { id: number; bytes: Uint8Array }
 interface ImportCtx {
   e: Engine; w: number; h: number; warn: Warn; files: Map<string, LinkedFile>; pats: Set<string>; comps: Map<Layer, number>; sources: PendingSource[];
+  fx: FilterMasks;
+}
+
+// ---------- smart filters (docs/M3.md section 7): curves and brightness/contrast are PSD-writable ----------
+
+const CURVE_CHANNELS = ['composite', 'red', 'green', 'blue'] as const;
+
+// A PSD smart filter as an engine filter; null when the engine hosts no such filter.
+function filterIn(f: Filter): Adjustment | null {
+  if (f.type === 'brightness/contrast') {
+    return { kind: 'brightness_contrast', params: { brightness: f.filter.brightness, contrast: f.filter.contrast, legacy: !!f.filter.useLegacy } };
+  }
+  if (f.type !== 'curves') return null;
+  const p: Record<string, unknown> = { mode: 'point', composite: [[0, 0], [255, 255]], red: null, green: null, blue: null };
+  for (const a of f.filter.adjustments ?? []) {
+    const pts = 'curve' in a ? a.curve.map(c => [c.x, c.y]) : a.values.map((v, i) => [i, v]);
+    if (!('curve' in a)) p.mode = 'pencil';
+    for (const ch of a.channels) p[ch] = pts;
+  }
+  return { kind: 'curves', params: p };
+}
+
+function filterOut(f: SmartFilterOut): Filter {
+  const base = {
+    opacity: f.opacity, blendMode: f.blend as BlendMode, enabled: f.enabled, hasOptions: true,
+    foregroundColor: { r: 0, g: 0, b: 0 }, backgroundColor: { r: 255, g: 255, b: 255 },
+  };
+  const p = f.filter.params;
+  if (f.filter.kind === 'brightness_contrast') {
+    return { ...base, name: 'Brightness/Contrast', type: 'brightness/contrast', filter: { brightness: p.brightness, contrast: p.contrast, useLegacy: p.legacy } };
+  }
+  if (f.filter.kind !== 'curves') throw new Error(`Cannot export a changed placement with the ${f.filter.kind.replace(/_/g, ' ')} smart filter.`);
+  const adjustments = CURVE_CHANNELS.filter(ch => p[ch]).map(ch => p.mode === 'pencil' && p[ch].length === 256
+    ? { channels: [ch], values: (p[ch] as number[][]).map(q => q[1]) }
+    : { channels: [ch], curve: (p[ch] as number[][]).map(([x, y]) => ({ x, y })) });
+  return { ...base, name: 'Curves', type: 'curves', filter: { presetKind: 'custom', adjustments } };
+}
+
+// PackBits rows with 16-bit (PSD) byte counts; null for other layouts.
+function unpackRows(data: Uint8Array, w: number, h: number): Uint8Array | null {
+  const out = new Uint8Array(w * h);
+  let src = h * 2, dst = 0;
+  for (let y = 0; y < h; y++) {
+    const end = src + ((data[y * 2] << 8) | data[y * 2 + 1]);
+    while (src < end) {
+      const n = data[src++];
+      if (n < 128) { out.set(data.subarray(src, src + n + 1), dst); src += n + 1; dst += n + 1; }
+      else if (n > 128) { out.fill(data[src++], dst, dst + 257 - n); dst += 257 - n; }
+    }
+    if (dst !== (y + 1) * w) return null;
+  }
+  return out;
+}
+
+// Imports a placed layer's filters and its stack mask (the filter effects entry's user mask channel).
+function filtersIn(c: ImportCtx, id: number, l: Layer) {
+  const pf = l.placedLayer?.filter;
+  if (!pf?.list.length) return;
+  // PSD lists the stack top first.
+  for (const f of [...pf.list].reverse()) {
+    const a = filterIn(f);
+    if (!a) { c.warn('smart filters other than curves and brightness/contrast were not imported'); continue; }
+    const fid = c.e.add_smart_filter(id, JSON.stringify(a));
+    c.e.set_smart_filter(id, fid, JSON.stringify({ enabled: f.enabled, opacity: f.opacity, blend: f.blendMode ?? 'normal' }));
+  }
+  const pid = l.placedLayer!.placed ?? l.placedLayer!.id;
+  const m = c.fx.find(x => x.id === pid);
+  const ch = m?.channels[m.channels.length - 2];
+  if (!m || !ch) return;
+  const mw = m.right - m.left, mh = m.bottom - m.top;
+  const data = ch.compressionMode === 0 ? ch.data : ch.compressionMode === 1 ? unpackRows(ch.data, mw, mh) : null;
+  if (!data || data.length < mw * mh) { c.warn('smart filter masks were not imported'); return; }
+  const def = pf.maskExtendWithWhite === false ? 0 : 255;
+  c.e.add_filter_mask(id, 0, def === 255);
+  const x0 = Math.max(0, m.left), x1 = Math.min(c.w, m.right), y0 = Math.max(0, m.top), y1 = Math.min(c.h, m.bottom);
+  for (let ty = Math.floor(y0 / 256); ty * 256 < y1; ty++) {
+    for (let tx = Math.floor(x0 / 256); tx * 256 < x1; tx++) {
+      const buf = new Uint8Array(256 * 256).fill(def);
+      for (let y = Math.max(y0, ty * 256); y < Math.min(y1, ty * 256 + 256); y++) {
+        for (let x = Math.max(x0, tx * 256); x < Math.min(x1, tx * 256 + 256); x++) buf[(y - ty * 256) * 256 + x - tx * 256] = data[(y - m.top) * mw + x - m.left];
+      }
+      c.e.set_filter_mask_tile8(id, 0, tx, ty, buf);
+    }
+  }
+  if (pf.maskEnabled === false) c.e.toggle_filter_masks(id);
 }
 
 export const isPsdBytes = (b: Uint8Array) => b.length >= 4 && b[0] === 0x38 && b[1] === 0x42 && b[2] === 0x50 && b[3] === 0x53;
@@ -618,6 +707,7 @@ function addNode(c: ImportCtx, l: Layer): number {
   const id = special ? e.add_special(0, JSON.stringify({ name: l.name ?? '', ...special })) : e.add_layer(l.name ?? '', 0);
   const data = l.placedLayer && c.files.get(l.placedLayer.id)?.data;
   if (special && 'smart' in special && special.smart && data?.length) loadSource(c, id, data, special.smart.source_size as [number, number]);
+  if (special && 'smart' in special) filtersIn(c, id, l);
   e.set_props(id, JSON.stringify({
     visible: !l.hidden, opacity: l.opacity ?? 1, fill: l.fillOpacity ?? 1,
     blend: !l.blendMode || l.blendMode === 'pass through' ? 'normal' : l.blendMode,
@@ -707,7 +797,7 @@ export function importPsd(bytes: Uint8Array, opts: { psb?: boolean } = {}): { en
     if (flat) {
       place(e, 1, psd, w, h);
     } else {
-      const c: ImportCtx = { e, w, h, warn, files: new Map((psd.linkedFiles ?? []).map(f => [f.id, f])), pats: importDocument(e, psd), comps: new Map(), sources };
+      const c: ImportCtx = { e, w, h, warn, files: new Map((psd.linkedFiles ?? []).map(f => [f.id, f])), pats: importDocument(e, psd), comps: new Map(), sources, fx: psd.filterEffectsMasks ?? [] };
       for (const l of children) addNode(c, l);
       importLayerComps(c, psd);
       e.delete_node(1);
@@ -786,7 +876,7 @@ type LayerCompOut = {
   id: number; name: string; comment: string; apply_visibility: boolean; apply_position: boolean; apply_appearance: boolean;
   layers: { id: number; visible: boolean; position: [number, number] | null; opacity: number; fill: number; blend: string; style: unknown }[];
 };
-interface ExportCtx { e: Engine; w: number; h: number; warn: Warn; names: Map<string, string>; files: Map<string, LinkedFile>; comps: LayerCompOut[] }
+interface ExportCtx { e: Engine; w: number; h: number; warn: Warn; names: Map<string, string>; files: Map<string, LinkedFile>; comps: LayerCompOut[]; fx: FilterMasks }
 
 // Per-layer `comps.settings`: one entry per comp, `enabled` its captured visibility, `offset` the
 // captured position as a delta from this layer's current bounds origin (M3.md section 8).
@@ -803,10 +893,11 @@ function compsOut(n: ManifestNode, comps: LayerCompOut[], w: number, h: number) 
 }
 
 // ag-psd refuses placed layer ids that are not GUIDs; other ids get one derived from the node id.
-function smartOut({ e, warn, files }: ExportCtx, n: ManifestNode): Partial<Layer> {
+function smartOut({ e, w, h, warn, files, fx }: ExportCtx, n: ManifestNode): Partial<Layer> {
   const s = n.smart!;
-  const f = s.filters[0] as { filter?: { kind?: string } } | undefined;
-  if (f) throw new Error(`Cannot export a changed placement with the ${(f.filter?.kind ?? 'unknown').replace(/_/g, ' ')} smart filter.`);
+  // PSD lists the stack top first.
+  const list = s.filters.map(filterOut).reverse();
+  if (s.filters.some(f => f.mask)) warn('per-filter smart filter masks are not stored in PSD');
   if (s.warp) warn('smart object warps are not stored in PSD yet');
   const embedded = s.link.type === 'embedded';
   const id = embedded && GUID.test(s.link.id) ? s.link.id : `00000000-0000-4000-8000-${n.id.toString(16).padStart(12, '0')}`;
@@ -814,7 +905,17 @@ function smartOut({ e, warn, files }: ExportCtx, n: ManifestNode): Partial<Layer
   if (!embedded) files.set(id, { id, name: s.link.name });
   else if (s.source.blob != null && !files.has(id)) files.set(id, { id, name: n.name, data: e.tile_bytes(BigInt(s.source.blob)) });
   const [sw, sh] = s.source_size, q = quadOf(s.transform, sw, sh);
-  return { placedLayer: { id, placed: id, type: 'raster', transform: q, nonAffineTransform: q, width: sw, height: sh } };
+  const sm = s.stack_mask;
+  const filter: PlacedLayerFilter | undefined = list.length ? {
+    enabled: true, validAtPosition: true, maskEnabled: sm?.enabled ?? true, maskLinked: true, maskExtendWithWhite: (sm?.default ?? 255) !== 0, list,
+  } : undefined;
+  const rect = sm && tileBounds(sm.tiles, w, h);
+  if (sm && rect) {
+    const data = assembleImage((tx, ty) => tileAt(e, tileMap(sm.tiles), tx, ty), rect, 1, sm.default);
+    // Channels: the user mask then the sheet mask, no color channels.
+    fx.push({ id, ...rect, depth: 8, channels: [{ compressionMode: 0, data }, undefined] });
+  }
+  return { placedLayer: { id, placed: id, type: 'raster', transform: q, nonAffineTransform: q, width: sw, height: sh, ...(filter ? { filter } : {}) } };
 }
 
 function exportNode(x: ExportCtx, n: ManifestNode): Layer {
@@ -854,7 +955,7 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
   const warnings: string[] = [];
   const warn = (m: string) => { if (!warnings.includes(m)) warnings.push(m); };
   const composite = compositeRgba(e);
-  const x: ExportCtx = { e, w, h, warn, names: new Map(manifest.patterns.map(p => [p.id, p.name])), files: new Map(), comps: manifest.layer_comps };
+  const x: ExportCtx = { e, w, h, warn, names: new Map(manifest.patterns.map(p => [p.id, p.name])), files: new Map(), comps: manifest.layer_comps, fx: [] };
   const { angle, altitude } = manifest.global_light;
   if (manifest.layer_comps.length) warn('layer comp appearance is not stored in PSD');
   const psd: Psd = {
@@ -874,6 +975,7 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
     })),
   };
   if (x.files.size) psd.linkedFiles = [...x.files.values()];
+  if (x.fx.length) psd.filterEffectsMasks = x.fx;
   const channels = (JSON.parse(e.channels_json()) as { channels: { id: number; name: string }[] }).channels;
   if (channels.length) warn('saved selections are not stored in PSD');
   return { bytes: new Uint8Array(writePsd(psd, { generateThumbnail: false, psb: !!opts.psb })), warnings };

@@ -60,9 +60,13 @@ export type DestructiveAdjustment =
 export type SmartLink = { type: 'embedded'; id: string } | { type: 'linked'; name: string; handle: string };
 // Engine warp mesh JSON: document-px control points over the source rect.
 export interface SmartWarp { cols: number; rows: number; points: [number, number][]; column_stops: number[]; row_stops: number[] }
+export type SmartFilterKind = Adjustment | { kind: 'gaussian_blur'; params: { radius: number } };
+export interface SmartFilterInfo {
+  id: number; filter: SmartFilterKind; enabled: boolean; opacity: number; blend: string; mask: { enabled: boolean; default: number } | null;
+}
 export interface SmartInfo {
   link: SmartLink; source: { blob: number | null }; source_size: [number, number]; transform: number[];
-  warp: SmartWarp | null; filters: unknown[]; stack_mode: string | null;
+  warp: SmartWarp | null; filters: SmartFilterInfo[]; stack_mask: { enabled: boolean; default: number } | null; stack_mode: string | null;
 }
 export interface LayerNode {
   id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart';
@@ -1586,6 +1590,44 @@ const api = {
       created = e.convert_to_smart(Uint32Array.from(ids), JSON.stringify({ name, link_id: uuid(), source_blob: blob }));
     });
     return { ...changed(), created };
+  },
+
+  // Filter > Convert for Smart Filters: one pixel layer in place (same id); its source is a PSB of the
+  // layer's pixels alone.
+  convertForSmartFilters(id: number) {
+    const e = need();
+    const sub = e.extract_layer(id);
+    let bytes: Uint8Array | null = null;
+    try { bytes = exportPsd(sub, { psb: true }).bytes; } catch { bytes = null; } finally { sub.free(); }
+    history.run('Convert for Smart Filters', () => {
+      const blob = bytes ? Number(e.blob_add(bytes)) : null;
+      e.convert_for_smart_filters(id, JSON.stringify({ link_id: uuid(), source_blob: blob }));
+    });
+    return changed();
+  },
+
+  // Appends a smart filter (Filter > Blur > Gaussian Blur); `preview` reruns inside the dialog's session.
+  addSmartFilter(id: number, filter: SmartFilterKind, label: string, preview = false) {
+    const e = need();
+    return edit(label, preview, () => { e.add_smart_filter(id, JSON.stringify(filter)); });
+  },
+
+  // Edits one filter: `patch` holds any of filter (params), enabled, opacity, blend.
+  setSmartFilter(id: number, filterId: number, patch: Partial<Omit<SmartFilterInfo, 'id' | 'mask'>>, label: string, preview = false) {
+    const e = need();
+    return edit(label, preview, () => e.set_smart_filter(id, filterId, JSON.stringify(patch)));
+  },
+
+  // Layer > Smart Filter: Disable/Enable Smart Filters, Clear Smart Filters, Delete/Disable Filter Mask.
+  smartFilterCommand(id: number, op: 'toggle' | 'clear' | 'deleteMasks' | 'toggleMasks', label: string) {
+    const e = need();
+    history.run(label, () => {
+      if (op === 'toggle') e.toggle_smart_filters(id);
+      else if (op === 'clear') e.clear_smart_filters(id);
+      else if (op === 'deleteMasks') e.delete_filter_masks(id);
+      else e.toggle_filter_masks(id);
+    });
+    return changed();
   },
 
   smartViaCopy(id: number) {

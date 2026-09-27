@@ -429,6 +429,36 @@ test('a smart object with a smart filter PSD cannot write refuses export naming 
   void id;
 });
 
+test('curves and brightness/contrast smart filters round-trip through PSD with params, stack mask and render', () => {
+  const { e, id } = psbSmartDoc();
+  const curves = { kind: 'curves', params: { mode: 'point', composite: [[0, 0], [128, 200], [255, 255]], red: null, green: [[0, 30], [255, 255]], blue: null } };
+  const bc = { kind: 'brightness_contrast', params: { brightness: 20, contrast: -10, legacy: false } };
+  e.add_smart_filter(id, JSON.stringify(curves));
+  e.add_smart_filter(id, JSON.stringify(bc));
+  e.set_smart_filter(id, 2, JSON.stringify({ opacity: 0.5, blend: 'multiply' }));
+  e.add_filter_mask(id, 0, true);
+  e.set_filter_mask_tile8(id, 0, 0, 0, new Uint8Array(256 * 256).map((_, i) => (i % 256 < 7 ? 255 : 0)));
+  e.render_smart(id);
+  const filtered = [...e.flatten_tile_rgba8(0, 0)];
+  const { engine: again, warnings } = importPsd(exportPsd(e).bytes);
+  assert.deepEqual(warnings, []);
+  const n = m3Of(again).layers[0] as M3Node & { id: number };
+  const strip = (fs: any[]) => fs.map(({ filter, enabled, opacity, blend }) => ({ filter, enabled, opacity, blend }));
+  assert.deepEqual(strip(n.smart.filters), strip(m3Of(e).layers[0].smart.filters), 'params, enabled, opacity and mode');
+  assert.equal(n.smart.stack_mask.default, 255);
+  assert.deepEqual([...again.flatten_tile_rgba8(0, 0)], filtered, 'the stored render');
+  again.render_smart(n.id);
+  assert.deepEqual([...again.flatten_tile_rgba8(0, 0)], filtered, 'a re-render with the imported filters and stack mask matches');
+  e.free(); again.free();
+});
+
+test('other smart filters refuse PSD export naming the filter', () => {
+  const { e, id } = psbSmartDoc();
+  e.add_smart_filter(id, JSON.stringify({ kind: 'invert', params: {} }));
+  assert.throws(() => exportPsd(e), /Cannot export a changed placement with the invert smart filter/);
+  e.free();
+});
+
 test('image-file smart object sources are left to the caller\'s decoder', () => {
   const e = m3Doc();
   const { engine, sources } = importPsd(exportPsd(e).bytes);

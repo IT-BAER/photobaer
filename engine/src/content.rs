@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::adjust::{
-    BlackWhite, BrightnessContrast, ChannelMixer, ColorBalance, ColorLookup, Curves, Exposure, GradientMap,
+    Adjustment, BlackWhite, BrightnessContrast, ChannelMixer, ColorBalance, ColorLookup, Curves, Exposure, GradientMap,
     HueSaturation, Invert, Levels, PhotoFilter, Posterize, SelectiveColor, Threshold, Vibrance,
 };
 use crate::blend::Blend;
@@ -287,6 +287,24 @@ impl Filter {
         match self {
             Filter::ColorLookup(c) => c.table,
             _ => None,
+        }
+    }
+
+    /// The adjustment kind this filter runs, none for Gaussian blur (both share the kind tags).
+    pub fn adjustment(&self) -> Option<Adjustment> {
+        serde_json::from_value(serde_json::to_value(self).ok()?).ok()
+    }
+
+    pub fn from_adjustment(a: &Adjustment) -> Filter {
+        serde_json::from_value(serde_json::to_value(a).expect("an adjustment serializes")).expect("every adjustment kind is a filter")
+    }
+
+    /// The UI ranges (section 3 for the adjustments; blur radius 0.1..=250 px).
+    pub fn validate(&self) -> Result<(), String> {
+        match (self, self.adjustment()) {
+            (_, Some(a)) => a.validate(),
+            (Filter::GaussianBlur(g), None) if (0.1..=250.0).contains(&g.radius) => Ok(()),
+            _ => Err("Gaussian blur radius must be in 0.1..=250".into()),
         }
     }
 }

@@ -2201,6 +2201,9 @@ impl Document {
         }
         if target == Target::Pixels {
             self.check_pixel_edit(id)?;
+            if matches!(self.node(id)?.kind, Kind::Smart(_)) {
+                return self.apply_as_filter(id, &Adjustment::Invert(adjust::Invert {}));
+            }
         } else if self.node(id)?.mask.is_none() {
             return Err(format!("node {id} has no mask"));
         }
@@ -2242,6 +2245,7 @@ impl Document {
     /// Destructive apply of one adjustment kind (docs/M3.md section 3) onto a pixel layer's
     /// color channels; alpha untouched. With a selection the result is mixed by coverage (D12),
     /// same as `fill_ex`. `target` must be `Pixels` (adjustments have no mask/selection form).
+    /// On a smart object it appends a smart filter masked to the selection instead.
     pub fn apply_adjustment(&mut self, id: u32, target: Target, json: &str) -> Result<(), String> {
         self.check_idle()?;
         if target != Target::Pixels {
@@ -2251,6 +2255,9 @@ impl Document {
         let a: Adjustment = serde_json::from_str(json).map_err(|e| format!("invalid adjustment: {e}"))?;
         a.validate()?;
         self.check_blob(a.blob())?;
+        if matches!(self.node(id)?.kind, Kind::Smart(_)) {
+            return self.apply_as_filter(id, &a);
+        }
         let Some(compiled) = a.compile(&self.blobs)? else { return Ok(()) };
         let existing = self.node(id)?.pixel_tiles()?.coords();
         let area: Vec<(i32, i32)> = match self.selected_tiles() {
@@ -2301,6 +2308,9 @@ impl Document {
         self.check_pixel_edit(id)?;
         let kind: adjust::Destructive = serde_json::from_str(json).map_err(|e| format!("invalid adjustment: {e}"))?;
         kind.validate()?;
+        if matches!(self.node(id)?.kind, Kind::Smart(_)) {
+            return Err("This adjustment cannot run on a smart object; rasterize it first.".into());
+        }
         let Some([mut x0, mut y0, w, h]) = self.layer_bounds(id)? else { return Ok(()) };
         let (mut x1, mut y1) = (x0 + w, y0 + h);
         let selected = self.selection.is_some();
@@ -3443,6 +3453,7 @@ impl Document {
         if let Some((t, warp)) = self.smart_moved(id, &[1.0, 0.0, dx as f64, 0.0, 1.0, dy as f64, 0.0, 0.0, 1.0])? {
             let s = self.node_mut(id)?.smart_mut();
             (s.transform, s.warp) = (t, warp);
+            self.map_filter_masks(id, |d, m| d.shift_tiles(&m.tiles, dx, dy, Some(m.default)))?;
         }
         let mask = self.node(id)?.mask.as_ref().map(|m| (m.default, m.tiles.clone()));
         if let Some((default, tiles)) = mask {

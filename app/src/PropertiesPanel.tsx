@@ -4,10 +4,10 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { client } from './client.ts';
-import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode } from './engine.worker.ts';
+import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo, SmartFilterKind } from './engine.worker.ts';
 import { locate } from './layers.ts';
 import {
-  EDIT_LABEL, FIELD_SPECS, defaultAdjustment, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
+  EDIT_LABEL, FIELD_SPECS, MENU_LABEL, defaultAdjustment, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
 } from './adjustments.ts';
 import { rampCss, type Gradient } from './gradients/gradient.ts';
 import { LevelsCurvesBody, type SampleCanvas } from './LevelsCurvesBody.tsx';
@@ -155,6 +155,53 @@ export function PropertiesPanel({ doc, node, run, openGradientEditor, pickLookup
         <label className="adjustment-check"><input type="checkbox" checked={node.visible} onChange={() => setFlag({ visible: !node.visible }, 'Adjustment Visibility')} /> Adjustment visible</label>
         <label className="adjustment-check"><input type="checkbox" checked={node.clipping} disabled={isBottom} onChange={() => setFlag({ clipping: !node.clipping }, 'Adjustment Clipping')} /> Clip to layer below</label>
       </div>
+    </div>
+  );
+}
+
+const BLUR_RADIUS: FieldSpec = { type: 'number', label: 'Radius', path: 'radius', min: 0.1, max: 250, step: 0.1 };
+const OPACITY: FieldSpec = { type: 'number', label: 'Opacity', path: 'opacity', min: 0, max: 100, step: 1, scale: 100 };
+
+export function filterLabel(f: SmartFilterKind): string {
+  return f.kind === 'gaussian_blur' ? 'Gaussian Blur' : MENU_LABEL[f.kind];
+}
+
+// Properties for a smart object (B11-4): each filter's enable checkbox and opacity slider, and the params of
+// the selected filter (top one by default) through the adjustment bodies. Every edit is a "Smart Filter" step.
+export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFile, sampleCanvas }: {
+  node: LayerNode; run: Run; openGradientEditor: OpenGradientEditor; pickLookupFile: PickLookupFile; sampleCanvas: SampleCanvas;
+}) {
+  const filters = node.smart!.filters;
+  const [picked, setPicked] = useState<number | null>(null);
+  const dragging = useRef(false);
+  const current = filters.find(f => f.id === picked) ?? filters.at(-1);
+  const set = (fid: number, patch: Partial<Omit<SmartFilterInfo, 'id' | 'mask'>>, live: boolean) => {
+    if (live) { dragging.current = true; void run(null, () => client.call('setSmartFilter', node.id, fid, patch, 'Smart Filter', true)); return; }
+    if (dragging.current) { dragging.current = false; void run(null, () => client.call('previewEnd', true)); return; }
+    void run(null, () => client.call('setSmartFilter', node.id, fid, patch, 'Smart Filter'));
+  };
+  return (
+    <div className="properties-panel">
+      <div className="panel-tabs"><span className="panel-tab">Properties</span></div>
+      <h3>Smart Filters</h3>
+      {filters.length === 0 ? <p className="adjustment-note">No smart filters.</p> : filters.map(f => (
+        <div key={f.id} className="smart-filter-row" aria-current={f === current}>
+          <label className="adjustment-check">
+            <input type="checkbox" checked={f.enabled} onChange={e => set(f.id, { enabled: e.currentTarget.checked }, false)} />
+            <button type="button" className="link-button" onClick={() => setPicked(f.id)}>{filterLabel(f.filter)}</button>
+          </label>
+          <Field spec={OPACITY} params={f} onChange={(_, v, live) => set(f.id, { opacity: v as number }, live)} />
+        </div>
+      ))}
+      {current && (
+        <>
+          <h3>{filterLabel(current.filter)}</h3>
+          {current.filter.kind === 'gaussian_blur'
+            ? <Field spec={BLUR_RADIUS} params={current.filter.params} onChange={(_, v, live) => set(current.id, { filter: { kind: 'gaussian_blur', params: { radius: v as number } } }, live)} />
+            : <AdjustmentBody key={current.id} adjustment={current.filter} onChange={(a, live) => set(current.id, { filter: a as Adjustment }, live)}
+                openGradientEditor={openGradientEditor} pickLookupFile={pickLookupFile} histogramId={node.id} sampleCanvas={sampleCanvas} />}
+        </>
+      )}
     </div>
   );
 }

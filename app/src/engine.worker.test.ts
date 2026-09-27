@@ -1233,3 +1233,51 @@ test('a warp on a smart object starts from its current look and commits one Warp
   assert.deepEqual(await pixelAt(5, 4), [255, 0, 0, 255]);
   assert.deepEqual(await pixelAt(3, 4), [0, 0, 0, 0]);
 });
+
+// ---------- smart filters (docs/M3.md section 7) ----------
+
+type FilterDoc = { undoLabel: string; layers: { id: number; kind: string; smart?: { source: { blob: number | null }; filters: { id: number; filter: { kind: string }; enabled: boolean; opacity: number; blend: string }[] } }[] };
+const filtersOf = (d: FilterDoc, id: number) => d.layers.find(l => l.id === id)!.smart!.filters;
+
+test('Convert for Smart Filters keeps the layer id and refuses a smart object', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  await call('command', 'fill', 1, 'pixels', [200, 200, 200, 255]);
+  const c = (await call('convertForSmartFilters', 1)).result as FilterDoc;
+  assert.equal(c.undoLabel, 'Convert for Smart Filters');
+  const n = c.layers[0];
+  assert.equal(n.id, 1);
+  assert.equal(n.kind, 'smart');
+  assert.notEqual(n.smart!.source.blob, null, 'the source bytes are a PSB');
+  assert.match((await call('convertForSmartFilters', 1)).error!, /already a smart object/);
+});
+
+test('hosted commands on a smart object add filters; the Smart Filter ops undo under their labels', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  await call('command', 'fill', 1, 'pixels', [200, 200, 200, 255]);
+  await call('convertForSmartFilters', 1);
+  const a = (await call('adjust', 1, { kind: 'invert', params: {} }, 'Invert')).result as FilterDoc;
+  assert.equal(a.undoLabel, 'Invert');
+  assert.deepEqual(filtersOf(a, 1).map(f => f.filter.kind), ['invert']);
+  assert.deepEqual(await pixelAt(3, 3), [55, 55, 55, 255]);
+  const i = (await call('command', 'invert', 1, 'pixels')).result as FilterDoc;
+  assert.equal(filtersOf(i, 1).length, 2, 'Ctrl+I appends a filter too');
+  assert.deepEqual(await pixelAt(3, 3), [200, 200, 200, 255]);
+  const b = (await call('addSmartFilter', 1, { kind: 'gaussian_blur', params: { radius: 2 } }, 'Gaussian Blur')).result as FilterDoc;
+  assert.equal(b.undoLabel, 'Gaussian Blur');
+  const fid = filtersOf(b, 1)[0].id;
+  const o = (await call('setSmartFilter', 1, fid, { opacity: 0.5 }, 'Smart Filter')).result as FilterDoc;
+  assert.equal(o.undoLabel, 'Smart Filter');
+  assert.equal(filtersOf(o, 1)[0].opacity, 0.5);
+  const t = (await call('smartFilterCommand', 1, 'toggle', 'Disable Smart Filters')).result as FilterDoc;
+  assert.equal(t.undoLabel, 'Disable Smart Filters');
+  assert.ok(filtersOf(t, 1).every(f => !f.enabled));
+  assert.deepEqual(await pixelAt(3, 3), [200, 200, 200, 255]);
+  assert.match((await call('smartFilterCommand', 1, 'deleteMasks', 'Delete Filter Mask')).error!, /no filter mask/);
+  const c = (await call('smartFilterCommand', 1, 'clear', 'Clear Smart Filters')).result as FilterDoc;
+  assert.deepEqual(filtersOf(c, 1), []);
+  await call('undo');
+  const u = (await call('undo')).result as FilterDoc;
+  assert.ok(filtersOf(u, 1).every(f => f.enabled), 'undo restores the enabled stack');
+});

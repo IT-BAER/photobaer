@@ -191,6 +191,9 @@ button { font: inherit; color: inherit; }
 .adjustment-field input[type=number] { font: 12px ui-monospace, Consolas, monospace; text-align: right; }
 .adjustment-field input[type=range] { min-width: 0; }
 .adjustment-check { display: flex; align-items: center; gap: 6px; margin: 0; }
+.smart-filter-row { padding: 2px 4px; border-radius: 4px; }
+.smart-filter-row[aria-current=true] { background: var(--line); }
+.link-button { border: 0; background: none; color: inherit; font: inherit; padding: 0; cursor: pointer; }
 .adjustment-note { color: var(--dim); font-size: 12px; }
 .professional-toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; }
 .levels-tools { display: flex; gap: 4px; align-items: center; }
