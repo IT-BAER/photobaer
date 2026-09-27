@@ -3784,7 +3784,7 @@ impl Document {
     fn emit_node(&self, node: &Node, scale: f32, mode: Blend, clipped: bool, prog: &mut Program) {
         if let Some(style) = node.style.as_ref().filter(|s| s.any_effect()) {
             if !matches!(node.kind, Kind::Adjustment(_)) {
-                return self.emit_styled(node, style, None, mode, prog);
+                return self.emit_styled(node, style, mode, prog);
             }
         }
         let (mk, mkey, mc) = self.node_mask(node, prog);
@@ -3832,11 +3832,38 @@ impl Document {
     // A clipping group: base B plus the consecutive clipped nodes above it (M1.md section 3).
     // S is B's coverage. B's share of each pixel is divided by S, the clipped nodes draw onto it
     // normally, and the result is multiplied by S again (source-atop at full fill).
+    // A styled base draws alone; the clipped nodes then draw onto that result through its raw
+    // shape S (content alpha x mask x opacity), so effects past the shape stay uncovered.
     fn emit_clipping(&self, base: &Node, clipped: &[Node], prog: &mut Program) {
-        match base.style.as_ref().filter(|s| s.any_effect()) {
-            Some(style) => self.emit_styled(base, style, Some(clipped), base.blend, prog),
-            None => self.clip_steps(base, clipped, base.fill, base.opacity, base.blend, prog),
+        let styled = base.style.as_ref().filter(|s| s.any_effect() && !matches!(base.kind, Kind::Adjustment(_)));
+        let Some(style) = styled else {
+            return self.clip_steps(base, clipped, base.fill, base.opacity, base.blend, prog);
+        };
+        self.emit_styled(base, style, base.blend, prog);
+        let (mk, mkey, mc) = self.node_mask(base, prog);
+        let mut shape = Step::new(Op::PushShape);
+        (shape.mask_kind, shape.mask, shape.mask_const, shape.scale) = (mk, mkey, mc, base.opacity);
+        if let Kind::Group(children) = &base.kind {
+            prog.steps.push(Step::new(Op::PushTransparent));
+            self.emit_list(children, prog);
+            prog.steps.push(shape);
+            prog.steps.push(Step::new(Op::Pop));
+        } else {
+            let Some(src) = self.node_src(base, prog) else { return };
+            shape.src = src;
+            prog.steps.push(shape);
         }
+        // out = (1 - S) dst + S (dst with the clipped nodes drawn); adjustments carry no
+        // FLAG_CLIP here, the lerp applies S once.
+        prog.steps.push(Step::new(Op::PushCopy));
+        for n in clipped {
+            if n.visible && n.opacity > 0.0 {
+                self.emit_node(n, n.opacity * n.fill, n.blend, false, prog);
+            }
+        }
+        prog.steps.push(Step::new(Op::MulShape));
+        prog.steps.push(Step::new(Op::PopAddBackdrop));
+        prog.steps.push(Step::new(Op::PopShape));
     }
 
     // `emit_clipping` with the base drawn at `fill`, then composited at `opacity` in `blend`.
@@ -3911,12 +3938,11 @@ impl Document {
     }
 
     // The tiles under a styled node's padded region; none when the node has no content there.
-    // A clipping base (`clipped` set) composites with its clipped layers and carries its mask.
-    fn styled_region(&self, node: &Node, clipped: Option<&[Node]>, level: u32, x0: i64, y0: i64, n: usize) -> Option<Region> {
+    fn styled_region(&self, node: &Node, level: u32, x0: i64, y0: i64, n: usize) -> Option<Region> {
         let t = TILE as i64;
         let (ntx, nty) = self.level_tiles(level);
         let in_doc = |i: i64, j: i64| i >= 0 && j >= 0 && i < ntx as i64 && j < nty as i64;
-        let mask = node.mask.as_ref().filter(|m| m.enabled && clipped.is_none());
+        let mask = node.mask.as_ref().filter(|m| m.enabled);
         let mut key = mix(0x57E1_ED00_0000_0001, n as u64);
         let (mut parts, mut masks) = (Vec::new(), Vec::new());
         for j in y0.div_euclid(t)..=(y0 + n as i64 - 1).div_euclid(t) {
@@ -3927,13 +3953,12 @@ impl Document {
                     let known: Vec<u64> = p.payloads.iter().map(|x| x.0).chain(p.data.iter().map(|x| x.0)).collect();
                     (mix_bytes(0x5B, &p.encode(&known)), Part::Prog(p))
                 };
-                let part = match (&node.kind, clipped) {
-                    (_, Some(c)) if in_doc(i, j) => Some(sub(&|p| self.clip_steps(node, c, node.fill, 1.0, Blend::Normal, p))),
-                    (Kind::Group(children), None) if in_doc(i, j) => Some(sub(&|p| self.emit_list(children, p))),
-                    (Kind::Fill(c), None) if in_doc(i, j) => {
+                let part = match &node.kind {
+                    Kind::Group(children) if in_doc(i, j) => Some(sub(&|p| self.emit_list(children, p))),
+                    Kind::Fill(c) if in_doc(i, j) => {
                         self.fill_tile(c, level, i as u32, j as u32).map(|(k, px)| (k, Part::Px(px)))
                     }
-                    (Kind::Pixel(_) | Kind::Smart(_), None) => {
+                    Kind::Pixel(_) | Kind::Smart(_) => {
                         self.region_tile(node.pixel_tiles().ok()?, None, level, i, j).map(|(k, px)| (k, Part::Px(px)))
                     }
                     _ => None,
@@ -4005,8 +4030,8 @@ impl Document {
     /// A styled node (docs/M3.md section 5) on the program's tile: its padded region (the tile
     /// grown by the style's reach) goes through `render_layer`; the centre crops of the behind
     /// planes and the styled content become payload tiles drawn by `Draw` after the `Knockout`.
-    /// Level L scales every px parameter by 2^-L. `clipped` is set for a clipping base.
-    fn emit_styled(&self, node: &Node, style: &Style, clipped: Option<&[Node]>, mode: Blend, prog: &mut Program) {
+    /// Level L scales every px parameter by 2^-L.
+    fn emit_styled(&self, node: &Node, style: &Style, mode: Blend, prog: &mut Program) {
         let (level, tx, ty) = (prog.level, prog.tx, prog.ty);
         let k = 0.5f32.powi(level as i32);
         let style = Style { scale: style.scale * k, ..style.clone() };
@@ -4014,9 +4039,9 @@ impl Document {
         let n = TILE + 2 * pad;
         let (x0, y0) = (tx as i64 * TILE as i64 - pad as i64, ty as i64 * TILE as i64 - pad as i64);
         let mode = if mode == Blend::PassThrough { Blend::Normal } else { mode };
-        let fill = if clipped.is_some() { 1.0 } else { node.fill };
+        let fill = node.fill;
         let group_knock = matches!(node.kind, Kind::Group(_)) && Document::knocks_out(node);
-        let Some(region) = self.styled_region(node, clipped, level, x0, y0, n) else { return };
+        let Some(region) = self.styled_region(node, level, x0, y0, n) else { return };
         let (bounds, bounds_key) = self.style_bounds(node, &style);
 
         let mut key = mix_bytes(0x57E1_ED00_0000_0002, serde_json::to_string(&style).expect("style serializes").as_bytes());
@@ -4084,7 +4109,7 @@ impl Document {
             planes
         });
 
-        if clipped.is_none() && Document::knocks_out(node) {
+        if Document::knocks_out(node) {
             // Layers knock out by their content tile and mask, groups by their composite.
             let (src, (mk, mkey, mc)) = if group_knock {
                 (Some(self.payload(prog, (keys[behind.len() + 1], planes[behind.len() + 1].clone()))), (0, 0, 0.0))
@@ -4830,7 +4855,7 @@ impl Document {
             for ty in ty0..=ty1 {
                 for tx in tx0..=tx1 {
                     let (x0, y0) = (tx * t - pad, ty * t - pad);
-                    let Some(region) = self.styled_region(node, None, 0, x0, y0, n) else { continue };
+                    let Some(region) = self.styled_region(node, 0, x0, y0, n) else { continue };
                     let (px, mask) = Document::region_pixels(&region);
                     let cx = styles::Ctx {
                         origin: [x0 as i32, y0 as i32],

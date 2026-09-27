@@ -152,10 +152,14 @@ test('version 2 steps carry the adjust opcode, clip flag, knockout and blend-if 
   assert.equal(adj.opcode, ADJUST.invert);
   assert.deepEqual([adj.flags, clipped.flags], [0, 1]);
   assert.deepEqual([...adj.blendIf.subarray(0, 8)], [0, 128, 255, 255, 0, 0, 255, 255]);
-  // A styled clip base renders its clipping group on the CPU into one payload and drops its knockout.
+  // A styled clip base draws as unclipped (knockout, payload), then its clipped layers through its raw shape.
   e.set_style(k, style);
   const s = decodeProgram(e.display_program(0, 0, 0, NONE).buffer as ArrayBuffer);
-  assert.deepEqual(s.steps.map(s => s.op), [OP.draw, OP.adjust, OP.draw]);
+  assert.deepEqual(s.steps.map(s => s.op), [
+    OP.draw, OP.adjust, OP.knockout, OP.draw,
+    OP.pushShape, OP.pushCopy, OP.adjust, OP.mulShape, OP.popAddBackdrop, OP.popShape,
+  ]);
+  assert.equal(s.steps[6].flags, 0);
   e.set_props(c, JSON.stringify({ clipping: false }));
   const q = decodeProgram(e.display_program(0, 0, 0, NONE).buffer as ArrayBuffer);
   assert.deepEqual(q.steps.map(s => s.op), [OP.draw, OP.adjust, OP.knockout, OP.draw, OP.adjust]);

@@ -20,9 +20,10 @@ export const EXCEPTIONS: Record<string, Allow & { why: string }> = {
   // Measured mean 1.375, max 4.271: pass-through group fill < 1 over a lighter color child below the Lum tie
   // mixes partially toward the source (docs/M1.md section 3, open). One fill value in the corpus fits no model.
   'passthrough_fill_blendmode.psd': { mean: 1.5, why: 'pass-through fill with lighter color, rule unknown' },
-  // Measured mean 1.046, over 46206: the file draws the clipped layer (black overlay) over the styled clip
-  // base, while docs/M3.md section 5 styles the base plus clipped composite (dark overlay covers it). Open decision.
-  'advanced-blending.psd': { over: 46206, mean: 1.05, why: 'styled clip base order differs from the file' },
+  // Measured mean 0.274, over 2130: the 1-px outside stroke ring of the styled clip base, which the file keeps with
+  // blend interior on; styles.rs keeps the reference clamp of strokes to the shape (owner, 27 Sep 2026; clamping
+  // before strokes measured over 62).
+  'advanced-blending.psd': { over: 2130, why: 'blend interior clamp erases the outside stroke the file keeps' },
 };
 
 // Pixels where a visible dissolve layer has partial coverage: Photoshop draws a random pattern there.

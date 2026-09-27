@@ -760,7 +760,7 @@ fn knockout_punches_to_transparent() {
 }
 
 #[test]
-fn a_styled_clipping_base_drops_its_knockout() {
+fn a_styled_clipping_base_keeps_its_knockout() {
     let mut d = gray_doc(8, 8, 200);
     let l = d.add_layer("base", 1).unwrap();
     d.fill(l, Target::Pixels, 255, 0, 0, 128).unwrap();
@@ -769,8 +769,9 @@ fn a_styled_clipping_base_drops_its_knockout() {
     let c = d.add_layer("clipped", l).unwrap();
     d.fill(c, Target::Pixels, 0, 0, 255, 255).unwrap();
     d.set_props(c, r#"{"clipping":true}"#).unwrap();
-    // A knockout would leave the backdrop at alpha 0.5 under the half-covering base.
-    assert_eq!(px(&d, 1, 1)[3], 255);
+    // The base knocks out as if unclipped (alpha 0.875), then the opaque clipped layer draws
+    // through the raw shape 0.5: 0.5 * 0.875 + 0.5 = 0.9375.
+    assert_eq!(px(&d, 1, 1)[3], 239);
     d.set_props(c, r#"{"clipping":false,"visible":false}"#).unwrap();
     // The overlay raises the content alpha to 0.75 (union), over the 0.5 left: 0.875.
     assert_eq!(px(&d, 1, 1)[3], 223, "unclipped, the same layer knocks out");
@@ -1198,7 +1199,7 @@ fn a_style_across_a_tile_border_renders_like_one_tile() {
 }
 
 #[test]
-fn a_styled_clip_base_styles_the_clipped_result() {
+fn a_styled_clip_base_draws_clipped_layers_over_its_style() {
     let mut d = gray_doc(40, 40, 255);
     let base = rect_layer(&mut d, 1, [10, 10, 20, 20], [255, 0, 0, 255]);
     let c = rect_layer(&mut d, base, [0, 0, 40, 15], [0, 0, 255, 255]);
@@ -1209,13 +1210,35 @@ fn a_styled_clip_base_styles_the_clipped_result() {
         s["color_overlays"] = json!([overlay_fx([0, 255, 0], 0.5)]);
     }))
     .unwrap();
-    // The overlay lands on the clipped result: half green over blue and over red.
-    assert_eq!(px(&d, 15, 12), [0, 128, 128, 255]);
+    // The clipped layer covers the styled base inside the raw shape; the overlay stays below it.
+    assert_eq!(px(&d, 15, 12), [0, 0, 255, 255]);
     assert_eq!(px(&d, 15, 17), [128, 128, 0, 255]);
-    assert_eq!(px(&d, 9, 15), [0, 0, 0, 255]);
+    // The outside stroke is past the raw shape: the clipped layer leaves it alone.
+    assert_eq!(px(&d, 15, 9), [0, 0, 0, 255]);
+    assert_eq!(px(&d, 9, 12), [0, 0, 0, 255]);
     assert_eq!(px(&d, 8, 15), [0, 0, 0, 255]);
     assert_eq!(px(&d, 7, 15), [255, 255, 255, 255]);
     assert_eq!(px(&d, 15, 5), [255, 255, 255, 255], "clipped pixels outside the base stay hidden");
+    // Fill scales the base's content, not the clipped layer's coverage.
+    d.set_props(base, r#"{"fill":0.1}"#).unwrap();
+    assert_eq!(px(&d, 15, 12), [0, 0, 255, 255]);
+    assert_eq!(px(&d, 15, 9), [0, 0, 0, 255]);
+}
+
+#[test]
+fn a_clipped_adjustment_on_a_styled_base_mixes_by_the_shape_once() {
+    let mut d = gray_doc(8, 8, 200);
+    let base = d.add_layer("base", 1).unwrap();
+    d.fill(base, Target::Pixels, 255, 0, 0, 255).unwrap();
+    d.set_props(base, r#"{"opacity":0.5}"#).unwrap();
+    d.set_style(base, &overlay_style(true)).unwrap();
+    let inv = json!({ "name": "Invert", "adjustment": { "kind": "invert", "params": {} } });
+    let a = d.add_special(base, &inv.to_string()).unwrap();
+    d.set_props(a, r#"{"clipping":true}"#).unwrap();
+    // S = 0.5: dst + 0.5 (255 - 2 dst) = 127.5 on every channel, whatever dst is.
+    for v in &px(&d, 3, 3)[..3] {
+        assert!((127..=128).contains(v), "{:?}", px(&d, 3, 3));
+    }
 }
 
 #[test]
