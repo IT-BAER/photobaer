@@ -1075,7 +1075,7 @@ export function App() {
 
   useEffect(() => {
     const st = previewRef.current;
-    if (!previewDialog || !active || !st.open) return;
+    if ((previewDialog !== 'fill' && previewDialog !== 'stroke') || !active || !st.open) return;
     const a = active;
     st.pending = (async () => {
       const d = previewDialog === 'fill'
