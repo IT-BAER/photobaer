@@ -176,6 +176,24 @@ button { font: inherit; color: inherit; }
 .layer-comp-row.selected { background: var(--panel-hi); font-weight: 600; }
 .layer-comp-count { color: var(--dim); }
 
+.properties-panel, .adjustments-panel { flex-shrink: 0; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.properties-panel { max-height: 45%; overflow: auto; }
+.adjustment-header { display: flex; align-items: center; justify-content: space-between; }
+.adjustment-header h3 { margin: 0; font-size: 13px; }
+.adjustment-header button, .adjustments-row button { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; background: none; border: 0; border-radius: 6px; color: var(--dim); cursor: pointer; }
+.adjustment-header button:hover, .adjustments-row button:hover:not(:disabled) { color: var(--text); background: var(--panel-hi); }
+.adjustments-row button:disabled { opacity: 0.4; cursor: default; }
+.adjustments-row { display: flex; gap: 2px; }
+.adjustment-body { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.adjustment-field { display: grid; grid-template-columns: 1fr 96px 56px; align-items: center; gap: 6px; margin: 0; }
+.adjustment-field:has(select) { grid-template-columns: 1fr 152px; }
+.adjustment-field input[type=number], .adjustment-field select { min-width: 0; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
+.adjustment-field input[type=number] { font: 12px ui-monospace, Consolas, monospace; text-align: right; }
+.adjustment-field input[type=range] { min-width: 0; }
+.adjustment-check { display: flex; align-items: center; gap: 6px; margin: 0; }
+.adjustment-note { color: var(--dim); font-size: 12px; }
+.professional-toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; }
+
 .welcome { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; pointer-events: none; }
 .welcome h1 { margin: 0; font-size: 32px; color: var(--accent); }
 .welcome .actions, dialog .actions { display: flex; gap: 8px; justify-content: center; pointer-events: auto; }

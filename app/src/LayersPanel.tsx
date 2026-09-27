@@ -21,6 +21,7 @@ interface Props {
   deleteLayer: () => void;
   deleteDisabled: boolean;
   addMask: () => void;
+  openProperties: () => void;
 }
 
 const ICON = { size: 16, strokeWidth: 1.75 };
@@ -147,7 +148,10 @@ export function LayersPanel(props: Props) {
           ) : n.kind === 'fill' ? (
             <PaintBucket className="fill-layer-icon" size={16} strokeWidth={1.75} aria-label="Fill layer" />
           ) : (
-            <span className={`thumb${isActive && active.target === 'pixels' && n.mask ? ' target' : ''}`} />
+            <span
+              className={`thumb${isActive && active.target === 'pixels' && n.mask ? ' target' : ''}`}
+              onDoubleClick={n.kind === 'adjustment' ? e => { e.stopPropagation(); select(n.id, 'pixels'); props.openProperties(); } : undefined}
+            />
           )}
           {n.mask && (
             <>

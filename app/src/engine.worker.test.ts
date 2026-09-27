@@ -6,6 +6,7 @@ import { Autosave } from './autosave.ts';
 import { FakeDir, fs } from './fake-opfs.ts';
 import { engineMesh, identityMesh } from './transform/warp.ts';
 import { croppedSize } from './crop/geometry.ts';
+import { ADJUSTMENT_KINDS, MENU_LABEL, defaultAdjustment } from './adjustments.ts';
 
 // Runs the real worker module in Node: WASM loaded up front, worker globals and OPFS faked.
 initSync({ module: readFileSync(new URL('./engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
@@ -234,6 +235,30 @@ test('adjust applies destructively, mixes by selection coverage, and a preview c
   const cancelled = await call('previewEnd', false);
   assert.equal((cancelled.result as { undoLabel: string | null }).undoLabel, 'Fill', 'the preview session drops, leaving the last committed step');
   assert.deepEqual(await px(3, 3), [200, 200, 200, 255], 'cancel restores the untouched tile');
+});
+
+test('every kind\'s default params create an adjustment layer under its menu label', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  for (const kind of ADJUSTMENT_KINDS) {
+    const r = await call('newAdjustmentLayer', 1, defaultAdjustment(kind), MENU_LABEL[kind]);
+    assert.equal(r.error, undefined, `${kind}: ${r.error}`);
+    const info = r.result as { created: number; layers: { id: number; name: string; adjustment?: { kind: string } }[] };
+    const node = info.layers.find(l => l.id === info.created)!;
+    assert.equal(node.name, MENU_LABEL[kind]);
+    assert.equal(node.adjustment?.kind, kind);
+  }
+});
+
+test('setAdjustment live preview reruns land as one undo step on commit', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  const id = ((await call('newAdjustmentLayer', 1, defaultAdjustment('posterize'), 'Posterize')).result as { created: number }).created;
+  for (const levels of [5, 6, 7]) await call('setAdjustment', id, { kind: 'posterize', params: { levels } }, 'Posterize', true);
+  const r = await call('previewEnd', true);
+  const info = r.result as { history: { labels: string[] }; layers: { id: number; adjustment?: { params: { levels: number } } }[] };
+  assert.deepEqual(info.history.labels, ['Posterize', 'Posterize']);
+  assert.equal(info.layers.find(l => l.id === id)!.adjustment!.params.levels, 7);
 });
 
 test('layer comps: new, apply, options and delete are undo steps with their labels', async () => {

@@ -8,7 +8,10 @@ import { locate, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
-import type { AutosaveState, DocInfo, FillContent, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
+import { AdjustmentBody, PropertiesPanel, type PickLookupFile } from './PropertiesPanel.tsx';
+import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
+import { ADJUSTMENT_KINDS, MENU_LABEL, SHORTCUT, defaultAdjustment, type Kind } from './adjustments.ts';
+import type { Adjustment, AutosaveState, DocInfo, FillContent, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
 import { Smoother } from './shell/smoothing.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
 import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
@@ -220,6 +223,8 @@ export function App() {
   const protectedTexture = useRef<Dynamics['texture'] | null>(null);
   const [showAnts, setShowAnts] = useState(true);
   const [showLayerComps, setShowLayerComps] = useState(false);
+  const [showProperties, setShowProperties] = useState(false);
+  const [showAdjustments, setShowAdjustments] = useState(false);
   // Brush library (opened at mount) and the selected preset; null paints with the plain options-bar brush.
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const brushLib = useRef<{ library: BrushLibrary; assets: EngineAssets } | null>(null);
@@ -282,7 +287,13 @@ export function App() {
   const fillContentDialog = useRef<HTMLDialogElement>(null);
   const [fillContentForm, setFillContentForm] = useState<FillContentForm>({ type: 'solid', color: [0, 0, 0], style: 'linear', angle: 90, scalePct: 100, reverse: false, dither: false, alignWithLayer: true, patternId: '', linked: true });
   const [fillContentMode, setFillContentMode] = useState<FillDialogMode | null>(null);
-  const [previewDialog, setPreviewDialog] = useState<'fill' | 'stroke' | null>(null);
+  const [previewDialog, setPreviewDialog] = useState<'fill' | 'stroke' | 'adjust' | null>(null);
+  // Image > Adjustments: the dialog's params; its live preview reruns debounced (`adjustTimer`).
+  const adjustDialog = useRef<HTMLDialogElement>(null);
+  const [adjustForm, setAdjustForm] = useState<Adjustment | null>(null);
+  const adjustTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const lutInput = useRef<HTMLInputElement>(null);
+  const lutLoaded = useRef<Parameters<PickLookupFile>[0] | null>(null);
   const previewRef = useRef<{ open: boolean; commit: boolean; pending: Promise<unknown> }>({ open: false, commit: false, pending: Promise.resolve() });
   const gradEditor = useRef<GradientEditorHandle>(null);
   const gradLib = useRef<GradientLibrary | null>(null);
@@ -450,6 +461,11 @@ export function App() {
   function endPreviewDialog() {
     const st = previewRef.current;
     if (!st.open) return;
+    if (adjustTimer.current !== undefined) {
+      clearTimeout(adjustTimer.current);
+      adjustTimer.current = undefined;
+      if (st.commit && adjustForm) adjustPreview(adjustForm);
+    }
     st.open = false;
     if (previewDialog === 'fill') {
       const { contents, color, pattern } = fillForm;
@@ -457,6 +473,58 @@ export function App() {
     }
     setPreviewDialog(null);
     run(null, () => st.pending.catch(() => {}).then(() => client.call('previewEnd', st.commit)));
+  }
+
+  function openAdjust(kind: Kind) {
+    setMenu(null);
+    if (!active || !node) return;
+    if (node.locks.pixels) { setError('Could not use the layer because it is locked.'); return; }
+    const start = (a: Adjustment) => {
+      previewRef.current = { open: true, commit: false, pending: Promise.resolve() };
+      setAdjustForm(a);
+      setPreviewDialog('adjust');
+      adjustDialog.current?.showModal();
+    };
+    // Color Lookup picks its table first (D9); cancelling the picker opens nothing.
+    if (kind === 'color_lookup') pickLookupFile((name, table, format) => start({ kind, params: { name, format, table, interpolation: 'tetrahedral', dither: false } }));
+    else start(defaultAdjustment(kind));
+  }
+
+  function adjustPreview(a: Adjustment) {
+    const st = previewRef.current, id = activeRef.current?.id;
+    if (!st.open || id === undefined) return;
+    st.pending = client.call('adjust', id, a, MENU_LABEL[a.kind], true).then(d => show(d), e => setError((e as Error).message));
+  }
+
+  const pickLookupFile: PickLookupFile = onLoaded => {
+    lutLoaded.current = onLoaded;
+    if (lutInput.current) { lutInput.current.value = ''; lutInput.current.click(); }
+  };
+
+  async function loadLookupFile(f: File) {
+    const onLoaded = lutLoaded.current;
+    lutLoaded.current = null;
+    if (!onLoaded) return;
+    try {
+      const table = await client.call('loadLookupTable', new Uint8Array(await f.arrayBuffer()));
+      onLoaded(f.name, table, /\.3dl$/i.test(f.name) ? '3dl' : 'cube');
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  // Layer > New Adjustment Layer and the Adjustments panel: the new layer is selected and shown in Properties.
+  function newAdjustmentLayer(kind: Kind) {
+    if (!active) return;
+    setShowProperties(true);
+    run(null, () => client.call('newAdjustmentLayer', active.id, defaultAdjustment(kind), MENU_LABEL[kind]), selectCreated);
+  }
+
+  // Adjustments panel fill row: solid with the foreground color, gradient black to white, the first pattern.
+  function quickFillLayer(type: FillContentForm['type']) {
+    if (!active) return;
+    const content = fillContentFromForm({ type, color: fg, style: 'linear', angle: 90, scalePct: 100, reverse: false, dither: false, alignWithLayer: true, patternId: doc?.patterns[0]?.id ?? '', linked: true });
+    run(null, () => client.call('newFillLayer', active.id, content, FILL_LAYER_NAMES[type], FILL_LAYER_LABELS[type]), selectCreated);
   }
 
   function quickFill(rgb: Rgb, label: string) {
@@ -576,6 +644,11 @@ export function App() {
           { label: 'Pattern…', run: () => openNewFillLayer('pattern') },
         ],
       },
+      {
+        label: 'New Adjustment Layer', keys: '›', run: () => {}, off: !has || !active, sub: ADJUSTMENT_KINDS.map(kind => ({
+          label: MENU_LABEL[kind], sep: kind === 'invert', run: () => newAdjustmentLayer(kind),
+        })),
+      },
       { label: 'Layer Content Options…', run: openLayerContentOptions, off: !has || node?.kind !== 'fill' },
       {
         label: 'Rasterize', keys: '›', run: () => {}, off: !has || node?.kind !== 'fill', sub: [
@@ -584,7 +657,11 @@ export function App() {
       },
     ],
     Image: [
-      { label: 'Invert', keys: 'Ctrl+I', run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, quickMask ? 'selection' : active!.target)), off: !has },
+      {
+        label: 'Adjustments', keys: '›', run: () => {}, off: !has || !active, sub: ADJUSTMENT_KINDS.map(kind => kind === 'invert'
+          ? { label: 'Invert', keys: 'Ctrl+I', sep: true, run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, quickMask ? 'selection' : active!.target)) }
+          : { label: `${MENU_LABEL[kind]}…`, keys: SHORTCUT[kind], run: () => openAdjust(kind), off: node?.kind !== 'pixel' || active?.target !== 'pixels' || quickMask }),
+      },
       {
         label: 'Image Rotation', keys: '›', run: () => {}, off: !has, sep: true, sub: [
           ...([['180', '180°'], ['cw', '90° Clockwise'], ['ccw', '90° Counter Clockwise']] as [Command, string][])
@@ -625,7 +702,9 @@ export function App() {
       { label: showAnts ? 'Hide selection edges' : 'Show selection edges', keys: 'Ctrl+H', run: () => { setMenu(null); setShowAnts(v => !v); }, off: !has },
     ],
     Window: [
+      { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); } },
       { label: showLayerComps ? 'Hide Layer Comps' : 'Show Layer Comps', run: () => { setMenu(null); setShowLayerComps(v => !v); } },
+      { label: showProperties ? 'Hide Properties' : 'Show Properties', run: () => { setMenu(null); setShowProperties(v => !v); } },
     ],
   };
   const menusRef = useRef(menus);
@@ -737,6 +816,14 @@ export function App() {
     })().catch(e => setError((e as Error).message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewDialog, fillForm, strokeForm]);
+
+  useEffect(() => {
+    if (previewDialog !== 'adjust' || !adjustForm) return;
+    const t = setTimeout(() => { adjustTimer.current = undefined; adjustPreview(adjustForm); }, adjustForm.kind === 'curves' ? 50 : 100);
+    adjustTimer.current = t;
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewDialog, adjustForm]);
 
   useEffect(() => {
     const c = colorRangeCanvas.current;
@@ -1884,6 +1971,13 @@ export function App() {
       e.preventDefault();
       if (it && !it.off) it.run();
     };
+    // Image > Adjustments items only: Layer > New Adjustment Layer carries the same kind names.
+    const adjustment = (label: string, e: KeyboardEvent) => {
+      const sub = menusRef.current.Image.find(i => i.label === 'Adjustments');
+      const it = sub?.sub?.find(i => i.label === label);
+      e.preventDefault();
+      if (it && !sub!.off && !it.off) it.run();
+    };
     const down = (e: KeyboardEvent) => {
       // A closed <dialog> can keep focus on its OK button; only an open dialog or a live field swallows keys.
       const t = e.target instanceof Element ? e.target : null;
@@ -1911,7 +2005,12 @@ export function App() {
       else if (ctrl && e.shiftKey && k === 'd') trigger('Reselect', e);
       else if (ctrl && k === 'd') trigger('Deselect', e);
       else if (ctrl && e.shiftKey && k === 'i') trigger('Inverse', e);
-      else if (ctrl && k === 'i') trigger('Invert', e);
+      else if (ctrl && k === 'i') adjustment('Invert', e);
+      else if (ctrl && !e.altKey && k === 'l') adjustment('Levels…', e);
+      else if (ctrl && !e.altKey && k === 'm') adjustment('Curves…', e);
+      else if (ctrl && !e.altKey && k === 'u') adjustment('Hue/Saturation…', e);
+      else if (ctrl && e.altKey && e.shiftKey && k === 'b') adjustment('Black & White…', e);
+      else if (ctrl && !e.altKey && !e.shiftKey && k === 'b') adjustment('Color Balance…', e);
       else if (ctrl && e.shiftKey && k === 't') triggerBy(l => l === 'Again', e);
       else if (ctrl && k === 't') trigger('Free Transform', e);
       else if (e.shiftKey && k === 'f6') trigger('Feather', e);
@@ -2206,12 +2305,17 @@ export function App() {
               openSettings={() => setDockTab('brushSettings')}
             />
           )}
+          {doc && active && showAdjustments && <AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} />}
+          {doc && showProperties && node?.kind === 'adjustment' && node.adjustment && (
+            <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} />
+          )}
           {doc && active && (
             <>
               <LayersPanel
                 doc={doc} active={active} setActive={setActive} run={run}
                 newLayer={newLayer} newGroup={newGroup}
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
+                openProperties={() => setShowProperties(true)}
               />
               <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
               {showLayerComps && <LayerCompsPanel doc={doc} run={run} />}
@@ -2279,6 +2383,19 @@ export function App() {
           </div>
         </form>
       </dialog>
+      <dialog ref={adjustDialog} aria-label={adjustForm ? MENU_LABEL[adjustForm.kind] : 'Adjustment'} onClose={endPreviewDialog}>
+        <form onSubmit={e => { e.preventDefault(); previewRef.current.commit = true; adjustDialog.current?.close(); }}>
+          <h2>{adjustForm && MENU_LABEL[adjustForm.kind]}</h2>
+          {adjustForm && (
+            <AdjustmentBody adjustment={adjustForm} onChange={a => setAdjustForm(a)} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} />
+          )}
+          <div className="actions">
+            <button type="button" onClick={() => adjustDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <input ref={lutInput} type="file" hidden accept=".cube,.3dl" onChange={e => { const f = e.currentTarget.files?.[0]; if (f) void loadLookupFile(f); }} />
       <dialog ref={fillContentDialog}>
         <form onSubmit={e => { e.preventDefault(); submitFillContent(); }}>
           <h2>{FILL_LAYER_TITLES[fillContentForm.type]}</h2>

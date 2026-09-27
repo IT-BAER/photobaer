@@ -1161,11 +1161,10 @@ const api = {
   },
 
   // Properties panel edit: one undo step per committed change, `label` the spaced B5-5 form
-  // ("Hue / Saturation").
-  setAdjustment(id: number, adjustment: Adjustment, label: string) {
+  // ("Hue / Saturation"); `preview` reruns a slider drag live until `previewEnd`.
+  setAdjustment(id: number, adjustment: Adjustment, label: string, preview = false) {
     const e = need();
-    history.run(label, () => e.set_adjustment(id, JSON.stringify(adjustment)));
-    return changed();
+    return edit(label, preview, () => e.set_adjustment(id, JSON.stringify(adjustment)));
   },
 
   // Image > Adjustments: destructive apply on the layer's pixels; `preview` reruns inside the open
@@ -1370,7 +1369,7 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 
 // Ops that may run while a stroke is open without committing it (they never touch the document or history).
 const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove']);
-const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd']);
+const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd']);
 // An open move session commits before any other op, so history never sees a half move.
 const MOVE_OPS = new Set<keyof Api>(['moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds']);
 // An open transform session is cancelled by any other op: only the UI knows its current matrix.
