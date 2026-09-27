@@ -1105,3 +1105,131 @@ test('dragging effects moves them, Alt copies them', async () => {
   assert.ok(layer(m.result, 1).style);
   assert.equal(layer(m.result, 2).style, null);
 });
+
+// ---------- smart objects (docs/M3.md section 6) ----------
+
+// Any image file decodes to this 4 x 2 image: red top row, blue bottom row (Node has no image decoder).
+const PLACED = new Uint8ClampedArray([...Array(4).fill([255, 0, 0, 255]).flat(), ...Array(4).fill([0, 0, 255, 255]).flat()]);
+Object.assign(globalThis, {
+  createImageBitmap: async () => ({ width: 4, height: 2, close() {} }),
+  OffscreenCanvas: class {
+    getContext() { return { drawImage() {}, getImageData: () => ({ data: PLACED }) }; }
+  },
+});
+type SmartDoc = { layers: { id: number; name: string; kind: string; smart?: { link: { type: string; id?: string }; source: { blob: number | null }; source_size: number[]; transform: number[]; warp?: unknown } }[]; undoLabel: string; created: number; history: { labels: string[] }; parents: string[] };
+const png = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3])], 'photo.png');
+const pixelAt = async (x: number, y: number, id: number | null = null) => (await call('sample', x, y, 1, id)).result as number[];
+
+test('Place Embedded of a PNG makes one centred smart layer in one undo step', async () => {
+  await call('init');
+  await call('newDoc', 10, 10, 8, [255, 255, 255, 255]);
+  const r = (await call('placeSmart', 1, png(), false)).result as SmartDoc;
+  assert.equal(r.undoLabel, 'Place Embedded');
+  const n = r.layers.find(l => l.id === r.created)!;
+  assert.equal(n.kind, 'smart');
+  assert.equal(n.name, 'photo');
+  assert.deepEqual(n.smart!.source_size, [4, 2]);
+  assert.deepEqual(n.smart!.transform, [1, 0, 3, 0, 1, 4, 0, 0, 1]);
+  assert.equal(n.smart!.link.type, 'embedded');
+  assert.deepEqual(await pixelAt(3, 4), [255, 0, 0, 255]);
+  assert.deepEqual(await pixelAt(6, 5), [0, 0, 255, 255]);
+  assert.deepEqual(await pixelAt(2, 4), [255, 255, 255, 255]);
+  const ex = (await call('exportContents', r.created)).result as { name: string; blob: Blob };
+  assert.equal(ex.name, 'photo.png');
+  assert.deepEqual(new Uint8Array(await ex.blob.arrayBuffer()), new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]), 'the placed bytes, unmodified');
+  const u = (await call('undo')).result as SmartDoc;
+  assert.equal(u.layers.length, 1);
+});
+
+test('a placement larger than the canvas fits down, never up', async () => {
+  await call('init');
+  await call('newDoc', 2, 2, 8, null);
+  const r = (await call('placeSmart', 1, png(), false)).result as SmartDoc;
+  assert.deepEqual(r.layers.find(l => l.id === r.created)!.smart!.transform, [0.5, 0, 0, 0, 0.5, 1, 0, 0, 1], "a half-pixel centre offset rounds");
+  const l = await call('placeSmart', 1, png(), true, null);
+  assert.match(l.error!, /file picker/);
+});
+
+test('Convert to Smart Object, Edit Contents, change, close writes back to the parent', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, [255, 255, 255, 255]);
+  const a = (await call('addLayer', 1)).result as SmartDoc;
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 3, h: 2 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', a.created, 'pixels', [0, 128, 0, 255]);
+  await call('selectCommand', 'deselect');
+  const c = (await call('convertToSmart', [a.created])).result as SmartDoc;
+  assert.equal(c.undoLabel, 'Convert to Smart Object');
+  const s = c.layers.find(l => l.id === c.created)!;
+  assert.equal(s.name, 'Layer 1');
+  assert.deepEqual(s.smart!.source_size, [3, 2]);
+  assert.notEqual(s.smart!.source.blob, null, 'the source bytes are a PSB');
+  const copy = (await call('duplicateNode', c.created)).result as SmartDoc;
+  const opened = (await call('editContents', c.created)).result as SmartDoc;
+  assert.deepEqual(opened.parents, ['Untitled']);
+  assert.deepEqual(await pixelAt(0, 0), [0, 128, 0, 255]);
+  await call('command', 'fill', opened.layers[0].id, 'pixels', [200, 0, 0, 255]);
+  const back = (await call('smartEditClose')).result as SmartDoc;
+  assert.deepEqual(back.parents, []);
+  assert.equal(back.undoLabel, 'Update Smart Object Contents');
+  assert.deepEqual(await pixelAt(3, 3), [200, 0, 0, 255], 'the parent shows the edited contents');
+  assert.deepEqual(await pixelAt(3, 3, copy.created), [200, 0, 0, 255], 'a layer sharing the source updates too');
+  await call('undo');
+  assert.deepEqual(await pixelAt(3, 3), [0, 128, 0, 255], 'the parent history kept its steps');
+});
+
+test('two layers convert to a smart object named Group', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  const a = (await call('addLayer', 1)).result as SmartDoc;
+  const c = (await call('convertToSmart', [1, a.created])).result as SmartDoc;
+  assert.equal(c.layers.length, 1);
+  assert.equal(c.layers[0].name, 'Group');
+});
+
+test('via copy, rasterize, stack mode and relink refusals', async () => {
+  await call('init');
+  await call('newDoc', 10, 10, 8, null);
+  const p = (await call('placeSmart', 1, png(), false)).result as SmartDoc;
+  const v = (await call('smartViaCopy', p.created)).result as SmartDoc;
+  assert.equal(v.undoLabel, 'New Smart Object via Copy');
+  const [x, y] = [p.created, v.created].map(id => v.layers.find(l => l.id === id)!.smart!.link.id);
+  assert.notEqual(x, y);
+  const m = (await call('setStackMode', p.created, 'median')).result as SmartDoc;
+  assert.equal(m.undoLabel, 'Stack Mode');
+  const r = (await call('rasterizeSmart', v.created, 'Rasterize')).result as SmartDoc;
+  assert.equal(r.layers.find(l => l.id === v.created)!.kind, 'pixel');
+  assert.match((await call('convertToEmbedded', p.created)).error!, /already embedded/);
+  assert.match((await call('updateModified', null)).error!, /no linked smart objects/);
+  assert.match((await call('editContents', 1)).error!, /smart object/);
+});
+
+test('a placed smart object survives a project save and open with its source', async () => {
+  await call('init');
+  await call('newDoc', 10, 10, 8, null);
+  const p = (await call('placeSmart', 1, png(), false)).result as SmartDoc;
+  const blob = (await call('saveProject')).result as Blob;
+  const o = (await call('openFile', new File([blob], 'x.pbaer'))).result as SmartDoc;
+  const n = o.layers.find(l => l.id === p.created)!;
+  assert.equal(n.kind, 'smart');
+  const t = await call('transformAgain', p.created, [2, 0, 0, 0, 2, 0, 0, 0, 1], 'bicubic');
+  assert.equal(t.error, undefined, 'a reopened smart object re-renders from its source');
+  const ex = (await call('exportContents', p.created)).result as { blob: Blob };
+  assert.equal((await ex.blob.arrayBuffer()).byteLength, 7);
+});
+
+test('a warp on a smart object starts from its current look and commits one Warp step', async () => {
+  await call('init');
+  await call('newDoc', 10, 10, 8, null);
+  const p = (await call('placeSmart', 1, png(), false)).result as SmartDoc;
+  const b = (await call('transformBegin', p.created, 'layer', 'Warp', 2048, true)).result as { bounds: number[]; mesh: { points: [number, number][]; cols: number } };
+  assert.deepEqual(b.bounds, [3, 4, 4, 2]);
+  assert.equal(b.mesh.cols, 1);
+  assert.deepEqual(b.mesh.points[0], [3, 4]);
+  assert.deepEqual(b.mesh.points[15], [7, 6]);
+  const moved = { ...b.mesh, points: b.mesh.points.map(([x, y]) => [x + 2, y] as [number, number]), columnStops: [0, 1], rowStops: [0, 1], rows: 1 };
+  const c = (await call('transformCommit', JSON.stringify(moved))).result as SmartDoc;
+  assert.equal(c.undoLabel, 'Warp');
+  assert.ok(c.layers.find(l => l.id === p.created)!.smart!.warp, 'the mesh is stored on the smart object');
+  assert.deepEqual(await pixelAt(5, 4), [255, 0, 0, 255]);
+  assert.deepEqual(await pixelAt(3, 4), [0, 0, 0, 0]);
+});

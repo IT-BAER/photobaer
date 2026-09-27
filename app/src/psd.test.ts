@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { writePsd, readPsd, type Layer, type Psd, type PixelData } from 'ag-psd';
 import { initSync, Engine } from './engine-pkg/photobaer_engine.js';
 import { importPsd, exportPsd } from './psd.ts';
+import { tileIds } from './project.ts';
 
 initSync({ module: readFileSync(new URL('./engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
 
@@ -381,4 +382,57 @@ test('layer comps survive save, open with names, flags, visibility and position'
   assert.deepEqual(state(m.layer_comps[0]), [true, [10, 10]]);
   assert.deepEqual(state(m.layer_comps[1]), [false, [40, 15]]);
   back.free();
+});
+
+// A smart object whose source is a 3 x 2 PSB (as Convert to Smart Object writes it) placed at 2x.
+function psbSmartDoc() {
+  const src = new Engine(3, 2, 8);
+  src.set_tile_rgba8(1, 0, 0, new Uint8Array(256 * 256 * 4).map((_, i) => (i % 4 === 3 ? 255 : i % 4 === 0 ? 200 : 10)));
+  const psb = exportPsd(src, { psb: true }).bytes;
+  src.free();
+  assert.deepEqual([psb[4], psb[5]], [0, 2], 'a PSB header');
+  const e = new Engine(16, 16, 8);
+  const blob = e.blob_add(psb);
+  const id = e.place_smart(0, JSON.stringify({
+    name: 'Smart', link: { type: 'embedded', id: SO_ID }, source_blob: Number(blob), source_size: [3, 2], transform: [2, 0, 4, 0, 2, 4, 0, 0, 1],
+  }), new Uint8Array(3 * 2 * 4).map((_, i) => (i % 4 === 3 ? 255 : i % 4 === 0 ? 200 : 10)));
+  e.delete_node(1);
+  return { e, id, psb };
+}
+
+test('an imported smart object with a PSB source is live: its source pixels come from the embedded bytes', () => {
+  const { e, id, psb } = psbSmartDoc();
+  const { engine: again, warnings, sources } = importPsd(exportPsd(e).bytes);
+  assert.deepEqual(warnings, []);
+  assert.deepEqual(sources, [], 'a PSD/PSB source is parsed on import');
+  const n = (JSON.parse(again.manifest()) as { layers: M3Node[] }).layers[0];
+  assert.deepEqual([...again.tile_bytes(BigInt(n.smart.source.blob))], [...psb], 'the embedded bytes round-trip');
+  assert.equal(n.smart.source.tiles.length, 1, 'source tiles');
+  again.render_smart((n as M3Node & { id: number }).id);
+  assert.deepEqual([...again.flatten_tile_rgba8(0, 0)], [...e.flatten_tile_rgba8(0, 0)], 'a re-render from the imported source matches');
+  const back = importPsd(exportPsd(again).bytes).engine;
+  const m = (JSON.parse(back.manifest()) as { layers: M3Node[] }).layers[0];
+  assert.deepEqual([...back.tile_bytes(BigInt(m.smart.source.blob))], [...psb]);
+  e.free(); again.free(); back.free();
+  void id;
+});
+
+test('a smart object with a smart filter PSD cannot write refuses export naming the filter', () => {
+  const { e, id } = psbSmartDoc();
+  const m = JSON.parse(e.manifest());
+  m.layers[0].smart.filters = [{ id: 1, filter: { kind: 'gaussian_blur', params: { radius: 2 } }, enabled: true, opacity: 1, blend: 'normal', mask: null }];
+  const f = Engine.from_manifest(JSON.stringify(m));
+  for (const t of tileIds(JSON.stringify(m))) f.put_tile(BigInt(t), e.tile_bytes(BigInt(t)));
+  f.finish_load();
+  assert.throws(() => exportPsd(f), /Cannot export a changed placement with the gaussian blur smart filter/);
+  e.free(); f.free();
+  void id;
+});
+
+test('image-file smart object sources are left to the caller\'s decoder', () => {
+  const e = m3Doc();
+  const { engine, sources } = importPsd(exportPsd(e).bytes);
+  assert.equal(sources.length, 1);
+  assert.deepEqual([...sources[0].bytes], [137, 80, 78, 71, 1, 2, 3]);
+  e.free(); engine.free();
 });

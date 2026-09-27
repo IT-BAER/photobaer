@@ -4,6 +4,8 @@ mod transform;
 mod warp;
 #[path = "canvas.rs"]
 mod canvas;
+#[path = "smart.rs"]
+mod smart;
 #[cfg(test)]
 #[path = "doc_m3_tests.rs"]
 mod m3_tests;
@@ -3438,6 +3440,10 @@ impl Document {
         let src = self.node(id)?.pixel_tiles()?.clone();
         let moved = self.shift_tiles(&src, dx, dy, None);
         *self.node_mut(id)?.pixel_tiles_mut()? = moved;
+        if let Some((t, warp)) = self.smart_moved(id, &[1.0, 0.0, dx as f64, 0.0, 1.0, dy as f64, 0.0, 0.0, 1.0])? {
+            let s = self.node_mut(id)?.smart_mut();
+            (s.transform, s.warp) = (t, warp);
+        }
         let mask = self.node(id)?.mask.as_ref().map(|m| (m.default, m.tiles.clone()));
         if let Some((default, tiles)) = mask {
             let moved = self.shift_tiles(&tiles, dx, dy, Some(default));

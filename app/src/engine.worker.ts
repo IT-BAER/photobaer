@@ -2,7 +2,8 @@ import init, { Engine } from './engine-pkg/photobaer_engine.js';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
 import { packProject, unpackProject, tileIds } from './project.ts';
-import { importPsd, exportPsd } from './psd.ts';
+import { importPsd, exportPsd, compositeRgba, isPsdBytes, type PendingSource } from './psd.ts';
+import { getHandle, putHandle } from './links.ts';
 import { denormalize, isIdentity } from './transform/matrix.ts';
 import type { Blending, LayerStyle } from './layerStyle.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
@@ -56,6 +57,13 @@ export type DestructiveAdjustment =
   | { kind: 'replace_color'; params: { target_color: [number, number, number]; fuzziness: number; range: number; localized: boolean; hue: number; saturation: number; lightness: number } }
   | { kind: 'equalize' | 'auto_tone' | 'auto_contrast' | 'auto_color'; params: Record<string, never> };
 
+export type SmartLink = { type: 'embedded'; id: string } | { type: 'linked'; name: string; handle: string };
+// Engine warp mesh JSON: document-px control points over the source rect.
+export interface SmartWarp { cols: number; rows: number; points: [number, number][]; column_stops: number[]; row_stops: number[] }
+export interface SmartInfo {
+  link: SmartLink; source: { blob: number | null }; source_size: [number, number]; transform: number[];
+  warp: SmartWarp | null; filters: unknown[]; stack_mode: string | null;
+}
 export interface LayerNode {
   id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart';
   visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
@@ -63,6 +71,7 @@ export interface LayerNode {
   mask: { enabled: boolean; default: number } | null;
   content?: FillContent;
   adjustment?: Adjustment;
+  smart?: SmartInfo;
   style: LayerStyle | null;
   blending: Blending;
   children?: LayerNode[];
@@ -80,6 +89,8 @@ export interface DocInfo {
   patterns: { id: string; name: string }[];
   layerComps: { id: number; name: string; layerCount: number }[];
   globalLight: GlobalLight;
+  // Edit Contents (D6): the names of the documents this one is nested in, outermost first.
+  parents: string[];
 }
 export interface GlobalLight { angle: number; altitude: number }
 export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?: number; w?: number; h?: number; points?: number[] };
@@ -146,11 +157,16 @@ const normLight = (l: GlobalLight): GlobalLight => ({ angle: ((l.angle % 360) + 
 let previewOpen = false;
 let previewError: string | null = null;
 
-const history = new History({
-  snapshot: () => eng!.snapshot(),
-  restore: id => eng!.restore(id),
-  drop: id => eng!.drop_snapshot(id),
+const historyOf = (e: Engine) => new History({
+  snapshot: () => e.snapshot(),
+  restore: id => e.restore(id),
+  drop: id => e.drop_snapshot(id),
 });
+let history = new History({ snapshot: () => need().snapshot(), restore: id => need().restore(id), drop: id => need().drop_snapshot(id) });
+// Edit Contents sessions (D6): each open source document's parent, innermost last. `id` is the smart object
+// being edited in the parent, `saved` the nested document's version at its last write-back.
+interface Parent { eng: Engine; history: History; name: string; id: number; saved: number }
+const parents: Parent[] = [];
 
 const emit = (state: AutosaveState, detail?: string) => {
   lastState = state;
@@ -180,6 +196,7 @@ function info(): DocInfo | null {
     patterns: ch.patterns,
     layerComps: ch.layer_comps.map(c => ({ id: c.id, name: c.name, layerCount: c.layer_count })),
     globalLight: ch.global_light,
+    parents: parents.map(p => p.name),
   };
 }
 
@@ -216,10 +233,17 @@ function need() {
   return eng;
 }
 
+// Drops every open Edit Contents parent (a new or closed document replaces the whole stack).
+function dropParents() {
+  for (const p of parents.splice(0)) { p.history.clear(); p.eng.free(); }
+}
+
 function adopt(e: Engine, n: string, restored = false) {
   history.clear();
   eng?.free();
+  dropParents();
   eng = e;
+  history = historyOf(e);
   name = n;
   docId++;
   version++;
@@ -329,8 +353,9 @@ function scheduleSave(ms: number) {
   if (!autosave) return;
   clearTimeout(timer);
   timer = setTimeout(() => {
-    // A transform session hides its source pixels; commit and cancel schedule the next save.
-    if (transformSession) return;
+    // A transform session hides its source pixels; commit and cancel schedule the next save. An Edit
+    // Contents session never autosaves: the autosave keeps the outermost document.
+    if (transformSession || parents.length) return;
     if (saving) { again = true; return; }
     saving = runSave().finally(() => {
       saving = null;
@@ -440,16 +465,17 @@ function topLevelAncestor(tree: LayerNode[], id: number): number {
   return id;
 }
 
-// Every pixel-layer id under `id` (itself included), depth-first.
+// Every pixel-layer and smart-object id under `id` (itself included), depth-first.
 function collectPixelIds(tree: LayerNode[], id: number): number[] {
-  const flatten = (nodes: LayerNode[]): number[] => nodes.flatMap(n => (n.kind === 'pixel' ? [n.id] : []).concat(n.children ? flatten(n.children) : []));
+  const moves = (n: LayerNode) => n.kind === 'pixel' || n.kind === 'smart';
+  const flatten = (nodes: LayerNode[]): number[] => nodes.flatMap(n => (moves(n) ? [n.id] : []).concat(n.children ? flatten(n.children) : []));
   const find = (nodes: LayerNode[]): LayerNode | undefined => {
     for (const n of nodes) { if (n.id === id) return n; const h = n.children && find(n.children); if (h) return h; }
     return undefined;
   };
   const node = find(tree);
   if (!node) return [];
-  return node.kind === 'pixel' ? [node.id] : flatten(node.children ?? []);
+  return moves(node) ? [node.id] : flatten(node.children ?? []);
 }
 
 // Sampled tips and patterns live inside an Engine instance, which a new document replaces. The worker keeps them
@@ -504,6 +530,123 @@ function removeAsset(id: number) {
 
 const previewEngine = () => eng ?? (scratch ??= new Engine(1, 1, 8));
 
+// ---------- smart objects (docs/M3.md section 6) ----------
+
+const uuid = () => crypto.randomUUID();
+
+function findNode(e: Engine, id: number): LayerNode | undefined {
+  const walk = (nodes: LayerNode[]): LayerNode | undefined => {
+    for (const n of nodes) { if (n.id === id) return n; const c = n.children && walk(n.children); if (c) return c; }
+    return undefined;
+  };
+  return walk(JSON.parse(e.layers_json()) as LayerNode[]);
+}
+
+function smartOf(e: Engine, id: number): { node: LayerNode; smart: SmartInfo } {
+  const node = findNode(e, id);
+  if (!node?.smart) throw new Error('Select a smart object first.');
+  return { node, smart: node.smart };
+}
+
+// Straight RGBA8 of an image file (a PSD/PSB: its flattened document).
+async function decodeSource(bytes: Uint8Array): Promise<{ w: number; h: number; rgba: Uint8Array }> {
+  if (isPsdBytes(bytes)) {
+    const { engine } = importPsd(bytes, { psb: true });
+    try { return { w: engine.width(), h: engine.height(), rgba: compositeRgba(engine) }; } finally { engine.free(); }
+  }
+  const bmp = await createImageBitmap(new Blob([bytes as Uint8Array<ArrayBuffer>]), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+  const w = bmp.width, h = bmp.height;
+  if (!w || !h) { bmp.close(); throw new Error('That file has no pixels to place.'); }
+  const ctx = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(bmp, 0, 0);
+  bmp.close();
+  const d = ctx.getImageData(0, 0, w, h).data;
+  return { w, h, rgba: new Uint8Array(d.buffer, d.byteOffset, d.length) };
+}
+
+// Imported smart objects whose sources are image files get their source pixels here (no undo step).
+async function loadSources(e: Engine, sources: PendingSource[], warn: (m: string) => void) {
+  for (const { id, bytes } of sources) {
+    try {
+      e.load_smart_source(id, (await decodeSource(bytes)).rgba);
+    } catch {
+      warn('smart object sources that could not be read were not imported');
+    }
+  }
+}
+
+// Writes straight RGBA8 (w x h) into pixel layer `id` of `e`.
+function putRgba(e: Engine, id: number, w: number, h: number, rgba: Uint8Array) {
+  tileLoop(w, h, (tx, ty) => {
+    const buf = new Uint8Array(256 * 256 * 4);
+    const cw = Math.min(256, w - tx * 256);
+    for (let y = 0; y < Math.min(256, h - ty * 256); y++) {
+      const s = ((ty * 256 + y) * w + tx * 256) * 4;
+      buf.set(rgba.subarray(s, s + cw * 4), y * 256 * 4);
+    }
+    e.set_tile_rgba8(id, tx, ty, buf);
+  });
+}
+
+const unavailable = (name: string) => new Error(`The linked source is unavailable: ${name}. Relink the Smart Object to an existing file.`);
+
+async function readLinked(link: SmartLink & { type: 'linked' }): Promise<Uint8Array> {
+  const h = await getHandle(link.handle).catch(() => null);
+  if (!h) throw unavailable(link.name);
+  try { return new Uint8Array(await (await h.getFile()).arrayBuffer()); } catch { throw unavailable(link.name); }
+}
+
+// The placed file's bytes, unmodified: the embedded blob or the linked file.
+async function sourceBytes(e: Engine, s: SmartInfo): Promise<Uint8Array | null> {
+  if (s.link.type === 'linked') return readLinked(s.link);
+  return s.source.blob === null ? null : e.tile_bytes(BigInt(s.source.blob));
+}
+
+async function writeHandle(h: FileSystemFileHandle, bytes: Uint8Array) {
+  const w = await (h as unknown as { createWritable(): Promise<{ write(b: Uint8Array): Promise<void>; close(): Promise<void> }> }).createWritable();
+  await w.write(bytes);
+  await w.close();
+}
+
+const RASTER: Record<string, 'image/png' | 'image/jpeg' | 'image/webp'> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+
+function extOf(b: Uint8Array): string {
+  if (isPsdBytes(b)) return b[5] === 2 ? 'psb' : 'psd';
+  if (b[0] === 0x89 && b[1] === 0x50) return 'png';
+  if (b[0] === 0xff && b[1] === 0xd8) return 'jpg';
+  if (b[0] === 0x52 && b[8] === 0x57) return 'webp';
+  return 'bin';
+}
+
+// The warp session source of a smart object: the mesh parameter box B (the placement's bounding box), the source
+// drawn axis-aligned into B as the preview, and the current look as a mesh (the stored warp, else the transform).
+function smartWarpStart(e: Engine, id: number, maxSide: number) {
+  const s = smartOf(e, id).smart, [sw, sh] = s.source_size, t = s.transform;
+  const at = (x: number, y: number): [number, number] => {
+    const d = t[6] * x + t[7] * y + t[8];
+    return [(t[0] * x + t[1] * y + t[2]) / d, (t[3] * x + t[4] * y + t[5]) / d];
+  };
+  const q = [at(0, 0), at(sw, 0), at(sw, sh), at(0, sh)];
+  const x0 = Math.min(...q.map(p => p[0])), y0 = Math.min(...q.map(p => p[1]));
+  const bounds: Box = [x0, y0, Math.max(...q.map(p => p[0])) - x0, Math.max(...q.map(p => p[1])) - y0];
+  const snap = e.snapshot();
+  let lifted;
+  try {
+    e.set_smart_placement(id, Float64Array.of(bounds[2] / sw, 0, x0, 0, bounds[3] / sh, y0, 0, 0, 1), '');
+    const found = e.layer_bounds(id) as Box | null;
+    if (!found) throw new Error('There are no pixels to warp.');
+    lifted = liftPreview(e, id, Array.from(found) as Box, false, maxSide);
+  } finally {
+    e.restore(snap);
+    e.drop_snapshot(snap);
+  }
+  const w = s.warp;
+  const mesh = w
+    ? { cols: w.cols, rows: w.rows, points: w.points, columnStops: w.column_stops, rowStops: w.row_stops }
+    : { cols: 1, rows: 1, points: Array.from({ length: 16 }, (_, k) => at((k % 4) * sw / 3, Math.floor(k / 4) * sh / 3)), columnStops: [0, 1], rowStops: [0, 1] };
+  return { bounds, ...lifted, mesh };
+}
+
 const api = {
   async init() {
     // A UI hot reload calls init again; the engine and the autosave lock are already ours.
@@ -548,7 +691,8 @@ const api = {
     }
     if (lower.endsWith('.psb')) throw new Error('PSB files are not supported yet');
     if (lower.endsWith('.psd')) {
-      const { engine, warnings } = importPsd(new Uint8Array(await file.arrayBuffer()));
+      const { engine, warnings, sources } = importPsd(new Uint8Array(await file.arrayBuffer()));
+      await loadSources(engine, sources, m => { if (!warnings.includes(m)) warnings.push(m); });
       return { ...adopt(engine, file.name.replace(/\.psd$/i, '')), warnings };
     }
     const bmp = await createImageBitmap(file, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
@@ -821,7 +965,7 @@ const api = {
     const walk = (nodes: LayerNode[], excluded: boolean) => {
       for (const n of nodes) {
         const skip = excluded || n.id === excludeId;
-        if (!skip && n.visible && n.kind === 'pixel') {
+        if (!skip && n.visible && (n.kind === 'pixel' || n.kind === 'smart')) {
           const b = e.layer_bounds(n.id) as [number, number, number, number] | null;
           if (b) rects.push(b);
         }
@@ -859,7 +1003,7 @@ const api = {
     const ox = px - tx * 256, oy = py - ty * 256;
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     for (const n of visibleTopDown(tree)) {
-      if (n.kind !== 'pixel') continue;
+      if (n.kind !== 'pixel' && n.kind !== 'smart') continue;
       const buf = layerTile(e, nodeTiles(e, n.id), tx, ty);
       if (buf && buf[(oy * 256 + ox) * 4 + 3] > 0) return group ? topLevelAncestor(tree, n.id) : n.id;
     }
@@ -954,7 +1098,8 @@ const api = {
   // Opens a transform session on the layer, its selected pixels or the selection. The preview
   // source comes back as straight RGBA8 at scale f (longest side <= maxSide) over doc rect
   // (x, y, w, h) / f; the live document then shows the layer without the source.
-  transformBegin(id: number, kind: TransformKind, label: string, maxSide = 2048) {
+  // `warp` opens a smart object's warp: bounds are its mesh parameter box and `mesh` its current look.
+  transformBegin(id: number, kind: TransformKind, label: string, maxSide = 2048, warp = false) {
     const e = need();
     const sel = (JSON.parse(e.channels_json()) as { selection: { bounds: Box | null } | null }).selection;
     if (kind !== 'layer' && !sel) throw new Error('Make a selection first.');
@@ -962,7 +1107,8 @@ const api = {
     const found = kind === 'layer' ? layer : kind === 'pixels' ? intersect(sel!.bounds, layer) : sel!.bounds;
     const bounds = found && Array.from(found) as Box;
     if (!bounds) throw new Error(kind === 'selection' ? 'Make a selection first.' : 'There are no pixels to transform.');
-    const { image, data } = kind === 'selection' ? { image: null, data: null } : liftPreview(e, id, bounds, kind === 'pixels', maxSide);
+    const smart = warp && kind === 'layer' && findNode(e, id)?.kind === 'smart' ? smartWarpStart(e, id, maxSide) : null;
+    const { image, data } = smart ?? (kind === 'selection' ? { image: null, data: null } : liftPreview(e, id, bounds, kind === 'pixels', maxSide));
     history.begin(label);
     try {
       if (kind !== 'selection') e.clear(id, 'pixels');
@@ -973,7 +1119,7 @@ const api = {
     }
     transformSession = { id, kind, hidden: e.snapshot(), refined: null, base: null, label: null };
     version++;
-    return { ...info()!, bounds, image, data };
+    return { ...info()!, bounds: smart?.bounds ?? bounds, image, data, mesh: smart?.mesh ?? null };
   },
 
   // Renders the session's real result (bicubic) into the live document.
@@ -1047,14 +1193,17 @@ const api = {
     if (!s) throw new Error('The transform was cancelled.');
     if (s.kind === 'selection') throw new Error('Warp bends layer pixels, not the selection outline.');
     if (s.kind !== 'layer') throw new Error(WARP_LAYER_ONLY);
-    if (collectPixelIds(JSON.parse(e.layers_json()), s.id)[0] !== s.id) throw new Error('Only pixel layers can be warped.');
+    const kind = findNode(e, s.id)?.kind;
+    if (kind !== 'pixel' && kind !== 'smart') throw new Error('Only pixel layers and smart objects can be warped.');
     let base: number | null = null;
     try {
       restoreBase(e, s.base);
       if (m) applyTransform(e, s.kind, s.id, m, 'bicubic');
       const found = e.layer_bounds(s.id) as Box | null;
       if (!found) throw new Error('There are no pixels to warp.');
-      const bounds = Array.from(found) as Box, lifted = liftPreview(e, s.id, bounds, false, maxSide);
+      const smart = kind === 'smart' ? smartWarpStart(e, s.id, maxSide) : null;
+      const bounds = smart?.bounds ?? Array.from(found) as Box;
+      const lifted = smart ?? { ...liftPreview(e, s.id, bounds, false, maxSide), mesh: null };
       if (m) base = e.snapshot();
       e.clear(s.id, 'pixels');
       e.drop_snapshot(s.hidden);
@@ -1395,6 +1544,216 @@ const api = {
   patternAdd(w: number, h: number, data: Uint8Array, channels: number) { return addAsset(previewEngine(), { kind: 'pattern', w, h, data, channels }); },
   patternRemove(id: number) { removeAsset(id); },
 
+  // File > Place Embedded / Place Linked: fit down only, centred, one step, no transform session. A linked
+  // placement stores the file handle (D7) under a new link id.
+  async placeSmart(above: number, file: File, linked: boolean, handle: FileSystemFileHandle | null = null) {
+    const e = need();
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const src = await decodeSource(bytes);
+    const W = e.width(), H = e.height(), f = Math.min(1, W / src.w, H / src.h);
+    const transform = [f, 0, Math.round((W - f * src.w) / 2), 0, f, Math.round((H - f * src.h) / 2), 0, 0, 1];
+    let link: SmartLink = { type: 'embedded', id: uuid() };
+    if (linked) {
+      if (!handle) throw new Error('Place Linked needs a file from the file picker.');
+      link = { type: 'linked', name: file.name, handle: uuid() };
+      await putHandle(link.handle, handle);
+    }
+    let created = 0;
+    history.run(linked ? 'Place Linked' : 'Place Embedded', () => {
+      const blob = linked ? null : Number(e.blob_add(bytes));
+      const json = { name: file.name.replace(/\.[^.]+$/, ''), link, source_blob: blob, source_size: [src.w, src.h], transform };
+      created = e.place_smart(above, JSON.stringify(json), src.rgba);
+    });
+    return { ...changed(), created };
+  },
+
+  // Sibling layers into one smart object; its source bytes are a PSB of the layers (D5).
+  convertToSmart(ids: number[]) {
+    const e = need();
+    const nodes = ids.map(id => findNode(e, id));
+    if (!nodes.length || nodes.some(n => !n)) throw new Error('Select a layer to convert.');
+    const used = new Set<string>();
+    const walk = (ns: LayerNode[]) => { for (const n of ns) { used.add(n.name); if (n.children) walk(n.children); } };
+    walk(JSON.parse(e.layers_json()));
+    const name = nodes.length === 1 ? nodes[0]!.name : used.has('Group') ? nextName('Group') : 'Group';
+    const sub = e.extract_document(Uint32Array.from(ids));
+    let bytes: Uint8Array | null = null;
+    // A source PSD cannot hold everything (16-bit, smart filters): the source pixels still render and edit.
+    try { bytes = exportPsd(sub, { psb: true }).bytes; } catch { bytes = null; } finally { sub.free(); }
+    let created = 0;
+    history.run('Convert to Smart Object', () => {
+      const blob = bytes ? Number(e.blob_add(bytes)) : null;
+      created = e.convert_to_smart(Uint32Array.from(ids), JSON.stringify({ name, link_id: uuid(), source_blob: blob }));
+    });
+    return { ...changed(), created };
+  },
+
+  smartViaCopy(id: number) {
+    const e = need();
+    let created = 0;
+    history.run('New Smart Object via Copy', () => { created = e.smart_via_copy(id, uuid()); });
+    return { ...changed(), created };
+  },
+
+  // Layer > Smart Objects > Rasterize and Layer > Rasterize > Smart Object.
+  rasterizeSmart(id: number, label: string) {
+    const e = need();
+    history.run(label, () => e.rasterize_smart(id));
+    return changed();
+  },
+
+  // A linked object becomes embedded, since the new bytes come from another file.
+  async replaceContents(id: number, file: File) {
+    const e = need(), s = smartOf(e, id).smart;
+    const bytes = new Uint8Array(await file.arrayBuffer()), src = await decodeSource(bytes);
+    history.run('Replace Contents', () => {
+      const link = s.link.type === 'linked' ? { type: 'embedded', id: uuid() } : undefined;
+      const json = { link, source_blob: Number(e.blob_add(bytes)), source_size: [src.w, src.h] };
+      e.replace_smart_contents(id, JSON.stringify(json), src.rgba);
+    });
+    return changed();
+  },
+
+  // The original placed bytes, unmodified, and a file name for them.
+  async exportContents(id: number) {
+    const e = need(), { node, smart } = smartOf(e, id);
+    const bytes = await sourceBytes(e, smart);
+    if (!bytes) throw new Error('This Smart Object has no source file to export. Reopen the original PSD or use Replace Contents.');
+    const name = smart.link.type === 'linked' ? smart.link.name : `${node.name}.${extOf(bytes)}`;
+    return { name, blob: new Blob([bytes as Uint8Array<ArrayBuffer>]) };
+  },
+
+  // Writes the embedded bytes to `handle` and links to it.
+  async convertToLinked(id: number, handle: FileSystemFileHandle) {
+    const e = need(), s = smartOf(e, id).smart;
+    if (s.link.type === 'linked') throw new Error('This Smart Object is already linked.');
+    const bytes = await sourceBytes(e, s);
+    if (!bytes) throw new Error('This Smart Object has no source file to link.');
+    await writeHandle(handle, bytes);
+    const key = uuid();
+    await putHandle(key, handle);
+    history.run('Convert to Linked', () => e.set_smart_link(id, JSON.stringify({ link: { type: 'linked', name: handle.name, handle: key }, source_blob: null })));
+    return changed();
+  },
+
+  async convertToEmbedded(id: number) {
+    const e = need(), s = smartOf(e, id).smart;
+    if (s.link.type !== 'linked') throw new Error('This Smart Object is already embedded.');
+    const bytes = await readLinked(s.link);
+    history.run('Convert to Embedded', () => e.set_smart_link(id, JSON.stringify({ link: { type: 'embedded', id: uuid() }, source_blob: Number(e.blob_add(bytes)) })));
+    return changed();
+  },
+
+  // Links to another file; the placement keeps its corners like Replace Contents.
+  async relinkToFile(id: number, file: File, handle: FileSystemFileHandle) {
+    const e = need();
+    smartOf(e, id);
+    const src = await decodeSource(new Uint8Array(await file.arrayBuffer()));
+    const link = { type: 'linked', name: file.name, handle: uuid() };
+    await putHandle(link.handle, handle);
+    history.run('Relink Smart Object', () => e.replace_smart_contents(id, JSON.stringify({ link, source_blob: null, source_size: [src.w, src.h] }), src.rgba));
+    return changed();
+  },
+
+  // Rereads linked files: `id`'s, or every linked smart object's (null), as one step.
+  async updateModified(id: number | null) {
+    const e = need();
+    const linked: LayerNode[] = [];
+    const walk = (ns: LayerNode[]) => { for (const n of ns) { if (n.smart?.link.type === 'linked') linked.push(n); if (n.children) walk(n.children); } };
+    walk(JSON.parse(e.layers_json()));
+    const pick = id === null ? linked : linked.filter(n => n.id === id);
+    if (!pick.length) throw new Error(id === null ? 'There are no linked smart objects.' : 'Update Modified Content works on linked smart objects.');
+    const seen = new Set<string>(), jobs: { id: number; w: number; h: number; rgba: Uint8Array }[] = [];
+    for (const n of pick) {
+      const link = n.smart!.link as SmartLink & { type: 'linked' };
+      if (seen.has(link.handle)) continue;
+      seen.add(link.handle);
+      jobs.push({ id: n.id, ...await decodeSource(await readLinked(link)) });
+    }
+    history.run('Update Smart Object Contents', () => {
+      for (const j of jobs) e.update_smart_source(j.id, JSON.stringify({ source_blob: null, source_size: [j.w, j.h] }), j.rgba);
+    });
+    return changed();
+  },
+
+  // Stored only (D11); null is None.
+  setStackMode(id: number, mode: string | null) {
+    const e = need();
+    history.run('Stack Mode', () => e.set_stack_mode(id, JSON.stringify(mode)));
+    return changed();
+  },
+
+  // Edit Contents (D6): the source opens in place of this document; its parent waits on a stack.
+  async editContents(id: number) {
+    const e = need(), { node, smart } = smartOf(e, id);
+    const bytes = await sourceBytes(e, smart);
+    let sub: Engine;
+    if (bytes && isPsdBytes(bytes)) {
+      const r = importPsd(bytes, { psb: true });
+      sub = r.engine;
+      await loadSources(sub, r.sources, () => {});
+    } else if (bytes) {
+      const src = await decodeSource(bytes);
+      sub = new Engine(src.w, src.h, 8);
+      putRgba(sub, BACKGROUND, src.w, src.h, src.rgba);
+    } else {
+      throw new Error('This Smart Object has no embedded source file. Use Replace Contents or reopen the original PSD.');
+    }
+    parents.push({ eng: e, history, name, id, saved: 0 });
+    eng = sub;
+    history = historyOf(sub);
+    name = node.name;
+    docId++;
+    version++;
+    selGen++;
+    parents.at(-1)!.saved = version;
+    return info()!;
+  },
+
+  // Writes the open contents back to every smart object in the parent sharing the source, as one parent step.
+  async smartEditSave() {
+    const p = parents.at(-1);
+    if (!p) throw new Error('No smart object contents are open.');
+    const sub = need();
+    const node = findNode(p.eng, p.id);
+    if (!node?.smart) throw new Error('The original Smart Object was removed or replaced. Use Save As to keep these contents.');
+    const link = node.smart.link;
+    let bytes: Uint8Array;
+    if (link.type === 'embedded') bytes = exportPsd(sub, { psb: true }).bytes;
+    else {
+      const ext = (link.name.split('.').pop() ?? '').toLowerCase();
+      if (ext === 'psd' || ext === 'psb') bytes = exportPsd(sub, { psb: ext === 'psb' }).bytes;
+      else if (RASTER[ext]) bytes = new Uint8Array(await (await encodeFlattened(sub, RASTER[ext])).arrayBuffer());
+      else throw new Error(`Cannot save linked .${ext} contents. Use Save As to keep your edits.`);
+      const h = await getHandle(link.handle).catch(() => null);
+      if (!h) throw unavailable(link.name);
+      try { await writeHandle(h, bytes); } catch { throw new Error('Could not save the linked source file.'); }
+    }
+    const rgba = compositeRgba(sub), size = [sub.width(), sub.height()];
+    p.history.run('Update Smart Object Contents', () => {
+      const blob = link.type === 'embedded' ? Number(p.eng.blob_add(bytes)) : null;
+      p.eng.update_smart_source(p.id, JSON.stringify({ source_blob: blob, source_size: size }), rgba);
+    });
+    p.saved = version;
+    return info()!;
+  },
+
+  // Writes back unsaved changes, then the parent returns with its history.
+  async smartEditClose() {
+    const p = parents.at(-1);
+    if (!p) throw new Error('No smart object contents are open.');
+    if (version !== p.saved) await api.smartEditSave();
+    parents.pop();
+    history.clear();
+    eng!.free();
+    eng = p.eng;
+    history = p.history;
+    name = p.name;
+    docId++;
+    selGen++;
+    return changed();
+  },
+
   undo() { if (history.undo()) { selGen++; return changed(); } return info(); },
   redo() { if (history.redo()) { selGen++; return changed(); } return info(); },
   historyGoto(n: number) { need(); if (history.goto(n)) { selGen++; return changed(); } return info(); },
@@ -1448,6 +1807,7 @@ const api = {
   },
 
   async closeDoc() {
+    if (parents.length) return api.smartEditClose();
     history.clear();
     eng?.free();
     eng = null;

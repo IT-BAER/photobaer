@@ -37,7 +37,7 @@ fn collect_ids(nodes: &[Node], out: &mut Vec<u32>) {
 }
 
 // Row-major 3x3 product a * b.
-fn mul3(a: &[f64; 9], b: &[f64; 9]) -> [f64; 9] {
+pub(super) fn mul3(a: &[f64; 9], b: &[f64; 9]) -> [f64; 9] {
     let mut o = [0.0; 9];
     for r in 0..3 {
         for c in 0..3 {
@@ -47,12 +47,12 @@ fn mul3(a: &[f64; 9], b: &[f64; 9]) -> [f64; 9] {
     o
 }
 
-// Composes every smart object's placement with `m` (old canvas px -> new canvas px).
+// Composes every smart object's placement (and warp) with `m` (old canvas px -> new canvas px).
 fn remap_smart(nodes: &mut [Node], m: &[f64; 9]) {
     for n in nodes {
         match &mut n.kind {
             Kind::Group(ch) => remap_smart(ch, m),
-            Kind::Smart(s) => s.transform = mul3(m, &s.transform),
+            Kind::Smart(s) => (s.transform, s.warp) = super::smart::moved(s, m),
             _ => {}
         }
     }

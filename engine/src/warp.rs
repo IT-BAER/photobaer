@@ -3,7 +3,7 @@
 
 use super::transform::{check_area, tile_rect};
 use super::*;
-use crate::resample::{Interp, Resampler};
+use crate::resample::{Interp, Plane, Resampler};
 
 const LIMIT: &str = "The warped image exceeds the rendering limit.";
 const MAX_DEST_AREA: f64 = 1e8;
@@ -34,6 +34,11 @@ fn locate(stops: &[f64], s: f64) -> (usize, f64) {
 impl Mesh {
     fn parse(json: &str) -> Result<Mesh, String> {
         let m: Mesh = serde_json::from_str(json).map_err(|e| format!("invalid warp mesh: {e}"))?;
+        m.check()
+    }
+
+    fn check(self) -> Result<Mesh, String> {
+        let m = self;
         let stops_ok = |st: &[f64], n: usize| {
             st.len() == n + 1 && st[0] == 0.0 && st[n] == 1.0 && st.windows(2).all(|w| w[0] < w[1])
         };
@@ -47,6 +52,21 @@ impl Mesh {
             return Err("invalid warp mesh: stops must rise from 0 to 1, one per patch boundary".into());
         }
         Ok(m)
+    }
+
+    fn from_warp(w: &WarpMesh) -> Result<Mesh, String> {
+        let (cols, rows) = (w.cols as usize, w.rows as usize);
+        Mesh { cols, rows, points: w.points.clone(), column_stops: w.column_stops.clone(), row_stops: w.row_stops.clone() }.check()
+    }
+
+    fn to_warp(&self) -> WarpMesh {
+        WarpMesh {
+            cols: self.cols as u32,
+            rows: self.rows as u32,
+            points: self.points.clone(),
+            column_stops: self.column_stops.clone(),
+            row_stops: self.row_stops.clone(),
+        }
     }
 
     // The mesh point at global parameters (s, t): Bernstein cubic in u on the patch's 4 rows,
@@ -68,6 +88,11 @@ impl Mesh {
         }
         (x, y)
     }
+}
+
+/// A warp mesh from `warp_layer` JSON (camelCase keys), validated.
+pub(super) fn parse_warp(json: &str) -> Result<WarpMesh, String> {
+    Mesh::parse(json).map(|m| m.to_warp())
 }
 
 fn cross(o: (f64, f64), p: (f64, f64), q: (f64, f64)) -> f64 {
@@ -143,18 +168,20 @@ fn cover(tris: &[Tri], bin: &[u32], ox: i32, oy: i32) -> Vec<Option<(f64, f64, f
     map
 }
 
-impl Document {
-    /// Warps a layer's pixels and mask by a mesh (JSON of `Mesh`) over the layer's tight bounds.
-    /// Dest pixels no triangle covers become transparent (the mask default for the mask).
-    pub fn warp_layer(&mut self, id: u32, mesh_json: &str, interp: Interp) -> Result<(), String> {
-        self.check_idle()?;
-        self.check_pixel_edit(id)?;
-        if self.node(id)?.locks.position {
-            return Err("layer position is locked".into());
-        }
-        let mesh = Mesh::parse(mesh_json)?;
-        let Some(b) = self.layer_bounds(id)? else { return Ok(()) };
-        check_area(b)?;
+// A mesh tessellated into dest triangles, binned by the dest tiles their bounds touch.
+struct Tess {
+    rect: [i32; 4],
+    tris: Vec<Tri>,
+    // The largest source px per dest px of any triangle.
+    most: f64,
+    bins: Vec<Vec<u32>>,
+    t0: (i32, i32),
+    tw: usize,
+}
+
+impl Tess {
+    // Mesh parameter (s, t) reads source point (b.x + s b.w, b.y + t b.h) and lands at mesh(s, t).
+    fn new(mesh: &Mesh, b: [f64; 4]) -> Result<Tess, String> {
         let (mut lo, mut hi) = ((f64::INFINITY, f64::INFINITY), (f64::NEG_INFINITY, f64::NEG_INFINITY));
         for p in &mesh.points {
             lo = (lo.0.min(p[0]), lo.1.min(p[1]));
@@ -176,8 +203,7 @@ impl Document {
         for j in 0..=nv {
             for i in 0..=nu {
                 let (s, t) = (i as f64 / nu as f64, j as f64 / nv as f64);
-                let src = (b[0] as f64 + s * b[2] as f64, b[1] as f64 + t * b[3] as f64);
-                vert.push((mesh.eval(s, t), src));
+                vert.push((mesh.eval(s, t), (b[0] + s * b[2], b[1] + t * b[3])));
             }
         }
         let mut tris = Vec::with_capacity(nu * nv * 2);
@@ -207,36 +233,66 @@ impl Document {
                 }
             }
         }
-        let bin = |ox: i32, oy: i32| &bins[(t(oy) - ty0) as usize * tw + (t(ox) - tx0) as usize];
+        Ok(Tess { rect, tris, most, bins, t0: (tx0, ty0), tw })
+    }
 
-        let plane = self.rgba_plane(self.node(id)?.pixel_tiles()?, b, None);
-        let rs = Resampler::pyramid(plane, interp, 0.0, most);
-        let pixels = self.render_tiles_with(rect, None, false, |ox, oy, buf| {
-            buf.fill(0.0);
+    fn bin(&self, ox: i32, oy: i32) -> &[u32] {
+        let t = |v: i32| v.div_euclid(TILE as i32);
+        &self.bins[(t(oy) - self.t0.1) as usize * self.tw + (t(ox) - self.t0.0) as usize]
+    }
+}
+
+impl Document {
+    // Dest tiles of `tess` sampled from `rs`; pixels no triangle covers get the edge value.
+    fn render_tess(&mut self, tess: &Tess, rs: &Resampler, mask_default: Option<u32>) -> Result<Tiles, String> {
+        let edge = mask_default.map_or(0.0, |d| d as f32 / self.max());
+        let ch = if mask_default.is_some() { 1 } else { 4 };
+        self.render_tiles_with(tess.rect, mask_default, false, |ox, oy, buf| {
+            buf.fill(edge);
             let mut hit = false;
-            for (p, at) in cover(&tris, bin(ox, oy), ox, oy).into_iter().enumerate() {
+            for (p, at) in cover(&tess.tris, tess.bin(ox, oy), ox, oy).into_iter().enumerate() {
                 if let Some((sx, sy, m)) = at {
-                    hit |= rs.sample_point(sx, sy, m, &mut buf[p * 4..p * 4 + 4]);
+                    hit |= rs.sample_point(sx, sy, m, &mut buf[p * ch..p * ch + ch]);
                 }
             }
             hit
-        })?;
+        })
+    }
+
+    /// Renders premultiplied `plane` through `w`, whose parameter square spans the plane rect `b`.
+    pub(super) fn mesh_render(&mut self, w: &WarpMesh, plane: Plane, b: [f64; 4], interp: Interp) -> Result<Tiles, String> {
+        let tess = Tess::new(&Mesh::from_warp(w)?, b)?;
+        let rs = Resampler::pyramid(plane, interp, 0.0, tess.most);
+        self.render_tess(&tess, &rs, None)
+    }
+
+    /// Warps a layer's pixels and mask by a mesh (JSON of `Mesh`) over the layer's tight bounds.
+    /// Dest pixels no triangle covers become transparent (the mask default for the mask). A smart
+    /// object stores the mesh (its parameter square spans the source) and renders from its source.
+    pub fn warp_layer(&mut self, id: u32, mesh_json: &str, interp: Interp) -> Result<(), String> {
+        self.check_idle()?;
+        self.check_pixel_edit(id)?;
+        if self.node(id)?.locks.position {
+            return Err("layer position is locked".into());
+        }
+        let mesh = Mesh::parse(mesh_json)?;
+        if let Kind::Smart(s) = &self.node(id)?.kind {
+            let t = s.transform;
+            return self.set_smart_placement(id, &t, Some(mesh.to_warp()));
+        }
+        let Some(b) = self.layer_bounds(id)? else { return Ok(()) };
+        check_area(b)?;
+        let tess = Tess::new(&mesh, b.map(|v| v as f64))?;
+        let plane = self.rgba_plane(self.node(id)?.pixel_tiles()?, b, None);
+        let rs = Resampler::pyramid(plane, interp, 0.0, tess.most);
+        let pixels = self.render_tess(&tess, &rs, None)?;
         drop(rs);
         let mask = self.node(id)?.mask.as_ref().map(|mk| (mk.default, mk.tiles.clone()));
         let mask = match mask.and_then(|(def, tiles)| tile_rect(&tiles).map(|r| (def, tiles, r))) {
             Some((def, tiles, r)) => {
                 let edge = def as f32 / self.max();
-                let rs = Resampler::pyramid(self.mask_plane(&tiles, def, r), interp, edge, most);
-                Some(self.render_tiles_with(rect, Some(def), false, |ox, oy, buf| {
-                    buf.fill(edge);
-                    let mut hit = false;
-                    for (p, at) in cover(&tris, bin(ox, oy), ox, oy).into_iter().enumerate() {
-                        if let Some((sx, sy, m)) = at {
-                            hit |= rs.sample_point(sx, sy, m, &mut buf[p..p + 1]);
-                        }
-                    }
-                    hit
-                })?)
+                let rs = Resampler::pyramid(self.mask_plane(&tiles, def, r), interp, edge, tess.most);
+                Some(self.render_tess(&tess, &rs, Some(def))?)
             }
             None => None,
         };

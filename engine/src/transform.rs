@@ -207,14 +207,20 @@ impl Document {
         if self.node(id)?.locks.position {
             return Err("layer position is locked".into());
         }
-        let pixels = match self.layer_bounds(id)? {
-            Some(b) => {
+        // A smart object re-renders from its source (bicubic) through the moved placement.
+        let placed = self.smart_moved(id, m)?;
+        let pixels = match (&placed, self.layer_bounds(id)?) {
+            (Some((t, warp)), _) => {
+                let (src, size) = self.placement_source(id)?;
+                Some(self.smart_render(&src, size, t, warp.as_ref())?)
+            }
+            (None, Some(b)) => {
                 check_area(b)?;
                 let plane = self.rgba_plane(self.node(id)?.pixel_tiles()?, b, None);
                 let rs = Resampler::new(plane, m, interp, 0.0)?;
                 Some(self.render_tiles(&rs, None, None)?)
             }
-            None => None,
+            (None, None) => None,
         };
         let mask = self.node(id)?.mask.as_ref().filter(|_| with_mask).map(|mk| (mk.default, mk.tiles.clone()));
         let mask = match mask.and_then(|(def, tiles)| tile_rect(&tiles).map(|r| (def, tiles, r))) {
@@ -228,6 +234,10 @@ impl Document {
         };
         if let Some(t) = pixels {
             *self.node_mut(id)?.pixel_tiles_mut()? = t;
+        }
+        if let Some((t, warp)) = placed {
+            let s = self.node_mut(id)?.smart_mut();
+            (s.transform, s.warp) = (t, warp);
         }
         if let Some(t) = mask {
             self.node_mut(id)?.mask.as_mut().expect("checked").tiles = t;
@@ -399,6 +409,18 @@ impl Document {
         let round = |v: f64| (v + 0.5).floor() as i64;
         let nx = round(x0 as f64 + w as f64 / 2.0 - nw as f64 / 2.0);
         let ny = round(y0 as f64 + h as f64 / 2.0 - nh as f64 / 2.0);
+        if matches!(self.node(id)?.kind, Kind::Smart(_)) {
+            // The same remap as a matrix on pixel edges, so the placement follows it.
+            let [x0, y0, w, h, nx, ny] = [x0, y0, w, h, nx, ny].map(|v| v as f64);
+            let m = match kind {
+                Remap::Cw => [0.0, -1.0, nx + h + y0, 1.0, 0.0, ny - x0],
+                Remap::Ccw => [0.0, 1.0, nx - y0, -1.0, 0.0, ny + w + x0],
+                Remap::R180 => [-1.0, 0.0, nx + w + x0, 0.0, -1.0, ny + h + y0],
+                Remap::FlipH => [-1.0, 0.0, nx + w + x0, 0.0, 1.0, ny - y0],
+                Remap::FlipV => [1.0, 0.0, nx - x0, 0.0, -1.0, ny + h + y0],
+            };
+            return self.transform_layer(id, &[m[0], m[1], m[2], m[3], m[4], m[5], 0.0, 0.0, 1.0], Interp::Bicubic);
+        }
         let fwd = move |x: i64, y: i64| {
             let (x, y) = (x - x0, y - y0);
             let (a, b) = match kind {

@@ -182,6 +182,70 @@ impl Engine {
         self.0.doc.rasterize_fill(id).map_err(err)
     }
 
+    // ---------- smart objects (docs/M3.md section 6) ----------
+
+    /// Places a smart object above `above` (0 = on top). JSON `{ name, link, source_blob,
+    /// source_size, transform }`; `rgba` is the straight RGBA8 source (source_size w x h x 4).
+    pub fn place_smart(&mut self, above: u32, json: &str, rgba: &[u8]) -> Result<u32, JsError> {
+        self.0.doc.place_smart(above, json, rgba).map_err(err)
+    }
+
+    /// Stores a smart object's source pixels without re-rendering its cache (PSD import).
+    pub fn load_smart_source(&mut self, id: u32, rgba: &[u8]) -> Result<(), JsError> {
+        self.0.doc.load_smart_source(id, rgba).map_err(err)
+    }
+
+    pub fn render_smart(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.render_smart(id).map_err(err)
+    }
+
+    /// Sets the transform (3x3, source px -> document px) and warp (`warp_layer` mesh JSON over
+    /// the source, empty for none) and re-renders.
+    pub fn set_smart_placement(&mut self, id: u32, m: Vec<f64>, warp: &str) -> Result<(), JsError> {
+        let m = resample::matrix(&m).map_err(err)?;
+        self.0.doc.set_smart_placement_json(id, &m, warp).map_err(err)
+    }
+
+    /// A copy above; an embedded copy gets `link_id` and no longer shares its source.
+    pub fn smart_via_copy(&mut self, id: u32, link_id: &str) -> Result<u32, JsError> {
+        self.0.doc.smart_via_copy(id, link_id).map_err(err)
+    }
+
+    pub fn rasterize_smart(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.rasterize_smart(id).map_err(err)
+    }
+
+    /// JSON `{ link?, source_blob, source_size }`; keeps the on-canvas corners.
+    pub fn replace_smart_contents(&mut self, id: u32, json: &str, rgba: &[u8]) -> Result<(), JsError> {
+        self.0.doc.replace_smart_contents(id, json, rgba).map_err(err)
+    }
+
+    /// JSON `{ source_blob, source_size }` for every smart object sharing `id`'s link; returns their ids.
+    pub fn update_smart_source(&mut self, id: u32, json: &str, rgba: &[u8]) -> Result<Vec<u32>, JsError> {
+        self.0.doc.update_smart_source(id, json, rgba).map_err(err)
+    }
+
+    /// JSON `{ link, source_blob }`.
+    pub fn set_smart_link(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_smart_link(id, json).map_err(err)
+    }
+
+    /// A stack mode name as a JSON string, or `null`.
+    pub fn set_stack_mode(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_stack_mode(id, json).map_err(err)
+    }
+
+    /// The sibling layers `ids` as a new document at their union bounds (the Convert to Smart
+    /// Object source).
+    pub fn extract_document(&self, ids: Vec<u32>) -> Result<Engine, JsError> {
+        Ok(Engine(EngineCore::new(self.0.doc.extract_document(&ids).map_err(err)?.0)))
+    }
+
+    /// JSON `{ name, link_id, source_blob }`; returns the new smart object's id.
+    pub fn convert_to_smart(&mut self, ids: Vec<u32>, json: &str) -> Result<u32, JsError> {
+        self.0.doc.convert_to_smart(&ids, json).map_err(err)
+    }
+
     pub fn set_blending(&mut self, id: u32, json: &str) -> Result<(), JsError> {
         self.0.doc.set_blending(id, json).map_err(err)
     }

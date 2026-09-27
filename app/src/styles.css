@@ -369,3 +369,4 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .layer-effect-row.disabled .name { opacity: 0.5; }
 .layer-effect-row .visibility { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; background: none; border: 0; color: var(--dim); cursor: pointer; }
 .layer-effect-row button.name { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.breadcrumb { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; }

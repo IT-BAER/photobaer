@@ -554,7 +554,37 @@ function warnKinds(l: Layer, warn: (m: string) => void) {
   if (l.vectorMask || l.realMask) warn('vector mask layers were imported as pixels');
 }
 
-interface ImportCtx { e: Engine; w: number; h: number; warn: Warn; files: Map<string, LinkedFile>; pats: Set<string>; comps: Map<Layer, number> }
+// A smart object source that needs an async image decoder (the worker's), keyed by node id.
+export interface PendingSource { id: number; bytes: Uint8Array }
+interface ImportCtx {
+  e: Engine; w: number; h: number; warn: Warn; files: Map<string, LinkedFile>; pats: Set<string>; comps: Map<Layer, number>; sources: PendingSource[];
+}
+
+export const isPsdBytes = (b: Uint8Array) => b.length >= 4 && b[0] === 0x38 && b[1] === 0x42 && b[2] === 0x50 && b[3] === 0x53;
+
+// The flattened composite as straight RGBA8, width x height x 4.
+export function compositeRgba(e: Engine): Uint8Array {
+  return assembleImage((tx, ty) => e.flatten_tile_rgba8(tx, ty), fullCanvas(e.width(), e.height()), 4, 0);
+}
+
+// Source pixels of an imported smart object: PSD/PSB bytes are parsed and flattened now, image
+// bytes wait for the caller's decoder. The layer pixels stay its cache.
+function loadSource(c: ImportCtx, id: number, bytes: Uint8Array, size: [number, number]) {
+  if (!isPsdBytes(bytes)) { c.sources.push({ id, bytes }); return; }
+  let sub: Engine;
+  try {
+    sub = importPsd(bytes, { psb: true }).engine;
+  } catch {
+    c.warn('smart object sources that could not be read were not imported');
+    return;
+  }
+  try {
+    if (sub.width() !== size[0] || sub.height() !== size[1]) c.warn('smart object sources of a different size were not imported');
+    else c.e.load_smart_source(id, compositeRgba(sub));
+  } finally {
+    sub.free();
+  }
+}
 
 // Blending options and layer style, shared by every kind; adjustment layers take no style.
 function addM3Props({ e, warn, pats }: ImportCtx, id: number, l: Layer, adjustment: boolean) {
@@ -586,6 +616,8 @@ function addNode(c: ImportCtx, l: Layer): number {
   const special = adj ? { adjustment: adj } : l.vectorFill && !l.vectorMask ? { content: fillIn(l.vectorFill, c.pats, warn) }
     : l.placedLayer ? { smart: smartIn(e, l, c.files, warn) } : null;
   const id = special ? e.add_special(0, JSON.stringify({ name: l.name ?? '', ...special })) : e.add_layer(l.name ?? '', 0);
+  const data = l.placedLayer && c.files.get(l.placedLayer.id)?.data;
+  if (special && 'smart' in special && special.smart && data?.length) loadSource(c, id, data, special.smart.source_size as [number, number]);
   e.set_props(id, JSON.stringify({
     visible: !l.hidden, opacity: l.opacity ?? 1, fill: l.fillOpacity ?? 1,
     blend: !l.blendMode || l.blendMode === 'pass through' ? 'normal' : l.blendMode,
@@ -653,9 +685,10 @@ function isEmptyPlaceholder(l: Layer): boolean {
   return !l.children && !l.name && (!l.imageData || l.imageData.width === 0 || l.imageData.height === 0);
 }
 
-export function importPsd(bytes: Uint8Array): { engine: Engine; warnings: string[] } {
+// `psb` accepts PSB (large document) files too, for smart object sources.
+export function importPsd(bytes: Uint8Array, opts: { psb?: boolean } = {}): { engine: Engine; warnings: string[]; sources: PendingSource[] } {
   ensureCanvas();
-  if (bytes.length >= 6 && bytes[4] === 0 && bytes[5] === 2) throw new Error('PSB files are not supported yet');
+  if (!opts.psb && bytes.length >= 6 && bytes[4] === 0 && bytes[5] === 2) throw new Error('PSB files are not supported yet');
   // Header depth (offset 22) is checked before decoding, so a large 16-bit file is rejected cheaply.
   if (bytes.length >= 24 && [16, 32].includes(bytes[22] << 8 | bytes[23])) throw new Error('16-bit and 32-bit PSD files are not supported yet');
   const psd = readPsd(bytes, { useImageData: true, skipThumbnail: true });
@@ -666,6 +699,7 @@ export function importPsd(bytes: Uint8Array): { engine: Engine; warnings: string
   try {
     const warnings: string[] = [];
     const warn = (m: string) => { if (!warnings.includes(m)) warnings.push(m); };
+    const sources: PendingSource[] = [];
     const children = psd.children ?? [];
     // A flat PSD (no real layer records) reads back as [] or, via ag-psd's own writer, as one nameless
     // 0x0 placeholder layer; either way there is nothing to build, so the composite becomes the Background.
@@ -673,12 +707,12 @@ export function importPsd(bytes: Uint8Array): { engine: Engine; warnings: string
     if (flat) {
       place(e, 1, psd, w, h);
     } else {
-      const c: ImportCtx = { e, w, h, warn, files: new Map((psd.linkedFiles ?? []).map(f => [f.id, f])), pats: importDocument(e, psd), comps: new Map() };
+      const c: ImportCtx = { e, w, h, warn, files: new Map((psd.linkedFiles ?? []).map(f => [f.id, f])), pats: importDocument(e, psd), comps: new Map(), sources };
       for (const l of children) addNode(c, l);
       importLayerComps(c, psd);
       e.delete_node(1);
     }
-    return { engine: e, warnings };
+    return { engine: e, warnings, sources };
   } catch (err) {
     e.free();
     throw err;
@@ -771,7 +805,8 @@ function compsOut(n: ManifestNode, comps: LayerCompOut[], w: number, h: number) 
 // ag-psd refuses placed layer ids that are not GUIDs; other ids get one derived from the node id.
 function smartOut({ e, warn, files }: ExportCtx, n: ManifestNode): Partial<Layer> {
   const s = n.smart!;
-  if (s.filters.length) warn('smart filters are not stored in PSD yet');
+  const f = s.filters[0] as { filter?: { kind?: string } } | undefined;
+  if (f) throw new Error(`Cannot export a changed placement with the ${(f.filter?.kind ?? 'unknown').replace(/_/g, ' ')} smart filter.`);
   if (s.warp) warn('smart object warps are not stored in PSD yet');
   const embedded = s.link.type === 'embedded';
   const id = embedded && GUID.test(s.link.id) ? s.link.id : `00000000-0000-4000-8000-${n.id.toString(16).padStart(12, '0')}`;
@@ -806,7 +841,8 @@ function exportNode(x: ExportCtx, n: ManifestNode): Layer {
 // ag-psd's typed Psd/ImageResources (node_modules/ag-psd/src/psd.ts) only carry alpha-channel
 // *names* (imageResources.alphaChannelNames/alphaIdentifiers), not pixel data for extra alpha
 // channels; there is no field to round-trip saved-selection channel bitmaps through a PSD.
-export function exportPsd(e: Engine): { bytes: Uint8Array<ArrayBuffer>; warnings: string[] } {
+// `psb` writes the large document format (smart object sources, D5).
+export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uint8Array<ArrayBuffer>; warnings: string[] } {
   ensureCanvas();
   if (e.depth() !== 8) throw new Error('16-bit PSD export is not supported yet');
   const w = e.width(), h = e.height();
@@ -817,7 +853,7 @@ export function exportPsd(e: Engine): { bytes: Uint8Array<ArrayBuffer>; warnings
   };
   const warnings: string[] = [];
   const warn = (m: string) => { if (!warnings.includes(m)) warnings.push(m); };
-  const composite = assembleImage((tx, ty) => e.flatten_tile_rgba8(tx, ty), fullCanvas(w, h), 4, 0);
+  const composite = compositeRgba(e);
   const x: ExportCtx = { e, w, h, warn, names: new Map(manifest.patterns.map(p => [p.id, p.name])), files: new Map(), comps: manifest.layer_comps };
   const { angle, altitude } = manifest.global_light;
   if (manifest.layer_comps.length) warn('layer comp appearance is not stored in PSD');
@@ -840,5 +876,5 @@ export function exportPsd(e: Engine): { bytes: Uint8Array<ArrayBuffer>; warnings
   if (x.files.size) psd.linkedFiles = [...x.files.values()];
   const channels = (JSON.parse(e.channels_json()) as { channels: { id: number; name: string }[] }).channels;
   if (channels.length) warn('saved selections are not stored in PSD');
-  return { bytes: new Uint8Array(writePsd(psd, { generateThumbnail: false })), warnings };
+  return { bytes: new Uint8Array(writePsd(psd, { generateThumbnail: false, psb: !!opts.psb })), warnings };
 }

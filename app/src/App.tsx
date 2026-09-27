@@ -165,6 +165,34 @@ const AUTOSAVE_TEXT: Record<AutosaveState, string> = {
   error: 'Autosave failed',
 };
 
+// Place/Replace/Relink file choice: the File System Access picker (with a handle, D7) or a plain file input.
+type OpenPicker = (o: object) => Promise<FileSystemFileHandle[]>;
+const PLACE_TYPES = [{ description: 'Images', accept: { 'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/webp': ['.webp'], 'image/vnd.adobe.photoshop': ['.psd', '.psb'] } }];
+async function pickPlaceFile(): Promise<{ file: File; handle: FileSystemFileHandle | null } | null> {
+  const picker = (window as unknown as { showOpenFilePicker?: OpenPicker }).showOpenFilePicker;
+  if (picker) {
+    try {
+      const [handle] = await picker({ types: PLACE_TYPES, multiple: false });
+      return { file: await handle.getFile(), handle };
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return null;
+      throw e;
+    }
+  }
+  return new Promise(res => {
+    const i = document.createElement('input');
+    i.type = 'file';
+    i.accept = 'image/png,image/jpeg,image/webp,.psd,.psb';
+    i.onchange = () => { const f = i.files?.[0]; res(f ? { file: f, handle: null } : null); };
+    i.click();
+  });
+}
+const STACK_MODES: [string | null, string][] = [
+  [null, 'None'], ['entropy', 'Entropy'], ['kurtosis', 'Kurtosis'], ['maximum', 'Maximum'], ['mean', 'Mean'], ['median', 'Median'],
+  ['minimum', 'Minimum'], ['range', 'Range'], ['skewness', 'Skewness'], ['standard_deviation', 'Standard Deviation'],
+  ['summation', 'Summation'], ['variance', 'Variance'],
+];
+
 async function saveBlob(blob: Blob, name: string, mime: string, ext: string) {
   const picker = (window as unknown as { showSaveFilePicker?: (o: object) => Promise<FileSystemFileHandle> }).showSaveFilePicker;
   if (picker) {
@@ -638,6 +666,70 @@ export function App() {
   const deleteMask = () => active && run('Delete layer mask', () => client.call('deleteMask', active.id));
   const toggleMaskEnabled = () => node?.mask && run(null, () => client.call('setProps', node.id, { mask_enabled: !node.mask!.enabled }));
 
+  // ---------- smart objects (docs/M3.md section 6) ----------
+  const smart = node?.smart;
+  const anyLinked = doc ? flatNodes(doc.layers).some(n => n.smart?.link.type === 'linked') : false;
+  async function placeFile(linked: boolean) {
+    setMenu(null);
+    const a = activeRef.current;
+    if (!a) return;
+    let picked;
+    try { picked = await pickPlaceFile(); } catch (e) { setError((e as Error).message); return; }
+    if (!picked) return;
+    const link = linked && !!picked.handle;
+    await run(`Placing ${picked.file.name}…`, () => client.call('placeSmart', a.id, picked.file, link, link ? picked.handle : null), selectCreated);
+    if (linked && !link) setError('This browser cannot link files, so the file was placed embedded.');
+  }
+  async function replaceContents(relink: boolean) {
+    setMenu(null);
+    const n = node;
+    if (!n) return;
+    let picked;
+    try { picked = await pickPlaceFile(); } catch (e) { setError((e as Error).message); return; }
+    if (!picked) return;
+    if (relink && !picked.handle) { setError('Relinking needs a browser with file system access.'); return; }
+    await run('Replacing contents…', () => relink ? client.call('relinkToFile', n.id, picked.file, picked.handle!) : client.call('replaceContents', n.id, picked.file));
+  }
+  async function exportContents() {
+    setMenu(null);
+    if (!node) return;
+    try {
+      const { name, blob } = await client.call('exportContents', node.id);
+      const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : 'bin';
+      await saveBlob(blob, name, 'application/octet-stream', ext);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function convertToLinked() {
+    setMenu(null);
+    const n = node;
+    const picker = (window as unknown as { showSaveFilePicker?: (o: object) => Promise<FileSystemFileHandle> }).showSaveFilePicker;
+    if (!n) return;
+    if (!picker) { setError('Linking needs a browser with file system access.'); return; }
+    let h: FileSystemFileHandle;
+    try { h = await picker({ suggestedName: `${n.name}.psb` }); } catch (e) { if ((e as Error).name !== 'AbortError') setError((e as Error).message); return; }
+    await run('Converting to linked…', () => client.call('convertToLinked', n.id, h));
+  }
+  const smartItems: Item[] = [
+    { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
+    { label: 'New Smart Object via Copy', run: () => node && run(null, () => client.call('smartViaCopy', node.id), selectCreated), off: !smart },
+    { label: 'Edit Contents', sep: true, run: () => node && run('Opening contents…', () => client.call('editContents', node.id)), off: !smart },
+    { label: 'Replace Contents…', run: () => void replaceContents(false), off: !smart },
+    { label: 'Export Contents…', run: () => void exportContents(), off: !smart },
+    { label: 'Convert to Linked…', sep: true, run: () => void convertToLinked(), off: !smart || smart.link.type === 'linked' },
+    { label: 'Convert to Embedded', run: () => node && run('Embedding…', () => client.call('convertToEmbedded', node.id)), off: smart?.link.type !== 'linked' },
+    { label: 'Relink to File…', run: () => void replaceContents(true), off: !smart },
+    { label: 'Update Modified Content', run: () => node && run('Updating…', () => client.call('updateModified', node.id)), off: smart?.link.type !== 'linked' },
+    { label: 'Update All Modified Content', run: () => run('Updating…', () => client.call('updateModified', null)), off: !anyLinked },
+    {
+      label: 'Stack Mode', keys: '›', sep: true, run: () => {}, off: !smart, sub: STACK_MODES.map(([mode, label]) => ({
+        label: (smart?.stack_mode ?? null) === mode ? `✓ ${label}` : label, run: () => node && run(null, () => client.call('setStackMode', node.id, mode)),
+      })),
+    },
+    { label: 'Rasterize', sep: true, run: () => node && run('Rasterizing…', () => client.call('rasterizeSmart', node.id, 'Rasterize')), off: !smart },
+  ];
+
   const styled = doc ? flatNodes(doc.layers).filter(n => n.style) : [];
   const anyStyled = styled.length > 0;
   const allEffectsHidden = anyStyled && styled.every(n => !n.style!.enabled);
@@ -648,6 +740,8 @@ export function App() {
     File: [
       { label: 'New…', keys: 'Alt+Ctrl+N', run: () => { setMenu(null); newDialog.current?.showModal(); } },
       { label: 'Open…', keys: 'Ctrl+O', run: () => { setMenu(null); fileInput.current?.click(); } },
+      { label: 'Place Embedded…', run: () => void placeFile(false), off: !has || !active },
+      { label: 'Place Linked…', run: () => void placeFile(true), off: !has || !active },
       { label: 'Save project…', keys: 'Ctrl+S', run: saveProject, off: !has },
       { label: 'Save as PSD…', run: savePsd, off: !has },
       { label: 'Export PNG…', run: () => exportAs('image/png', 'png'), off: !has },
@@ -702,6 +796,7 @@ export function App() {
         })),
       },
       { label: 'Layer Content Options…', run: openLayerContentOptions, off: !has || node?.kind !== 'fill' },
+      { label: 'Smart Objects', keys: '›', run: () => {}, off: !has || !node, sub: smartItems },
       {
         label: 'Layer Style', keys: '›', run: () => {}, off: !has || !node, sub: [
           { label: 'Blending Options…', run: () => openLayerStyle('blending') },
@@ -716,8 +811,9 @@ export function App() {
         ],
       },
       {
-        label: 'Rasterize', keys: '›', run: () => {}, off: !has || node?.kind !== 'fill', sub: [
-          { label: 'Fill Content', run: () => active && run('Rasterizing…', () => client.call('rasterizeFill', active.id)) },
+        label: 'Rasterize', keys: '›', run: () => {}, off: !has || (node?.kind !== 'fill' && node?.kind !== 'smart'), sub: [
+          { label: 'Fill Content', run: () => active && run('Rasterizing…', () => client.call('rasterizeFill', active.id)), off: node?.kind !== 'fill' },
+          { label: 'Smart Object', run: () => active && run('Rasterizing…', () => client.call('rasterizeSmart', active.id, 'Smart Object')), off: node?.kind !== 'smart' },
         ],
       },
     ],
@@ -1585,7 +1681,11 @@ export function App() {
     if (!next) { setError('This warp has no split to remove.'); return; }
     warpChange(t, { ...ws.w, mesh: next }, true);
   }
-  const newWarp = (b: Rect): WState => ({ w: { mesh: identityMesh(b), preset: defaultPreset('custom') }, initial: identityMesh(b), undo: [], split: null, last: null, drag: null });
+  // A smart object's warp starts from its current look (`start`, over the source parameter box `b`).
+  const newWarp = (b: Rect, start?: Omit<Mesh, 'bounds'> | null): WState => {
+    const mesh = start ? { ...start, bounds: b } : identityMesh(b);
+    return { w: { mesh, preset: defaultPreset('custom') }, initial: mesh, undo: [], split: null, last: null, drag: null };
+  };
   // Free transform -> warp: the worker renders the pending matrix and lifts the result as the warp source.
   async function warpSwitch(t: TSession) {
     const m = isIdentity(matrixOf(t.s)) ? null : matrixOf(t.s);
@@ -1606,7 +1706,7 @@ export function App() {
     if (transformRef.current !== t) return;
     t.img = sourceImage(r);
     t.refine = 'none';
-    t.warp = newWarp({ x: r.bounds[0], y: r.bounds[1], w: r.bounds[2], h: r.bounds[3] });
+    t.warp = newWarp({ x: r.bounds[0], y: r.bounds[1], w: r.bounds[2], h: r.bounds[3] }, r.mesh);
     t.mode = 'warp';
     t.store.set({ mode: 'warp', warp: warpBar(t.warp) });
     show(r);
@@ -1724,7 +1824,7 @@ export function App() {
     if (!n) return;
     const kind = selection ? 'selection' : d.selection ? 'pixels' : 'layer';
     if (mode === 'warp') {
-      if (n.kind !== 'pixel') { setError('Only pixel layers can be warped.'); return; }
+      if (n.kind !== 'pixel' && n.kind !== 'smart') { setError('Only pixel layers and smart objects can be warped.'); return; }
       if (kind !== 'layer') { setError('Warp bends a whole layer; deselect to warp it.'); return; }
       if (n.locks.pixels) { setError('Could not use the layer because it is locked.'); return; }
     }
@@ -1732,13 +1832,13 @@ export function App() {
     if (kind === 'layer' && n.locks.position) { setError(`${n.name} is locked and can't be moved.`); return; }
     let r;
     try {
-      r = await client.call('transformBegin', a.id, kind, selection ? 'Transform Selection' : mode === 'warp' ? 'Warp' : 'Free Transform');
+      r = await client.call('transformBegin', a.id, kind, selection ? 'Transform Selection' : mode === 'warp' ? 'Warp' : 'Free Transform', 2048, mode === 'warp');
     } catch (err) {
       setError((err as Error).message);
       return;
     }
     const img = sourceImage(r), b = { x: r.bounds[0], y: r.bounds[1], w: r.bounds[2], h: r.bounds[3] };
-    const s = initialState(b), warp = mode === 'warp' ? newWarp(b) : null;
+    const s = initialState(b), warp = mode === 'warp' ? newWarp(b, r.mesh) : null;
     const store = new TransformBarStore({ mode, values: numericValues(s), linked: true, snap: true, warp: warp && warpBar(warp) });
     const dbl = () => endTransform(true);
     const ctx = (e: MouseEvent) => { e.preventDefault(); setTransformMenu([e.clientX, e.clientY]); };
@@ -2282,6 +2382,13 @@ export function App() {
             )}
           </div>
         ))}
+        {doc?.parents.length ? (
+          <span className="breadcrumb" aria-label="Smart object contents">
+            {[...doc.parents, doc.name].join(' › ')}
+            <button type="button" onClick={() => run('Saving contents…', () => client.call('smartEditSave'))}>Save</button>
+            <button type="button" onClick={() => run('Closing contents…', () => client.call('smartEditClose'))}>Close</button>
+          </span>
+        ) : null}
       </header>
       {menu && <div className="scrim" onClick={() => setMenu(null)} />}
       {transformMenu && transformStore && (
