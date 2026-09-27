@@ -467,6 +467,76 @@ fn pixel_ops_on_adjustment_and_fill_layers_err_naming_the_kind() {
 }
 
 #[test]
+fn smart_object_refuses_direct_pixel_paint_but_allows_filters_and_transforms() {
+    let mut d = fixture_doc();
+    let smart_json = json!({ "name": "Placed", "smart": {
+        "link": { "type": "embedded", "id": "x" }, "source_blob": null, "source_size": [4, 4],
+        "transform": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    } });
+    let id = d.add_special(1, &smart_json.to_string()).unwrap();
+    d.load_smart_source(id, &[100u8; 4 * 4 * 4]).unwrap();
+    d.render_smart(id).unwrap();
+    let cache_id = |d: &Document| d.node(id).unwrap().pixel_tiles().unwrap().get(0, 0).unwrap().id;
+    let before = cache_id(&d);
+    let refusal = "This smart object must be rasterized before its pixels can be edited.";
+
+    assert_eq!(d.fill(id, Target::Pixels, 1, 2, 3, 255).unwrap_err(), refusal);
+    assert_eq!(d.clear(id, Target::Pixels).unwrap_err(), refusal);
+    assert_eq!(
+        d.bucket(id, Target::Pixels, 0, 0, [1, 2, 3, 255], PaintMode::Blend(Blend::Normal), 1.0, 32, false, true, false).unwrap_err(),
+        refusal
+    );
+    assert_eq!(
+        d.gradient(
+            id,
+            Target::Pixels,
+            vec![
+                gradient::ColorStop { position: 0.0, rgb: [0.0, 0.0, 0.0], midpoint: 0.5 },
+                gradient::ColorStop { position: 1.0, rgb: [1.0, 1.0, 1.0], midpoint: 0.5 },
+            ],
+            vec![
+                gradient::OpacityStop { position: 0.0, opacity: 1.0, midpoint: 0.5 },
+                gradient::OpacityStop { position: 1.0, opacity: 1.0, midpoint: 0.5 },
+            ],
+            gradient::Method::Classic,
+            gradient::Style::Linear,
+            (0.0, 0.0),
+            (1.0, 0.0),
+            false,
+            false,
+            true,
+            1.0,
+        )
+        .unwrap_err(),
+        refusal
+    );
+    d.select_all().unwrap();
+    assert_eq!(
+        d.stroke_selection(id, 3.0, [1, 2, 3, 255], "inside", PaintMode::Blend(Blend::Normal), 1.0, false).unwrap_err(),
+        refusal
+    );
+    d.selection = None;
+    let mut e = EngineCore::new(d);
+    assert_eq!(e.stroke_begin(id, "pixels", "{}").unwrap_err(), refusal);
+    let mut d = e.doc;
+    assert_eq!(cache_id(&d), before, "a refused paint changes nothing");
+
+    // Legitimate smart workflows keep working: whole-layer move/transform, filters, a mask fill.
+    d.offset_layer(id, 1, 1).unwrap();
+    d.invert(id, Target::Pixels).unwrap();
+    d.apply_adjustment(id, Target::Pixels, r#"{"kind":"invert","params":{}}"#).unwrap();
+    d.add_smart_filter(id, r#"{"kind":"gaussian_blur","params":{"radius":2.5}}"#).unwrap();
+    assert!(
+        matches!(&d.node(id).unwrap().kind, Kind::Smart(s) if s.filters.len() == 3),
+        "invert, adjustment and blur all appended a filter"
+    );
+    d.add_mask(id, true).unwrap();
+    d.fill(id, Target::Mask, 0, 0, 0, 255).unwrap();
+    let m = [1.0, 0.0, 3.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+    d.transform_layer(id, &m, Interp::Bilinear).unwrap();
+}
+
+#[test]
 fn masks_and_layer_props_work_on_every_kind() {
     let mut d = fixture_doc();
     for id in [2, 3, 4, 7] {

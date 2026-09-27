@@ -283,7 +283,7 @@ impl Document {
         copy: bool,
     ) -> Result<(), String> {
         self.check_idle()?;
-        self.check_pixel_edit(id)?;
+        self.check_pixel_paint(id)?;
         let sel = self.selection.clone().ok_or("nothing is selected")?;
         let Some(b) = self.selection_bounds() else { return Ok(()) };
         check_area(b)?;

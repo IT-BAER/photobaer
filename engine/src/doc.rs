@@ -1560,6 +1560,16 @@ impl Document {
         Ok(())
     }
 
+    /// `check_pixel_edit`, and refuses a direct pixel write on a smart object's render cache
+    /// (paint/fill/stroke/gradient/bucket): it is rebuilt on the next re-render and would lose it.
+    fn check_pixel_paint(&self, id: u32) -> Result<(), String> {
+        self.check_pixel_edit(id)?;
+        if matches!(self.node(id)?.kind, Kind::Smart(_)) {
+            return Err("This smart object must be rasterized before its pixels can be edited.".into());
+        }
+        Ok(())
+    }
+
     fn on_canvas(&self, tx: i32, ty: i32) -> bool {
         tx >= 0 && ty >= 0 && (tx as u32) < self.tiles_x() && (ty as u32) < self.tiles_y()
     }
@@ -1669,7 +1679,7 @@ impl Document {
             let v = value as f32 / max;
             return self.edit_mask_tiles(id, &area, move |_| v);
         }
-        self.check_pixel_edit(id)?;
+        self.check_pixel_paint(id)?;
         let keep_alpha = self.node(id)?.locks.transparency;
         let area = match self.selected_tiles() {
             Some(a) => a,
@@ -1725,11 +1735,21 @@ impl Document {
 
     /// Pixels become transparent, a mask becomes 0; the selection limits the effect.
     pub fn clear(&mut self, id: u32, target: Target) -> Result<(), String> {
+        self.clear_inner(id, target, true)
+    }
+
+    /// `clear` that allows a smart object's cache: a whole-layer transform session hides the
+    /// layer this way and always re-renders it from the source.
+    pub fn clear_lifted(&mut self, id: u32, target: Target) -> Result<(), String> {
+        self.clear_inner(id, target, false)
+    }
+
+    fn clear_inner(&mut self, id: u32, target: Target, paint: bool) -> Result<(), String> {
         self.check_idle()?;
         if target == Target::Mask || target == Target::Selection {
             return self.fill(id, target, 0, 0, 0, 0);
         }
-        self.check_pixel_edit(id)?;
+        if paint { self.check_pixel_paint(id)? } else { self.check_pixel_edit(id)? }
         let area = match self.selected_tiles() {
             Some(a) => a,
             None => {
@@ -1769,7 +1789,7 @@ impl Document {
         opacity: f32,
         preserve_transparency: bool,
     ) -> Result<(), String> {
-        self.check_pixel_edit(id)?;
+        self.check_pixel_paint(id)?;
         let keep_alpha = preserve_transparency || self.node(id)?.locks.transparency;
         let depth = self.depth;
         let (w, h) = (self.width as i32, self.height as i32);
@@ -1926,7 +1946,7 @@ impl Document {
         if self.selection.is_none() {
             return Err("Make a selection to stroke.".into());
         }
-        self.check_pixel_edit(id)?;
+        self.check_pixel_paint(id)?;
         let w_px = width.round().clamp(1.0, 250.0);
         let s = self.selection_values();
         let (w, h) = (self.width, self.height);
@@ -2029,7 +2049,7 @@ impl Document {
     }
 
     fn gradient_pixels(&mut self, id: u32, sample: &impl Fn(i32, i32) -> [f32; 4], opacity: f32) -> Result<(), String> {
-        self.check_pixel_edit(id)?;
+        self.check_pixel_paint(id)?;
         let keep_alpha = self.node(id)?.locks.transparency;
         let depth = self.depth;
         let [rx, ry, rw, rh] = self.gradient_region(id)?;
@@ -2305,12 +2325,9 @@ impl Document {
     /// is quantized, then mixed by selection coverage (D12) on the color channels; alpha untouched.
     pub fn apply_destructive(&mut self, id: u32, json: &str) -> Result<(), String> {
         self.check_idle()?;
-        self.check_pixel_edit(id)?;
+        self.check_pixel_paint(id)?;
         let kind: adjust::Destructive = serde_json::from_str(json).map_err(|e| format!("invalid adjustment: {e}"))?;
         kind.validate()?;
-        if matches!(self.node(id)?.kind, Kind::Smart(_)) {
-            return Err("This adjustment cannot run on a smart object; rasterize it first.".into());
-        }
         let Some([mut x0, mut y0, w, h]) = self.layer_bounds(id)? else { return Ok(()) };
         let (mut x1, mut y1) = (x0 + w, y0 + h);
         let selected = self.selection.is_some();
@@ -3087,7 +3104,7 @@ impl Document {
         if target != Target::Pixels {
             return Err("paint_coverage only supports the pixels or selection target".into());
         }
-        self.check_pixel_edit(id)?;
+        self.check_pixel_paint(id)?;
         let keep_alpha = self.node(id)?.locks.transparency;
         let depth = self.depth;
         let rgb = [rgba[0] as f32 / 255.0, rgba[1] as f32 / 255.0, rgba[2] as f32 / 255.0];
@@ -3154,7 +3171,7 @@ impl Document {
     ) -> Result<(), String> {
         self.check_idle()?;
         if target == Target::Pixels {
-            self.check_pixel_edit(id)?;
+            self.check_pixel_paint(id)?;
         }
         if x < 0 || y < 0 || x as u32 >= self.width || y as u32 >= self.height {
             return Err("bucket seed must be inside the canvas".into());
@@ -6830,7 +6847,7 @@ impl EngineCore {
             return Err("a stroke only supports the pixels or selection target".into());
         }
         let keep_alpha = if target == Target::Pixels {
-            self.doc.check_pixel_edit(layer_id)?;
+            self.doc.check_pixel_paint(layer_id)?;
             self.doc.node(layer_id)?.locks.transparency
         } else {
             false

@@ -1138,7 +1138,8 @@ const api = {
     const { image, data } = smart ?? (kind === 'selection' ? { image: null, data: null } : liftPreview(e, id, bounds, kind === 'pixels', maxSide));
     history.begin(label);
     try {
-      if (kind !== 'selection') e.clear(id, 'pixels');
+      if (kind === 'layer') e.clear_lifted(id, 'pixels');
+      else if (kind === 'pixels') e.clear(id, 'pixels');
     } catch (err) {
       history.restoreOpen();
       history.abort();
@@ -1232,7 +1233,7 @@ const api = {
       const bounds = smart?.bounds ?? Array.from(found) as Box;
       const lifted = smart ?? { ...liftPreview(e, s.id, bounds, false, maxSide), mesh: null };
       if (m) base = e.snapshot();
-      e.clear(s.id, 'pixels');
+      e.clear_lifted(s.id, 'pixels');
       e.drop_snapshot(s.hidden);
       if (s.base !== null) e.drop_snapshot(s.base);
       Object.assign(s, { hidden: e.snapshot(), refined: null, base, label: m ? 'Free Transform and Warp' : 'Warp' });
