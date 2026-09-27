@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { constrainedSnap, rectAnchors, snapAxis, snapOffset, type SnapAxes } from './snapping.ts';
+import { constrainedSnap, gridLine, rectAnchors, snapAxis, snapOffset, type SnapAxes } from './snapping.ts';
 
 test('rectAnchors gives start, center, end per axis', () => {
   assert.deepEqual(rectAnchors({ x: 10, y: 20, w: 40, h: 10 }, 'x'), [10, 30, 50]);
@@ -69,4 +69,29 @@ test('constrainedSnap: a horizontal constraint ignores a y snap', () => {
   const r = constrainedSnap({ x: 0, y: 0, w: 10, h: 10 }, [], [2], 30, 1, { x: null, y: null }, 1, true);
   assert.deepEqual([r.dx, r.dy], [30, 0]);
   assert.deepEqual(r.lock, { x: null, y: null });
+});
+
+test('gridLine quantizes to the nearest multiple of the spacing (grid 18 snaps 35 to 36)', () => {
+  assert.equal(gridLine(35, 18), 36);
+  assert.equal(gridLine(8, 18), 0);
+});
+
+test('snapAxis with a grid spacing snaps an anchor to the nearest grid line within the catch threshold', () => {
+  const lock = snapAxis([35], [], 0, null, 6, 10, 18);
+  assert.deepEqual(lock, { anchor: 35, target: 36 });
+});
+
+test('a guide target at x 100: 104 at zoom 1 snaps, 107 does not; at zoom 2, 104 does not', () => {
+  const moving = { x: 104, y: 0, w: 0, h: 0 };
+  assert.deepEqual(snapOffset(moving, [100], [], 0, 0, { x: null, y: null }, 1).lock.x, { anchor: 104, target: 100 });
+  assert.equal(snapOffset({ x: 107, y: 0, w: 0, h: 0 }, [100], [], 0, 0, { x: null, y: null }, 1).lock.x, null);
+  assert.equal(snapOffset(moving, [100], [], 0, 0, { x: null, y: null }, 2).lock.x, null);
+});
+
+test('a locked snap holds until the release threshold (10 screen px / zoom), not the catch threshold', () => {
+  const prev: SnapAxes = { x: { anchor: 0, target: 100 }, y: null };
+  const held = snapOffset({ x: 0, y: 0, w: 0, h: 0 }, [100], [], 104, 0, prev, 1);
+  assert.deepEqual(held.lock.x, prev.x);
+  const dropped = snapOffset({ x: 0, y: 0, w: 0, h: 0 }, [100], [], 111, 0, prev, 1);
+  assert.equal(dropped.lock.x, null);
 });

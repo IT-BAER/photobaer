@@ -9,7 +9,7 @@ import { denormalize, isIdentity } from './transform/matrix.ts';
 import { patternRefs, type Blending, type LayerStyle } from './layerStyle.ts';
 import type { PatternRecord } from './brushes/preset.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
-import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, Guide, LayerNode, OpenResult, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, WorkerEvent } from './worker/types.ts';
+import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, Guide, LayerNode, OpenResult, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorPath, WorkerEvent } from './worker/types.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, Guide, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
@@ -113,6 +113,22 @@ function nextName(prefix: string): string {
 function need() {
   if (!eng) throw new Error('no document');
   return eng;
+}
+
+// [x, y, w, h] bounds of every anchor and handle in `path` (handles are absolute points, so this
+// over-approximates a curve's extent by its control polygon - a cubic bezier never leaves the
+// convex hull of its control points). Used for shape and vector-mask snap targets.
+function vectorPathBounds(path: VectorPath): [number, number, number, number] | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const sp of path.subpaths) {
+    for (const p of sp.points) {
+      for (let i = 0; i < 6; i += 2) {
+        x0 = Math.min(x0, p[i]); x1 = Math.max(x1, p[i]);
+        y0 = Math.min(y0, p[i + 1]); y1 = Math.max(y1, p[i + 1]);
+      }
+    }
+  }
+  return x0 === Infinity ? null : [x0, y0, x1 - x0, y1 - y0];
 }
 
 // Drops every open Edit Contents parent (a new or closed document replaces the whole stack).
@@ -650,17 +666,32 @@ const api = {
     return tile ? tile[(py % 256) * 256 + (px % 256)] : ch.selection.default > 0 ? 255 : 0;
   },
 
-  // Move tool: the union of the document bounds and every visible layer's content bounds
-  // except `excludeId`'s own subtree, as [start, center, end] anchors per axis for snapping.
-  snapTargets(excludeId: number) {
+  // Move tool: the union of the document bounds, guides, artboard rects and every visible layer's
+  // content bounds (shape/vector-mask layers use their path bounds) except `excludeId`'s own
+  // subtree, as [start, center, end] anchors per axis for snapping (docs/M4.md section 12). Each
+  // category is gated by `categories` (View > Snap To); omitted categories default to on.
+  snapTargets(excludeId: number, categories?: { guides?: boolean; layers?: boolean; documentBounds?: boolean; artboards?: boolean }) {
     const e = need();
-    const rects: [number, number, number, number][] = [[0, 0, e.width(), e.height()]];
+    const cat = { guides: true, layers: true, documentBounds: true, artboards: true, ...categories };
+    const rects: [number, number, number, number][] = [];
+    if (cat.documentBounds) rects.push([0, 0, e.width(), e.height()]);
     const walk = (nodes: LayerNode[], excluded: boolean) => {
       for (const n of nodes) {
         const skip = excluded || n.id === excludeId;
-        if (!skip && n.visible && (n.kind === 'pixel' || n.kind === 'smart')) {
-          const b = e.layer_bounds(n.id) as [number, number, number, number] | null;
-          if (b) rects.push(b);
+        if (!skip && n.visible) {
+          if (cat.artboards && n.artboard) {
+            const [l, t, r, b] = n.artboard.rect;
+            rects.push([l, t, r - l, b - t]);
+          }
+          if (cat.layers) {
+            const pathBounds = n.shape?.path ?? n.vector_mask?.path;
+            const pb = pathBounds ? vectorPathBounds(pathBounds) : null;
+            if (pb) rects.push(pb);
+            else if (n.kind === 'pixel' || n.kind === 'smart') {
+              const b = e.layer_bounds(n.id) as [number, number, number, number] | null;
+              if (b) rects.push(b);
+            }
+          }
         }
         if (n.children) walk(n.children, skip || !n.visible);
       }
@@ -668,6 +699,10 @@ const api = {
     walk(JSON.parse(e.layers_json()) as LayerNode[], false);
     const x: number[] = [], y: number[] = [];
     for (const [rx, ry, rw, rh] of rects) { x.push(rx, rx + rw / 2, rx + rw); y.push(ry, ry + rh / 2, ry + rh); }
+    if (cat.guides) {
+      const vec = JSON.parse(e.vector_json()) as { guides: Guide[] };
+      for (const g of vec.guides) (g.axis === 'x' ? x : y).push(g.pos);
+    }
     return { x, y };
   },
 

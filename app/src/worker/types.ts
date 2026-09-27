@@ -58,14 +58,24 @@ export interface SmartInfo {
   link: SmartLink; source: { blob: number | null }; source_size: [number, number]; transform: number[];
   warp: SmartWarp | null; filters: SmartFilterInfo[]; stack_mask: { enabled: boolean; default: number } | null; stack_mode: string | null;
 }
+// A shape/vector-mask anchor point `[x, y, inX, inY, outX, outY]` (engine/src/path.rs `Point`;
+// docs/M4.md section 12: only the coordinates snapTargets needs, not the full path model).
+export type PathAnchor = [number, number, number, number, number, number];
+export interface VectorPath { fill_rule: 'nonzero' | 'evenodd'; subpaths: { closed: boolean; op: string; points: PathAnchor[] }[] }
+
 export interface LayerNode {
-  id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart';
+  id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart' | 'shape' | 'text';
   visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
   locks: { transparency: boolean; pixels: boolean; position: boolean };
   mask: { enabled: boolean; default: number } | null;
   content?: FillContent;
   adjustment?: Adjustment;
   smart?: SmartInfo;
+  shape?: { path: VectorPath };
+  vector_mask?: { path: VectorPath } | null;
+  // `rect` is `[left, top, right, bottom]` (engine/src/path.rs `Artboard`); present on a `group`
+  // layer promoted to an artboard.
+  artboard?: { rect: [number, number, number, number] } | null;
   style: LayerStyle | null;
   blending: Blending;
   children?: LayerNode[];

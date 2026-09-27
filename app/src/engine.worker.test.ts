@@ -646,6 +646,22 @@ test('snapTargets gives document bounds plus every other visible layer, excludin
   assert.deepEqual(r2.y, [0, 25, 50, 10, 20, 30]);
 });
 
+test('snapTargets adds guide positions on their own axis, and categories gate each target group', async () => {
+  await call('init');
+  await call('newDoc', 100, 50, 8, null);
+  await call('addGuide', 'x', 40);
+  await call('addGuide', 'y', 15);
+  const withGuides = (await call('snapTargets', 0)).result as { x: number[]; y: number[] };
+  assert.ok(withGuides.x.includes(40));
+  assert.ok(withGuides.y.includes(15));
+  const noGuides = (await call('snapTargets', 0, { guides: false })).result as { x: number[]; y: number[] };
+  assert.ok(!noGuides.x.includes(40));
+  assert.ok(!noGuides.y.includes(15));
+  const noBounds = (await call('snapTargets', 0, { documentBounds: false, layers: false })).result as { x: number[]; y: number[] };
+  assert.deepEqual(noBounds.x, [40]);
+  assert.deepEqual(noBounds.y, [15]);
+});
+
 test('a locked-position layer fails moveLayerStep and the step is not left open', async () => {
   await call('init');
   await call('newDoc', 16, 16, 8, null);
