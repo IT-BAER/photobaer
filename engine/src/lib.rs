@@ -123,6 +123,21 @@ impl Engine {
         self.0.doc.add_special(above, json).map_err(err)
     }
 
+    /// Adds a fill layer, masks it to the selection (or reveals all) and drops the selection.
+    pub fn add_fill_layer(&mut self, above: u32, json: &str) -> Result<u32, JsError> {
+        self.0.doc.add_fill_layer(above, json).map_err(err)
+    }
+
+    /// Replaces a fill layer's content; refuses other kinds and unknown pattern ids.
+    pub fn set_content(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_content(id, json).map_err(err)
+    }
+
+    /// Renders a fill layer into pixel tiles over the document bounds, keeping its id.
+    pub fn rasterize_fill(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.rasterize_fill(id).map_err(err)
+    }
+
     pub fn set_blending(&mut self, id: u32, json: &str) -> Result<(), JsError> {
         self.0.doc.set_blending(id, json).map_err(err)
     }

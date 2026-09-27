@@ -7,7 +7,7 @@ import { perfTestHook, type PerfProbe } from './render/perf.ts';
 import { locate, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
-import type { AutosaveState, DocInfo, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
+import type { AutosaveState, DocInfo, FillContent, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
 import { Smoother } from './shell/smoothing.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
 import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
@@ -91,6 +91,40 @@ function loadFillForm(): FillForm {
 }
 interface StrokeForm { width: number; color: Rgb; location: StrokeSelectionParams['location']; mode: string; opacity: number; preserve: boolean }
 const STROKE_DEFAULT: StrokeForm = { width: 3, color: [0, 0, 0], location: 'inside', mode: 'normal', opacity: 100, preserve: false };
+
+// Layer > New Fill Layer / Layer Content Options (docs/M3.md section 4). The dialog title differs
+// from the undo label for gradient and pattern (gap B7-3); the gradient itself is fixed black to
+// white, classic, two stops (gap B7-1) -- this dialog never edits the stops.
+const FILL_LAYER_TITLES = { solid: 'Solid Color', gradient: 'Gradient Fill', pattern: 'Pattern Fill' } as const;
+const FILL_LAYER_LABELS = { solid: 'Solid Color', gradient: 'Gradient', pattern: 'Pattern' } as const;
+const FILL_LAYER_NAMES = { solid: 'Color Fill', gradient: 'Gradient Fill', pattern: 'Pattern Fill' } as const;
+const DEFAULT_GRADIENT = {
+  method: 'classic' as const,
+  color_stops: [{ position: 0, color: [0, 0, 0] as [number, number, number], midpoint: 0.5 }, { position: 1, color: [255, 255, 255] as [number, number, number], midpoint: 0.5 }],
+  opacity_stops: [{ position: 0, opacity: 1, midpoint: 0.5 }, { position: 1, opacity: 1, midpoint: 0.5 }],
+};
+interface FillContentForm {
+  type: keyof typeof FILL_LAYER_TITLES;
+  color: Rgb; style: 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond'; angle: number; scalePct: number;
+  reverse: boolean; dither: boolean; alignWithLayer: boolean; patternId: string; linked: boolean;
+}
+type FillDialogMode = { kind: 'create'; type: FillContentForm['type'] } | { kind: 'edit'; id: number };
+function fillContentFromForm(f: FillContentForm): FillContent {
+  if (f.type === 'solid') return { type: 'solid', color: f.color };
+  if (f.type === 'gradient') {
+    return {
+      type: 'gradient', gradient: DEFAULT_GRADIENT, style: f.style, angle: f.angle, scale: f.scalePct / 100,
+      reverse: f.reverse, dither: f.dither, align_with_layer: f.alignWithLayer, offset: [0, 0],
+    };
+  }
+  return { type: 'pattern', pattern_id: f.patternId, scale: f.scalePct / 100, angle: f.angle, linked: f.linked, offset: [0, 0] };
+}
+function formFromFillContent(c: FillContent, fallbackColor: Rgb, fallbackPattern: string): FillContentForm {
+  const base: FillContentForm = { type: c.type, color: fallbackColor, style: 'linear', angle: 0, scalePct: 100, reverse: false, dither: false, alignWithLayer: true, patternId: fallbackPattern, linked: true };
+  if (c.type === 'solid') return { ...base, color: c.color };
+  if (c.type === 'gradient') return { ...base, style: c.style, angle: c.angle, scalePct: c.scale * 100, reverse: c.reverse, dither: c.dither, alignWithLayer: c.align_with_layer };
+  return { ...base, patternId: c.pattern_id, scalePct: c.scale * 100, angle: c.angle, linked: c.linked };
+}
 type CreateResult = DocInfo & { created: number };
 type SelectAfter = (d: DocInfo) => Active;
 // `sep` draws a separator line above the item.
@@ -243,6 +277,9 @@ export function App() {
   const strokeDialog = useRef<HTMLDialogElement>(null);
   const [fillForm, setFillForm] = useState<FillForm>(loadFillForm);
   const [strokeForm, setStrokeForm] = useState<StrokeForm>(STROKE_DEFAULT);
+  const fillContentDialog = useRef<HTMLDialogElement>(null);
+  const [fillContentForm, setFillContentForm] = useState<FillContentForm>({ type: 'solid', color: [0, 0, 0], style: 'linear', angle: 90, scalePct: 100, reverse: false, dither: false, alignWithLayer: true, patternId: '', linked: true });
+  const [fillContentMode, setFillContentMode] = useState<FillDialogMode | null>(null);
   const [previewDialog, setPreviewDialog] = useState<'fill' | 'stroke' | null>(null);
   const previewRef = useRef<{ open: boolean; commit: boolean; pending: Promise<unknown> }>({ open: false, commit: false, pending: Promise.resolve() });
   const gradEditor = useRef<GradientEditorHandle>(null);
@@ -337,6 +374,34 @@ export function App() {
   }
 
   function editTarget(a: Active) { return quickMask ? 'selection' as const : a.target; }
+
+  function openNewFillLayer(type: FillContentForm['type']) {
+    setMenu(null);
+    if (!active) return;
+    setFillContentForm({ type, color: fg, style: 'linear', angle: 90, scalePct: 100, reverse: false, dither: false, alignWithLayer: true, patternId: doc?.patterns[0]?.id ?? '', linked: true });
+    setFillContentMode({ kind: 'create', type });
+    fillContentDialog.current?.showModal();
+  }
+
+  function openLayerContentOptions() {
+    setMenu(null);
+    if (!active || !node || node.kind !== 'fill' || !node.content) return;
+    setFillContentForm(formFromFillContent(node.content, fg, doc?.patterns[0]?.id ?? ''));
+    setFillContentMode({ kind: 'edit', id: active.id });
+    fillContentDialog.current?.showModal();
+  }
+
+  function submitFillContent() {
+    if (!active || !fillContentMode) return;
+    const content = fillContentFromForm(fillContentForm);
+    fillContentDialog.current?.close();
+    if (fillContentMode.kind === 'create') {
+      const { type } = fillContentMode;
+      run(null, () => client.call('newFillLayer', active.id, content, FILL_LAYER_NAMES[type], FILL_LAYER_LABELS[type]), selectCreated);
+    } else {
+      run(null, () => client.call('setFillContent', [fillContentMode.id], content));
+    }
+  }
 
   function openPreviewDialog(which: 'fill' | 'stroke') {
     setMenu(null);
@@ -483,6 +548,19 @@ export function App() {
       { label: 'Add Layer Mask', run: addMask, off: !has || !!node?.mask },
       { label: 'Delete Layer Mask', run: deleteMask, off: !has || !node?.mask },
       { label: node?.mask?.enabled === false ? 'Enable Layer Mask' : 'Disable Layer Mask', run: toggleMaskEnabled, off: !has || !node?.mask },
+      {
+        label: 'New Fill Layer', keys: '›', run: () => {}, off: !has || !active, sep: true, sub: [
+          { label: 'Solid Color…', run: () => openNewFillLayer('solid') },
+          { label: 'Gradient…', run: () => openNewFillLayer('gradient') },
+          { label: 'Pattern…', run: () => openNewFillLayer('pattern') },
+        ],
+      },
+      { label: 'Layer Content Options…', run: openLayerContentOptions, off: !has || node?.kind !== 'fill' },
+      {
+        label: 'Rasterize', keys: '›', run: () => {}, off: !has || node?.kind !== 'fill', sub: [
+          { label: 'Fill Content', run: () => active && run('Rasterizing…', () => client.call('rasterizeFill', active.id)) },
+        ],
+      },
     ],
     Image: [
       { label: 'Invert', keys: 'Ctrl+I', run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, quickMask ? 'selection' : active!.target)), off: !has },
@@ -2173,6 +2251,43 @@ export function App() {
           <div className="actions">
             <button type="button" onClick={() => strokeDialog.current?.close()}>Cancel</button>
             <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={fillContentDialog}>
+        <form onSubmit={e => { e.preventDefault(); submitFillContent(); }}>
+          <h2>{FILL_LAYER_TITLES[fillContentForm.type]}</h2>
+          {fillContentForm.type === 'solid' && (
+            <label>Color <button type="button" className="gradient-swatch" aria-label="Fill color" style={{ background: rgbToHex(fillContentForm.color) }}
+              onClick={() => picker.current?.open(fillContentForm.color, 'Fill Color', c => setFillContentForm(f => ({ ...f, color: c })))} /></label>
+          )}
+          {fillContentForm.type === 'gradient' && (
+            <>
+              <label>Style <select value={fillContentForm.style} onChange={e => setFillContentForm({ ...fillContentForm, style: e.currentTarget.value as FillContentForm['style'] })}>
+                {(['linear', 'radial', 'angle', 'reflected', 'diamond'] as const).map(s => <option key={s} value={s}>{s}</option>)}
+              </select></label>
+              <label>Angle <input type="number" value={fillContentForm.angle} onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillContentForm({ ...fillContentForm, angle: v }); }} /> °</label>
+              <label>Scale <input type="number" min={10} max={150} value={fillContentForm.scalePct} onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillContentForm({ ...fillContentForm, scalePct: Math.min(150, Math.max(10, v)) }); }} /> %</label>
+              <label><input type="checkbox" checked={fillContentForm.reverse} onChange={e => setFillContentForm({ ...fillContentForm, reverse: e.currentTarget.checked })} /> Reverse</label>
+              <label><input type="checkbox" checked={fillContentForm.dither} onChange={e => setFillContentForm({ ...fillContentForm, dither: e.currentTarget.checked })} /> Dither</label>
+              <label><input type="checkbox" checked={fillContentForm.alignWithLayer} onChange={e => setFillContentForm({ ...fillContentForm, alignWithLayer: e.currentTarget.checked })} /> Align with layer</label>
+            </>
+          )}
+          {fillContentForm.type === 'pattern' && (
+            <>
+              {doc?.patterns.length ? (
+                <label>Pattern <select value={fillContentForm.patternId || doc.patterns[0].id} onChange={e => setFillContentForm({ ...fillContentForm, patternId: e.currentTarget.value })}>
+                  {doc.patterns.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select></label>
+              ) : <p>This document has no patterns.</p>}
+              <label>Scale <input type="number" min={1} max={1000} value={fillContentForm.scalePct} onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillContentForm({ ...fillContentForm, scalePct: Math.min(1000, Math.max(1, v)) }); }} /> %</label>
+              <label>Angle <input type="number" value={fillContentForm.angle} onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillContentForm({ ...fillContentForm, angle: v }); }} /> °</label>
+              <label><input type="checkbox" checked={fillContentForm.linked} onChange={e => setFillContentForm({ ...fillContentForm, linked: e.currentTarget.checked })} /> Link with layer</label>
+            </>
+          )}
+          <div className="actions">
+            <button type="button" onClick={() => fillContentDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary" disabled={fillContentForm.type === 'pattern' && !doc?.patterns.length}>OK</button>
           </div>
         </form>
       </dialog>

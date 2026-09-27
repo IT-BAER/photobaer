@@ -5,11 +5,26 @@ import { packProject, unpackProject, tileIds } from './project.ts';
 import { importPsd, exportPsd } from './psd.ts';
 import { denormalize, isIdentity } from './transform/matrix.ts';
 
+// A fill layer's content (docs/M3.md section 4); field names match the engine JSON verbatim.
+export interface GradientDef {
+  method: 'classic' | 'linear' | 'perceptual';
+  color_stops: { position: number; color: [number, number, number]; midpoint: number }[];
+  opacity_stops: { position: number; opacity: number; midpoint: number }[];
+}
+export type FillContent =
+  | { type: 'solid'; color: [number, number, number] }
+  | {
+      type: 'gradient'; gradient: GradientDef; style: 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond';
+      angle: number; scale: number; reverse: boolean; dither: boolean; align_with_layer: boolean; offset: [number, number];
+    }
+  | { type: 'pattern'; pattern_id: string; scale: number; angle: number; linked: boolean; offset: [number, number] };
+
 export interface LayerNode {
-  id: number; name: string; kind: 'pixel' | 'group';
+  id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart';
   visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
   locks: { transparency: boolean; pixels: boolean; position: boolean };
   mask: { enabled: boolean; default: number } | null;
+  content?: FillContent;
   children?: LayerNode[];
 }
 export interface DocInfo {
@@ -22,6 +37,7 @@ export interface DocInfo {
   hasLastSelection: boolean;
   selGen: number;
   channels: { id: number; name: string }[];
+  patterns: { id: string; name: string }[];
 }
 export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?: number; w?: number; h?: number; points?: number[] };
 export type OpenResult = DocInfo & { warnings: string[] };
@@ -100,6 +116,7 @@ function info(): DocInfo | null {
     selection: { default: number; bounds: [number, number, number, number] | null } | null;
     has_last_selection: boolean;
     channels: { id: number; name: string }[];
+    patterns: { id: string; name: string }[];
   };
   return {
     docId, version, name,
@@ -111,6 +128,7 @@ function info(): DocInfo | null {
     hasLastSelection: ch.has_last_selection,
     selGen,
     channels: ch.channels,
+    patterns: ch.patterns,
   };
 }
 
@@ -1049,6 +1067,31 @@ const api = {
   deleteMask(id: number) {
     const e = need();
     history.run('Delete Layer Mask', () => e.delete_mask(id));
+    return changed();
+  },
+
+  // Layer > New Fill Layer: `label` is the per-type menu label ("Solid Color"/"Gradient"/"Pattern"),
+  // `name` the layer's name ("Color Fill"/"Gradient Fill"/"Pattern Fill"). One engine call masks the
+  // new layer to the selection (or reveals all) and drops the selection, so this is one undo step.
+  newFillLayer(above: number, content: FillContent, name: string, label: string) {
+    const e = need();
+    let created = 0;
+    history.run(label, () => { created = e.add_fill_layer(above, JSON.stringify({ name, content })); });
+    selGen++;
+    return { ...changed(), created };
+  },
+
+  // Layer > Layer Content Options: replaces every selected fill layer's content as one undo step.
+  setFillContent(ids: number[], content: FillContent) {
+    const e = need();
+    history.run('Layer Content Options', () => { for (const id of ids) e.set_content(id, JSON.stringify(content)); });
+    return changed();
+  },
+
+  // Layer > Rasterize > Fill Content.
+  rasterizeFill(id: number) {
+    const e = need();
+    history.run('Rasterize Fill Content', () => e.rasterize_fill(id));
     return changed();
   },
 

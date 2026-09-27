@@ -4136,6 +4136,63 @@ impl Document {
         self.add_node(&s.name, above, kind)
     }
 
+    /// Adds a fill layer via `add_special` (docs/M3.md section 4), then masks it to the current
+    /// selection (reveal all when nothing is selected) and drops the selection, as one op.
+    pub fn add_fill_layer(&mut self, above: u32, json: &str) -> Result<u32, String> {
+        let id = self.add_special(above, json)?;
+        let (default, tiles) = match &self.selection {
+            Some(sel) => (sel.default, sel.tiles.clone()),
+            None => (max_value(self.depth), Tiles::default()),
+        };
+        self.node_mut(id)?.mask = Some(Mask { enabled: true, default, tiles });
+        if let Some(sel) = self.selection.take() {
+            self.last_selection = Some(sel);
+        }
+        Ok(id)
+    }
+
+    /// Replaces a fill layer's content; refuses other kinds (naming the kind) and unknown pattern ids.
+    pub fn set_content(&mut self, id: u32, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let c: FillContent = serde_json::from_str(json).map_err(|e| format!("invalid content: {e}"))?;
+        if let Some(pid) = c.pattern_id().filter(|p| !self.patterns.iter().any(|e| e.id == *p)) {
+            return Err(format!("unknown pattern {pid}"));
+        }
+        let node = self.node_mut(id)?;
+        let kind = node.kind_name();
+        match &mut node.kind {
+            Kind::Fill(existing) => {
+                *existing = c;
+                Ok(())
+            }
+            _ => Err(format!("node {id} is a {kind} layer, not a fill layer")),
+        }
+    }
+
+    /// Renders a fill layer over the document bounds into pixel tiles and turns it into a pixel
+    /// layer with the same id, mask, props, style and blending; fully transparent tiles stay absent.
+    pub fn rasterize_fill(&mut self, id: u32) -> Result<(), String> {
+        self.check_idle()?;
+        let node = self.node(id)?;
+        let kind = node.kind_name();
+        let Kind::Fill(c) = &node.kind else {
+            return Err(format!("node {id} is a {kind} layer, not a fill layer"));
+        };
+        let c = c.clone();
+        let mut tiles = Tiles::default();
+        for ty in 0..self.tiles_y() {
+            for tx in 0..self.tiles_x() {
+                let Some((_, px)) = self.fill_tile(&c, 0, tx, ty) else { continue };
+                if px.any_alpha() {
+                    let tid = self.alloc_tile_id();
+                    tiles.put(tx as i32, ty as i32, Some(Tile { id: tid, px }));
+                }
+            }
+        }
+        self.node_mut(id)?.kind = Kind::Pixel(tiles);
+        Ok(())
+    }
+
     pub fn set_blending(&mut self, id: u32, json: &str) -> Result<(), String> {
         self.check_idle()?;
         let b: Blending = serde_json::from_str(json).map_err(|e| format!("invalid blending options: {e}"))?;
@@ -4227,6 +4284,7 @@ impl Document {
             })),
             "has_last_selection": self.last_selection.is_some(),
             "channels": self.channels.iter().map(|c| serde_json::json!({ "id": c.id, "name": c.name })).collect::<Vec<_>>(),
+            "patterns": self.patterns.iter().map(|p| serde_json::json!({ "id": p.id, "name": p.name })).collect::<Vec<_>>(),
         });
         v.to_string()
     }

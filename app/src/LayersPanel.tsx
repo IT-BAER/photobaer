@@ -1,7 +1,7 @@
 import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import {
   Brush, ChevronDown, ChevronRight, CornerLeftDown, Eye, Folder, FolderPlus, Grid2x2, Link2, Lock, Move,
-  SquareDashed, SquarePlus, Trash2,
+  PaintBucket, SquareDashed, SquarePlus, Trash2,
 } from 'lucide-react';
 import { client } from './client.ts';
 import { BLEND_MODES, nodeById, dropTarget, type Where } from './layers.ts';
@@ -144,6 +144,8 @@ export function LayersPanel(props: Props) {
               >{open ? <ChevronDown {...ICON} /> : <ChevronRight {...ICON} />}</button>
               <Folder className="group-icon" size={18} strokeWidth={1.75} />
             </>
+          ) : n.kind === 'fill' ? (
+            <PaintBucket className="fill-layer-icon" size={16} strokeWidth={1.75} aria-label="Fill layer" />
           ) : (
             <span className={`thumb${isActive && active.target === 'pixels' && n.mask ? ' target' : ''}`} />
           )}

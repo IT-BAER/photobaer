@@ -818,6 +818,52 @@ fn pattern_fills_tile_the_document_pattern() {
     assert_eq!(px(&d, 0, 0)[3], 0);
 }
 
+#[test]
+fn set_content_rejects_wrong_kind_and_unknown_pattern() {
+    let mut d = Document::new(8, 8, 8).unwrap();
+    let f = special(&mut d, 1, json!({ "name": "F", "content": { "type": "solid", "color": [1, 2, 3] } }));
+    let err = d.set_content(1, &json!({ "type": "solid", "color": [4, 5, 6] }).to_string()).unwrap_err();
+    assert!(err.contains("pixel"), "the error names the kind: {err}");
+    let pat = json!({ "type": "pattern", "pattern_id": "nope", "scale": 1.0, "angle": 0.0, "linked": true, "offset": [0.0, 0.0] });
+    assert!(d.set_content(f, &pat.to_string()).is_err(), "an unknown pattern id is refused");
+    d.set_content(f, &json!({ "type": "solid", "color": [4, 5, 6] }).to_string()).unwrap();
+    let Kind::Fill(c) = &d.node(f).unwrap().kind else { panic!("still a fill layer") };
+    assert_eq!(*c, serde_json::from_value(json!({ "type": "solid", "color": [4, 5, 6] })).unwrap());
+}
+
+#[test]
+fn rasterize_fill_keeps_the_render_and_becomes_pixels() {
+    let mut d = gray_doc(300, 8, 255);
+    let f = special(&mut d, 1, json!({ "name": "F", "content": { "type": "solid", "color": [10, 20, 30] } }));
+    d.set_props(f, r#"{"opacity":0.5}"#).unwrap();
+    let before: Vec<Vec<u8>> = (0..2).map(|tx| d.flatten_tile_rgba8(tx, 0).unwrap()).collect();
+    assert!(d.rasterize_fill(1).is_err(), "a pixel layer refuses rasterize");
+    d.rasterize_fill(f).unwrap();
+    assert!(matches!(d.node(f).unwrap().kind, Kind::Pixel(_)));
+    assert_eq!(d.node(f).unwrap().opacity, 0.5, "props are kept");
+    for tx in 0..2 {
+        assert_eq!(d.flatten_tile_rgba8(tx, 0).unwrap(), before[tx as usize], "tile {tx}");
+    }
+}
+
+#[test]
+fn add_fill_layer_masks_the_selection_and_clears_it() {
+    let mut d = Document::new(20, 20, 8).unwrap();
+    d.select_rect(2.0, 3.0, 5.0, 6.0, Mode::New).unwrap();
+    let solid = json!({ "name": "Color Fill", "content": { "type": "solid", "color": [0, 0, 0] } }).to_string();
+    let f = d.add_fill_layer(1, &solid).unwrap();
+    assert!(d.selection.is_none(), "the selection is dropped");
+    assert!(d.last_selection.is_some(), "reselect can still restore it");
+    let mask = d.node(f).unwrap().mask.as_ref().unwrap();
+    assert_eq!(mask.default, 0, "outside the rect is not revealed");
+    assert!(!mask.tiles.coords().is_empty(), "the rect is carried in tiles");
+    // Without a selection the mask reveals everything.
+    let g = d.add_fill_layer(f, &solid).unwrap();
+    let mask_g = d.node(g).unwrap().mask.as_ref().unwrap();
+    assert_eq!(mask_g.default, 255);
+    assert!(mask_g.tiles.coords().is_empty());
+}
+
 fn v2_doc() -> Document {
     let mut d = Document::new(300, 260, 8).unwrap();
     for ty in 0..2 {

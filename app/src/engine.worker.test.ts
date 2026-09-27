@@ -124,6 +124,40 @@ test('addMask then invert with target mask flips default', async () => {
   assert.notEqual(after.layers[0].mask.default, before.layers[0].mask.default);
 });
 
+test('newFillLayer masks to the selection, drops it, and undoes under the menu label', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 10, h: 10 }, 'new', false, 0, 'Rectangular Marquee');
+  const solid = { type: 'solid', color: [10, 20, 30] };
+  const r = await call('newFillLayer', 1, solid, 'Color Fill', 'Solid Color');
+  const info = r.result as { created: number; undoLabel: string; selection: unknown; layers: { id: number; kind: string; mask: { default: number } | null }[] };
+  assert.equal(info.undoLabel, 'Solid Color');
+  assert.equal(info.selection, null, 'the selection is dropped');
+  const node = info.layers.find(l => l.id === info.created)!;
+  assert.equal(node.kind, 'fill');
+  assert.ok(node.mask, 'the new fill layer is masked to the selection');
+  assert.equal(node.mask!.default, 0, 'outside the selection is not revealed');
+});
+
+test('setFillContent edits every selected fill layer as one undo step', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  const original = { type: 'solid', color: [1, 2, 3] };
+  const a = await call('newFillLayer', 1, original, 'Color Fill', 'Solid Color');
+  const idA = (a.result as { created: number }).created;
+  const b = await call('newFillLayer', idA, original, 'Color Fill', 'Solid Color');
+  const idB = (b.result as { created: number }).created;
+  const edited = await call('setFillContent', [idA, idB], { type: 'solid', color: [9, 8, 7] });
+  const info = edited.result as { undoLabel: string; layers: { id: number; content?: { color: number[] } }[] };
+  assert.equal(info.undoLabel, 'Layer Content Options');
+  assert.deepEqual(info.layers.find(l => l.id === idA)!.content, { type: 'solid', color: [9, 8, 7] });
+  assert.deepEqual(info.layers.find(l => l.id === idB)!.content, { type: 'solid', color: [9, 8, 7] });
+  const u = await call('undo');
+  const afterUndo = u.result as { layers: { id: number; content?: { color: number[] } }[] };
+  assert.deepEqual(afterUndo.layers.find(l => l.id === idA)!.content, original, 'one undo step restores both layers');
+  assert.deepEqual(afterUndo.layers.find(l => l.id === idB)!.content, original);
+});
+
 test('moveNode moves a layer into a group', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);
