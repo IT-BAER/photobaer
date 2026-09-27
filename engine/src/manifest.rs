@@ -2,6 +2,7 @@
 //! A child module of `doc`.
 
 use super::*;
+use crate::path::{Grid, Guide, SavedPath};
 
 impl Document {
     // ---------- persistence ----------
@@ -25,8 +26,19 @@ impl Document {
             mask: n.mask.as_ref().map(mask_out),
             style: &n.style,
             blending: &n.blending,
-            tiles: match (n.pixel_tiles(), tiles_out) {
-                (Ok(t), true) => Some(t.out()),
+            tiles: match (&n.kind, n.pixel_tiles(), tiles_out) {
+                (Kind::Text(t), _, true) => t.cache.as_ref().map(|c| c.out()),
+                (_, Ok(t), true) => Some(t.out()),
+                _ => None,
+            },
+            vector_mask: &n.vector_mask,
+            artboard: n.artboard.as_ref(),
+            shape: match &n.kind {
+                Kind::Shape(s) => Some(s),
+                _ => None,
+            },
+            text: match &n.kind {
+                Kind::Text(t) => Some(&t.data),
                 _ => None,
             },
             children: match &n.kind {
@@ -79,7 +91,7 @@ impl Document {
                         out.extend(s.source_blob);
                         out.extend(s.filters.iter().filter_map(|f| f.filter.blob()));
                     }
-                    Kind::Pixel(_) | Kind::Fill(_) => {}
+                    Kind::Pixel(_) | Kind::Fill(_) | Kind::Shape(_) | Kind::Text(_) => {}
                 }
             }
         }
@@ -132,6 +144,7 @@ impl Document {
             patterns: &self.patterns,
             layer_comps: &self.layer_comps,
             blobs: self.blob_refs(),
+            vector: &self.vector,
         };
         serde_json::to_string(&m).expect("manifest serialization cannot fail")
     }
@@ -163,6 +176,9 @@ impl Document {
     fn tile_bytes_in(nodes: &[Node], id: u64) -> Option<Vec<u8>> {
         for n in nodes {
             let mut planes: Vec<&Tiles> = n.pixel_tiles().into_iter().chain(n.mask.as_ref().map(|m| &m.tiles)).collect();
+            if let Kind::Text(t) = &n.kind {
+                planes.extend(t.cache.as_ref());
+            }
             if let Kind::Smart(s) = &n.kind {
                 planes.push(&s.source_tiles);
                 let masks = s.filters.iter().filter_map(|f| f.mask.as_ref()).chain(s.stack_mask.as_ref());
@@ -225,6 +241,10 @@ impl Document {
                         adjustment: None,
                         content: None,
                         smart: None,
+                        vector_mask: None,
+                        artboard: None,
+                        shape: None,
+                        text: None,
                     })
                     .collect();
                 let layers = spread_nodes(nodes, m.tiles_x, m.tiles_y)?;
@@ -236,6 +256,7 @@ impl Document {
                     None,
                     None,
                     Vec::new(),
+                    None,
                     None,
                 )
             }
@@ -251,6 +272,7 @@ impl Document {
                     None,
                     Vec::new(),
                     None,
+                    None,
                 )
             }
             3 => {
@@ -263,6 +285,7 @@ impl Document {
                     m.selection,
                     m.last_selection,
                     m.channels,
+                    None,
                     None,
                 )
             }
@@ -283,6 +306,35 @@ impl Document {
                     m.last_selection,
                     m.channels,
                     Some(extras),
+                    None,
+                )
+            }
+            5 => {
+                let m: ManifestV5In = serde_json::from_str(json).map_err(|e| format!("invalid manifest: {e}"))?;
+                let extras = V4Extras {
+                    global_light: m.global_light,
+                    patterns: m.patterns,
+                    layer_comps: m.layer_comps,
+                    blobs: m.blobs,
+                };
+                let vector = DocVector {
+                    resolution: m.resolution,
+                    paths: m.paths,
+                    guides: m.guides,
+                    grid: m.grid,
+                    guides_locked: m.guides_locked,
+                    artboards_locked: m.artboards_locked,
+                };
+                Document::build(
+                    Head { width: m.width, height: m.height, depth: m.depth, tiles_x: m.tiles_x, tiles_y: m.tiles_y },
+                    m.next_id,
+                    m.next_node_id,
+                    m.layers,
+                    m.selection,
+                    m.last_selection,
+                    m.channels,
+                    Some(extras),
+                    Some(vector),
                 )
             }
             v => Err(format!("unsupported version {v}")),
@@ -299,6 +351,7 @@ impl Document {
         last_selection: Option<SelIn>,
         channels: Vec<ChannelIn>,
         extras: Option<V4Extras>,
+        vector: Option<DocVector>,
     ) -> Result<Document, String> {
         let Head { width, height, depth, tiles_x, tiles_y } = head;
         validate_dims(width, height, depth)?;
@@ -311,6 +364,9 @@ impl Document {
         if layers.is_empty() {
             return Err("the document must have at least one root node".into());
         }
+        let v5 = vector.is_some();
+        let vector = vector.unwrap_or_default();
+        vector.validate()?;
         let mut ctx = LoadCtx {
             max_mask: max_value(depth),
             canvas: (tiles_x, tiles_y),
@@ -320,6 +376,8 @@ impl Document {
             slots: HashMap::new(),
             max_referenced_id: 0,
             v4: extras.is_some(),
+            v5,
+            vector,
             patterns: HashSet::new(),
             blob_refs: Vec::new(),
         };
@@ -387,6 +445,7 @@ impl Document {
             global_light,
             patterns,
             layer_comps,
+            vector: ctx.vector,
             blobs: HashMap::new(),
             next_id,
             next_node_id,
@@ -439,6 +498,10 @@ impl Document {
                     .expect("a stack mask exists when a mask tile refers to it")
                     .tiles
                     .put(tx, ty, tile),
+                Slot::TextCache(path) => match &mut node_at_mut(&mut self.nodes, &path).kind {
+                    Kind::Text(t) => t.cache.as_mut().expect("a text cache exists when a cache tile refers to it").put(tx, ty, tile),
+                    _ => unreachable!("a text cache slot points at a text node"),
+                },
                 Slot::Selection => self.selection.as_mut().expect("a selection exists").tiles.put(tx, ty, tile),
                 Slot::LastSelection => {
                     self.last_selection.as_mut().expect("a last selection exists").tiles.put(tx, ty, tile)
@@ -475,6 +538,8 @@ struct LoadCtx {
     slots: HashMap<u64, (bool, Vec<(Slot, i32, i32)>)>,
     max_referenced_id: u64,
     v4: bool,
+    v5: bool,
+    vector: DocVector,
     patterns: HashSet<String>,
     blob_refs: Vec<u64>,
 }
@@ -536,6 +601,10 @@ fn spread_nodes(nodes: Vec<NodeIn<u64>>, tiles_x: u32, tiles_y: u32) -> Result<V
                 adjustment: n.adjustment,
                 content: n.content,
                 smart: n.smart,
+                vector_mask: n.vector_mask,
+                artboard: n.artboard,
+                shape: n.shape,
+                text: n.text,
             })
         })
         .collect()
@@ -594,17 +663,24 @@ fn build_nodes(in_nodes: &[NodeIn<Coord>], path: &mut Vec<usize>, ctx: &mut Load
             None if ctx.v4 => return Err(format!("node {} needs blending options", n.id)),
             None => Blending::default(),
         };
-        // Which of tiles, children, adjustment, content and smart each kind carries.
+        let m4 = [n.vector_mask.is_some(), n.artboard.is_some(), n.shape.is_some(), n.text.is_some()];
+        if !ctx.v5 && m4.contains(&true) {
+            return Err("vector masks, artboards and shape and text nodes need manifest v5".into());
+        }
+        // Which of tiles, children, adjustment, content, smart, shape and text each kind carries.
         let want = match n.kind.as_str() {
-            "pixel" => [true, false, false, false, false],
-            "group" => [false, true, false, false, false],
-            "adjustment" => [false, false, true, false, false],
-            "fill" => [false, false, false, true, false],
-            "smart" => [true, false, false, false, true],
+            "pixel" => [true, false, false, false, false, false, false],
+            "group" => [false, true, false, false, false, false, false],
+            "adjustment" => [false, false, true, false, false, false, false],
+            "fill" => [false, false, false, true, false, false, false],
+            "smart" => [true, false, false, false, true, false, false],
+            "shape" => [false, false, false, false, false, true, false],
+            // A text node's tiles (its cache) are optional.
+            "text" => [n.tiles.is_some(), false, false, false, false, false, true],
             other => return Err(format!("unknown node kind {other}")),
         };
-        let has = [n.tiles.is_some(), n.children.is_some(), m3[2], m3[3], m3[4]];
-        for (k, field) in ["tiles", "children", "adjustment", "content", "smart"].iter().enumerate() {
+        let has = [n.tiles.is_some(), n.children.is_some(), m3[2], m3[3], m3[4], m4[2], m4[3]];
+        for (k, field) in ["tiles", "children", "adjustment", "content", "smart", "shape", "text"].iter().enumerate() {
             if has[k] != want[k] {
                 let verb = if want[k] { "needs" } else { "cannot have" };
                 return Err(format!("a {} node {verb} a {field} field", n.kind));
@@ -619,8 +695,28 @@ fn build_nodes(in_nodes: &[NodeIn<Coord>], path: &mut Vec<usize>, ctx: &mut Load
             }
             check_style(st, |id| ctx.patterns.contains(id))?;
         }
+        if let Some(a) = &n.artboard {
+            if n.kind != "group" || !path.is_empty() {
+                return Err(format!("node {}: an artboard is only allowed on a top-level group", n.id));
+            }
+            ctx.vector.check_artboard(a)?;
+        }
+        if let Some(vm) = &n.vector_mask {
+            vm.validate()?;
+        }
         path.push(i);
         let kind = match (n.kind.as_str(), &n.tiles, &n.children, &n.adjustment, &n.content, &n.smart) {
+            ("shape", ..) => {
+                let s = n.shape.as_ref().expect("checked against the kind");
+                s.validate(|id| ctx.patterns.contains(id))?;
+                Kind::Shape(Box::new(s.clone()))
+            }
+            ("text", tiles, ..) => {
+                let data = n.text.as_ref().expect("checked against the kind");
+                data.validate()?;
+                let cache = tiles.as_ref().map(|ids| take_tiles(ids, false, Slot::TextCache(path.clone()), false, ctx)).transpose()?;
+                Kind::Text(Box::new(Text { data: data.clone(), cache }))
+            }
             ("pixel", Some(ids), ..) => Kind::Pixel(take_tiles(ids, false, Slot::Pixels(path.clone()), false, ctx)?),
             ("group", _, Some(children), ..) => Kind::Group(build_nodes(children, path, ctx)?),
             ("adjustment", _, _, Some(a), ..) => {
@@ -652,6 +748,8 @@ fn build_nodes(in_nodes: &[NodeIn<Coord>], path: &mut Vec<usize>, ctx: &mut Load
             kind,
             style: n.style.clone(),
             blending,
+            vector_mask: n.vector_mask.clone(),
+            artboard: n.artboard.clone(),
         });
     }
     Ok(out)
@@ -774,6 +872,13 @@ struct NodeOut<'a> {
     content: Option<&'a FillContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     smart: Option<SmartOut<'a>>,
+    vector_mask: &'a Option<VectorMask>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    artboard: Option<&'a Artboard>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    shape: Option<&'a ShapeData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<&'a TextData>,
 }
 
 #[derive(Serialize)]
@@ -824,6 +929,8 @@ struct ManifestOut<'a> {
     patterns: &'a [PatternEntry],
     layer_comps: &'a [LayerComp],
     blobs: Vec<u64>,
+    #[serde(flatten)]
+    vector: &'a DocVector,
 }
 
 #[derive(Deserialize)]
@@ -862,6 +969,14 @@ struct NodeIn<T> {
     content: Option<FillContent>,
     #[serde(default)]
     smart: Option<SmartIn>,
+    #[serde(default)]
+    vector_mask: Option<VectorMask>,
+    #[serde(default)]
+    artboard: Option<Artboard>,
+    #[serde(default)]
+    shape: Option<ShapeData>,
+    #[serde(default)]
+    text: Option<TextData>,
 }
 
 #[derive(Deserialize)]
@@ -1028,6 +1143,36 @@ struct ManifestV4In {
     patterns: Vec<PatternEntry>,
     layer_comps: Vec<LayerComp>,
     blobs: Vec<u64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ManifestV5In {
+    #[allow(dead_code)]
+    format: String,
+    #[allow(dead_code)]
+    version: u32,
+    width: u32,
+    height: u32,
+    depth: u8,
+    tiles_x: u32,
+    tiles_y: u32,
+    next_id: u64,
+    next_node_id: u32,
+    layers: Vec<NodeIn<Coord>>,
+    selection: Option<SelIn>,
+    last_selection: Option<SelIn>,
+    channels: Vec<ChannelIn>,
+    global_light: GlobalLight,
+    patterns: Vec<PatternEntry>,
+    layer_comps: Vec<LayerComp>,
+    blobs: Vec<u64>,
+    resolution: f64,
+    paths: Vec<SavedPath>,
+    guides: Vec<Guide>,
+    grid: Grid,
+    guides_locked: bool,
+    artboards_locked: bool,
 }
 
 // The document-level fields v4 adds; v1 to v3 load with the defaults.

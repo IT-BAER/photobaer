@@ -168,7 +168,7 @@ fn blob(id: u64) -> Vec<u8> {
 }
 
 /// A v4 manifest using every new field.
-fn v4_fixture() -> Value {
+pub(super) fn v4_fixture() -> Value {
     let mut bg = node(1, "bg", "pixel");
     bg["tiles"] = json!([[0, 0, 1]]);
     bg["style"] = full_style("p1");
@@ -260,7 +260,7 @@ fn tile(id: u64) -> Vec<u8> {
     }
 }
 
-fn load(json: &str) -> Result<Document, String> {
+pub(super) fn load(json: &str) -> Result<Document, String> {
     let mut d = Document::from_manifest(json)?;
     for id in RGBA_TILES.iter().chain(MASK_TILES.iter()) {
         d.put_tile(*id, &tile(*id))?;
@@ -299,7 +299,24 @@ fn rejects(f: impl Fn(&mut Value), what: &str) -> String {
 fn v4_round_trip_of_every_new_field_is_byte_identical() {
     let d = fixture_doc();
     let first = d.manifest();
-    assert_eq!(norm(&serde_json::from_str(&first).unwrap()), norm(&v4_fixture()), "no field is dropped or changed");
+    let v5 = |v: &mut Value| {
+        fn add_vector_mask(nodes: &mut Value) {
+            for n in nodes.as_array_mut().unwrap() {
+                n["vector_mask"] = Value::Null;
+                if let Some(ch) = n.get_mut("children") {
+                    add_vector_mask(ch);
+                }
+            }
+        }
+        add_vector_mask(&mut v["layers"]);
+        v["version"] = 5.into();
+        let extra = json!({ "resolution": 72.0, "paths": [], "guides": [], "grid": { "spacing_x": 100.0, "spacing_y": 100.0 },
+            "guides_locked": false, "artboards_locked": false });
+        v.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+    };
+    let mut expected = v4_fixture();
+    v5(&mut expected);
+    assert_eq!(norm(&serde_json::from_str(&first).unwrap()), norm(&expected), "no field is dropped or changed");
     let again = load(&first).unwrap();
     assert_eq!(again.manifest(), first, "write -> read -> write is byte identical");
     assert_eq!(again.tile_bytes(10).unwrap(), vec![1, 2, 3], "a 3-byte blob keeps its bytes");
@@ -328,10 +345,10 @@ fn v1_to_v3_documents_get_the_m3_defaults() {
     old.fill(1, Target::Pixels, 1, 2, 3, 255).unwrap();
     let mut v: Value = serde_json::from_str(&old.manifest()).unwrap();
     v["version"] = 3.into();
-    for k in ["global_light", "patterns", "layer_comps", "blobs"] {
+    for k in ["global_light", "patterns", "layer_comps", "blobs", "resolution", "paths", "guides", "grid", "guides_locked", "artboards_locked"] {
         v.as_object_mut().unwrap().remove(k);
     }
-    for k in ["style", "blending"] {
+    for k in ["style", "blending", "vector_mask"] {
         v["layers"][0].as_object_mut().unwrap().remove(k);
     }
     let id = v["layers"][0]["tiles"][0][2].as_u64().unwrap();
@@ -343,7 +360,7 @@ fn v1_to_v3_documents_get_the_m3_defaults() {
     assert_eq!(n.blending, Blending::default());
     assert_eq!(d.global_light, GlobalLight { angle: 120.0, altitude: 30.0 });
     let m: Value = serde_json::from_str(&d.manifest()).unwrap();
-    assert_eq!(m["version"], 4);
+    assert_eq!(m["version"], 5);
     assert_eq!(m["layers"][0]["blending"]["blend_clipped"], true);
     assert_eq!(m["layers"][0]["blending"]["transparency_shapes"], true);
     assert_eq!(m["layers"][0]["blending"]["blend_if"]["gray"]["source"], json!([0, 0, 255, 255]));

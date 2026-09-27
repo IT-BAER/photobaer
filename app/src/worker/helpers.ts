@@ -136,7 +136,7 @@ function topLevelAncestor(tree: LayerNode[], id: number): number {
 
 // Every pixel-layer and smart-object id under `id` (itself included), depth-first.
 function collectPixelIds(tree: LayerNode[], id: number): number[] {
-  const moves = (n: LayerNode) => n.kind === 'pixel' || n.kind === 'smart';
+  const moves = (n: LayerNode) => ['pixel', 'smart', 'shape', 'text'].includes(n.kind);
   const flatten = (nodes: LayerNode[]): number[] => nodes.flatMap(n => (moves(n) ? [n.id] : []).concat(n.children ? flatten(n.children) : []));
   const find = (nodes: LayerNode[]): LayerNode | undefined => {
     for (const n of nodes) { if (n.id === id) return n; const h = n.children && find(n.children); if (h) return h; }

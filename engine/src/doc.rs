@@ -17,6 +17,9 @@ mod brush;
 #[cfg(test)]
 #[path = "doc_m3_tests.rs"]
 mod m3_tests;
+#[cfg(test)]
+#[path = "doc_m4_tests.rs"]
+mod m4_tests;
 pub use transform::Remap;
 pub use brush::EngineCore;
 use brush::*;
@@ -35,12 +38,14 @@ use crate::blend::{blend_channel, blend_rgb, dissolve_hash, paint_mask_value, pa
 use crate::content::{CompLayer, FillContent, Filter, GlobalLight, LayerComp, Link, PatternEntry, Smart, SmartFilter, StackMode, WarpMesh};
 use crate::gradient;
 use crate::livewire::{self, LiveWire};
+use crate::path::{Artboard, DocVector, ShapeData, VectorMask};
 use crate::pattern::Pattern;
 use crate::region;
 use crate::selection::{gaussian_kernel, Ellipse, MaskShape, Mode, Polygon, Rect, Shape};
 use crate::styles::{self, BlendIf, Blending, Knockout, Style};
 #[cfg(test)]
 use crate::styles::BlendRange;
+use crate::text::TextData;
 use crate::stroke::{self, DualBrush, Dyn, PoseOverride, Sample, SampledTip, Source, Spacer, Tip, TipKind, TipShape};
 
 pub const TILE: usize = 256;
@@ -50,7 +55,7 @@ const TILE_BYTES_U16: usize = TILE_PIXELS * 4 * 2;
 const MASK_BYTES_U8: usize = TILE_PIXELS;
 const MASK_BYTES_U16: usize = TILE_PIXELS * 2;
 const MANIFEST_FORMAT: &str = "photobaer-manifest";
-const MANIFEST_VERSION: u32 = 4;
+const MANIFEST_VERSION: u32 = 5;
 // A tile coordinate far outside the largest canvas is a broken file, not a moved layer.
 const MAX_TILE_COORD: u32 = 1 << 20;
 // Ids travel as JS numbers; anything above 2^53 would lose precision or overflow next_id.
@@ -477,6 +482,16 @@ pub enum Kind {
     /// No pixels; unbounded, its mask bounds it.
     Fill(FillContent),
     Smart(Box<Smart>),
+    /// No stored pixels; drawn from its path.
+    Shape(Box<ShapeData>),
+    Text(Box<Text>),
+}
+
+/// A type layer: its model and the rendered or imported pixels (D5), none until rendered.
+#[derive(Clone)]
+pub struct Text {
+    pub data: TextData,
+    pub cache: Option<Tiles>,
 }
 
 #[derive(Clone)]
@@ -493,6 +508,9 @@ pub struct Node {
     pub kind: Kind,
     pub style: Option<Style>,
     pub blending: Blending,
+    pub vector_mask: Option<VectorMask>,
+    /// Only on a top-level group (D14).
+    pub artboard: Option<Artboard>,
 }
 
 impl Node {
@@ -510,6 +528,8 @@ impl Node {
             kind,
             style: None,
             blending: Blending::default(),
+            vector_mask: None,
+            artboard: None,
         }
     }
 
@@ -524,10 +544,15 @@ impl Node {
             Kind::Adjustment(_) => "adjustment",
             Kind::Fill(_) => "fill",
             Kind::Smart(_) => "smart",
+            Kind::Shape(_) => "shape",
+            Kind::Text(_) => "text",
         }
     }
 
     fn no_pixels(&self) -> String {
+        if matches!(self.kind, Kind::Shape(_) | Kind::Text(_)) {
+            return format!("This {} layer must be rasterized before its pixels can be edited.", self.kind_name());
+        }
         let what = match self.kind {
             Kind::Adjustment(_) => "an adjustment layer",
             Kind::Fill(_) => "a fill layer",
@@ -615,6 +640,7 @@ enum Slot {
     Source(Vec<usize>),
     FilterMask(Vec<usize>, usize),
     StackMask(Vec<usize>),
+    TextCache(Vec<usize>),
     Selection,
     LastSelection,
     Channel(usize),
@@ -642,6 +668,7 @@ pub struct Document {
     global_light: GlobalLight,
     patterns: Vec<PatternEntry>,
     layer_comps: Vec<LayerComp>,
+    vector: DocVector,
     // Immutable bytes (smart sources, pattern pixels, lookup tables) with ids from `next_id`.
     blobs: HashMap<u64, Arc<Vec<u8>>>,
     next_id: u64,
@@ -706,6 +733,7 @@ impl Document {
             global_light: GlobalLight::default(),
             patterns: Vec::new(),
             layer_comps: Vec::new(),
+            vector: DocVector::default(),
             blobs: HashMap::new(),
             next_id: 1,
             next_node_id: 2,

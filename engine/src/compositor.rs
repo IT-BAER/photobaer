@@ -895,6 +895,8 @@ impl Document {
                 Some(k) => k,
                 None => return,
             },
+            // Drawn from B3 on.
+            Kind::Shape(_) | Kind::Text(_) => return,
             Kind::Group(children) => {
                 prog.steps.push(Step::new(Op::PushTransparent));
                 self.emit_list(children, prog);
@@ -968,7 +970,7 @@ impl Document {
         let mut shape = Step::new(Op::PushShape);
         (shape.mask_kind, shape.mask, shape.mask_const, shape.scale) = (mk, mkey, mc, k);
         match &base.kind {
-            Kind::Adjustment(_) => return,
+            Kind::Adjustment(_) | Kind::Shape(_) | Kind::Text(_) => return,
             Kind::Pixel(_) | Kind::Smart(_) | Kind::Fill(_) => {
                 let Some(src) = self.node_src(base, prog) else { return };
                 shape.src = src;

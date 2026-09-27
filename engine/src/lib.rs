@@ -4,12 +4,14 @@ mod content;
 mod doc;
 mod gradient;
 mod livewire;
+mod path;
 mod pattern;
 mod region;
 mod resample;
 mod selection;
 mod stroke;
 mod styles;
+mod text;
 
 use blend::PaintMode;
 use doc::{Document, EngineCore, Remap, Target};

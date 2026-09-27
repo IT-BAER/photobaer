@@ -959,7 +959,12 @@ impl Document {
     /// Tight bounds of the layer's non-transparent pixels as [x, y, w, h], canvas coordinates
     /// that may be negative or reach past the canvas.
     pub fn layer_bounds(&self, id: u32) -> Result<Option<[i32; 4]>, String> {
-        Ok(tiles_bounds(self.node(id)?.pixel_tiles()?))
+        match &self.node(id)?.kind {
+            Kind::Text(t) => Ok(t.cache.as_ref().and_then(tiles_bounds)),
+            // ponytail: path bounds arrive with path.rs geometry (B2).
+            Kind::Shape(_) => Ok(None),
+            _ => Ok(tiles_bounds(self.node(id)?.pixel_tiles()?)),
+        }
     }
 
     // Every tile of `src` moved by (dx, dy); a missing source tile reads as empty or as the
@@ -1019,12 +1024,18 @@ impl Document {
     /// Moves a pixel layer and its mask by whole pixels. Pixels outside the canvas are kept.
     pub fn offset_layer(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), String> {
         self.check_idle()?;
-        self.check_pixel_edit(id)?;
+        let vector = matches!(self.node(id)?.kind, Kind::Shape(_) | Kind::Text(_));
+        if !vector {
+            self.check_pixel_edit(id)?;
+        }
         if self.node(id)?.locks.position {
             return Err("layer position is locked".into());
         }
         if dx == 0 && dy == 0 {
             return Ok(());
+        }
+        if vector {
+            return self.offset_vector_layer(id, dx, dy);
         }
         // The shifted tiles must stay within the coordinates a manifest may store.
         let node = self.node(id)?;
@@ -1049,6 +1060,50 @@ impl Document {
         if let Some((default, tiles)) = mask {
             let moved = self.shift_tiles(&tiles, dx, dy, Some(default));
             self.node_mut(id)?.mask.as_mut().expect("checked").tiles = moved;
+        }
+        self.offset_linked_vector_mask(id, dx, dy)
+    }
+
+    fn offset_linked_vector_mask(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), String> {
+        if let Some(vm) = self.node_mut(id)?.vector_mask.as_mut().filter(|m| m.linked) {
+            vm.path.translate(dx as f64, dy as f64);
+        }
+        Ok(())
+    }
+
+    // A shape moves its path, a text layer its transform (its box and paths are in text space)
+    // and its cache; the raster mask moves as on a pixel layer.
+    fn offset_vector_layer(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), String> {
+        let lim = MAX_TILE_COORD as i64;
+        let fits = |t: i32, d: i32| {
+            let lo = (t as i64 * TILE as i64 + d as i64).div_euclid(TILE as i64);
+            lo >= -lim && lo < lim
+        };
+        let node = self.node(id)?;
+        let cache = match &node.kind {
+            Kind::Text(t) => t.cache.clone(),
+            _ => None,
+        };
+        let mask = node.mask.as_ref().map(|m| (m.default, m.tiles.clone()));
+        let coords = cache.iter().chain(mask.as_ref().map(|m| &m.1)).flat_map(|t| t.coords());
+        if !coords.into_iter().all(|(tx, ty)| fits(tx, dx) && fits(ty, dy)) {
+            return Err("offset moves the layer too far".into());
+        }
+        let cache = cache.map(|c| self.shift_tiles(&c, dx, dy, None));
+        let mask = mask.map(|(default, tiles)| self.shift_tiles(&tiles, dx, dy, Some(default)));
+        self.offset_linked_vector_mask(id, dx, dy)?;
+        let node = self.node_mut(id)?;
+        match &mut node.kind {
+            Kind::Shape(s) => s.translate(dx as f64, dy as f64),
+            Kind::Text(t) => {
+                t.data.transform[4] += dx as f64;
+                t.data.transform[5] += dy as f64;
+                t.cache = cache;
+            }
+            _ => unreachable!("only shape and text layers move as vectors"),
+        }
+        if let (Some(m), Some(tiles)) = (node.mask.as_mut(), mask) {
+            m.tiles = tiles;
         }
         Ok(())
     }
