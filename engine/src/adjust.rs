@@ -268,14 +268,14 @@ fn curve_neutral(pts: &[[u8; 2]]) -> bool {
 
 /// A curve through (input, output) points in 0..255: natural cubic spline or, for pencil,
 /// linear; flat beyond the end points.
-struct Curve {
+pub(crate) struct Curve {
     pts: Vec<(f64, f64)>,
     y2: Vec<f64>,
     pencil: bool,
 }
 
 impl Curve {
-    fn new(points: &[[u8; 2]], pencil: bool) -> Curve {
+    pub(crate) fn new(points: &[[u8; 2]], pencil: bool) -> Curve {
         let mut sorted = points.to_vec();
         sorted.sort_by_key(|p| p[0]);
         let mut pts: Vec<(f64, f64)> = Vec::new();
@@ -306,7 +306,7 @@ impl Curve {
         Curve { pts, y2, pencil }
     }
 
-    fn at(&self, x: f64) -> f64 {
+    pub(crate) fn at(&self, x: f64) -> f64 {
         let pts = &self.pts;
         let Some(&(x0, y0)) = pts.first() else { return x };
         let (xn, yn) = pts[pts.len() - 1];
