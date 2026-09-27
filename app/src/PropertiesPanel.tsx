@@ -10,6 +10,7 @@ import {
   EDIT_LABEL, FIELD_SPECS, defaultAdjustment, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
 } from './adjustments.ts';
 import { rampCss, type Gradient } from './gradients/gradient.ts';
+import { LevelsCurvesBody, type SampleCanvas } from './LevelsCurvesBody.tsx';
 
 type Run = (label: string | null, p: () => Promise<DocInfo | null>) => Promise<void>;
 export type OpenGradientEditor = (g: Gradient, onOk: (g: Gradient) => void) => void;
@@ -69,10 +70,16 @@ function Field({ spec, params, onChange }: { spec: FieldSpec; params: object; on
   return <NumberField spec={spec} value={Number(value)} set={(v, live) => onChange(spec.path, v, live)} />;
 }
 
-export function AdjustmentBody({ adjustment, onChange, openGradientEditor, pickLookupFile }: {
+// `histogramId` names the layer whose histogram Levels/Curves show (0: the composite);
+// `sampleCanvas` is absent where canvas clicks cannot reach the body (the modal dialogs).
+export function AdjustmentBody({ adjustment, onChange, openGradientEditor, pickLookupFile, histogramId, sampleCanvas }: {
   adjustment: Adjustment; onChange: OnChange; openGradientEditor: OpenGradientEditor; pickLookupFile: PickLookupFile;
+  histogramId: number; sampleCanvas?: SampleCanvas;
 }) {
   const { kind } = adjustment;
+  if (adjustment.kind === 'levels' || adjustment.kind === 'curves') {
+    return <LevelsCurvesBody adjustment={adjustment} onChange={onChange} histogramId={histogramId} sampleCanvas={sampleCanvas} />;
+  }
   if (kind === 'invert') return <p className="adjustment-note">Invert has no parameters. Use opacity or blend mode to moderate the result.</p>;
   if (kind === 'gradient_map') {
     const { params } = adjustment;
@@ -115,8 +122,8 @@ export function AdjustmentBody({ adjustment, onChange, openGradientEditor, pickL
   );
 }
 
-export function PropertiesPanel({ doc, node, run, openGradientEditor, pickLookupFile }: {
-  doc: DocInfo; node: LayerNode; run: Run; openGradientEditor: OpenGradientEditor; pickLookupFile: PickLookupFile;
+export function PropertiesPanel({ doc, node, run, openGradientEditor, pickLookupFile, sampleCanvas }: {
+  doc: DocInfo; node: LayerNode; run: Run; openGradientEditor: OpenGradientEditor; pickLookupFile: PickLookupFile; sampleCanvas: SampleCanvas;
 }) {
   const adjustment = node.adjustment!;
   const title = EDIT_LABEL[adjustment.kind];
@@ -138,7 +145,7 @@ export function PropertiesPanel({ doc, node, run, openGradientEditor, pickLookup
           <RotateCcw size={14} strokeWidth={1.75} />
         </button>
       </div>
-      <AdjustmentBody key={node.id} adjustment={adjustment} onChange={change} openGradientEditor={openGradientEditor} pickLookupFile={pickLookupFile} />
+      <AdjustmentBody key={node.id} adjustment={adjustment} onChange={change} openGradientEditor={openGradientEditor} pickLookupFile={pickLookupFile} histogramId={0} sampleCanvas={sampleCanvas} />
       <div className="professional-toggle-grid">
         <label className="adjustment-check"><input type="checkbox" checked={node.visible} onChange={() => setFlag({ visible: !node.visible }, 'Adjustment Visibility')} /> Adjustment visible</label>
         <label className="adjustment-check"><input type="checkbox" checked={node.clipping} disabled={isBottom} onChange={() => setFlag({ clipping: !node.clipping }, 'Adjustment Clipping')} /> Clip to layer below</label>

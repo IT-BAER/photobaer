@@ -598,6 +598,11 @@ impl Engine {
         self.0.doc.flatten_tile_rgba8(tx, ty).map_err(err)
     }
 
+    /// Luminosity, R, G, B counts (4 x 256) of a layer's pixels, or of the composite for id 0.
+    pub fn histogram(&self, id: u32) -> Result<Vec<u32>, JsError> {
+        self.0.doc.histogram(id).map_err(err)
+    }
+
     pub fn manifest(&self) -> String {
         self.0.doc.manifest()
     }

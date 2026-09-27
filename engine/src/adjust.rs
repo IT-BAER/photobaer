@@ -108,8 +108,10 @@ impl Adjustment {
                     .chain([("curves.red", p.red.as_ref()), ("curves.green", p.green.as_ref()), ("curves.blue", p.blue.as_ref())])
                 {
                     let Some(pts) = pts else { continue };
-                    if pts.is_empty() || pts.len() > 16 {
-                        return Err(format!("{field} must have between 1 and 16 points, got {}", pts.len()));
+                    // Pencil curves hold one sample per input value.
+                    let max = if p.mode == CurveMode::Pencil { 256 } else { 16 };
+                    if pts.is_empty() || pts.len() > max {
+                        return Err(format!("{field} must have between 1 and {max} points, got {}", pts.len()));
                     }
                 }
                 Ok(())

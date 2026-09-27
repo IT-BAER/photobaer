@@ -4319,6 +4319,42 @@ impl Document {
         Ok(bytes)
     }
 
+    /// 8-bit counts of luminosity (0.3r + 0.59g + 0.11b), R, G and B, 256 bins each, over the
+    /// pixels with alpha inside the canvas: the composite for id 0, else that layer's own pixels.
+    pub fn histogram(&self, id: u32) -> Result<Vec<u32>, String> {
+        let mut h = vec![0u32; 4 * 256];
+        let (w, ht) = (self.width() as i32, self.height() as i32);
+        let mut count = |tx: i32, ty: i32, px: &[u8]| {
+            for p in 0..TILE_PIXELS {
+                let (x, y) = (tx * TILE as i32 + (p % TILE) as i32, ty * TILE as i32 + (p / TILE) as i32);
+                let c = &px[p * 4..p * 4 + 4];
+                if x < 0 || y < 0 || x >= w || y >= ht || c[3] == 0 {
+                    continue;
+                }
+                let lum = (0.3 * c[0] as f64 + 0.59 * c[1] as f64 + 0.11 * c[2] as f64).round() as usize;
+                h[lum.min(255)] += 1;
+                for ch in 0..3 {
+                    h[256 * (ch + 1) + c[ch] as usize] += 1;
+                }
+            }
+        };
+        if id == 0 {
+            for ty in 0..self.tiles_y() {
+                for tx in 0..self.tiles_x() {
+                    count(tx as i32, ty as i32, &self.flatten_tile_rgba8(tx, ty)?);
+                }
+            }
+            return Ok(h);
+        }
+        for (&(tx, ty), t) in self.node(id)?.pixel_tiles()?.iter() {
+            let px: Vec<u8> = (0..TILE_PIXELS)
+                .flat_map(|p| t.px.rgba_f32(p).map(|v| (v * 255.0).round().clamp(0.0, 255.0) as u8))
+                .collect();
+            count(tx, ty, &px);
+        }
+        Ok(h)
+    }
+
     // ---------- persistence ----------
 
     fn node_out<'a>(n: &'a Node, tiles_out: bool) -> NodeOut<'a> {

@@ -83,18 +83,10 @@ const rangeFields = (i: number, name: string): FieldSpec[] => [
   num(`${name} Hue`, `ranges.${i}.hue`, -100, 100), num(`${name} Saturation`, `ranges.${i}.saturation`, -100, 100), num(`${name} Lightness`, `ranges.${i}.lightness`, -100, 100),
 ];
 
-// Every kind but invert (a note), gradient map (its own body) and color lookup (file-picker body).
+// Every kind but invert (a note), levels and curves (LevelsCurvesBody), gradient map (its own body)
+// and color lookup (file-picker body).
 export const FIELD_SPECS: Partial<Record<Kind, FieldSpec[]>> = {
   brightness_contrast: [num('Brightness', 'brightness', -150, 150), num('Contrast', 'contrast', -50, 100), check('Use legacy', 'legacy')],
-  levels: [
-    num('Input black', 'composite.input_black', 0, 255), num('Input white', 'composite.input_white', 0, 255),
-    num('Gamma', 'composite.gamma', 0.01, 9.99, 0.01), num('Output black', 'composite.output_black', 0, 255), num('Output white', 'composite.output_white', 0, 255),
-  ],
-  curves: [
-    { type: 'select', label: 'Mode', path: 'mode', options: [['point', 'Point'], ['pencil', 'Pencil']] },
-    num('Point 1 input', 'composite.0.0', 0, 255), num('Point 1 output', 'composite.0.1', 0, 255),
-    num('Point 2 input', 'composite.1.0', 0, 255), num('Point 2 output', 'composite.1.1', 0, 255),
-  ],
   exposure: [num('Exposure', 'exposure', -20, 20, 0.01), num('Offset', 'offset', -0.5, 0.5, 0.001), num('Gamma', 'gamma', 0.1, 9.99, 0.01)],
   vibrance: [num('Vibrance', 'vibrance', -100, 100), num('Saturation', 'saturation', -100, 100)],
   hue_saturation: [

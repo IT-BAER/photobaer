@@ -1210,6 +1210,11 @@ const api = {
     return changed();
   },
 
+  // 4 x 256 counts (luminosity, R, G, B) of a layer's pixels, or of the composite for id 0.
+  histogram(id: number): Uint32Array {
+    return need().histogram(id);
+  },
+
   // Mean RGBA over an odd-sized box centered on (x, y), clamped to the canvas; layerId null
   // samples the flattened composite of all layers, else that layer's own pixels.
   sample(x: number, y: number, size: number, layerId: number | null): [number, number, number, number] {

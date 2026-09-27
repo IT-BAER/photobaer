@@ -10,6 +10,7 @@ import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { AdjustmentBody, PropertiesPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
+import type { SampleCanvas } from './LevelsCurvesBody.tsx';
 import { ADJUSTMENT_KINDS, MENU_LABEL, SHORTCUT, defaultAdjustment, type Kind } from './adjustments.ts';
 import type { Adjustment, AutosaveState, DocInfo, FillContent, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
 import { Smoother } from './shell/smoothing.ts';
@@ -291,6 +292,8 @@ export function App() {
   // Image > Adjustments: the dialog's params; its live preview reruns debounced (`adjustTimer`).
   const adjustDialog = useRef<HTMLDialogElement>(null);
   const [adjustForm, setAdjustForm] = useState<Adjustment | null>(null);
+  // Bumped per dialog open so the body refetches its histogram and resets its channel.
+  const [adjustSession, setAdjustSession] = useState(0);
   const adjustTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lutInput = useRef<HTMLInputElement>(null);
   const lutLoaded = useRef<Parameters<PickLookupFile>[0] | null>(null);
@@ -482,6 +485,7 @@ export function App() {
     const start = (a: Adjustment) => {
       previewRef.current = { open: true, commit: false, pending: Promise.resolve() };
       setAdjustForm(a);
+      setAdjustSession(n => n + 1);
       setPreviewDialog('adjust');
       adjustDialog.current?.showModal();
     };
@@ -495,6 +499,24 @@ export function App() {
     if (!st.open || id === undefined) return;
     st.pending = client.call('adjust', id, a, MENU_LABEL[a.kind], true).then(d => show(d), e => setError((e as Error).message));
   }
+
+  // Levels/Curves eyedroppers: the next canvas click samples the composite (one pixel) instead of
+  // reaching the tool; only this handler is ever removed, so a transform session's intercept stays.
+  const sampler = useRef<((e: ToolPointerEvent) => void) | null>(null);
+  const sampleCanvas = useRef<SampleCanvas>(onSample => {
+    const v = viewer.current;
+    if (!v) return;
+    if (v.intercept === sampler.current) v.intercept = null;
+    sampler.current = null;
+    if (!onSample || v.intercept) return;
+    const h = sampler.current = (e: ToolPointerEvent) => {
+      if (e.type !== 'down') return;
+      if (v.intercept === h) v.intercept = null;
+      sampler.current = null;
+      client.call('sample', e.x, e.y, 1, null).then(([r, g, b]) => onSample([r, g, b]), err => setError((err as Error).message));
+    };
+    v.intercept = h;
+  }).current;
 
   const pickLookupFile: PickLookupFile = onLoaded => {
     lutLoaded.current = onLoaded;
@@ -2307,7 +2329,7 @@ export function App() {
           )}
           {doc && active && showAdjustments && <AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} />}
           {doc && showProperties && node?.kind === 'adjustment' && node.adjustment && (
-            <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} />
+            <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}
           {doc && active && (
             <>
@@ -2387,7 +2409,7 @@ export function App() {
         <form onSubmit={e => { e.preventDefault(); previewRef.current.commit = true; adjustDialog.current?.close(); }}>
           <h2>{adjustForm && MENU_LABEL[adjustForm.kind]}</h2>
           {adjustForm && (
-            <AdjustmentBody adjustment={adjustForm} onChange={a => setAdjustForm(a)} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} />
+            <AdjustmentBody key={adjustSession} adjustment={adjustForm} onChange={a => setAdjustForm(a)} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} histogramId={active?.id ?? 0} />
           )}
           <div className="actions">
             <button type="button" onClick={() => adjustDialog.current?.close()}>Cancel</button>

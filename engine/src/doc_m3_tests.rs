@@ -1375,3 +1375,34 @@ fn set_adjustment_refuses_other_kinds_and_validates() {
     let Kind::Adjustment(p) = &d.node(a).unwrap().kind else { panic!("still an adjustment layer") };
     assert_eq!(*p, Adjustment::Posterize(crate::adjust::Posterize { levels: 4 }));
 }
+
+#[test]
+fn histogram_counts_luminosity_and_channels_of_opaque_pixels() {
+    let mut d = Document::new(4, 4, 8).unwrap();
+    assert!(d.histogram(1).unwrap().iter().all(|&n| n == 0), "transparent pixels are not counted");
+    assert!(d.histogram(0).unwrap().iter().all(|&n| n == 0));
+    d.fill(1, Target::Pixels, 200, 100, 0, 255).unwrap();
+    for id in [1, 0] {
+        let h = d.histogram(id).unwrap();
+        assert_eq!(h.len(), 4 * 256);
+        // Lum = 0.3r + 0.59g + 0.11b = 119; then R, G, B.
+        assert_eq!((h[119], h[256 + 200], h[512 + 100], h[768]), (16, 16, 16, 16), "id {id}");
+        assert_eq!(h.iter().sum::<u32>(), 64, "id {id}");
+    }
+    let a = invert(&mut d, 1);
+    assert_eq!(d.histogram(0).unwrap()[256 + 55], 16, "the composite includes adjustments");
+    assert!(d.histogram(a).unwrap_err().contains("no pixels"));
+}
+
+#[test]
+fn curves_point_mode_caps_at_16_points_and_pencil_takes_256_samples() {
+    let mut d = gray_doc(4, 4, 100);
+    let a = invert(&mut d, 1);
+    let samples: Vec<[u8; 2]> = (0..=255).map(|i| [i as u8, 255 - i as u8]).collect();
+    let curves = |mode: &str, pts: &[[u8; 2]]| json!({ "kind": "curves", "params": { "mode": mode, "composite": pts } }).to_string();
+    let err = d.set_adjustment(a, &curves("point", &samples)).unwrap_err();
+    assert!(err.contains("between 1 and 16"), "{err}");
+    d.set_adjustment(a, &curves("pencil", &samples)).unwrap();
+    assert_eq!(px(&d, 1, 1)[0], 155);
+    assert!(d.set_adjustment(a, &curves("pencil", &[])).unwrap_err().contains("between 1 and 256"));
+}
