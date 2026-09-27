@@ -897,14 +897,19 @@ pub fn line(x0: f64, y0: f64, x1: f64, y1: f64, weight: f64) -> VectorPath {
     rounded(&[a - n, b - n, b + n, a + n], &[0.0; 4])
 }
 
-/// Geometry of a live shape; None for kinds that carry no generator input (line, custom).
+/// Geometry of a live shape (a line is its open segment); None for custom shapes.
 pub fn live(l: &Live) -> Option<VectorPath> {
     match *l {
         Live::Rectangle { bounds, radii } | Live::RoundedRectangle { bounds, radii } => Some(rect(bounds, radii)),
         Live::Ellipse { bounds } => Some(ellipse(bounds)),
         Live::Triangle { bounds, radius } => Some(triangle(bounds, radius)),
         Live::Polygon { bounds, sides, star_inset, radius } => Some(polygon(bounds, sides, star_inset, radius)),
-        Live::Line { .. } | Live::Custom { .. } => None,
+        Live::Line { start, end } => {
+            let p = |q: [f64; 2]| [q[0], q[1], q[0], q[1], q[0], q[1]];
+            let points = vec![p(start), p(end)];
+            Some(VectorPath { fill_rule: FillRule::Nonzero, subpaths: vec![Subpath { closed: false, op: PathOp::Combine, points }] })
+        }
+        Live::Custom { .. } => None,
     }
 }
 

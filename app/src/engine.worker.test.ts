@@ -1469,3 +1469,30 @@ test('artboards: first at (0,0) with the document size, moving one moves its lay
   const second = (await call('newArtboard', 'Artboard 2', 20, 20, { type: 'white' })).result as Info;
   assert.equal(second.layers.find(l => l.id === second.created).artboard.rect[0], 174);
 });
+
+test('shape tools: Shape Layer, live edits, transforms keep or drop live, Shape Path and Fill Shape', async () => {
+  await call('init');
+  await call('newDoc', 200, 120, 8, null);
+  type Info = { layers: any[]; paths: { work: boolean; path: { subpaths: { points: number[][] }[] } }[]; history: { labels: string[] }; created: number };
+  const live = { type: 'rectangle', bounds: [10, 10, 110, 70], radii: [0, 0, 0, 0] };
+  const fill = { type: 'solid', color: [255, 0, 0] };
+  const a = (await call('newShape', { name: 'Rectangle', live, fill, stroke: null })).result as Info;
+  const s = a.layers.at(-1);
+  assert.equal(s.name, 'Rectangle');
+  assert.deepEqual(s.shape.live, live);
+  const radii = { ...live, radii: [20, 20, 20, 20] };
+  const b = (await call('setShapes', [{ id: a.created, shape: { live: radii, fill, stroke: null } }], 'Corner Radius')).result as Info;
+  assert.equal(b.layers.at(-1).shape.path.subpaths[0].points.length, 8);
+  await call('transformBegin', a.created, 'layer', 'Free Transform');
+  const c = (await call('transformCommit', [2, 0, -10, 0, 2, -10, 0, 0, 1])).result as Info;
+  assert.deepEqual(c.layers.at(-1).shape.live.bounds, [10, 10, 210, 130], 'scale 200 % keeps live');
+  const k = Math.cos(Math.PI / 18), n = Math.sin(Math.PI / 18);
+  await call('transformBegin', a.created, 'layer', 'Free Transform');
+  const d = (await call('transformCommit', [k, -n, 0, n, k, 0, 0, 0, 1])).result as Info;
+  assert.equal(d.layers.at(-1).shape.live, null, 'rotate 10 degrees drops live');
+  const p = (await call('shapePath', { type: 'ellipse', bounds: [0, 0, 20, 10] })).result as Info;
+  assert.equal(p.paths.find(x => x.work)!.path.subpaths[0].points.length, 4);
+  const h = (await call('fillShape', 1, { live: { type: 'rectangle', bounds: [150, 80, 160, 90], radii: [0, 0, 0, 0] }, fill: [0, 0, 255, 255], stroke: null })).result as Info;
+  assert.deepEqual((await call('sample', 155, 85, 1, 1)).result, [0, 0, 255, 255]);
+  assert.deepEqual(h.history.labels.slice(-6), ['Shape Layer', 'Corner Radius', 'Free Transform', 'Free Transform', 'Shape Path', 'Fill Shape']);
+});

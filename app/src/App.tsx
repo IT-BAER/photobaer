@@ -9,7 +9,7 @@ import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { PathsPanel } from './PathsPanel.tsx';
-import { ArtboardPanel, PropertiesPanel, SmartFiltersPanel, type PickLookupFile } from './PropertiesPanel.tsx';
+import { ArtboardPanel, PropertiesPanel, ShapePanel, SmartFiltersPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
 import { LayerStyleDialog, type StylePage } from './LayerStyleDialog.tsx';
 import { StyleLibrary, styleRefusal, type SavedStyle } from './layerStyle.ts';
@@ -51,7 +51,7 @@ import {
 } from './app/helpers.ts';
 import { buildMenus } from './app/menus.ts';
 import { transformSession, type TSession } from './app/transform.ts';
-import { useBrushCursor, useBucket, useEyedropper, useGradientTool, useMoveTool, useSelectionTools } from './app/toolEffects.ts';
+import { useBrushCursor, useBucket, useEyedropper, useGradientTool, useMoveTool, useSelectionTools, useShapeTools } from './app/toolEffects.ts';
 import { useCropTool, usePerspectiveCropTool } from './app/cropTools.ts';
 import { usePaintTool } from './app/paintTool.ts';
 import { useShortcuts } from './app/shortcuts.ts';
@@ -937,6 +937,7 @@ export function App() {
   useGradientTool({
     viewer, tool, active, overlayRef, toolOptionsRef, gradLib, fgRef, bgRef, run, editTarget, quickMask,
   });
+  useShapeTools({ viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run });
 
   // Crop and perspective crop: pointer state in crop/geometry.ts; Enter, Esc, the bar buttons and a
   // tool switch reach the pending crop through `cropSession`.
@@ -1212,7 +1213,7 @@ export function App() {
                 t.store.set({ warp: warpBar(ws) });
               })}
             />
-          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton, actions: cropActions }} />}
+          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton, actions: cropActions }} fg={fg} />}
           <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} />
             <canvas ref={pixelGridCanvas} className="overlay" />
@@ -1269,6 +1270,7 @@ export function App() {
             <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}
           {doc && showProperties && node?.artboard && <ArtboardPanel node={node} run={run} />}
+          {doc && showProperties && node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} />}
           {doc && showProperties && node?.kind === 'smart' && node.smart && (
             <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}

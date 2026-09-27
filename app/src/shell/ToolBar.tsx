@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import {
-  Blend, Brush, Circle, Crop, Eraser, Frame, Hand, Lasso, Magnet, Minus, Move, MousePointerClick,
-  PaintBucket, PenTool, Pencil, Pipette, RotateCw, Rows3, Square, Wand2, ZoomIn,
+  Blend, Brush, Circle, Crop, Eraser, Frame, Hand, Hexagon, Lasso, Magnet, Minus, Move, MousePointerClick,
+  PaintBucket, PenTool, Pencil, Pipette, RectangleHorizontal, RotateCw, Rows3, Slash, Square, Triangle, Wand2, ZoomIn,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { RotateCcw, ArrowLeftRight } from 'lucide-react';
@@ -10,7 +10,7 @@ import { rgbToHex, type Rgb } from './color.ts';
 
 const ICONS: Record<string, ComponentType<{ size?: number; strokeWidth?: number }>> = {
   Move, Square, Circle, Minus, Rows3, Lasso, PenTool, Magnet, MousePointerClick, Wand2, Crop, Frame,
-  Pipette, Brush, Pencil, Eraser, Blend, PaintBucket, Hand, RotateCw, ZoomIn,
+  Pipette, Brush, Pencil, Eraser, Blend, PaintBucket, Hand, RotateCw, ZoomIn, RectangleHorizontal, Triangle, Hexagon, Slash,
 };
 
 const LONG_PRESS_MS = 350;

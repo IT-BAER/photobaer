@@ -288,7 +288,8 @@ export function transformSession(c: TransformCtx) {
     if (!d || !a || !v || !c || transformRef.current) return;
     const n = nodeById(d.layers, a.id);
     if (!n) return;
-    const kind = selection ? 'selection' : d.selection ? 'pixels' : 'layer';
+    // A shape layer has no pixels to lift: it always transforms its whole path.
+    const kind = selection ? 'selection' : d.selection && n.kind !== 'shape' ? 'pixels' : 'layer';
     if (mode === 'warp') {
       if (n.kind !== 'pixel' && n.kind !== 'smart') { setError('Only pixel layers and smart objects can be warped.'); return; }
       if (kind !== 'layer') { setError('Warp bends a whole layer; deselect to warp it.'); return; }

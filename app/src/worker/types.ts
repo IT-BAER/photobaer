@@ -1,4 +1,5 @@
 import type { Blending, LayerStyle } from '../layerStyle.ts';
+import type { Live, ShapeStroke } from '../shell/shapetools.ts';
 
 // A fill layer's content (docs/M3.md section 4); field names match the engine JSON verbatim.
 export interface GradientDef {
@@ -71,7 +72,7 @@ export interface LayerNode {
   content?: FillContent;
   adjustment?: Adjustment;
   smart?: SmartInfo;
-  shape?: { path: VectorPath };
+  shape?: { path: VectorPath; live: Live | null; fill: FillContent | null; stroke: ShapeStroke | null };
   vector_mask?: { path: VectorPath } | null;
   // `rect` is `[left, top, right, bottom]` (engine/src/path.rs `Artboard`); present on a `group`
   // layer promoted to an artboard.

@@ -726,3 +726,97 @@ fn offset_artboard_moves_its_rect_and_guides_and_reparent_follows_the_layer_cent
     assert!(d.reparent_to_artboard(1).unwrap());
     assert_eq!(d.find_path(1).unwrap(), vec![d.nodes.len() - 1], "back to the root top");
 }
+
+// ---------- Shape tools and live shapes (docs/M4.md section 5, B7) ----------
+
+fn shape_of(d: &Document, id: u32) -> crate::path::ShapeData {
+    let Kind::Shape(s) = &d.node(id).unwrap().kind else { panic!("not a shape") };
+    (**s).clone()
+}
+
+fn red() -> Value {
+    json!({ "type": "solid", "color": [255, 0, 0] })
+}
+
+#[test]
+fn new_shape_builds_the_path_from_live_on_top() {
+    let mut d = Document::new(200, 200, 8).unwrap();
+    let live = json!({ "type": "rectangle", "bounds": [10.0, 10.0, 110.0, 70.0], "radii": [0.0, 0.0, 0.0, 0.0] });
+    let id = d.new_shape(&json!({ "name": "Rectangle", "live": live, "fill": red(), "stroke": null }).to_string()).unwrap();
+    assert_eq!(d.nodes.last().unwrap().id, id, "on top");
+    assert_eq!(d.node(id).unwrap().name, "Rectangle");
+    let s = shape_of(&d, id);
+    assert_eq!(crate::geom::bounds(&s.path), Some([10.0, 10.0, 110.0, 70.0]), "100 x 60");
+    assert!(matches!(s.live, Some(Live::Rectangle { bounds: [10.0, 10.0, 110.0, 70.0], .. })));
+    let star = json!({ "type": "polygon", "bounds": [0.0, 0.0, 100.0, 100.0], "sides": 6, "star_inset": 0.5, "radius": 0.0 });
+    let p = d.new_shape(&json!({ "name": "Polygon", "live": star, "fill": red(), "stroke": null }).to_string()).unwrap();
+    assert_eq!(shape_of(&d, p).path.subpaths[0].points.len(), 12, "6 sides star 50 % -> 12 anchors");
+    let line = json!({ "type": "line", "start": [10.0, 20.0], "end": [90.0, 20.0] });
+    let l = d.new_shape(&json!({ "name": "Line", "live": line, "fill": null, "stroke": null }).to_string()).unwrap();
+    let lp = shape_of(&d, l).path;
+    assert_eq!((lp.subpaths[0].closed, lp.subpaths[0].points.len()), (false, 2), "a line is an open segment");
+    let custom = json!({ "type": "custom", "bounds": [0.0, 0.0, 1.0, 1.0] });
+    assert!(d.new_shape(&json!({ "name": "Shape", "live": custom, "fill": red(), "stroke": null }).to_string()).is_err());
+}
+
+#[test]
+fn set_shape_regenerates_the_path_only_when_live_changes() {
+    let mut d = Document::new(200, 200, 8).unwrap();
+    let live = json!({ "type": "rectangle", "bounds": [0.0, 0.0, 100.0, 60.0], "radii": [0.0, 0.0, 0.0, 0.0] });
+    let id = d.new_shape(&json!({ "name": "Rectangle", "live": live, "fill": red(), "stroke": null }).to_string()).unwrap();
+    let rounded = json!({ "type": "rectangle", "bounds": [0.0, 0.0, 100.0, 60.0], "radii": [20.0, 20.0, 20.0, 20.0] });
+    d.set_shape(id, &json!({ "live": rounded, "fill": red(), "stroke": null }).to_string()).unwrap();
+    assert_eq!(shape_of(&d, id).path.subpaths[0].points.len(), 8, "four rounded corners");
+    // An imported path whose live is unchanged stays as it is.
+    d.set_path("shape", id, &square(1.0, 1.0, 9.0, 9.0)).unwrap();
+    let kept = shape_of(&d, id).path;
+    let stroke = json!({ "enabled": true, "width": 3.0, "align": "outside", "cap": "butt", "join": "miter", "miter_limit": 4.0,
+        "dash": [], "dash_offset": 0.0, "content": red(), "opacity": 1.0, "blend": "normal" });
+    d.set_shape(id, &json!({ "live": null, "fill": null, "stroke": stroke }).to_string()).unwrap();
+    let s = shape_of(&d, id);
+    assert_eq!((s.path, s.fill.is_none(), s.stroke.unwrap().width), (kept, true, 3.0));
+    assert!(d.set_shape(1, &json!({ "live": null, "fill": null, "stroke": null }).to_string()).is_err(), "not a shape layer");
+}
+
+#[test]
+fn axis_aligned_transforms_keep_live_and_rotation_drops_it() {
+    let mut d = Document::new(200, 200, 8).unwrap();
+    let live = json!({ "type": "ellipse", "bounds": [10.0, 10.0, 50.0, 30.0] });
+    let id = d.new_shape(&json!({ "name": "Ellipse", "live": live, "fill": red(), "stroke": null }).to_string()).unwrap();
+    d.transform_layer(id, &[2.0, 0.0, -10.0, 0.0, 2.0, -10.0, 0.0, 0.0, 1.0], Interp::Bicubic).unwrap();
+    let s = shape_of(&d, id);
+    assert_eq!(s.live, Some(Live::Ellipse { bounds: [10.0, 10.0, 90.0, 50.0] }), "scale 200 % keeps live");
+    assert_eq!(crate::geom::bounds(&s.path), Some([10.0, 10.0, 90.0, 50.0]));
+    let (c, sn) = (10f64.to_radians().cos(), 10f64.to_radians().sin());
+    d.transform_layer(id, &[c, -sn, 0.0, sn, c, 0.0, 0.0, 0.0, 1.0], Interp::Bicubic).unwrap();
+    let s = shape_of(&d, id);
+    assert!(s.live.is_none(), "rotate 10 degrees drops live");
+    let p = s.path.subpaths[0].points[0];
+    assert!((p[0] - (c * 50.0 - sn * 10.0)).abs() < 1e-9 && (p[1] - (sn * 50.0 + c * 10.0)).abs() < 1e-9, "the path is mapped");
+}
+
+#[test]
+fn a_shape_transform_session_hides_the_shape_and_previews_its_render() {
+    let mut d = Document::new(64, 64, 8).unwrap();
+    let live = json!({ "type": "rectangle", "bounds": [8.0, 8.0, 24.0, 24.0], "radii": [0.0, 0.0, 0.0, 0.0] });
+    let id = d.new_shape(&json!({ "name": "Rectangle", "live": live, "fill": red(), "stroke": null }).to_string()).unwrap();
+    let id3 = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+    let pv = d.transform_preview(id, &id3, 1.0, false, [8, 8, 16, 16]).unwrap();
+    assert_eq!(&pv[0..4], &[255, 0, 0, 255], "the preview is the shape's render");
+    d.clear_lifted(id, Target::Pixels).unwrap();
+    assert!(shape_of(&d, id).path.subpaths.is_empty(), "lifted: the shape draws nothing");
+}
+
+#[test]
+fn fill_shape_paints_fill_and_stroke_like_a_shape_layer() {
+    let live = json!({ "type": "rectangle", "bounds": [5.0, 5.0, 25.5, 20.0], "radii": [0.0, 0.0, 0.0, 0.0] });
+    let mut a = Document::new(40, 40, 8).unwrap();
+    a.fill_shape(1, &json!({ "live": live, "fill": [255, 0, 0, 255], "stroke": { "width": 2.0, "color": [0, 0, 255, 255] } }).to_string()).unwrap();
+    let mut b = Document::new(40, 40, 8).unwrap();
+    let stroke = json!({ "enabled": true, "width": 2.0, "align": "center", "cap": "butt", "join": "miter", "miter_limit": 100.0,
+        "dash": [], "dash_offset": 0.0, "content": { "type": "solid", "color": [0, 0, 255] }, "opacity": 1.0, "blend": "normal" });
+    b.new_shape(&json!({ "name": "Rectangle", "live": live, "fill": red(), "stroke": stroke }).to_string()).unwrap();
+    let (ta, tb) = (a.flatten_tile_rgba8(0, 0).unwrap(), b.flatten_tile_rgba8(0, 0).unwrap());
+    assert!(ta.iter().zip(&tb).all(|(x, y)| x.abs_diff(*y) <= 1), "within 1/255 of the shape layer");
+    assert!(a.fill_shape(99, &json!({ "live": live, "fill": [0, 0, 0, 255], "stroke": null }).to_string()).is_err());
+}

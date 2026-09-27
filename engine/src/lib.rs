@@ -1012,6 +1012,28 @@ impl Engine {
     pub fn set_document_vector(&mut self, json: &str) -> Result<(), JsError> {
         self.0.doc.set_document_vector(json).map_err(err)
     }
+
+    /// `{ name, live, fill, stroke }`: a shape layer on top with the path generated from `live`.
+    pub fn new_shape(&mut self, json: &str) -> Result<u32, JsError> {
+        self.0.doc.new_shape(json).map_err(err)
+    }
+
+    /// `{ live, fill, stroke }` replaces a shape layer's parameters; a changed `live` regenerates the path.
+    pub fn set_shape(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_shape(id, json).map_err(err)
+    }
+
+    /// `{ live, fill: [r, g, b, a] | null, stroke: { width, color } | null }` painted on a pixel layer.
+    pub fn fill_shape(&mut self, layer: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.fill_shape(layer, json).map_err(err)
+    }
+}
+
+/// The path JSON a live shape JSON generates (the shape tools' Path mode).
+#[wasm_bindgen]
+pub fn live_path(json: &str) -> Result<String, JsError> {
+    let live: path::Live = serde_json::from_str(json).map_err(|e| JsError::new(&format!("invalid live shape: {e}")))?;
+    Ok(serde_json::to_string(&doc::shapes::live_path(&live).map_err(err)?).unwrap())
 }
 
 /// App-scope font registry (one per worker, shared by every document).

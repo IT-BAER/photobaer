@@ -159,6 +159,24 @@ impl Document {
         px.any_alpha().then_some((key, px))
     }
 
+    /// A shape layer's level 0 render as tiles (the transform session preview source).
+    pub(super) fn shape_tiles(&self, s: &ShapeData) -> Tiles {
+        let mut tiles = Tiles::default();
+        let Some([l, t, r, b]) = geom::bounds(&s.path) else { return tiles };
+        // The stroke reaches at most width x miter limit / 2 past the path (miter limit >= 1 assumed).
+        let pad = s.stroke.as_ref().map_or(1.0, |st| st.width * st.miter_limit.max(1.0) / 2.0 + 1.0);
+        let (ntx, nty) = self.level_tiles(0);
+        let tile = |v: f64, n: u32| ((v / TILE as f64).floor().max(0.0) as u32).min(n);
+        for ty in tile(t - pad, nty)..tile(b + pad, nty - 1) + 1 {
+            for tx in tile(l - pad, ntx)..tile(r + pad, ntx - 1) + 1 {
+                if let Some((id, px)) = self.shape_tile(s, 0, tx, ty) {
+                    tiles.put(tx as i32, ty as i32, Some(Tile { id, px }));
+                }
+            }
+        }
+        tiles
+    }
+
     /// An enabled vector mask over the w x h window at level px (x0, y0): path coverage (inverted
     /// when `inverted`), feathered by a Gaussian of sigma feather / 3 (half-width ceil(3 sigma),
     /// clamped at the document edge), then density: `1 - density (1 - m)`.

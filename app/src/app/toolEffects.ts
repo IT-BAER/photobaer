@@ -9,11 +9,13 @@ import type { Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import type { SelectionOverlay } from '../shell/SelectionOverlay.ts';
 import { marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from '../shell/selecttools.ts';
+import { draftPreview, dragLive, shapeStyle, type ShapeKind } from '../shell/shapetools.ts';
+import { hexToRgb } from '../shell/color.ts';
 import { constrainedSnap, snapGrid, snapSettings, type Rect, type SnapAxes } from '../shell/snapping.ts';
 import { TOOLS } from '../shell/tools.ts';
 import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo, GradientParams } from '../worker/types.ts';
-import { PAINT_TOOLS, SAMPLE_SIZES, SELECT_TOOLS, makeLatch, type Run, type Show } from './helpers.ts';
+import { PAINT_TOOLS, SAMPLE_SIZES, SELECT_TOOLS, makeLatch, selectCreated, type Run, type Show } from './helpers.ts';
 
 type PolygonActions = { active: () => boolean; commit: () => void; cancel: () => void; removeLast: () => void };
 
@@ -532,4 +534,50 @@ export function useGradientTool(c: GradientToolCtx) {
     };
     return () => { v.onPointer = () => {}; overlayRef.current?.setPreview(null); };
   }, [tool, active, quickMask]);
+}
+
+export interface ShapeToolsCtx {
+  viewer: RefObject<Viewer | null>; tool: string; active: Active | null; overlayRef: RefObject<SelectionOverlay | null>;
+  toolOptionsRef: RefObject<ToolOptions>; fgRef: RefObject<Rgb>; run: Run;
+}
+
+const SHAPE_NAMES: Record<ShapeKind, string> = { rectangle: 'Rectangle', ellipse: 'Ellipse', triangle: 'Triangle', polygon: 'Polygon', line: 'Line' };
+
+export function useShapeTools(c: ShapeToolsCtx) {
+  const { viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run } = c;
+  // Shape tools (docs/M4.md section 5): drag corner to corner with a draft outline; Shift squares
+  // (line: 45 degrees), Alt draws from the center; Mode picks a shape layer, the work path or pixels.
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v || !(tool in SHAPE_NAMES)) return;
+    const kind = tool as ShapeKind;
+    let drag: { start: [number, number] } | null = null;
+    const liveOf = (e: ToolPointerEvent) => {
+      const o = toolOptionsRef.current;
+      return dragLive(drag!.start, [e.x, e.y], {
+        kind, constrain: e.shiftKey, fromCenter: kind !== 'line' && e.altKey, cornerRadius: Number(o.cornerRadius ?? 0),
+        sides: Number(o.sides ?? 5), starInset: Number(o.starInset ?? 0), width: Number(o.width), height: Number(o.height),
+      });
+    };
+    v.onPointer = e => {
+      if (e.type === 'down') { drag = { start: [e.x, e.y] }; return; }
+      if (!drag) return;
+      const live = liveOf(e);
+      if (e.type === 'move') { overlayRef.current?.setPreview(live && draftPreview(live)); return; }
+      drag = null;
+      overlayRef.current?.setPreview(null);
+      if (e.type === 'cancel' || !live) return;
+      const o = toolOptionsRef.current;
+      const color = (key: string) => hexToRgb(String(o[key])) ?? fgRef.current;
+      const style = shapeStyle(String(o.appearance), color('fill'), color('stroke'), Math.max(0, Number(o.strokeWidth)));
+      if (o.mode === 'path') void run(null, () => client.call('shapePath', live));
+      else if (o.mode === 'pixels') {
+        if (!active) return;
+        const fill = style.fill && [...(style.fill as { color: number[] }).color, 255];
+        const stroke = style.stroke && { width: style.stroke.width, color: [...color('stroke'), 255] };
+        void run(null, () => client.call('fillShape', active.id, { live, fill, stroke }));
+      } else void run(null, () => client.call('newShape', { name: SHAPE_NAMES[kind], live, ...style }), selectCreated);
+    };
+    return () => { v.onPointer = () => {}; overlayRef.current?.setPreview(null); };
+  }, [tool, active]);
 }

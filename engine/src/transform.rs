@@ -2,6 +2,7 @@
 //! A child module of `doc`, so it reaches the document's private tile storage.
 
 use super::*;
+use crate::path::Live;
 use crate::resample::{Interp, Plane, Resampler};
 use std::collections::BTreeSet;
 
@@ -203,6 +204,9 @@ impl Document {
     /// `transform_layer`; with `with_mask` false the layer mask is left as it is.
     pub fn transform_layer_with(&mut self, id: u32, m: &[f64; 9], interp: Interp, with_mask: bool) -> Result<(), String> {
         self.check_idle()?;
+        if matches!(self.node(id)?.kind, Kind::Shape(_)) {
+            return self.transform_shape(id, m);
+        }
         self.check_pixel_edit(id)?;
         if self.node(id)?.locks.position {
             return Err("layer position is locked".into());
@@ -243,6 +247,41 @@ impl Document {
             self.node_mut(id)?.mask.as_mut().expect("checked").tiles = t;
         }
         Ok(())
+    }
+
+    // Maps a shape's path and vector mask through `m`. Live parameters survive only translation
+    // and axis-aligned scale (the reference's off-diagonal test); rotation, shear and perspective drop them.
+    fn transform_shape(&mut self, id: u32, m: &[f64; 9]) -> Result<(), String> {
+        let node = self.node_mut(id)?;
+        if node.locks.position {
+            return Err("layer position is locked".into());
+        }
+        if let Some(vm) = &mut node.vector_mask {
+            super::canvas::map_path(m, &mut vm.path);
+        }
+        let Kind::Shape(s) = &mut node.kind else { unreachable!("checked by the caller") };
+        super::canvas::map_path(m, &mut s.path);
+        let axis_aligned = m[1].abs() < 1e-12 && m[3].abs() < 1e-12 && m[6] == 0.0 && m[7] == 0.0;
+        match (&mut s.live, axis_aligned) {
+            (Some(Live::Line { start, end }), true) => {
+                for p in [start, end] {
+                    (p[0], p[1]) = super::canvas::map_pt(m, p[0], p[1]);
+                }
+            }
+            (
+                Some(
+                    Live::Rectangle { bounds, .. }
+                    | Live::RoundedRectangle { bounds, .. }
+                    | Live::Ellipse { bounds }
+                    | Live::Triangle { bounds, .. }
+                    | Live::Polygon { bounds, .. }
+                    | Live::Custom { bounds },
+                ),
+                true,
+            ) => super::canvas::map_bounds(m, bounds),
+            _ => s.live = None,
+        }
+        s.path.validate()
     }
 
     /// Resamples the selection coverage (edge zero, clipped to the canvas).
@@ -471,7 +510,14 @@ impl Document {
         let f = if f >= 0.9 { 1.0 } else { f };
         let (w, h) = (rect[2] as usize, rect[3] as usize);
         let mut out = vec![0u8; w * h * 4];
-        let tiles = self.node(id)?.pixel_tiles()?;
+        let shape_tiles;
+        let tiles = match &self.node(id)?.kind {
+            Kind::Shape(s) if !selected => {
+                shape_tiles = self.shape_tiles(s);
+                &shape_tiles
+            }
+            _ => self.node(id)?.pixel_tiles()?,
+        };
         let sel = if selected { Some(self.selection.as_ref().ok_or("nothing is selected")?) } else { None };
         let bounds = if selected { self.selection_bounds() } else { self.layer_bounds(id)? };
         let Some(b) = bounds else { return Ok(out) };

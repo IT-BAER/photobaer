@@ -54,14 +54,14 @@ pub(super) fn mul3(a: &[f64; 9], b: &[f64; 9]) -> [f64; 9] {
 }
 
 // `m` (old canvas px -> new canvas px, projective) applied to one point.
-fn map_pt(m: &[f64; 9], x: f64, y: f64) -> (f64, f64) {
+pub(super) fn map_pt(m: &[f64; 9], x: f64, y: f64) -> (f64, f64) {
     let w = m[6] * x + m[7] * y + m[8];
     ((m[0] * x + m[1] * y + m[2]) / w, (m[3] * x + m[4] * y + m[5]) / w)
 }
 
 // Every anchor and handle through `m`. ponytail: under a perspective `m` the mapped handles
 // only approximate the projected curve; subdivide first if perspective crops of curves matter.
-fn map_path(m: &[f64; 9], p: &mut VectorPath) {
+pub(super) fn map_path(m: &[f64; 9], p: &mut VectorPath) {
     for pt in p.subpaths.iter_mut().flat_map(|s| s.points.iter_mut()) {
         for i in [0, 2, 4] {
             (pt[i], pt[i + 1]) = map_pt(m, pt[i], pt[i + 1]);
@@ -70,7 +70,7 @@ fn map_path(m: &[f64; 9], p: &mut VectorPath) {
 }
 
 // The bbox of rect [l, t, r, b] under `m`.
-fn map_bounds(m: &[f64; 9], b: &mut Bounds) {
+pub(super) fn map_bounds(m: &[f64; 9], b: &mut Bounds) {
     let c = [(b[0], b[1]), (b[2], b[1]), (b[2], b[3]), (b[0], b[3])].map(|(x, y)| map_pt(m, x, y));
     let (xs, ys) = (c.map(|p| p.0), c.map(|p| p.1));
     *b = [xs.iter().copied().fold(f64::INFINITY, f64::min), ys.iter().copied().fold(f64::INFINITY, f64::min),

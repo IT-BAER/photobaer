@@ -118,7 +118,7 @@ impl Document {
     }
 
     // Paints `rgba` through the coverage on a pixel layer, ignoring the current selection.
-    fn paint_path_coverage(&mut self, layer: u32, cov: Vec<f32>, rgba: [u8; 4]) -> Result<(), String> {
+    pub(super) fn paint_path_coverage(&mut self, layer: u32, cov: Vec<f32>, rgba: [u8; 4]) -> Result<(), String> {
         self.check_pixel_paint(layer)?;
         let saved = self.selection.take();
         let r = self

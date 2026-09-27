@@ -1,4 +1,4 @@
-import init, { Engine, Fonts } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts, live_path } from './engine-pkg/photobaer_engine.js';
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
@@ -770,6 +770,34 @@ const api = {
     let created = 0;
     history.run('Convert Path to Shape', () => { created = e.convert_path_to_shape(role, id, rgb[0], rgb[1], rgb[2]); });
     return { ...changed(), created };
+  },
+
+  // Shape tools (docs/M4.md section 5): Shape mode adds a layer on top, Path mode replaces the
+  // work path, Pixels mode paints on a pixel layer. `live` is the engine `Live` JSON.
+  newShape(shape: { name: string; live: object; fill: FillContent | null; stroke: object | null }) {
+    const e = need();
+    let created = 0;
+    history.run('Shape Layer', () => { created = e.new_shape(JSON.stringify(shape)); });
+    return { ...changed(), created };
+  },
+
+  shapePath(live: object) {
+    const e = need();
+    history.run('Shape Path', () => e.set_path('document', 0, live_path(JSON.stringify(live))));
+    return changed();
+  },
+
+  fillShape(layer: number, shape: { live: object; fill: number[] | null; stroke: { width: number; color: number[] } | null }) {
+    const e = need();
+    history.run('Fill Shape', () => e.fill_shape(layer, JSON.stringify(shape)));
+    return changed();
+  },
+
+  // Properties Appearance: one step over every edited shape layer, `{ live, fill, stroke }` each.
+  setShapes(edits: { id: number; shape: object }[], label: string) {
+    const e = need();
+    history.run(label, () => { for (const x of edits) e.set_shape(x.id, JSON.stringify(x.shape)); });
+    return changed();
   },
 
   // Selection coverage (0-255) at a document point; 255 everywhere with no selection.

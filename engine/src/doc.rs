@@ -20,6 +20,8 @@ mod brush;
 mod guides;
 #[path = "paths.rs"]
 mod paths;
+#[path = "shapes.rs"]
+pub(crate) mod shapes;
 #[cfg(test)]
 #[path = "doc_m3_tests.rs"]
 mod m3_tests;
@@ -1253,6 +1255,11 @@ impl Document {
         self.check_idle()?;
         if target == Target::Mask || target == Target::Selection {
             return self.fill(id, target, 0, 0, 0, 0);
+        }
+        // A transform session lifts a whole shape: it draws nothing until the session ends.
+        if let (false, Kind::Shape(s)) = (paint, &mut self.node_mut(id)?.kind) {
+            s.path.subpaths.clear();
+            return Ok(());
         }
         if paint { self.check_pixel_paint(id)? } else { self.check_pixel_edit(id)? }
         let area = match self.selected_tiles() {

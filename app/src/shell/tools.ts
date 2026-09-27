@@ -1,6 +1,7 @@
 import { BLEND_MODES } from '../layers.ts';
-// 'custom' options are drawn by the host (OptionsBar `custom`); 'segmented' is a button group over `choices`.
-export type OptionKind = 'number' | 'percent' | 'select' | 'boolean' | 'segmented' | 'custom';
+// 'custom' options are drawn by the host (OptionsBar `custom`); 'segmented' is a button group over `choices`;
+// 'color' holds a '#rrggbb' string, '' meaning the current foreground color.
+export type OptionKind = 'number' | 'percent' | 'select' | 'boolean' | 'segmented' | 'custom' | 'color';
 export interface OptionSchema {
   id: string; kind: OptionKind; label: string; default: number | string | boolean;
   min?: number; max?: number; unit?: string; choices?: string[];
@@ -31,6 +32,25 @@ const BRUSH_COMMON: OptionSchema[] = [
   { id: 'pressureSize', kind: 'boolean', label: 'Pressure controls size', default: false },
   { id: 'pressureOpacity', kind: 'boolean', label: 'Pressure controls opacity', default: false },
 ];
+
+const CORNER_RADIUS: OptionSchema = { id: 'cornerRadius', kind: 'number', label: 'Corner Radius', default: 0, min: 0, max: 1000, unit: 'px' };
+
+// The shared shape tool options (docs/M4.md section 5); the line defaults to an outline.
+function shapeTool(id: string, label: string, icon: string, extra: OptionSchema[]): Tool {
+  return {
+    id, label, slot: 'shape', key: 'u', cursor: 'crosshair', icon,
+    options: [
+      { id: 'mode', kind: 'select', label: 'Mode', default: 'shape', choices: ['shape', 'path', 'pixels'] },
+      { id: 'appearance', kind: 'select', label: 'Appearance', default: id === 'line' ? 'outline' : 'fill', choices: ['fill', 'outline', 'both', 'none'] },
+      { id: 'fill', kind: 'color', label: 'Fill', default: '' },
+      { id: 'stroke', kind: 'color', label: 'Stroke', default: '' },
+      { id: 'strokeWidth', kind: 'number', label: 'Stroke Width', default: 1, min: 0, max: 1000, unit: 'px' },
+      { id: 'width', kind: 'number', label: 'W', default: 0, min: 0, max: 100000, unit: 'px' },
+      { id: 'height', kind: 'number', label: 'H', default: 0, min: 0, max: 100000, unit: 'px' },
+      ...extra,
+    ],
+  };
+}
 
 export const TOOLS: Record<string, Tool> = {
   move: {
@@ -187,6 +207,15 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'allLayers', kind: 'boolean', label: 'All layers', default: false },
     ],
   },
+  rectangle: shapeTool('rectangle', 'Rectangle', 'RectangleHorizontal', [CORNER_RADIUS]),
+  ellipse: shapeTool('ellipse', 'Ellipse', 'Circle', []),
+  triangle: shapeTool('triangle', 'Triangle', 'Triangle', [CORNER_RADIUS]),
+  polygon: shapeTool('polygon', 'Polygon', 'Hexagon', [
+    { id: 'sides', kind: 'number', label: 'Sides', default: 5, min: 3, max: 100 },
+    { id: 'starInset', kind: 'percent', label: 'Star Inset', default: 0, min: 0, max: 99 },
+    CORNER_RADIUS,
+  ]),
+  line: shapeTool('line', 'Line', 'Slash', []),
   hand: { id: 'hand', label: 'Hand', slot: 'hand', key: 'h', cursor: 'grab', icon: 'Hand', options: [] },
   rotate: { id: 'rotate', label: 'Rotate View', slot: 'rotate', key: 'r', cursor: 'alias', icon: 'RotateCw', options: [] },
   zoom: { id: 'zoom', label: 'Zoom', slot: 'zoom', key: 'z', cursor: 'zoom-in', icon: 'ZoomIn', options: [] },
@@ -202,6 +231,7 @@ export const SLOTS: Slot[] = [
   { id: 'brush', key: 'b', tools: ['brush', 'pencil'] },
   { id: 'eraser', key: 'e', tools: ['eraser'] },
   { id: 'gradient', key: 'g', tools: ['gradient', 'bucket'] },
+  { id: 'shape', key: 'u', tools: ['rectangle', 'ellipse', 'triangle', 'polygon', 'line'] },
   { id: 'hand', key: 'h', tools: ['hand'] },
   { id: 'rotate', key: 'r', tools: ['rotate'] },
   { id: 'zoom', key: 'z', tools: ['zoom'] },

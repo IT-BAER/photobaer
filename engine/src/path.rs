@@ -121,7 +121,7 @@ impl Live {
         }
     }
 
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         let (bounds, radii): (&Bounds, &[f64]) = match self {
             Live::Rectangle { bounds, radii } | Live::RoundedRectangle { bounds, radii } => (bounds, radii),
             Live::Triangle { bounds, radius } => (bounds, std::slice::from_ref(radius)),

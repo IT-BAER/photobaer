@@ -1,11 +1,13 @@
 // Properties panel for the selected adjustment layer (docs/M3.md section 3, B5-1): header with the
 // title and "Reset <kind>", the kind's body, then the visibility/clipping checkboxes. The Image >
 // Adjustments dialogs reuse `AdjustmentBody`.
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { client } from './client.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo, SmartFilterKind } from './engine.worker.ts';
-import type { ArtboardBackground } from './worker/types.ts';
+import type { ArtboardBackground, FillContent } from './worker/types.ts';
+import { hexToRgb, rgbToHex } from './shell/color.ts';
+import { dashFor, newStroke, radiusMax, setRadius, strokeStyleOf, type Live, type ShapeStroke, type StrokeStyle } from './shell/shapetools.ts';
 import { locate } from './layers.ts';
 import {
   EDIT_LABEL, FIELD_SPECS, MENU_LABEL, defaultAdjustment, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
@@ -225,7 +227,7 @@ export function ArtboardPanel({ node, run }: { node: LayerNode; run: Run }) {
     <div className="properties-panel">
       <div className="panel-tabs"><span className="panel-tab">Properties</span></div>
       <div className="adjustment-header"><h3>Artboard</h3></div>
-      <div className="professional-toggle-grid">
+      <div className="professional-toggle-grid shape-appearance">
         {field('X', l, v => [v, t, v + r - l, b], -1e7)}
         {field('Y', t, v => [l, v, r, v + b - t], -1e7)}
         {field('W', r - l, v => [l, t, l + v, b], 1)}
@@ -238,6 +240,105 @@ export function ArtboardPanel({ node, run }: { node: LayerNode; run: Run }) {
           <option value="none">None</option>
           {a.background.type === 'color' && <option value="color" disabled>Other color</option>}
         </select></label>
+      </div>
+    </div>
+  );
+}
+
+// A native color input that commits on the picker's `change` (React's onChange fires on every drag step).
+function ColorInput({ value, label, onCommit }: { value: [number, number, number]; label: string; onCommit: (c: [number, number, number]) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const commit = useRef(onCommit);
+  commit.current = onCommit;
+  useEffect(() => {
+    const el = ref.current!;
+    const on = () => { const c = hexToRgb(el.value); if (c) commit.current(c); };
+    el.addEventListener('change', on);
+    return () => el.removeEventListener('change', on);
+  }, []);
+  return <input ref={ref} type="color" aria-label={label} defaultValue={rgbToHex(value)} />;
+}
+
+// A number field that commits once on blur or Enter.
+function Num({ label, value, min, max, onCommit }: { label: string; value: number; min: number; max: number; onCommit: (v: number) => void }) {
+  return (
+    <label>{label} <input
+      key={`${label}-${value}`} type="number" min={min} max={max} defaultValue={value} aria-label={label}
+      onBlur={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v) && v !== value) onCommit(Math.min(max, Math.max(min, v))); }}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+    /></label>
+  );
+}
+
+type ShapeInfo = NonNullable<LayerNode['shape']>;
+const colorOf = (c: FillContent | null | undefined, fallback: [number, number, number]) => (c?.type === 'solid' ? c.color : fallback);
+const solid = (c: [number, number, number]): FillContent => ({ type: 'solid', color: c });
+
+// Properties Appearance for a shape layer (docs/M4.md section 5): fill, stroke and its options, corner
+// radii with a link toggle, polygon sides and star ratio. Each edit is one step labelled by its field.
+export function ShapePanel({ node, run, fg }: { node: LayerNode; run: Run; fg: [number, number, number] }) {
+  const s = node.shape!;
+  const [linked, setLinked] = useState(true);
+  const live = s.live;
+  const stroke = s.stroke?.enabled ? s.stroke : null;
+  const edit = (label: string, next: Partial<ShapeInfo>) => {
+    const { live: l, fill, stroke: st } = { ...s, ...next };
+    void run(null, () => client.call('setShapes', [{ id: node.id, shape: { live: l, fill, stroke: st } }], label));
+  };
+  const editStroke = (label: string, patch: Partial<ShapeStroke>) => { if (stroke) edit(label, { stroke: { ...stroke, ...patch } }); };
+  const radii = live && (live.type === 'rectangle' || live.type === 'roundedRectangle') ? live.radii : null;
+  const bounds = live && 'bounds' in live ? live.bounds : null;
+  const select = <T extends string>(label: string, value: T, options: T[], apply: (v: T) => void) => (
+    <label>{label} <select aria-label={label} value={value} onChange={e => apply(e.currentTarget.value as T)}>
+      {options.map(o => <option key={o} value={o}>{o[0].toUpperCase() + o.slice(1)}</option>)}
+    </select></label>
+  );
+  const strokeOn = (on: boolean) => edit('Shape Stroke', {
+    stroke: on ? (s.stroke ? { ...s.stroke, enabled: true } : newStroke(fg, 1, 4)) : s.stroke && { ...s.stroke, enabled: false },
+  });
+  return (
+    <div className="properties-panel">
+      <div className="panel-tabs"><span className="panel-tab">Properties</span></div>
+      <div className="adjustment-header"><h3>Appearance</h3></div>
+      <div className="professional-toggle-grid shape-appearance">
+        {live?.type !== 'line' && (
+          <label className="adjustment-check">
+            <input type="checkbox" checked={!!s.fill} onChange={e => edit('Shape Fill', { fill: e.currentTarget.checked ? solid(fg) : null })} /> Fill
+            <ColorInput key={rgbToHex(colorOf(s.fill, fg))} label="Fill color" value={colorOf(s.fill, fg)} onCommit={c => edit('Shape Fill', { fill: solid(c) })} />
+          </label>
+        )}
+        <label className="adjustment-check">
+          <input type="checkbox" checked={!!stroke} onChange={e => strokeOn(e.currentTarget.checked)} /> Stroke
+          <ColorInput key={rgbToHex(colorOf(s.stroke?.content, fg))} label="Stroke color" value={colorOf(s.stroke?.content, fg)}
+            onCommit={c => edit('Shape Stroke', { stroke: s.stroke ? { ...s.stroke, enabled: true, content: solid(c) } : newStroke(c, 1, 4) })} />
+        </label>
+        {stroke && (
+          <>
+            <Num label="Width" value={stroke.width} min={0} max={1000} onCommit={v => editStroke('Stroke Width', { width: v })} />
+            {select<StrokeStyle>('Stroke style', strokeStyleOf(stroke.dash, stroke.width), ['solid', 'dashed', 'dotted'], v => editStroke('Stroke Style', dashFor(v, stroke.width)))}
+            {select('Stroke placement', stroke.align, ['inside', 'center', 'outside'], v => editStroke('Stroke Placement', { align: v }))}
+            {select('Stroke cap', stroke.cap, ['butt', 'round', 'square'], v => editStroke('Stroke Cap', { cap: v }))}
+            {select('Stroke join', stroke.join, ['miter', 'round', 'bevel'], v => editStroke('Stroke Join', { join: v }))}
+          </>
+        )}
+        {radii && bounds && (
+          <>
+            <button type="button" aria-pressed={linked} onClick={() => setLinked(x => !x)}>{linked ? 'Unlink corner radii' : 'Link corner radii'}</button>
+            {(['Top left', 'Top right', 'Bottom left', 'Bottom right'] as const).map((label, i) => (
+              <Num key={label} label={label} value={radii[i]} min={0} max={radiusMax(bounds)}
+                onCommit={v => edit('Corner Radius', { live: { ...live!, radii: setRadius(radii, i, v, linked, bounds) } as Live })} />
+            ))}
+          </>
+        )}
+        {live && bounds && (live.type === 'triangle' || live.type === 'polygon') && (
+          <Num label="Corner radius" value={live.radius} min={0} max={radiusMax(bounds)} onCommit={v => edit('Corner Radius', { live: { ...live, radius: v } })} />
+        )}
+        {live?.type === 'polygon' && (
+          <>
+            <Num label="Sides" value={live.sides} min={3} max={100} onCommit={v => edit('Polygon Sides', { live: { ...live, sides: Math.round(v) } })} />
+            <Num label="Star ratio" value={Math.round(live.star_inset * 100)} min={0} max={99} onCommit={v => edit('Polygon Star Ratio', { live: { ...live, star_inset: v / 100 } })} />
+          </>
+        )}
       </div>
     </div>
   );
