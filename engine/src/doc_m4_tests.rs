@@ -2,7 +2,8 @@
 
 use super::m3_tests::{v4_fixture, load as load_v4};
 use super::*;
-use crate::path::{ArtboardBackground, Live};
+use crate::path::{ArtboardBackground, Axis, Live};
+use crate::resample::Interp;
 use serde_json::{json, Value};
 
 fn locks() -> Value {
@@ -484,4 +485,46 @@ fn set_document_vector_and_set_artboard_check_guides_and_nesting() {
     assert!(d.set_document_vector(&no_guides.to_string()).is_err(), "the artboard still names guide 3");
     d.set_artboard(g, "null").unwrap();
     d.set_document_vector(&no_guides.to_string()).unwrap();
+}
+
+#[test]
+fn canvas_ops_move_vector_data_with_the_canvas() {
+    let mut d = load(&v5_fixture().to_string()).unwrap();
+    let cache = d.layer_bounds(3).unwrap().unwrap();
+    d.apply_crop([10.0, 20.0, 200.0, 200.0], false).unwrap();
+    let moved = d.layer_bounds(3).unwrap().unwrap();
+    assert_eq!(moved, [cache[0] - 10, cache[1] - 20, cache[2], cache[3]], "the text cache moves with the canvas");
+    let Kind::Text(t) = &d.node(3).unwrap().kind else { panic!() };
+    assert_eq!(t.data.transform, [1.0, 0.0, 0.0, 1.0, 10.0, 20.5]);
+
+    // Clockwise on the 200 x 200 canvas: (x, y) -> (200 - y, x).
+    d.rotate_canvas_exact(Remap::Cw).unwrap();
+    let Kind::Shape(s) = &d.node(2).unwrap().kind else { panic!() };
+    assert_eq!(s.path.subpaths[0].points[0], [210.0, 0.0, 210.0, 0.0, 210.0, 0.0]);
+    assert_eq!(s.path.subpaths[1].points[0], [218.0, -8.5, 218.0, -9.5, 216.75, -7.5], "handles map too");
+    assert_eq!(s.live, Some(Live::RoundedRectangle { bounds: [150.0, 0.0, 210.0, 100.0], radii: [5.0, 10.0, 15.0, 20.0] }));
+    let Kind::Shape(l) = &d.node(10).unwrap().kind else { panic!() };
+    assert_eq!(l.live, Some(Live::Line { start: [130.0, 0.0], end: [210.0, 80.0] }));
+    assert_eq!(d.node(1).unwrap().vector_mask.as_ref().unwrap().path.subpaths[0].points[0][..2], [218.0, -9.0]);
+    let Kind::Text(t) = &d.node(3).unwrap().kind else { panic!() };
+    assert_eq!(t.data.transform, [0.0, 1.0, -1.0, 0.0, 179.5, 10.0]);
+    assert_eq!(d.layer_bounds(3).unwrap().unwrap()[2..], [moved[3], moved[2]], "the cache turns with the canvas");
+    assert_eq!(d.vector.paths[0].path.subpaths[0].points[0][..2], [220.0, -10.0]);
+    let g: Vec<(Axis, f64)> = d.vector.guides.iter().map(|g| (g.axis, g.pos)).collect();
+    assert_eq!(g, [(Axis::Y, 90.5), (Axis::X, 200.0)], "a vertical guide turns horizontal and back");
+    assert_eq!(d.node(5).unwrap().artboard.as_ref().unwrap().rect, [170.0, -10.0, 220.0, 40.0]);
+
+    // An arbitrary angle leaves guides alone (neither axis survives); paths still turn.
+    let before = d.vector.guides.clone();
+    d.rotate_canvas(30.0, Interp::Bilinear).unwrap();
+    assert_eq!(d.vector.guides, before);
+    let Kind::Shape(s) = &d.node(2).unwrap().kind else { panic!() };
+    assert_ne!(s.path.subpaths[0].points[0], [210.0, 0.0, 210.0, 0.0, 210.0, 0.0]);
+
+    // An axis-aligned perspective crop moves vector data like a plain crop.
+    let mut p = load(&v5_fixture().to_string()).unwrap();
+    p.perspective_crop(&[10.0, 20.0, 210.0, 20.0, 210.0, 220.0, 10.0, 220.0], 200, 200, Interp::Bilinear).unwrap();
+    let Kind::Shape(s) = &p.node(2).unwrap().kind else { panic!() };
+    assert_eq!(s.path.subpaths[0].points[0], [0.0, -10.0, 0.0, -10.0, 0.0, -10.0]);
+    assert_eq!(p.layer_bounds(3).unwrap(), Some([0, 0, 200, 200]), "the text cache is warped and clipped like layer pixels");
 }

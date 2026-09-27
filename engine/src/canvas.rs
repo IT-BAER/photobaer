@@ -3,6 +3,7 @@
 
 use super::transform::{check_area, tile_rect};
 use super::*;
+use crate::path::{Axis, Bounds, Live, VectorPath};
 use crate::resample::{Interp, Resampler};
 
 const DEGENERATE: &str = "Those four corners are degenerate; move one and try again.";
@@ -18,6 +19,8 @@ enum At {
     // A smart object's filter mask (filter index) or its stack mask.
     FilterMask(u32, usize),
     StackMask(u32),
+    // A text layer's rendered or imported pixels.
+    TextCache(u32),
     Selection,
     LastSelection,
     Channel(usize),
@@ -50,12 +53,74 @@ pub(super) fn mul3(a: &[f64; 9], b: &[f64; 9]) -> [f64; 9] {
     o
 }
 
-// Composes every smart object's placement (and warp) with `m` (old canvas px -> new canvas px).
-fn remap_smart(nodes: &mut [Node], m: &[f64; 9]) {
+// `m` (old canvas px -> new canvas px, projective) applied to one point.
+fn map_pt(m: &[f64; 9], x: f64, y: f64) -> (f64, f64) {
+    let w = m[6] * x + m[7] * y + m[8];
+    ((m[0] * x + m[1] * y + m[2]) / w, (m[3] * x + m[4] * y + m[5]) / w)
+}
+
+// Every anchor and handle through `m`. ponytail: under a perspective `m` the mapped handles
+// only approximate the projected curve; subdivide first if perspective crops of curves matter.
+fn map_path(m: &[f64; 9], p: &mut VectorPath) {
+    for pt in p.subpaths.iter_mut().flat_map(|s| s.points.iter_mut()) {
+        for i in [0, 2, 4] {
+            (pt[i], pt[i + 1]) = map_pt(m, pt[i], pt[i + 1]);
+        }
+    }
+}
+
+// The bbox of rect [l, t, r, b] under `m`.
+fn map_bounds(m: &[f64; 9], b: &mut Bounds) {
+    let c = [(b[0], b[1]), (b[2], b[1]), (b[2], b[3]), (b[0], b[3])].map(|(x, y)| map_pt(m, x, y));
+    let (xs, ys) = (c.map(|p| p.0), c.map(|p| p.1));
+    *b = [xs.iter().copied().fold(f64::INFINITY, f64::min), ys.iter().copied().fold(f64::INFINITY, f64::min),
+        xs.iter().copied().fold(f64::NEG_INFINITY, f64::max), ys.iter().copied().fold(f64::NEG_INFINITY, f64::max)];
+}
+
+// Moves every node's vector data with the canvas: smart placements, shape paths (live bounds as
+// their mapped bbox), vector masks, text transforms (the affine part of `m`) and artboard rects.
+fn remap_nodes(nodes: &mut [Node], m: &[f64; 9]) {
     for n in nodes {
+        if let Some(vm) = &mut n.vector_mask {
+            map_path(m, &mut vm.path);
+        }
+        if let Some(a) = &mut n.artboard {
+            map_bounds(m, &mut a.rect);
+        }
         match &mut n.kind {
-            Kind::Group(ch) => remap_smart(ch, m),
+            Kind::Group(ch) => remap_nodes(ch, m),
             Kind::Smart(s) => (s.transform, s.warp) = super::smart::moved(s, m),
+            Kind::Shape(s) => {
+                map_path(m, &mut s.path);
+                match &mut s.live {
+                    Some(Live::Line { start, end }) => {
+                        for p in [start, end] {
+                            (p[0], p[1]) = map_pt(m, p[0], p[1]);
+                        }
+                    }
+                    Some(
+                        Live::Rectangle { bounds, .. }
+                        | Live::RoundedRectangle { bounds, .. }
+                        | Live::Ellipse { bounds }
+                        | Live::Triangle { bounds, .. }
+                        | Live::Polygon { bounds, .. }
+                        | Live::Custom { bounds },
+                    ) => map_bounds(m, bounds),
+                    None => {}
+                }
+            }
+            Kind::Text(t) => {
+                // ponytail: affine part only; a perspective crop keeps the warped cache exact.
+                let [a, b, c, d, e, f] = t.data.transform;
+                t.data.transform = [
+                    m[0] * a + m[1] * b,
+                    m[3] * a + m[4] * b,
+                    m[0] * c + m[1] * d,
+                    m[3] * c + m[4] * d,
+                    m[0] * e + m[1] * f + m[2],
+                    m[3] * e + m[4] * f + m[5],
+                ];
+            }
             _ => {}
         }
     }
@@ -192,6 +257,26 @@ fn minification(e: &[f64; 9], x: f64, y: f64) -> f64 {
 }
 
 impl Document {
+    // Vector data follows the canvas (`m`: old canvas px -> new): nodes, saved paths, and guides
+    // whose line stays horizontal or vertical (others keep their position).
+    fn remap_vectors(&mut self, m: &[f64; 9]) {
+        remap_nodes(&mut self.nodes, m);
+        for p in &mut self.vector.paths {
+            map_path(m, &mut p.path);
+        }
+        for g in &mut self.vector.guides {
+            let (a, b) = match g.axis {
+                Axis::X => (map_pt(m, g.pos, 0.0), map_pt(m, g.pos, 1.0)),
+                Axis::Y => (map_pt(m, 0.0, g.pos), map_pt(m, 1.0, g.pos)),
+            };
+            if (a.1 - b.1).abs() < 1e-9 {
+                (g.axis, g.pos) = (Axis::Y, a.1);
+            } else if (a.0 - b.0).abs() < 1e-9 {
+                (g.axis, g.pos) = (Axis::X, a.0);
+            }
+        }
+    }
+
     fn planes(&self) -> Vec<At> {
         let mut ids = Vec::new();
         collect_ids(&self.nodes, &mut ids);
@@ -203,6 +288,9 @@ impl Document {
             }
             if n.mask.is_some() {
                 out.push(At::Mask(id));
+            }
+            if matches!(&n.kind, Kind::Text(t) if t.cache.is_some()) {
+                out.push(At::TextCache(id));
             }
             if let Kind::Smart(s) = &n.kind {
                 out.extend(s.filters.iter().enumerate().filter(|(_, f)| f.mask.is_some()).map(|(i, _)| At::FilterMask(id, i)));
@@ -229,6 +317,10 @@ impl Document {
         };
         match at {
             At::Pixels(id) => (self.node(id).and_then(|n| n.pixel_tiles()).expect("a listed plane").clone(), None),
+            At::TextCache(id) => match &self.node(id).expect("a listed plane").kind {
+                Kind::Text(t) => (t.cache.clone().expect("a listed plane"), None),
+                _ => unreachable!("a text cache plane points at a text node"),
+            },
             At::Mask(_) | At::FilterMask(..) | At::StackMask(_) => {
                 let m = self.plane_mask(at).expect("a listed plane");
                 (m.tiles.clone(), Some(m.default))
@@ -258,6 +350,10 @@ impl Document {
                     &mut self.node_mut(id).expect("a listed plane").smart_mut().filters[i].mask.as_mut().expect("a listed plane").tiles
                 }
                 At::StackMask(id) => &mut self.node_mut(id).expect("a listed plane").smart_mut().stack_mask.as_mut().expect("a listed plane").tiles,
+                At::TextCache(id) => match &mut self.node_mut(id).expect("a listed plane").kind {
+                    Kind::Text(t) => t.cache.as_mut().expect("a listed plane"),
+                    _ => unreachable!("a text cache plane points at a text node"),
+                },
                 At::Selection => &mut self.selection.as_mut().expect("a listed plane").tiles,
                 At::LastSelection => &mut self.last_selection.as_mut().expect("a listed plane").tiles,
                 At::Channel(i) => &mut self.channels[i].mask.tiles,
@@ -349,7 +445,7 @@ impl Document {
             out.push((at, tiles));
         }
         self.replace_planes(out, r[2] as u32, r[3] as u32);
-        remap_smart(&mut self.nodes, &[1.0, 0.0, -r[0] as f64, 0.0, 1.0, -r[1] as f64, 0.0, 0.0, 1.0]);
+        self.remap_vectors(&[1.0, 0.0, -r[0] as f64, 0.0, 1.0, -r[1] as f64, 0.0, 0.0, 1.0]);
         Ok(())
     }
 
@@ -487,7 +583,7 @@ impl Document {
         let (mut x0, mut y0, mut x1, mut y1) = (0, 0, w, h);
         for at in self.planes() {
             let b = match at {
-                At::Pixels(id) => self.layer_bounds(id)?,
+                At::Pixels(id) | At::TextCache(id) => self.layer_bounds(id)?,
                 At::Mask(_) | At::FilterMask(..) | At::StackMask(_) => self.mask_bounds(at),
                 _ => None,
             };
@@ -536,7 +632,7 @@ impl Document {
             Remap::FlipH => [-1.0, 0.0, fw, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
             Remap::FlipV => [1.0, 0.0, 0.0, 0.0, -1.0, fh, 0.0, 0.0, 1.0],
         };
-        remap_smart(&mut self.nodes, &m);
+        self.remap_vectors(&m);
         Ok(())
     }
 
@@ -570,7 +666,7 @@ impl Document {
         for at in self.planes() {
             let (tiles, def) = self.plane(at);
             let bounds = match at {
-                At::Pixels(id) => self.layer_bounds(id)?,
+                At::Pixels(id) | At::TextCache(id) => self.layer_bounds(id)?,
                 _ => tile_rect(&tiles),
             };
             let Some(b) = bounds else {
@@ -587,7 +683,7 @@ impl Document {
             out.push((at, self.render_tiles(&rs, def, clip)?));
         }
         self.replace_planes(out, size[2] as u32, size[3] as u32);
-        remap_smart(&mut self.nodes, &m);
+        self.remap_vectors(&m);
         Ok(true)
     }
 
@@ -613,7 +709,7 @@ impl Document {
         let rect = [0, 0, out_w as i32, out_h as i32];
         let mut out = Vec::new();
         for at in self.planes() {
-            let At::Pixels(id) = at else {
+            let (At::Pixels(id) | At::TextCache(id)) = at else {
                 // Unchanged, but listed so replace_planes clips them to the new canvas.
                 if matches!(at, At::LastSelection | At::Channel(_)) {
                     out.push((at, self.plane(at).0));
@@ -625,7 +721,7 @@ impl Document {
                 continue;
             };
             check_area(b)?;
-            let rs = Resampler::pyramid(self.rgba_plane(self.node(id)?.pixel_tiles()?, b, None), interp, 0.0, most);
+            let rs = Resampler::pyramid(self.rgba_plane(&self.plane(at).0, b, None), interp, 0.0, most);
             let tiles = self.render_tiles_with(rect, None, false, |ox, oy, buf| {
                 buf.fill(0.0);
                 let mut hit = false;
@@ -648,7 +744,7 @@ impl Document {
         }
         self.selection = None;
         self.replace_planes(out, out_w, out_h);
-        remap_smart(&mut self.nodes, &fwd);
+        self.remap_vectors(&fwd);
         Ok(())
     }
 }
