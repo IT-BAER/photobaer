@@ -131,3 +131,18 @@ fn tool_default_family_falls_back_to_a_family_that_draws_ascii() {
     assert_eq!(r.default_family("Helvetica").as_deref(), Some("Noto Sans"));
     assert_eq!(Registry::default().default_family("Noto Sans"), None);
 }
+
+#[test]
+fn a_forged_collection_count_is_rejected_without_scanning_billions_of_faces() {
+    let mut r = Registry::default();
+    let start = std::time::Instant::now();
+    let forged = [b"ttcf".as_slice(), &[0, 1, 0, 0], &[0xFF, 0xFF, 0xFF, 0xFF]].concat();
+    assert!(r.add(forged, "upload").is_err());
+    assert!(start.elapsed().as_millis() < 100, "took {:?}", start.elapsed());
+}
+
+#[test]
+fn a_font_file_over_the_size_cap_is_rejected() {
+    let e = Registry::default().add(vec![0; MAX_FONT_BYTES + 1], "upload").unwrap_err();
+    assert!(e.contains("MB"), "{e}");
+}

@@ -39,3 +39,16 @@ test('an index row whose file is gone is skipped', async () => {
   await (await root.getDirectoryHandle('fonts')).removeEntry(record.hash);
   assert.deepEqual(await (await FontStore.fromRoot(root as unknown as FileSystemDirectoryHandle, index)).all(), []);
 });
+
+test('a store that cannot open (storage blocked) degrades to null instead of rejecting', async () => {
+  const g = globalThis as unknown as { indexedDB?: unknown };
+  const had = Object.getOwnPropertyDescriptor(navigator, 'storage');
+  Object.defineProperty(navigator, 'storage', { value: { getDirectory: async () => { throw new Error('SecurityError'); } }, configurable: true });
+  g.indexedDB = { open: () => ({}) };
+  try {
+    assert.equal(await FontStore.open(), null);
+  } finally {
+    delete g.indexedDB;
+    if (had) Object.defineProperty(navigator, 'storage', had); else delete (navigator as unknown as { storage?: unknown }).storage;
+  }
+});

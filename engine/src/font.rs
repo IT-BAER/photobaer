@@ -107,16 +107,24 @@ fn name(face: &ttf_parser::Face, ids: &[u16]) -> Option<String> {
     })
 }
 
+/// Largest accepted font file; the bytes are copied into the wasm heap.
+pub const MAX_FONT_BYTES: usize = 64 << 20;
+
 impl Registry {
     /// Registers every face of a font file (collections included). Identical bytes register once.
     pub fn add(&mut self, bytes: Vec<u8>, source: &str) -> Result<Vec<FaceInfo>, String> {
+        if bytes.len() > MAX_FONT_BYTES {
+            return Err(format!("Font files over {} MB are not supported.", MAX_FONT_BYTES >> 20));
+        }
         let known: Vec<FaceInfo> = self.faces.iter().filter(|f| *f.data == bytes[..]).map(|f| f.info.clone()).collect();
         if !known.is_empty() {
             return Ok(known);
         }
         let data: Rc<[u8]> = Rc::from(bytes);
         let mut added = Vec::new();
-        for index in 0..ttf_parser::fonts_in_collection(&data).unwrap_or(1) {
+        // A collection header's face count is untrusted: each face needs a 4-byte offset after the 12-byte header.
+        let offsets = (data.len().saturating_sub(12) / 4) as u32;
+        for index in 0..ttf_parser::fonts_in_collection(&data).map_or(1, |n| n.min(offsets)) {
             let Ok(face) = ttf_parser::Face::parse(&data, index) else { continue };
             let Some(family) = name(&face, &[name_id::TYPOGRAPHIC_FAMILY, name_id::FAMILY]) else { continue };
             let style = name(&face, &[name_id::TYPOGRAPHIC_SUBFAMILY, name_id::SUBFAMILY]).unwrap_or_else(|| "Regular".into());

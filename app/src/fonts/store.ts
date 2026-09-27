@@ -38,7 +38,8 @@ export class FontStore {
   // Null without OPFS or IndexedDB (uploads then last for the session only).
   static async open(): Promise<FontStore | null> {
     if (!navigator.storage?.getDirectory || typeof indexedDB === 'undefined') return null;
-    return FontStore.fromRoot(await navigator.storage.getDirectory(), await idbIndex());
+    // Blocked storage (private mode, quota, policy) keeps uploads for the session only.
+    try { return await FontStore.fromRoot(await navigator.storage.getDirectory(), await idbIndex()); } catch { return null; }
   }
 
   static async fromRoot(opfs: FileSystemDirectoryHandle, index: FontIndex) {
