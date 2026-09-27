@@ -297,3 +297,14 @@ fn a_round_cap_line_is_the_exact_stadium() {
     let (d, at) = max_diff(&s, &fill_mask(&stadium, 0, 0, 200, 200));
     assert!(d <= 2, "max diff {d} at ({}, {})", at % 200, at / 200);
 }
+
+#[test]
+fn a_long_round_cap_dashed_stroke_renders_one_tile_quickly() {
+    let p = line_path(0.0, 128.0, 4000.0, 128.0);
+    let t = std::time::Instant::now();
+    let m = stroke_mask(&p, 10.0, StrokeAlign::Center, Cap::Round, Join::Miter, 4.0, &[2.0, 2.0], 0.0, 1792, 0, 256, 256);
+    let s = t.elapsed().as_secs_f64();
+    assert!(px(&m, 256, 0, 128) > 0 || px(&m, 256, 20, 128) > 0, "the band is covered");
+    let limit = if cfg!(debug_assertions) { 5.0 } else { 0.5 };
+    assert!(s < limit, "{s} s");
+}

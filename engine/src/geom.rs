@@ -226,7 +226,15 @@ fn union_area(polys: &[Vec<V>], o: V, w: usize, h: usize) -> Vec<f64> {
     let hf = h as f64;
     // (top, bottom, winding direction), window-relative.
     let mut edges: Vec<(V, V, i32)> = vec![];
-    for p in polys {
+    // A closed piece has winding 0 outside its bounds, so pieces missing the window add nothing.
+    let hits = |p: &&Vec<V>| {
+        let (mut l, mut t, mut r, mut b) = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+        for v in p.iter() {
+            (l, t, r, b) = (l.min(v.x - o.x), t.min(v.y - o.y), r.max(v.x - o.x), b.max(v.y - o.y));
+        }
+        l < w as f64 && r > 0.0 && t < hf && b > 0.0
+    };
+    for p in polys.iter().filter(hits) {
         for i in 0..p.len() {
             let (a, b) = (p[i] - o, p[(i + 1) % p.len()] - o);
             if a.y != b.y && a.y.max(b.y) > 0.0 && a.y.min(b.y) < hf {
