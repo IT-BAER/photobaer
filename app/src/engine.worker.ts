@@ -9,10 +9,10 @@ import { denormalize, isIdentity } from './transform/matrix.ts';
 import { patternRefs, type Blending, type LayerStyle } from './layerStyle.ts';
 import type { PatternRecord } from './brushes/preset.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
-import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, LayerNode, OpenResult, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, WorkerEvent } from './worker/types.ts';
+import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, Guide, LayerNode, OpenResult, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, WorkerEvent } from './worker/types.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
-export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
+export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, Guide, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
 const DESTRUCTIVE = new Set<string>(DESTRUCTIVE_KINDS);
 
@@ -75,7 +75,13 @@ function info(): DocInfo | null {
     layer_comps: { id: number; name: string; layer_count: number }[];
     global_light: GlobalLight;
   };
+  const vec = JSON.parse(eng.vector_json()) as {
+    resolution: number; guides: Guide[]; grid: { spacing_x: number; spacing_y: number };
+    guides_locked: boolean; artboards_locked: boolean;
+  };
   return {
+    resolution: vec.resolution, guides: vec.guides, grid: vec.grid,
+    guidesLocked: vec.guides_locked, artboardsLocked: vec.artboards_locked,
     docId, version, name,
     width: eng.width(), height: eng.height(), depth: eng.depth(), maxLevel: eng.max_level(),
     undoLabel: history.undoLabel, redoLabel: history.redoLabel,
@@ -572,6 +578,64 @@ const api = {
   moveNode(id: number, parent: number, index: number) {
     const e = need();
     history.run('Layer Order', () => e.move_node(id, parent, index));
+    return changed();
+  },
+
+  // ---------- guides and grid (docs/M4.md section 12) ----------
+
+  // `artboard` 0 = a canvas guide; `pos` is already document px, offset by the caller.
+  addGuide(axis: 'x' | 'y', pos: number, artboard = 0) {
+    const e = need();
+    let created = 0;
+    history.run('New Guide', () => { created = e.add_guide(axis, pos, artboard); });
+    return { ...changed(), created };
+  },
+
+  moveGuide(id: number, pos: number) {
+    const e = need();
+    history.run('Move Guide', () => e.move_guide(id, pos));
+    return changed();
+  },
+
+  deleteGuide(id: number) {
+    const e = need();
+    history.run('Delete Guide', () => e.delete_guide(id));
+    return changed();
+  },
+
+  clearGuides(scope: 'all' | 'canvas' | 'artboard', artboard = 0) {
+    const e = need();
+    history.run('Clear Guides', () => e.clear_guides(scope, artboard));
+    return changed();
+  },
+
+  // `params` field names match the engine's `new_guide_layout` JSON verbatim.
+  newGuideLayout(params: {
+    rect: [number, number, number, number]; columns: number; columnGutter: number; rows: number; rowGutter: number;
+    margins: [number, number, number, number] | null; clearExisting: boolean; artboard?: number;
+  }) {
+    const e = need();
+    let created: number[] = [];
+    history.run('New Guide Layout', () => { created = Array.from(e.new_guide_layout(JSON.stringify({ artboard: 0, ...params }))); });
+    return { ...changed(), created };
+  },
+
+  newGuidesFromShape(ids: number[]) {
+    const e = need();
+    let created: number[] = [];
+    history.run('New Guide', () => { created = Array.from(e.new_guides_from_shape(Uint32Array.from(ids))); });
+    return { ...changed(), created };
+  },
+
+  setGridSpacing(spacingX: number, spacingY: number) {
+    const e = need();
+    history.run('Grid Spacing', () => e.set_grid_and_locks(JSON.stringify({ grid: { spacing_x: spacingX, spacing_y: spacingY } })));
+    return changed();
+  },
+
+  setGuidesLocked(locked: boolean) {
+    const e = need();
+    history.run(locked ? 'Lock Guides' : 'Unlock Guides', () => e.set_grid_and_locks(JSON.stringify({ guidesLocked: locked })));
     return changed();
   },
 

@@ -16,6 +16,8 @@ mod select;
 mod manifest;
 #[path = "brush.rs"]
 mod brush;
+#[path = "guides.rs"]
+mod guides;
 #[cfg(test)]
 #[path = "doc_m3_tests.rs"]
 mod m3_tests;

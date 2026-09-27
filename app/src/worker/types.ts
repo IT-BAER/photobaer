@@ -70,6 +70,8 @@ export interface LayerNode {
   blending: Blending;
   children?: LayerNode[];
 }
+// docs/M4.md section 12: a document-space vertical (x) or horizontal (y) guide.
+export interface Guide { id: number; axis: 'x' | 'y'; pos: number }
 export interface DocInfo {
   docId: number; version: number; name: string;
   width: number; height: number; depth: number; maxLevel: number;
@@ -85,6 +87,12 @@ export interface DocInfo {
   globalLight: GlobalLight;
   // Edit Contents (D6): the names of the documents this one is nested in, outermost first.
   parents: string[];
+  // Pixels per inch (docs/M4.md D13, section 12).
+  resolution: number;
+  guides: Guide[];
+  grid: { spacing_x: number; spacing_y: number };
+  guidesLocked: boolean;
+  artboardsLocked: boolean;
 }
 export interface GlobalLight { angle: number; altitude: number }
 export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?: number; w?: number; h?: number; points?: number[] };

@@ -879,6 +879,49 @@ impl Engine {
     pub fn perspective_crop(&mut self, quad: Vec<f64>, out_w: u32, out_h: u32, interp: &str) -> Result<(), JsError> {
         self.0.doc.perspective_crop(&quad, out_w, out_h, Interp::parse(interp).map_err(err)?).map_err(err)
     }
+
+    // ---------- guides and grid (docs/M4.md section 12) ----------
+
+    /// The document's `resolution`, `paths`, `guides`, `grid` and locks, as JSON.
+    pub fn vector_json(&self) -> String {
+        self.0.doc.vector_json()
+    }
+
+    /// `{ grid?: { spacing_x, spacing_y }, guidesLocked?, artboardsLocked? }`.
+    pub fn set_grid_and_locks(&mut self, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_grid_and_locks(json).map_err(err)
+    }
+
+    /// `axis` is "x" or "y"; `artboard` 0 = a canvas guide, else the targeted artboard's id
+    /// (`pos` is already document px, offset by the caller). Returns the new guide's id.
+    pub fn add_guide(&mut self, axis: &str, pos: f64, artboard: u32) -> Result<u32, JsError> {
+        self.0.doc.add_guide(axis, pos, artboard).map_err(err)
+    }
+
+    /// Refused while guides are locked.
+    pub fn move_guide(&mut self, id: u32, pos: f64) -> Result<(), JsError> {
+        self.0.doc.move_guide(id, pos).map_err(err)
+    }
+
+    pub fn delete_guide(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.delete_guide(id).map_err(err)
+    }
+
+    /// `scope` is "all", "canvas" or "artboard" (needs a non-zero `artboard`).
+    pub fn clear_guides(&mut self, scope: &str, artboard: u32) -> Result<(), JsError> {
+        self.0.doc.clear_guides(scope, artboard).map_err(err)
+    }
+
+    /// `{ rect: [x,y,w,h], columns, columnGutter, rows, rowGutter, margins: [top,left,bottom,right]
+    /// | null, clearExisting, artboard }`. Returns the new guide ids.
+    pub fn new_guide_layout(&mut self, json: &str) -> Result<Vec<u32>, JsError> {
+        self.0.doc.new_guide_layout(json).map_err(err)
+    }
+
+    /// 4 guides at the union of `ids`' content bounds' edges.
+    pub fn new_guides_from_shape(&mut self, ids: Vec<u32>) -> Result<Vec<u32>, JsError> {
+        self.0.doc.new_guides_from_shape(&ids).map_err(err)
+    }
 }
 
 /// App-scope font registry (one per worker, shared by every document).

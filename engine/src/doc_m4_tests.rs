@@ -2,7 +2,7 @@
 
 use super::m3_tests::{v4_fixture, load as load_v4};
 use super::*;
-use crate::path::Live;
+use crate::path::{ArtboardBackground, Live};
 use serde_json::{json, Value};
 
 fn locks() -> Value {
@@ -307,4 +307,118 @@ fn offset_moves_shape_paths_and_text_transform_and_cache() {
 
     d.set_props(2, r#"{"locks":{"position":true}}"#).unwrap();
     assert!(d.offset_layer(2, 1, 1).unwrap_err().contains("locked"));
+}
+
+// ---------- guides and grid (docs/M4.md section 12) ----------
+
+fn guide_positions(d: &Document) -> Vec<f64> {
+    let v: Value = serde_json::from_str(&d.manifest()).unwrap();
+    let mut out: Vec<f64> = v["guides"].as_array().unwrap().iter().map(|g| g["pos"].as_f64().unwrap()).collect();
+    out.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    out
+}
+
+#[test]
+fn add_move_delete_and_lock_a_guide() {
+    let mut d = Document::new(300, 300, 8).unwrap();
+    let id = d.add_guide("x", 42.0, 0).unwrap();
+    assert_eq!(id, 1);
+    let second = d.add_guide("y", 10.0, 0).unwrap();
+    assert_eq!(second, 2, "guide ids keep counting up");
+
+    d.move_guide(id, 100.0).unwrap();
+    let v: Value = serde_json::from_str(&d.manifest()).unwrap();
+    assert_eq!(v["guides"], json!([{ "id": 1, "axis": "x", "pos": 100.0 }, { "id": 2, "axis": "y", "pos": 10.0 }]));
+
+    d.set_grid_and_locks(r#"{"guidesLocked":true}"#).unwrap();
+    let e = d.move_guide(id, 5.0).unwrap_err();
+    assert!(e.contains("locked"), "{e}");
+    d.set_grid_and_locks(r#"{"guidesLocked":false}"#).unwrap();
+
+    d.delete_guide(id).unwrap();
+    let v: Value = serde_json::from_str(&d.manifest()).unwrap();
+    assert_eq!(v["guides"], json!([{ "id": 2, "axis": "y", "pos": 10.0 }]));
+    assert!(d.delete_guide(id).unwrap_err().contains("unknown guide"));
+}
+
+#[test]
+fn clear_guides_scopes_canvas_and_artboard_separately() {
+    let mut d = Document::new(300, 300, 8).unwrap();
+    let gid = d.add_group("Artboard 1", 0).unwrap();
+    d.node_mut(gid).unwrap().artboard = Some(Artboard {
+        rect: [0.0, 0.0, 50.0, 50.0],
+        background: ArtboardBackground::None,
+        preset_name: String::new(),
+        guide_ids: Vec::new(),
+    });
+    d.add_guide("x", 5.0, 0).unwrap();
+    let board_guide = d.add_guide("y", 5.0, gid).unwrap();
+    assert_eq!(d.node(gid).unwrap().artboard.as_ref().unwrap().guide_ids, vec![board_guide]);
+
+    d.clear_guides("canvas", 0).unwrap();
+    let v: Value = serde_json::from_str(&d.manifest()).unwrap();
+    let guides = v["guides"].as_array().unwrap();
+    assert_eq!(guides.len(), 1);
+    assert_eq!(guides[0]["id"], board_guide);
+
+    let more = d.add_guide("x", 6.0, 0).unwrap();
+    d.clear_guides("artboard", gid).unwrap();
+    let v: Value = serde_json::from_str(&d.manifest()).unwrap();
+    let guides = v["guides"].as_array().unwrap();
+    assert_eq!(guides.len(), 1);
+    assert_eq!(guides[0]["id"], more);
+    assert!(d.node(gid).unwrap().artboard.as_ref().unwrap().guide_ids.is_empty());
+
+    d.clear_guides("all", 0).unwrap();
+    let v: Value = serde_json::from_str(&d.manifest()).unwrap();
+    assert_eq!(v["guides"], json!([]));
+}
+
+#[test]
+fn new_guide_layout_places_column_and_row_guides() {
+    let mut d = Document::new(1000, 500, 8).unwrap();
+    let ids = d
+        .new_guide_layout(r#"{"rect":[0,0,1000,500],"columns":3,"columnGutter":20,"rows":0,"rowGutter":20,"margins":null,"clearExisting":false,"artboard":0}"#)
+        .unwrap();
+    assert_eq!(ids.len(), 6, "3 columns without margins make 6 vertical guides, rows 0 adds none");
+    assert_eq!(guide_positions(&d), vec![0.0, 320.0, 340.0, 660.0, 680.0, 1000.0]);
+
+    // clear_existing replaces rather than accumulating.
+    let ids2 = d
+        .new_guide_layout(r#"{"rect":[0,0,1000,500],"columns":1,"columnGutter":0,"rows":0,"rowGutter":0,"margins":null,"clearExisting":true,"artboard":0}"#)
+        .unwrap();
+    assert_eq!(ids2.len(), 2);
+    assert_eq!(guide_positions(&d), vec![0.0, 1000.0]);
+}
+
+#[test]
+fn new_guide_layout_offsets_by_the_target_rect_origin() {
+    // "guide relative to an artboard at x 200 lands at 200 + pos": exercised as a pure origin
+    // offset (artboard targeting needs B18's artboard selection).
+    let mut d = Document::new(2000, 500, 8).unwrap();
+    let ids = d
+        .new_guide_layout(r#"{"rect":[200,0,1000,500],"columns":1,"columnGutter":0,"rows":0,"rowGutter":0,"margins":null,"clearExisting":false,"artboard":0}"#)
+        .unwrap();
+    assert_eq!(ids.len(), 2);
+    assert_eq!(guide_positions(&d), vec![200.0, 1200.0], "0 and 1000 relative to the rect land at 200 + pos");
+}
+
+#[test]
+fn new_guides_from_shape_uses_the_union_of_content_bounds() {
+    let mut d = Document::new(300, 300, 8).unwrap();
+    let a = d.add_layer("a", 0).unwrap();
+    let b = d.add_layer("b", 0).unwrap();
+    d.select_rect(10.0, 10.0, 20.0, 20.0, Mode::New).unwrap();
+    d.fill(a, Target::Pixels, 255, 0, 0, 255).unwrap();
+    d.deselect().unwrap();
+    d.select_rect(50.0, 50.0, 10.0, 10.0, Mode::New).unwrap();
+    d.fill(b, Target::Pixels, 0, 255, 0, 255).unwrap();
+    d.deselect().unwrap();
+
+    d.new_guides_from_shape(&[a, b]).unwrap();
+    assert_eq!(guide_positions(&d), vec![10.0, 10.0, 60.0, 60.0]);
+
+    assert!(d.new_guides_from_shape(&[]).unwrap_err().contains("at least one layer"));
+    let empty = d.add_layer("empty", 0).unwrap();
+    assert!(d.new_guides_from_shape(&[empty]).unwrap_err().contains("visible content"));
 }
