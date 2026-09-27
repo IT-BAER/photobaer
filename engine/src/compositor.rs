@@ -402,7 +402,8 @@ pub(super) struct Region {
     parts: Vec<(i64, i64, Part)>,
     masks: Vec<(i64, i64, Arc<Pixels>)>,
     mask_default: Option<f32>,
-    vector: Option<styles::Plane>,
+    // An enabled vector mask, its level and the document size; rendered on a style cache miss only.
+    vector: Option<(VectorMask, u32, (u32, u32))>,
     key: u64,
 }
 
@@ -1091,13 +1092,12 @@ impl Document {
         key = mix(key, mask_default.map_or(u64::MAX, |d| d.to_bits() as u64));
         let vm = node.vector_mask.as_ref().filter(|m| m.enabled);
         key = mix_bytes(key, serde_json::to_string(&vm).expect("vector mask serializes").as_bytes());
-        // ponytail: rendered on every styled tile, cache hit or not; key it lazily if it shows in profiles.
-        let vector = vm.map(|m| styles::Plane { w: n, h: n, v: self.vector_plane(m, level, x0, y0, n, n) });
+        let vector = vm.map(|m| (m.clone(), level, (self.width, self.height)));
         Some(Region { x0, y0, n, parts, masks, mask_default, vector, key })
     }
 
     // Straight RGBA of a region with alpha times the masks, the raster and the vector mask plane.
-    pub(super) fn region_pixels(r: &Region) -> (Vec<[f32; 4]>, Option<styles::Plane>, Option<&styles::Plane>) {
+    pub(super) fn region_pixels(r: &Region) -> (Vec<[f32; 4]>, Option<styles::Plane>, Option<styles::Plane>) {
         let n = r.n;
         let mut content = vec![[0f32; 4]; n * n];
         for (i, j, part) in &r.parts {
@@ -1119,10 +1119,12 @@ impl Document {
             content.iter_mut().zip(&m.v).for_each(|(c, k)| c[3] *= k);
             m
         });
-        if let Some(v) = &r.vector {
-            content.iter_mut().zip(&v.v).for_each(|(c, k)| c[3] *= k);
-        }
-        (content, mask, r.vector.as_ref())
+        let vector = r.vector.as_ref().map(|(m, level, doc)| {
+            let v = super::vector::feather_plane(m, *doc, *level, r.x0, r.y0, n, n, super::vector::FEATHER_MAX);
+            content.iter_mut().zip(&v).for_each(|(c, k)| c[3] *= k);
+            styles::Plane { w: n, h: n, v }
+        });
+        (content, mask, vector)
     }
 
     // The layer bounds box effects read (document px) and a key for it: tight pixel bounds for
@@ -1213,7 +1215,7 @@ impl Document {
                 fill,
                 blending: &node.blending,
                 layer_mask: mask.as_ref(),
-                vector_mask: vector,
+                vector_mask: vector.as_ref(),
             };
             let r = styles::render_layer(&style, &layer, &cx);
             debug_assert!(r.behind.iter().map(|b| (b.blend, b.opacity)).eq(behind.iter().copied()));

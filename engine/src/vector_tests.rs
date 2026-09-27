@@ -179,13 +179,13 @@ fn an_outside_shape_stroke_equals_the_stroke_effect() {
     });
     b.set_style(l, &style.to_string()).unwrap();
     // Edges match within 1/255. The round-join corners are exact area coverage here, where the
-    // effect's distance ramp runs up to 36/255 lower (pixel (8, 7): 137 vs 101).
+    // effect's distance ramp runs up to 45/255 lower (pixel (8, 7): 146, exact 147, vs 101).
     let (ta, tb) = (tile(&a, 0), tile(&b, 0));
     let corner = |v: usize| (7..10).contains(&v) || (20..23).contains(&v);
     for p in 0..40 * TILE {
         let (x, y) = (p % TILE, p / TILE);
         let d = max_diff(&ta[p * 4..p * 4 + 4], &tb[p * 4..p * 4 + 4]);
-        let limit = if corner(x) && corner(y) { 40 } else { 1 };
+        let limit = if corner(x) && corner(y) { 48 } else { 1 };
         assert!(d <= limit, "({x}, {y}): {:?} vs {:?}", at(&ta, x, y), at(&tb, x, y));
     }
 }
@@ -237,4 +237,27 @@ fn shape_and_vector_mask_programs_use_version_2_payload_kinds() {
     // Same pixels as the CPU tile.
     let run = quantize_premul(&Document::run_program(&p)).unwrap();
     assert_eq!(run, tile(&d, 0));
+}
+
+#[test]
+fn a_large_feather_blurred_coarser_stays_within_2_of_the_exact_gaussian() {
+    for feather in [40.0, 400.0] {
+        let m = vmask(rect(64.5, 80.0, 192.0, 200.25), false, 0.75, feather).unwrap();
+        let q = |v: Vec<f32>| v.into_iter().map(|v| (v * 255.0).round() as i32).collect::<Vec<_>>();
+        let fast = q(super::feather_plane(&m, (256, 256), 0, 0, 0, 256, 256, super::FEATHER_MAX));
+        let exact = q(super::feather_plane(&m, (256, 256), 0, 0, 0, 256, 256, f64::INFINITY));
+        let d = fast.iter().zip(&exact).map(|(a, b)| (a - b).abs()).max().unwrap();
+        assert!(d <= 2, "feather {feather}: max diff {d}");
+    }
+}
+
+#[test]
+fn a_feather_of_1000_renders_a_tile_quickly() {
+    let mut d = doc(2048, 2048, true);
+    d.node_mut(1).unwrap().vector_mask = vmask(rect(500.0, 500.0, 1500.0, 1500.0), false, 1.0, 1000.0);
+    let t = std::time::Instant::now();
+    d.display_tile(0, 3, 3).unwrap();
+    let s = t.elapsed().as_secs_f64();
+    let limit = if cfg!(debug_assertions) { 20.0 } else { 2.0 };
+    assert!(s < limit, "{s} s");
 }

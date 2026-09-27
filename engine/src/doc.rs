@@ -2293,7 +2293,7 @@ impl Document {
                         fill: node.fill,
                         blending: &node.blending,
                         layer_mask: mask.as_ref(),
-                        vector_mask: vector,
+                        vector_mask: vector.as_ref(),
                     };
                     let r = styles::render_layer(&style, &layer, &cx);
                     let p = pad as usize;

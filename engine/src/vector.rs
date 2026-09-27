@@ -18,6 +18,73 @@ fn norm(c: Vec<u8>) -> Vec<f32> {
     c.into_iter().map(|v| v as f32 / 255.0).collect()
 }
 
+/// Largest feather (level px) blurred directly; a larger one is blurred at the coarsest pyramid
+/// level that brings it under this and upsampled bilinearly (within 2/255 of the exact Gaussian,
+/// see the tests), so a tile costs at most a ~320 px window and 65 taps per pass.
+pub(super) const FEATHER_MAX: f64 = 32.0;
+
+/// `Document::vector_plane` for a document of `doc` px, blurring feathers above `cap` coarser.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn feather_plane(m: &VectorMask, doc: (u32, u32), level: u32, x0: i64, y0: i64, w: usize, h: usize, cap: f64) -> Vec<f32> {
+    let k = 0.5f64.powi(level as i32);
+    let feather = m.feather * k;
+    if feather > cap {
+        let e = (feather / cap).log2().ceil().max(1.0) as u32;
+        let f = (1u64 << e) as f64;
+        // Coarse sample u of output pixel x: its centre in coarse px, minus the coarse half pixel.
+        let u = |x: i64| (x as f64 + 0.5) / f - 0.5;
+        let (cx, cy) = (u(x0).floor() as i64, u(y0).floor() as i64);
+        let cw = (u(x0 + w as i64 - 1).floor() as i64 + 2 - cx) as usize;
+        let ch = (u(y0 + h as i64 - 1).floor() as i64 + 2 - cy) as usize;
+        let c = feather_plane(m, doc, level + e, cx, cy, cw, ch, cap);
+        let tap = |ix: i64, iy: i64| c[(iy - cy).clamp(0, ch as i64 - 1) as usize * cw + (ix - cx).clamp(0, cw as i64 - 1) as usize];
+        let mut out = Vec::with_capacity(w * h);
+        for y in y0..y0 + h as i64 {
+            let (vy, iy) = (u(y), u(y).floor() as i64);
+            let fy = (vy - iy as f64) as f32;
+            for x in x0..x0 + w as i64 {
+                let (vx, ix) = (u(x), u(x).floor() as i64);
+                let fx = (vx - ix as f64) as f32;
+                let top = tap(ix, iy) * (1.0 - fx) + tap(ix + 1, iy) * fx;
+                let bottom = tap(ix, iy + 1) * (1.0 - fx) + tap(ix + 1, iy + 1) * fx;
+                out.push(top * (1.0 - fy) + bottom * fy);
+            }
+        }
+        return out;
+    }
+    let path = scaled(&m.path, k);
+    let kernel = (feather > 0.0).then(|| gaussian_kernel(feather));
+    let r = kernel.as_ref().map_or(0, |k| (k.len() / 2) as i64);
+    let size = |s: u32| (s as u64).div_ceil(1u64 << level.min(63)).max(1) as i64;
+    // The source window: the output grown by the kernel reach, inside the document.
+    let span = |o: i64, n: usize, size: i64| {
+        if r == 0 {
+            return (o, n);
+        }
+        let a = (o - r).clamp(0, size - 1);
+        (a, ((o + n as i64 + r).clamp(a + 1, size) - a) as usize)
+    };
+    let ((sx, sw), (sy, sh)) = (span(x0, w, size(doc.0)), span(y0, h, size(doc.1)));
+    let mut cov = norm(geom::fill_mask(&path, sx as i32, sy as i32, sw, sh));
+    if m.inverted {
+        cov.iter_mut().for_each(|v| *v = 1.0 - *v);
+    }
+    if let Some(kn) = &kernel {
+        let p = styles::Plane { w: sw, h: sh, v: cov };
+        cov = styles::convolve(&styles::convolve(&p, kn, true), kn, false).v;
+    }
+    let d = m.density as f32;
+    let mut out = Vec::with_capacity(w * h);
+    for y in 0..h as i64 {
+        let row = (y0 + y - sy).clamp(0, sh as i64 - 1) as usize * sw;
+        for x in 0..w as i64 {
+            let v = cov[row + (x0 + x - sx).clamp(0, sw as i64 - 1) as usize];
+            out.push(1.0 - d * (1.0 - v));
+        }
+    }
+    out
+}
+
 impl Document {
     fn cached(&self, key: u64, level: u32, render: impl FnOnce() -> Pixels) -> Arc<Pixels> {
         if let Some(px) = self.tile_cache.borrow_mut().get(key) {
@@ -96,40 +163,7 @@ impl Document {
     /// when `inverted`), feathered by a Gaussian of sigma feather / 3 (half-width ceil(3 sigma),
     /// clamped at the document edge), then density: `1 - density (1 - m)`.
     pub(super) fn vector_plane(&self, m: &VectorMask, level: u32, x0: i64, y0: i64, w: usize, h: usize) -> Vec<f32> {
-        let k = 0.5f64.powi(level as i32);
-        let path = scaled(&m.path, k);
-        let feather = m.feather * k;
-        let kernel = (feather > 0.0).then(|| gaussian_kernel(feather));
-        let r = kernel.as_ref().map_or(0, |k| (k.len() / 2) as i64);
-        let (lw, lh) = self.level_size(level);
-        // The source window: the output grown by the kernel reach, inside the document.
-        let span = |o: i64, n: usize, size: u32| {
-            if r == 0 {
-                return (o, n);
-            }
-            let size = size.max(1) as i64;
-            let a = (o - r).clamp(0, size - 1);
-            (a, ((o + n as i64 + r).clamp(a + 1, size) - a) as usize)
-        };
-        let ((sx, sw), (sy, sh)) = (span(x0, w, lw), span(y0, h, lh));
-        let mut cov = norm(geom::fill_mask(&path, sx as i32, sy as i32, sw, sh));
-        if m.inverted {
-            cov.iter_mut().for_each(|v| *v = 1.0 - *v);
-        }
-        if let Some(kn) = &kernel {
-            let p = styles::Plane { w: sw, h: sh, v: cov };
-            cov = styles::convolve(&styles::convolve(&p, kn, true), kn, false).v;
-        }
-        let d = m.density as f32;
-        let mut out = Vec::with_capacity(w * h);
-        for y in 0..h as i64 {
-            let row = (y0 + y - sy).clamp(0, sh as i64 - 1) as usize * sw;
-            for x in 0..w as i64 {
-                let v = cov[row + (x0 + x - sx).clamp(0, sw as i64 - 1) as usize];
-                out.push(1.0 - d * (1.0 - v));
-            }
-        }
-        out
+        feather_plane(m, (self.width, self.height), level, x0, y0, w, h, FEATHER_MAX)
     }
 
     /// The node's mask for one level tile when an enabled vector mask or an artboard rect applies:

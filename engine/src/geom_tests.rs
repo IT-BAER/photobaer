@@ -272,3 +272,28 @@ fn geom_boolean_circles_cross() {
         assert_eq!(r, boolean(&a, &b, op));
     }
 }
+
+fn max_diff(a: &[u8], b: &[u8]) -> (u8, usize) {
+    a.iter().zip(b).enumerate().map(|(i, (x, y))| (x.abs_diff(*y), i)).max().unwrap()
+}
+
+#[test]
+fn a_center_stroke_on_a_circle_is_the_exact_annulus() {
+    let circle = |r: f64| ellipse([100.0 - r, 100.0 - r, 100.0 + r, 100.0 + r]).subpaths.remove(0);
+    let ring = path(FillRule::Evenodd, vec![circle(70.0), circle(50.0)]);
+    let c = path(FillRule::Nonzero, vec![circle(60.0)]);
+    let s = stroke_mask(&c, 20.0, StrokeAlign::Center, Cap::Butt, Join::Miter, 4.0, &[], 0.0, 0, 0, 200, 200);
+    let (d, at) = max_diff(&s, &fill_mask(&ring, 0, 0, 200, 200));
+    assert!(d <= 2, "max diff {d} at ({}, {})", at % 200, at / 200);
+}
+
+#[test]
+fn a_round_cap_line_is_the_exact_stadium() {
+    let p = line_path(50.3, 100.4, 150.3, 100.4);
+    let s = stroke_mask(&p, 20.0, StrokeAlign::Center, Cap::Round, Join::Miter, 4.0, &[], 0.0, 0, 0, 200, 200);
+    let body = path(FillRule::Nonzero, vec![square(50.3, 90.4, 150.3, 110.4, PathOp::Combine)]);
+    let ends = boolean(&ellipse([40.3, 90.4, 60.3, 110.4]), &ellipse([140.3, 90.4, 160.3, 110.4]), BoolOp::Unite);
+    let stadium = boolean(&body, &ends, BoolOp::Unite);
+    let (d, at) = max_diff(&s, &fill_mask(&stadium, 0, 0, 200, 200));
+    assert!(d <= 2, "max diff {d} at ({}, {})", at % 200, at / 200);
+}

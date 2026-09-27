@@ -216,6 +216,89 @@ fn winding_area(polys: &[Vec<V>], o: V, w: usize, h: usize) -> Vec<f64> {
             edge(&mut a, w, h, p[i] - o, p[(i + 1) % p.len()] - o);
         }
     }
+    rows(&a, w, h)
+}
+
+/// Exact nonzero coverage of overlapping polygons (summed windings over-cover shared edge
+/// pixels). Slabs cut at every vertex and crossing height keep the edges' x order, so the union
+/// is trapezoids whose side edges accumulate like `winding_area`.
+fn union_area(polys: &[Vec<V>], o: V, w: usize, h: usize) -> Vec<f64> {
+    let hf = h as f64;
+    // (top, bottom, winding direction), window-relative.
+    let mut edges: Vec<(V, V, i32)> = vec![];
+    for p in polys {
+        for i in 0..p.len() {
+            let (a, b) = (p[i] - o, p[(i + 1) % p.len()] - o);
+            if a.y != b.y && a.y.max(b.y) > 0.0 && a.y.min(b.y) < hf {
+                edges.push(if a.y < b.y { (a, b, 1) } else { (b, a, -1) });
+            }
+        }
+    }
+    edges.sort_by(|a, b| a.0.y.total_cmp(&b.0.y));
+    let mut ys: Vec<f64> = vec![0.0, hf];
+    ys.extend(edges.iter().flat_map(|e| [e.0.y, e.1.y]));
+    // ponytail: O(n^2) crossing search pruned by y; a sweep line if paths reach ~10k segments.
+    for i in 0..edges.len() {
+        let (p, r) = (edges[i].0, edges[i].1 - edges[i].0);
+        for e in &edges[i + 1..] {
+            if e.0.y >= edges[i].1.y {
+                break;
+            }
+            let s = e.1 - e.0;
+            let den = r.cross(s);
+            if den == 0.0 {
+                continue;
+            }
+            let (t, u) = ((e.0 - p).cross(s) / den, (e.0 - p).cross(r) / den);
+            if t > 0.0 && t < 1.0 && u > 0.0 && u < 1.0 {
+                ys.push(p.y + r.y * t);
+            }
+        }
+    }
+    ys.retain(|y| (0.0..=hf).contains(y));
+    ys.sort_by(f64::total_cmp);
+    ys.dedup();
+    let x_at = |e: &(V, V, i32), y: f64| {
+        if y <= e.0.y {
+            e.0.x
+        } else if y >= e.1.y {
+            e.1.x
+        } else {
+            e.0.x + (e.1.x - e.0.x) * (y - e.0.y) / (e.1.y - e.0.y)
+        }
+    };
+    let mut acc = vec![0.0; (w + 2) * h];
+    let (mut active, mut next, mut xs): (Vec<usize>, usize, Vec<(f64, usize)>) = (vec![], 0, vec![]);
+    for s in ys.windows(2) {
+        let (y0, y1) = (s[0], s[1]);
+        while next < edges.len() && edges[next].0.y < y1 {
+            active.push(next);
+            next += 1;
+        }
+        active.retain(|&i| edges[i].1.y > y0);
+        let ym = (y0 + y1) / 2.0;
+        xs.clear();
+        xs.extend(active.iter().map(|&i| (x_at(&edges[i], ym), i)));
+        xs.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let (mut wind, mut left) = (0, 0);
+        for &(_, i) in &xs {
+            let prev = wind;
+            wind += edges[i].2;
+            if prev == 0 && wind != 0 {
+                left = i;
+            } else if prev != 0 && wind == 0 {
+                let (l, r) = (&edges[left], &edges[i]);
+                edge(&mut acc, w, h, v(x_at(l, y1), y1), v(x_at(l, y0), y0));
+                edge(&mut acc, w, h, v(x_at(r, y0), y0), v(x_at(r, y1), y1));
+            }
+        }
+    }
+    rows(&acc, w, h).into_iter().map(|a| a.abs().min(1.0)).collect()
+}
+
+/// Row prefix sums of an `edge` accumulator: the per pixel area.
+fn rows(a: &[f64], w: usize, h: usize) -> Vec<f64> {
+    let stride = w + 2;
     let mut out = vec![0.0; w * h];
     for y in 0..h {
         let mut acc = 0.0;
@@ -293,7 +376,8 @@ pub fn fill_mask(p: &VectorPath, x0: i32, y0: i32, w: usize, h: usize) -> Vec<u8
 // ---- stroke ----
 
 fn circle(c: V, r: f64) -> Vec<V> {
-    let n = if r > FLATNESS { (std::f64::consts::PI / (1.0 - FLATNESS / r).acos()).ceil().max(8.0) as usize } else { 8 };
+    let tol = FLATNESS / 10.0;
+    let n = if r > tol { (std::f64::consts::PI / (1.0 - tol / r).acos()).ceil().max(8.0) as usize } else { 8 };
     (0..n)
         .map(|i| {
             let a = i as f64 * std::f64::consts::TAU / n as f64;
@@ -472,9 +556,7 @@ pub fn stroke_mask(
         let target = if aligned && s.closed { &mut doubled } else { &mut center };
         target.extend(dashes(&flat(s), s.closed, dash, dash_offset));
     }
-    let nonzero = |lines: &[(Vec<V>, bool)], hw: f64| -> Vec<f64> {
-        winding_area(&outline(lines, hw, cap, join, miter_limit), o, w, h).into_iter().map(|a| a.abs().min(1.0)).collect()
-    };
+    let nonzero = |lines: &[(Vec<V>, bool)], hw: f64| union_area(&outline(lines, hw, cap, join, miter_limit), o, w, h);
     let mut c = nonzero(&center, width / 2.0);
     if !doubled.is_empty() {
         let s2 = nonzero(&doubled, width);
