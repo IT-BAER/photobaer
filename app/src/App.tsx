@@ -26,6 +26,8 @@ import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
 import { hexToRgb, type Rgb } from './shell/color.ts';
 import type { DigitState } from './shell/brushKeys.ts';
 import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
+import { Rulers } from './shell/rulers.ts';
+import { loadPreferences } from './shell/preferences.ts';
 import type { Rect } from './shell/snapping.ts';
 import { MODES, TransformBar, TransformBarStore } from './shell/TransformBar.tsx';
 import type { Mat3 } from './transform/matrix.ts';
@@ -61,6 +63,11 @@ export function App() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const overlayCanvas = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<SelectionOverlay | null>(null);
+  const rulerTop = useRef<HTMLCanvasElement>(null);
+  const rulerLeft = useRef<HTMLCanvasElement>(null);
+  const pixelGridCanvas = useRef<HTMLCanvasElement>(null);
+  const rulersRef = useRef<Rulers | null>(null);
+  const prefs = useRef(loadPreferences());
   const fileInput = useRef<HTMLInputElement>(null);
   const newDialog = useRef<HTMLDialogElement>(null);
   const featherDialog = useRef<HTMLDialogElement>(null);
@@ -96,6 +103,8 @@ export function App() {
   const [, setLibVersion] = useState(0);
   const protectedTexture = useRef<Dynamics['texture'] | null>(null);
   const [showAnts, setShowAnts] = useState(true);
+  const [showRulers, setShowRulers] = useState(false);
+  const [showPixelGrid, setShowPixelGrid] = useState(false);
   const [showLayerComps, setShowLayerComps] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [showAdjustments, setShowAdjustments] = useState(false);
@@ -178,6 +187,19 @@ export function App() {
     if (!v) return;
     const [w, h] = v.size;
     overlayRef.current?.draw(v.view, w, h, v.dpr);
+  }
+
+  // Document resolution isn't wired into DocInfo yet (engine work outside this batch); the Units &
+  // Rulers screen-resolution preference stands in until it lands.
+  function redrawRulers() {
+    const v = viewer.current;
+    if (!v || !doc) return;
+    const [w, h] = v.size;
+    rulersRef.current?.setUnit(prefs.current.rulerUnit);
+    rulersRef.current?.setResolution(prefs.current.screenResolution);
+    rulersRef.current?.setShowRulers(showRulers);
+    rulersRef.current?.setShowPixelGrid(showPixelGrid);
+    rulersRef.current?.draw(v.view, w, h, v.dpr, doc.width, doc.height);
   }
 
   function show(d: DocInfo | null, selectAfter?: SelectAfter) {
@@ -642,7 +664,7 @@ export function App() {
     globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showProperties, setShowProperties, showStyles, setShowStyles,
-    showPatterns, setShowPatterns, showGradients, setShowGradients,
+    showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
@@ -660,7 +682,8 @@ export function App() {
         setRenderer(r.kind === 'webgpu' ? 'WebGPU' : 'WebGL2');
         const v = new Viewer(canvas.current!, r, makeTileSource(client, r));
         overlayRef.current = new SelectionOverlay(overlayCanvas.current!);
-        v.onView = x => { setView({ zoom: x.zoom * v.dpr, rot: x.rot }); redrawOverlay(); };
+        rulersRef.current = new Rulers(rulerTop.current!, rulerLeft.current!, pixelGridCanvas.current!);
+        v.onView = x => { setView({ zoom: x.zoom * v.dpr, rot: x.rot }); redrawOverlay(); redrawRulers(); };
         viewer.current = v;
         perfRef.current = perfTestHook(v);
         (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client, ...gpuTestHook(client, r), ...(perfRef.current ? { perf: perfRef.current } : {}) };
@@ -702,12 +725,13 @@ export function App() {
 
   useEffect(() => {
     if (!canvas.current) return;
-    const ro = new ResizeObserver(redrawOverlay);
+    const ro = new ResizeObserver(() => { redrawOverlay(); redrawRulers(); });
     ro.observe(canvas.current);
     return () => ro.disconnect();
   }, []);
 
   useEffect(() => { overlayRef.current?.setHidden(!showAnts); redrawOverlay(); }, [showAnts]);
+  useEffect(redrawRulers, [showRulers, showPixelGrid, doc?.docId, doc?.width, doc?.height]);
 
   useEffect(() => {
     if (!colorRangeOpen || !doc || !active) return;
@@ -1086,9 +1110,13 @@ export function App() {
               })}
             />
           ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton, actions: cropActions }} />}
-          <div className="stage">
+          <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} />
+            <canvas ref={pixelGridCanvas} className="overlay" />
             <canvas ref={overlayCanvas} className="overlay" />
+            <canvas ref={rulerTop} className="ruler ruler-top" style={{ display: showRulers ? 'block' : 'none' }} />
+            <canvas ref={rulerLeft} className="ruler ruler-left" style={{ display: showRulers ? 'block' : 'none' }} />
+            {showRulers && <div className="ruler-corner" />}
             {!doc && !busy && (
               <div className="welcome">
                 <h1>Photobaer</h1>

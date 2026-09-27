@@ -40,6 +40,7 @@ export interface MenuCtx {
   showLayerComps: boolean; setShowLayerComps: SetState<boolean>; showProperties: boolean; setShowProperties: SetState<boolean>;
   showStyles: boolean; setShowStyles: SetState<boolean>; showPatterns: boolean; setShowPatterns: SetState<boolean>;
   showGradients: boolean; setShowGradients: SetState<boolean>;
+  showRulers: boolean; setShowRulers: SetState<boolean>; showPixelGrid: boolean; setShowPixelGrid: SetState<boolean>;
 }
 
 export function buildMenus(c: MenuCtx) {
@@ -52,7 +53,7 @@ export function buildMenus(c: MenuCtx) {
     globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showProperties, setShowProperties, showStyles, setShowStyles,
-    showPatterns, setShowPatterns, showGradients, setShowGradients,
+    showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
   } = c;
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
@@ -225,6 +226,8 @@ export function buildMenus(c: MenuCtx) {
       { label: '100%', keys: 'Ctrl+1', run: () => { setMenu(null); viewer.current?.actualPixels(); }, off: !has },
       { label: 'Reset rotation', keys: 'Esc', run: () => { setMenu(null); viewer.current?.resetRotation(); }, off: !has },
       { label: showAnts ? 'Hide selection edges' : 'Show selection edges', keys: 'Ctrl+H', run: () => { setMenu(null); setShowAnts(v => !v); }, off: !has },
+      { label: showRulers ? 'Hide Rulers' : 'Show Rulers', keys: 'Ctrl+R', run: () => { setMenu(null); setShowRulers(v => !v); } },
+      { label: showPixelGrid ? 'Hide Pixel Grid' : 'Show Pixel Grid', keys: 'Ctrl+\'', run: () => { setMenu(null); setShowPixelGrid(v => !v); } },
     ],
     Window: [
       { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); } },

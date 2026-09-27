@@ -87,6 +87,8 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (e.shiftKey && !ctrl && k === 'f5') triggerBy(l => l === 'Fill…', e);
       else if (k === 'f5' && !ctrl) { e.preventDefault(); setDockTab(t => (t === 'brushSettings' ? 'color' : 'brushSettings')); }
       else if (ctrl && k === 'h') triggerBy(l => l.endsWith('selection edges'), e);
+      else if (ctrl && k === 'r') triggerBy(l => l.endsWith('Rulers'), e);
+      else if (ctrl && k === "'") triggerBy(l => l.endsWith('Pixel Grid'), e);
       else if (ctrl && k === 'j') trigger('Duplicate Layer', e);
       else if (ctrl && e.altKey && k === 'g') triggerBy(l => l.endsWith('Clipping Mask'), e);
       else if (ctrl && e.shiftKey && k === 'g') trigger('Ungroup Layers', e);

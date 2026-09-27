@@ -1,0 +1,46 @@
+// Units & Rulers + Guides, Grid & Slices preferences (docs/M4.md section 12): app-wide, not per document.
+import type { RulerUnit } from './units.ts';
+
+export type TypeUnit = 'px' | 'pt' | 'mm';
+
+export interface Preferences {
+  rulerUnit: RulerUnit;
+  typeUnit: TypeUnit;
+  printResolution: number;
+  screenResolution: number;
+  pointsPerInch: number;
+  guideColor: string;
+  smartGuideColor: string;
+  gridColor: string;
+  gridSpacing: number;
+  subdivisions: number;
+}
+
+export const DEFAULT_PREFERENCES: Preferences = {
+  rulerUnit: 'px',
+  typeUnit: 'pt',
+  printResolution: 300,
+  screenResolution: 72,
+  pointsPerInch: 72,
+  guideColor: '#00b7ff',
+  smartGuideColor: '#ff00ff',
+  gridColor: '#808080',
+  gridSpacing: 100,
+  subdivisions: 4,
+};
+
+const STORE_KEY = 'photobaer:preferences';
+
+export function loadPreferences(): Preferences {
+  try {
+    const raw = globalThis.localStorage?.getItem(STORE_KEY);
+    if (raw) return { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) };
+  } catch { /* storage unavailable or corrupt: fall back to defaults */ }
+  return { ...DEFAULT_PREFERENCES };
+}
+
+export function savePreferences(prefs: Preferences) {
+  try {
+    globalThis.localStorage?.setItem(STORE_KEY, JSON.stringify(prefs));
+  } catch { /* storage unavailable: preferences stay session-only */ }
+}
