@@ -12,6 +12,7 @@ import type { DocInfo, LayerNode, SmartFilterInfo, SmartInfo } from '../worker/t
 import type { SnapSettings } from '../shell/snapping.ts';
 import type { ArtboardMode } from './Dialogs.tsx';
 import { STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
+import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type DialogRef = RefObject<HTMLDialogElement | null>;
@@ -46,7 +47,8 @@ export interface MenuCtx {
   showGuides: boolean; setShowGuides: SetState<boolean>; showGrid: boolean; setShowGrid: SetState<boolean>;
   snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef;
-  openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null;
+  openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null; selectedNodes: LayerNode[];
+  showShapes: boolean; setShowShapes: SetState<boolean>;
 }
 
 export function buildMenus(c: MenuCtx) {
@@ -61,6 +63,7 @@ export function buildMenus(c: MenuCtx) {
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
+    selectedNodes, showShapes, setShowShapes,
   } = c;
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
@@ -80,6 +83,8 @@ export function buildMenus(c: MenuCtx) {
     },
     { label: 'Rasterize', sep: true, run: () => node && run('Rasterizing…', () => client.call('rasterizeSmart', node.id, 'Rasterize')), off: !smart },
   ];
+
+  const raster = rasterizeItems(selectedNodes, run);
 
   const smartFilterItems: Item[] = [
     { label: toggleLabel, run: filterCommand('toggle', toggleLabel), off: !filters.length },
@@ -136,6 +141,8 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Add Layer Mask', run: addMask, off: !has || !!node?.mask },
       { label: 'Delete Layer Mask', run: deleteMask, off: !has || !node?.mask },
       { label: node?.mask?.enabled === false ? 'Enable Layer Mask' : 'Disable Layer Mask', run: toggleMaskEnabled, off: !has || !node?.mask },
+      { label: 'Vector Mask', keys: '›', run: () => {}, off: !doc || !selectedNodes.length, sub: doc ? vectorMaskItems(doc, selectedNodes, run) : [] },
+      { label: 'Combine Shapes', keys: '›', run: () => {}, off: !selectedNodes.some(n => n.kind === 'shape'), sub: combineItems(selectedNodes, run) },
       {
         label: 'New Artboard', keys: '›', run: () => {}, off: !has, sep: true, sub: [
           { label: 'Artboard…', run: () => openArtboard('new') },
@@ -172,8 +179,10 @@ export function buildMenus(c: MenuCtx) {
         ],
       },
       {
-        label: 'Rasterize', keys: '›', run: () => {}, off: !has || (node?.kind !== 'fill' && node?.kind !== 'smart'), sub: [
+        label: 'Rasterize', keys: '›', run: () => {}, off: !has || !node, sub: [
+          raster[0], raster[1],
           { label: 'Fill Content', run: () => active && run('Rasterizing…', () => client.call('rasterizeFill', active.id)), off: node?.kind !== 'fill' },
+          raster[2],
           { label: 'Smart Object', run: () => active && run('Rasterizing…', () => client.call('rasterizeSmart', active.id, 'Smart Object')), off: node?.kind !== 'smart' },
         ],
       },
@@ -278,6 +287,7 @@ export function buildMenus(c: MenuCtx) {
       { label: showStyles ? 'Hide Styles' : 'Show Styles', run: () => { setMenu(null); setShowStyles(v => !v); } },
       { label: showPatterns ? 'Hide Patterns' : 'Show Patterns', run: () => { setMenu(null); setShowPatterns(v => !v); } },
       { label: showGradients ? 'Hide Gradients' : 'Show Gradients', run: () => { setMenu(null); setShowGradients(v => !v); } },
+      { label: showShapes ? 'Hide Shapes' : 'Show Shapes', run: () => { setMenu(null); setShowShapes(v => !v); } },
     ],
   };
   return menus;

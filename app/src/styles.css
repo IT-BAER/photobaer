@@ -42,6 +42,7 @@ button { font: inherit; color: inherit; }
 .menu li.menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
 .context-menu { position: fixed; z-index: 20; }
 .context-menu > ul { top: 0; margin: 0; }
+.layer-context > ul { position: static; }
 .scrim { position: fixed; inset: 0; z-index: 10; }
 
 .swatch { margin-left: auto; display: flex; align-items: center; }
@@ -157,6 +158,10 @@ button { font: inherit; color: inherit; }
 .layer-row .thumb { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 2px; background: repeating-conic-gradient(#d8d8d8 0% 25%, #a6a6a6 0% 50%) 0 0 / 8px 8px; }
 .layer-row .mask-chip { flex: 0 0 auto; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 2px; box-shadow: 0 1px 2px #0008; cursor: pointer; }
 .layer-row .mask-chip.disabled { opacity: 0.45; }
+.layer-row .vector-mask-chip { display: grid; background: #7a7a7a; }
+.layer-row .vector-mask-chip svg { width: 100%; height: 100%; fill: #f2f2f2; }
+.layer-row .vector-mask-chip.inverted { background: #f2f2f2; }
+.layer-row .vector-mask-chip.inverted svg { fill: #7a7a7a; }
 .layer-row .target { outline: 1px solid var(--text); outline-offset: 2px; }
 .layer-row .mask-link, .layer-row .clip-marker, .layer-row .group-icon { flex: 0 0 auto; }
 .layer-row .lock-badge { flex: 0 0 auto; margin-left: auto; }
@@ -394,3 +399,18 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .layer-effect-row .visibility { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; background: none; border: 0; color: var(--dim); cursor: pointer; }
 .layer-effect-row button.name { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
 .breadcrumb { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; }
+
+/* Pathfinder buttons: two overlapping squares, the result drawn solid. */
+.pathfinder { display: flex; gap: 6px; padding: 4px 0 8px; }
+.pathfinder button { position: relative; width: 34px; height: 30px; padding: 0; }
+.pathfinder i { position: absolute; width: 12px; height: 12px; border: 1px solid currentColor; }
+.pathfinder i:first-child { left: 7px; top: 6px; }
+.pathfinder i:last-child { left: 13px; top: 11px; }
+.pathfinder-unite i, .pathfinder-intersect i:last-child, .pathfinder-exclude i { background: currentColor; }
+.pathfinder-subtract i:first-child { background: currentColor; }
+.pathfinder-exclude i:last-child { mix-blend-mode: difference; }
+
+.shape-grid { display: grid; grid-template-columns: repeat(auto-fill, 38px); gap: 4px; }
+.shape-grid button { width: 38px; height: 38px; padding: 1px; border: 1px solid var(--line); border-radius: 4px; background: #2a2a2a; cursor: pointer; }
+.shape-grid button[aria-pressed="true"] { border-color: var(--accent); }
+.shapes-footer { display: flex; align-items: center; gap: 8px; }

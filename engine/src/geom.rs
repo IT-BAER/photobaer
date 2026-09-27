@@ -719,25 +719,8 @@ fn on_interior(a: I, b: I, p: I) -> bool {
     p != a && p != b && orient(a, b, p) == 0 && (a.0.min(b.0)..=a.0.max(b.0)).contains(&p.0) && (a.1.min(b.1)..=a.1.max(b.1)).contains(&p.1)
 }
 
-/// Region `inside(windings per group)` as corner-anchor loops, interior on one consistent side,
-/// fill rule nonzero. Edges are split at every crossing and overlap, coincident pieces merged,
-/// and a piece is kept when `inside` differs on its two sides.
-// ponytail: O(n^2) pair splitting and ray casts; a sweep line when paths reach ~10k segments.
-fn clip(groups: &[Vec<Vec<V>>], inside: impl Fn(&[i32]) -> bool) -> VectorPath {
-    let ng = groups.len();
-    let snap = |p: V| ((p.x * SCALE).round() as i64, (p.y * SCALE).round() as i64);
-    let mut edges: Vec<(I, I, usize)> = vec![];
-    for (g, polys) in groups.iter().enumerate() {
-        for poly in polys {
-            let q: Vec<I> = poly.iter().map(|&p| snap(p)).collect();
-            for i in 0..q.len() {
-                let (a, b) = (q[i], q[(i + 1) % q.len()]);
-                if a != b {
-                    edges.push((a, b, g));
-                }
-            }
-        }
-    }
+/// One pass: every edge split at its crossings and at the endpoints of edges lying on it.
+fn split(edges: &[(I, I, usize)]) -> (Vec<(I, I, usize)>, bool) {
     let mut cuts: Vec<Vec<I>> = edges.iter().map(|e| vec![e.0, e.1]).collect();
     for i in 0..edges.len() {
         for j in i + 1..edges.len() {
@@ -768,15 +751,48 @@ fn clip(groups: &[Vec<Vec<V>>], inside: impl Fn(&[i32]) -> bool) -> VectorPath {
             }
         }
     }
-    let mut uniq: BTreeMap<(I, I), Vec<i32>> = BTreeMap::new();
-    for ((a, b, g), cut) in edges.iter().zip(&mut cuts) {
+    let (mut out, mut changed) = (vec![], false);
+    for (&(a, b, g), cut) in edges.iter().zip(&mut cuts) {
         let dir = (b.0 - a.0, b.1 - a.1);
         cut.sort_by_key(|p| (p.0 - a.0) as i128 * dir.0 as i128 + (p.1 - a.1) as i128 * dir.1 as i128);
         cut.dedup();
-        for w in cut.windows(2) {
-            let (k, s) = if w[0] < w[1] { ((w[0], w[1]), 1) } else { ((w[1], w[0]), -1) };
-            uniq.entry(k).or_insert_with(|| vec![0; ng])[*g] += s;
+        changed |= cut.len() > 2;
+        out.extend(cut.windows(2).map(|w| (w[0], w[1], g)));
+    }
+    (out, changed)
+}
+
+/// Region `inside(windings per group)` as corner-anchor loops, interior on one consistent side,
+/// fill rule nonzero. Edges are split at every crossing and overlap, coincident pieces merged,
+/// and a piece is kept when `inside` differs on its two sides.
+// ponytail: O(n^2) pair splitting and ray casts; a sweep line when paths reach ~10k segments.
+fn clip(groups: &[Vec<Vec<V>>], inside: impl Fn(&[i32]) -> bool) -> VectorPath {
+    let ng = groups.len();
+    let snap = |p: V| ((p.x * SCALE).round() as i64, (p.y * SCALE).round() as i64);
+    let mut edges: Vec<(I, I, usize)> = vec![];
+    for (g, polys) in groups.iter().enumerate() {
+        for poly in polys {
+            let q: Vec<I> = poly.iter().map(|&p| snap(p)).collect();
+            for i in 0..q.len() {
+                let (a, b) = (q[i], q[(i + 1) % q.len()]);
+                if a != b {
+                    edges.push((a, b, g));
+                }
+            }
         }
+    }
+    // Rounded intersection points can create new crossings; split again until none is left.
+    for _ in 0..32 {
+        let (next, changed) = split(&edges);
+        edges = next;
+        if !changed {
+            break;
+        }
+    }
+    let mut uniq: BTreeMap<(I, I), Vec<i32>> = BTreeMap::new();
+    for (a, b, g) in edges {
+        let (k, s) = if a < b { ((a, b), 1) } else { ((b, a), -1) };
+        uniq.entry(k).or_insert_with(|| vec![0; ng])[g] += s;
     }
     uniq.retain(|_, d| d.iter().any(|&x| x != 0));
     let list: Vec<((I, I), Vec<i32>)> = uniq.into_iter().collect();
@@ -833,8 +849,10 @@ fn clip(groups: &[Vec<Vec<V>>], inside: impl Fn(&[i32]) -> bool) -> VectorPath {
                 break;
             }
         }
-        if pts.len() >= 3 {
-            let points = pts.iter().map(|p| corner(f(*p) * (1.0 / SCALE))).collect();
+        // Loops under 0.05 px^2 are grid-rounding slivers where input pieces meet.
+        let q: Vec<V> = pts.iter().map(|p| f(*p) * (1.0 / SCALE)).collect();
+        if pts.len() >= 3 && signed_area(&q).abs() >= 0.05 {
+            let points = q.into_iter().map(corner).collect();
             subpaths.push(Subpath { closed: true, op: PathOp::Combine, points });
         }
     }

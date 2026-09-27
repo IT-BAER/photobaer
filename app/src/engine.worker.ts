@@ -9,8 +9,10 @@ import { denormalize, isIdentity } from './transform/matrix.ts';
 import { patternRefs, type Blending, type LayerStyle } from './layerStyle.ts';
 import type { PatternRecord } from './brushes/preset.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
-import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorPath, WorkerEvent } from './worker/types.ts';
-import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
+import { layerCss, pngSvg, shapeSvg } from './app/svgcss.ts';
+import { BOOL_LABEL } from './shell/shapetools.ts';
+import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
+import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
@@ -751,9 +753,9 @@ const api = {
     return changed();
   },
 
-  makeSelectionFromPath(role: PathRole, id: number, mode: 'new' | 'add' | 'subtract' | 'intersect') {
+  makeSelectionFromPath(role: PathRole, id: number, mode: 'new' | 'add' | 'subtract' | 'intersect', label = 'Make Selection from Path') {
     const e = need();
-    history.run('Make Selection from Path', () => e.make_selection_from_path(role, id, mode));
+    history.run(label, () => e.make_selection_from_path(role, id, mode));
     selGen++;
     return changed();
   },
@@ -808,7 +810,7 @@ const api = {
     return changed();
   },
 
-  fillShape(layer: number, shape: { live: object; fill: number[] | null; stroke: { width: number; color: number[] } | null }) {
+  fillShape(layer: number, shape: { live?: object; path?: VectorPath; fill: number[] | null; stroke: { width: number; color: number[] } | null }) {
     const e = need();
     history.run('Fill Shape', () => e.fill_shape(layer, JSON.stringify(shape)));
     return changed();
@@ -819,6 +821,68 @@ const api = {
     const e = need();
     history.run(label, () => { for (const x of edits) e.set_shape(x.id, JSON.stringify(x.shape)); });
     return changed();
+  },
+
+  // Layer > Combine Shapes and the Properties Pathfinder over several layers: the bottom shape
+  // layer keeps its fill and stroke, the others are removed. Returns the kept id as `created`.
+  combineShapes(ids: number[], op: BoolOp) {
+    const e = need();
+    let created = 0;
+    history.run(BOOL_LABEL[op], () => { created = e.combine_shapes(Uint32Array.from(ids), op); });
+    return { ...changed(), created };
+  },
+
+  // Properties Pathfinder on one shape layer: its subpaths folded in order.
+  pathfinder(id: number, op: BoolOp) {
+    const e = need();
+    history.run(BOOL_LABEL[op], () => e.pathfinder(id, op));
+    return changed();
+  },
+
+  mergeShapeComponents(ids: number[]) {
+    const e = need();
+    history.run('Merge Shape Components', () => e.merge_shape_components(Uint32Array.from(ids)));
+    return changed();
+  },
+
+  // Layer > Rasterize > Type / Shape / Vector Mask over the selected layers, one step.
+  rasterizeLayers(what: 'type' | 'shape' | 'vectorMask', ids: number[]) {
+    const e = need();
+    const label = { type: 'Rasterize Type', shape: 'Rasterize Shape', vectorMask: 'Rasterize Vector Mask' }[what];
+    history.run(label, () => {
+      for (const id of ids) {
+        if (what === 'type') e.rasterize_type(id);
+        else if (what === 'shape') e.rasterize_shape(id);
+        else e.rasterize_vector_mask(id);
+      }
+    });
+    return changed();
+  },
+
+  // Vector Mask menu and Properties edits: each layer's new mask (null removes it) as one step.
+  vectorMaskEdit(edits: { id: number; mask: VectorMaskInfo | null }[], label: string) {
+    const e = need();
+    history.run(label, () => { for (const x of edits) e.set_vector_mask(x.id, JSON.stringify(x.mask)); });
+    return changed();
+  },
+
+  // Copy SVG / Copy CSS: a plain shape layer at the root as one path, anything else as its
+  // rendered pixels (trimmed) in an embedded PNG. The rect is the layer bounds, else the canvas.
+  async layerCode(id: number, format: 'svg' | 'css') {
+    const e = need();
+    const tree = JSON.parse(e.layers_json()) as LayerNode[];
+    const node = findNode(e, id);
+    if (!node) throw new Error(`Layer not found: ${id}`);
+    const lb = e.layer_bounds(id) as [number, number, number, number] | null;
+    const rect: [number, number, number, number] = lb && lb[2] > 0 && lb[3] > 0 ? lb : [0, 0, e.width(), e.height()];
+    let svg = tree.some(n => n.id === id) ? shapeSvg(node, rect) : null;
+    const rasterFallback = !svg;
+    if (!svg) {
+      const png = await layerPng(e, id);
+      if (!png) throw new Error('Layer has no exportable pixels.');
+      svg = pngSvg(png.w, png.h, png.base64);
+    }
+    return { text: format === 'svg' ? svg : layerCss(svg, rect), rasterFallback };
   },
 
   // Selection coverage (0-255) at a document point; 255 everywhere with no selection.

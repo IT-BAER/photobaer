@@ -73,7 +73,7 @@ export interface LayerNode {
   adjustment?: Adjustment;
   smart?: SmartInfo;
   shape?: { path: VectorPath; live: Live | null; fill: FillContent | null; stroke: ShapeStroke | null };
-  vector_mask?: { path: VectorPath } | null;
+  vector_mask?: VectorMaskInfo | null;
   // `rect` is `[left, top, right, bottom]` (engine/src/path.rs `Artboard`); present on a `group`
   // layer promoted to an artboard.
   artboard?: { rect: [number, number, number, number]; background: ArtboardBackground; preset_name: string; guide_ids: number[] } | null;
@@ -81,6 +81,8 @@ export interface LayerNode {
   blending: Blending;
   children?: LayerNode[];
 }
+export interface VectorMaskInfo { path: VectorPath; enabled: boolean; linked: boolean; inverted: boolean; density: number; feather: number }
+export type BoolOp = 'unite' | 'subtract' | 'intersect' | 'exclude';
 // docs/M4.md section 12: a document-space vertical (x) or horizontal (y) guide.
 export interface Guide { id: number; axis: 'x' | 'y'; pos: number }
 export type ArtboardBackground = { type: 'none' | 'white' | 'black' | 'transparent' } | { type: 'color'; color: [number, number, number] };

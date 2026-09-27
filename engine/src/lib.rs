@@ -1048,9 +1048,35 @@ impl Engine {
         self.0.doc.set_shape(id, json).map_err(err)
     }
 
-    /// `{ live, fill: [r, g, b, a] | null, stroke: { width, color } | null }` painted on a pixel layer.
+    /// `{ live | path, fill: [r, g, b, a] | null, stroke: { width, color } | null }` painted on a pixel layer.
     pub fn fill_shape(&mut self, layer: u32, json: &str) -> Result<(), JsError> {
         self.0.doc.fill_shape(layer, json).map_err(err)
+    }
+
+    /// Combine Shapes (`unite | subtract | intersect | exclude`) into the bottom shape layer; returns its id.
+    pub fn combine_shapes(&mut self, ids: Vec<u32>, op: &str) -> Result<u32, JsError> {
+        self.0.doc.combine_shapes(&ids, op).map_err(err)
+    }
+
+    /// Properties Pathfinder on one shape layer's subpaths.
+    pub fn pathfinder(&mut self, id: u32, op: &str) -> Result<(), JsError> {
+        self.0.doc.pathfinder(id, op).map_err(err)
+    }
+
+    pub fn merge_shape_components(&mut self, ids: Vec<u32>) -> Result<(), JsError> {
+        self.0.doc.merge_shape_components(&ids).map_err(err)
+    }
+
+    pub fn rasterize_shape(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.rasterize_shape(id).map_err(err)
+    }
+
+    pub fn rasterize_type(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.rasterize_type(id).map_err(err)
+    }
+
+    pub fn rasterize_vector_mask(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.rasterize_vector_mask(id).map_err(err)
     }
 }
 

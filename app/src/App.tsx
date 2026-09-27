@@ -9,14 +9,14 @@ import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { PathsPanel } from './PathsPanel.tsx';
-import { ArtboardPanel, PropertiesPanel, ShapePanel, SmartFiltersPanel, type PickLookupFile } from './PropertiesPanel.tsx';
+import { ArtboardPanel, PropertiesPanel, ShapePanel, SmartFiltersPanel, VectorMaskPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
 import { LayerStyleDialog, type StylePage } from './LayerStyleDialog.tsx';
 import { StyleLibrary, styleRefusal, type SavedStyle } from './layerStyle.ts';
 import { GradientsPanel, PatternsPanel, StylesPanel, adoptPatterns } from './PresetPanels.tsx';
 import type { SampleCanvas } from './LevelsCurvesBody.tsx';
 import { COMMAND_LABEL, DESTRUCTIVE_LABEL, MENU_LABEL, defaultAdjustment, defaultDestructive, uiToGradientDef, type DestructiveKind, type Kind } from './adjustments.ts';
-import type { Adjustment, AutosaveState, DestructiveAdjustment, DocInfo, FillContent, FillParams, GradientParams } from './engine.worker.ts';
+import type { Adjustment, AutosaveState, DestructiveAdjustment, DocInfo, FillContent, FillParams, GradientParams, LayerNode } from './engine.worker.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
 import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
 import { ColorPanel } from './shell/ColorPanel.tsx';
@@ -50,6 +50,9 @@ import {
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
 import { buildMenus } from './app/menus.ts';
+import { layerContextItems } from './app/vectorCommands.ts';
+import { ShapesPanel } from './ShapesPanel.tsx';
+import { shapeLibrary } from './shell/customShapes.ts';
 import { transformSession, type TSession } from './app/transform.ts';
 import { useBrushCursor, useBucket, useEyedropper, useGradientTool, useMoveTool, useSelectionTools, useShapeTools } from './app/toolEffects.ts';
 import { usePenTools, type PathSel } from './app/penTools.ts';
@@ -131,6 +134,7 @@ export function App() {
   const [showStyles, setShowStyles] = useState(false);
   const [showPatterns, setShowPatterns] = useState(false);
   const [showGradients, setShowGradients] = useState(false);
+  const [showShapes, setShowShapes] = useState(false);
   const styleLib = useRef<StyleLibrary | null>(null);
   styleLib.current ??= new StyleLibrary();
   // Brush library (opened at mount) and the selected preset; null paints with the plain options-bar brush.
@@ -143,6 +147,8 @@ export function App() {
   const toolOptions = optionsByTool[tool] ?? loadToolOptions(activeTool);
   const setToolOptions = (v: ToolOptions) => setOptionsByTool(o => ({ ...o, [tool]: v }));
   const [active, setActive] = useState<Active | null>(null);
+  // Layers picked with Ctrl/Shift+click; the pick counts only while it includes the active layer.
+  const [picked, setPicked] = useState<number[]>([]);
   const docRef = useRef(doc);
   docRef.current = doc;
   const toolOptionsRef = useRef(toolOptions);
@@ -667,6 +673,9 @@ export function App() {
   const has = !!doc;
   const warping = transformStore?.get().mode === 'warp';
   const node = doc && active ? nodeById(doc.layers, active.id) : undefined;
+  const selectedNodes = doc && active
+    ? (picked.includes(active.id) ? picked : [active.id]).map(id => nodeById(doc.layers, id)).filter((n): n is LayerNode => !!n)
+    : [];
   // The artboard the active layer is (or is inside); artboards are always top level.
   const activeArtboard = (doc && active && doc.layers.find(n => n.artboard && (n.id === active.id || nodeById(n.children ?? [], active.id)))) || null;
   const deleteDisabled = !doc || !active || (doc.layers.length === 1 && doc.layers[0].id === active.id);
@@ -769,6 +778,7 @@ export function App() {
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap,
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
+    selectedNodes, showShapes, setShowShapes,
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
@@ -1130,6 +1140,19 @@ export function App() {
     <button type="button" className="gradient-ramp-button" aria-label="Edit gradient" title="Click to edit the gradient"
       style={{ backgroundImage: `${rampCss(gradPreset, gradOptions.method as Method)}, var(--checker)` }} onClick={editGradient} />
   );
+  // Shapes panel click: the Custom Shape tool with that shape.
+  const armShape = (id: string) => {
+    patchToolOptions('customShape', { customShape: id });
+    setLastUsed(u => ({ ...u, shape: 'customShape' }));
+    setTool('customShape');
+  };
+  const shapeChoices = shapeLibrary().list();
+  const customShapeSelect = (
+    <label>Shape <select aria-label="Shape" value={String(toolOptions.customShape || shapeChoices[0]?.id)}
+      onChange={e => setToolOptions({ ...toolOptions, customShape: e.currentTarget.value })}>
+      {shapeChoices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </select></label>
+  );
   const cropActions = (
     <span className="crop-actions">
       <button type="button" onClick={() => cropSession.current?.cancel()}>Cancel</button>
@@ -1224,7 +1247,7 @@ export function App() {
                 t.store.set({ warp: warpBar(ws) });
               })}
             />
-          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton, actions: cropActions }} fg={fg} />}
+          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton, actions: cropActions, customShape: customShapeSelect }} fg={fg} />}
           <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} />
             <canvas ref={pixelGridCanvas} className="overlay" />
@@ -1277,11 +1300,15 @@ export function App() {
               fill={id => panelFillLayer({ type: 'pattern', pattern_id: id, scale: 1, angle: 0, linked: true, offset: [0, 0] })} />
           )}
           {doc && active && showGradients && <GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} />}
+          {doc && showShapes && (
+            <ShapesPanel selected={String((optionsByTool.customShape ?? loadToolOptions(TOOLS.customShape)).customShape ?? '')} arm={armShape} />
+          )}
           {doc && showProperties && node?.kind === 'adjustment' && node.adjustment && (
             <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}
           {doc && showProperties && node?.artboard && <ArtboardPanel node={node} run={run} />}
-          {doc && showProperties && node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} />}
+          {doc && showProperties && node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} selected={selectedNodes} />}
+          {doc && showProperties && node?.vector_mask && <VectorMaskPanel key={`vm${node.id}`} node={node} run={run} />}
           {doc && showProperties && node?.kind === 'smart' && node.smart && (
             <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}
@@ -1289,6 +1316,8 @@ export function App() {
             <>
               <LayersPanel
                 doc={doc} active={active} setActive={setActive} run={run}
+                selected={selectedNodes.map(n => n.id)} setPicked={setPicked}
+                contextItems={(n, nodes) => layerContextItems(n, nodes, run, setError)}
                 newLayer={newLayer} newGroup={newGroup}
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
                 openProperties={() => setShowProperties(true)}

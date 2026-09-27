@@ -5,17 +5,18 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { client } from './client.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo, SmartFilterKind } from './engine.worker.ts';
-import type { ArtboardBackground, FillContent } from './worker/types.ts';
+import type { ArtboardBackground, BoolOp, FillContent, VectorMaskInfo } from './worker/types.ts';
 import { hexToRgb, rgbToHex } from './shell/color.ts';
-import { dashFor, newStroke, radiusMax, setRadius, strokeStyleOf, type Live, type ShapeStroke, type StrokeStyle } from './shell/shapetools.ts';
+import { BOOL_LABEL, dashFor, newStroke, radiusMax, setRadius, strokeStyleOf, type Live, type ShapeStroke, type StrokeStyle } from './shell/shapetools.ts';
 import { locate } from './layers.ts';
+import { selectCreated, type SelectAfter } from './app/helpers.ts';
 import {
   EDIT_LABEL, FIELD_SPECS, MENU_LABEL, defaultAdjustment, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
 } from './adjustments.ts';
 import { rampCss, type Gradient } from './gradients/gradient.ts';
 import { LevelsCurvesBody, type SampleCanvas } from './LevelsCurvesBody.tsx';
 
-type Run = (label: string | null, p: () => Promise<DocInfo | null>) => Promise<void>;
+type Run = (label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) => Promise<void>;
 export type OpenGradientEditor = (g: Gradient, onOk: (g: Gradient) => void) => void;
 export type PickLookupFile = (onLoaded: (name: string, table: number, format: 'cube' | '3dl') => void) => void;
 // `live` marks a slider drag in progress; the drag ends with one more call with `live` false.
@@ -260,10 +261,10 @@ function ColorInput({ value, label, onCommit }: { value: [number, number, number
 }
 
 // A number field that commits once on blur or Enter.
-function Num({ label, value, min, max, onCommit }: { label: string; value: number; min: number; max: number; onCommit: (v: number) => void }) {
+function Num({ label, value, min, max, step, onCommit }: { label: string; value: number; min: number; max: number; step?: number; onCommit: (v: number) => void }) {
   return (
     <label>{label} <input
-      key={`${label}-${value}`} type="number" min={min} max={max} defaultValue={value} aria-label={label}
+      key={`${label}-${value}`} type="number" min={min} max={max} step={step} defaultValue={value} aria-label={label}
       onBlur={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v) && v !== value) onCommit(Math.min(max, Math.max(min, v))); }}
       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
     /></label>
@@ -276,7 +277,7 @@ const solid = (c: [number, number, number]): FillContent => ({ type: 'solid', co
 
 // Properties Appearance for a shape layer (docs/M4.md section 5): fill, stroke and its options, corner
 // radii with a link toggle, polygon sides and star ratio. Each edit is one step labelled by its field.
-export function ShapePanel({ node, run, fg }: { node: LayerNode; run: Run; fg: [number, number, number] }) {
+export function ShapePanel({ node, run, fg, selected }: { node: LayerNode; run: Run; fg: [number, number, number]; selected: LayerNode[] }) {
   const s = node.shape!;
   const [linked, setLinked] = useState(true);
   const live = s.live;
@@ -339,6 +340,64 @@ export function ShapePanel({ node, run, fg }: { node: LayerNode; run: Run; fg: [
             <Num label="Star ratio" value={Math.round(live.star_inset * 100)} min={0} max={99} onCommit={v => edit('Polygon Star Ratio', { live: { ...live, star_inset: v / 100 } })} />
           </>
         )}
+      </div>
+      <Pathfinder node={node} selected={selected} run={run} />
+    </div>
+  );
+}
+
+// Pathfinder (docs/M4.md section 5): several selected shape layers combine into the bottom one;
+// one layer folds its own subpaths, so it needs at least two.
+function Pathfinder({ node, selected, run }: { node: LayerNode; selected: LayerNode[]; run: Run }) {
+  const shapes = selected.filter(n => n.kind === 'shape');
+  const many = shapes.length > 1;
+  const on = many || node.shape!.path.subpaths.length > 1;
+  const apply = (op: BoolOp) => void (many
+    ? run(null, () => client.call('combineShapes', shapes.map(n => n.id), op), selectCreated)
+    : run(null, () => client.call('pathfinder', node.id, op)));
+  return (
+    <>
+      <div className="adjustment-header"><h3>Pathfinder</h3></div>
+      <div className="pathfinder" role="group" aria-label="Pathfinder">
+        {(Object.keys(BOOL_LABEL) as BoolOp[]).map(op => (
+          <button key={op} type="button" className={`pathfinder-${op}`} aria-label={BOOL_LABEL[op]} title={BOOL_LABEL[op]} disabled={!on} onClick={() => apply(op)}>
+            <i /><i />
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// Properties Vector Mask (docs/M4.md section 6): density, feather, flags, counts, Make Selection and Delete.
+export function VectorMaskPanel({ node, run }: { node: LayerNode; run: Run }) {
+  const m = node.vector_mask!;
+  const edit = (label: string, patch: Partial<VectorMaskInfo> | null) =>
+    void run(null, () => client.call('vectorMaskEdit', [{ id: node.id, mask: patch && { ...m, ...patch } }], label));
+  const flag = (label: string, key: 'enabled' | 'linked' | 'inverted', undo: string) => (
+    <label className="adjustment-check"><input type="checkbox" checked={m[key]} onChange={e => edit(undo, { [key]: e.currentTarget.checked })} /> {label}</label>
+  );
+  const anchors = m.path.subpaths.reduce((n, s) => n + s.points.length, 0);
+  return (
+    <div className="properties-panel">
+      <div className="panel-tabs"><span className="panel-tab">Properties</span></div>
+      <div className="adjustment-header">
+        <h3>Vector Mask</h3>
+        <button type="button" aria-label="Reset Vector Mask Properties" title="Reset Vector Mask Properties"
+          onClick={() => edit('Reset Vector Mask Properties', { enabled: true, linked: true, inverted: false, density: 1, feather: 0 })}>
+          <RotateCcw size={14} strokeWidth={1.75} />
+        </button>
+      </div>
+      <div className="professional-toggle-grid shape-appearance">
+        <Num label="Density" value={Math.round(m.density * 100)} min={0} max={100} onCommit={v => edit('Vector Mask Density', { density: v / 100 })} />
+        <Num label="Feather" value={m.feather} min={0} max={1000} step={0.1} onCommit={v => edit('Vector Mask Feather', { feather: v })} />
+        {flag('Enabled', 'enabled', 'Enable Vector Mask')}
+        {flag('Linked', 'linked', 'Link Vector Mask')}
+        {flag('Invert', 'inverted', 'Invert Vector Mask')}
+        <span>Components {m.path.subpaths.length}</span>
+        <span>Anchor points {anchors}</span>
+        <button type="button" onClick={() => void run(null, () => client.call('makeSelectionFromPath', 'vectorMask', node.id, 'new', 'Make Selection from Vector Mask'))}>Make Selection</button>
+        <button type="button" onClick={() => edit('Delete Vector Mask', null)}>Delete Mask</button>
       </div>
     </div>
   );

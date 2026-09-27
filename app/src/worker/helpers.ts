@@ -89,6 +89,45 @@ async function encodeFlattened(e: Engine, type: 'image/png' | 'image/jpeg' | 'im
   return blob;
 }
 
+// The layer alone (its ancestors kept, every other branch hidden in a clone) rendered and trimmed
+// to its non-transparent pixels, as PNG base64; null when nothing is left.
+async function layerPng(e: Engine, id: number): Promise<{ w: number; h: number; base64: string } | null> {
+  const clone = loadEngine(e.manifest(), t => e.tile_bytes(BigInt(t)));
+  try {
+    const hide = (nodes: LayerNode[]) => {
+      for (const n of nodes) {
+        if (n.id === id) continue;
+        if (n.children && containsId(n.children, id)) hide(n.children);
+        else if (n.visible) clone.set_props(n.id, JSON.stringify({ visible: false }));
+      }
+    };
+    hide(JSON.parse(clone.layers_json()) as LayerNode[]);
+    const w = clone.width(), h = clone.height();
+    const c = new OffscreenCanvas(w, h);
+    const ctx = c.getContext('2d')!;
+    tileLoop(w, h, (tx, ty) => {
+      const px = clone.flatten_tile_rgba8(tx, ty);
+      ctx.putImageData(new ImageData(new Uint8ClampedArray(px.buffer as ArrayBuffer, px.byteOffset, px.length), 256, 256), tx * 256, ty * 256);
+    });
+    const a = ctx.getImageData(0, 0, w, h).data;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (!a[(y * w + x) * 4 + 3]) continue;
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    }
+    if (x1 < 0) return null;
+    const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+    const out = new OffscreenCanvas(cw, ch);
+    out.getContext('2d')!.drawImage(c, -x0, -y0);
+    const bytes = new Uint8Array(await (await out.convertToBlob({ type: 'image/png' })).arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return { w: cw, h: ch, base64: btoa(bin) };
+  } finally {
+    clone.free();
+  }
+}
+
 type Sparse = [number, number, number][];
 interface TileNode { id: number; tiles?: Sparse; children?: TileNode[] }
 
@@ -285,4 +324,4 @@ function smartWarpStart(e: Engine, id: number, maxSide: number) {
   return { bounds, ...lifted, mesh };
 }
 
-export { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };
+export { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };

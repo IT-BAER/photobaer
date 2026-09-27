@@ -1496,3 +1496,70 @@ test('shape tools: Shape Layer, live edits, transforms keep or drop live, Shape 
   assert.deepEqual((await call('sample', 155, 85, 1, 1)).result, [0, 0, 255, 255]);
   assert.deepEqual(h.history.labels.slice(-6), ['Shape Layer', 'Corner Radius', 'Free Transform', 'Free Transform', 'Shape Path', 'Fill Shape']);
 });
+
+test('Combine Shapes, Pathfinder and Merge Shape Components are one undo step each', async () => {
+  await call('init');
+  await call('newDoc', 40, 20, 8, null);
+  type Info = { layers: any[]; history: { labels: string[] }; created: number };
+  const sq = (x: number) => ({ fill_rule: 'nonzero', subpaths: [{ closed: true, op: 'combine', points: [[x, 0, x, 0, x, 0], [x + 10, 0, x + 10, 0, x + 10, 0], [x + 10, 10, x + 10, 10, x + 10, 10], [x, 10, x, 10, x, 10]] }] });
+  const red = { type: 'solid', color: [255, 0, 0] }, blue = { type: 'solid', color: [0, 0, 255] };
+  const a = ((await call('newShape', { name: 'A', live: { type: 'rectangle', bounds: [0, 0, 10, 10], radii: [0, 0, 0, 0] }, fill: red, stroke: null })).result as Info).created;
+  const b = ((await call('newShape', { name: 'B', path: sq(5), fill: blue, stroke: null })).result as Info).created;
+  const u = (await call('combineShapes', [b, a], 'unite')).result as Info;
+  assert.equal(u.created, a);
+  assert.deepEqual(u.layers.map(l => l.name), ['Background', 'A']);
+  assert.equal(u.layers[1].shape.live, null);
+  assert.deepEqual(u.layers[1].shape.fill, red, 'the bottom layer keeps its fill');
+  assert.equal(u.history.labels.at(-1), 'Unite Shapes');
+  const undone = (await call('undo')).result as Info;
+  assert.deepEqual(undone.layers.map(l => l.name), ['Background', 'A', 'B']);
+  assert.match((await call('combineShapes', [a], 'unite')).error!, /two or more shape layers/);
+  const two = { fill_rule: 'nonzero', subpaths: [...sq(0).subpaths, ...sq(5).subpaths] };
+  const c = ((await call('newShape', { name: 'C', path: two, fill: red, stroke: null })).result as Info).created;
+  const p = (await call('pathfinder', c, 'exclude')).result as Info;
+  assert.equal(p.history.labels.at(-1), 'Exclude Overlapping Shapes');
+  assert.equal(p.layers.at(-1).shape.path.subpaths.length, 2);
+  const m = (await call('mergeShapeComponents', [c])).result as Info;
+  assert.equal(m.history.labels.at(-1), 'Merge Shape Components');
+});
+
+test('vector mask edits, Rasterize Shape / Vector Mask, and Paste Shape Attributes on two layers', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  type Info = { layers: any[]; history: { labels: string[] }; created: number };
+  const fill = { type: 'solid', color: [255, 0, 0] };
+  const a = ((await call('newShape', { name: 'A', live: { type: 'ellipse', bounds: [4, 4, 40, 40] }, fill, stroke: null })).result as Info).created;
+  const b = ((await call('newShape', { name: 'B', live: { type: 'ellipse', bounds: [20, 20, 60, 60] }, fill, stroke: null })).result as Info).created;
+  const doc = [[0, 0, 0, 0, 0, 0], [64, 0, 64, 0, 64, 0], [64, 64, 64, 64, 64, 64], [0, 64, 0, 64, 0, 64]];
+  const mask = { path: { fill_rule: 'nonzero', subpaths: [{ closed: true, op: 'combine', points: doc }] }, enabled: true, linked: true, inverted: true, density: 1, feather: 0 };
+  const h = (await call('vectorMaskEdit', [{ id: a, mask }, { id: b, mask }], 'Hide All')).result as Info;
+  assert.equal(h.history.labels.at(-1), 'Hide All', 'one step over both layers');
+  assert.deepEqual(h.layers.find(l => l.id === b).vector_mask, mask);
+  const r = (await call('rasterizeLayers', 'vectorMask', [a])).result as Info;
+  assert.equal(r.history.labels.at(-1), 'Rasterize Vector Mask');
+  const ra = r.layers.find(l => l.id === a);
+  assert.equal(ra.vector_mask, null);
+  assert.ok(ra.mask);
+  const s = (await call('rasterizeLayers', 'shape', [a])).result as Info;
+  assert.equal(s.layers.find(l => l.id === a).kind, 'pixel');
+  assert.equal(s.history.labels.at(-1), 'Rasterize Shape');
+  assert.match((await call('rasterizeLayers', 'shape', [a])).error!, /is not a shape layer/);
+  const stroke = { enabled: true, width: 3, align: 'center', cap: 'butt', join: 'miter', miter_limit: 4, dash: [], dash_offset: 0, content: { type: 'solid', color: [0, 0, 255] }, opacity: 1, blend: 'normal' };
+  const c = ((await call('newShape', { name: 'C', live: { type: 'ellipse', bounds: [1, 1, 9, 9] }, fill, stroke: null })).result as Info).created;
+  const p = (await call('setShapes', [b, c].map(id => ({ id, shape: { live: s.layers.find(l => l.id === id)?.shape?.live ?? { type: 'ellipse', bounds: [1, 1, 9, 9] }, fill, stroke } })), 'Paste Shape Attributes')).result as Info;
+  assert.deepEqual([b, c].map(id => p.layers.find(l => l.id === id).shape.stroke.width), [3, 3]);
+  assert.equal(p.history.labels.at(-1), 'Paste Shape Attributes');
+});
+
+test('layerCode writes a plain shape layer as SVG and CSS', async () => {
+  await call('init');
+  await call('newDoc', 200, 120, 8, null);
+  type Info = { created: number };
+  const id = ((await call('newShape', { name: 'R', live: { type: 'rectangle', bounds: [10, 10, 110, 70], radii: [0, 0, 0, 0] }, fill: { type: 'solid', color: [255, 0, 0] }, stroke: null })).result as Info).created;
+  const svg = (await call('layerCode', id, 'svg')).result as { text: string; rasterFallback: boolean };
+  assert.equal(svg.rasterFallback, false);
+  assert.match(svg.text, /^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" width="100" height="60" viewBox="10 10 100 60"><path d="M 10 10 C /);
+  assert.match(svg.text, / fill="rgb\(255, 0, 0\)" /);
+  const css = (await call('layerCode', id, 'css')).result as { text: string };
+  assert.match(css.text, /^\.photobaer-layer \{\n {2}position: absolute;\n {2}left: 10px;\n {2}top: 10px;\n {2}width: 100px;\n {2}height: 60px;\n/);
+});

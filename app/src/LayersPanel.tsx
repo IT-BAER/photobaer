@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import {
   Brush, ChevronDown, ChevronRight, CornerLeftDown, Eye, Folder, FolderPlus, Frame, Grid2x2, Link2, Lock, Move,
   PaintBucket, SquareDashed, SquarePlus, Trash2,
@@ -7,6 +7,8 @@ import { client } from './client.ts';
 import { BLEND_MODES, nodeById, dropTarget, type Where } from './layers.ts';
 import type { DocInfo, LayerNode } from './engine.worker.ts';
 import { effectRows, setEffectEnabled, type EffectKind } from './layerStyle.ts';
+import { pathData } from './app/svgcss.ts';
+import type { Item } from './app/helpers.ts';
 
 export type Active = { id: number; target: 'pixels' | 'mask' };
 type SelectAfter = (d: DocInfo) => Active;
@@ -17,6 +19,10 @@ interface Props {
   active: Active;
   setActive: (a: Active) => void;
   run: Run;
+  // Every selected layer id (the active one included) and the Ctrl/Shift+click pick that sets it.
+  selected: number[];
+  setPicked: (ids: number[]) => void;
+  contextItems: (n: LayerNode, nodes: LayerNode[]) => Item[];
   newLayer: () => void;
   newGroup: () => void;
   deleteLayer: () => void;
@@ -74,11 +80,40 @@ export function LayersPanel(props: Props) {
   // Layers whose effect rows are folded, and the layer whose fx badge is being dragged.
   const [fxFolded, setFxFolded] = useState<Set<number>>(new Set());
   const [fxDrag, setFxDrag] = useState<number | null>(null);
+  const [context, setContext] = useState<{ x: number; y: number; items: Item[] } | null>(null);
 
   const node = nodeById(doc.layers, active.id);
 
   function select(id: number, target: 'pixels' | 'mask') {
+    props.setPicked([]);
     setActive({ id, target });
+  }
+
+  // Rows top to bottom as drawn (collapsed groups hide their children).
+  const rowOrder = (nodes: LayerNode[]): number[] =>
+    [...nodes].reverse().flatMap(n => [n.id, ...(n.children && !collapsed.has(n.id) ? rowOrder(n.children) : [])]);
+
+  // Ctrl+click toggles a layer in the selection, Shift+click selects the rows from the active one.
+  function rowClick(e: MouseEvent, id: number) {
+    if (e.shiftKey) {
+      const order = rowOrder(doc.layers), a = order.indexOf(active.id), b = order.indexOf(id);
+      props.setPicked(order.slice(Math.min(a, b), Math.max(a, b) + 1));
+      setActive({ id, target: 'pixels' });
+    } else if (e.ctrlKey || e.metaKey) {
+      const has = props.selected.includes(id);
+      const next = has ? props.selected.filter(x => x !== id) : [...props.selected, id];
+      if (!next.length) return;
+      props.setPicked(next);
+      setActive({ id: has ? next.at(-1)! : id, target: 'pixels' });
+    } else select(id, 'pixels');
+  }
+
+  function openContext(e: MouseEvent, n: LayerNode) {
+    e.preventDefault();
+    const inSel = props.selected.includes(n.id);
+    if (!inSel) select(n.id, 'pixels');
+    const nodes = inSel ? props.selected.map(id => nodeById(doc.layers, id)).filter((x): x is LayerNode => !!x) : [n];
+    setContext({ x: e.clientX, y: e.clientY, items: props.contextItems(n, nodes) });
   }
 
   function setProps(id: number, partial: Record<string, unknown>) {
@@ -151,6 +186,7 @@ export function LayersPanel(props: Props) {
     const isGroup = n.kind === 'group';
     const open = isGroup && !collapsed.has(n.id);
     const isActive = active.id === n.id;
+    const picked = props.selected.length > 1 && props.selected.includes(n.id);
     const hint = dropHint?.id === n.id ? dropHint.where : null;
     const locked = n.locks.transparency || n.locks.pixels || n.locks.position;
     const fx = effects(n, depth);
@@ -164,9 +200,10 @@ export function LayersPanel(props: Props) {
         aria-label={n.name}
       >
         <div
-          className={`layer-row${isGroup ? ' group' : ''}${isActive ? ' active' : ''}${dragId === n.id ? ' dragging' : ''}${hint === 'into' ? ' drop-into' : ''}${n.visible ? '' : ' hidden'}`}
+          className={`layer-row${isGroup ? ' group' : ''}${isActive || picked ? ' active' : ''}${dragId === n.id ? ' dragging' : ''}${hint === 'into' ? ' drop-into' : ''}${n.visible ? '' : ' hidden'}`}
           draggable
-          onClick={() => select(n.id, 'pixels')}
+          onClick={e => rowClick(e, n.id)}
+          onContextMenu={e => openContext(e, n)}
           onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragId(n.id); }}
           onDragEnd={() => { setDragId(null); setDropHint(null); }}
           onDragOver={e => {
@@ -233,6 +270,21 @@ export function LayersPanel(props: Props) {
                 onClick={e => { e.stopPropagation(); select(n.id, 'mask'); }}
               />
             </>
+          )}
+          {n.vector_mask && (
+            <button
+              className={`mask-chip vector-mask-chip${n.vector_mask.enabled ? '' : ' disabled'}${n.vector_mask.inverted ? ' inverted' : ''}`}
+              aria-label={`${n.name} vector mask`} title="Ctrl+click loads the vector mask as a selection"
+              onClick={e => {
+                e.stopPropagation();
+                if (e.ctrlKey || e.metaKey) run(null, () => client.call('makeSelectionFromPath', 'vectorMask', n.id, 'new', 'Make Selection from Vector Mask'));
+                else select(n.id, 'pixels');
+              }}
+            >
+              <svg viewBox={`0 0 ${doc.width} ${doc.height}`} preserveAspectRatio="none" aria-hidden>
+                <path d={pathData(n.vector_mask.path)} fillRule={n.vector_mask.path.fill_rule} />
+              </svg>
+            </button>
           )}
           {renaming === n.id ? (
             <input
@@ -301,6 +353,24 @@ export function LayersPanel(props: Props) {
       <div className="layers-tree" role="tree" aria-label="Layers">
         {[...doc.layers].reverse().map(n => renderRow(n, 0, n.clipping))}
       </div>
+      {context && (
+        <>
+          <div className="scrim" onClick={() => setContext(null)} onContextMenu={e => { e.preventDefault(); setContext(null); }} />
+          <div className="menu context-menu layer-context" style={{
+            // The panel sits at the right edge, so the menu opens to the left (and up in the lower half).
+            right: innerWidth - context.x, ...(context.y > innerHeight / 2 ? { bottom: innerHeight - context.y } : { top: context.y }),
+          }}>
+            <ul role="menu" aria-label="Layer">
+              {context.items.map(i => (
+                <Fragment key={i.label}>
+                  {i.sep && <li role="separator" className="menu-sep" />}
+                  <li><button role="menuitem" disabled={i.off} onClick={() => { setContext(null); i.run(); }}><span>{i.label}</span></button></li>
+                </Fragment>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
       <div className="layers-footer">
         <button aria-label="Add layer mask" title="Add layer mask" disabled={!!node?.mask} onClick={props.addMask}><SquareDashed {...ICON} /></button>
         <button aria-label="New group" title="New group" onClick={props.newGroup}><FolderPlus {...ICON} /></button>

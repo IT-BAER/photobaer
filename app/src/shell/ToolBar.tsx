@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   Blend, Brush, Circle, Crop, Eraser, Frame, Hand, Hexagon, Lasso, Magnet, Minus, Move, MousePointerClick,
-  DiamondMinus, DiamondPlus, MousePointer2, Navigation, PaintBucket, PenTool, Pencil, Signature, Spline, SplinePointer, Pipette, RectangleHorizontal, RotateCw, Rows3, Slash, Square, Triangle, Wand2, ZoomIn,
+  DiamondMinus, DiamondPlus, MousePointer2, Navigation, PaintBucket, PenTool, Pencil, Signature, Spline, SplinePointer, Pipette, RectangleHorizontal, RotateCw, Rows3, Shapes, Slash, Square, Triangle, Wand2, ZoomIn,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { RotateCcw, ArrowLeftRight } from 'lucide-react';
@@ -11,7 +11,7 @@ import { rgbToHex, type Rgb } from './color.ts';
 const ICONS: Record<string, ComponentType<{ size?: number; strokeWidth?: number }>> = {
   Move, Square, Circle, Minus, Rows3, Lasso, PenTool, Magnet, MousePointerClick, Wand2, Crop, Frame,
   Pipette, Brush, Pencil, Eraser, Blend, PaintBucket, Hand, RotateCw, ZoomIn, RectangleHorizontal, Triangle, Hexagon, Slash,
-  Signature, Spline, DiamondPlus, DiamondMinus, SplinePointer, MousePointer2, Navigation,
+  Signature, Spline, DiamondPlus, DiamondMinus, SplinePointer, MousePointer2, Navigation, Shapes,
 };
 
 const LONG_PRESS_MS = 350;

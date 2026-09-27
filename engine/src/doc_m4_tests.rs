@@ -858,4 +858,111 @@ fn fill_shape_paints_fill_and_stroke_like_a_shape_layer() {
     let (ta, tb) = (a.flatten_tile_rgba8(0, 0).unwrap(), b.flatten_tile_rgba8(0, 0).unwrap());
     assert!(ta.iter().zip(&tb).all(|(x, y)| x.abs_diff(*y) <= 1), "within 1/255 of the shape layer");
     assert!(a.fill_shape(99, &json!({ "live": live, "fill": [0, 0, 0, 255], "stroke": null }).to_string()).is_err());
+    let path: Value = serde_json::from_str(&square(5.0, 5.0, 25.5, 20.0)).unwrap();
+    let mut c = Document::new(40, 40, 8).unwrap();
+    c.fill_shape(1, &json!({ "path": path, "fill": [255, 0, 0, 255], "stroke": { "width": 2.0, "color": [0, 0, 255, 255] } }).to_string()).unwrap();
+    assert_eq!(c.flatten_tile_rgba8(0, 0).unwrap(), ta, "a custom shape's path paints like its live twin");
+    assert!(c.fill_shape(1, &json!({ "fill": [0, 0, 0, 255], "stroke": null }).to_string()).is_err(), "neither live nor path");
+}
+
+// ---------- Combine Shapes, Pathfinder and Rasterize (docs/M4.md sections 5 and 6, B8) ----------
+
+fn two_squares(d: &mut Document) -> (u32, u32) {
+    let sq = |x0: f64| serde_json::from_str::<Value>(&square(x0, 0.0, x0 + 10.0, 10.0)).unwrap();
+    let blue = json!({ "type": "solid", "color": [0, 0, 255] });
+    let live = json!({ "type": "rectangle", "bounds": [0.0, 0.0, 10.0, 10.0], "radii": [0.0, 0.0, 0.0, 0.0] });
+    let a = d.new_shape(&json!({ "name": "A", "live": live, "fill": red(), "stroke": null }).to_string()).unwrap();
+    let b = d.new_shape(&json!({ "name": "B", "path": sq(5.0), "fill": blue, "stroke": null }).to_string()).unwrap();
+    (a, b)
+}
+
+fn shape_area(d: &Document, id: u32) -> f64 {
+    let m = crate::geom::fill_mask(&shape_of(d, id).path, 0, 0, d.width as usize, d.height as usize);
+    m.iter().map(|&v| v as f64 / 255.0).sum()
+}
+
+#[test]
+fn combine_shapes_folds_front_layers_into_the_bottom_one() {
+    let mut d = Document::new(40, 20, 8).unwrap();
+    let (a, b) = two_squares(&mut d);
+    assert_eq!(d.combine_shapes(&[b, a], "unite").unwrap(), a);
+    assert!(d.node(b).is_err(), "the front layer is removed");
+    let s = shape_of(&d, a);
+    assert!(s.live.is_none(), "a boolean op drops live");
+    assert_eq!(s.fill, serde_json::from_value(red()).unwrap(), "the bottom layer keeps its fill");
+    assert!((shape_area(&d, a) - 150.0).abs() < 0.5, "{}", shape_area(&d, a));
+    for (op, want) in [("subtract", 50.0), ("intersect", 50.0), ("exclude", 100.0)] {
+        let mut d = Document::new(40, 20, 8).unwrap();
+        let (a, b) = two_squares(&mut d);
+        d.combine_shapes(&[a, b], op).unwrap();
+        assert!((shape_area(&d, a) - want).abs() < 0.5, "{op}: {}", shape_area(&d, a));
+    }
+    let one = d.combine_shapes(&[a], "unite").unwrap_err();
+    assert_eq!(one, "Select two or more shape layers to combine them.");
+    assert!(d.combine_shapes(&[a, 1], "unite").is_err(), "a pixel layer does not count");
+    assert!(d.combine_shapes(&[a, a], "bogus").is_err());
+}
+
+#[test]
+fn pathfinder_folds_the_subpaths_of_one_layer_and_merge_components_flattens_ops() {
+    let mut d = Document::new(40, 20, 8).unwrap();
+    let p = |x: f64, y: f64| json!([x, y, x, y, x, y]);
+    let sub = |x0: f64, op: &str| json!({ "closed": true, "op": op, "points": [p(x0, 0.0), p(x0 + 10.0, 0.0), p(x0 + 10.0, 10.0), p(x0, 10.0)] });
+    let path = json!({ "fill_rule": "nonzero", "subpaths": [sub(0.0, "combine"), sub(5.0, "combine")] });
+    let id = d.new_shape(&json!({ "name": "S", "path": path, "fill": red(), "stroke": null }).to_string()).unwrap();
+    d.pathfinder(id, "subtract").unwrap();
+    assert!((shape_area(&d, id) - 50.0).abs() < 0.5, "{}", shape_area(&d, id));
+    assert_eq!(shape_of(&d, id).path.subpaths.len(), 1);
+    let before = shape_of(&d, id);
+    d.pathfinder(id, "unite").unwrap();
+    assert_eq!(shape_of(&d, id), before, "one subpath: nothing to fold");
+    let path = json!({ "fill_rule": "nonzero", "subpaths": [sub(0.0, "combine"), sub(5.0, "subtract")] });
+    let m = d.new_shape(&json!({ "name": "M", "path": path, "fill": red(), "stroke": null }).to_string()).unwrap();
+    d.merge_shape_components(&[m]).unwrap();
+    let s = shape_of(&d, m);
+    assert!(s.path.subpaths.iter().all(|s| s.op == crate::path::PathOp::Combine));
+    assert!((shape_area(&d, m) - 50.0).abs() < 0.5);
+    assert_eq!(d.merge_shape_components(&[1]).unwrap_err(), "Select a shape layer first.");
+}
+
+fn composite(d: &Document) -> Vec<u8> {
+    d.flatten_tile_rgba8(0, 0).unwrap()
+}
+
+#[test]
+fn rasterize_shape_type_and_vector_mask_keep_the_rendered_image() {
+    let mut d = Document::new(64, 64, 8).unwrap();
+    let live = json!({ "type": "ellipse", "bounds": [5.5, 6.0, 50.0, 40.3] });
+    let s = d.new_shape(&json!({ "name": "E", "live": live, "fill": red(), "stroke": stroke() }).to_string()).unwrap();
+    let before = composite(&d);
+    d.rasterize_shape(s).unwrap();
+    assert_eq!(d.node(s).unwrap().kind_name(), "pixel");
+    assert_eq!(composite(&d), before);
+    assert!(d.rasterize_shape(s).is_err(), "no longer a shape");
+
+    let vm = json!({ "path": rect_path(3.0, 4.5, 30.0, 40.0), "enabled": true, "linked": true, "inverted": false, "density": 0.8, "feather": 2.0 });
+    d.set_vector_mask(s, &vm.to_string()).unwrap();
+    let before = composite(&d);
+    d.rasterize_vector_mask(s).unwrap();
+    let n = d.node(s).unwrap();
+    assert!(n.vector_mask.is_none() && n.mask.is_some());
+    let diff = composite(&d).iter().zip(&before).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+    assert!(diff <= 1, "max diff {diff}");
+    assert_eq!(d.rasterize_vector_mask(s).unwrap_err(), "E has no vector mask.");
+    assert_eq!(d.node(s).unwrap().mask.as_ref().unwrap().default, 0, "mostly hidden: default hides");
+    let all = json!({ "path": serde_json::from_str::<Value>(&square(0.0, 0.0, 64.0, 64.0)).unwrap(), "enabled": true, "linked": true, "inverted": false, "density": 1.0, "feather": 0.0 });
+    let q = d.add_layer("q", 0).unwrap();
+    d.set_vector_mask(q, &all.to_string()).unwrap();
+    d.rasterize_vector_mask(q).unwrap();
+    let m = d.node(q).unwrap().mask.as_ref().unwrap();
+    assert_eq!((m.default, m.tiles.coords().len()), (255, 0), "a mask revealing everything is its default alone");
+
+    let t = d.add_special(0, &json!({ "name": "t", "text": text(json!({ "type": "point" })) }).to_string()).unwrap();
+    let mut px = vec![0u8; TILE_BYTES_U8];
+    px[..4].copy_from_slice(&[9, 8, 7, 255]);
+    d.set_tile_rgba8(t, 0, 0, &px).unwrap();
+    let before = composite(&d);
+    d.rasterize_type(t).unwrap();
+    assert_eq!(d.node(t).unwrap().kind_name(), "pixel");
+    assert_eq!(composite(&d), before);
 }

@@ -220,6 +220,8 @@ export const TOOLS: Record<string, Tool> = {
     CORNER_RADIUS,
   ]),
   line: shapeTool('line', 'Line', 'Slash', []),
+  // The Shape picker is drawn by the host from the custom shape library.
+  customShape: shapeTool('customShape', 'Custom Shape', 'Shapes', [{ id: 'customShape', kind: 'custom', label: 'Shape', default: '' }]),
   pen: pen('pen', 'Pen', 'PenTool', [
     PEN_MODE,
     // Fill '' = the foreground color, Stroke '' = the background color; width 0 = no stroke.
@@ -260,7 +262,7 @@ export const SLOTS: Slot[] = [
   { id: 'brush', key: 'b', tools: ['brush', 'pencil'] },
   { id: 'eraser', key: 'e', tools: ['eraser'] },
   { id: 'gradient', key: 'g', tools: ['gradient', 'bucket'] },
-  { id: 'shape', key: 'u', tools: ['rectangle', 'ellipse', 'triangle', 'polygon', 'line'] },
+  { id: 'shape', key: 'u', tools: ['rectangle', 'ellipse', 'triangle', 'polygon', 'line', 'customShape'] },
   { id: 'pen', key: 'p', tools: ['pen', 'freeformPen', 'curvaturePen', 'addAnchor', 'deleteAnchor', 'convertPoint'] },
   { id: 'pathSelect', key: 'a', tools: ['pathSelection', 'directSelection'] },
   { id: 'hand', key: 'h', tools: ['hand'] },

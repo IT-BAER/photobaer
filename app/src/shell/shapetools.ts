@@ -1,8 +1,13 @@
 // Shape tools (docs/M4.md section 5): drag geometry to live shape parameters, the options bar
 // appearance to fill and stroke, and the Properties Appearance helpers. Pure, no engine calls.
-import type { FillContent } from '../worker/types.ts';
+import type { BoolOp, FillContent } from '../worker/types.ts';
 import type { Preview } from './SelectionOverlay.ts';
 import { marqueeRect, snap45Length } from './selecttools.ts';
+
+// Combine Shapes / Pathfinder undo and menu labels.
+export const BOOL_LABEL: Record<BoolOp, string> = {
+  unite: 'Unite Shapes', subtract: 'Subtract Front Shape', intersect: 'Intersect Shape Areas', exclude: 'Exclude Overlapping Shapes',
+};
 
 export type Bounds = [number, number, number, number];
 export type Live =
@@ -16,7 +21,7 @@ export interface ShapeStroke {
   join: 'miter' | 'round' | 'bevel'; miter_limit: number; dash: number[]; dash_offset: number; content: FillContent;
   opacity: number; blend: string;
 }
-export type ShapeKind = 'rectangle' | 'ellipse' | 'triangle' | 'polygon' | 'line';
+export type ShapeKind = 'rectangle' | 'ellipse' | 'triangle' | 'polygon' | 'line' | 'custom';
 export interface ShapeToolOpts {
   kind: ShapeKind; constrain: boolean; fromCenter: boolean; cornerRadius: number; sides: number;
   starInset: number; width: number; height: number;
@@ -40,6 +45,7 @@ export function dragLive(start: [number, number], cur: [number, number], o: Shap
   switch (o.kind) {
     case 'rectangle': return { type: 'rectangle', bounds, radii: [radius, radius, radius, radius] };
     case 'ellipse': return { type: 'ellipse', bounds };
+    case 'custom': return { type: 'custom', bounds };
     case 'triangle': return { type: 'triangle', bounds, radius };
     case 'polygon': return {
       type: 'polygon', bounds, radius, sides: Math.min(100, Math.max(3, Math.round(o.sides))),

@@ -10,6 +10,7 @@ import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import type { SelectionOverlay } from '../shell/SelectionOverlay.ts';
 import { marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from '../shell/selecttools.ts';
 import { draftPreview, dragLive, shapeStyle, type ShapeKind } from '../shell/shapetools.ts';
+import { shapeLibrary, toBounds } from '../shell/customShapes.ts';
 import { hexToRgb } from '../shell/color.ts';
 import { constrainedSnap, snapGrid, snapSettings, type Rect, type SnapAxes } from '../shell/snapping.ts';
 import { TOOLS } from '../shell/tools.ts';
@@ -541,7 +542,7 @@ export interface ShapeToolsCtx {
   toolOptionsRef: RefObject<ToolOptions>; fgRef: RefObject<Rgb>; run: Run;
 }
 
-const SHAPE_NAMES: Record<ShapeKind, string> = { rectangle: 'Rectangle', ellipse: 'Ellipse', triangle: 'Triangle', polygon: 'Polygon', line: 'Line' };
+const SHAPE_NAMES: Record<string, string> = { rectangle: 'Rectangle', ellipse: 'Ellipse', triangle: 'Triangle', polygon: 'Polygon', line: 'Line', customShape: 'Shape' };
 
 export function useShapeTools(c: ShapeToolsCtx) {
   const { viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run } = c;
@@ -550,7 +551,7 @@ export function useShapeTools(c: ShapeToolsCtx) {
   useEffect(() => {
     const v = viewer.current;
     if (!v || !(tool in SHAPE_NAMES)) return;
-    const kind = tool as ShapeKind;
+    const kind: ShapeKind = tool === 'customShape' ? 'custom' : tool as ShapeKind;
     let drag: { start: [number, number] } | null = null;
     const liveOf = (e: ToolPointerEvent) => {
       const o = toolOptionsRef.current;
@@ -570,13 +571,18 @@ export function useShapeTools(c: ShapeToolsCtx) {
       const o = toolOptionsRef.current;
       const color = (key: string) => hexToRgb(String(o[key])) ?? fgRef.current;
       const style = shapeStyle(String(o.appearance), color('fill'), color('stroke'), Math.max(0, Number(o.strokeWidth)));
-      if (o.mode === 'path') void run(null, () => client.call('shapePath', live));
-      else if (o.mode === 'pixels') {
+      // A custom shape is drawn as its library path stretched to the drag; it keeps no live parameters.
+      const lib = shapeLibrary(), picked = live.type === 'custom' ? lib.get(String(o.customShape)) ?? lib.list()[0] : null;
+      const path = picked && live.type === 'custom' ? toBounds(picked.path, live.bounds) : null;
+      const geometry = path ? { path } : { live };
+      if (o.mode === 'path') {
+        void run(null, () => (path ? client.call('setPath', 'document', 0, path, 'Shape Path') : client.call('shapePath', live)));
+      } else if (o.mode === 'pixels') {
         if (!active) return;
         const fill = style.fill && [...(style.fill as { color: number[] }).color, 255];
         const stroke = style.stroke && { width: style.stroke.width, color: [...color('stroke'), 255] };
-        void run(null, () => client.call('fillShape', active.id, { live, fill, stroke }));
-      } else void run(null, () => client.call('newShape', { name: SHAPE_NAMES[kind], live, ...style }), selectCreated);
+        void run(null, () => client.call('fillShape', active.id, { ...geometry, fill, stroke }));
+      } else void run(null, () => client.call('newShape', { name: SHAPE_NAMES[tool], ...geometry, ...style }), selectCreated);
     };
     return () => { v.onPointer = () => {}; overlayRef.current?.setPreview(null); };
   }, [tool, active]);

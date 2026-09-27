@@ -336,3 +336,17 @@ fn geom_fit_points_fits_a_curve_within_tolerance() {
     assert!((b[0] - 10.0).abs() < 2.5 && (b[2] - 90.0).abs() < 2.5, "{b:?}");
     assert!(fit_points(&[[1.0, 1.0], [1.0, 1.0]], 2.0, false).points.is_empty(), "one distinct point draws nothing");
 }
+
+#[test]
+fn clip_unites_curved_stroke_outlines_into_clean_rings() {
+    for (join, cap) in [(Join::Round, Cap::Round), (Join::Miter, Cap::Square), (Join::Bevel, Cap::Butt)] {
+        for (p, loops) in [(ellipse([40.3, 40.7, 160.1, 150.9]), 2), (rect([30.2, 30.6, 170.4, 160.8], [20.0, 5.0, 0.0, 30.0]), 2), (line_path(20.5, 30.5, 170.5, 160.5), 1)] {
+            let lines: Vec<(Vec<V>, bool)> = p.subpaths.iter().map(|s| (flat(s), s.closed)).collect();
+            let merged = clip(&[outline(&lines, 9.3, cap, join, 4.0)], |w| w[0] != 0);
+            let s = stroke_mask(&p, 18.6, StrokeAlign::Center, cap, join, 4.0, &[], 0.0, 0, 0, 200, 200);
+            let (d, at) = max_diff(&fill_mask(&merged, 0, 0, 200, 200), &s);
+            assert!(d <= 2, "{join:?} {cap:?}: max diff {d} at ({}, {})", at % 200, at / 200);
+            assert_eq!(merged.subpaths.len(), loops, "{join:?} {cap:?}");
+        }
+    }
+}
