@@ -1308,3 +1308,38 @@ test('hosted commands on a smart object add filters; the Smart Filter ops undo u
   const u = (await call('undo')).result as FilterDoc;
   assert.ok(filtersOf(u, 1).every(f => f.enabled), 'undo restores the enabled stack');
 });
+
+test('a preset pattern copies into the document once and a pattern fill renders it', async () => {
+  await call('init');
+  await call('newDoc', 4, 4, 8, [128, 128, 128, 255]);
+  const preset = { id: 'builtin.pattern.check', name: 'Check', width: 2, height: 2, channels: 1, data: Uint8Array.from([0, 255, 255, 0]) };
+  const a = (await call('addDocumentPattern', preset)).result as { patterns: { id: string; name: string }[] };
+  assert.deepEqual(a.patterns, [{ id: preset.id, name: 'Check' }]);
+  const b = (await call('addDocumentPattern', preset)).result as { patterns: { id: string; name: string }[] };
+  assert.deepEqual(b.patterns, a.patterns, 'a second pick reuses the id');
+  const px = (await call('patternPixels', preset.id)).result as { width: number; height: number; data: ArrayBuffer };
+  assert.deepEqual([px.width, px.height, ...new Uint8Array(px.data).slice(0, 8)], [2, 2, 0, 0, 0, 255, 255, 255, 255, 255]);
+  const content = { type: 'pattern', pattern_id: preset.id, scale: 1, angle: 0, linked: true, offset: [0, 0] };
+  const r = (await call('newFillLayer', 1, content, 'Pattern Fill', 'Pattern Fill')).result as { patterns: unknown[] };
+  assert.equal(r.patterns.length, 1);
+  assert.deepEqual([await pixelAt(0, 0), await pixelAt(1, 0)], [[0, 0, 0, 255], [255, 255, 255, 255]]);
+  await call('undo');
+  await call('undo');
+  const again = (await call('newFillLayer', 1, content, 'Pattern Fill', 'Pattern Fill'));
+  assert.equal(again.error, undefined, 'an undo that dropped the copy re-adds it on use');
+  assert.match((await call('addDocumentPattern', { ...preset, data: new Uint8Array(3) })).error!, /pattern/);
+});
+
+test('a preset picked during a Layer Style preview survives the preview reruns and the commit', async () => {
+  await call('init');
+  await call('newDoc', 4, 4, 8, [128, 128, 128, 255]);
+  const preset = { id: 'builtin.pattern.dot', name: 'Dot', width: 1, height: 1, channels: 4, data: Uint8Array.from([9, 8, 7, 255]) };
+  await call('setLayerStyle', 1, emptyStyle(), defaultBlending(), 1, null, true);
+  await call('addDocumentPattern', preset);
+  const overlay = { ...defaultEffect('pattern_overlays', preset.id), present: true, enabled: true };
+  const p = await call('setLayerStyle', 1, { ...emptyStyle(), pattern_overlays: [overlay] }, defaultBlending(), 1, null, true);
+  assert.equal(p.error, undefined);
+  const done = (await call('previewEnd', true)).result as { undoLabel: string; patterns: { id: string }[] };
+  assert.deepEqual([done.undoLabel, done.patterns.map(x => x.id)], ['Layer Style', [preset.id]]);
+  assert.deepEqual(await pixelAt(1, 1), [9, 8, 7, 255]);
+});

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CONTOUR_PRESETS, defaultEffect, effectRows, emptyStyle, setEffectEnabled, setIn, type LayerStyle } from './layerStyle.ts';
+import { CONTOUR_PRESETS, StyleLibrary, defaultBlending, defaultEffect, effectRows, emptyStyle, patternRefs, setEffectEnabled, setIn, type LayerStyle } from './layerStyle.ts';
 
 test('18 contour presets on whole 0..255 levels, three in pencil mode, starting at Linear', () => {
   assert.equal(CONTOUR_PRESETS.length, 18);
@@ -26,4 +26,41 @@ test('effect rows list present effects with instance numbers, and an eye toggles
   assert.deepEqual(effectRows(off).map(r => r.enabled), [true, true, false]);
   assert.equal(s.drop_shadows[1].enabled, true, 'the input style is not mutated');
   assert.deepEqual(setIn({ a: [1, { b: 2 }] }, 'a.1.b', 3), { a: [1, { b: 3 }] });
+});
+
+test('saved styles start empty, persist through storage, search by name and apply as deep copies', () => {
+  const data: Record<string, string> = {};
+  const storage = { getItem: (k: string) => data[k] ?? null, setItem: (k: string, v: string) => { data[k] = v; } };
+  const lib = new StyleLibrary(storage);
+  assert.deepEqual(lib.list(), []);
+  const style: LayerStyle = { ...emptyStyle(), drop_shadows: [defaultEffect('drop_shadows') as unknown as LayerStyle['drop_shadows'][0]] };
+  const blending = defaultBlending();
+  const saved = lib.save('  Soft Shadow  ', style, blending);
+  style.drop_shadows[0].distance = 99;
+  blending.knockout = 'deep';
+  assert.equal(saved.name, 'Soft Shadow');
+  assert.equal(lib.save('', emptyStyle(), defaultBlending()).name, 'Style 2');
+  const reopened = new StyleLibrary(storage);
+  assert.deepEqual(reopened.list().map(s => s.name), ['Soft Shadow', 'Style 2']);
+  assert.deepEqual(reopened.list('soft').map(s => s.id), [saved.id]);
+  const a = reopened.apply(saved.id)!;
+  assert.equal(a.style.drop_shadows[0].distance, 5, 'saving copied the style');
+  assert.equal(a.blending.knockout, 'none');
+  a.style.drop_shadows[0].distance = 42;
+  assert.equal(reopened.apply(saved.id)!.style.drop_shadows[0].distance, 5, 'apply hands out a copy');
+  reopened.list()[0].style.enabled = false;
+  assert.equal(reopened.apply(saved.id)!.style.enabled, true, 'list hands out copies');
+  assert.equal(reopened.apply('missing'), undefined);
+
+  const broken = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } };
+  const mem = new StyleLibrary(broken);
+  mem.save('Mem', emptyStyle(), defaultBlending());
+  assert.deepEqual(mem.list().map(s => s.name), ['Mem']);
+  assert.deepEqual(new StyleLibrary({ getItem: () => '{not json', setItem: () => {} }).list(), []);
+});
+
+test('patternRefs lists every pattern id a style or fill content names', () => {
+  const style: LayerStyle = { ...emptyStyle(), pattern_overlays: [defaultEffect('pattern_overlays', 'a') as unknown as LayerStyle['pattern_overlays'][0]], texture: defaultEffect('texture', 'b') as unknown as LayerStyle['texture'] };
+  assert.deepEqual(patternRefs(style).sort(), ['a', 'b']);
+  assert.deepEqual(patternRefs({ type: 'pattern', pattern_id: 'c' }), ['c']);
 });

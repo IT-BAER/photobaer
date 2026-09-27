@@ -331,6 +331,12 @@ export function decodePatternRecords(bytes: Uint8Array, lengthPrefixed: boolean,
   return { patterns, warnings };
 }
 
+// A `.pat` file: "8BPT", u16 version, u32 count, then unprefixed pattern records.
+export function parsePat(bytes: Uint8Array): { patterns: PatternRecord[]; warnings: string[] } {
+  if (bytes.length < 10 || String.fromCharCode(...bytes.subarray(0, 4)) !== '8BPT') return { patterns: [], warnings: ['not a pattern file (no 8BPT signature)'] };
+  return decodePatternRecords(bytes.subarray(10), false);
+}
+
 function patternRecord(r: Reader, n: number, warnings: string[], budget: Budget): PatternRecord | null {
   const version = r.u32();
   if (version !== 1) throw new RangeError(`record version ${version}, expected 1`);

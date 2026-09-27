@@ -198,3 +198,48 @@ export function styleRefusal(n: { kind: string; locks: { transparency: boolean; 
   if (n.locks.transparency && n.locks.pixels && n.locks.position) return 'Could not use the layer style because the layer is fully locked.';
   return null;
 }
+
+/** Every `pattern_id` inside a style or fill content. */
+export function patternRefs(value: unknown): string[] {
+  const ids: string[] = [];
+  JSON.stringify(value, (k, v) => { if (k === 'pattern_id' && typeof v === 'string') ids.push(v); return v; });
+  return ids;
+}
+
+// Saved styles (Styles page, New Style, Styles panel) in localStorage, oldest first; no built-in presets.
+// A storage that throws keeps them in memory for the session. Every read and write deep-copies.
+export interface SavedStyle { id: string; name: string; style: LayerStyle; blending: Blending }
+type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void };
+const STYLES_KEY = 'photobaer.styles';
+
+export class StyleLibrary {
+  #store: Store | undefined;
+  #styles: SavedStyle[] = [];
+
+  constructor(store: Store | undefined = globalThis.localStorage) {
+    this.#store = store;
+    try {
+      const raw = store?.getItem(STYLES_KEY);
+      const list: unknown = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(list)) this.#styles = list.filter(s => typeof s?.id === 'string' && typeof s.name === 'string' && s.style && s.blending);
+    } catch { /* unavailable or corrupt: start empty */ }
+  }
+
+  /** Saved styles whose name contains `query` (case-insensitive). */
+  list(query = ''): SavedStyle[] {
+    const q = query.trim().toLowerCase();
+    return structuredClone(this.#styles.filter(s => s.name.toLowerCase().includes(q)));
+  }
+
+  save(name: string, style: LayerStyle, blending: Blending): SavedStyle {
+    const s: SavedStyle = { id: crypto.randomUUID(), name: name.trim() || `Style ${this.#styles.length + 1}`, style: structuredClone(style), blending: structuredClone(blending) };
+    this.#styles.push(s);
+    try { this.#store?.setItem(STYLES_KEY, JSON.stringify(this.#styles)); } catch { /* session-only */ }
+    return structuredClone(s);
+  }
+
+  apply(id: string): { style: LayerStyle; blending: Blending } | undefined {
+    const s = this.#styles.find(x => x.id === id);
+    return s && structuredClone({ style: s.style, blending: s.blending });
+  }
+}

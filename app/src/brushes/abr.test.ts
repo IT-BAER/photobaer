@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseAbr, decodePatternRecords } from './abr.ts';
+import { parseAbr, decodePatternRecords, parsePat } from './abr.ts';
 import { defaultDynamics, dyn } from './preset.ts';
 import { writeAbrV2, writeAbrV6, sampSection, pattSection, descriptor, W, type DV } from './abrWriter.testutil.ts';
 
@@ -210,6 +210,13 @@ test('corrupt: 200 seeded random buffers never throw and warn', () => {
 test('decodePatternRecords reads an unprefixed record run (.pat body)', () => {
   const r = decodePatternRecords(pattSection([{ id: 'p', name: 'P', mode: 1, w: 1, h: 1, compression: 0, planes: [[42]] }]).subarray(4), false);
   assert.deepEqual(r.patterns.map(p => [p.id, ...p.data]), [['p', 42]]);
+});
+
+test('parsePat reads the 8BPT header and its records, refuses other files', () => {
+  const body = pattSection([{ id: 'p', name: 'P', mode: 1, w: 1, h: 1, compression: 0, planes: [[42]] }]).subarray(4);
+  const pat = new W().bytes(new TextEncoder().encode('8BPT')).u16(1).u32(1).bytes(body).out();
+  assert.deepEqual(parsePat(pat).patterns.map(p => [p.id, p.name, ...p.data]), [['p', 'P', 42]]);
+  assert.match(parsePat(body).warnings[0], /not a pattern file/);
 });
 
 // A record with a 0-length id followed directly by the bitmap header (no name/junk bytes): 24 bytes

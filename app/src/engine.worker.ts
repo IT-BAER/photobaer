@@ -5,7 +5,8 @@ import { packProject, unpackProject, tileIds } from './project.ts';
 import { importPsd, exportPsd, compositeRgba, isPsdBytes, type PendingSource } from './psd.ts';
 import { getHandle, putHandle } from './links.ts';
 import { denormalize, isIdentity } from './transform/matrix.ts';
-import type { Blending, LayerStyle } from './layerStyle.ts';
+import { patternRefs, type Blending, type LayerStyle } from './layerStyle.ts';
+import type { PatternRecord } from './brushes/preset.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
 
 const DESTRUCTIVE = new Set<string>(DESTRUCTIVE_KINDS);
@@ -480,6 +481,28 @@ function collectPixelIds(tree: LayerNode[], id: number): number[] {
   const node = find(tree);
   if (!node) return [];
   return moves(node) ? [node.id] : flatten(node.children ?? []);
+}
+
+// Preset patterns copied into documents (D3), RGBA by preset id. A use re-adds a copy that an undo or
+// a preview rerun dropped; a document pattern with the same id is reused as is.
+type DocPattern = { id: string; name: string; width: number; height: number; blob: number };
+const presetPatterns = new Map<string, { name: string; width: number; height: number; rgba: Uint8Array }>();
+
+function docPatterns(e: Engine): DocPattern[] {
+  return (JSON.parse(e.manifest()) as { patterns: DocPattern[] }).patterns;
+}
+
+// Adds the registered presets among `ids` that the document lacks; unknown ids are left to the engine to refuse.
+function ensurePatterns(e: Engine, ids: Iterable<string>) {
+  const have = new Set((JSON.parse(e.channels_json()) as { patterns: { id: string }[] }).patterns.map(p => p.id));
+  const add = [...new Set(ids)].filter(id => !have.has(id) && presetPatterns.has(id));
+  if (!add.length) return;
+  const patterns = docPatterns(e);
+  for (const id of add) {
+    const p = presetPatterns.get(id)!;
+    patterns.push({ id, name: p.name, width: p.width, height: p.height, blob: Number(e.blob_add(p.rgba)) });
+  }
+  e.set_document_m3(JSON.stringify({ patterns }));
 }
 
 // Sampled tips and patterns live inside an Engine instance, which a new document replaces. The worker keeps them
@@ -1310,7 +1333,7 @@ const api = {
   newFillLayer(above: number, content: FillContent, name: string, label: string) {
     const e = need();
     let created = 0;
-    history.run(label, () => { created = e.add_fill_layer(above, JSON.stringify({ name, content })); });
+    history.run(label, () => { ensurePatterns(e, patternRefs(content)); created = e.add_fill_layer(above, JSON.stringify({ name, content })); });
     selGen++;
     return { ...changed(), created };
   },
@@ -1318,8 +1341,31 @@ const api = {
   // Layer > Layer Content Options: replaces every selected fill layer's content as one undo step.
   setFillContent(ids: number[], content: FillContent) {
     const e = need();
-    history.run('Layer Content Options', () => { for (const id of ids) e.set_content(id, JSON.stringify(content)); });
+    history.run('Layer Content Options', () => { ensurePatterns(e, patternRefs(content)); for (const id of ids) e.set_content(id, JSON.stringify(content)); });
     return changed();
+  },
+
+  // A preset pattern picked in a pattern picker: copied into the document once, outside history (D3).
+  addDocumentPattern(p: PatternRecord) {
+    const e = need();
+    const { width: w, height: h, channels: c, data } = p;
+    if (typeof p.id !== 'string' || !p.id || !Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1 || (c !== 1 && c !== 4) || !(data instanceof Uint8Array) || data.length !== w * h * c) {
+      throw new Error(`pattern ${String(p.id)}: size ${w}x${h}x${c} does not match ${data?.length} bytes`);
+    }
+    const rgba = c === 4 ? data.slice() : new Uint8Array(w * h * 4);
+    if (c === 1) for (let i = 0; i < w * h; i++) rgba.set([data[i], data[i], data[i], 255], i * 4);
+    presetPatterns.set(p.id, { name: p.name, width: w, height: h, rgba });
+    ensurePatterns(e, [p.id]);
+    if (previewOpen) { version++; return info()!; }
+    return changed();
+  },
+
+  // RGBA pixels of a document pattern (picker thumbnails).
+  patternPixels(id: string) {
+    const e = need();
+    const p = docPatterns(e).find(x => x.id === id);
+    if (!p) throw new Error(`unknown pattern ${id}`);
+    return { width: p.width, height: p.height, data: e.tile_bytes(BigInt(p.blob)).buffer as ArrayBuffer };
   },
 
   // Color Lookup file picker (D9): adds the `.cube`/`.3dl` bytes as a blob, no undo step of its
@@ -1364,6 +1410,7 @@ const api = {
   setLayerStyle(id: number, style: LayerStyle, blending: Blending, fill: number, light: GlobalLight | null, preview = false) {
     const e = need();
     return edit('Layer Style', preview, () => {
+      ensurePatterns(e, patternRefs(style));
       e.paste_style(Uint32Array.of(id), JSON.stringify(style));
       e.set_blending(id, JSON.stringify(blending));
       e.set_props(id, JSON.stringify({ fill }));
@@ -1374,7 +1421,7 @@ const api = {
   // Layers panel eyes and fx-badge drags: one step under `label` replacing `id`'s style.
   editLayerStyle(id: number, style: LayerStyle, label: string) {
     const e = need();
-    history.run(label, () => e.paste_style(Uint32Array.of(id), JSON.stringify(style)));
+    history.run(label, () => { ensurePatterns(e, patternRefs(style)); e.paste_style(Uint32Array.of(id), JSON.stringify(style)); });
     return changed();
   },
 
@@ -1890,7 +1937,7 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 
 // Ops that may run while a stroke is open without committing it (they never touch the document or history).
 const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove']);
-const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd']);
+const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels']);
 // An open move session commits before any other op, so history never sees a half move.
 const MOVE_OPS = new Set<keyof Api>(['moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds']);
 // An open transform session is cancelled by any other op: only the UI knows its current matrix.
