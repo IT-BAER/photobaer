@@ -1595,6 +1595,8 @@ const api = {
 
   // Font registry (app scope, FONT_OPS): faces from bundled, local and uploaded files.
   fontAdd(bytes: ArrayBuffer | Uint8Array, source: 'bundled' | 'local' | 'upload'): FaceInfo[] {
+    // Checked before the copy into wasm memory, which never shrinks (the engine checks again).
+    if (bytes.byteLength > 64 << 20) throw new Error('Font files over 64 MB are not supported.');
     return JSON.parse(fontReg().add(new Uint8Array(bytes), source));
   },
   // Parsed before storing, so a file that is not a font is never kept.

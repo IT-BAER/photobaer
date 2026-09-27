@@ -124,7 +124,7 @@ impl Registry {
         let mut added = Vec::new();
         // A collection header's face count is untrusted: each face needs a 4-byte offset after the 12-byte header.
         let offsets = (data.len().saturating_sub(12) / 4) as u32;
-        for index in 0..ttf_parser::fonts_in_collection(&data).map_or(1, |n| n.min(offsets)) {
+        for index in 0..ttf_parser::fonts_in_collection(&data).map_or(1, |n| n.min(offsets).min(256)) {
             let Ok(face) = ttf_parser::Face::parse(&data, index) else { continue };
             let Some(family) = name(&face, &[name_id::TYPOGRAPHIC_FAMILY, name_id::FAMILY]) else { continue };
             let style = name(&face, &[name_id::TYPOGRAPHIC_SUBFAMILY, name_id::SUBFAMILY]).unwrap_or_else(|| "Regular".into());

@@ -1229,6 +1229,8 @@ test('font calls are app scope and are not refused after the document changes', 
   assert.deepEqual((await call('fontMissing', [['Noto Sans', 'Regular'], ['Helvetica', 'Bold']])).result, [['Helvetica', 'Bold']]);
   const up = await call('fontUpload', 'x.txt', new Uint8Array([1, 2, 3]));
   assert.match(up.error ?? '', /not a supported font/);
+  const big = await call('fontUpload', 'huge.ttf', new Uint8Array((64 << 20) + 1));
+  assert.match(big.error ?? '', /64 MB/, 'refused before the bytes reach the engine');
   assert.match((await callAt(old.docId, 'command', 'fill', 1, 'pixels', [0, 0, 0, 255])).error ?? '', /document changed/);
 });
 
