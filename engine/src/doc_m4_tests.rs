@@ -930,6 +930,27 @@ fn composite(d: &Document) -> Vec<u8> {
 }
 
 #[test]
+fn rasterize_vector_mask_stores_a_uniform_tile_only_when_it_differs_from_the_default() {
+    let mut d = Document::new(768, 200, 8).unwrap();
+    let l = d.add_layer("p", 0).unwrap();
+    let px: Vec<u8> = (0..TILE_BYTES_U8).map(|i| if i % 4 == 1 { 0 } else { 200 }).collect();
+    for tx in 0..3 {
+        d.set_tile_rgba8(l, tx, 0, &px).unwrap();
+    }
+    let vm = json!({ "path": rect_path(0.0, 0.0, 300.0, 200.0), "enabled": true, "linked": true, "inverted": false, "density": 1.0, "feather": 0.0 });
+    d.set_vector_mask(l, &vm.to_string()).unwrap();
+    let before: Vec<_> = (0..3).map(|tx| d.flatten_tile_rgba8(tx, 0).unwrap()).collect();
+    d.rasterize_vector_mask(l).unwrap();
+    let m = d.node(l).unwrap().mask.as_ref().unwrap();
+    let mut at = m.tiles.coords();
+    at.sort();
+    assert_eq!((m.default, at), (0, vec![(0, 0), (1, 0)]), "all-revealed tile kept, all-hidden tile dropped");
+    for tx in 0..3 {
+        assert_eq!(d.flatten_tile_rgba8(tx, 0).unwrap(), before[tx as usize], "tile {tx}");
+    }
+}
+
+#[test]
 fn rasterize_shape_type_and_vector_mask_keep_the_rendered_image() {
     let mut d = Document::new(64, 64, 8).unwrap();
     let live = json!({ "type": "ellipse", "bounds": [5.5, 6.0, 50.0, 40.3] });

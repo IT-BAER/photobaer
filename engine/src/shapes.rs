@@ -174,7 +174,9 @@ impl Document {
         let vm = node.vector_mask.as_ref().ok_or_else(|| format!("{} has no vector mask.", node.name))?;
         let max = max_value(self.depth) as f32;
         let (enabled, old_default) = node.mask.as_ref().map_or((true, max), |m| (m.enabled, m.default as f32));
-        let mut planes = vec![];
+        // Per tile only the quantized plane of a mixed tile is kept; a tile whose on-canvas pixels
+        // are all 0 or all 1 keeps just that value, so memory stays sparse on large canvases.
+        let (mut shown, mut planes) = (0usize, vec![]);
         for ty in 0..self.tiles_y() {
             for tx in 0..self.tiles_x() {
                 let (x0, y0) = ((tx as usize * TILE) as i64, (ty as usize * TILE) as i64);
@@ -184,20 +186,36 @@ impl Document {
                     *x *= old.map_or(old_default / max, |t| t.px.mask_f32(p));
                 }
                 let (vw, vh) = self.level_valid(0, tx, ty);
-                planes.push((tx as i32, ty as i32, v, (0..vh).flat_map(move |y| (0..vw).map(move |x| y * TILE + x)).collect::<Vec<_>>()));
+                let (mut ones, mut zeros) = (0usize, 0usize);
+                for y in 0..vh {
+                    for x in 0..vw {
+                        let a = v[y * TILE + x];
+                        shown += (a >= 0.5) as usize;
+                        ones += (a == 1.0) as usize;
+                        zeros += (a == 0.0) as usize;
+                    }
+                }
+                let plane = match (ones, zeros) {
+                    (n, _) if n == vw * vh => Err(1.0),
+                    (_, n) if n == vw * vh => Err(0.0),
+                    _ => Ok(Pixels::mask_from_norm(self.depth, &v)),
+                };
+                planes.push((tx as i32, ty as i32, plane));
             }
         }
         // The default (and the Layers chip) is whichever of hidden or revealed covers more of the
         // canvas; tiles holding only that value on the canvas are left out.
-        let shown: usize = planes.iter().map(|(_, _, v, at)| at.iter().filter(|&&p| v[p] >= 0.5).count()).sum();
         let reveal = shown * 2 >= (self.width as usize) * (self.height as usize);
         let d = if reveal { 1.0 } else { 0.0 };
         let mut tiles = Tiles::default();
-        for (tx, ty, v, at) in planes {
-            if at.iter().any(|&p| v[p] != d) {
-                let tid = self.alloc_tile_id();
-                tiles.put(tx, ty, Some(Tile { id: tid, px: Arc::new(Pixels::mask_from_norm(self.depth, &v)) }));
-            }
+        for (tx, ty, plane) in planes {
+            let px = match plane {
+                Ok(px) => px,
+                Err(u) if u == d => continue,
+                Err(u) => Pixels::mask_from_norm(self.depth, &vec![u; TILE_PIXELS]),
+            };
+            let tid = self.alloc_tile_id();
+            tiles.put(tx, ty, Some(Tile { id: tid, px: Arc::new(px) }));
         }
         let default = if reveal { max_value(self.depth) } else { 0 };
         let node = self.node_mut(id)?;
