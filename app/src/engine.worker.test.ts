@@ -29,6 +29,13 @@ function call(op: string, ...args: unknown[]) {
   g.onmessage!({ data: { id, op, args } });
   return p;
 }
+// A call stamped with the document id the UI saw when it issued the call.
+function callAt(doc: number, op: string, ...args: unknown[]) {
+  const id = ++nextId;
+  const p = new Promise<{ result?: unknown; error?: string }>(r => replies.set(id, r));
+  g.onmessage!({ data: { id, op, args, doc } });
+  return p;
+}
 const settle = () => new Promise(r => setTimeout(r, 200));
 
 test('a new document has one Background pixel layer', async () => {
@@ -1191,6 +1198,22 @@ test('Convert to Smart Object, Edit Contents, change, close writes back to the p
   assert.deepEqual(await pixelAt(3, 3, copy.created), [200, 0, 0, 255], 'a layer sharing the source updates too');
   await call('undo');
   assert.deepEqual(await pixelAt(3, 3), [0, 128, 0, 255], 'the parent history kept its steps');
+});
+
+test('a command stamped with the parent document is refused once Edit Contents replaced it', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, [255, 255, 255, 255]);
+  const a = (await call('addLayer', 1)).result as SmartDoc;
+  await call('command', 'fill', a.created, 'pixels', [0, 128, 0, 255]);
+  const c = (await call('convertToSmart', [a.created])).result as SmartDoc & { docId: number };
+  const opening = call('editContents', c.created);
+  const late = callAt(c.docId, 'command', 'fill', 1, 'pixels', [255, 0, 0, 255]);
+  const opened = (await opening).result as SmartDoc & { docId: number };
+  assert.match((await late).error ?? '', /document changed/);
+  assert.deepEqual(await pixelAt(0, 0), [0, 128, 0, 255], 'the nested document is untouched');
+  const ok = await callAt(opened.docId, 'command', 'fill', opened.layers[0].id, 'pixels', [255, 0, 0, 255]);
+  assert.equal(ok.error, undefined);
+  await call('smartEditClose', 'discard');
 });
 
 test('Edit Contents save returns export warnings and writes back only when accepted; close can discard', async () => {

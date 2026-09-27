@@ -1531,9 +1531,9 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
   try {
     const result = await (api[op] as (...a: unknown[]) => unknown)(...args);
     const data = (result as { data?: unknown } | null)?.data;
-    postMessage({ id, result }, { transfer: data instanceof ArrayBuffer ? [data] : [] });
+    postMessage({ id, result, docId }, { transfer: data instanceof ArrayBuffer ? [data] : [] });
   } catch (err) {
-    postMessage({ id, error: err instanceof Error ? err.message : String(err) });
+    postMessage({ id, error: err instanceof Error ? err.message : String(err), docId });
   }
 }
 
@@ -1549,10 +1549,13 @@ const TRANSFORM_OPS = new Set<keyof Api>(['transformRefine', 'transformUnrefine'
 // displayTile, displayProgram and selectionMask are synchronous and read-only, so they skip the
 // queue and the viewer keeps drawing.
 let queue = Promise.resolve();
-onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[] }>) => {
-  const { id, op, args } = ev.data;
+// `doc` is the document id the UI saw when it issued the call; a call issued before an open, close or
+// Edit Contents switched documents would hit the new document with the old one's node ids, so it is refused.
+onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[]; doc?: number }>) => {
+  const { id, op, args, doc } = ev.data;
   if (op === 'displayTile' || op === 'displayProgram' || op === 'selectionMask' || op === 'colorRangePreview') { void handle(id, op, args); return; }
   queue = queue.then(() => {
+    if (doc !== undefined && doc !== docId) { postMessage({ id, error: 'The document changed before this command ran, so it was not applied.', docId }); return; }
     // Any other op queued while a stroke is open first commits it, so undo/save never see a half stroke.
     if (strokeOpen && !STROKE_OPS.has(op) && eng) { eng.stroke_end(); strokeOpen = false; history.commit(); changed(); }
     // Anything but a preview rerun, its end or a read cancels an open preview.

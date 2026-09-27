@@ -185,7 +185,10 @@ export function App() {
     viewer.current?.setDoc(d);
     document.title = d ? `${d.name} - Photobaer` : 'Photobaer';
     if (!d) { setActive(null); return; }
-    setActive(prev => selectAfter ? selectAfter(d) : prev && nodeById(d.layers, prev.id) ? prev : fallbackActive(d));
+    // Node ids restart per document: a previous document's active layer never carries over.
+    const sameDoc = d.docId === docRef.current?.docId;
+    docRef.current = d;
+    setActive(prev => selectAfter ? selectAfter(d) : sameDoc && prev && nodeById(d.layers, prev.id) ? prev : fallbackActive(d));
   }
 
   async function run(label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) {

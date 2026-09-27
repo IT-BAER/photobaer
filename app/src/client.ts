@@ -7,12 +7,14 @@ export class EngineClient {
   onEvent: (e: WorkerEvent) => void = () => {};
   #w = new Worker(new URL('./engine.worker.ts', import.meta.url), { type: 'module' });
   #next = 1;
+  #doc: number | undefined;
   #pending = new Map<number, { res: (v: unknown) => void; rej: (e: Error) => void }>();
 
   constructor() {
     this.#w.onmessage = (ev: MessageEvent) => {
       const m = ev.data;
       if ('event' in m) return this.onEvent(m as WorkerEvent);
+      if (typeof m.docId === 'number') this.#doc = m.docId;
       const p = this.#pending.get(m.id);
       if (!p) return;
       this.#pending.delete(m.id);
@@ -27,10 +29,12 @@ export class EngineClient {
   }
 
   // Every other call waits until init has settled, so nothing reaches an engine that has not booted
-  // and a late init result never replaces a document opened during boot.
+  // and a late init result never replaces a document opened during boot. Each call carries the
+  // document id of the last reply, so the worker refuses it if the document changed in between.
   call<K extends keyof Api>(op: K, ...args: Parameters<Api[K]>): Promise<Result<K>> {
-    if (op !== 'init') return this.#booted.then(() => this.#send(op, ...args));
-    const p = this.#send(op, ...args);
+    const doc = this.#doc;
+    if (op !== 'init') return this.#booted.then(() => this.#send(op, doc, ...args));
+    const p = this.#send(op, doc, ...args);
     p.then(this.#boot, this.#boot);
     return p;
   }
@@ -38,11 +42,11 @@ export class EngineClient {
   #boot!: () => void;
   #booted = new Promise<void>(r => { this.#boot = r; });
 
-  #send<K extends keyof Api>(op: K, ...args: Parameters<Api[K]>): Promise<Result<K>> {
+  #send<K extends keyof Api>(op: K, doc: number | undefined, ...args: Parameters<Api[K]>): Promise<Result<K>> {
     const id = this.#next++;
     return new Promise((res, rej) => {
       this.#pending.set(id, { res: res as (v: unknown) => void, rej });
-      this.#w.postMessage({ id, op, args });
+      this.#w.postMessage({ id, op, args, doc });
     });
   }
 }
