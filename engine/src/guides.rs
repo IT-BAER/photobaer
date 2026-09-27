@@ -3,7 +3,7 @@
 //! artboard" (the sentinel already used for `above` elsewhere in this module).
 
 use super::*;
-use crate::path::{finite, range, Axis, Guide};
+use crate::path::{finite, range, Artboard, Axis, DocVector, Guide, VectorMask};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -218,6 +218,48 @@ impl Document {
             self.insert_guide(Axis::Y, y as f64, 0)?,
             self.insert_guide(Axis::Y, (y + h) as f64, 0)?,
         ])
+    }
+
+    /// Sets a node's vector mask, or removes it for `null`.
+    pub fn set_vector_mask(&mut self, id: u32, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let vm: Option<VectorMask> = serde_json::from_str(json).map_err(|e| format!("invalid vector mask: {e}"))?;
+        if let Some(v) = &vm {
+            v.validate()?;
+        }
+        self.node_mut(id)?.vector_mask = vm;
+        Ok(())
+    }
+
+    /// Sets a top-level group's artboard, or removes it for `null`; its guide ids must exist.
+    pub fn set_artboard(&mut self, id: u32, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let a: Option<Artboard> = serde_json::from_str(json).map_err(|e| format!("invalid artboard: {e}"))?;
+        if !self.nodes.iter().any(|n| n.id == id && n.is_group()) {
+            return Err(format!("node {id}: an artboard is only allowed on a top-level group"));
+        }
+        if let Some(a) = &a {
+            self.vector.check_artboard(a)?;
+        }
+        self.node_mut(id)?.artboard = a;
+        Ok(())
+    }
+
+    /// Replaces the document's resolution, saved paths, guides, grid and locks (manifest v5 field
+    /// names); every artboard's guide ids must stay known.
+    pub fn set_document_vector(&mut self, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let v: DocVector = serde_json::from_str(json).map_err(|e| format!("invalid document vector data: {e}"))?;
+        v.validate()?;
+        let mut err = Ok(());
+        Document::walk_artboards(&self.nodes, &mut |a| {
+            if err.is_ok() {
+                err = v.check_artboard(a);
+            }
+        });
+        err?;
+        self.vector = v;
+        Ok(())
     }
 
     /// The document's resolution, guides, grid and locks for the UI (a projection of `manifest`).

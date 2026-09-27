@@ -4,6 +4,8 @@ import {
   type Filter, type LinkedFile, type PixelData, type PlacedLayerFilter, type Psd, type VectorContent,
 } from 'ag-psd';
 import { Engine } from './engine-pkg/photobaer_engine.js';
+import { artboardIn, artboardOut, layoutIn, layoutOut } from './psd/layout.ts';
+import { rasterMaskOf, readSavedPaths, shapeIn, shapeOut, vectorMaskIn, vectorMaskOut, writeSavedPaths } from './psd/vector.ts';
 
 let canvasReady = false;
 function ensureCanvas() {
@@ -19,14 +21,14 @@ function ensureCanvas() {
 
 // Manifest tree shape from Engine.manifest() (M1.md section 2).
 interface ManifestNode {
-  id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart';
+  id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart' | 'shape' | 'text';
   visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
   locks: { transparency: boolean; pixels: boolean; position: boolean };
   mask: { enabled: boolean; default: number; tiles?: Sparse } | null;
   tiles?: Sparse;
   children?: ManifestNode[];
   adjustment?: Adjustment;
-  content?: any; style?: any; blending: any;
+  content?: any; style?: any; blending: any; shape?: any; vector_mask?: any; artboard?: any;
   smart?: {
     link: any; source: { blob: number | null }; source_size: [number, number]; transform: number[]; warp: unknown;
     filters: SmartFilterOut[]; stack_mask: { enabled: boolean; default: number; tiles?: Sparse } | null;
@@ -546,7 +548,7 @@ function locksOf(l: Layer) {
 }
 
 function addMaskIfAny(e: Engine, id: number, l: Layer, w: number, h: number) {
-  const m = l.mask;
+  const m = rasterMaskOf(l);
   if (!m) return;
   e.add_mask(id, (m.defaultColor ?? 0) !== 0);
   if (m.disabled) e.set_props(id, JSON.stringify({ mask_enabled: false }));
@@ -555,7 +557,6 @@ function addMaskIfAny(e: Engine, id: number, l: Layer, w: number, h: number) {
 
 function warnKinds(l: Layer, warn: (m: string) => void) {
   if (l.text) warn('text layers were imported as pixels');
-  if (l.vectorMask || l.realMask) warn('vector mask layers were imported as pixels');
 }
 
 // A smart object source that needs an async image decoder (the worker's), keyed by node id.
@@ -563,6 +564,7 @@ export interface PendingSource { id: number; bytes: Uint8Array }
 interface ImportCtx {
   e: Engine; w: number; h: number; warn: Warn; files: Map<string, LinkedFile>; pats: Set<string>; comps: Map<Layer, number>; sources: PendingSource[];
   fx: FilterMasks;
+  res: number; guides: ReturnType<typeof layoutIn>['guides'];
 }
 
 // ---------- smart filters (docs/M3.md section 7): curves and brightness/contrast are PSD-writable ----------
@@ -704,10 +706,16 @@ function addNode(c: ImportCtx, l: Layer): number {
   }
   const adj = l.adjustment && adjustmentIn(e, l.adjustment);
   if (l.adjustment && !adj) warn('adjustment layers without an engine model were imported as pixels');
-  // A shape layer (fill content plus vector mask) keeps its stored raster: vector masks have no model yet.
-  const special = adj ? { adjustment: adj } : l.vectorFill && !l.vectorMask ? { content: fillIn(l.vectorFill, c.pats, warn) }
+  // A shape layer is fill content plus a vector mask; it renders from its path, not its stored raster.
+  // Density or feather shows the fill outside the path, which only a fill layer with a vector mask
+  // renders (corpus layer_mask_data); a stroked one stays a shape without them.
+  const soft = (l.mask?.vectorMaskDensity ?? 1) < 1 || (l.mask?.vectorMaskFeather ?? 0) > 0;
+  const stroked = !!l.vectorStroke && l.vectorStroke.strokeEnabled !== false;
+  if (soft && stroked && l.vectorFill && l.vectorMask) warn('vector mask density and feather of stroked shape layers were dropped');
+  const shape = !adj && l.vectorFill && l.vectorMask && (!soft || stroked) ? shapeIn(l, c.res, w, h, v => fillIn(v, c.pats, warn)) : null;
+  const special = adj ? { adjustment: adj } : shape ? null : l.vectorFill ? { content: fillIn(l.vectorFill, c.pats, warn) }
     : l.placedLayer ? { smart: smartIn(e, l, c.files, warn) } : null;
-  const id = special ? e.add_special(0, JSON.stringify({ name: l.name ?? '', ...special })) : e.add_layer(l.name ?? '', 0);
+  const id = special || shape ? e.add_special(0, JSON.stringify({ name: l.name ?? '', ...special ?? { shape } })) : e.add_layer(l.name ?? '', 0);
   const data = l.placedLayer && c.files.get(l.placedLayer.id)?.data;
   if (special && 'smart' in special && special.smart && data?.length) loadSource(c, id, data, special.smart.source_size as [number, number]);
   if (special && 'smart' in special) filtersIn(c, id, l);
@@ -717,8 +725,10 @@ function addNode(c: ImportCtx, l: Layer): number {
     clipping: !!l.clipping, locks: locksOf(l),
   }));
   // A smart object's layer pixels become its cache; fill and adjustment layers render from their params.
-  if (!special || 'smart' in special) place(e, id, l, w, h);
+  if (!shape && (!special || 'smart' in special)) place(e, id, l, w, h);
   addMaskIfAny(e, id, l, w, h);
+  const vm = shape ? null : vectorMaskIn(l, w, h);
+  if (vm) e.set_vector_mask(id, JSON.stringify(vm));
   addM3Props(c, id, l, !!adj);
   warnKinds(l, warn);
   c.comps.set(l, id);
@@ -787,6 +797,7 @@ export function importPsd(bytes: Uint8Array, opts: { psb?: boolean } = {}): { en
   // Header depth (offset 22) is checked before decoding, so a large 16-bit file is rejected cheaply.
   if (bytes.length >= 24 && [16, 32].includes(bytes[22] << 8 | bytes[23])) throw new Error('16-bit and 32-bit PSD files are not supported yet');
   const psd = readPsd(bytes, { useImageData: true, skipThumbnail: true });
+  const paths = readSavedPaths(bytes, psd.width, psd.height);
   if ((psd.bitsPerChannel ?? 8) !== 8) throw new Error('16-bit and 32-bit PSD files are not supported yet');
   if (psd.colorMode !== undefined && psd.colorMode !== 3 && !psd.imageData) throw new Error('Only RGB PSD files are supported');
   const { width: w, height: h } = psd;
@@ -799,11 +810,22 @@ export function importPsd(bytes: Uint8Array, opts: { psb?: boolean } = {}): { en
     // A flat PSD (no real layer records) reads back as [] or, via ag-psd's own writer, as one nameless
     // 0x0 placeholder layer; either way there is nothing to build, so the composite becomes the Background.
     const flat = children.length === 0 || (children.length === 1 && isEmptyPlaceholder(children[0]));
+    const { grid, ...layout } = layoutIn(psd);
+    const locked = children.some(l => l.artboard && l.protected?.artboards);
+    e.set_document_vector(JSON.stringify({
+      ...JSON.parse(e.vector_json()), ...layout, ...(grid ? { grid } : {}), paths: paths.map((p, i) => ({ id: i + 1, ...p })), artboards_locked: locked,
+    }));
     if (flat) {
       place(e, 1, psd, w, h);
     } else {
-      const c: ImportCtx = { e, w, h, warn, files: new Map((psd.linkedFiles ?? []).map(f => [f.id, f])), pats: importDocument(e, psd), comps: new Map(), sources, fx: psd.filterEffectsMasks ?? [] };
-      for (const l of children) addNode(c, l);
+      const c: ImportCtx = { e, w, h, warn, files: new Map((psd.linkedFiles ?? []).map(f => [f.id, f])), pats: importDocument(e, psd), comps: new Map(), sources, fx: psd.filterEffectsMasks ?? [],
+        res: layout.resolution, guides: layout.guides,
+      };
+      // Artboards are top-level groups only.
+      for (const l of children) {
+        const id = addNode(c, l);
+        if (l.artboard && l.children) e.set_artboard(id, JSON.stringify(artboardIn(l, layout.guides)));
+      }
       importLayerComps(c, psd);
       e.delete_node(1);
     }
@@ -881,7 +903,10 @@ type LayerCompOut = {
   id: number; name: string; comment: string; apply_visibility: boolean; apply_position: boolean; apply_appearance: boolean;
   layers: { id: number; visible: boolean; position: [number, number] | null; opacity: number; fill: number; blend: string; style: unknown }[];
 };
-interface ExportCtx { e: Engine; w: number; h: number; warn: Warn; names: Map<string, string>; files: Map<string, LinkedFile>; comps: LayerCompOut[]; fx: FilterMasks }
+interface ExportCtx {
+  e: Engine; w: number; h: number; warn: Warn; names: Map<string, string>; files: Map<string, LinkedFile>; comps: LayerCompOut[]; fx: FilterMasks;
+  res: number; guides: { id: number; axis: 'x' | 'y'; pos: number }[]; artboardsLocked: boolean;
+}
 
 // Per-layer `comps.settings`: one entry per comp, `enabled` its captured visibility, `offset` the
 // captured position as a delta from this layer's current bounds origin (M3.md section 8).
@@ -927,14 +952,20 @@ function smartOut({ e, w, h, warn, files, fx }: ExportCtx, n: ManifestNode): Par
 
 function exportNode(x: ExportCtx, n: ManifestNode): Layer {
   const { e, w, h, warn } = x;
+  if (n.shape && n.vector_mask) warn('vector masks on shape layers are not stored in PSD');
+  if ([n.shape, n.vector_mask].some(v => v?.path.fill_rule === 'evenodd')) warn('the even-odd fill rule of shapes and vector masks is not stored in PSD');
+  const masks = n.vector_mask && !n.shape ? vectorMaskOut(n.vector_mask, maskFields(e, n, w, h).mask, w, h) : maskFields(e, n, w, h);
   const common = {
     name: n.name, hidden: !n.visible, opacity: n.opacity, fillOpacity: n.fill, blendMode: n.blend as BlendMode, clipping: n.clipping,
-    protected: { transparency: n.locks.transparency, composite: n.locks.pixels, position: n.locks.position },
-    ...maskFields(e, n, w, h), ...blendingOut(n.blending, warn), ...(n.style ? { effects: styleOut(n.style, x.names, warn) } : {}),
+    protected: { transparency: n.locks.transparency, composite: n.locks.pixels, position: n.locks.position, ...(n.artboard ? { artboards: x.artboardsLocked } : {}) },
+    ...masks, ...blendingOut(n.blending, warn), ...(n.style ? { effects: styleOut(n.style, x.names, warn) } : {}),
     // ag-psd needs a layer id on every layer of a document with comps.
     ...(x.comps.length ? { id: n.id, comps: compsOut(n, x.comps, w, h) } : {}),
   };
-  if (n.kind === 'group') return { ...common, children: (n.children ?? []).map(c => exportNode(x, c)) };
+  if (n.kind === 'group') {
+    return { ...common, ...(n.artboard ? { artboard: artboardOut(n.artboard, x.guides) } : {}), children: (n.children ?? []).map(c => exportNode(x, c)) };
+  }
+  if (n.shape) return { ...common, top: 0, left: 0, ...shapeOut(n.shape, x.res, w, h, c => fillOut(c, x.names, warn), warn) };
   if (n.adjustment) return { ...common, top: 0, left: 0, adjustment: adjustmentOut(e, n.adjustment, warn) };
   if (n.content) return { ...common, top: 0, left: 0, vectorFill: fillOut(n.content, x.names, warn) };
   const placed = n.smart ? smartOut(x, n) : {};
@@ -958,11 +989,15 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
     layers: ManifestNode[]; global_light: { angle: number; altitude: number };
     patterns: { id: string; name: string; width: number; height: number; blob: number }[];
     layer_comps: LayerCompOut[];
+    resolution: number; guides: ExportCtx['guides']; grid: { spacing_x: number; spacing_y: number };
+    paths: { name: string; work: boolean; path: any }[]; artboards_locked: boolean;
   };
   const warnings: string[] = [];
   const warn = (m: string) => { if (!warnings.includes(m)) warnings.push(m); };
   const composite = compositeRgba(e);
-  const x: ExportCtx = { e, w, h, warn, names: new Map(manifest.patterns.map(p => [p.id, p.name])), files: new Map(), comps: manifest.layer_comps, fx: [] };
+  const x: ExportCtx = { e, w, h, warn, names: new Map(manifest.patterns.map(p => [p.id, p.name])), files: new Map(), comps: manifest.layer_comps, fx: [],
+    res: manifest.resolution, guides: manifest.guides, artboardsLocked: manifest.artboards_locked,
+  };
   const { angle, altitude } = manifest.global_light;
   if (manifest.layer_comps.length) warn('layer comp appearance is not stored in PSD');
   const psd: Psd = {
@@ -970,7 +1005,7 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
     children: manifest.layers.map(n => exportNode(x, n)),
     imageData: { width: w, height: h, data: new Uint8ClampedArray(composite.buffer) },
     imageResources: {
-      globalAngle: Math.round(angle), globalAltitude: Math.round(altitude),
+      globalAngle: Math.round(angle), globalAltitude: Math.round(altitude), ...layoutOut(manifest),
       ...(manifest.layer_comps.length ? { layerComps: { list: manifest.layer_comps.map(c => ({
         // ag-psd writes a `comment` key even when undefined, which throws.
         id: c.id, name: c.name, ...(c.comment ? { comment: c.comment } : {}),
@@ -983,7 +1018,10 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
   };
   if (x.files.size) psd.linkedFiles = [...x.files.values()];
   if (x.fx.length) psd.filterEffectsMasks = x.fx;
+  const artboards = manifest.layers.filter(n => n.artboard).length;
+  if (artboards) psd.artboards = { count: artboards };
   const channels = (JSON.parse(e.channels_json()) as { channels: { id: number; name: string }[] }).channels;
   if (channels.length) warn('saved selections are not stored in PSD');
-  return { bytes: new Uint8Array(writePsd(psd, { generateThumbnail: false, psb: !!opts.psb })), warnings };
+  const bytes = new Uint8Array(writePsd(psd, { generateThumbnail: false, psb: !!opts.psb }));
+  return { bytes: manifest.paths.length ? writeSavedPaths(bytes, manifest.paths, w, h) : bytes, warnings };
 }

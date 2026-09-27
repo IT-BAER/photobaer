@@ -1985,21 +1985,25 @@ impl Document {
     /// node and carries exactly one of `adjustment`, `content` or `smart`; a smart cache starts empty.
     pub fn add_special(&mut self, above: u32, json: &str) -> Result<u32, String> {
         let s: SpecialIn = serde_json::from_str(json).map_err(|e| format!("invalid node: {e}"))?;
-        let kind = match (s.adjustment, s.content, s.smart) {
+        let kind = match (s.adjustment, s.content, s.smart, s.shape) {
+            (None, None, None, Some(shape)) => {
+                shape.validate(|id| self.patterns.iter().any(|p| p.id == id))?;
+                Kind::Shape(Box::new(shape))
+            }
             // No range check here: PSD import also goes through `add_special` and must keep an
             // out-of-UI-range value byte-faithful (B2); only the UI-facing `set_adjustment` and
             // `apply_adjustment` enforce section 3's ranges (the trust boundary the dialogs cross).
-            (Some(a), None, None) => {
+            (Some(a), None, None, None) => {
                 self.check_blob(a.blob())?;
                 Kind::Adjustment(a)
             }
-            (None, Some(c), None) => {
+            (None, Some(c), None, None) => {
                 if let Some(id) = c.pattern_id().filter(|id| !self.patterns.iter().any(|p| p.id == *id)) {
                     return Err(format!("unknown pattern {id}"));
                 }
                 Kind::Fill(c)
             }
-            (None, None, Some(m)) => {
+            (None, None, Some(m), None) => {
                 self.check_blob(m.source_blob)?;
                 Kind::Smart(Box::new(Smart {
                     link: m.link,
@@ -2014,7 +2018,7 @@ impl Document {
                     cache: Tiles::default(),
                 }))
             }
-            _ => return Err("a node needs exactly one of adjustment, content and smart".into()),
+            _ => return Err("a node needs exactly one of adjustment, content, smart and shape".into()),
         };
         self.add_node(&s.name, above, kind)
     }

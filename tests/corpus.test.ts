@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writePsdUint8Array, type Layer, type PixelData } from 'ag-psd';
-import { checkPsd } from './corpus.ts';
+import { checkPsd, unsupported } from './corpus.ts';
 
 const W = 300, H = 200;
 function image(w: number, h: number, px: (x: number, y: number) => number[]): PixelData {
@@ -73,14 +73,17 @@ test('Blend If ranges are rendered', async () => {
   assert.notEqual(custom.status, 'skip', JSON.stringify(custom));
 });
 
-test('shape layers render their stored raster, vector masks on pixel layers are skipped', async () => {
-  const img = image(W, H, pattern);
+test('vector masks are imported, so pixel layers with one and realMask beside a vector mask are not skipped', () => {
   const vectorMask = { paths: [] };
-  const shape = await checkPsd('h.psd', psd([{ name: 'bg', imageData: img, vectorMask, vectorFill: { type: 'color', color: { r: 255, g: 0, b: 0 } } }], img));
-  assert.equal(shape.status, 'pass', JSON.stringify(shape));
-  const pixel = await checkPsd('i.psd', psd([{ name: 'bg', imageData: img, vectorMask }], img));
-  assert.equal(pixel.status, 'skip');
-  assert.match(pixel.reason!, /vectorMask/);
+  assert.equal(unsupported({ width: W, height: H, colorMode: 3, imageData: image(W, H, pattern), children: [{ name: 'bg', vectorMask, realMask: {} }] }), null);
+  assert.match(unsupported({ width: W, height: H, colorMode: 3, imageData: image(W, H, pattern), children: [{ name: 'bg', realMask: {} }] })!, /realMask/);
+});
+
+test('a file on the skip list is skipped with its reason', async () => {
+  const img = image(W, H, pattern);
+  const r = await checkPsd('masks__2.psd', psd([{ name: 'bg', imageData: img }], img));
+  assert.equal(r.status, 'skip');
+  assert.match(r.reason!, /blank/);
 });
 
 test('a PSB file is skipped, not failed', async () => {

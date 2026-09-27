@@ -422,3 +422,66 @@ fn new_guides_from_shape_uses_the_union_of_content_bounds() {
     let empty = d.add_layer("empty", 0).unwrap();
     assert!(d.new_guides_from_shape(&[empty]).unwrap_err().contains("visible content"));
 }
+
+#[test]
+fn add_special_adds_a_validated_shape_layer() {
+    let mut d = Document::new(64, 64, 8).unwrap();
+    let shape = json!({ "path": rect_path(1.0, 2.0, 30.0, 40.0), "live": null, "fill": { "type": "solid", "color": [1, 2, 3] }, "stroke": stroke() });
+    let id = d.add_special(0, &json!({ "name": "s", "shape": shape }).to_string()).unwrap();
+    let v: Value = serde_json::from_str(&d.manifest()).unwrap();
+    let n = v["layers"].as_array().unwrap().iter().find(|n| n["id"] == id).unwrap();
+    assert_eq!(n["kind"], "shape");
+    assert_eq!(norm(&n["shape"]), norm(&shape));
+    let mut bad = shape.clone();
+    bad["path"]["subpaths"][0]["points"][0][0] = json!(1e9);
+    assert!(d.add_special(0, &json!({ "name": "s", "shape": bad }).to_string()).is_err());
+    let two = json!({ "name": "s", "shape": shape, "content": { "type": "solid", "color": [0, 0, 0] } });
+    assert!(d.add_special(0, &two.to_string()).is_err());
+}
+
+#[test]
+fn set_vector_mask_validates_and_clears() {
+    let mut d = Document::new(64, 64, 8).unwrap();
+    let vm = json!({ "path": rect_path(1.0, 2.0, 30.0, 40.0), "enabled": true, "linked": false, "inverted": true, "density": 0.5, "feather": 4.0 });
+    d.set_vector_mask(1, &vm.to_string()).unwrap();
+    let v: Value = serde_json::from_str(&d.manifest()).unwrap();
+    assert_eq!(norm(&v["layers"][0]["vector_mask"]), norm(&vm));
+    let mut bad = vm.clone();
+    bad["density"] = json!(1.5);
+    assert!(d.set_vector_mask(1, &bad.to_string()).is_err());
+    assert!(d.set_vector_mask(99, &vm.to_string()).is_err());
+    d.set_vector_mask(1, "null").unwrap();
+    assert!(d.node(1).unwrap().vector_mask.is_none());
+}
+
+#[test]
+fn set_document_vector_and_set_artboard_check_guides_and_nesting() {
+    let mut d = Document::new(64, 64, 8).unwrap();
+    let doc = json!({
+        "resolution": 300.0, "paths": [{ "id": 1, "name": "Path 1", "path": rect_path(0.0, 0.0, 4.0, 4.0), "work": false }],
+        "guides": [{ "id": 3, "axis": "x", "pos": 100.5 }], "grid": { "spacing_x": 18.0, "spacing_y": 18.0 },
+        "guides_locked": false, "artboards_locked": true
+    });
+    d.set_document_vector(&doc.to_string()).unwrap();
+    assert_eq!(norm(&serde_json::from_str::<Value>(&d.vector_json()).unwrap()), norm(&doc));
+    let mut bad = doc.clone();
+    bad["resolution"] = json!(0.0);
+    assert!(d.set_document_vector(&bad.to_string()).is_err());
+
+    let g = d.add_group("Artboard 1", 0).unwrap();
+    let inner = d.add_group("inner", 0).unwrap();
+    d.move_node(inner, g, 0).unwrap();
+    let board = json!({ "rect": [0.0, 0.0, 50.0, 50.0], "background": { "type": "white" }, "preset_name": "", "guide_ids": [3] });
+    d.set_artboard(g, &board.to_string()).unwrap();
+    assert_eq!(d.node(g).unwrap().artboard.as_ref().unwrap().guide_ids, vec![3]);
+    assert!(d.set_artboard(inner, &board.to_string()).unwrap_err().contains("top-level group"));
+    assert!(d.set_artboard(1, &board.to_string()).unwrap_err().contains("top-level group"));
+    let mut unknown = board.clone();
+    unknown["guide_ids"] = json!([9]);
+    assert!(d.set_artboard(g, &unknown.to_string()).is_err());
+    let mut no_guides = doc.clone();
+    no_guides["guides"] = json!([]);
+    assert!(d.set_document_vector(&no_guides.to_string()).is_err(), "the artboard still names guide 3");
+    d.set_artboard(g, "null").unwrap();
+    d.set_document_vector(&no_guides.to_string()).unwrap();
+}

@@ -923,6 +923,21 @@ impl Engine {
     pub fn new_guides_from_shape(&mut self, ids: Vec<u32>) -> Result<Vec<u32>, JsError> {
         self.0.doc.new_guides_from_shape(&ids).map_err(err)
     }
+
+    /// A `VectorMask` JSON (manifest v5 `vector_mask`), or `null` to remove it.
+    pub fn set_vector_mask(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_vector_mask(id, json).map_err(err)
+    }
+
+    /// An `Artboard` JSON (manifest v5 `artboard`) on a top-level group, or `null`.
+    pub fn set_artboard(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_artboard(id, json).map_err(err)
+    }
+
+    /// `{ resolution, paths, guides, grid, guides_locked, artboards_locked }` (manifest v5 names).
+    pub fn set_document_vector(&mut self, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_document_vector(json).map_err(err)
+    }
 }
 
 /// App-scope font registry (one per worker, shared by every document).

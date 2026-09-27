@@ -1007,6 +1007,8 @@ pub(super) struct SpecialIn {
     pub(super) content: Option<FillContent>,
     #[serde(default)]
     pub(super) smart: Option<SmartNewIn>,
+    #[serde(default)]
+    pub(super) shape: Option<ShapeData>,
 }
 
 #[derive(Deserialize)]
