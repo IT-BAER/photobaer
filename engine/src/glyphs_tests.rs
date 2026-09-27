@@ -296,3 +296,54 @@ fn work_path_convert_and_hit_test() {
     assert_eq!((n.name.as_str(), n.opacity, n.locks), ("Hello", 0.5, Locks::default()));
     assert!(d.convert_text_to_shape(id, &reg(), 72.0).is_err());
 }
+
+#[test]
+fn faux_bold_shrinks_counters() {
+    let mut t = data("o", AntiAlias::Sharp);
+    let areas = |t: &TextData| -> Vec<f64> {
+        outline(t, &reg(), 72.0).path().subpaths.iter().map(|s| {
+            let p = &s.points;
+            (0..p.len()).map(|i| p[i][0] * p[(i + 1) % p.len()][1] - p[(i + 1) % p.len()][0] * p[i][1]).sum::<f64>().abs() / 2.0
+        }).collect()
+    };
+    let a = areas(&t);
+    t.runs[0].faux_bold = true;
+    let b = areas(&t);
+    let (outer, inner) = if a[0] > a[1] { (0, 1) } else { (1, 0) };
+    assert!(b[outer] > a[outer] && b[inner] < a[inner], "{a:?} -> {b:?}");
+}
+
+#[test]
+fn outline_cost_is_bounded_under_huge_scale() {
+    let mut t = data("o", AntiAlias::Sharp);
+    t.transform = [64.0, 0.0, 0.0, 64.0, 0.0, 0.0];
+    let n64: usize = outline(&t, &reg(), 72.0).path().subpaths.iter().map(|s| s.points.len()).sum();
+    t.transform = [1e7, 0.0, 0.0, 1e7, 0.0, 0.0];
+    let big: usize = outline(&t, &reg(), 72.0).path().subpaths.iter().map(|s| s.points.len()).sum();
+    assert!(big <= n64 * 2, "{n64} vs {big}");
+    let (mut d, id) = text_doc(&t);
+    assert!(d.render_text(id, &reg(), 72.0).is_err());
+}
+
+#[test]
+fn in_shape_text_with_zero_leading_terminates() {
+    let mut t = data("some text in a shape", AntiAlias::Sharp);
+    let sq = |x: f64, y: f64| [x, y, x, y, x, y];
+    t.shape = TextShape::InShape {
+        path: VectorPath { fill_rule: FillRule::Nonzero, subpaths: vec![Subpath { closed: true, op: PathOp::Combine, points: vec![sq(0.0, 0.0), sq(200.0, 0.0), sq(200.0, 200.0), sq(0.0, 200.0)] }] },
+    };
+    t.runs[0].leading = Some(0.0);
+    assert!(!outline(&t, &reg(), 72.0).groups.is_empty());
+}
+
+#[test]
+fn in_shape_text_flows_across_a_large_gap() {
+    let n = |gap: f64| {
+        let mut t = data("ab cd ef gh ij kl mn op", AntiAlias::Sharp);
+        let sq = |x: f64, y: f64| [x, y, x, y, x, y];
+        let rect = |y0: f64, y1: f64| Subpath { closed: true, op: PathOp::Combine, points: vec![sq(0.0, y0), sq(70.0, y0), sq(70.0, y1), sq(0.0, y1)] };
+        t.shape = TextShape::InShape { path: VectorPath { fill_rule: FillRule::Nonzero, subpaths: vec![rect(0.0, 300.0), rect(300.0 + gap, 600.0 + gap)] } };
+        outline(&t, &reg(), 72.0).path().subpaths.len()
+    };
+    assert_eq!(n(3000.0), n(400.0));
+}

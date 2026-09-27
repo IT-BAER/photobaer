@@ -99,6 +99,7 @@ const SUPER_SIZE: f64 = 0.583;
 const SUPER_SHIFT: f64 = 0.333;
 const SMALL_CAPS: f64 = 0.7;
 const AUTO_LEADING: f64 = 1.2;
+const MAX_SHAPE_ROWS: usize = 1 << 16;
 const EPS: f64 = 1e-9;
 
 /// One shaped glyph in logical order; lengths in px along the line direction.
@@ -697,10 +698,13 @@ fn in_shape(ctx: &Ctx, paras: &[(usize, usize, &Paragraph)], path: &VectorPath, 
     }
     // ponytail: one pitch for the whole shape (first run's leading); per-line leading if mixed sizes matter.
     let r0 = ctx.run(0);
-    let pitch = px_len(r0.leading.unwrap_or(AUTO_LEADING * r0.size), ctx);
+    // A pitch floor of 1 px and a row cap keep leading 0 or a huge shape bounded.
+    let pitch = px_len(r0.leading.unwrap_or(AUTO_LEADING * r0.size), ctx).max(1.0);
     let mut slots: Vec<(f64, f64, f64)> = Vec::new();
     let mut y = top + px_len(r0.size, ctx) * 0.8;
-    while y <= bottom {
+    let mut rows = 0;
+    while y <= bottom && rows < MAX_SHAPE_ROWS {
+        rows += 1;
         slots.extend(spans(&polys, path.fill_rule, y).into_iter().map(|(a, b)| (a, b - a, y)));
         y += pitch;
     }

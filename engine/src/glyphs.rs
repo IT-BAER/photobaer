@@ -19,6 +19,8 @@ const WARP_STEP: f64 = 4.0;
 const HIT_TOLERANCE: f64 = 2.0;
 const LIMIT: &str = "The type layer exceeds the rendering limit.";
 const MAX_AREA: f64 = 1e8;
+/// Flattening refinement cap; bounds outline size under huge transform scales.
+const MAX_DETAIL: f64 = 64.0;
 
 type Poly = Vec<[f64; 2]>;
 
@@ -90,11 +92,17 @@ fn embolden(cmds: &mut [Cmd], e: f64) {
             },
         }
     }
-    for idx in contours.iter().filter(|c| c.len() >= 2) {
-        let pts: Vec<[f64; 2]> = idx.iter().map(|&i| end(&cmds[i])).collect();
+    let area = |pts: &[[f64; 2]]| -> f64 {
         let n = pts.len();
-        let area: f64 = (0..n).map(|i| pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1]).sum();
-        let s = if area >= 0.0 { 1.0 } else { -1.0 };
+        (0..n).map(|i| pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1]).sum()
+    };
+    let pts_of = |idx: &[usize], cmds: &[Cmd]| -> Vec<[f64; 2]> { idx.iter().map(|&i| end(&cmds[i])).collect() };
+    // One orientation per glyph (outer contours dominate), so holes shrink while the outside grows.
+    let total: f64 = contours.iter().map(|c| area(&pts_of(c, cmds))).sum();
+    let s = if total >= 0.0 { 1.0 } else { -1.0 };
+    for idx in contours.iter().filter(|c| c.len() >= 2) {
+        let pts = pts_of(idx, cmds);
+        let n = pts.len();
         for a in 0..n {
             let (p, q) = (pts[(a + n - 1) % n], pts[(a + 1) % n]);
             let (c, h) = (q[0] - p[0], q[1] - p[1]);
@@ -336,7 +344,7 @@ pub fn outline(t: &TextData, reg: &Registry, resolution: f64) -> Outline {
     let l = typeset::layout(t, reg, resolution);
     let vertical = t.orientation == Orientation::Vertical;
     let on_path = matches!(t.shape, TextShape::OnPath { .. });
-    let q = detail(&t.transform);
+    let q = detail(&t.transform).min(MAX_DETAIL);
     let mut faces = FaceCache { reg, faces: HashMap::new() };
     let mut groups: Vec<([u8; 3], Vec<Poly>)> = vec![];
     let mut add = |color: [u8; 3], polys: Vec<Poly>| match groups.iter_mut().find(|g| g.0 == color) {
