@@ -550,6 +550,21 @@ test('moveLayerCommit with a zero net offset makes no history step', async () =>
   assert.equal((c.result as { undoLabel: string | null }).undoLabel, null);
 });
 
+test('a move step or commit after another op auto-committed the session is a no-op, not an error', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('moveLayerBegin', 1, false, 'Move');
+  await call('moveLayerStep', 3, 0);
+  await call('addLayer', 0);
+  for (const op of ['moveLayerStep', 'moveLayerCommit', 'movePixelsStep', 'movePixelsCommit']) {
+    const r = await call(op, 2, 2);
+    assert.equal(r.error, undefined, op);
+  }
+  const u = await call('undo');
+  assert.equal((u.result as { redoLabel: string }).redoLabel, 'New Layer');
+  assert.equal(((await call('undo')).result as { redoLabel: string }).redoLabel, 'Move');
+});
+
 test('moveLayerBegin duplicate=true adds a layer and commits as Move Copy even with no drag', async () => {
   await call('init');
   await call('newDoc', 16, 16, 8, [0, 255, 0, 255]);

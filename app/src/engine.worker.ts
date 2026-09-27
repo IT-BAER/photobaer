@@ -653,7 +653,8 @@ const api = {
   },
 
   moveLayerStep(dx: number, dy: number) {
-    const e = need(), s = moveSession!;
+    const e = need(), s = moveSession;
+    if (!s) return info();
     e.restore(s.liveBase);
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     for (const pid of collectPixelIds(tree, s.targetId)) e.offset_layer(pid, dx, dy);
@@ -664,7 +665,8 @@ const api = {
   },
 
   moveLayerCommit() {
-    const e = need(), s = moveSession!;
+    const e = need(), s = moveSession;
+    if (!s) return info();
     e.drop_snapshot(s.liveBase);
     moveSession = null;
     if (!s.duplicated && s.lastDx === 0 && s.lastDy === 0) history.abort(); else history.commit();
@@ -691,7 +693,8 @@ const api = {
   },
 
   movePixelsStep(dx: number, dy: number) {
-    const e = need(), s = moveSession!;
+    const e = need(), s = moveSession;
+    if (!s) return info();
     e.restore(s.liveBase);
     e.transform_selected_pixels(s.targetId, Float64Array.of(1, 0, dx, 0, 1, dy, 0, 0, 1), 'nearest', new Uint8Array(), s.duplicated);
     s.lastDx = dx;
@@ -702,7 +705,8 @@ const api = {
   },
 
   movePixelsCommit() {
-    const e = need(), s = moveSession!;
+    const e = need(), s = moveSession;
+    if (!s) return info();
     e.drop_snapshot(s.liveBase);
     moveSession = null;
     if (s.lastDx === 0 && s.lastDy === 0) history.abort(); else history.commit();
