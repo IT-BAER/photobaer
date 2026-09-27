@@ -574,7 +574,7 @@ export function ArtboardDialog({ artboardDialog, mode, run, doc, selected, layer
   const close = () => artboardDialog.current?.close();
   return (
     <dialog ref={artboardDialog}>
-      <form key={`${mode}-${count}-${selected?.id}`} onSubmit={e => {
+      <form key={`${mode}-${count}-${selected?.id}-${size.join('x')}`} onSubmit={e => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
         const name = String(f.get('name')).trim();
