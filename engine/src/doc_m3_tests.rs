@@ -1319,3 +1319,59 @@ fn layer_comp_options_rename_and_delete() {
     assert!(d.layer_comps.is_empty());
     assert_eq!(d.delete_layer_comp(comp).unwrap_err(), "unknown layer comp 1");
 }
+
+// ---------- adjustments UI: destructive apply and set_adjustment (M3.md section 3, B5) ----------
+
+fn invert_json() -> Value {
+    json!({ "kind": "invert", "params": {} })
+}
+
+#[test]
+fn apply_adjustment_out_of_range_field_names_it_and_leaves_pixels_untouched() {
+    let mut d = gray_doc(8, 8, 200);
+    let bad = json!({ "kind": "brightness_contrast", "params": { "brightness": 200.0, "contrast": 0.0, "legacy": false } });
+    let err = d.apply_adjustment(1, Target::Pixels, &bad.to_string()).unwrap_err();
+    assert!(err.contains("brightness"), "{err}");
+    assert_eq!(px(&d, 3, 3), [200, 200, 200, 255], "a rejected apply changes nothing");
+
+    let bad = json!({ "kind": "threshold", "params": { "level": 0 } });
+    assert!(d.apply_adjustment(1, Target::Pixels, &bad.to_string()).unwrap_err().contains("level"));
+    let bad = json!({ "kind": "posterize", "params": { "levels": 1 } });
+    assert!(d.apply_adjustment(1, Target::Pixels, &bad.to_string()).unwrap_err().contains("levels"));
+    let bad = json!({ "kind": "exposure", "params": { "exposure": 100.0, "offset": 0.0, "gamma": 1.0 } });
+    assert!(d.apply_adjustment(1, Target::Pixels, &bad.to_string()).unwrap_err().contains("exposure"));
+}
+
+#[test]
+fn apply_adjustment_half_coverage_selection_mixes_half_way() {
+    let mut d = gray_doc(8, 8, 200);
+    d.fill(0, Target::Selection, 128, 128, 128, 255).unwrap(); // uniform ~50% coverage
+    d.apply_adjustment(1, Target::Pixels, &invert_json().to_string()).unwrap();
+    assert_eq!(px(&d, 3, 3), [127, 127, 127, 255], "200 and its invert 55 average to the midpoint");
+}
+
+#[test]
+fn apply_adjustment_alpha_untouched_and_requires_pixels_target() {
+    let mut d = Document::new(4, 4, 8).unwrap();
+    d.fill(1, Target::Pixels, 200, 200, 200, 128).unwrap();
+    d.apply_adjustment(1, Target::Pixels, &invert_json().to_string()).unwrap();
+    assert_eq!(px(&d, 1, 1), [55, 55, 55, 128], "straight color inverted, alpha kept");
+
+    let err = d.apply_adjustment(1, Target::Mask, &invert_json().to_string()).unwrap_err();
+    assert!(err.contains("pixels"), "{err}");
+}
+
+#[test]
+fn set_adjustment_refuses_other_kinds_and_validates() {
+    let mut d = gray_doc(8, 8, 200);
+    let a = invert(&mut d, 1);
+    let err = d.set_adjustment(1, &json!({ "kind": "invert", "params": {} }).to_string()).unwrap_err();
+    assert!(err.contains("pixel") && err.contains('1'), "{err}");
+
+    let bad = json!({ "kind": "threshold", "params": { "level": 0 } });
+    assert!(d.set_adjustment(a, &bad.to_string()).unwrap_err().contains("level"));
+
+    d.set_adjustment(a, &json!({ "kind": "posterize", "params": { "levels": 4 } }).to_string()).unwrap();
+    let Kind::Adjustment(p) = &d.node(a).unwrap().kind else { panic!("still an adjustment layer") };
+    assert_eq!(*p, Adjustment::Posterize(crate::adjust::Posterize { levels: 4 }));
+}

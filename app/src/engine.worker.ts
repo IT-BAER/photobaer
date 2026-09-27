@@ -19,12 +19,36 @@ export type FillContent =
     }
   | { type: 'pattern'; pattern_id: string; scale: number; angle: number; linked: boolean; offset: [number, number] };
 
+// The 16 adjustment layer kinds (docs/M3.md section 3); field names match the engine JSON verbatim.
+export interface LevelsRecord { input_black: number; input_white: number; gamma: number; output_black: number; output_white: number }
+export interface Hsl { hue: number; saturation: number; lightness: number }
+export interface HueRange { bands: [number, number, number, number]; hue: number; saturation: number; lightness: number }
+type Quad = [number, number, number, number];
+export type Adjustment =
+  | { kind: 'brightness_contrast'; params: { brightness: number; contrast: number; legacy: boolean } }
+  | { kind: 'levels'; params: { composite: LevelsRecord; red?: LevelsRecord | null; green?: LevelsRecord | null; blue?: LevelsRecord | null } }
+  | { kind: 'curves'; params: { mode: 'point' | 'pencil'; composite: [number, number][]; red?: [number, number][] | null; green?: [number, number][] | null; blue?: [number, number][] | null } }
+  | { kind: 'exposure'; params: { exposure: number; offset: number; gamma: number } }
+  | { kind: 'vibrance'; params: { vibrance: number; saturation: number } }
+  | { kind: 'hue_saturation'; params: { master: Hsl; ranges: [HueRange, HueRange, HueRange, HueRange, HueRange, HueRange]; colorize: boolean; colorize_values: Hsl } }
+  | { kind: 'color_balance'; params: { shadows: [number, number, number]; midtones: [number, number, number]; highlights: [number, number, number]; preserve_luminosity: boolean } }
+  | { kind: 'black_white'; params: { reds: number; yellows: number; greens: number; cyans: number; blues: number; magentas: number; tint: boolean; tint_color: [number, number, number] } }
+  | { kind: 'photo_filter'; params: { color: [number, number, number]; density: number; preserve_luminosity: boolean } }
+  | { kind: 'channel_mixer'; params: { red: Quad; green: Quad; blue: Quad; gray: Quad; monochrome: boolean } }
+  | { kind: 'color_lookup'; params: { name: string; format: 'cube' | '3dl'; table: number | null; interpolation: 'tetrahedral' | 'trilinear'; dither: boolean } }
+  | { kind: 'invert'; params: Record<string, never> }
+  | { kind: 'posterize'; params: { levels: number } }
+  | { kind: 'threshold'; params: { level: number } }
+  | { kind: 'gradient_map'; params: { gradient: GradientDef; reverse: boolean; dither: boolean } }
+  | { kind: 'selective_color'; params: { mode: 'relative' | 'absolute'; reds: Quad; yellows: Quad; greens: Quad; cyans: Quad; blues: Quad; magentas: Quad; whites: Quad; neutrals: Quad; blacks: Quad } };
+
 export interface LayerNode {
   id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart';
   visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
   locks: { transparency: boolean; pixels: boolean; position: boolean };
   mask: { enabled: boolean; default: number } | null;
   content?: FillContent;
+  adjustment?: Adjustment;
   children?: LayerNode[];
 }
 export interface DocInfo {
@@ -1079,12 +1103,15 @@ const api = {
     return canvasEdit('Rotate Canvas', () => e.rotate_canvas(deg, interp));
   },
 
+  // `label` overrides the generic per-key label, for the Properties panel's "Adjustment
+  // Visibility"/"Adjustment Clipping" checkboxes (B5-5), which share `visible`/`clipping` with
+  // every other layer but need their own undo text.
   setProps(id: number, props: Partial<{
     name: string; visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
     locks: Partial<{ transparency: boolean; pixels: boolean; position: boolean }>; mask_enabled: boolean;
-  }>) {
+  }>, label?: string) {
     const e = need();
-    history.run(propsLabel(props), () => e.set_props(id, JSON.stringify(props)));
+    history.run(label ?? propsLabel(props), () => e.set_props(id, JSON.stringify(props)));
     return changed();
   },
 
@@ -1116,6 +1143,36 @@ const api = {
     const e = need();
     history.run('Layer Content Options', () => { for (const id of ids) e.set_content(id, JSON.stringify(content)); });
     return changed();
+  },
+
+  // Color Lookup file picker (D9): adds the `.cube`/`.3dl` bytes as a blob, no undo step of its
+  // own (the params commit that follows is the actual edit).
+  loadLookupTable(bytes: Uint8Array) {
+    return Number(need().blob_add(bytes));
+  },
+
+  // Layer > New Adjustment Layer / the Adjustments panel: `label` is both the layer's default name
+  // and the undo label (B5-5), the kind's plain menu label ("Hue/Saturation", no spaces).
+  newAdjustmentLayer(above: number, adjustment: Adjustment, label: string) {
+    const e = need();
+    let created = 0;
+    history.run(label, () => { created = e.add_special(above, JSON.stringify({ name: label, adjustment })); });
+    return { ...changed(), created };
+  },
+
+  // Properties panel edit: one undo step per committed change, `label` the spaced B5-5 form
+  // ("Hue / Saturation").
+  setAdjustment(id: number, adjustment: Adjustment, label: string) {
+    const e = need();
+    history.run(label, () => e.set_adjustment(id, JSON.stringify(adjustment)));
+    return changed();
+  },
+
+  // Image > Adjustments: destructive apply on the layer's pixels; `preview` reruns inside the open
+  // preview session opened by the dialog (see `previewEnd`), like `fillEx`.
+  adjust(id: number, adjustment: Adjustment, label: string, preview = false) {
+    const e = need();
+    return edit(label, preview, () => e.apply_adjustment(id, 'pixels', JSON.stringify(adjustment)));
   },
 
   // Layer > Rasterize > Fill Content.

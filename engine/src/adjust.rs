@@ -78,6 +78,125 @@ impl Adjustment {
         }
     }
 
+    /// Trust-boundary range check (docs/M3.md section 3); errors name the field. Kinds whose
+    /// fields are already bounded by type or by a later clamp (invert, gradient map, color
+    /// lookup beyond its own LUT-size check) have nothing to add here.
+    pub fn validate(&self) -> Result<(), String> {
+        let range = |field: &str, v: f32, lo: f32, hi: f32| -> Result<(), String> {
+            if v < lo || v > hi {
+                return Err(format!("{field} must be between {lo} and {hi}, got {v}"));
+            }
+            Ok(())
+        };
+        match self {
+            Adjustment::BrightnessContrast(p) => {
+                let (b, c) = if p.legacy { (100.0, 100.0) } else { (150.0, 100.0) };
+                range("brightness", p.brightness, -b, b)?;
+                range("contrast", p.contrast, if p.legacy { -c } else { -50.0 }, c)
+            }
+            Adjustment::Levels(p) => {
+                let recs = [("levels.composite", Some(&p.composite)), ("levels.red", p.red.as_ref()), ("levels.green", p.green.as_ref()), ("levels.blue", p.blue.as_ref())];
+                for (field, r) in recs {
+                    let Some(r) = r else { continue };
+                    range(&format!("{field}.gamma"), r.gamma, 0.01, 9.99)?;
+                }
+                Ok(())
+            }
+            Adjustment::Curves(p) => {
+                for (field, pts) in [("curves.composite", Some(&p.composite))]
+                    .into_iter()
+                    .chain([("curves.red", p.red.as_ref()), ("curves.green", p.green.as_ref()), ("curves.blue", p.blue.as_ref())])
+                {
+                    let Some(pts) = pts else { continue };
+                    if pts.is_empty() || pts.len() > 16 {
+                        return Err(format!("{field} must have between 1 and 16 points, got {}", pts.len()));
+                    }
+                }
+                Ok(())
+            }
+            Adjustment::Exposure(p) => {
+                range("exposure", p.exposure, -20.0, 20.0)?;
+                range("offset", p.offset, -0.5, 0.5)?;
+                range("gamma", p.gamma, 0.1, 9.99)
+            }
+            Adjustment::Vibrance(p) => {
+                range("vibrance", p.vibrance, -100.0, 100.0)?;
+                range("saturation", p.saturation, -100.0, 100.0)
+            }
+            Adjustment::HueSaturation(p) => {
+                range("master.hue", p.master.hue, -180.0, 180.0)?;
+                range("master.saturation", p.master.saturation, -100.0, 100.0)?;
+                range("master.lightness", p.master.lightness, -100.0, 100.0)?;
+                for (i, r) in p.ranges.iter().enumerate() {
+                    range(&format!("ranges[{i}].hue"), r.hue, -100.0, 100.0)?;
+                    range(&format!("ranges[{i}].saturation"), r.saturation, -100.0, 100.0)?;
+                    range(&format!("ranges[{i}].lightness"), r.lightness, -100.0, 100.0)?;
+                }
+                range("colorize_values.hue", p.colorize_values.hue, 0.0, 360.0)?;
+                range("colorize_values.saturation", p.colorize_values.saturation, 0.0, 100.0)?;
+                range("colorize_values.lightness", p.colorize_values.lightness, -100.0, 100.0)
+            }
+            Adjustment::ColorBalance(p) => {
+                for (field, row) in [("shadows", p.shadows), ("midtones", p.midtones), ("highlights", p.highlights)] {
+                    for (i, v) in row.into_iter().enumerate() {
+                        range(&format!("{field}[{i}]"), v, -100.0, 100.0)?;
+                    }
+                }
+                Ok(())
+            }
+            Adjustment::BlackWhite(p) => {
+                for (field, v) in
+                    [("reds", p.reds), ("yellows", p.yellows), ("greens", p.greens), ("cyans", p.cyans), ("blues", p.blues), ("magentas", p.magentas)]
+                {
+                    range(field, v, -200.0, 300.0)?;
+                }
+                Ok(())
+            }
+            Adjustment::PhotoFilter(p) => range("density", p.density, 0.0, 100.0),
+            Adjustment::ChannelMixer(p) => {
+                for (field, row) in [("red", p.red), ("green", p.green), ("blue", p.blue), ("gray", p.gray)] {
+                    for (i, v) in row.into_iter().enumerate() {
+                        range(&format!("{field}[{i}]"), v, -200.0, 200.0)?;
+                    }
+                }
+                Ok(())
+            }
+            Adjustment::Posterize(p) => {
+                if p.levels < 2 {
+                    return Err(format!("levels must be between 2 and 255, got {}", p.levels));
+                }
+                Ok(())
+            }
+            Adjustment::Threshold(p) => {
+                if p.level < 1 {
+                    return Err(format!("level must be between 1 and 255, got {}", p.level));
+                }
+                Ok(())
+            }
+            Adjustment::SelectiveColor(p) => {
+                for (field, row) in [
+                    ("reds", p.reds),
+                    ("yellows", p.yellows),
+                    ("greens", p.greens),
+                    ("cyans", p.cyans),
+                    ("blues", p.blues),
+                    ("magentas", p.magentas),
+                    ("whites", p.whites),
+                    ("neutrals", p.neutrals),
+                    ("blacks", p.blacks),
+                ] {
+                    for (i, v) in row.into_iter().enumerate() {
+                        range(&format!("{field}[{i}]"), v, -100.0, 100.0)?;
+                    }
+                }
+                Ok(())
+            }
+            // Invert has no params; gradient map's stops are clamped, not rejected; color
+            // lookup's table-size bound already runs in `parse_cube`/`parse_3dl`.
+            Adjustment::Invert(_) | Adjustment::GradientMap(_) | Adjustment::ColorLookup(_) => Ok(()),
+        }
+    }
+
     /// The `Adjust` opcode and data, or none when the params are neutral.
     pub fn compile(&self, blobs: &HashMap<u64, Arc<Vec<u8>>>) -> Result<Option<Compiled>, String> {
         let per_pixel = |opcode, data| Ok(Some(Compiled { opcode, data }));

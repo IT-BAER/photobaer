@@ -133,6 +133,16 @@ impl Engine {
         self.0.doc.set_content(id, json).map_err(err)
     }
 
+    /// Replaces an adjustment layer's params; refuses other kinds.
+    pub fn set_adjustment(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_adjustment(id, json).map_err(err)
+    }
+
+    /// Destructive apply of one adjustment kind onto a pixel layer's color channels.
+    pub fn apply_adjustment(&mut self, id: u32, target: &str, json: &str) -> Result<(), JsError> {
+        self.0.doc.apply_adjustment(id, Target::parse(target).map_err(err)?, json).map_err(err)
+    }
+
     /// Renders a fill layer into pixel tiles over the document bounds, keeping its id.
     pub fn rasterize_fill(&mut self, id: u32) -> Result<(), JsError> {
         self.0.doc.rasterize_fill(id).map_err(err)

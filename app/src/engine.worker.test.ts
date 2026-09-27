@@ -158,6 +158,84 @@ test('setFillContent edits every selected fill layer as one undo step', async ()
   assert.deepEqual(afterUndo.layers.find(l => l.id === idB)!.content, original);
 });
 
+// M3.md section 3 / B5: adjustment layers, destructive apply and B5-5 undo labels.
+const invertAdj = { kind: 'invert', params: {} };
+
+test('newAdjustmentLayer names and undoes under the kind\'s plain menu label', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, null);
+  const r = await call('newAdjustmentLayer', 1, invertAdj, 'Invert');
+  const info = r.result as { created: number; undoLabel: string; layers: { id: number; name: string; kind: string; adjustment?: unknown }[] };
+  assert.equal(info.undoLabel, 'Invert');
+  const node = info.layers.find(l => l.id === info.created)!;
+  assert.equal(node.kind, 'adjustment');
+  assert.equal(node.name, 'Invert');
+  assert.deepEqual(node.adjustment, invertAdj);
+});
+
+test('newAdjustmentLayer then a Properties edit are two undo steps with the create/edit label split (B5-5)', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, null);
+  const hueSat = { kind: 'hue_saturation', params: { master: { hue: 0, saturation: 0, lightness: 0 }, ranges: Array.from({ length: 6 }, () => ({ bands: [0, 0, 0, 0], hue: 0, saturation: 0, lightness: 0 })), colorize: false, colorize_values: { hue: 0, saturation: 25, lightness: 0 } } };
+  const created = await call('newAdjustmentLayer', 1, hueSat, 'Hue/Saturation');
+  const id = (created.result as { created: number }).created;
+  const edited = { ...hueSat, params: { ...hueSat.params, master: { hue: 10, saturation: 0, lightness: 0 } } };
+  const e = await call('setAdjustment', id, edited, 'Hue / Saturation');
+  const info = e.result as { undoLabel: string; history: { labels: string[] } };
+  assert.equal(info.undoLabel, 'Hue / Saturation');
+  assert.deepEqual(info.history.labels, ['Hue/Saturation', 'Hue / Saturation']);
+});
+
+test('setAdjustment validates each kind\'s ranges, naming the out-of-range field', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, null);
+  const layer = (await call('newAdjustmentLayer', 1, invertAdj, 'Invert')).result as { created: number };
+  const id = layer.created;
+  const cases: [string, Record<string, unknown>, string][] = [
+    ['brightness_contrast', { brightness: 200, contrast: 0, legacy: false }, 'brightness'],
+    ['levels', { composite: { input_black: 0, input_white: 255, gamma: 10, output_black: 0, output_white: 255 }, red: null, green: null, blue: null }, 'gamma'],
+    ['curves', { mode: 'point', composite: [], red: null, green: null, blue: null }, 'curves.composite'],
+    ['exposure', { exposure: 100, offset: 0, gamma: 1 }, 'exposure'],
+    ['vibrance', { vibrance: 200, saturation: 0 }, 'vibrance'],
+    ['color_balance', { shadows: [200, 0, 0], midtones: [0, 0, 0], highlights: [0, 0, 0], preserve_luminosity: true }, 'shadows'],
+    ['black_white', { reds: 1000, yellows: 60, greens: 40, cyans: 60, blues: 20, magentas: 80, tint: false, tint_color: [206, 185, 155] }, 'reds'],
+    ['photo_filter', { color: [236, 138, 0], density: 200, preserve_luminosity: true }, 'density'],
+    ['channel_mixer', { red: [1000, 0, 0, 0], green: [0, 100, 0, 0], blue: [0, 0, 100, 0], gray: [40, 40, 20, 0], monochrome: false }, 'red'],
+    ['posterize', { levels: 1 }, 'levels'],
+    ['threshold', { level: 0 }, 'level'],
+    ['selective_color', { mode: 'relative', reds: [200, 0, 0, 0], yellows: [0, 0, 0, 0], greens: [0, 0, 0, 0], cyans: [0, 0, 0, 0], blues: [0, 0, 0, 0], magentas: [0, 0, 0, 0], whites: [0, 0, 0, 0], neutrals: [0, 0, 0, 0], blacks: [0, 0, 0, 0] }, 'reds'],
+  ];
+  for (const [kind, params, field] of cases) {
+    const r = await call('setAdjustment', id, { kind, params }, 'Adjustment');
+    assert.ok(r.error?.includes(field), `${kind}: expected an error naming ${field}, got ${r.error}`);
+  }
+  // hue_saturation needs its full [6] ranges tuple to deserialize; validated separately.
+  const badHue = { kind: 'hue_saturation', params: { master: { hue: 999, saturation: 0, lightness: 0 }, ranges: Array.from({ length: 6 }, () => ({ bands: [0, 0, 0, 0], hue: 0, saturation: 0, lightness: 0 })), colorize: false, colorize_values: { hue: 0, saturation: 25, lightness: 0 } } };
+  const rh = await call('setAdjustment', id, badHue, 'Adjustment');
+  assert.ok(rh.error?.includes('master.hue'), `expected an error naming master.hue, got ${rh.error}`);
+  // invert, gradient_map and color_lookup have no rejectable numeric range (gap b5-a: gradient
+  // stops are clamped by compile, not rejected; color lookup's bound is its LUT-size check).
+  const gradientMap = { kind: 'gradient_map', params: { gradient: { method: 'classic', color_stops: [{ position: 2, color: [0, 0, 0], midpoint: 0.5 }, { position: 1, color: [255, 255, 255], midpoint: 0.5 }], opacity_stops: [{ position: 0, opacity: 1, midpoint: 0.5 }, { position: 1, opacity: 1, midpoint: 0.5 }] }, reverse: false, dither: false } };
+  assert.equal((await call('setAdjustment', id, gradientMap, 'Adjustment')).error, undefined);
+});
+
+test('adjust applies destructively, mixes by selection coverage, and a preview cancel restores the tiles', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, [200, 200, 200, 255]);
+  await call('fillEx', 1, 'selection', { source: 'solid', rgba: [128, 128, 128, 255], mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
+  const r = await call('adjust', 1, invertAdj, 'Invert');
+  assert.equal((r.result as { undoLabel: string }).undoLabel, 'Invert');
+  assert.deepEqual(await px(3, 3), [127, 127, 127, 255], '200 and its invert 55 average to the midpoint at ~50% coverage');
+
+  const u = await call('undo');
+  assert.equal((u.result as { undoLabel: string }).undoLabel, 'Fill', 'one undo pops just the destructive Invert step');
+  await call('adjust', 1, invertAdj, 'Invert', true);
+  assert.deepEqual(await px(3, 3), [127, 127, 127, 255], 'the preview shows the same result live');
+  const cancelled = await call('previewEnd', false);
+  assert.equal((cancelled.result as { undoLabel: string | null }).undoLabel, 'Fill', 'the preview session drops, leaving the last committed step');
+  assert.deepEqual(await px(3, 3), [200, 200, 200, 255], 'cancel restores the untouched tile');
+});
+
 test('layer comps: new, apply, options and delete are undo steps with their labels', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);

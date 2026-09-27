@@ -2237,6 +2237,60 @@ impl Document {
         Ok(())
     }
 
+    /// Destructive apply of one adjustment kind (docs/M3.md section 3) onto a pixel layer's
+    /// color channels; alpha untouched. With a selection the result is mixed by coverage (D12),
+    /// same as `fill_ex`. `target` must be `Pixels` (adjustments have no mask/selection form).
+    pub fn apply_adjustment(&mut self, id: u32, target: Target, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        if target != Target::Pixels {
+            return Err("an adjustment applies only to a layer's pixels".into());
+        }
+        self.check_pixel_edit(id)?;
+        let a: Adjustment = serde_json::from_str(json).map_err(|e| format!("invalid adjustment: {e}"))?;
+        a.validate()?;
+        self.check_blob(a.blob())?;
+        let Some(compiled) = a.compile(&self.blobs)? else { return Ok(()) };
+        let existing = self.node(id)?.pixel_tiles()?.coords();
+        let area: Vec<(i32, i32)> = match self.selected_tiles() {
+            Some(sel) => sel.into_iter().filter(|c| existing.contains(c)).collect(),
+            None => existing,
+        };
+        let selected = self.selection.is_some();
+        let depth = self.depth;
+        let mut out: Vec<((i32, i32), Pixels)> = Vec::with_capacity(area.len());
+        for (tx, ty) in area {
+            let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
+            let old = self.node(id)?.pixel_tiles()?.get(tx, ty).expect("a listed tile").px.clone();
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            let mut fresh = vec![0f32; TILE_PIXELS * 4];
+            for py in 0..TILE as i32 {
+                for px_ in 0..TILE as i32 {
+                    let p = (py * TILE as i32 + px_) as usize;
+                    let rgba = old.rgba_f32(p);
+                    let c = cov.at(p).clamp(0.0, 1.0);
+                    let rgb = [rgba[0], rgba[1], rgba[2]];
+                    let out_rgb = if c <= 0.0 {
+                        rgb
+                    } else {
+                        let nw = adjust::apply(compiled.opcode, &compiled.data, rgb, (ox + px_) as u32, (oy + py) as u32);
+                        std::array::from_fn(|i| rgb[i] + (nw[i] - rgb[i]) * c)
+                    };
+                    fresh[p * 4..p * 4 + 4].copy_from_slice(&[out_rgb[0], out_rgb[1], out_rgb[2], rgba[3]]);
+                }
+            }
+            out.push(((tx, ty), Pixels::from_straight(depth, &fresh)));
+        }
+        let mut tiles_out = Vec::with_capacity(out.len());
+        for (at, px) in out {
+            tiles_out.push((at, Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
+        }
+        let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+        for ((tx, ty), t) in tiles_out {
+            tiles.put(tx, ty, Some(t));
+        }
+        Ok(())
+    }
+
     fn check_tile_coord(&self, tx: u32, ty: u32) -> Result<(), String> {
         if tx >= self.tiles_x() || ty >= self.tiles_y() {
             return Err("tile coordinate out of range".into());
@@ -4375,6 +4429,9 @@ impl Document {
     pub fn add_special(&mut self, above: u32, json: &str) -> Result<u32, String> {
         let s: SpecialIn = serde_json::from_str(json).map_err(|e| format!("invalid node: {e}"))?;
         let kind = match (s.adjustment, s.content, s.smart) {
+            // No range check here: PSD import also goes through `add_special` and must keep an
+            // out-of-UI-range value byte-faithful (B2); only the UI-facing `set_adjustment` and
+            // `apply_adjustment` enforce section 3's ranges (the trust boundary the dialogs cross).
             (Some(a), None, None) => {
                 self.check_blob(a.blob())?;
                 Kind::Adjustment(a)
@@ -4418,6 +4475,23 @@ impl Document {
             self.last_selection = Some(sel);
         }
         Ok(id)
+    }
+
+    /// Replaces an adjustment layer's params; refuses other kinds (naming the kind).
+    pub fn set_adjustment(&mut self, id: u32, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let a: Adjustment = serde_json::from_str(json).map_err(|e| format!("invalid adjustment: {e}"))?;
+        a.validate()?;
+        self.check_blob(a.blob())?;
+        let node = self.node_mut(id)?;
+        let kind = node.kind_name();
+        match &mut node.kind {
+            Kind::Adjustment(existing) => {
+                *existing = a;
+                Ok(())
+            }
+            _ => Err(format!("node {id} is a {kind} layer, not an adjustment layer")),
+        }
     }
 
     /// Replaces a fill layer's content; refuses other kinds (naming the kind) and unknown pattern ids.
