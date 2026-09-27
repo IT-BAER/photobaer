@@ -82,6 +82,9 @@ export interface LayerNode {
 }
 // docs/M4.md section 12: a document-space vertical (x) or horizontal (y) guide.
 export interface Guide { id: number; axis: 'x' | 'y'; pos: number }
+export interface SavedPathInfo { id: number; name: string; work: boolean; path: VectorPath }
+// A path-edit target: a shape layer's path, a layer's vector mask path, or a saved path.
+export type PathRole = 'shape' | 'vectorMask' | 'document';
 export interface DocInfo {
   docId: number; version: number; name: string;
   width: number; height: number; depth: number; maxLevel: number;
@@ -100,6 +103,8 @@ export interface DocInfo {
   // Pixels per inch (docs/M4.md D13, section 12).
   resolution: number;
   guides: Guide[];
+  // Saved paths and the work path (docs/M4.md section 4), in document order.
+  paths: SavedPathInfo[];
   grid: { spacing_x: number; spacing_y: number };
   guidesLocked: boolean;
   artboardsLocked: boolean;

@@ -18,6 +18,8 @@ mod manifest;
 mod brush;
 #[path = "guides.rs"]
 mod guides;
+#[path = "paths.rs"]
+mod paths;
 #[cfg(test)]
 #[path = "doc_m3_tests.rs"]
 mod m3_tests;

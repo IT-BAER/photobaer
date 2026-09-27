@@ -244,7 +244,7 @@ fn geom_trace_square() {
     let pts = &p.subpaths[0].points;
     assert_eq!(pts.len(), 4, "{pts:?}");
     for c in [(5.0, 5.0), (25.0, 5.0), (25.0, 25.0), (5.0, 25.0)] {
-        assert!(pts.iter().any(|p| (p[0] - c.0).hypot(p[1] - c.1) <= 1.0), "no anchor near {c:?}: {pts:?}");
+        assert!(pts.iter().any(|p| (p[0] - c.0).hypot(p[1] - c.1) <= 1e-9), "no anchor at {c:?}: {pts:?}");
     }
     assert!(pts.iter().all(|p| p[0] == p[2] && p[1] == p[3] && p[0] == p[4] && p[1] == p[5]));
 }

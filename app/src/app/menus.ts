@@ -38,7 +38,7 @@ export interface MenuCtx {
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
   loadSelDialog: DialogRef; saveSelDialog: DialogRef; blurDialog: DialogRef; viewer: RefObject<Viewer | null>;
   showAnts: boolean; setShowAnts: SetState<boolean>; showAdjustments: boolean; setShowAdjustments: SetState<boolean>;
-  showLayerComps: boolean; setShowLayerComps: SetState<boolean>; showProperties: boolean; setShowProperties: SetState<boolean>;
+  showLayerComps: boolean; setShowLayerComps: SetState<boolean>; showPaths: boolean; setShowPaths: SetState<boolean>; showProperties: boolean; setShowProperties: SetState<boolean>;
   showStyles: boolean; setShowStyles: SetState<boolean>; showPatterns: boolean; setShowPatterns: SetState<boolean>;
   showGradients: boolean; setShowGradients: SetState<boolean>;
   showRulers: boolean; setShowRulers: SetState<boolean>; showPixelGrid: boolean; setShowPixelGrid: SetState<boolean>;
@@ -56,7 +56,7 @@ export function buildMenus(c: MenuCtx) {
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
     globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
-    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showProperties, setShowProperties, showStyles, setShowStyles,
+    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap,
   } = c;
@@ -255,6 +255,7 @@ export function buildMenus(c: MenuCtx) {
     Window: [
       { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); } },
       { label: showLayerComps ? 'Hide Layer Comps' : 'Show Layer Comps', run: () => { setMenu(null); setShowLayerComps(v => !v); } },
+      { label: showPaths ? 'Hide Paths' : 'Show Paths', run: () => { setMenu(null); setShowPaths(v => !v); } },
       { label: showProperties ? 'Hide Properties' : 'Show Properties', run: () => { setMenu(null); setShowProperties(v => !v); } },
       { label: showStyles ? 'Hide Styles' : 'Show Styles', run: () => { setMenu(null); setShowStyles(v => !v); } },
       { label: showPatterns ? 'Hide Patterns' : 'Show Patterns', run: () => { setMenu(null); setShowPatterns(v => !v); } },

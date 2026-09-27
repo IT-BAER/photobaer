@@ -9,10 +9,10 @@ import { denormalize, isIdentity } from './transform/matrix.ts';
 import { patternRefs, type Blending, type LayerStyle } from './layerStyle.ts';
 import type { PatternRecord } from './brushes/preset.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
-import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, Guide, LayerNode, OpenResult, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorPath, WorkerEvent } from './worker/types.ts';
+import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorPath, WorkerEvent } from './worker/types.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
-export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, Guide, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
+export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
 const DESTRUCTIVE = new Set<string>(DESTRUCTIVE_KINDS);
 
@@ -77,10 +77,10 @@ function info(): DocInfo | null {
   };
   const vec = JSON.parse(eng.vector_json()) as {
     resolution: number; guides: Guide[]; grid: { spacing_x: number; spacing_y: number };
-    guides_locked: boolean; artboards_locked: boolean;
+    guides_locked: boolean; artboards_locked: boolean; paths: SavedPathInfo[];
   };
   return {
-    resolution: vec.resolution, guides: vec.guides, grid: vec.grid,
+    resolution: vec.resolution, guides: vec.guides, paths: vec.paths, grid: vec.grid,
     guidesLocked: vec.guides_locked, artboardsLocked: vec.artboards_locked,
     docId, version, name,
     width: eng.width(), height: eng.height(), depth: eng.depth(), maxLevel: eng.max_level(),
@@ -653,6 +653,81 @@ const api = {
     const e = need();
     history.run(locked ? 'Lock Guides' : 'Unlock Guides', () => e.set_grid_and_locks(JSON.stringify({ guidesLocked: locked })));
     return changed();
+  },
+
+  // ---------- paths (docs/M4.md section 4) ----------
+
+  // Replaces a role's path; ('document', 0) sets the work path. Returns the edited id.
+  setPath(role: PathRole, id: number, path: VectorPath, label: string) {
+    const e = need();
+    let edited = 0;
+    history.run(label, () => { edited = e.set_path(role, id, JSON.stringify(path)); });
+    return { ...changed(), edited };
+  },
+
+  // A layer's vector mask (manifest v5 `vector_mask`), or null to remove it.
+  setVectorMask(id: number, mask: object | null) {
+    const e = need();
+    history.run('Vector Mask', () => e.set_vector_mask(id, JSON.stringify(mask)));
+    return changed();
+  },
+
+  newPath() {
+    const e = need();
+    let created = 0;
+    history.run('New Path', () => { created = e.new_path(); });
+    return { ...changed(), created };
+  },
+
+  savePath(id: number) {
+    const e = need();
+    history.run('Save Path', () => e.save_path(id));
+    return changed();
+  },
+
+  renamePath(id: number, name: string) {
+    const e = need();
+    history.run('Rename Path', () => e.rename_path(id, name));
+    return changed();
+  },
+
+  deletePath(id: number) {
+    const e = need();
+    history.run('Delete Path', () => e.delete_path(id));
+    return changed();
+  },
+
+  fillPath(role: PathRole, id: number, layer: number, rgb: [number, number, number]) {
+    const e = need();
+    history.run('Fill Path', () => e.fill_path(role, id, layer, rgb[0], rgb[1], rgb[2], 255));
+    return changed();
+  },
+
+  strokePath(role: PathRole, id: number, layer: number, rgb: [number, number, number], width = 1) {
+    const e = need();
+    history.run('Stroke Path', () => e.stroke_path(role, id, layer, width, rgb[0], rgb[1], rgb[2], 255));
+    return changed();
+  },
+
+  makeSelectionFromPath(role: PathRole, id: number, mode: 'new' | 'add' | 'subtract' | 'intersect') {
+    const e = need();
+    history.run('Make Selection from Path', () => e.make_selection_from_path(role, id, mode));
+    selGen++;
+    return changed();
+  },
+
+  makeWorkPath(tolerance = 2) {
+    const e = need();
+    let created = 0;
+    history.run('Make Work Path from Selection', () => { created = e.make_work_path(tolerance); });
+    return { ...changed(), created };
+  },
+
+  convertPathToShape(role: PathRole, id: number, rgb: [number, number, number]) {
+    const e = need();
+    let created = 0;
+    history.run('Convert Path to Shape', () => { created = e.convert_path_to_shape(role, id, rgb[0], rgb[1], rgb[2]); });
+    return { ...changed(), created };
   },
 
   // Selection coverage (0-255) at a document point; 255 everywhere with no selection.

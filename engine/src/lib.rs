@@ -924,6 +924,55 @@ impl Engine {
         self.0.doc.new_guides_from_shape(&ids).map_err(err)
     }
 
+    // ---------- paths (docs/M4.md section 4) ----------
+    // `role` is "shape" or "vectorMask" (a node id) or "document" (a saved path id).
+
+    /// Replaces a role's path (`VectorPath` JSON); "document" with id 0 sets the work path.
+    /// Returns the edited path or node id.
+    pub fn set_path(&mut self, role: &str, id: u32, json: &str) -> Result<u32, JsError> {
+        self.0.doc.set_path(role, id, json).map_err(err)
+    }
+
+    pub fn new_path(&mut self) -> Result<u32, JsError> {
+        self.0.doc.new_path().map_err(err)
+    }
+
+    pub fn save_path(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.save_path(id).map_err(err)
+    }
+
+    pub fn rename_path(&mut self, id: u32, name: &str) -> Result<(), JsError> {
+        self.0.doc.rename_path(id, name).map_err(err)
+    }
+
+    pub fn delete_path(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.delete_path(id).map_err(err)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn fill_path(&mut self, role: &str, id: u32, layer: u32, r: u8, g: u8, b: u8, a: u8) -> Result<(), JsError> {
+        self.0.doc.fill_path(role, id, layer, [r, g, b, a]).map_err(err)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn stroke_path(&mut self, role: &str, id: u32, layer: u32, width: f64, r: u8, g: u8, b: u8, a: u8) -> Result<(), JsError> {
+        self.0.doc.stroke_path(role, id, layer, width, [r, g, b, a]).map_err(err)
+    }
+
+    pub fn make_selection_from_path(&mut self, role: &str, id: u32, mode: &str) -> Result<(), JsError> {
+        self.0.doc.make_selection_from_path(role, id, Mode::parse(mode).map_err(err)?).map_err(err)
+    }
+
+    /// Returns the work path id.
+    pub fn make_work_path(&mut self, tolerance: f64) -> Result<u32, JsError> {
+        self.0.doc.make_work_path(tolerance).map_err(err)
+    }
+
+    /// Returns the new shape layer id.
+    pub fn convert_path_to_shape(&mut self, role: &str, id: u32, r: u8, g: u8, b: u8) -> Result<u32, JsError> {
+        self.0.doc.convert_path_to_shape(role, id, [r, g, b]).map_err(err)
+    }
+
     /// A `VectorMask` JSON (manifest v5 `vector_mask`), or `null` to remove it.
     pub fn set_vector_mask(&mut self, id: u32, json: &str) -> Result<(), JsError> {
         self.0.doc.set_vector_mask(id, json).map_err(err)

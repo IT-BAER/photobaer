@@ -1415,3 +1415,35 @@ test('a preset picked during a Layer Style preview survives the preview reruns a
   assert.deepEqual([done.undoLabel, done.patterns.map(x => x.id)], ['Layer Style', [preset.id]]);
   assert.deepEqual(await pixelAt(1, 1), [9, 8, 7, 255]);
 });
+
+test('Paths panel ops: Save Path names Path 1 then Path 2, vectorMask edits only the mask, undo labels', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  const sq = (a: number, b: number) => ({
+    fill_rule: 'nonzero', subpaths: [{ closed: true, op: 'combine', points: [[a, a], [b, a], [b, b], [a, b]].map(([x, y]) => [x, y, x, y, x, y]) }],
+  });
+  type Info = { paths: { id: number; name: string; work: boolean }[]; history: { labels: string[] }; layers: any[]; created?: number };
+  const names = (r: { result?: unknown }) => (r.result as Info).paths.map(p => [p.name, p.work]);
+  const work = (await call('setPath', 'document', 0, sq(1, 5), 'Make Work Path')).result as Info & { edited: number };
+  await call('savePath', work.edited);
+  const w2 = (await call('setPath', 'document', 0, sq(2, 6), 'Make Work Path')).result as Info & { edited: number };
+  const saved = await call('savePath', w2.edited);
+  assert.deepEqual(names(saved), [['Path 1', false], ['Path 2', false]]);
+
+  const shape = (await call('convertPathToShape', 'document', w2.edited, [255, 0, 0])).result as Info;
+  const sid = shape.created!;
+  assert.equal(shape.layers.at(-1).name, 'Shape');
+  assert.deepEqual(shape.layers.at(-1).shape.fill, { type: 'solid', color: [255, 0, 0] });
+  const vm = { path: sq(0, 4), enabled: true, linked: true, inverted: false, density: 1, feather: 0 };
+  const e = await call('setVectorMask', sid, vm);
+  assert.equal(e.error, undefined, String(e.error));
+  const r = (await call('setPath', 'vectorMask', sid, sq(3, 7), 'Edit Path')).result as Info;
+  const n = r.layers.find(l => l.id === sid);
+  assert.deepEqual(n.shape.path, sq(2, 6));
+  assert.deepEqual(n.vector_mask.path, sq(3, 7));
+
+  const sel = await call('makeSelectionFromPath', 'document', work.edited, 'new');
+  assert.ok((sel.result as { selection: unknown }).selection);
+  const labels = (await call('makeWorkPath')).result as Info;
+  assert.deepEqual(labels.history.labels.slice(-6), ['Save Path', 'Convert Path to Shape', 'Vector Mask', 'Edit Path', 'Make Selection from Path', 'Make Work Path from Selection']);
+});

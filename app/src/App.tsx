@@ -8,6 +8,7 @@ import { flatNodes, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
+import { PathsPanel } from './PathsPanel.tsx';
 import { PropertiesPanel, SmartFiltersPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
 import { LayerStyleDialog, type StylePage } from './LayerStyleDialog.tsx';
@@ -118,6 +119,7 @@ export function App() {
   const rulerFlagsRef = useRef({ showRulers, showPixelGrid, showGuides, showGrid });
   rulerFlagsRef.current = { showRulers, showPixelGrid, showGuides, showGrid };
   const [showLayerComps, setShowLayerComps] = useState(false);
+  const [showPaths, setShowPaths] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [showAdjustments, setShowAdjustments] = useState(false);
   const [showStyles, setShowStyles] = useState(false);
@@ -755,7 +757,7 @@ export function App() {
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
     globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
-    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showProperties, setShowProperties, showStyles, setShowStyles,
+    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap,
   });
@@ -1275,6 +1277,7 @@ export function App() {
               />
               <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
               {showLayerComps && <LayerCompsPanel doc={doc} run={run} />}
+              {showPaths && <PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} />}
             </>
           )}
         </aside>

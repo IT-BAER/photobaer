@@ -528,3 +528,134 @@ fn canvas_ops_move_vector_data_with_the_canvas() {
     assert_eq!(s.path.subpaths[0].points[0], [0.0, -10.0, 0.0, -10.0, 0.0, -10.0]);
     assert_eq!(p.layer_bounds(3).unwrap(), Some([0, 0, 200, 200]), "the text cache is warped and clipped like layer pixels");
 }
+
+// ---------- Paths panel ops (docs/M4.md section 4, B5) ----------
+
+fn square(x0: f64, y0: f64, x1: f64, y1: f64) -> String {
+    let p = |x: f64, y: f64| json!([x, y, x, y, x, y]);
+    json!({ "fill_rule": "nonzero", "subpaths": [{ "closed": true, "op": "combine", "points": [p(x0, y0), p(x1, y0), p(x1, y1), p(x0, y1)] }] })
+        .to_string()
+}
+
+fn path_names(d: &Document) -> Vec<(String, bool)> {
+    d.vector.paths.iter().map(|p| (p.name.clone(), p.work)).collect()
+}
+
+#[test]
+fn make_selection_from_a_rect_path_equals_the_rect_marquee() {
+    let mut d = Document::new(40, 40, 8).unwrap();
+    let wp = d.set_path("document", 0, &square(10.0, 10.0, 20.0, 20.0)).unwrap();
+    d.make_selection_from_path("document", wp, Mode::New).unwrap();
+    let from_path = d.selection_values();
+    d.select_rect(10.0, 10.0, 10.0, 10.0, Mode::New).unwrap();
+    assert_eq!(from_path, d.selection_values());
+    d.set_path("document", 0, &square(15.0, 0.0, 30.0, 40.0)).unwrap();
+    d.make_selection_from_path("document", wp, Mode::Intersect).unwrap();
+    d.select_rect(15.0, 10.0, 5.0, 10.0, Mode::Subtract).unwrap();
+    assert!(d.selection_values().iter().all(|&v| v == 0.0), "intersect keeps x 15..20");
+}
+
+#[test]
+fn fill_path_on_an_empty_layer_equals_the_shape_render_and_keeps_the_selection() {
+    let tri = json!({ "fill_rule": "nonzero", "subpaths": [{ "closed": true, "op": "combine",
+        "points": [[5.5, 3.0, 5.5, 3.0, 5.5, 3.0], [30.0, 12.25, 30.0, 12.25, 30.0, 12.25], [8.0, 28.0, 20.0, 40.0, 8.0, 28.0]] }] })
+    .to_string();
+    let mut a = Document::new(40, 40, 8).unwrap();
+    a.select_rect(0.0, 0.0, 2.0, 2.0, Mode::New).unwrap();
+    let before = a.selection_values();
+    let wp = a.set_path("document", 0, &tri).unwrap();
+    a.fill_path("document", wp, 1, [200, 10, 30, 255]).unwrap();
+    assert_eq!(a.selection_values(), before, "the selection is restored");
+    let mut b = Document::new(40, 40, 8).unwrap();
+    let shape = json!({ "path": serde_json::from_str::<Value>(&tri).unwrap(), "live": null, "fill": { "type": "solid", "color": [200, 10, 30] }, "stroke": null });
+    b.add_special(0, &json!({ "name": "s", "shape": shape }).to_string()).unwrap();
+    assert_eq!(a.flatten_tile_rgba8(0, 0).unwrap(), b.flatten_tile_rgba8(0, 0).unwrap());
+    assert!(a.fill_path("document", wp, 99, [0, 0, 0, 255]).is_err());
+}
+
+#[test]
+fn stroke_path_paints_a_centered_line_of_the_given_width() {
+    let mut d = Document::new(40, 40, 8).unwrap();
+    let line = json!({ "fill_rule": "nonzero", "subpaths": [{ "closed": false, "op": "combine",
+        "points": [[5.0, 20.0, 5.0, 20.0, 5.0, 20.0], [35.0, 20.0, 35.0, 20.0, 35.0, 20.0]] }] })
+    .to_string();
+    let wp = d.set_path("document", 0, &line).unwrap();
+    d.stroke_path("document", wp, 1, 2.0, [0, 0, 255, 255]).unwrap();
+    let t = d.flatten_tile_rgba8(0, 0).unwrap();
+    let a = |x: usize, y: usize| t[(y * TILE + x) * 4 + 3];
+    assert_eq!((a(20, 19), a(20, 20), a(20, 18), a(20, 21)), (255, 255, 0, 0));
+    assert!(d.stroke_path("document", wp, 1, 0.0, [0, 0, 0, 255]).is_err());
+}
+
+#[test]
+fn saved_and_work_paths_follow_the_panel_rules() {
+    let mut d = Document::new(40, 40, 8).unwrap();
+    let p1 = d.new_path().unwrap();
+    let wp = d.set_path("document", 0, &square(1.0, 1.0, 5.0, 5.0)).unwrap();
+    assert_eq!(d.set_path("document", 0, &square(2.0, 2.0, 6.0, 6.0)).unwrap(), wp, "one work path, replaced");
+    assert_eq!(path_names(&d), vec![("Path 1".into(), false), ("Work Path".into(), true)]);
+    d.save_path(wp).unwrap();
+    assert_eq!(path_names(&d)[1], ("Path 2".into(), false));
+    assert!(d.save_path(wp).is_err());
+    d.delete_path(p1).unwrap();
+    let wp2 = d.set_path("document", 0, &square(1.0, 1.0, 5.0, 5.0)).unwrap();
+    d.save_path(wp2).unwrap();
+    assert_eq!(path_names(&d), vec![("Path 2".into(), false), ("Path 1".into(), false)], "lowest free N");
+    d.rename_path(wp2, "Outline").unwrap();
+    assert_eq!(path_names(&d)[1].0, "Outline");
+    assert!(d.delete_path(999).is_err());
+}
+
+#[test]
+fn set_path_role_vector_mask_edits_only_the_mask_path() {
+    let mut d = Document::new(40, 40, 8).unwrap();
+    let shape = json!({ "path": serde_json::from_str::<Value>(&square(1.0, 1.0, 9.0, 9.0)).unwrap(),
+        "live": { "type": "rectangle", "bounds": [1.0, 1.0, 9.0, 9.0], "radii": [0.0, 0.0, 0.0, 0.0] },
+        "fill": { "type": "solid", "color": [1, 2, 3] }, "stroke": null });
+    let id = d.add_special(0, &json!({ "name": "s", "shape": shape }).to_string()).unwrap();
+    let vm = json!({ "path": serde_json::from_str::<Value>(&square(0.0, 0.0, 4.0, 4.0)).unwrap(), "enabled": true, "linked": true, "inverted": false, "density": 1.0, "feather": 0.0 });
+    d.set_vector_mask(id, &vm.to_string()).unwrap();
+    let before = d.role_path("shape", id).unwrap().clone();
+    d.set_path("vectorMask", id, &square(3.0, 3.0, 7.0, 7.0)).unwrap();
+    assert_eq!(d.role_path("shape", id).unwrap(), &before);
+    let Kind::Shape(s) = &d.node(id).unwrap().kind else { panic!() };
+    assert!(s.live.is_some());
+    assert_eq!(d.node(id).unwrap().vector_mask.as_ref().unwrap().path.subpaths[0].points[0][0], 3.0);
+    d.set_path("shape", id, &square(2.0, 2.0, 8.0, 8.0)).unwrap();
+    let Kind::Shape(s) = &d.node(id).unwrap().kind else { panic!() };
+    assert!(s.live.is_none(), "an edited shape path drops live");
+    assert!(d.set_path("vectorMask", 1, &square(0.0, 0.0, 1.0, 1.0)).is_err(), "layer 1 has no vector mask");
+    assert!(d.set_path("shape", 1, &square(0.0, 0.0, 1.0, 1.0)).is_err());
+    assert!(d.set_path("document", 42, &square(0.0, 0.0, 1.0, 1.0)).is_err());
+}
+
+#[test]
+fn make_work_path_traces_the_selection_and_convert_makes_a_foreground_shape() {
+    let mut d = Document::new(40, 40, 8).unwrap();
+    assert!(d.make_work_path(2.0).is_err(), "no selection");
+    d.select_rect(10.0, 10.0, 20.0, 20.0, Mode::New).unwrap();
+    let wp = d.make_work_path(2.0).unwrap();
+    let p = d.role_path("document", wp).unwrap().clone();
+    assert_eq!((p.subpaths.len(), p.subpaths[0].points.len()), (1, 4));
+    assert_eq!(d.make_work_path(50.0).unwrap(), wp, "replaces the work path");
+    let id = d.convert_path_to_shape("document", wp, [9, 8, 7]).unwrap();
+    let n = d.node(id).unwrap();
+    assert_eq!(n.name, "Shape");
+    let Kind::Shape(s) = &n.kind else { panic!() };
+    assert_eq!(s.fill, Some(FillContent::Solid(crate::content::SolidFill { color: [9, 8, 7] })));
+    assert_eq!(&s.path, d.role_path("document", wp).unwrap());
+    let empty = d.new_path().unwrap();
+    assert!(d.convert_path_to_shape("document", empty, [0, 0, 0]).is_err());
+}
+
+#[test]
+fn a_traced_ring_keeps_its_hole_under_nonzero() {
+    let mut d = Document::new(40, 40, 8).unwrap();
+    d.select_rect(5.0, 5.0, 30.0, 30.0, Mode::New).unwrap();
+    d.select_rect(15.0, 15.0, 10.0, 10.0, Mode::Subtract).unwrap();
+    let ring = d.selection_values();
+    let wp = d.make_work_path(2.0).unwrap();
+    assert_eq!(d.role_path("document", wp).unwrap().fill_rule, crate::path::FillRule::Nonzero);
+    d.make_selection_from_path("document", wp, Mode::New).unwrap();
+    assert_eq!(d.selection_values(), ring);
+}

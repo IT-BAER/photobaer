@@ -120,7 +120,8 @@ test('layout: guides, grid, resolution, artboard and saved paths survive open ->
   assert.deepEqual(m.paths.map((p: any) => [p.name, p.work]), [['Path 1', false], ['Work Path', true]]);
   // Path records are 8.24 fixed point fractions of the document size.
   m.paths[0].path.subpaths[0].points[1].forEach((v: number, i: number) => assert.ok(Math.abs(v - [50, 10, 40, 5, 60, 15][i]) < 1e-5));
-  assert.equal(m.paths[1].path.fill_rule, 'evenodd');
+  // The subpath flag is not a fill rule: saved paths import nonzero, like layer paths.
+  assert.equal(m.paths[1].path.fill_rule, 'nonzero');
   assert.equal(m.paths[1].path.subpaths[0].closed, false);
 
   const second = layersOf(first.out).m;

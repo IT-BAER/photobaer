@@ -1092,11 +1092,35 @@ fn fit_run(p: &[V], t1: V, t2: V, tol: f64, out: &mut Vec<[V; 4]>) {
     fit_run(&p[split..], -tc, t2, tol, out);
 }
 
+/// Moves each corner vertex to the crossing of the lines through its two neighbours on either
+/// side, when that is within 1 px: marching squares cuts a pixel corner into a 0.5 px chamfer.
+fn snap_corners(p: &[V], cs: &[usize]) -> Vec<V> {
+    let n = p.len();
+    let mut out = p.to_vec();
+    if n < 6 {
+        return out;
+    }
+    for &c in cs {
+        let (a0, a1, b0, b1) = (p[(c + n - 2) % n], p[(c + n - 1) % n], p[(c + 1) % n], p[(c + 2) % n]);
+        let (da, db) = (a1 - a0, b1 - b0);
+        let den = da.cross(db);
+        if den.abs() < 1e-9 {
+            continue;
+        }
+        let q = a0 + da * ((b0 - a0).cross(db) / den);
+        if (q - p[c]).len() <= 1.0 {
+            out[c] = q;
+        }
+    }
+    out
+}
+
 /// Closed loop to anchors: straight runs between corners become corner segments, the rest cubics.
 fn fit(p: &[V], tol: f64) -> Subpath {
     let n = p.len();
     let mut bz: Vec<[V; 4]> = vec![];
     let cs = if n < 4 { (0..n).collect() } else { corners(p, (2.0 * tol).max(2.0)) };
+    let p = &snap_corners(p, &cs);
     if cs.is_empty() {
         let run: Vec<V> = p.iter().chain(std::iter::once(&p[0])).copied().collect();
         let t = (p[1] - p[n - 1]).norm();
@@ -1124,10 +1148,36 @@ fn fit(p: &[V], tol: f64) -> Subpath {
     Subpath { closed: true, op: PathOp::Combine, points }
 }
 
+/// Even-odd point-in-polygon test.
+fn inside_poly(poly: &[V], q: V) -> bool {
+    let mut odd = false;
+    for i in 0..poly.len() {
+        let (a, b) = (poly[i], poly[(i + 1) % poly.len()]);
+        if (a.y > q.y) != (b.y > q.y) && q.x < a.x + (q.y - a.y) / (b.y - a.y) * (b.x - a.x) {
+            odd = !odd;
+        }
+    }
+    odd
+}
+
 /// Work path from a mask8 selection of size w x h at document (x0, y0), fit within `tol` px.
+/// Loops at even nesting depth run one way and holes the other, so the path fills nonzero.
 pub fn trace(mask: &[u8], w: usize, h: usize, x0: i32, y0: i32, tol: f64) -> VectorPath {
     let o = [x0 as f64, y0 as f64];
-    let subpaths = march(mask, w, h)
+    let mut loops = march(mask, w, h);
+    let flips: Vec<bool> = (0..loops.len())
+        .map(|i| {
+            let depth = (0..loops.len()).filter(|&j| j != i && inside_poly(&loops[j], loops[i][0])).count();
+            let area: f64 = (0..loops[i].len()).map(|k| loops[i][k].cross(loops[i][(k + 1) % loops[i].len()])).sum();
+            (area > 0.0) == (depth % 2 == 1)
+        })
+        .collect();
+    for (l, flip) in loops.iter_mut().zip(flips) {
+        if flip {
+            l.reverse();
+        }
+    }
+    let subpaths = loops
         .iter()
         .map(|l| {
             let mut s = fit(l, tol.max(0.01));
@@ -1139,7 +1189,7 @@ pub fn trace(mask: &[u8], w: usize, h: usize, x0: i32, y0: i32, tol: f64) -> Vec
             s
         })
         .collect();
-    VectorPath { fill_rule: FillRule::Evenodd, subpaths }
+    VectorPath { fill_rule: FillRule::Nonzero, subpaths }
 }
 
 #[cfg(test)]

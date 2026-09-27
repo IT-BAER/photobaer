@@ -181,6 +181,11 @@ button { font: inherit; color: inherit; }
 .layer-comp-row:hover { background: var(--panel-hi); }
 .layer-comp-row.selected { background: var(--panel-hi); font-weight: 600; }
 .layer-comp-count { color: var(--dim); }
+.path-row { align-items: center; gap: 6px; }
+.path-thumb { width: 20px; height: 16px; flex: none; border: 1px solid var(--dim); border-radius: 3px; }
+.path-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.path-action { background: none; border: 0; padding: 0; color: var(--dim); cursor: pointer; }
+.panel-empty { color: var(--dim); padding: 4px 6px; }
 
 .properties-panel, .adjustments-panel { flex-shrink: 0; padding: 6px 8px; border-bottom: 1px solid var(--line); }
 .properties-panel { max-height: 45%; overflow: auto; flex-shrink: 1; min-height: 0; }

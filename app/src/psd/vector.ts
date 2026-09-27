@@ -24,7 +24,7 @@ export function unitsPx(u: UnitsValue | undefined, res: number, def: number, non
 // ag-psd knot points are [inX, inY, x, y, outX, outY]; ours [x, y, inX, inY, outX, outY].
 // ag-psd's `fillRule` is a subpath record flag, not a fill rule: files from the reference editor
 // flag most combine subpaths even-odd yet render them nonzero (corpus clipping-mask2), so layer
-// paths import nonzero. `all` (fillStartsWithAllPixels) starts from a w x h rect.
+// and saved paths import nonzero. `all` (fillStartsWithAllPixels) starts from a w x h rect.
 export function pathIn(paths: BezierPath[], all = false, w = 0, h = 0): VPath {
   const corner = (x: number, y: number) => [x, y, x, y, x, y];
   return {
@@ -185,7 +185,6 @@ function recordsIn(dv: DataView, from: number, to: number, w: number, h: number)
     if (sel === 0 || sel === 3) {
       const op = dv.getInt16(o + 4);
       cur = { closed: sel === 0, op: OPS[op] ?? 'combine', points: [] };
-      if (!path.subpaths.length) path.fill_rule = dv.getUint16(o + 6) === 2 ? 'nonzero' : 'evenodd';
       path.subpaths.push(cur);
     } else if (sel >= 1 && sel <= 5 && sel !== 3 && cur) {
       const [iy, ix, y, x, oy, ox] = [0, 1, 2, 3, 4, 5].map(i => fx(o + 2 + i * 4) * (i % 2 ? w : h));
