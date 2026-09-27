@@ -20,6 +20,9 @@ export const EXCEPTIONS: Record<string, Allow & { why: string }> = {
   // Measured mean 1.375, max 4.271: pass-through group fill < 1 over a lighter color child below the Lum tie
   // mixes partially toward the source (docs/M1.md section 3, open). One fill value in the corpus fits no model.
   'passthrough_fill_blendmode.psd': { mean: 1.5, why: 'pass-through fill with lighter color, rule unknown' },
+  // Measured mean 1.046, over 46206: the file draws the clipped layer (black overlay) over the styled clip
+  // base, while docs/M3.md section 5 styles the base plus clipped composite (dark overlay covers it). Open decision.
+  'advanced-blending.psd': { over: 46206, mean: 1.05, why: 'styled clip base order differs from the file' },
 };
 
 // Pixels where a visible dissolve layer has partial coverage: Photoshop draws a random pattern there.
@@ -65,7 +68,7 @@ export function unsupported(psd: Psd): string | null {
   const walk = (layers: Layer[]): string | null => {
     for (const l of layers) {
       const name = `layer "${l.name}"`;
-      for (const k of ['effects', 'filterMask', 'realMask'] as const) {
+      for (const k of ['filterMask', 'realMask'] as const) {
         if (l[k] !== undefined) return `${name}: ${k}`;
       }
       // A shape layer's stored raster already has its vector mask applied; a pixel layer's does not.

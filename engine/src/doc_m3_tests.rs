@@ -745,10 +745,11 @@ fn a_styled_clipping_base_drops_its_knockout() {
     let c = d.add_layer("clipped", l).unwrap();
     d.fill(c, Target::Pixels, 0, 0, 255, 255).unwrap();
     d.set_props(c, r#"{"clipping":true}"#).unwrap();
-    // A knockout would leave the backdrop at alpha 0.5 under the half-covering base (191).
+    // A knockout would leave the backdrop at alpha 0.5 under the half-covering base.
     assert_eq!(px(&d, 1, 1)[3], 255);
     d.set_props(c, r#"{"clipping":false,"visible":false}"#).unwrap();
-    assert_eq!(px(&d, 1, 1)[3], 191, "unclipped, the same layer knocks out");
+    // The overlay raises the content alpha to 0.75 (union), over the 0.5 left: 0.875.
+    assert_eq!(px(&d, 1, 1)[3], 223, "unclipped, the same layer knocks out");
 }
 
 fn put_pattern(d: &mut Document, w: u32, h: u32, bytes: &[u8]) {
@@ -1063,4 +1064,198 @@ fn neutral_params_emit_no_adjust_step() {
         let p = Program::decode(&d.display_program(0, 0, 0, &[]).unwrap());
         assert!(p.steps.iter().all(|s| s.op != Op::Adjust), "{a}");
     }
+}
+
+// ---------- styled layers on the compositor (docs/M3.md section 5) ----------
+
+/// A pixel layer above `above` holding `rgba` on x in x0..x1, y in y0..y1.
+fn rect_layer(d: &mut Document, above: u32, [x0, y0, x1, y1]: [usize; 4], rgba: [u8; 4]) -> u32 {
+    let l = d.add_layer("r", above).unwrap();
+    let (ntx, nty) = d.level_tiles(0);
+    for ty in 0..nty {
+        for tx in 0..ntx {
+            let mut t = vec![0u8; TILE_BYTES_U8];
+            let mut any = false;
+            for p in 0..TILE_PIXELS {
+                let (x, y) = (tx as usize * TILE + p % TILE, ty as usize * TILE + p / TILE);
+                if x >= x0 && x < x1 && y >= y0 && y < y1 {
+                    t[p * 4..p * 4 + 4].copy_from_slice(&rgba);
+                    any = true;
+                }
+            }
+            if any {
+                d.set_tile_rgba8(l, tx, ty, &t).unwrap();
+            }
+        }
+    }
+    l
+}
+
+fn style_with(f: impl FnOnce(&mut Value)) -> String {
+    let mut s: Value = serde_json::from_str(&overlay_style(true)).unwrap();
+    s["color_overlays"] = json!([]);
+    f(&mut s);
+    s.to_string()
+}
+
+fn stroke_fx(size: f32, color: [u8; 3]) -> Value {
+    json!({
+        "present": true, "enabled": true, "size": size, "position": "outside", "blend": "normal",
+        "opacity": 1.0, "overprint": false, "fill": { "type": "solid", "color": color }
+    })
+}
+
+fn drop_fx(angle: f32, distance: f32, size: f32) -> Value {
+    let mut s = shadow(true);
+    s["use_global_light"] = false.into();
+    s["angle"] = angle.into();
+    s["distance"] = distance.into();
+    s["size"] = size.into();
+    s["spread"] = 0.0.into();
+    s["noise"] = 0.0.into();
+    s
+}
+
+fn overlay_fx(color: [u8; 3], opacity: f32) -> Value {
+    json!({ "present": true, "enabled": true, "blend": "normal", "opacity": opacity, "color": color })
+}
+
+#[test]
+fn styled_layer_goldens_through_the_compositor() {
+    // Stroke outside 3 on a 10x10 square over transparency: 1 at 1..3 px outside, 0 at 4 px.
+    let mut d = Document::new(40, 40, 8).unwrap();
+    let l = rect_layer(&mut d, 1, [10, 10, 20, 20], [255, 0, 0, 255]);
+    d.set_style(l, &style_with(|s| s["strokes"] = json!([stroke_fx(3.0, [0, 0, 0])]))).unwrap();
+    let row: Vec<u8> = (5..11).map(|x| px(&d, x, 15)[3]).collect();
+    assert_eq!(row, [0, 0, 255, 255, 255, 255]);
+    assert_eq!(px(&d, 8, 15), [0, 0, 0, 255]);
+    let col: Vec<u8> = (19..25).map(|y| px(&d, 15, y)[3]).collect();
+    assert_eq!(col, [255, 255, 255, 255, 0, 0]);
+    // Drop shadow angle 180 (global off), distance 5, size 0, multiply 0.75 black over white.
+    let mut d = gray_doc(40, 40, 255);
+    let l = rect_layer(&mut d, 1, [10, 10, 20, 20], [255, 0, 0, 255]);
+    d.set_style(l, &style_with(|s| s["drop_shadows"] = json!([drop_fx(180.0, 5.0, 0.0)]))).unwrap();
+    assert_eq!(px(&d, 19, 15), [255, 0, 0, 255]);
+    assert_eq!(px(&d, 22, 15), [64, 64, 64, 255]);
+    assert_eq!(px(&d, 24, 15), [64, 64, 64, 255]);
+    assert_eq!(px(&d, 25, 15), [255, 255, 255, 255]);
+    // Color overlay red at 0.25 over blue content.
+    let mut d = gray_doc(40, 40, 255);
+    let l = rect_layer(&mut d, 1, [10, 10, 20, 20], [0, 0, 255, 255]);
+    d.set_style(l, &style_with(|s| s["color_overlays"] = json!([overlay_fx([255, 0, 0], 0.25)]))).unwrap();
+    assert_eq!(px(&d, 15, 15), [64, 0, 191, 255]);
+    assert_eq!(px(&d, 5, 5), [255, 255, 255, 255]);
+}
+
+fn fx_style() -> String {
+    style_with(|s| {
+        s["drop_shadows"] = json!([drop_fx(150.0, 6.0, 4.0)]);
+        s["strokes"] = json!([stroke_fx(3.0, [0, 0, 0])]);
+    })
+}
+
+#[test]
+fn a_style_across_a_tile_border_renders_like_one_tile() {
+    // The same square inside tile 0 and across x = 256: every pixel matches, shifted.
+    let make = |x0: usize| {
+        let mut d = Document::new(300, 40, 8).unwrap();
+        let l = rect_layer(&mut d, 1, [x0, 12, x0 + 20, 28], [30, 160, 90, 255]);
+        d.set_style(l, &fx_style()).unwrap();
+        d
+    };
+    let (a, b) = (make(100), make(246));
+    for y in 0..40 {
+        for x in 80..145 {
+            assert_eq!(px(&b, x + 146, y), px(&a, x, y), "x {x} y {y}");
+        }
+    }
+    assert_eq!(px(&b, 256, 20), [30, 160, 90, 255]);
+    assert_eq!(px(&b, 244, 20), [0, 0, 0, 255], "the stroke left of the square");
+}
+
+#[test]
+fn a_styled_clip_base_styles_the_clipped_result() {
+    let mut d = gray_doc(40, 40, 255);
+    let base = rect_layer(&mut d, 1, [10, 10, 20, 20], [255, 0, 0, 255]);
+    let c = rect_layer(&mut d, base, [0, 0, 40, 15], [0, 0, 255, 255]);
+    d.set_props(c, r#"{"clipping":true}"#).unwrap();
+    assert_eq!(px(&d, 15, 12), [0, 0, 255, 255], "unstyled: the clipped layer shows");
+    d.set_style(base, &style_with(|s| {
+        s["strokes"] = json!([stroke_fx(2.0, [0, 0, 0])]);
+        s["color_overlays"] = json!([overlay_fx([0, 255, 0], 0.5)]);
+    }))
+    .unwrap();
+    // The overlay lands on the clipped result: half green over blue and over red.
+    assert_eq!(px(&d, 15, 12), [0, 128, 128, 255]);
+    assert_eq!(px(&d, 15, 17), [128, 128, 0, 255]);
+    assert_eq!(px(&d, 9, 15), [0, 0, 0, 255]);
+    assert_eq!(px(&d, 8, 15), [0, 0, 0, 255]);
+    assert_eq!(px(&d, 7, 15), [255, 255, 255, 255]);
+    assert_eq!(px(&d, 15, 5), [255, 255, 255, 255], "clipped pixels outside the base stay hidden");
+}
+
+#[test]
+fn a_styled_group_styles_its_composite() {
+    let mut d = gray_doc(40, 40, 255);
+    let a = rect_layer(&mut d, 1, [10, 10, 15, 20], [255, 0, 0, 255]);
+    let b = rect_layer(&mut d, a, [15, 10, 20, 20], [0, 0, 255, 255]);
+    let g = d.group_nodes(&[a, b]).unwrap();
+    d.set_style(g, &style_with(|s| s["strokes"] = json!([stroke_fx(2.0, [0, 0, 0])]))).unwrap();
+    let (k, w, r, u) = ([0, 0, 0, 255], [255; 4], [255, 0, 0, 255], [0, 0, 255, 255]);
+    for blend in ["pass through", "normal"] {
+        d.set_props(g, &json!({ "blend": blend }).to_string()).unwrap();
+        let row: Vec<[u8; 4]> = (7..23).map(|x| px(&d, x, 15)).collect();
+        assert_eq!(row, [w, k, k, r, r, r, r, r, u, u, u, u, u, k, k, w], "{blend}: no stroke between the children");
+    }
+}
+
+fn styled_doc() -> Document {
+    let mut d = gray_doc(600, 300, 255);
+    let l = rect_layer(&mut d, 1, [240, 100, 280, 270], [30, 160, 90, 255]);
+    d.set_style(l, &fx_style()).unwrap();
+    d.set_blending(l, &blending_with(|b| b["knockout"] = "shallow".into())).unwrap();
+    d.set_props(l, r#"{"opacity":0.8,"fill":0.6}"#).unwrap();
+    let base = rect_layer(&mut d, l, [300, 20, 380, 280], [200, 0, 0, 200]);
+    let c = rect_layer(&mut d, base, [300, 0, 600, 150], [0, 0, 255, 255]);
+    d.set_props(c, r#"{"clipping":true}"#).unwrap();
+    let mut g = glow("edge", json!({ "type": "color", "color": [255, 255, 0] }));
+    g["enabled"] = true.into();
+    d.set_style(base, &style_with(|s| s["outer_glow"] = g)).unwrap();
+    let a = rect_layer(&mut d, c, [420, 240, 520, 290], [90, 90, 0, 255]);
+    let b = rect_layer(&mut d, a, [500, 250, 590, 280], [0, 90, 90, 255]);
+    let g = d.group_nodes(&[a, b]).unwrap();
+    d.set_style(g, &style_with(|s| s["drop_shadows"] = json!([drop_fx(90.0, 9.0, 3.0)]))).unwrap();
+    d
+}
+
+#[test]
+fn styled_programs_match_the_display_tile_at_levels_0_and_2() {
+    let d = styled_doc();
+    let p = Program::decode(&d.display_program(0, 0, 0, &[]).unwrap());
+    assert!(p.steps.iter().any(|s| s.op == Op::Knockout));
+    for level in [0, 2] {
+        let (ntx, nty) = d.level_tiles(level);
+        for ty in 0..nty {
+            for tx in 0..ntx {
+                let bytes = d.display_program(level, tx, ty, &[]).unwrap();
+                let run = Document::run_program(&Program::decode(&bytes));
+                assert_eq!(quantize_premul(&run), d.display_tile(level, tx, ty).unwrap(), "level {level} tile ({tx}, {ty})");
+            }
+        }
+    }
+}
+
+#[test]
+fn styled_payload_keys_follow_the_style() {
+    let mut d = gray_doc(64, 64, 255);
+    let l = rect_layer(&mut d, 1, [10, 10, 20, 20], [255, 0, 0, 255]);
+    d.set_style(l, &fx_style()).unwrap();
+    let keys = |d: &Document| {
+        Program::decode(&d.display_program(0, 0, 0, &[]).unwrap()).payloads.iter().map(|p| p.0).collect::<Vec<_>>()
+    };
+    let first = keys(&d);
+    assert_eq!(first.len(), 3, "background, shadow and content");
+    assert_eq!(keys(&d), first, "the same style gives the same keys");
+    d.set_style(l, &style_with(|s| s["strokes"] = json!([stroke_fx(4.0, [0, 0, 0])]))).unwrap();
+    assert_ne!(keys(&d), first);
 }

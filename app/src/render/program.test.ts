@@ -134,28 +134,33 @@ test('version 2 steps carry the adjust opcode, clip flag, knockout and blend-if 
   const k = e.add_layer('k', a);
   e.fill(k, 'pixels', 0, 255, 0, 255);
   e.set_blending(k, blending('shallow', range));
-  e.set_style(k, JSON.stringify({
+  const style = JSON.stringify({
     enabled: true, scale: 1, drop_shadows: [], inner_shadows: [],
     color_overlays: [{ present: true, enabled: true, blend: 'normal', opacity: 1, color: [0, 0, 0] }],
     gradient_overlays: [], pattern_overlays: [], strokes: [], outer_glow: null, inner_glow: null,
     bevel: null, contour: null, texture: null, satin: null,
-  }));
+  });
   const c = e.add_special(k, JSON.stringify({ name: 'Invert 2', adjustment: { kind: 'invert', params: {} } }));
   e.set_props(c, JSON.stringify({ clipping: true }));
   const p = decodeProgram(e.display_program(0, 0, 0, NONE).buffer as ArrayBuffer);
   assert.deepEqual(p.steps.map(s => s.op), [
     OP.draw, OP.adjust,                                  // background, unclipped invert
-    OP.pushShape, OP.pushTransparent, OP.draw, OP.divShape, // clip base: its knockout is dropped
+    OP.pushShape, OP.pushTransparent, OP.draw, OP.divShape,
     OP.adjust, OP.mulShape, OP.draw, OP.popShape,           // clipped invert inside the share
   ]);
   const [adj, clipped] = p.steps.filter(s => s.op === OP.adjust);
   assert.equal(adj.opcode, ADJUST.invert);
   assert.deepEqual([adj.flags, clipped.flags], [0, 1]);
   assert.deepEqual([...adj.blendIf.subarray(0, 8)], [0, 128, 255, 255, 0, 0, 255, 255]);
+  // A styled clip base renders its clipping group on the CPU into one payload and drops its knockout.
+  e.set_style(k, style);
+  const s = decodeProgram(e.display_program(0, 0, 0, NONE).buffer as ArrayBuffer);
+  assert.deepEqual(s.steps.map(s => s.op), [OP.draw, OP.adjust, OP.draw]);
   e.set_props(c, JSON.stringify({ clipping: false }));
   const q = decodeProgram(e.display_program(0, 0, 0, NONE).buffer as ArrayBuffer);
   assert.deepEqual(q.steps.map(s => s.op), [OP.draw, OP.adjust, OP.knockout, OP.draw, OP.adjust]);
-  assert.equal(q.steps[2].src, q.steps[3].src, 'the knockout shape is the layer tile');
+  assert.ok(q.steps[2].src < 1n << 63n, 'the knockout shape is the layer tile');
+  assert.ok(q.steps[3].src >= 1n << 63n, 'the draw is the styled content payload');
   assert.equal(q.steps[2].scale, 1);
 });
 

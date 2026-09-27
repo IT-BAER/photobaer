@@ -38,10 +38,17 @@ test('layer opacity and an offset layer that sticks out of the canvas are render
 
 test('features the engine cannot render yet are skipped with a reason', async () => {
   const img = image(W, H, pattern);
-  const effects = { solidFill: [{ enabled: true, blendMode: 'normal' as const, opacity: 1, color: { r: 0, g: 0, b: 0 } }] };
-  const r = await checkPsd('d.psd', psd([{ name: 'bg', imageData: img, effects }], img));
+  const r = await checkPsd('d.psd', psd([{ name: 'bg', imageData: img, filterMask: { colorSpace: { r: 0, g: 0, b: 0 }, opacity: 0.5 } }], img));
   assert.equal(r.status, 'skip');
-  assert.match(r.reason!, /effects/);
+  assert.match(r.reason!, /filterMask/);
+});
+
+test('a layer style renders', async () => {
+  const img = image(W, H, pattern);
+  const black = image(W, H, () => [0, 0, 0, 255]);
+  const effects = { solidFill: [{ enabled: true, blendMode: 'normal' as const, opacity: 1, color: { r: 0, g: 0, b: 0 } }] };
+  const r = await checkPsd('d2.psd', psd([{ name: 'bg', imageData: img, effects }], black));
+  assert.equal(r.status, 'pass', JSON.stringify(r));
 });
 
 test('an adjustment layer renders', async () => {

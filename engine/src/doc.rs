@@ -24,7 +24,7 @@ use crate::livewire::{self, LiveWire};
 use crate::pattern::Pattern;
 use crate::region;
 use crate::selection::{gaussian_kernel, Ellipse, MaskShape, Mode, Polygon, Rect, Shape};
-use crate::styles::{BlendIf, Blending, Knockout, Style};
+use crate::styles::{self, BlendIf, Blending, Knockout, Style};
 #[cfg(test)]
 use crate::styles::BlendRange;
 use crate::stroke::{self, DualBrush, Dyn, PoseOverride, Sample, SampledTip, Source, Spacer, Tip, TipKind, TipShape};
@@ -1058,6 +1058,25 @@ struct Program {
     payloads: Vec<(u64, Arc<Pixels>)>,
     // `Adjust` data blocks, referenced by the step's `src`.
     data: Vec<(u64, Arc<Vec<f32>>)>,
+}
+
+/// One grid tile under a styled node's padded region: a stored or pyramid tile, or the
+/// sub-program compositing a group or clipping group there.
+enum Part {
+    Px(Arc<Pixels>),
+    Prog(Program),
+}
+
+/// A styled node's padded n x n region at (x0, y0) in level px: its parts, its mask tiles
+/// (`mask_default` is set when a mask applies) and a key over every tile read.
+struct Region {
+    x0: i64,
+    y0: i64,
+    n: usize,
+    parts: Vec<(i64, i64, Part)>,
+    masks: Vec<(i64, i64, Arc<Pixels>)>,
+    mask_default: Option<f32>,
+    key: u64,
 }
 
 fn put32(out: &mut Vec<u8>, v: u32) {
@@ -3219,23 +3238,7 @@ impl Document {
     /// Tight bounds of the layer's non-transparent pixels as [x, y, w, h], canvas coordinates
     /// that may be negative or reach past the canvas.
     pub fn layer_bounds(&self, id: u32) -> Result<Option<[i32; 4]>, String> {
-        let tiles = self.node(id)?.pixel_tiles()?;
-        let mut bb: Option<(i32, i32, i32, i32)> = None;
-        for (tx, ty) in tiles.coords() {
-            let px = &tiles.get(tx, ty).expect("a listed tile").px;
-            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
-            for p in 0..TILE_PIXELS {
-                if px.rgba_f32(p)[3] <= 0.0 {
-                    continue;
-                }
-                let (gx, gy) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
-                bb = Some(match bb {
-                    None => (gx, gy, gx + 1, gy + 1),
-                    Some(b) => (b.0.min(gx), b.1.min(gy), b.2.max(gx + 1), b.3.max(gy + 1)),
-                });
-            }
-        }
-        Ok(bb.map(|(x0, y0, x1, y1)| [x0, y0, x1 - x0, y1 - y0]))
+        Ok(tiles_bounds(self.node(id)?.pixel_tiles()?))
     }
 
     // Every tile of `src` moved by (dx, dy); a missing source tile reads as empty or as the
@@ -3643,6 +3646,11 @@ impl Document {
     }
 
     fn emit_node(&self, node: &Node, scale: f32, mode: Blend, clipped: bool, prog: &mut Program) {
+        if let Some(style) = node.style.as_ref().filter(|s| s.any_effect()) {
+            if !matches!(node.kind, Kind::Adjustment(_)) {
+                return self.emit_styled(node, style, None, mode, prog);
+            }
+        }
         let (mk, mkey, mc) = self.node_mask(node, prog);
         if mode == Blend::PassThrough {
             let Kind::Group(children) = &node.kind else { return };
@@ -3694,10 +3702,18 @@ impl Document {
     // S is B's coverage. B's share of each pixel is divided by S, the clipped nodes draw onto it
     // normally, and the result is multiplied by S again (source-atop at full fill).
     fn emit_clipping(&self, base: &Node, clipped: &[Node], prog: &mut Program) {
+        match base.style.as_ref().filter(|s| s.any_effect()) {
+            Some(style) => self.emit_styled(base, style, Some(clipped), base.blend, prog),
+            None => self.clip_steps(base, clipped, base.fill, base.opacity, base.blend, prog),
+        }
+    }
+
+    // `emit_clipping` with the base drawn at `fill`, then composited at `opacity` in `blend`.
+    fn clip_steps(&self, base: &Node, clipped: &[Node], fill: f32, opacity: f32, blend: Blend, prog: &mut Program) {
         let (mk, mkey, mc) = self.node_mask(base, prog);
-        let pass = base.blend == Blend::PassThrough;
+        let pass = blend == Blend::PassThrough;
         // A pass-through base stays in place, so its opacity and fill are part of its share.
-        let k = if pass { base.opacity * base.fill } else { 1.0 };
+        let k = if pass { opacity * fill } else { 1.0 };
         let mut shape = Step::new(Op::PushShape);
         (shape.mask_kind, shape.mask, shape.mask_const, shape.scale) = (mk, mkey, mc, k);
         match &base.kind {
@@ -3709,7 +3725,7 @@ impl Document {
                 prog.steps.push(Step::new(Op::PushTransparent));
                 let mut s = Step::new(Op::Draw);
                 (s.src, s.mask_kind, s.mask, s.mask_const, s.scale, s.node) =
-                    (src, mk, mkey, mc, base.fill, base.id);
+                    (src, mk, mkey, mc, fill, base.id);
                 prog.steps.push(s);
             }
             Kind::Group(children) if !pass => {
@@ -3718,7 +3734,7 @@ impl Document {
                 self.emit_list(children, prog);
                 prog.steps.push(shape);
                 let mut s = Step::new(Op::Draw);
-                (s.mask_kind, s.mask, s.mask_const, s.scale, s.node) = (mk, mkey, mc, base.fill, base.id);
+                (s.mask_kind, s.mask, s.mask_const, s.scale, s.node) = (mk, mkey, mc, fill, base.id);
                 prog.steps.push(s);
             }
             Kind::Group(children) => {
@@ -3746,10 +3762,221 @@ impl Document {
             prog.steps.push(Step::new(Op::PopAddBackdrop));
         } else {
             let mut s = Step::new(Op::Draw);
-            (s.scale, s.mode, s.node) = (base.opacity, base.blend, base.id);
+            (s.scale, s.mode, s.node) = (opacity, blend, base.id);
             prog.steps.push(s);
         }
         prog.steps.push(Step::new(Op::PopShape));
+    }
+
+    // A stored tile at level 0 (anywhere on the grid), else a pyramid tile inside the document.
+    fn region_tile(&self, tiles: &Tiles, mask_default: Option<u32>, level: u32, i: i64, j: i64) -> Option<(u64, Arc<Pixels>)> {
+        if level == 0 {
+            return tiles.get(i as i32, j as i32).map(|t| (t.id, t.px.clone()));
+        }
+        if i < 0 || j < 0 {
+            return None;
+        }
+        self.level_tile(tiles, mask_default, level, i as u32, j as u32)
+    }
+
+    // The tiles under a styled node's padded region; none when the node has no content there.
+    // A clipping base (`clipped` set) composites with its clipped layers and carries its mask.
+    fn styled_region(&self, node: &Node, clipped: Option<&[Node]>, level: u32, x0: i64, y0: i64, n: usize) -> Option<Region> {
+        let t = TILE as i64;
+        let (ntx, nty) = self.level_tiles(level);
+        let in_doc = |i: i64, j: i64| i >= 0 && j >= 0 && i < ntx as i64 && j < nty as i64;
+        let mask = node.mask.as_ref().filter(|m| m.enabled && clipped.is_none());
+        let mut key = mix(0x57E1_ED00_0000_0001, n as u64);
+        let (mut parts, mut masks) = (Vec::new(), Vec::new());
+        for j in y0.div_euclid(t)..=(y0 + n as i64 - 1).div_euclid(t) {
+            for i in x0.div_euclid(t)..=(x0 + n as i64 - 1).div_euclid(t) {
+                let sub = |f: &dyn Fn(&mut Program)| {
+                    let mut p = self.blank_program(level, i as u32, j as u32);
+                    f(&mut p);
+                    let known: Vec<u64> = p.payloads.iter().map(|x| x.0).chain(p.data.iter().map(|x| x.0)).collect();
+                    (mix_bytes(0x5B, &p.encode(&known)), Part::Prog(p))
+                };
+                let part = match (&node.kind, clipped) {
+                    (_, Some(c)) if in_doc(i, j) => Some(sub(&|p| self.clip_steps(node, c, node.fill, 1.0, Blend::Normal, p))),
+                    (Kind::Group(children), None) if in_doc(i, j) => Some(sub(&|p| self.emit_list(children, p))),
+                    (Kind::Fill(c), None) if in_doc(i, j) => {
+                        self.fill_tile(c, level, i as u32, j as u32).map(|(k, px)| (k, Part::Px(px)))
+                    }
+                    (Kind::Pixel(_) | Kind::Smart(_), None) => {
+                        self.region_tile(node.pixel_tiles().ok()?, None, level, i, j).map(|(k, px)| (k, Part::Px(px)))
+                    }
+                    _ => None,
+                };
+                key = mix(key, part.as_ref().map_or(0, |p| p.0));
+                parts.extend(part.map(|(_, p)| (i, j, p)));
+                if let Some(m) = mask {
+                    let mt = self.region_tile(&m.tiles, Some(m.default), level, i, j);
+                    key = mix(key, mt.as_ref().map_or(0, |t| t.0));
+                    masks.extend(mt.map(|(_, px)| (i, j, px)));
+                }
+            }
+        }
+        if parts.is_empty() {
+            return None;
+        }
+        let mask_default = mask.map(|m| m.default as f32 / max_value(self.depth) as f32);
+        key = mix(key, mask_default.map_or(u64::MAX, |d| d.to_bits() as u64));
+        Some(Region { x0, y0, n, parts, masks, mask_default, key })
+    }
+
+    // Straight RGBA of a region with alpha times the mask, and the mask plane.
+    fn region_pixels(r: &Region) -> (Vec<[f32; 4]>, Option<styles::Plane>) {
+        let n = r.n;
+        let mut content = vec![[0f32; 4]; n * n];
+        for (i, j, part) in &r.parts {
+            let run;
+            let src = match part {
+                Part::Px(px) => Src::Tile(px),
+                Part::Prog(p) => {
+                    run = Document::run_program(p);
+                    Src::Buf(&run)
+                }
+            };
+            overlap(r.x0, r.y0, n, *i, *j).for_each(|(d, s)| content[d] = src.at(s));
+        }
+        let mask = r.mask_default.map(|def| {
+            let mut m = styles::Plane { w: n, h: n, v: vec![def; n * n] };
+            for (i, j, px) in &r.masks {
+                overlap(r.x0, r.y0, n, *i, *j).for_each(|(d, s)| m.v[d] = px.mask_f32(s));
+            }
+            content.iter_mut().zip(&m.v).for_each(|(c, k)| c[3] *= k);
+            m
+        });
+        (content, mask)
+    }
+
+    // The layer bounds box effects read (document px) and a key for it: tight pixel bounds for
+    // pixel and smart layers, the document for fills and groups. Only computed when read.
+    fn style_bounds(&self, node: &Node, style: &Style) -> ([f64; 4], u64) {
+        let reads = !node.blending.transparency_shapes
+            || !style.gradient_overlays.is_empty()
+            || !style.pattern_overlays.is_empty()
+            || style.texture.is_some()
+            || style.strokes.iter().any(|s| !matches!(s.fill, FillContent::Solid(_)));
+        if !reads {
+            return ([0.0; 4], 0);
+        }
+        match node.pixel_tiles() {
+            // ponytail: scans every tile per rendered display tile; cache by key if it shows up in profiles.
+            Ok(tiles) => {
+                let key = tiles.iter().fold(1, |k, ((x, y), t)| k ^ mix(mix(t.id, *x as u64), *y as u64));
+                (tiles_bounds(tiles).map_or([0.0; 4], |b| b.map(|v| v as f64)), key)
+            }
+            Err(_) => ([0.0, 0.0, self.width as f64, self.height as f64], 2),
+        }
+    }
+
+    /// A styled node (docs/M3.md section 5) on the program's tile: its padded region (the tile
+    /// grown by the style's reach) goes through `render_layer`; the centre crops of the behind
+    /// planes and the styled content become payload tiles drawn by `Draw` after the `Knockout`.
+    /// Level L scales every px parameter by 2^-L. `clipped` is set for a clipping base.
+    fn emit_styled(&self, node: &Node, style: &Style, clipped: Option<&[Node]>, mode: Blend, prog: &mut Program) {
+        let (level, tx, ty) = (prog.level, prog.tx, prog.ty);
+        let k = 0.5f32.powi(level as i32);
+        let style = Style { scale: style.scale * k, ..style.clone() };
+        let pad = styles::reach(&style) as usize;
+        let n = TILE + 2 * pad;
+        let (x0, y0) = (tx as i64 * TILE as i64 - pad as i64, ty as i64 * TILE as i64 - pad as i64);
+        let mode = if mode == Blend::PassThrough { Blend::Normal } else { mode };
+        let fill = if clipped.is_some() { 1.0 } else { node.fill };
+        let group_knock = matches!(node.kind, Kind::Group(_)) && Document::knocks_out(node);
+        let Some(region) = self.styled_region(node, clipped, level, x0, y0, n) else { return };
+        let (bounds, bounds_key) = self.style_bounds(node, &style);
+
+        let mut key = mix_bytes(0x57E1_ED00_0000_0002, serde_json::to_string(&style).expect("style serializes").as_bytes());
+        key = mix_bytes(key, serde_json::to_string(&node.blending).expect("blending serializes").as_bytes());
+        let light = [self.global_light.angle.to_bits(), self.global_light.altitude.to_bits()];
+        for v in [fill.to_bits(), mode.index() as u32, light[0], light[1], self.width, self.height, self.depth as u32] {
+            key = mix(key, v as u64);
+        }
+        for p in &self.patterns {
+            key = mix(mix(mix(mix_bytes(key, p.id.as_bytes()), p.blob), p.width as u64), p.height as u64);
+        }
+        for v in [region.key, bounds_key, level as u64, tx as u64, ty as u64, group_knock as u64] {
+            key = mix(key, v);
+        }
+        let live = |present: bool, enabled: bool| style.enabled && present && enabled;
+        let behind: Vec<(Blend, f32)> = style
+            .drop_shadows
+            .iter()
+            .filter(|e| live(e.present, e.enabled))
+            .map(|e| (e.blend, e.opacity))
+            .chain(style.outer_glow.iter().filter(|e| live(e.present, e.enabled)).map(|e| (e.blend, e.opacity)))
+            .collect();
+        let keys: Vec<u64> =
+            (0..behind.len() + 1 + group_knock as usize).map(|i| mix(key, i as u64) | (1 << 63)).collect();
+        let random = style.drop_shadows.iter().chain(&style.inner_shadows).any(|e| e.noise > 0.0)
+            || style.outer_glow.iter().chain(&style.inner_glow).any(|e| e.noise > 0.0 || e.jitter > 0.0);
+        let hits: Option<Vec<Arc<Pixels>>> =
+            if random { None } else { keys.iter().map(|k| self.tile_cache.borrow_mut().get(*k)).collect() };
+        let planes = hits.unwrap_or_else(|| {
+            let (content, mask) = Document::region_pixels(&region);
+            let cx = styles::Ctx {
+                origin: [x0 as i32, y0 as i32],
+                scale: 1.0,
+                light: &self.global_light,
+                patterns: &self.patterns,
+                blobs: &self.blobs,
+                bounds: bounds.map(|v| v * k as f64),
+                doc: [self.width as f64 * k as f64, self.height as f64 * k as f64],
+            };
+            let layer = styles::Layer {
+                w: n,
+                h: n,
+                content: &content,
+                blend: mode,
+                fill,
+                blending: &node.blending,
+                layer_mask: mask.as_ref(),
+                vector_mask: None,
+            };
+            let r = styles::render_layer(&style, &layer, &cx);
+            debug_assert!(r.behind.iter().map(|b| (b.blend, b.opacity)).eq(behind.iter().copied()));
+            let crop = |p: &[[f32; 4]]| {
+                let v: Vec<f32> = (0..TILE).flat_map(|y| p[(y + pad) * n + pad..(y + pad) * n + pad + TILE].iter().flatten().copied()).collect();
+                Arc::new(Pixels::from_straight(self.depth, &v))
+            };
+            let mut planes: Vec<Arc<Pixels>> = r.behind.iter().map(|b| crop(&b.rgba)).chain([crop(&r.content)]).collect();
+            if group_knock {
+                planes.push(crop(&content));
+            }
+            if !random {
+                let mut cache = self.tile_cache.borrow_mut();
+                keys.iter().zip(&planes).for_each(|(k, p)| cache.insert(*k, p.clone(), level));
+            }
+            planes
+        });
+
+        if clipped.is_none() && Document::knocks_out(node) {
+            // Layers knock out by their content tile and mask, groups by their composite.
+            let (src, (mk, mkey, mc)) = if group_knock {
+                (Some(self.payload(prog, (keys[behind.len() + 1], planes[behind.len() + 1].clone()))), (0, 0, 0.0))
+            } else {
+                (self.node_src(node, prog), self.node_mask(node, prog))
+            };
+            if let Some(src) = src {
+                let mut s = Step::new(Op::Knockout);
+                (s.src, s.mask_kind, s.mask, s.mask_const, s.scale) = (src, mk, mkey, mc, node.opacity);
+                prog.steps.push(s);
+            }
+        }
+        let draws = behind.iter().copied().chain([(mode, 1.0)]).enumerate();
+        for (i, (blend, opacity)) in draws {
+            if !planes[i].any_alpha() {
+                continue;
+            }
+            let mut s = Step::new(Op::Draw);
+            (s.src, s.scale, s.mode, s.node) = (self.payload(prog, (keys[i], planes[i].clone())), opacity * node.opacity, blend, node.id);
+            if i == behind.len() {
+                s.blend_if = node.blending.blend_if.clone();
+            }
+            prog.steps.push(s);
+        }
     }
 
     fn emit_list(&self, nodes: &[Node], prog: &mut Program) {
@@ -3776,8 +4003,14 @@ impl Document {
         if level > 8 {
             return Err("level must be <= 8".into());
         }
+        let mut prog = self.blank_program(level, tx, ty);
+        self.emit_list(&self.nodes, &mut prog);
+        Ok(prog)
+    }
+
+    fn blank_program(&self, level: u32, tx: u32, ty: u32) -> Program {
         let (vw, vh) = self.level_valid(level, tx, ty);
-        let mut prog = Program {
+        Program {
             level,
             tx,
             ty,
@@ -3788,9 +4021,7 @@ impl Document {
             steps: Vec::new(),
             payloads: Vec::new(),
             data: Vec::new(),
-        };
-        self.emit_list(&self.nodes, &mut prog);
-        Ok(prog)
+        }
     }
 
     /// One display tile as premultiplied f32 RGBA, by running its draw program.
@@ -3955,6 +4186,44 @@ impl Document {
         };
         Some(t.1.to_bytes())
     }
+}
+
+/// Tight bounds [x, y, w, h] of the non-transparent pixels of `tiles`.
+fn tiles_bounds(tiles: &Tiles) -> Option<[i32; 4]> {
+    let mut bb: Option<(i32, i32, i32, i32)> = None;
+    for (tx, ty) in tiles.coords() {
+        let px = &tiles.get(tx, ty).expect("a listed tile").px;
+        let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+        for p in 0..TILE_PIXELS {
+            if px.rgba_f32(p)[3] <= 0.0 {
+                continue;
+            }
+            let (gx, gy) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
+            bb = Some(match bb {
+                None => (gx, gy, gx + 1, gy + 1),
+                Some(b) => (b.0.min(gx), b.1.min(gy), b.2.max(gx + 1), b.3.max(gy + 1)),
+            });
+        }
+    }
+    bb.map(|(x0, y0, x1, y1)| [x0, y0, x1 - x0, y1 - y0])
+}
+
+// Region index and tile index of every pixel tile (i, j) shares with the n x n square at (x0, y0).
+fn overlap(x0: i64, y0: i64, n: usize, i: i64, j: i64) -> impl Iterator<Item = (usize, usize)> {
+    let t = TILE as i64;
+    let (xa, xb) = ((i * t).max(x0), ((i + 1) * t).min(x0 + n as i64));
+    let (ya, yb) = ((j * t).max(y0), ((j + 1) * t).min(y0 + n as i64));
+    (ya..yb).flat_map(move |gy| {
+        (xa..xb).map(move |gx| (((gy - y0) * n as i64 + gx - x0) as usize, ((gy - j * t) * t + gx - i * t) as usize))
+    })
+}
+
+fn mix_bytes(key: u64, bytes: &[u8]) -> u64 {
+    bytes.chunks(8).fold(mix(key, bytes.len() as u64), |k, c| {
+        let mut w = [0u8; 8];
+        w[..c.len()].copy_from_slice(c);
+        mix(k, u64::from_le_bytes(w))
+    })
 }
 
 fn quantize_premul(out: &[f32]) -> Option<Vec<u8>> {
