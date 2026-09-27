@@ -120,3 +120,5 @@ export interface GradientParams {
 export type TransformKind = 'layer' | 'pixels' | 'selection';
 export type TransformOp = number[] | string;
 export type Box = [number, number, number, number];
+// A registered font face (engine font registry); `source` says where its bytes came from.
+export interface FaceInfo { id: number; family: string; style: string; weight: number; italic: boolean; postscript: string; source: 'bundled' | 'local' | 'upload'; color: boolean }

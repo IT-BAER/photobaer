@@ -5,7 +5,7 @@ import { tileIds } from './project.ts';
 interface Session { seq: number; key: string; name: string; manifest: string }
 interface SyncHandle { truncate(n: number): void; write(d: Uint8Array, o: { at: number }): number; flush(): void; close(): void }
 
-async function writeFile(dir: FileSystemDirectoryHandle, name: string, data: Uint8Array) {
+export async function writeFile(dir: FileSystemDirectoryHandle, name: string, data: Uint8Array) {
   const fh = await dir.getFileHandle(name, { create: true });
   const h = await (fh as unknown as { createSyncAccessHandle(): Promise<SyncHandle> }).createSyncAccessHandle();
   try {

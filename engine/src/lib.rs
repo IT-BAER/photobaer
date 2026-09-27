@@ -2,6 +2,7 @@ mod adjust;
 mod blend;
 mod content;
 mod doc;
+mod font;
 mod gradient;
 mod livewire;
 mod geom;
@@ -877,5 +878,52 @@ impl Engine {
     /// `quad` is flat x0, y0 .. x3, y3 for the corners that map to (0,0), (W,0), (W,H), (0,H).
     pub fn perspective_crop(&mut self, quad: Vec<f64>, out_w: u32, out_h: u32, interp: &str) -> Result<(), JsError> {
         self.0.doc.perspective_crop(&quad, out_w, out_h, Interp::parse(interp).map_err(err)?).map_err(err)
+    }
+}
+
+/// App-scope font registry (one per worker, shared by every document).
+#[wasm_bindgen]
+#[derive(Default)]
+pub struct Fonts(font::Registry);
+
+#[wasm_bindgen]
+impl Fonts {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Fonts {
+        Fonts::default()
+    }
+
+    /// Registers a font file; returns the added faces as JSON `[{ id, family, style, weight, italic, postscript, source, color }]`.
+    pub fn add(&mut self, bytes: Vec<u8>, source: &str) -> Result<String, JsError> {
+        let faces = self.0.add(bytes, source).map_err(err)?;
+        Ok(serde_json::to_string(&faces).unwrap())
+    }
+
+    pub fn faces_json(&self) -> String {
+        serde_json::to_string(&self.0.faces()).unwrap()
+    }
+
+    pub fn families_json(&self) -> String {
+        serde_json::to_string(&self.0.families()).unwrap()
+    }
+
+    /// Face id for a family (or PostScript name) and style; undefined when the family is missing.
+    pub fn resolve(&self, family: &str, style: &str) -> Option<u32> {
+        self.0.resolve(family, style)
+    }
+
+    /// Face id per character of `text` with the default fallback chain; -1 where no face draws it.
+    pub fn char_faces(&self, face: u32, text: &str) -> Vec<i32> {
+        self.0.fallback_faces(face, text).into_iter().map(|f| f.map_or(-1, |f| f as i32)).collect()
+    }
+
+    /// `pairs` is JSON `[[family, style], ...]`; returns the pairs whose family resolves to no face.
+    pub fn missing_json(&self, pairs: &str) -> Result<String, JsError> {
+        let pairs: Vec<(String, String)> = serde_json::from_str(pairs).map_err(|e| err(e.to_string()))?;
+        Ok(serde_json::to_string(&self.0.missing(&pairs)).unwrap())
+    }
+
+    pub fn default_family(&self, family: &str) -> Option<String> {
+        self.0.default_family(family)
     }
 }

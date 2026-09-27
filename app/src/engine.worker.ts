@@ -1,4 +1,5 @@
-import init, { Engine } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts } from './engine-pkg/photobaer_engine.js';
+import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
 import { packProject, unpackProject, tileIds } from './project.ts';
@@ -8,7 +9,7 @@ import { denormalize, isIdentity } from './transform/matrix.ts';
 import { patternRefs, type Blending, type LayerStyle } from './layerStyle.ts';
 import type { PatternRecord } from './brushes/preset.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
-import type { Adjustment, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, LayerNode, OpenResult, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, WorkerEvent } from './worker/types.ts';
+import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, LayerNode, OpenResult, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, WorkerEvent } from './worker/types.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
@@ -40,6 +41,10 @@ let moveSession: { liveBase: number; targetId: number; duplicated: boolean; last
 let transformSession: { id: number; kind: TransformKind; hidden: number; refined: TransformOp | null; base: number | null; label: string | null } | null = null;
 // Copy Layer Style's clipboard: the style JSON only (never blending options), kept across documents.
 let styleClipboard: string | null = null;
+// Font registry and upload store: app scope, kept across documents; created on first use (after WASM init).
+let fonts: Fonts | null = null;
+const fontReg = () => fonts ??= new Fonts();
+let fontStore: Promise<FontStore | null> | null = null;
 // Open live-preview session (Fill/Stroke dialogs): one history step, rerun from its start on every change.
 let previewOpen = false;
 let previewError: string | null = null;
@@ -1523,6 +1528,28 @@ const api = {
     if (autosave) emit('idle');
     return null;
   },
+
+  // Font registry (app scope, FONT_OPS): faces from bundled, local and uploaded files.
+  fontAdd(bytes: ArrayBuffer | Uint8Array, source: 'bundled' | 'local' | 'upload'): FaceInfo[] {
+    return JSON.parse(fontReg().add(new Uint8Array(bytes), source));
+  },
+  // Parsed before storing, so a file that is not a font is never kept.
+  async fontUpload(name: string, bytes: ArrayBuffer | Uint8Array): Promise<FaceInfo[]> {
+    const faces = api.fontAdd(bytes, 'upload');
+    await (await (fontStore ??= FontStore.open()))?.put(name, new Uint8Array(bytes));
+    return faces;
+  },
+  // Registers every stored upload (boot); unreadable files are skipped.
+  async fontRestore(): Promise<FaceInfo[]> {
+    const out: FaceInfo[] = [];
+    for (const u of await (await (fontStore ??= FontStore.open()))?.all() ?? []) {
+      try { out.push(...api.fontAdd(u.bytes, 'upload')); } catch { /* not a font any more: skipped */ }
+    }
+    return out;
+  },
+  fontFaces(): FaceInfo[] { return JSON.parse(fontReg().faces_json()); },
+  fontFamilies(): string[] { return JSON.parse(fontReg().families_json()); },
+  fontMissing(pairs: [string, string][]): [string, string][] { return JSON.parse(fontReg().missing_json(JSON.stringify(pairs))); },
 };
 
 export type Api = typeof api;
@@ -1542,6 +1569,8 @@ const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', '
 const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels']);
 // An open move session commits before any other op, so history never sees a half move.
 const MOVE_OPS = new Set<keyof Api>(['moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels']);
+// App-scope font calls: never refused for a stale document id and never close an open session.
+const FONT_OPS = new Set<keyof Api>(['fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing']);
 // An open transform session is cancelled by any other op: only the UI knows its current matrix.
 const TRANSFORM_OPS = new Set<keyof Api>(['transformRefine', 'transformUnrefine', 'transformCommit', 'transformCancel', 'transformWarp', 'sample', 'snapTargets', 'movingBounds', 'selectionAt', 'patternPixels']);
 
@@ -1555,6 +1584,7 @@ onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[]; doc?
   const { id, op, args, doc } = ev.data;
   if (op === 'displayTile' || op === 'displayProgram' || op === 'selectionMask' || op === 'colorRangePreview') { void handle(id, op, args); return; }
   queue = queue.then(() => {
+    if (FONT_OPS.has(op)) return handle(id, op, args);
     if (doc !== undefined && doc !== docId) { postMessage({ id, error: 'The document changed before this command ran, so it was not applied.', docId }); return; }
     // Any other op queued while a stroke is open first commits it, so undo/save never see a half stroke.
     if (strokeOpen && !STROKE_OPS.has(op) && eng) { eng.stroke_end(); strokeOpen = false; history.commit(); changed(); }

@@ -1216,6 +1216,22 @@ test('a command stamped with the parent document is refused once Edit Contents r
   await call('smartEditClose', 'discard');
 });
 
+test('font calls are app scope and are not refused after the document changes', async () => {
+  await call('init');
+  const old = (await call('newDoc', 8, 8, 8, [255, 255, 255, 255])).result as { docId: number };
+  await call('newDoc', 8, 8, 8, [255, 255, 255, 255]);
+  const bytes = readFileSync(new URL('../public/fonts/NotoSans-Bold.ttf', import.meta.url));
+  const added = await callAt(old.docId, 'fontAdd', bytes, 'bundled');
+  assert.equal(added.error, undefined);
+  assert.deepEqual((added.result as { family: string; style: string }[]).map(f => [f.family, f.style]), [['Noto Sans', 'Bold']]);
+  const fam = await callAt(old.docId, 'fontFamilies');
+  assert.ok((fam.result as string[]).includes('Noto Sans'));
+  assert.deepEqual((await call('fontMissing', [['Noto Sans', 'Regular'], ['Helvetica', 'Bold']])).result, [['Helvetica', 'Bold']]);
+  const up = await call('fontUpload', 'x.txt', new Uint8Array([1, 2, 3]));
+  assert.match(up.error ?? '', /not a supported font/);
+  assert.match((await callAt(old.docId, 'command', 'fill', 1, 'pixels', [0, 0, 0, 255])).error ?? '', /document changed/);
+});
+
 test('Edit Contents save returns export warnings and writes back only when accepted; close can discard', async () => {
   const src = new Engine(4, 4, 8);
   src.set_tile_rgba8(1, 0, 0, new Uint8Array(256 * 256 * 4).fill(200));
