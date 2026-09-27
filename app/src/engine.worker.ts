@@ -38,6 +38,7 @@ export interface DocInfo {
   selGen: number;
   channels: { id: number; name: string }[];
   patterns: { id: string; name: string }[];
+  layerComps: { id: number; name: string; layerCount: number }[];
 }
 export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?: number; w?: number; h?: number; points?: number[] };
 export type OpenResult = DocInfo & { warnings: string[] };
@@ -117,6 +118,7 @@ function info(): DocInfo | null {
     has_last_selection: boolean;
     channels: { id: number; name: string }[];
     patterns: { id: string; name: string }[];
+    layer_comps: { id: number; name: string; layer_count: number }[];
   };
   return {
     docId, version, name,
@@ -129,7 +131,13 @@ function info(): DocInfo | null {
     selGen,
     channels: ch.channels,
     patterns: ch.patterns,
+    layerComps: ch.layer_comps.map(c => ({ id: c.id, name: c.name, layerCount: c.layer_count })),
   };
+}
+
+function nextCompName(): string {
+  const used = new Set((JSON.parse(need().channels_json()) as { layer_comps: { name: string }[] }).layer_comps.map(c => c.name));
+  for (let i = 1; ; i++) if (!used.has(`Layer Comp ${i}`)) return `Layer Comp ${i}`;
 }
 
 function nextName(prefix: string): string {
@@ -315,6 +323,28 @@ function loadEngine(manifest: string, tile: (id: number) => Uint8Array) {
 
 function tileLoop(w: number, h: number, fn: (tx: number, ty: number) => void) {
   for (let ty = 0; ty < Math.ceil(h / 256); ty++) for (let tx = 0; tx < Math.ceil(w / 256); tx++) fn(tx, ty);
+}
+
+// Flattens `e`'s composite into an encoded image; JPEG has no alpha, so it flattens onto white.
+async function encodeFlattened(e: Engine, type: 'image/png' | 'image/jpeg' | 'image/webp', quality?: number) {
+  const w = e.width(), h = e.height();
+  const c = new OffscreenCanvas(w, h);
+  const ctx = c.getContext('2d')!;
+  tileLoop(w, h, (tx, ty) => {
+    const px = e.flatten_tile_rgba8(tx, ty);
+    ctx.putImageData(new ImageData(new Uint8ClampedArray(px.buffer as ArrayBuffer, px.byteOffset, px.length), 256, 256), tx * 256, ty * 256);
+  });
+  let out: OffscreenCanvas = c;
+  if (type === 'image/jpeg') {
+    out = new OffscreenCanvas(w, h);
+    const o = out.getContext('2d')!;
+    o.fillStyle = '#fff';
+    o.fillRect(0, 0, w, h);
+    o.drawImage(c, 0, 0);
+  }
+  const blob = await out.convertToBlob({ type, quality });
+  if (blob.type !== type) throw new Error(`${type} export is not supported by this browser`);
+  return blob;
 }
 
 type Sparse = [number, number, number][];
@@ -1095,6 +1125,35 @@ const api = {
     return changed();
   },
 
+  // Window > Layer Comps footer "+": snapshots every layer under "Layer Comp N" (lowest free N).
+  captureLayerComp() {
+    const e = need();
+    let created = 0;
+    history.run('New Layer Comp', () => { created = e.capture_layer_comp(nextCompName()); });
+    return { ...changed(), created };
+  },
+
+  applyLayerComp(id: number) {
+    const e = need();
+    history.run('Apply Layer Comp', () => e.apply_layer_comp(id));
+    return changed();
+  },
+
+  deleteLayerComp(id: number) {
+    const e = need();
+    history.run('Delete Layer Comp', () => e.delete_layer_comp(id));
+    return changed();
+  },
+
+  // Layer Comps panel options: name, comment and the three apply flags.
+  updateLayerComp(id: number, options: { name?: string; comment?: string; applyVisibility?: boolean; applyPosition?: boolean; applyAppearance?: boolean }) {
+    const e = need();
+    const { applyVisibility, applyPosition, applyAppearance, ...rest } = options;
+    const json = { ...rest, apply_visibility: applyVisibility, apply_position: applyPosition, apply_appearance: applyAppearance };
+    history.run('Layer Comp Options', () => e.update_layer_comp(id, JSON.stringify(json)));
+    return changed();
+  },
+
   // Mean RGBA over an odd-sized box centered on (x, y), clamped to the canvas; layerId null
   // samples the flattened composite of all layers, else that layer's own pixels.
   sample(x: number, y: number, size: number, layerId: number | null): [number, number, number, number] {
@@ -1193,26 +1252,27 @@ const api = {
   },
 
   async exportImage(type: 'image/png' | 'image/jpeg' | 'image/webp', quality?: number) {
+    return encodeFlattened(need(), type, quality);
+  },
+
+  // File > Export > Layer Comps to Files: applies each comp to a clone of the document, flattens
+  // and encodes it, and discards the clone; the open document stays unchanged. TIFF is not
+  // available through the browser's canvas encoder, so only PNG/JPEG/WebP are offered.
+  async exportLayerCompsToFiles(type: 'image/png' | 'image/jpeg' | 'image/webp', quality?: number) {
     const e = need();
-    const w = e.width(), h = e.height();
-    const c = new OffscreenCanvas(w, h);
-    const ctx = c.getContext('2d')!;
-    tileLoop(w, h, (tx, ty) => {
-      const px = e.flatten_tile_rgba8(tx, ty);
-      ctx.putImageData(new ImageData(new Uint8ClampedArray(px.buffer as ArrayBuffer, px.byteOffset, px.length), 256, 256), tx * 256, ty * 256);
-    });
-    let out = c;
-    if (type === 'image/jpeg') {
-      // JPEG has no alpha: flatten onto white like other editors do.
-      out = new OffscreenCanvas(w, h);
-      const o = out.getContext('2d')!;
-      o.fillStyle = '#fff';
-      o.fillRect(0, 0, w, h);
-      o.drawImage(c, 0, 0);
+    const manifest = e.manifest();
+    const comps = (JSON.parse(e.channels_json()) as { layer_comps: { id: number; name: string }[] }).layer_comps;
+    const files: { name: string; blob: Blob }[] = [];
+    for (const c of comps) {
+      const clone = loadEngine(manifest, id => e.tile_bytes(BigInt(id)));
+      try {
+        clone.apply_layer_comp(c.id);
+        files.push({ name: c.name, blob: await encodeFlattened(clone, type, quality) });
+      } finally {
+        clone.free();
+      }
     }
-    const blob = await out.convertToBlob({ type, quality });
-    if (blob.type !== type) throw new Error(`${type} export is not supported by this browser`);
-    return blob;
+    return files;
   },
 
   saveProject() {

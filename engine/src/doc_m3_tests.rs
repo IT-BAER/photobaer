@@ -1259,3 +1259,63 @@ fn styled_payload_keys_follow_the_style() {
     d.set_style(l, &style_with(|s| s["strokes"] = json!([stroke_fx(4.0, [0, 0, 0])]))).unwrap();
     assert_ne!(keys(&d), first);
 }
+
+// ---------- layer comps (M3.md section 8) ----------
+
+#[test]
+fn layer_comp_capture_and_apply_restores_visibility_position_opacity_fill_blend_and_style() {
+    let mut d = gray_doc(64, 64, 200);
+    let l = rect_layer(&mut d, 1, [10, 10, 20, 20], [255, 0, 0, 255]);
+    d.set_style(l, &overlay_style(true)).unwrap();
+    let g = d.add_group("g", 0).unwrap();
+    let comp = d.capture_layer_comp("Layer Comp 1").unwrap();
+    assert_eq!(comp, 1);
+
+    d.set_props(l, r#"{"visible":false,"opacity":0.4,"fill":0.3,"blend":"multiply"}"#).unwrap();
+    d.offset_layer(l, 5, 7).unwrap();
+    d.set_style(l, &overlay_style(false)).unwrap();
+    assert!(d.layer_bounds(g).is_err(), "an empty group has no pixel bounds to move");
+
+    d.apply_layer_comp(comp).unwrap();
+    let n = d.node(l).unwrap();
+    assert!(n.visible);
+    assert_eq!((n.opacity, n.fill, n.blend), (1.0, 1.0, Blend::Normal));
+    assert_eq!(n.style, Some(serde_json::from_str(&overlay_style(true)).unwrap()));
+    assert_eq!(d.layer_bounds(l).unwrap(), Some([10, 10, 10, 10]), "position restored");
+
+    assert_eq!(d.apply_layer_comp(999).unwrap_err(), "unknown layer comp 999");
+}
+
+#[test]
+fn layer_comp_flags_off_skip_their_part_and_a_deleted_layer_is_skipped() {
+    let mut d = gray_doc(64, 64, 200);
+    let a = rect_layer(&mut d, 1, [0, 0, 5, 5], [255, 0, 0, 255]);
+    let b = rect_layer(&mut d, 1, [30, 30, 35, 35], [0, 255, 0, 255]);
+    let comp = d.capture_layer_comp("Layer Comp 1").unwrap();
+    d.update_layer_comp(comp, &json!({ "apply_position": false, "apply_appearance": false }).to_string()).unwrap();
+
+    d.set_props(a, r#"{"visible":false,"opacity":0.5}"#).unwrap();
+    d.offset_layer(a, 1, 1).unwrap();
+    d.delete_node(b).unwrap();
+
+    d.apply_layer_comp(comp).unwrap();
+    let n = d.node(a).unwrap();
+    assert!(n.visible, "visibility flag stayed on");
+    assert_eq!(n.opacity, 0.5, "appearance flag off: opacity untouched");
+    assert_eq!(d.layer_bounds(a).unwrap(), Some([1, 1, 5, 5]), "position flag off: no move");
+    assert!(d.node(b).is_err(), "a layer deleted since capture stays deleted, no error");
+}
+
+#[test]
+fn layer_comp_options_rename_and_delete() {
+    let mut d = gray_doc(8, 8, 90);
+    let comp = d.capture_layer_comp("Layer Comp 1").unwrap();
+    d.update_layer_comp(comp, &json!({ "name": "Home", "comment": "start" }).to_string()).unwrap();
+    let c = d.layer_comps.iter().find(|c| c.id == comp).unwrap();
+    assert_eq!((c.name.as_str(), c.comment.as_str()), ("Home", "start"));
+    assert_eq!(d.update_layer_comp(999, "{}").unwrap_err(), "unknown layer comp 999");
+
+    d.delete_layer_comp(comp).unwrap();
+    assert!(d.layer_comps.is_empty());
+    assert_eq!(d.delete_layer_comp(comp).unwrap_err(), "unknown layer comp 1");
+}

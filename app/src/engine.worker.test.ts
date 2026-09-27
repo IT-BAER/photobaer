@@ -158,6 +158,31 @@ test('setFillContent edits every selected fill layer as one undo step', async ()
   assert.deepEqual(afterUndo.layers.find(l => l.id === idB)!.content, original);
 });
 
+test('layer comps: new, apply, options and delete are undo steps with their labels', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  const n = await call('captureLayerComp');
+  const info = n.result as { created: number; undoLabel: string; layerComps: { id: number; name: string; layerCount: number }[] };
+  assert.equal(info.undoLabel, 'New Layer Comp');
+  assert.deepEqual(info.layerComps, [{ id: info.created, name: 'Layer Comp 1', layerCount: 1 }]);
+  const second = await call('captureLayerComp');
+  assert.equal((second.result as { layerComps: { name: string }[] }).layerComps[1].name, 'Layer Comp 2');
+  await call('setProps', 1, { visible: false });
+  const applied = await call('applyLayerComp', info.created);
+  const a = applied.result as { undoLabel: string; layers: { id: number; visible: boolean }[] };
+  assert.equal(a.undoLabel, 'Apply Layer Comp');
+  assert.equal(a.layers[0].visible, true, 'the comp restores visibility');
+  const renamed = await call('updateLayerComp', info.created, { name: 'Hero' });
+  assert.equal((renamed.result as { undoLabel: string }).undoLabel, 'Layer Comp Options');
+  const deleted = await call('deleteLayerComp', info.created);
+  const d = deleted.result as { undoLabel: string; layerComps: { name: string }[] };
+  assert.equal(d.undoLabel, 'Delete Layer Comp');
+  assert.deepEqual(d.layerComps.map(c => c.name), ['Layer Comp 2']);
+  assert.ok((await call('applyLayerComp', info.created)).error, 'a deleted comp refuses');
+  const u = await call('undo');
+  assert.deepEqual((u.result as { layerComps: { name: string }[] }).layerComps.map(c => c.name), ['Hero', 'Layer Comp 2']);
+});
+
 test('moveNode moves a layer into a group', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);

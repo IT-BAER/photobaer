@@ -554,7 +554,7 @@ function warnKinds(l: Layer, warn: (m: string) => void) {
   if (l.vectorMask || l.realMask) warn('vector mask layers were imported as pixels');
 }
 
-interface ImportCtx { e: Engine; w: number; h: number; warn: Warn; files: Map<string, LinkedFile>; pats: Set<string> }
+interface ImportCtx { e: Engine; w: number; h: number; warn: Warn; files: Map<string, LinkedFile>; pats: Set<string>; comps: Map<Layer, number> }
 
 // Blending options and layer style, shared by every kind; adjustment layers take no style.
 function addM3Props({ e, warn, pats }: ImportCtx, id: number, l: Layer, adjustment: boolean) {
@@ -577,6 +577,7 @@ function addNode(c: ImportCtx, l: Layer): number {
     for (const child of l.children) e.move_node(addNode(c, child), id, idx++);
     addMaskIfAny(e, id, l, w, h);
     addM3Props(c, id, l, false);
+    c.comps.set(l, id);
     return id;
   }
   const adj = l.adjustment && adjustmentIn(e, l.adjustment);
@@ -595,6 +596,7 @@ function addNode(c: ImportCtx, l: Layer): number {
   addMaskIfAny(e, id, l, w, h);
   addM3Props(c, id, l, !!adj);
   warnKinds(l, warn);
+  c.comps.set(l, id);
   return id;
 }
 
@@ -606,6 +608,45 @@ function importDocument(e: Engine, psd: Psd): Set<string> {
   const r = psd.imageResources;
   e.set_document_m3(JSON.stringify({ global_light: { angle: r?.globalAngle ?? 120, altitude: r?.globalAltitude ?? 30 }, patterns }));
   return new Set(patterns.map(p => p.id));
+}
+
+// PSD layer comps: the standard comp list (image resource 1065) plus each layer's `comps.settings`
+// (M3.md section 8, B12 gap notes). Appearance (opacity, fill, blend, style) is not carried by
+// ag-psd's comp model; a reopened comp gets each layer's current value for that part.
+function importLayerComps(c: ImportCtx, psd: Psd) {
+  const list = psd.imageResources?.layerComps?.list;
+  if (!list?.length) return;
+  const { e, w, h } = c;
+  const manifest = JSON.parse(e.manifest()) as { layers: ManifestNode[] };
+  type Default = { visible: boolean; position: [number, number] | null; opacity: number; fill: number; blend: string; style: unknown };
+  const defaults = new Map<number, Default>();
+  const walk = (nodes: ManifestNode[]) => {
+    for (const n of nodes) {
+      const rect = tileBounds(n.tiles, w, h);
+      defaults.set(n.id, { visible: n.visible, position: rect ? [rect.left, rect.top] : null, opacity: n.opacity, fill: n.fill, blend: n.blend, style: n.style ?? null });
+      if (n.children) walk(n.children);
+    }
+  };
+  walk(manifest.layers);
+  const layers = new Map(list.map(l => [l.id, [] as unknown[]]));
+  for (const [layer, id] of c.comps) {
+    const def = defaults.get(id);
+    if (!def || !layer.comps?.settings) continue;
+    for (const s of layer.comps.settings) {
+      for (const compId of s.compList) {
+        const arr = layers.get(compId);
+        if (!arr) continue;
+        const position = s.offset && def.position ? [def.position[0] + s.offset.x, def.position[1] + s.offset.y] : def.position;
+        arr.push({ id, visible: s.enabled ?? def.visible, position, opacity: def.opacity, fill: def.fill, blend: def.blend, style: def.style });
+      }
+    }
+  }
+  const layer_comps = list.map(l => ({
+    id: l.id, name: l.name, comment: l.comment ?? '',
+    apply_visibility: !!(l.capturedInfo & 1), apply_position: !!(l.capturedInfo & 2), apply_appearance: !!(l.capturedInfo & 4),
+    layers: layers.get(l.id) ?? [],
+  }));
+  e.set_document_m3(JSON.stringify({ layer_comps }));
 }
 
 function isEmptyPlaceholder(l: Layer): boolean {
@@ -632,8 +673,9 @@ export function importPsd(bytes: Uint8Array): { engine: Engine; warnings: string
     if (flat) {
       place(e, 1, psd, w, h);
     } else {
-      const c: ImportCtx = { e, w, h, warn, files: new Map((psd.linkedFiles ?? []).map(f => [f.id, f])), pats: importDocument(e, psd) };
+      const c: ImportCtx = { e, w, h, warn, files: new Map((psd.linkedFiles ?? []).map(f => [f.id, f])), pats: importDocument(e, psd), comps: new Map() };
       for (const l of children) addNode(c, l);
+      importLayerComps(c, psd);
       e.delete_node(1);
     }
     return { engine: e, warnings };
@@ -706,7 +748,25 @@ function maskFields(e: Engine, n: ManifestNode, w: number, h: number) {
   return { mask: { top: rect.top, left: rect.left, ...base, imageData: { width: rw, height: rh, data: rgba } } };
 }
 
-interface ExportCtx { e: Engine; w: number; h: number; warn: Warn; names: Map<string, string>; files: Map<string, LinkedFile> }
+type LayerCompOut = {
+  id: number; name: string; comment: string; apply_visibility: boolean; apply_position: boolean; apply_appearance: boolean;
+  layers: { id: number; visible: boolean; position: [number, number] | null; opacity: number; fill: number; blend: string; style: unknown }[];
+};
+interface ExportCtx { e: Engine; w: number; h: number; warn: Warn; names: Map<string, string>; files: Map<string, LinkedFile>; comps: LayerCompOut[] }
+
+// Per-layer `comps.settings`: one entry per comp, `enabled` its captured visibility, `offset` the
+// captured position as a delta from this layer's current bounds origin (M3.md section 8).
+function compsOut(n: ManifestNode, comps: LayerCompOut[], w: number, h: number) {
+  const rect = tileBounds(n.tiles, w, h);
+  const origin: [number, number] | null = rect ? [rect.left, rect.top] : null;
+  return {
+    settings: comps.map(c => {
+      const cl = c.layers.find(l => l.id === n.id);
+      const offset = cl?.position && origin ? { x: cl.position[0] - origin[0], y: cl.position[1] - origin[1] } : undefined;
+      return { compList: [c.id], enabled: cl ? cl.visible : true, offset };
+    }),
+  };
+}
 
 // ag-psd refuses placed layer ids that are not GUIDs; other ids get one derived from the node id.
 function smartOut({ e, warn, files }: ExportCtx, n: ManifestNode): Partial<Layer> {
@@ -728,6 +788,8 @@ function exportNode(x: ExportCtx, n: ManifestNode): Layer {
     name: n.name, hidden: !n.visible, opacity: n.opacity, fillOpacity: n.fill, blendMode: n.blend as BlendMode, clipping: n.clipping,
     protected: { transparency: n.locks.transparency, composite: n.locks.pixels, position: n.locks.position },
     ...maskFields(e, n, w, h), ...blendingOut(n.blending, warn), ...(n.style ? { effects: styleOut(n.style, x.names, warn) } : {}),
+    // ag-psd needs a layer id on every layer of a document with comps.
+    ...(x.comps.length ? { id: n.id, comps: compsOut(n, x.comps, w, h) } : {}),
   };
   if (n.kind === 'group') return { ...common, children: (n.children ?? []).map(c => exportNode(x, c)) };
   if (n.adjustment) return { ...common, top: 0, left: 0, adjustment: adjustmentOut(e, n.adjustment, warn) };
@@ -751,17 +813,26 @@ export function exportPsd(e: Engine): { bytes: Uint8Array<ArrayBuffer>; warnings
   const manifest = JSON.parse(e.manifest()) as {
     layers: ManifestNode[]; global_light: { angle: number; altitude: number };
     patterns: { id: string; name: string; width: number; height: number; blob: number }[];
+    layer_comps: LayerCompOut[];
   };
   const warnings: string[] = [];
   const warn = (m: string) => { if (!warnings.includes(m)) warnings.push(m); };
   const composite = assembleImage((tx, ty) => e.flatten_tile_rgba8(tx, ty), fullCanvas(w, h), 4, 0);
-  const x: ExportCtx = { e, w, h, warn, names: new Map(manifest.patterns.map(p => [p.id, p.name])), files: new Map() };
+  const x: ExportCtx = { e, w, h, warn, names: new Map(manifest.patterns.map(p => [p.id, p.name])), files: new Map(), comps: manifest.layer_comps };
   const { angle, altitude } = manifest.global_light;
+  if (manifest.layer_comps.length) warn('layer comp appearance is not stored in PSD');
   const psd: Psd = {
     width: w, height: h, colorMode: 3, bitsPerChannel: 8,
     children: manifest.layers.map(n => exportNode(x, n)),
     imageData: { width: w, height: h, data: new Uint8ClampedArray(composite.buffer) },
-    imageResources: { globalAngle: Math.round(angle), globalAltitude: Math.round(altitude) },
+    imageResources: {
+      globalAngle: Math.round(angle), globalAltitude: Math.round(altitude),
+      ...(manifest.layer_comps.length ? { layerComps: { list: manifest.layer_comps.map(c => ({
+        // ag-psd writes a `comment` key even when undefined, which throws.
+        id: c.id, name: c.name, ...(c.comment ? { comment: c.comment } : {}),
+        capturedInfo: (c.apply_visibility ? 1 : 0) | (c.apply_position ? 2 : 0) | (c.apply_appearance ? 4 : 0),
+      })) } } : {}),
+    },
     patterns: manifest.patterns.map(p => ({
       id: p.id, name: p.name, x: 0, y: 0, bounds: { x: 0, y: 0, w: p.width, h: p.height }, data: e.tile_bytes(BigInt(p.blob)),
     })),

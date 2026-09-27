@@ -146,6 +146,25 @@ impl Engine {
         self.0.doc.set_document_m3(json).map_err(err)
     }
 
+    /// Captures a new layer comp under `name`, returning its id.
+    pub fn capture_layer_comp(&mut self, name: &str) -> Result<u32, JsError> {
+        self.0.doc.capture_layer_comp(name).map_err(err)
+    }
+
+    /// Restores a comp's flagged visibility, position and appearance; an unknown id errs.
+    pub fn apply_layer_comp(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.apply_layer_comp(id).map_err(err)
+    }
+
+    pub fn delete_layer_comp(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.delete_layer_comp(id).map_err(err)
+    }
+
+    /// Partial JSON: name, comment, apply_visibility, apply_position, apply_appearance.
+    pub fn update_layer_comp(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.update_layer_comp(id, json).map_err(err)
+    }
+
     pub fn add_mask(&mut self, id: u32, reveal: bool) -> Result<(), JsError> {
         self.0.doc.add_mask(id, reveal).map_err(err)
     }

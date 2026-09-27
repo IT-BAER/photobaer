@@ -7,6 +7,7 @@ import { perfTestHook, type PerfProbe } from './render/perf.ts';
 import { locate, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
+import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import type { AutosaveState, DocInfo, FillContent, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
 import { Smoother } from './shell/smoothing.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
@@ -218,6 +219,7 @@ export function App() {
   const [, setLibVersion] = useState(0);
   const protectedTexture = useRef<Dynamics['texture'] | null>(null);
   const [showAnts, setShowAnts] = useState(true);
+  const [showLayerComps, setShowLayerComps] = useState(false);
   // Brush library (opened at mount) and the selected preset; null paints with the plain options-bar brush.
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const brushLib = useRef<{ library: BrushLibrary; assets: EngineAssets } | null>(null);
@@ -352,6 +354,22 @@ export function App() {
     setBusy('Exporting…');
     try {
       await saveBlob(await client.call('exportImage', mime, 0.92), `${d.name}.${ext}`, mime, ext);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // File > Export > Layer Comps to Files: one flattened image per comp; TIFF is not available in the browser encoder.
+  async function exportLayerComps(mime: 'image/png' | 'image/jpeg' | 'image/webp', ext: string) {
+    setMenu(null);
+    const d = docRef.current;
+    if (!d) return;
+    setBusy('Exporting…');
+    try {
+      const files = await client.call('exportLayerCompsToFiles', mime, 0.92);
+      for (const f of files) await saveBlob(f.blob, `${f.name}.${ext}`, mime, ext);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -515,6 +533,9 @@ export function App() {
       { label: 'Export PNG…', run: () => exportAs('image/png', 'png'), off: !has },
       { label: 'Export JPEG…', run: () => exportAs('image/jpeg', 'jpg'), off: !has },
       { label: 'Export WebP…', run: () => exportAs('image/webp', 'webp'), off: !has },
+      { label: 'Layer Comps to Files (PNG)…', run: () => exportLayerComps('image/png', 'png'), off: !has || !doc?.layerComps.length },
+      { label: 'Layer Comps to Files (JPEG)…', run: () => exportLayerComps('image/jpeg', 'jpg'), off: !has || !doc?.layerComps.length },
+      { label: 'Layer Comps to Files (WebP)…', run: () => exportLayerComps('image/webp', 'webp'), off: !has || !doc?.layerComps.length },
       { label: 'Close', run: () => run(null, () => client.call('closeDoc')), off: !has },
     ],
     Edit: [
@@ -602,6 +623,9 @@ export function App() {
       { label: '100%', keys: 'Ctrl+1', run: () => { setMenu(null); viewer.current?.actualPixels(); }, off: !has },
       { label: 'Reset rotation', keys: 'Esc', run: () => { setMenu(null); viewer.current?.resetRotation(); }, off: !has },
       { label: showAnts ? 'Hide selection edges' : 'Show selection edges', keys: 'Ctrl+H', run: () => { setMenu(null); setShowAnts(v => !v); }, off: !has },
+    ],
+    Window: [
+      { label: showLayerComps ? 'Hide Layer Comps' : 'Show Layer Comps', run: () => { setMenu(null); setShowLayerComps(v => !v); } },
     ],
   };
   const menusRef = useRef(menus);
@@ -2190,6 +2214,7 @@ export function App() {
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
               />
               <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
+              {showLayerComps && <LayerCompsPanel doc={doc} run={run} />}
             </>
           )}
         </aside>

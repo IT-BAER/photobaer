@@ -171,6 +171,11 @@ button { font: inherit; color: inherit; }
 .history-row.current { background: var(--panel-hi); font-weight: 600; }
 .history-row.dimmed { color: var(--disabled); }
 
+.layer-comp-row { display: flex; justify-content: space-between; padding: 4px 6px; border-radius: 6px; cursor: default; }
+.layer-comp-row:hover { background: var(--panel-hi); }
+.layer-comp-row.selected { background: var(--panel-hi); font-weight: 600; }
+.layer-comp-count { color: var(--dim); }
+
 .welcome { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; pointer-events: none; }
 .welcome h1 { margin: 0; font-size: 32px; color: var(--accent); }
 .welcome .actions, dialog .actions { display: flex; gap: 8px; justify-content: center; pointer-events: auto; }

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use crate::adjust::{self, Adjustment};
 use crate::blend;
 use crate::blend::{blend_channel, blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blend, PaintMode};
-use crate::content::{FillContent, Filter, GlobalLight, LayerComp, Link, PatternEntry, Smart, SmartFilter, StackMode, WarpMesh};
+use crate::content::{CompLayer, FillContent, Filter, GlobalLight, LayerComp, Link, PatternEntry, Smart, SmartFilter, StackMode, WarpMesh};
 use crate::gradient;
 use crate::livewire::{self, LiveWire};
 use crate::pattern::Pattern;
@@ -4517,6 +4517,113 @@ impl Document {
         Ok(())
     }
 
+    // ---------- layer comps (M3.md section 8) ----------
+
+    // Every layer, recursive; a node with no pixels (group, adjustment, fill) has no position.
+    fn collect_comp_layers(&self) -> Vec<CompLayer> {
+        fn walk(nodes: &[Node], out: &mut Vec<CompLayer>) {
+            for n in nodes {
+                let position = n.pixel_tiles().ok().and_then(tiles_bounds).map(|b| [b[0], b[1]]);
+                out.push(CompLayer {
+                    id: n.id,
+                    visible: n.visible,
+                    position,
+                    opacity: n.opacity,
+                    fill: n.fill,
+                    blend: n.blend,
+                    style: n.style.clone(),
+                });
+                if let Kind::Group(ch) = &n.kind {
+                    walk(ch, out);
+                }
+            }
+        }
+        let mut out = Vec::new();
+        walk(&self.nodes, &mut out);
+        out
+    }
+
+    fn layer_comp_mut(&mut self, id: u32) -> Result<&mut LayerComp, String> {
+        self.layer_comps.iter_mut().find(|c| c.id == id).ok_or_else(|| format!("unknown layer comp {id}"))
+    }
+
+    /// Snapshots every layer's visibility, position, appearance and style; flags default on.
+    pub fn capture_layer_comp(&mut self, name: &str) -> Result<u32, String> {
+        self.check_idle()?;
+        let id = self.layer_comps.iter().map(|c| c.id).max().map_or(1, |m| m + 1);
+        self.layer_comps.push(LayerComp {
+            id,
+            name: name.to_string(),
+            comment: String::new(),
+            apply_visibility: true,
+            apply_position: true,
+            apply_appearance: true,
+            layers: self.collect_comp_layers(),
+        });
+        Ok(id)
+    }
+
+    /// Restores a comp's flagged aspects on every layer it still finds; an unknown id errs.
+    pub fn apply_layer_comp(&mut self, id: u32) -> Result<(), String> {
+        self.check_idle()?;
+        let comp = self.layer_comp_mut(id)?.clone();
+        for cl in &comp.layers {
+            if self.node(cl.id).is_err() {
+                continue; // deleted since capture
+            }
+            if comp.apply_position {
+                if let Some([sx, sy]) = cl.position {
+                    if let Some([cx, cy, ..]) = self.layer_bounds(cl.id)? {
+                        self.offset_layer(cl.id, sx - cx, sy - cy)?;
+                    }
+                }
+            }
+            let node = self.node_mut(cl.id)?;
+            if comp.apply_visibility {
+                node.visible = cl.visible;
+            }
+            if comp.apply_appearance {
+                node.opacity = cl.opacity;
+                node.fill = cl.fill.clamp(0.0, 1.0);
+                if cl.blend != Blend::PassThrough || node.is_group() {
+                    node.blend = cl.blend;
+                }
+                node.style = cl.style.clone();
+            }
+        }
+        Ok(())
+    }
+
+    pub fn delete_layer_comp(&mut self, id: u32) -> Result<(), String> {
+        self.check_idle()?;
+        let i = self.layer_comps.iter().position(|c| c.id == id).ok_or_else(|| format!("unknown layer comp {id}"))?;
+        self.layer_comps.remove(i);
+        Ok(())
+    }
+
+    /// Partial JSON: name, comment, apply_visibility, apply_position, apply_appearance.
+    pub fn update_layer_comp(&mut self, id: u32, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let u: LayerCompUpdateIn = serde_json::from_str(json).map_err(|e| format!("invalid layer comp options: {e}"))?;
+        let comp = self.layer_comp_mut(id)?;
+        if let Some(n) = u.name {
+            comp.name = n;
+        }
+        if let Some(c) = u.comment {
+            comp.comment = c;
+        }
+        if let Some(v) = u.apply_visibility {
+            comp.apply_visibility = v;
+        }
+        if let Some(v) = u.apply_position {
+            comp.apply_position = v;
+        }
+        if let Some(v) = u.apply_appearance {
+            comp.apply_appearance = v;
+        }
+        Ok(())
+    }
+
     pub fn manifest(&self) -> String {
         let m = ManifestOut {
             format: MANIFEST_FORMAT,
@@ -4554,6 +4661,9 @@ impl Document {
             "has_last_selection": self.last_selection.is_some(),
             "channels": self.channels.iter().map(|c| serde_json::json!({ "id": c.id, "name": c.name })).collect::<Vec<_>>(),
             "patterns": self.patterns.iter().map(|p| serde_json::json!({ "id": p.id, "name": p.name })).collect::<Vec<_>>(),
+            "layer_comps": self.layer_comps.iter().map(|c| serde_json::json!({
+                "id": c.id, "name": c.name, "layer_count": c.layers.len(),
+            })).collect::<Vec<_>>(),
         });
         v.to_string()
     }
@@ -5308,6 +5418,21 @@ struct DocumentM3In {
     patterns: Option<Vec<PatternEntry>>,
     #[serde(default)]
     layer_comps: Option<Vec<LayerComp>>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LayerCompUpdateIn {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    comment: Option<String>,
+    #[serde(default)]
+    apply_visibility: Option<bool>,
+    #[serde(default)]
+    apply_position: Option<bool>,
+    #[serde(default)]
+    apply_appearance: Option<bool>,
 }
 
 #[derive(Deserialize)]

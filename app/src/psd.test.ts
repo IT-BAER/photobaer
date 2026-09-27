@@ -355,3 +355,30 @@ test('PSD save warns about M3 settings it cannot store', () => {
   assert.deepEqual(new Set(warnings), new Set(['pattern scale, angle and link of fill layers and strokes are not stored in PSD', 'deep knockout is saved as shallow in PSD']));
   e.free();
 });
+
+test('layer comps survive save, open with names, flags, visibility and position', () => {
+  const e = new Engine(300, 200, 8);
+  e.fill(1, 'pixels', 255, 255, 255, 255);
+  const box = e.add_layer('box', 1);
+  const t = new Uint8Array(256 * 256 * 4);
+  for (let y = 10; y < 30; y++) for (let x = 10; x < 30; x++) t.set([255, 0, 0, 255], (y * 256 + x) * 4);
+  e.set_tile_rgba8(box, 0, 0, t);
+  e.capture_layer_comp('Start');
+  e.offset_layer(box, 30, 5);
+  e.set_props(box, JSON.stringify({ visible: false }));
+  const moved = e.capture_layer_comp('Moved');
+  e.update_layer_comp(moved, JSON.stringify({ apply_appearance: false }));
+  const { bytes, warnings } = exportPsd(e);
+  e.free();
+  assert.ok(warnings.includes('layer comp appearance is not stored in PSD'), JSON.stringify(warnings));
+  const back = importPsd(bytes).engine;
+  type Comp = { name: string; apply_visibility: boolean; apply_position: boolean; apply_appearance: boolean; layers: { id: number; visible: boolean; position: number[] | null }[] };
+  const m = JSON.parse(back.manifest()) as { layers: { id: number; name: string }[]; layer_comps: Comp[] };
+  const id = m.layers.find(l => l.name === 'box')!.id;
+  const state = (c: Comp) => { const l = c.layers.find(x => x.id === id)!; return [l.visible, l.position]; };
+  assert.deepEqual(m.layer_comps.map(c => [c.name, c.apply_visibility, c.apply_position, c.apply_appearance]),
+    [['Start', true, true, true], ['Moved', true, true, false]]);
+  assert.deepEqual(state(m.layer_comps[0]), [true, [10, 10]]);
+  assert.deepEqual(state(m.layer_comps[1]), [false, [40, 15]]);
+  back.free();
+});
