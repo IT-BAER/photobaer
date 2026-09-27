@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { initSync } from './engine-pkg/photobaer_engine.js';
+import { initSync, Engine } from './engine-pkg/photobaer_engine.js';
+import { exportPsd } from './psd.ts';
 import { Autosave } from './autosave.ts';
 import { FakeDir, fs } from './fake-opfs.ts';
 import { engineMesh, identityMesh } from './transform/warp.ts';
@@ -1175,6 +1176,32 @@ test('Convert to Smart Object, Edit Contents, change, close writes back to the p
   assert.deepEqual(await pixelAt(3, 3, copy.created), [200, 0, 0, 255], 'a layer sharing the source updates too');
   await call('undo');
   assert.deepEqual(await pixelAt(3, 3), [0, 128, 0, 255], 'the parent history kept its steps');
+});
+
+test('Edit Contents save returns export warnings and writes back only when accepted; close can discard', async () => {
+  const src = new Engine(4, 4, 8);
+  src.set_tile_rgba8(1, 0, 0, new Uint8Array(256 * 256 * 4).fill(200));
+  const pat = src.blob_add(new Uint8Array([1, 2, 3, 255, 4, 5, 6, 255, 7, 8, 9, 255, 10, 11, 12, 255]));
+  src.set_document_m3(JSON.stringify({ patterns: [{ id: 'pat-1', name: 'P', width: 2, height: 2, blob: Number(pat) }] }));
+  const psb = exportPsd(src, { psb: true }).bytes;
+  src.free();
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  const p = (await call('placeSmart', 1, new File([psb], 'src.psb'), false)).result as SmartDoc;
+  const opened = (await call('editContents', p.created)).result as SmartDoc & { warnings: string[] };
+  assert.deepEqual(opened.warnings, []);
+  const overlay = defaultEffect('pattern_overlays', 'pat-1');
+  await call('setLayerStyle', opened.layers[0].id, { ...emptyStyle(), pattern_overlays: [overlay, overlay] }, defaultBlending(), 1, null);
+  const warn = 'only the first pattern overlay is stored in PSD';
+  const asked = (await call('smartEditSave')).result as SmartDoc & { warnings: string[]; written: boolean };
+  assert.deepEqual([asked.written, asked.warnings.includes(warn)], [false, true]);
+  const closing = (await call('smartEditClose')).result as SmartDoc & { warnings: string[]; closed: boolean };
+  assert.deepEqual([closing.closed, closing.warnings.includes(warn), closing.parents], [false, true, ['Untitled']]);
+  const saved = (await call('smartEditSave', true)).result as SmartDoc & { written: boolean };
+  assert.equal(saved.written, true);
+  await call('command', 'fill', opened.layers[0].id, 'pixels', [0, 0, 255, 255]);
+  const back = (await call('smartEditClose', 'discard')).result as SmartDoc & { closed: boolean };
+  assert.deepEqual([back.closed, back.parents, back.undoLabel], [true, [], 'Update Smart Object Contents']);
 });
 
 test('two layers convert to a smart object named Group', async () => {

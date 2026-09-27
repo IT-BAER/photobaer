@@ -599,26 +599,28 @@ const SEED_INNER_SHADOW: u32 = 17;
 const SEED_OUTER_GLOW: u32 = 29;
 const SEED_INNER_GLOW: u32 = 41;
 
-fn hash_at(i: usize, w: usize, origin: [i32; 2], seed: u32) -> f32 {
+// `origin` is in level px; the hash reads document px `(origin + x) << level`, as the compositor does.
+fn hash_at(i: usize, w: usize, origin: [i32; 2], level: u32, seed: u32) -> f32 {
     let (x, y) = (origin[0] + (i % w) as i32, origin[1] + (i / w) as i32);
-    dissolve_hash(x as u32, y as u32, seed)
+    dissolve_hash((x as u32) << level, (y as u32) << level, seed)
 }
 
-/// `v *= 1 - noise * hash(x, y, seed)` hashed on document px, so tiles agree.
-pub fn noise(p: &mut Plane, amount: f32, seed: u32, origin: [i32; 2]) {
+/// `v *= 1 - noise * hash(x, y, seed)` hashed on document px, so tiles and levels agree.
+pub fn noise(p: &mut Plane, amount: f32, seed: u32, origin: [i32; 2], level: u32) {
     if amount <= 0.0 {
         return;
     }
     let w = p.w;
-    p.v.iter_mut().enumerate().for_each(|(i, v)| *v *= 1.0 - amount * hash_at(i, w, origin, seed));
+    p.v.iter_mut().enumerate().for_each(|(i, v)| *v *= 1.0 - amount * hash_at(i, w, origin, level, seed));
 }
 
-/// What effects read besides the shape: the plane's document origin, the style scale (times
+/// What effects read besides the shape: the plane origin in level px and its level, the style scale (times
 /// every px parameter), global light, document patterns and blobs, the layer bounds box
 /// [x, y, w, h] and the document size, in document px.
 #[derive(Clone, Copy)]
 pub struct Ctx<'a> {
     pub origin: [i32; 2],
+    pub level: u32,
     pub scale: f32,
     pub light: &'a GlobalLight,
     pub patterns: &'a [PatternEntry],
@@ -653,7 +655,7 @@ pub fn shadow_coverage(s: &Shadow, inner: bool, shape: &Shape, cx: &Ctx) -> Plan
         v.mul(&shape.plane);
     }
     apply_contour(&mut v, &s.contour, 1.0);
-    noise(&mut v, s.noise, if inner { SEED_INNER_SHADOW } else { SEED_DROP }, cx.origin);
+    noise(&mut v, s.noise, if inner { SEED_INNER_SHADOW } else { SEED_DROP }, cx.origin, cx.level);
     if !inner && s.knocks_out {
         v.mul(&shape.plane.map(|_, a| 1.0 - a));
     }
@@ -679,7 +681,7 @@ pub fn glow_coverage(g: &Glow, inner: bool, shape: &Shape, cx: &Ctx) -> Plane {
     };
     v.mul(&if inner { shape.plane.clone() } else { shape.plane.map(|_, a| 1.0 - a) });
     apply_contour(&mut v, &g.contour, g.range);
-    noise(&mut v, g.noise, if inner { SEED_INNER_GLOW } else { SEED_OUTER_GLOW }, cx.origin);
+    noise(&mut v, g.noise, if inner { SEED_INNER_GLOW } else { SEED_OUTER_GLOW }, cx.origin, cx.level);
     v.clamp01();
     v
 }
@@ -693,7 +695,7 @@ pub fn glow_rgba(g: &Glow, inner: bool, shape: &Shape, cx: &Ctx) -> Vec<[f32; 4]
         GlowFill::Gradient { gradient: def } => {
             let lut = def.lut(false);
             let seed = if inner { SEED_INNER_GLOW } else { SEED_OUTER_GLOW };
-            let jit = |i: usize| if g.jitter > 0.0 { (hash_at(i, v.w, cx.origin, seed) - 0.5) * g.jitter } else { 0.0 };
+            let jit = |i: usize| if g.jitter > 0.0 { (hash_at(i, v.w, cx.origin, cx.level, seed) - 0.5) * g.jitter } else { 0.0 };
             v.v.iter()
                 .enumerate()
                 .map(|(i, &a)| {
@@ -1106,7 +1108,7 @@ mod tests {
 
     fn with_cx<R>(origin: [i32; 2], f: impl FnOnce(&Ctx) -> R) -> R {
         let (light, blobs) = (GlobalLight::default(), HashMap::new());
-        f(&Ctx { origin, scale: 1.0, light: &light, patterns: &[], blobs: &blobs, bounds: [10.0, 10.0, 20.0, 20.0], doc: [40.0, 40.0] })
+        f(&Ctx { origin, level: 0, scale: 1.0, light: &light, patterns: &[], blobs: &blobs, bounds: [10.0, 10.0, 20.0, 20.0], doc: [40.0, 40.0] })
     }
 
     // The 40x40 plane with an opaque square at x, y in 10..=29.
@@ -1217,10 +1219,16 @@ mod tests {
         let (mut a, mut b) = (Plane::new(8, 8), Plane::new(8, 8));
         a.v.fill(1.0);
         b.v.fill(1.0);
-        noise(&mut a, 0.5, 3, [0, 0]);
-        noise(&mut b, 0.5, 3, [4, 4]);
+        noise(&mut a, 0.5, 3, [0, 0], 0);
+        noise(&mut b, 0.5, 3, [4, 4], 0);
         assert_eq!(row(&a, 5)[4..], row(&b, 1)[..4]);
         assert!(a.v.iter().all(|&v| (0.5..=1.0).contains(&v)) && a.v.iter().any(|&v| v < 0.9));
+        // Level 1: level px (x, y) samples document px (2x, 2y).
+        let mut c = Plane::new(3, 3);
+        c.v.fill(1.0);
+        noise(&mut c, 0.5, 3, [1, 1], 1);
+        let doc: Vec<f32> = (0..3).map(|x| a.v[2 * 8 + 2 + 2 * x]).collect();
+        assert_eq!(row(&c, 0), doc);
     }
 
     #[test]

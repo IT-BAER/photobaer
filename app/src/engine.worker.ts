@@ -1729,10 +1729,11 @@ const api = {
   async editContents(id: number) {
     const e = need(), { node, smart } = smartOf(e, id);
     const bytes = await sourceBytes(e, smart);
-    let sub: Engine;
+    let sub: Engine, warnings: string[] = [];
     if (bytes && isPsdBytes(bytes)) {
       const r = importPsd(bytes, { psb: true });
       sub = r.engine;
+      warnings = r.warnings;
       await loadSources(sub, r.sources, () => {});
     } else if (bytes) {
       const src = await decodeSource(bytes);
@@ -1749,24 +1750,25 @@ const api = {
     version++;
     selGen++;
     parents.at(-1)!.saved = version;
-    return info()!;
+    return { ...info()!, warnings };
   },
 
   // Writes the open contents back to every smart object in the parent sharing the source, as one parent step.
-  async smartEditSave() {
+  // PSD export warnings (what the source file cannot store) block the write until `accept`; `written` tells.
+  async smartEditSave(accept = false): Promise<DocInfo & { warnings: string[]; written: boolean }> {
     const p = parents.at(-1);
     if (!p) throw new Error('No smart object contents are open.');
     const sub = need();
     const node = findNode(p.eng, p.id);
     if (!node?.smart) throw new Error('The original Smart Object was removed or replaced. Use Save As to keep these contents.');
     const link = node.smart.link;
-    let bytes: Uint8Array;
-    if (link.type === 'embedded') bytes = exportPsd(sub, { psb: true }).bytes;
-    else {
-      const ext = (link.name.split('.').pop() ?? '').toLowerCase();
-      if (ext === 'psd' || ext === 'psb') bytes = exportPsd(sub, { psb: ext === 'psb' }).bytes;
-      else if (RASTER[ext]) bytes = new Uint8Array(await (await encodeFlattened(sub, RASTER[ext])).arrayBuffer());
-      else throw new Error(`Cannot save linked .${ext} contents. Use Save As to keep your edits.`);
+    let bytes: Uint8Array, warnings: string[] = [];
+    const ext = link.type === 'embedded' ? 'psb' : (link.name.split('.').pop() ?? '').toLowerCase();
+    if (link.type === 'embedded' || ext === 'psd' || ext === 'psb') ({ bytes, warnings } = exportPsd(sub, { psb: ext === 'psb' }));
+    else if (RASTER[ext]) bytes = new Uint8Array(await (await encodeFlattened(sub, RASTER[ext])).arrayBuffer());
+    else throw new Error(`Cannot save linked .${ext} contents. Use Save As to keep your edits.`);
+    if (warnings.length && !accept) return { ...info()!, warnings, written: false };
+    if (link.type === 'linked') {
       const h = await getHandle(link.handle).catch(() => null);
       if (!h) throw unavailable(link.name);
       try { await writeHandle(h, bytes); } catch { throw new Error('Could not save the linked source file.'); }
@@ -1777,14 +1779,22 @@ const api = {
       p.eng.update_smart_source(p.id, JSON.stringify({ source_blob: blob, source_size: size }), rgba);
     });
     p.saved = version;
-    return info()!;
+    return { ...info()!, warnings, written: true };
   },
 
-  // Writes back unsaved changes, then the parent returns with its history.
-  async smartEditClose() {
+  // Writes back unsaved changes ('discard' skips that), then the parent returns with its history.
+  // Export warnings without 'accept', or a failed write, keep the contents open and are returned.
+  async smartEditClose(mode: 'save' | 'accept' | 'discard' = 'save'): Promise<DocInfo & { warnings: string[]; closed: boolean; error?: string }> {
     const p = parents.at(-1);
     if (!p) throw new Error('No smart object contents are open.');
-    if (version !== p.saved) await api.smartEditSave();
+    if (version !== p.saved && mode !== 'discard') {
+      try {
+        const r = await api.smartEditSave(mode === 'accept');
+        if (!r.written) return { ...info()!, warnings: r.warnings, closed: false };
+      } catch (err) {
+        return { ...info()!, warnings: [], closed: false, error: (err as Error).message };
+      }
+    }
     parents.pop();
     history.clear();
     eng!.free();
@@ -1793,7 +1803,7 @@ const api = {
     name = p.name;
     docId++;
     selGen++;
-    return changed();
+    return { ...changed(), warnings: [], closed: true };
   },
 
   undo() { if (history.undo()) { selGen++; return changed(); } return info(); },
@@ -1849,7 +1859,11 @@ const api = {
   },
 
   async closeDoc() {
-    if (parents.length) return api.smartEditClose();
+    if (parents.length) {
+      const r = await api.smartEditClose();
+      if (!r.closed) throw new Error(r.error ?? `The contents were not saved: ${r.warnings.join('; ')}`);
+      return r;
+    }
     history.clear();
     eng?.free();
     eng = null;

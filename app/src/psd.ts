@@ -570,7 +570,7 @@ interface ImportCtx {
 const CURVE_CHANNELS = ['composite', 'red', 'green', 'blue'] as const;
 
 // A PSD smart filter as an engine filter; null when the engine hosts no such filter.
-function filterIn(f: Filter): Adjustment | null {
+export function filterIn(f: Filter, warn: Warn): Adjustment | null {
   if (f.type === 'brightness/contrast') {
     return { kind: 'brightness_contrast', params: { brightness: f.filter.brightness, contrast: f.filter.contrast, legacy: !!f.filter.useLegacy } };
   }
@@ -579,7 +579,10 @@ function filterIn(f: Filter): Adjustment | null {
   for (const a of f.filter.adjustments ?? []) {
     const pts = 'curve' in a ? a.curve.map(c => [c.x, c.y]) : a.values.map((v, i) => [i, v]);
     if (!('curve' in a)) p.mode = 'pencil';
-    for (const ch of a.channels) p[ch] = pts;
+    for (const ch of a.channels) {
+      if ((CURVE_CHANNELS as readonly string[]).includes(ch)) p[ch] = pts;
+      else warn('curves smart filter channels other than composite, red, green and blue were not imported');
+    }
   }
   return { kind: 'curves', params: p };
 }
@@ -622,7 +625,7 @@ function filtersIn(c: ImportCtx, id: number, l: Layer) {
   if (!pf?.list.length) return;
   // PSD lists the stack top first.
   for (const f of [...pf.list].reverse()) {
-    const a = filterIn(f);
+    const a = filterIn(f, c.warn);
     if (!a) { c.warn('smart filters other than curves and brightness/contrast were not imported'); continue; }
     const fid = c.e.add_smart_filter(id, JSON.stringify(a));
     c.e.set_smart_filter(id, fid, JSON.stringify({ enabled: f.enabled, opacity: f.opacity, blend: f.blendMode ?? 'normal' }));
@@ -758,7 +761,9 @@ function importLayerComps(c: ImportCtx, psd: Psd) {
       for (const compId of s.compList) {
         const arr = layers.get(compId);
         if (!arr) continue;
-        const position = s.offset && def.position ? [def.position[0] + s.offset.x, def.position[1] + s.offset.y] : def.position;
+        // The offset is relative to the layer record's origin, where `place()` wrote the pixels.
+        const base = def.position && [layer.left ?? 0, layer.top ?? 0];
+        const position = s.offset && base ? [base[0] + s.offset.x, base[1] + s.offset.y] : base;
         arr.push({ id, visible: s.enabled ?? def.visible, position, opacity: def.opacity, fill: def.fill, blend: def.blend, style: def.style });
       }
     }
@@ -910,6 +915,8 @@ function smartOut({ e, w, h, warn, files, fx }: ExportCtx, n: ManifestNode): Par
     enabled: true, validAtPosition: true, maskEnabled: sm?.enabled ?? true, maskLinked: true, maskExtendWithWhite: (sm?.default ?? 255) !== 0, list,
   } : undefined;
   const rect = sm && tileBounds(sm.tiles, w, h);
+  const [txN, tyN] = [Math.ceil(w / 256), Math.ceil(h / 256)];
+  if (sm?.tiles?.some(([tx, ty]) => tx < 0 || ty < 0 || tx >= txN || ty >= tyN)) warn('smart filter mask areas outside the canvas are not stored in PSD');
   if (sm && rect) {
     const data = assembleImage((tx, ty) => tileAt(e, tileMap(sm.tiles), tx, ty), rect, 1, sm.default);
     // Channels: the user mask then the sheet mask, no color channels.

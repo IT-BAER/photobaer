@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { writePsd, readPsd, type Layer, type Psd, type PixelData } from 'ag-psd';
 import { initSync, Engine } from './engine-pkg/photobaer_engine.js';
-import { importPsd, exportPsd } from './psd.ts';
+import { importPsd, exportPsd, filterIn } from './psd.ts';
 import { tileIds } from './project.ts';
 
 initSync({ module: readFileSync(new URL('./engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
@@ -384,6 +384,20 @@ test('layer comps survive save, open with names, flags, visibility and position'
   back.free();
 });
 
+test('a PSD layer comp captured in place applies without moving a layer off the tile grid', () => {
+  const psd: Psd = {
+    width: 300, height: 200, colorMode: 3, bitsPerChannel: 8,
+    children: [{ id: 5, name: 'box', left: 100, top: 20, imageData: solid(20, 20, [255, 0, 0, 255]), comps: { settings: [{ compList: [1], enabled: true, offset: { x: 0, y: 0 } }] } }],
+    imageResources: { layerComps: { list: [{ id: 1, name: 'C', capturedInfo: 7 as number }] } },
+  };
+  const e = importPsd(bytesOf(psd)).engine;
+  const id = (JSON.parse(e.manifest()) as { layers: { id: number; name: string }[] }).layers.find(l => l.name === 'box')!.id;
+  assert.deepEqual([...e.layer_bounds(id)], [100, 20, 20, 20]);
+  e.apply_layer_comp(1);
+  assert.deepEqual([...e.layer_bounds(id)], [100, 20, 20, 20]);
+  e.free();
+});
+
 // A smart object whose source is a 3 x 2 PSB (as Convert to Smart Object writes it) placed at 2x.
 function psbSmartDoc() {
   const src = new Engine(3, 2, 8);
@@ -450,6 +464,33 @@ test('curves and brightness/contrast smart filters round-trip through PSD with p
   again.render_smart(n.id);
   assert.deepEqual([...again.flatten_tile_rgba8(0, 0)], filtered, 'a re-render with the imported filters and stack mask matches');
   e.free(); again.free();
+});
+
+test('a curves filter channel outside composite/red/green/blue is dropped with a warning', () => {
+  const warnings: string[] = [];
+  const f = { type: 'curves', filter: { adjustments: [
+    { channels: ['composite'], curve: [{ x: 0, y: 10 }, { x: 255, y: 255 }] },
+    { channels: ['cyan'], curve: [{ x: 0, y: 0 }, { x: 255, y: 200 }] },
+  ] } } as unknown as Parameters<typeof filterIn>[0];
+  const a = filterIn(f, m => warnings.push(m))!;
+  assert.deepEqual(a.params, { mode: 'point', composite: [[0, 10], [255, 255]], red: null, green: null, blue: null });
+  assert.deepEqual(warnings, ['curves smart filter channels other than composite, red, green and blue were not imported']);
+});
+
+test('a smart object stack mask with tiles outside the canvas warns on PSD export', () => {
+  const { e, id } = psbSmartDoc();
+  e.add_smart_filter(id, JSON.stringify({ kind: 'brightness_contrast', params: { brightness: 20, contrast: 0, legacy: false } }));
+  e.add_filter_mask(id, 0, true);
+  e.set_filter_mask_tile8(id, 0, 0, 0, new Uint8Array(256 * 256).fill(0));
+  assert.ok(!exportPsd(e).warnings.includes('smart filter mask areas outside the canvas are not stored in PSD'));
+  const m = JSON.parse(e.manifest());
+  const sm = m.layers[0].smart.stack_mask;
+  sm.tiles.push([-1, 0, sm.tiles[0][2]]);
+  const f = Engine.from_manifest(JSON.stringify(m));
+  for (const t of tileIds(JSON.stringify(m))) f.put_tile(BigInt(t), e.tile_bytes(BigInt(t)));
+  f.finish_load();
+  assert.ok(exportPsd(f).warnings.includes('smart filter mask areas outside the canvas are not stored in PSD'));
+  e.free(); f.free();
 });
 
 test('other smart filters refuse PSD export naming the filter', () => {

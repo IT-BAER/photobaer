@@ -100,7 +100,7 @@ fn levels_record(gamma: f64) -> Value {
 fn adjustments() -> Vec<Value> {
     let hue_range = |a: f64| json!({ "bands": [a, a + 30.0, a + 60.0, a + 90.0], "hue": 10.0, "saturation": -5.0, "lightness": 0.0 });
     vec![
-        json!({ "kind": "brightness_contrast", "params": { "brightness": 150.0, "contrast": -50.0, "legacy": true } }),
+        json!({ "kind": "brightness_contrast", "params": { "brightness": 100.0, "contrast": -50.0, "legacy": true } }),
         json!({ "kind": "levels", "params": { "composite": levels_record(1.5), "red": levels_record(2.0), "green": null, "blue": null } }),
         json!({ "kind": "curves", "params": { "mode": "pencil", "composite": [[0, 0], [128, 160], [255, 255]], "red": null, "green": [[0, 10], [255, 245]], "blue": null } }),
         json!({ "kind": "exposure", "params": { "exposure": 1.0, "offset": -0.25, "gamma": 1.5 } }),
@@ -404,6 +404,30 @@ fn v4_structure_rejections() {
     rejects(|v| v["blobs"] = json!([1, 10, 11, 12, 13]), "a blob id that is also a tile id");
     rejects(|v| v["blobs"] = json!([0, 10, 11, 12, 13]), "blob id 0");
     rejects(|v| v["blobs"] = json!([10, 10, 11, 12, 13]), "a duplicate blob id");
+}
+
+#[test]
+fn v4_load_range_checks_params_and_comps() {
+    let e = rejects(|v| v["layers"][3]["smart"]["filters"][1]["filter"]["params"]["radius"] = 1e9.into(), "a blur radius of 1e9");
+    assert!(e.contains("radius"), "{e}");
+    let e = rejects(|v| v["layers"][1]["adjustment"] = bc(500.0, 0.0, false), "brightness 500");
+    assert!(e.contains("brightness"), "{e}");
+    let e = rejects(|v| v["layers"][5]["children"][0]["adjustment"] = bc(0.0, 500.0, false), "a nested contrast of 500");
+    assert!(e.contains("contrast"), "{e}");
+    let e = rejects(|v| v["layer_comps"][0]["layers"][0]["opacity"] = 5.into(), "a comp opacity of 5");
+    assert!(e.contains("opacity"), "{e}");
+    let e = rejects(|v| v["layer_comps"][0]["layers"][1]["fill"] = (-1).into(), "a comp fill of -1");
+    assert!(e.contains("fill"), "{e}");
+
+    let mut d = fixture_doc();
+    let mut comps = v4_fixture()["layer_comps"].clone();
+    comps[0]["layers"][0]["opacity"] = 5.into();
+    let e = d.set_document_m3(&json!({ "layer_comps": comps }).to_string()).unwrap_err();
+    assert!(e.contains("opacity"), "{e}");
+    d.layer_comps[0].layers[0].opacity = 5.0;
+    let e = d.apply_layer_comp(1).unwrap_err();
+    assert!(e.contains("opacity"), "{e}");
+    assert!(d.node(1).unwrap().visible, "a refused comp changes nothing");
 }
 
 #[test]
@@ -1304,6 +1328,25 @@ fn layer_comp_flags_off_skip_their_part_and_a_deleted_layer_is_skipped() {
     assert_eq!(n.opacity, 0.5, "appearance flag off: opacity untouched");
     assert_eq!(d.layer_bounds(a).unwrap(), Some([1, 1, 5, 5]), "position flag off: no move");
     assert!(d.node(b).is_err(), "a layer deleted since capture stays deleted, no error");
+}
+
+#[test]
+fn layer_comp_apply_skips_the_position_of_locked_and_non_pixel_layers() {
+    let mut d = gray_doc(64, 64, 200);
+    let a = rect_layer(&mut d, 1, [0, 0, 5, 5], [255, 0, 0, 255]);
+    let b = rect_layer(&mut d, a, [10, 10, 15, 15], [0, 255, 0, 255]);
+    let g = d.add_group("g", 0).unwrap();
+    let comp = d.capture_layer_comp("Layer Comp 1").unwrap();
+    d.layer_comps[0].layers.iter_mut().find(|l| l.id == g).unwrap().position = Some([1, 1]);
+    d.offset_layer(a, 3, 3).unwrap();
+    d.offset_layer(b, 3, 3).unwrap();
+    d.set_props(a, r#"{"opacity":0.5,"locks":{"position":true}}"#).unwrap();
+    d.set_props(b, r#"{"opacity":0.5,"locks":{"pixels":true}}"#).unwrap();
+
+    d.apply_layer_comp(comp).unwrap();
+    assert_eq!(d.layer_bounds(a).unwrap(), Some([3, 3, 5, 5]), "a position-locked layer stays put");
+    assert_eq!(d.layer_bounds(b).unwrap(), Some([13, 13, 5, 5]), "a pixel-locked layer stays put");
+    assert_eq!((d.node(a).unwrap().opacity, d.node(b).unwrap().opacity), (1.0, 1.0), "appearance still applies");
 }
 
 #[test]

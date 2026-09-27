@@ -383,6 +383,31 @@ export function App() {
     }
   }
 
+  // Edit Contents write-back: PSD export warnings (settings the source cannot store) need a confirm;
+  // a close that cannot write back offers to close without saving.
+  const lost = (warnings: string[]) => `The source file cannot store:\n- ${warnings.join('\n- ')}`;
+  async function editContents(id: number) {
+    await run('Opening contents…', async () => {
+      const d = await client.call('editContents', id);
+      if (d.warnings.length) setError(`Opened with warnings: ${d.warnings.join('; ')}`);
+      return d;
+    });
+  }
+  async function saveContents() {
+    await run('Saving contents…', async () => {
+      const d = await client.call('smartEditSave');
+      return d.written || !confirm(`${lost(d.warnings)}\n\nWrite the contents back anyway?`) ? d : client.call('smartEditSave', true);
+    });
+  }
+  async function closeContents() {
+    await run('Closing contents…', async () => {
+      let d = await client.call('smartEditClose');
+      if (!d.closed && !d.error && confirm(`${lost(d.warnings)}\n\nWrite the contents back anyway?`)) d = await client.call('smartEditClose', 'accept');
+      if (!d.closed && confirm(`${d.error ?? 'The contents were not written back.'}\n\nClose without saving the contents?`)) d = await client.call('smartEditClose', 'discard');
+      return d;
+    });
+  }
+
   async function savePsd() {
     setMenu(null);
     const d = docRef.current;
@@ -718,7 +743,7 @@ export function App() {
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
     { label: 'New Smart Object via Copy', run: () => node && run(null, () => client.call('smartViaCopy', node.id), selectCreated), off: !smart },
-    { label: 'Edit Contents', sep: true, run: () => node && run('Opening contents…', () => client.call('editContents', node.id)), off: !smart },
+    { label: 'Edit Contents', sep: true, run: () => node && editContents(node.id), off: !smart },
     { label: 'Replace Contents…', run: () => void replaceContents(false), off: !smart },
     { label: 'Export Contents…', run: () => void exportContents(), off: !smart },
     { label: 'Convert to Linked…', sep: true, run: () => void convertToLinked(), off: !smart || smart.link.type === 'linked' },
@@ -779,7 +804,7 @@ export function App() {
       { label: 'Layer Comps to Files (PNG)…', run: () => exportLayerComps('image/png', 'png'), off: !has || !doc?.layerComps.length },
       { label: 'Layer Comps to Files (JPEG)…', run: () => exportLayerComps('image/jpeg', 'jpg'), off: !has || !doc?.layerComps.length },
       { label: 'Layer Comps to Files (WebP)…', run: () => exportLayerComps('image/webp', 'webp'), off: !has || !doc?.layerComps.length },
-      { label: 'Close', run: () => run(null, () => client.call('closeDoc')), off: !has },
+      { label: 'Close', run: () => doc?.parents.length ? closeContents() : run(null, () => client.call('closeDoc')), off: !has },
     ],
     Edit: [
       { label: doc?.undoLabel ? `Undo ${doc.undoLabel}` : 'Undo', keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
@@ -2423,8 +2448,8 @@ export function App() {
         {doc?.parents.length ? (
           <span className="breadcrumb" aria-label="Smart object contents">
             {[...doc.parents, doc.name].join(' › ')}
-            <button type="button" onClick={() => run('Saving contents…', () => client.call('smartEditSave'))}>Save</button>
-            <button type="button" onClick={() => run('Closing contents…', () => client.call('smartEditClose'))}>Close</button>
+            <button type="button" onClick={() => saveContents()}>Save</button>
+            <button type="button" onClick={() => closeContents()}>Close</button>
           </span>
         ) : null}
       </header>

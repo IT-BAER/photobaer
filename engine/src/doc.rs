@@ -3822,11 +3822,6 @@ impl Document {
                 return;
             }
         };
-        if Document::knocks_out(node) {
-            let mut k = Step::new(Op::Knockout);
-            (k.src, k.mask_kind, k.mask, k.mask_const, k.scale) = (src, mk, mkey, mc, node.opacity);
-            prog.steps.push(k);
-        }
         let mut s = Step::new(Op::Draw);
         (s.src, s.mask_kind, s.mask, s.mask_const, s.scale, s.mode, s.node) =
             (src, mk, mkey, mc, scale, mode, node.id);
@@ -4054,6 +4049,7 @@ impl Document {
             let (content, mask) = Document::region_pixels(&region);
             let cx = styles::Ctx {
                 origin: [x0 as i32, y0 as i32],
+                level,
                 scale: 1.0,
                 light: &self.global_light,
                 patterns: &self.patterns,
@@ -4678,9 +4674,7 @@ impl Document {
             let pats = d.patterns.as_ref().unwrap_or(&self.patterns);
             for l in cs.iter().flat_map(|c| &c.layers) {
                 self.node(l.id)?;
-                if let Some(st) = &l.style {
-                    check_style(st, |id| pats.iter().any(|p| p.id == id))?;
-                }
+                check_comp_layer(l, |id| pats.iter().any(|p| p.id == id))?;
             }
         }
         if let Some(g) = d.global_light {
@@ -4840,6 +4834,7 @@ impl Document {
                     let (px, mask) = Document::region_pixels(&region);
                     let cx = styles::Ctx {
                         origin: [x0 as i32, y0 as i32],
+                        level: 0,
                         scale: 1.0,
                         light: &self.global_light,
                         patterns: &self.patterns,
@@ -4944,15 +4939,17 @@ impl Document {
     pub fn apply_layer_comp(&mut self, id: u32) -> Result<(), String> {
         self.check_idle()?;
         let comp = self.layer_comp_mut(id)?.clone();
+        for l in &comp.layers {
+            check_comp_layer(l, |id| self.patterns.iter().any(|p| p.id == id))?;
+        }
         for cl in &comp.layers {
-            if self.node(cl.id).is_err() {
+            let Ok(n) = self.node(cl.id) else {
                 continue; // deleted since capture
-            }
-            if comp.apply_position {
-                if let Some([sx, sy]) = cl.position {
-                    if let Some([cx, cy, ..]) = self.layer_bounds(cl.id)? {
-                        self.offset_layer(cl.id, sx - cx, sy - cy)?;
-                    }
+            };
+            // Locked and non-pixel layers keep their position; the rest of the comp still applies.
+            if comp.apply_position && !n.locks.position && !n.locks.pixels {
+                if let (Some([sx, sy]), Ok(Some([cx, cy, ..]))) = (cl.position, self.layer_bounds(cl.id)) {
+                    self.offset_layer(cl.id, sx - cx, sy - cy)?;
                 }
             }
             let node = self.node_mut(cl.id)?;
@@ -5248,8 +5245,8 @@ impl Document {
             let mask = take_sel(&SelIn { default: c.default, tiles: c.tiles.clone() }, Slot::Channel(i), &mut ctx)?;
             chans.push(Channel { id: c.id, name: c.name.clone(), mask });
         }
-        for st in layer_comps.iter().flat_map(|c| &c.layers).filter_map(|l| l.style.as_ref()) {
-            check_style(st, |id| ctx.patterns.contains(id))?;
+        for l in layer_comps.iter().flat_map(|c| &c.layers) {
+            check_comp_layer(l, |id| ctx.patterns.contains(id))?;
         }
         let mut listed = HashSet::new();
         for &id in &blobs {
@@ -5372,6 +5369,12 @@ struct LoadCtx {
 }
 
 // A style may only name document patterns and holds at most 10 instances per list.
+fn check_comp_layer(l: &CompLayer, has_pattern: impl Fn(&str) -> bool) -> Result<(), String> {
+    unit(l.opacity, "comp layer opacity")?;
+    unit(l.fill, "comp layer fill")?;
+    l.style.as_ref().map_or(Ok(()), |st| check_style(st, has_pattern))
+}
+
 fn check_style(style: &Style, has_pattern: impl Fn(&str) -> bool) -> Result<(), String> {
     style.check()?;
     match style.pattern_ids().find(|id| !has_pattern(id)) {
@@ -5510,6 +5513,7 @@ fn build_nodes(in_nodes: &[NodeIn<Coord>], path: &mut Vec<usize>, ctx: &mut Load
             ("pixel", Some(ids), ..) => Kind::Pixel(take_tiles(ids, false, Slot::Pixels(path.clone()), false, ctx)?),
             ("group", _, Some(children), ..) => Kind::Group(build_nodes(children, path, ctx)?),
             ("adjustment", _, _, Some(a), ..) => {
+                a.validate()?;
                 ctx.blob_refs.extend(a.blob());
                 Kind::Adjustment(a.clone())
             }
@@ -5560,6 +5564,7 @@ fn take_smart(s: &SmartIn, cache: &[Coord], path: &[usize], ctx: &mut LoadCtx) -
             return Err(format!("duplicate smart filter id {}", f.id));
         }
         unit(f.opacity, "filter opacity")?;
+        f.filter.validate()?;
         if f.blend == Blend::PassThrough {
             return Err("pass through is only allowed on groups".into());
         }
