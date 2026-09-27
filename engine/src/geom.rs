@@ -381,6 +381,50 @@ pub fn fill_mask(p: &VectorPath, x0: i32, y0: i32, w: usize, h: usize) -> Vec<u8
     to8(&coverage(p, v(x0 as f64, y0 as f64), w, h))
 }
 
+/// Binary fill of the window: 255 where the pixel center is inside (anti-alias none).
+pub fn fill_mask_binary(p: &VectorPath, x0: i32, y0: i32, w: usize, h: usize) -> Vec<u8> {
+    let g = groups(p);
+    let ops: Vec<PathOp> = g.iter().map(|g| g.0).collect();
+    let mut out = vec![0u8; w * h];
+    for y in 0..h {
+        let cy = (y0 as i64 + y as i64) as f64 + 0.5;
+        let xs: Vec<Vec<(f64, i32)>> = g
+            .iter()
+            .map(|(_, polys)| {
+                let mut xs = vec![];
+                for poly in polys {
+                    let n = poly.len();
+                    for i in 0..n {
+                        let (a, b) = (poly[i], poly[(i + 1) % n]);
+                        if (a.y <= cy) != (b.y <= cy) {
+                            xs.push((a.x + (cy - a.y) / (b.y - a.y) * (b.x - a.x), if b.y > a.y { 1 } else { -1 }));
+                        }
+                    }
+                }
+                xs.sort_by(|a, b| a.0.total_cmp(&b.0));
+                xs
+            })
+            .collect();
+        if xs.iter().all(|v| v.is_empty()) {
+            continue;
+        }
+        let (mut at, mut wn) = (vec![0usize; xs.len()], vec![0i32; xs.len()]);
+        for x in 0..w {
+            let cx = (x0 as i64 + x as i64) as f64 + 0.5;
+            for (k, v) in xs.iter().enumerate() {
+                while at[k] < v.len() && v[at[k]].0 < cx {
+                    wn[k] += v[at[k]].1;
+                    at[k] += 1;
+                }
+            }
+            if group_inside(&ops, p.fill_rule, &wn) {
+                out[y * w + x] = 255;
+            }
+        }
+    }
+    out
+}
+
 // ---- stroke ----
 
 fn circle(c: V, r: f64) -> Vec<V> {

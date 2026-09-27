@@ -1013,6 +1013,31 @@ impl Engine {
         self.0.doc.set_document_vector(json).map_err(err)
     }
 
+    /// Replaces a type layer's model (TextData JSON) and drops its cache; call `render_text` next.
+    pub fn set_text(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_text(id, json).map_err(err)
+    }
+
+    /// Renders a type layer's cache at `resolution` ppi with the fonts in `fonts`.
+    pub fn render_text(&mut self, id: u32, fonts: &Fonts, resolution: f64) -> Result<(), JsError> {
+        self.0.doc.render_text(id, &fonts.0, resolution).map_err(err)
+    }
+
+    /// "Create Work Path" from a type layer; returns the work path id.
+    pub fn text_work_path(&mut self, id: u32, fonts: &Fonts, resolution: f64) -> Result<u32, JsError> {
+        self.0.doc.text_work_path(id, &fonts.0, resolution).map_err(err)
+    }
+
+    /// "Convert to Shape": the type layer becomes a shape layer with the same id.
+    pub fn convert_text_to_shape(&mut self, id: u32, fonts: &Fonts, resolution: f64) -> Result<(), JsError> {
+        self.0.doc.convert_text_to_shape(id, &fonts.0, resolution).map_err(err)
+    }
+
+    /// Whether document point (x, y) hits the type layer's outline (2 px tolerance).
+    pub fn text_hit(&self, id: u32, fonts: &Fonts, resolution: f64, x: f64, y: f64) -> Result<bool, JsError> {
+        self.0.doc.text_hit(id, &fonts.0, resolution, x, y).map_err(err)
+    }
+
     /// `{ name, live, fill, stroke }`: a shape layer on top with the path generated from `live`.
     pub fn new_shape(&mut self, json: &str) -> Result<u32, JsError> {
         self.0.doc.new_shape(json).map_err(err)
@@ -1080,5 +1105,12 @@ impl Fonts {
 
     pub fn default_family(&self, family: &str) -> Option<String> {
         self.0.default_family(family)
+    }
+
+    /// The outline `VectorPath` JSON of a TextData JSON at `resolution` ppi (the Type Mask tools).
+    pub fn text_outline(&self, json: &str, resolution: f64) -> Result<String, JsError> {
+        let t: text::TextData = serde_json::from_str(json).map_err(|e| err(format!("invalid text: {e}")))?;
+        t.validate().map_err(err)?;
+        Ok(serde_json::to_string(&doc::glyphs::outline(&t, &self.0, resolution).path()).unwrap())
     }
 }

@@ -20,6 +20,8 @@ mod brush;
 mod guides;
 #[path = "paths.rs"]
 mod paths;
+#[path = "glyphs.rs"]
+pub mod glyphs;
 #[path = "shapes.rs"]
 pub(crate) mod shapes;
 #[cfg(test)]

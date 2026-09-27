@@ -57,18 +57,21 @@ impl Document {
                 s.live = None;
             }
             "vectorMask" => self.node_mut(id)?.vector_mask.as_mut().expect("checked by role_path").path = path,
-            _ if id == 0 => {
-                return Ok(match self.vector.paths.iter_mut().find(|p| p.work) {
-                    Some(w) => {
-                        w.path = path;
-                        w.id
-                    }
-                    None => self.push_path("Work Path".into(), path, true),
-                });
-            }
+            _ if id == 0 => return Ok(self.put_work_path(path)),
             _ => self.saved_path_mut(id)?.path = path,
         }
         Ok(id)
+    }
+
+    /// Replaces the work path, created as "Work Path" when there is none. Returns its id.
+    pub(super) fn put_work_path(&mut self, path: VectorPath) -> u32 {
+        match self.vector.paths.iter_mut().find(|p| p.work) {
+            Some(w) => {
+                w.path = path;
+                w.id
+            }
+            None => self.push_path("Work Path".into(), path, true),
+        }
     }
 
     /// "New Path": an empty saved path named "Path N", lowest free N.

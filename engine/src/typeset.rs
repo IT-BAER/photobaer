@@ -345,6 +345,9 @@ impl<'a> Ctx<'a> {
                     let ci = gi.cluster as usize;
                     let id = GlyphId(gi.glyph_id as u16);
                     let mut w = p.x_advance as f64 * unit * hs;
+                    if r.faux_bold {
+                        w += crate::doc::glyphs::FAUX_BOLD * size * hs;
+                    }
                     let mut dx = p.x_offset as f64 * unit * hs;
                     if r.tsume > 0.0 && east_asian(self.chars[ci]) {
                         let ink = face.glyph_bounding_box(id).map_or(w, |b| b.width() as f64 * unit * hs);
