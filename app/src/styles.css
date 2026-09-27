@@ -330,3 +330,42 @@ dialog .gradient-midpoint { position: absolute; top: 5px; width: 8px; height: 8p
 dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .gradient-noise { display: flex; flex-direction: column; gap: 2px; }
 .gradient-noise .gradient-row { margin: 0; }
+
+/* Layer > Layer Style dialog. */
+.layer-style-dialog { width: 820px; max-width: 95vw; height: 520px; max-height: 90vh; display: flex; flex-direction: column; }
+.layer-style-dialog:not([open]) { display: none; }
+.layer-style-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr 120px; gap: 12px; }
+.layer-style-list { margin: 0; padding: 0; list-style: none; overflow-y: auto; border-right: 1px solid var(--line); }
+.layer-style-row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 4px; }
+.layer-style-row.sub { padding-left: 22px; }
+.layer-style-row.active { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+.layer-style-row input { flex: 0 0 auto; }
+.layer-style-dialog .layer-style-row button { padding: 2px 4px; background: none; border: 0; }
+.layer-style-dialog .layer-style-row .layer-style-name { flex: 1; text-align: left; color: inherit; }
+.layer-style-dialog .layer-style-row .layer-style-name:first-child { padding-left: 22px; }
+.layer-style-page { overflow-y: auto; min-width: 0; }
+.layer-style-page h3 { margin: 0 0 8px; font-size: 14px; }
+.layer-style-side { display: flex; flex-direction: column; gap: 8px; }
+.layer-style-defaults { display: flex; gap: 8px; margin-top: 12px; }
+.layer-style-swatch { width: 72px; height: 72px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: repeating-conic-gradient(#d8d8d8 0% 25%, #a6a6a6 0% 50%) 0 0 / 8px 8px; }
+.layer-style-swatch > div { width: 40px; height: 40px; }
+.contour-grid { display: grid; grid-template-columns: repeat(6, 36px); gap: 4px; }
+.layer-style-dialog .contour-grid button { padding: 2px; line-height: 0; }
+.layer-style-dialog .contour-grid button.active, .layer-style-dialog .style-pattern-grid button.active { border-color: var(--accent); }
+.style-pattern-picker { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.style-pattern-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 4px; max-height: 140px; overflow-y: auto; }
+.layer-style-dialog .style-pattern-grid button { padding: 4px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+.blend-if-row { margin: 8px 0; }
+.blend-if-bar { position: relative; height: 12px; margin: 6px 6px 14px; background: linear-gradient(to right, #000, #fff); border: 1px solid var(--line); }
+.blend-if-handle { position: absolute; top: 12px; width: 10px; height: 10px; margin-left: -5px; clip-path: polygon(50% 0, 100% 100%, 0 100%); cursor: ew-resize; touch-action: none; }
+.blend-if-handle.black { background: #000; outline: 1px solid #fff4; }
+.blend-if-handle.white { background: #fff; }
+.blend-if-handle.split { width: 6px; margin-left: -3px; }
+.layer-row .layer-fx-badge { flex: 0 0 auto; padding: 0 4px; font: italic 600 11px/16px serif; color: var(--text); background: none; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.layer-row .layer-fx-badge.disabled { opacity: 0.4; }
+.layer-effects-list { margin: 0 0 2px 28px; }
+.layer-effect-row { display: flex; align-items: center; gap: 4px; min-height: 22px; font-size: 12px; color: var(--dim); }
+.layer-effect-row.instance { padding-left: 16px; }
+.layer-effect-row.disabled .name { opacity: 0.5; }
+.layer-effect-row .visibility { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; background: none; border: 0; color: var(--dim); cursor: pointer; }
+.layer-effect-row button.name { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }

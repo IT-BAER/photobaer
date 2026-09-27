@@ -47,3 +47,6 @@ export function dropTarget(tree: LayerNode[], drag: number, target: number, wher
   if (list === d.list && d.index === index) return null;
   return { parent, index };
 }
+
+/** Every node of the tree, parents before their children. */
+export const flatNodes = (list: LayerNode[]): LayerNode[] => list.flatMap(n => [n, ...flatNodes(n.children ?? [])]);

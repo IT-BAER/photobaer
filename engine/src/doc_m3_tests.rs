@@ -1406,3 +1406,138 @@ fn curves_point_mode_caps_at_16_points_and_pencil_takes_256_samples() {
     assert_eq!(px(&d, 1, 1)[0], 155);
     assert!(d.set_adjustment(a, &curves("pencil", &[])).unwrap_err().contains("between 1 and 256"));
 }
+
+fn flat(d: &Document) -> Vec<u8> {
+    let (ntx, nty) = d.level_tiles(0);
+    (0..nty).flat_map(|ty| (0..ntx).flat_map(move |tx| d.flatten_tile_rgba8(tx, ty).unwrap())).collect()
+}
+
+#[test]
+fn scale_effects_scales_every_px_parameter() {
+    let make = |k: f32, scale: f32| {
+        let mut d = gray_doc(60, 60, 255);
+        let l = rect_layer(&mut d, 1, [20, 20, 40, 40], [255, 0, 0, 255]);
+        d.set_style(l, &style_with(|s| {
+            s["strokes"] = json!([stroke_fx(3.0 * k, [0, 0, 255])]);
+            s["drop_shadows"] = json!([drop_fx(150.0, 3.0 * k, 2.0 * k)]);
+        }))
+        .unwrap();
+        d.scale_effects(l, scale).unwrap();
+        assert_eq!(d.node(l).unwrap().style.as_ref().unwrap().scale, scale);
+        d
+    };
+    let (a, b) = (make(1.0, 2.0), make(2.0, 1.0));
+    assert_eq!(px(&a, 15, 30), [0, 0, 255, 255], "stroke 3 at scale 2 reaches 6 px out");
+    assert_eq!(flat(&a), flat(&b));
+    let mut d = gray_doc(8, 8, 255);
+    assert!(d.scale_effects(1, 2.0).unwrap_err().contains("no layer style"));
+    d.set_style(1, &overlay_style(true)).unwrap();
+    assert!(d.scale_effects(1, 11.0).unwrap_err().contains("1 % and 1000 %"));
+    assert!(d.scale_effects(1, 0.001).is_err());
+}
+
+#[test]
+fn hide_all_effects_toggles_every_styled_layer() {
+    let mut d = gray_doc(8, 8, 255);
+    let a = d.add_layer("a", 1).unwrap();
+    let b = d.add_layer("b", a).unwrap();
+    d.set_style(1, &overlay_style(true)).unwrap();
+    d.set_style(b, &overlay_style(true)).unwrap();
+    let on = |d: &Document, id: u32| d.node(id).unwrap().style.as_ref().unwrap().enabled;
+    assert!(!d.hide_all_effects().unwrap());
+    assert!(!on(&d, 1) && !on(&d, b));
+    assert!(d.node(a).unwrap().style.is_none());
+    // With every style off the command shows them all again; one on hides them all.
+    assert!(d.hide_all_effects().unwrap());
+    assert!(on(&d, 1) && on(&d, b));
+    let mut s = d.node(1).unwrap().style.clone().unwrap();
+    s.enabled = false;
+    d.set_style(1, &serde_json::to_string(&s).unwrap()).unwrap();
+    assert!(!d.hide_all_effects().unwrap());
+    assert!(!on(&d, 1) && !on(&d, b));
+    assert!(Document::new(8, 8, 8).unwrap().hide_all_effects().unwrap_err().contains("no layer has layer effects"));
+}
+
+#[test]
+fn copy_paste_and_clear_style_carry_the_style_only() {
+    let mut d = gray_doc(8, 8, 255);
+    let a = d.add_layer("a", 1).unwrap();
+    let b = d.add_layer("b", a).unwrap();
+    d.set_style(1, &overlay_style(true)).unwrap();
+    d.set_blending(1, &blending_with(|v| v["knockout"] = "shallow".into())).unwrap();
+    d.set_props(1, r#"{"fill":0.5}"#).unwrap();
+    let json = d.copy_style(1).unwrap();
+    assert!(d.copy_style(a).unwrap_err().contains("no layer style"));
+    d.paste_style(&[a, b], &json).unwrap();
+    for id in [a, b] {
+        let n = d.node(id).unwrap();
+        assert_eq!(n.style, d.node(1).unwrap().style);
+        assert_eq!(n.blending, Blending::default(), "blending options never travel");
+        assert_eq!(n.fill, 1.0);
+    }
+    // Deep copies: editing one pasted style leaves the other.
+    d.scale_effects(a, 3.0).unwrap();
+    assert_eq!(d.node(b).unwrap().style.as_ref().unwrap().scale, 1.0);
+    d.clear_style(a).unwrap();
+    assert!(d.node(a).unwrap().style.is_none());
+    assert_eq!(d.node(1).unwrap().blending.knockout, Knockout::Shallow);
+    // A refused target leaves every layer as it was.
+    let inv = invert(&mut d, b);
+    let before = d.node(a).unwrap().style.clone();
+    assert!(d.paste_style(&[a, inv], &json).unwrap_err().contains("adjustment layer"));
+    assert_eq!(d.node(a).unwrap().style, before);
+}
+
+#[test]
+fn style_commands_refuse_fully_locked_layers() {
+    let mut d = gray_doc(8, 8, 255);
+    d.set_style(1, &overlay_style(true)).unwrap();
+    d.set_props(1, r#"{"locks":{"transparency":true,"pixels":true,"position":true}}"#).unwrap();
+    let json = d.copy_style(1).unwrap();
+    for e in [
+        d.clone().paste_style(&[1], &json).unwrap_err(),
+        d.clone().clear_style(1).unwrap_err(),
+        d.clone().scale_effects(1, 2.0).unwrap_err(),
+        d.clone().create_layers_from_style(1).unwrap_err(),
+    ] {
+        assert!(e.contains("fully locked"), "{e}");
+    }
+    // Partial locks do not refuse.
+    d.set_props(1, r#"{"locks":{"position":false}}"#).unwrap();
+    d.clear_style(1).unwrap();
+}
+
+#[test]
+fn create_layers_splits_behind_planes_and_keeps_the_render() {
+    // A square across the tile border at x = 256 with every behind kind and interior effects.
+    let mut d = gray_doc(300, 60, 200);
+    let l = rect_layer(&mut d, 1, [240, 15, 270, 45], [30, 160, 90, 255]);
+    let mut glow = glow("edge", json!({ "type": "color", "color": [255, 255, 0] }));
+    glow["enabled"] = true.into();
+    glow["jitter"] = 0.0.into();
+    d.set_style(l, &style_with(|s| {
+        s["drop_shadows"] = json!([drop_fx(150.0, 6.0, 4.0), drop_fx(30.0, 3.0, 0.0)]);
+        s["outer_glow"] = glow;
+        s["strokes"] = json!([stroke_fx(2.0, [0, 0, 255])]);
+        s["color_overlays"] = json!([overlay_fx([255, 0, 0], 0.5)]);
+    }))
+    .unwrap();
+    d.set_props(l, r#"{"fill":0.6,"opacity":0.9,"name":"Sq"}"#).unwrap();
+    let before = flat(&d);
+    let ids = d.create_layers_from_style(l).unwrap();
+    assert_eq!(ids.len(), 3, "one layer per behind plane");
+    let names: Vec<String> = ids.iter().map(|&i| d.node(i).unwrap().name.clone()).collect();
+    assert_eq!(names, ["Sq's Drop Shadow", "Sq's Drop Shadow 2", "Sq's Outer Glow"]);
+    let n = d.node(ids[2]).unwrap();
+    assert_eq!((n.blend, n.opacity), (Blend::Screen, 0.75 * 0.9));
+    let n = d.node(l).unwrap();
+    assert!(n.style.is_none() && n.mask.is_none());
+    assert_eq!((n.fill, n.opacity), (1.0, 0.9));
+    // Draw order: the behind layers sit directly below, in plane order.
+    let order: Vec<u32> = d.nodes.iter().map(|n| n.id).collect();
+    assert_eq!(order, [1, ids[0], ids[1], ids[2], l]);
+    let after = flat(&d);
+    let worst = before.iter().zip(&after).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+    assert!(worst <= 1, "flattened result moved by {worst}");
+    assert!(d.create_layers_from_style(l).unwrap_err().contains("no layer effects"));
+}

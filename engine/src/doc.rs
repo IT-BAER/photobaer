@@ -4627,6 +4627,191 @@ impl Document {
         Ok(())
     }
 
+    // Layer Style commands refuse fully locked layers (the model has no background layer).
+    fn style_target(&self, id: u32) -> Result<&Node, String> {
+        let n = self.node(id)?;
+        if n.locks.transparency && n.locks.pixels && n.locks.position {
+            return Err(format!("layer \"{}\" is fully locked", n.name));
+        }
+        Ok(n)
+    }
+
+    fn style_mut(&mut self, id: u32) -> Result<&mut Style, String> {
+        let name = self.style_target(id)?.name.clone();
+        self.node_mut(id)?.style.as_mut().ok_or_else(|| format!("layer \"{name}\" has no layer style"))
+    }
+
+    /// Scale Effects: sets the style scale, 0.01..10 (1 % to 1000 %).
+    pub fn scale_effects(&mut self, id: u32, factor: f32) -> Result<(), String> {
+        self.check_idle()?;
+        if !(0.01..=10.0).contains(&factor) {
+            return Err("scale must be between 1 % and 1000 %".into());
+        }
+        self.style_mut(id)?.scale = factor;
+        Ok(())
+    }
+
+    /// Hide All Effects: turns every style's master switch off, or on when all are already off;
+    /// returns the new state.
+    pub fn hide_all_effects(&mut self) -> Result<bool, String> {
+        self.check_idle()?;
+        fn walk<'a>(nodes: &'a mut [Node], out: &mut Vec<&'a mut Style>) {
+            for n in nodes {
+                if let Some(s) = n.style.as_mut() {
+                    out.push(s);
+                }
+                if let Kind::Group(ch) = &mut n.kind {
+                    walk(ch, out);
+                }
+            }
+        }
+        let mut styles = Vec::new();
+        walk(&mut self.nodes, &mut styles);
+        if styles.is_empty() {
+            return Err("no layer has layer effects".into());
+        }
+        let on = !styles.iter().any(|s| s.enabled);
+        styles.into_iter().for_each(|s| s.enabled = on);
+        Ok(on)
+    }
+
+    /// Copy Layer Style: the style JSON only, never the blending options.
+    pub fn copy_style(&self, id: u32) -> Result<String, String> {
+        let n = self.node(id)?;
+        let s = n.style.as_ref().ok_or_else(|| format!("layer \"{}\" has no layer style", n.name))?;
+        Ok(serde_json::to_string(s).expect("style serializes"))
+    }
+
+    /// Paste Layer Style (and the Layer Style dialog): a deep copy of `json` on every id; all
+    /// targets are checked before any changes.
+    pub fn paste_style(&mut self, ids: &[u32], json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let style: Style = serde_json::from_str(json).map_err(|e| format!("invalid style: {e}"))?;
+        check_style(&style, |p| self.patterns.iter().any(|e| e.id == p))?;
+        for &id in ids {
+            if matches!(self.style_target(id)?.kind, Kind::Adjustment(_)) {
+                return Err(format!("node {id} is an adjustment layer and cannot have a layer style"));
+            }
+        }
+        for &id in ids {
+            self.node_mut(id)?.style = Some(style.clone());
+        }
+        Ok(())
+    }
+
+    /// Clear Layer Style: removes the style, blending options stay.
+    pub fn clear_style(&mut self, id: u32) -> Result<(), String> {
+        self.check_idle()?;
+        self.style_target(id)?;
+        self.node_mut(id)?.style = None;
+        Ok(())
+    }
+
+    /// Create Layers: each behind plane becomes a pixel layer directly below ("<layer>'s <effect>",
+    /// the effect's mode, its opacity times the layer's); the content with the interior effects,
+    /// fill and masks baked stays, and the style, fill (-> 1) and masks go. Pixel layers outside a
+    /// clipping group only. Returns the new ids, bottom first.
+    pub fn create_layers_from_style(&mut self, id: u32) -> Result<Vec<u32>, String> {
+        self.check_idle()?;
+        let node = self.style_target(id)?;
+        let Kind::Pixel(tiles) = &node.kind else {
+            return Err(format!("Create Layers needs a pixel layer; node {id} is a {} layer", node.kind_name()));
+        };
+        let style = node.style.clone().filter(|s| s.any_effect());
+        let Some(style) = style else { return Err(format!("layer \"{}\" has no layer effects", node.name)) };
+        let path = self.find_path(id)?;
+        let (last, prefix) = path.split_last().expect("path");
+        let siblings: &[Node] = match prefix.is_empty() {
+            true => &self.nodes,
+            false => match &node_at(&self.nodes, prefix).kind {
+                Kind::Group(ch) => ch,
+                _ => unreachable!("a node path only walks through groups"),
+            },
+        };
+        let base = siblings.get(last + 1).is_some_and(|n| n.clipping);
+        if node.clipping || base {
+            return Err("Create Layers does not work inside a clipping group".into());
+        }
+        let live = |p: bool, e: bool| p && e;
+        let mut names = Vec::new();
+        let drops: Vec<_> = style.drop_shadows.iter().filter(|e| live(e.present, e.enabled)).collect();
+        for (i, e) in drops.iter().enumerate() {
+            let suffix = if drops.len() > 1 && i > 0 { format!(" {}", i + 1) } else { String::new() };
+            names.push((format!("{}'s Drop Shadow{suffix}", node.name), e.blend, e.opacity));
+        }
+        if let Some(g) = style.outer_glow.as_ref().filter(|e| live(e.present, e.enabled)) {
+            names.push((format!("{}'s Outer Glow", node.name), g.blend, g.opacity));
+        }
+
+        let pad = styles::reach(&style) as i64;
+        let n = TILE + 2 * pad as usize;
+        let (mut content, mut behind) = (Vec::new(), vec![Vec::new(); names.len()]);
+        if let Some([bx, by, bw, bh]) = tiles_bounds(tiles) {
+            let t = TILE as i64;
+            let (bounds, _) = self.style_bounds(node, &style);
+            let (tx0, tx1) = ((bx as i64 - pad).div_euclid(t), (bx as i64 + bw as i64 - 1 + pad).div_euclid(t));
+            let (ty0, ty1) = ((by as i64 - pad).div_euclid(t), (by as i64 + bh as i64 - 1 + pad).div_euclid(t));
+            for ty in ty0..=ty1 {
+                for tx in tx0..=tx1 {
+                    let (x0, y0) = (tx * t - pad, ty * t - pad);
+                    let Some(region) = self.styled_region(node, None, 0, x0, y0, n) else { continue };
+                    let (px, mask) = Document::region_pixels(&region);
+                    let cx = styles::Ctx {
+                        origin: [x0 as i32, y0 as i32],
+                        scale: 1.0,
+                        light: &self.global_light,
+                        patterns: &self.patterns,
+                        blobs: &self.blobs,
+                        bounds,
+                        doc: [self.width as f64, self.height as f64],
+                    };
+                    let layer = styles::Layer {
+                        w: n,
+                        h: n,
+                        content: &px,
+                        blend: node.blend,
+                        fill: node.fill,
+                        blending: &node.blending,
+                        layer_mask: mask.as_ref(),
+                        vector_mask: None,
+                    };
+                    let r = styles::render_layer(&style, &layer, &cx);
+                    let p = pad as usize;
+                    let crop = |v: &[[f32; 4]]| {
+                        let f: Vec<f32> = (0..TILE).flat_map(|y| v[(y + p) * n + p..(y + p) * n + p + TILE].iter().flatten().copied()).collect();
+                        Arc::new(Pixels::from_straight(self.depth, &f))
+                    };
+                    content.push((tx as i32, ty as i32, crop(&r.content)));
+                    for (out, b) in behind.iter_mut().zip(&r.behind) {
+                        out.push((tx as i32, ty as i32, crop(&b.rgba)));
+                    }
+                }
+            }
+        }
+
+        let opacity = node.opacity;
+        let mut into_tiles = |planes: Vec<(i32, i32, Arc<Pixels>)>| {
+            let mut t = Tiles::default();
+            for (x, y, px) in planes.into_iter().filter(|p| p.2.any_alpha()) {
+                t.put(x, y, Some(Tile { id: self.alloc_tile_id(), px }));
+            }
+            t
+        };
+        let content = into_tiles(content);
+        let behind: Vec<Tiles> = behind.into_iter().map(&mut into_tiles).collect();
+        let mut ids = Vec::new();
+        for ((name, blend, op), tiles) in names.into_iter().zip(behind) {
+            let nid = self.alloc_node_id();
+            let mut l = Node::new(nid, &name, Kind::Pixel(tiles));
+            (l.blend, l.opacity) = (blend, op * opacity);
+            list_mut(&mut self.nodes, prefix).insert(last + ids.len(), l);
+            ids.push(nid);
+        }
+        let node = self.node_mut(id)?;
+        (node.kind, node.style, node.fill, node.mask) = (Kind::Pixel(content), None, 1.0, None);
+        Ok(ids)
+    }
+
     // ---------- layer comps (M3.md section 8) ----------
 
     // Every layer, recursive; a node with no pixels (group, adjustment, fill) has no position.
@@ -4769,6 +4954,7 @@ impl Document {
                 "bounds": self.selection_bounds(),
             })),
             "has_last_selection": self.last_selection.is_some(),
+            "global_light": self.global_light,
             "channels": self.channels.iter().map(|c| serde_json::json!({ "id": c.id, "name": c.name })).collect::<Vec<_>>(),
             "patterns": self.patterns.iter().map(|p| serde_json::json!({ "id": p.id, "name": p.name })).collect::<Vec<_>>(),
             "layer_comps": self.layer_comps.iter().map(|c| serde_json::json!({

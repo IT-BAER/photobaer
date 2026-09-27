@@ -7,6 +7,7 @@ import { FakeDir, fs } from './fake-opfs.ts';
 import { engineMesh, identityMesh } from './transform/warp.ts';
 import { croppedSize } from './crop/geometry.ts';
 import { ADJUSTMENT_KINDS, MENU_LABEL, defaultAdjustment } from './adjustments.ts';
+import { defaultBlending, defaultEffect, emptyStyle, type LayerStyle } from './layerStyle.ts';
 
 // Runs the real worker module in Node: WASM loaded up front, worker globals and OPFS faked.
 initSync({ module: readFileSync(new URL('./engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
@@ -959,4 +960,126 @@ test('perspective crop is one Perspective Crop step; a collinear quad is refused
   assert.equal(d.selection, null, 'the selection is cleared');
   const c = await px(1, 1);
   assert.ok(c.every((v, i) => Math.abs(v - RED[i]) <= 1), `${c}`);
+});
+
+// Layer styles (B9): an opaque 30x30 red square at (20, 20) on layer 2 over a white Background.
+async function styledDoc() {
+  await call('init');
+  await call('newDoc', 80, 80, 8, [255, 255, 255, 255]);
+  await call('addLayer', 1);
+  await call('select', { kind: 'rect', x: 20, y: 20, w: 30, h: 30 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 2, 'pixels', [255, 0, 0, 255]);
+  await call('selectCommand', 'deselect');
+}
+type DocWithStyles = {
+  layers: { id: number; name: string; style: LayerStyle | null; blend: string; opacity: number; fill: number; blending: { knockout: string } }[];
+  globalLight: { angle: number; altitude: number };
+};
+type StyledDoc = DocWithStyles & { undoLabel: string; history: { labels: string[] } };
+const layer = (d: unknown, id: number) => (d as DocWithStyles).layers.find(l => l.id === id)!;
+const blueStroke = (size: number) => ({ ...defaultEffect('strokes'), size, fill: { type: 'solid', color: [0, 0, 255] } });
+const samples = (points: number[][]) => Promise.all(points.map(([x, y]) => call('sample', x, y, 1, null).then(r => r.result as number[])));
+
+test('paste layer style deep-copies onto several layers and never carries blending options', async () => {
+  await styledDoc();
+  await call('addLayer', 2);
+  const style = { ...emptyStyle(), strokes: [blueStroke(3)] };
+  await call('setLayerStyle', 2, style, { ...defaultBlending(), knockout: 'shallow' }, 0.5, null);
+  await call('copyLayerStyle', 2);
+  const p = await call('pasteLayerStyle', [1, 3]);
+  assert.equal((p.result as StyledDoc).undoLabel, 'Paste Layer Style');
+  for (const id of [1, 3]) {
+    assert.deepEqual(layer(p.result, id).style, layer(p.result, 2).style);
+    assert.equal(layer(p.result, id).blending.knockout, 'none');
+    assert.equal(layer(p.result, id).fill, 1);
+  }
+  const s = await call('scaleEffects', 1, 200);
+  assert.equal((s.result as StyledDoc).undoLabel, 'Scale Effects');
+  assert.equal(layer(s.result, 1).style!.scale, 2);
+  assert.equal(layer(s.result, 3).style!.scale, 1, 'the other pasted copy is untouched');
+  const c = await call('clearLayerStyle', [3]);
+  assert.equal(layer(c.result, 3).style, null);
+  assert.equal((c.result as StyledDoc).undoLabel, 'Clear Layer Style');
+});
+
+test('scale 200 % renders stroke 3 like stroke 6 at 100 %', async () => {
+  const render = async (size: number, percent: number) => {
+    await styledDoc();
+    await call('setLayerStyle', 2, { ...emptyStyle(), strokes: [blueStroke(size)] }, defaultBlending(), 1, null);
+    await call('scaleEffects', 2, percent);
+    return samples([[13, 35], [14, 35], [15, 35], [19, 35], [35, 13], [56, 56]]);
+  };
+  const a = await render(3, 200);
+  const b = await render(6, 100);
+  assert.deepEqual(a, b);
+  assert.deepEqual(a.slice(0, 3), [[255, 255, 255, 255], [0, 0, 255, 255], [0, 0, 255, 255]]);
+});
+
+test('Create Layers makes one layer per behind plane and keeps the flattened result', async () => {
+  await styledDoc();
+  const style = {
+    ...emptyStyle(), strokes: [blueStroke(2)],
+    drop_shadows: [defaultEffect('drop_shadows'), { ...defaultEffect('drop_shadows'), angle: 30, use_global_light: false }],
+    outer_glow: defaultEffect('outer_glow'),
+  };
+  await call('setLayerStyle', 2, style, defaultBlending(), 0.7, null);
+  const points = [[10, 10], [18, 30], [30, 30], [52, 40], [55, 55], [60, 60], [45, 18], [53, 16]];
+  const before = await samples(points);
+  const r = await call('createLayersFromStyle', 2);
+  const d = r.result as StyledDoc & { created: number[] };
+  assert.equal(d.undoLabel, 'Create Layers');
+  assert.deepEqual(d.created.map(id => layer(d, id).name), ["Layer 1's Drop Shadow", "Layer 1's Drop Shadow 2", "Layer 1's Outer Glow"]);
+  assert.equal(layer(d, 2).style, null);
+  assert.equal(layer(d, 2).fill, 1);
+  const after = await samples(points);
+  before.forEach((p, i) => p.forEach((v, k) => assert.ok(Math.abs(v - after[i][k]) <= 1, `point ${points[i]} channel ${k}: ${v} vs ${after[i][k]}`)));
+});
+
+test('the Layer Style dialog previews and commits one step; global light and hide all', async () => {
+  await styledDoc();
+  const style = { ...emptyStyle(), drop_shadows: [defaultEffect('drop_shadows')] };
+  await call('setLayerStyle', 2, style, defaultBlending(), 1, { angle: 400, altitude: 120 }, true);
+  await call('setLayerStyle', 2, { ...style, scale: 2 }, defaultBlending(), 1, { angle: -30, altitude: 40 }, true);
+  const d = (await call('previewEnd', true)).result as StyledDoc;
+  assert.equal(d.undoLabel, 'Layer Style');
+  assert.equal(d.history.labels.filter(l => l === 'Layer Style').length, 1);
+  assert.deepEqual(d.globalLight, { angle: 330, altitude: 40 });
+  assert.equal(layer(d, 2).style!.scale, 2);
+  const g = await call('setGlobalLight', { angle: 725, altitude: -5 });
+  assert.deepEqual((g.result as StyledDoc).globalLight, { angle: 5, altitude: 0 });
+  assert.equal((g.result as StyledDoc).undoLabel, 'Global Light');
+  const h = await call('hideAllEffects');
+  assert.equal(layer(h.result, 2).style!.enabled, false);
+  assert.equal((h.result as StyledDoc).undoLabel, 'Hide All Effects');
+  // Cancel restores.
+  await call('setLayerStyle', 2, emptyStyle(), defaultBlending(), 0.2, null, true);
+  const c = await call('previewEnd', false);
+  assert.equal(layer(c.result, 2).style!.drop_shadows.length, 1);
+  assert.equal(layer(c.result, 2).fill, 1);
+});
+
+test('style commands on a fully locked layer fail naming the reason, with no step', async () => {
+  await styledDoc();
+  await call('setLayerStyle', 2, emptyStyle(), defaultBlending(), 1, null);
+  const locked = await call('setProps', 2, { locks: { transparency: true, pixels: true, position: true } });
+  const steps = (locked.result as StyledDoc).history.labels.length;
+  const r = await call('setLayerStyle', 2, emptyStyle(), defaultBlending(), 1, null);
+  assert.match(r.error!, /fully locked/);
+  const m = await call('dragLayerStyle', 2, 1, false);
+  assert.match(m.error!, /fully locked/);
+  const d = (await call('hideAllEffects')).result as StyledDoc;
+  assert.equal(d.history.labels.length, steps + 1, 'only Hide All Effects added a step');
+});
+
+test('dragging effects moves them, Alt copies them', async () => {
+  await styledDoc();
+  await call('setLayerStyle', 2, { ...emptyStyle(), strokes: [blueStroke(2)] }, defaultBlending(), 1, null);
+  const c = await call('dragLayerStyle', 2, 1, true);
+  assert.equal((c.result as StyledDoc).undoLabel, 'Copy Layer Style');
+  assert.ok(layer(c.result, 1).style && layer(c.result, 2).style);
+  await call('clearLayerStyle', [1]);
+  const m = await call('dragLayerStyle', 2, 1, false);
+  assert.equal((m.result as StyledDoc).undoLabel, 'Move Layer Style');
+  assert.ok(layer(m.result, 1).style);
+  assert.equal(layer(m.result, 2).style, null);
 });

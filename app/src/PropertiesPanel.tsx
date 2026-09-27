@@ -53,7 +53,7 @@ function NumberField({ spec, value, set }: { spec: Extract<FieldSpec, { type: 'n
   );
 }
 
-function Field({ spec, params, onChange }: { spec: FieldSpec; params: object; onChange: (path: string, v: unknown, live: boolean) => void }) {
+export function Field({ spec, params, onChange }: { spec: FieldSpec; params: object; onChange: (path: string, v: unknown, live: boolean) => void }) {
   const value = getPath(params, spec.path);
   if (spec.type === 'checkbox') {
     return <label className="adjustment-check"><input type="checkbox" checked={!!value} onChange={e => onChange(spec.path, e.currentTarget.checked, false)} /> {spec.label}</label>;
@@ -67,7 +67,10 @@ function Field({ spec, params, onChange }: { spec: FieldSpec; params: object; on
       </label>
     );
   }
-  return <NumberField spec={spec} value={Number(value)} set={(v, live) => onChange(spec.path, v, live)} />;
+  // `scale` shows a stored fraction as a whole percent (value x scale).
+  const k = spec.scale ?? 1;
+  const shown = k === 1 ? Number(value) : Math.round(Number(value) * k);
+  return <NumberField spec={spec} value={shown} set={(v, live) => onChange(spec.path, v / k, live)} />;
 }
 
 // `histogramId` names the layer whose histogram Levels/Curves show (0: the composite);

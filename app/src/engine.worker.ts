@@ -4,6 +4,7 @@ import { Autosave } from './autosave.ts';
 import { packProject, unpackProject, tileIds } from './project.ts';
 import { importPsd, exportPsd } from './psd.ts';
 import { denormalize, isIdentity } from './transform/matrix.ts';
+import type { Blending, LayerStyle } from './layerStyle.ts';
 
 // A fill layer's content (docs/M3.md section 4); field names match the engine JSON verbatim.
 export interface GradientDef {
@@ -49,6 +50,8 @@ export interface LayerNode {
   mask: { enabled: boolean; default: number } | null;
   content?: FillContent;
   adjustment?: Adjustment;
+  style: LayerStyle | null;
+  blending: Blending;
   children?: LayerNode[];
 }
 export interface DocInfo {
@@ -63,7 +66,9 @@ export interface DocInfo {
   channels: { id: number; name: string }[];
   patterns: { id: string; name: string }[];
   layerComps: { id: number; name: string; layerCount: number }[];
+  globalLight: GlobalLight;
 }
+export interface GlobalLight { angle: number; altitude: number }
 export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?: number; w?: number; h?: number; points?: number[] };
 export type OpenResult = DocInfo & { warnings: string[] };
 export type AutosaveState = 'off' | 'other-tab' | 'idle' | 'saving' | 'saved' | 'error';
@@ -120,6 +125,10 @@ let moveSession: { liveBase: number; targetId: number; duplicated: boolean; last
 type TransformKind = 'layer' | 'pixels' | 'selection';
 type TransformOp = number[] | string;
 let transformSession: { id: number; kind: TransformKind; hidden: number; refined: TransformOp | null; base: number | null; label: string | null } | null = null;
+// Copy Layer Style's clipboard: the style JSON only (never blending options), kept across documents.
+let styleClipboard: string | null = null;
+// Global Light: angle mod 360, altitude clamped to 0..90.
+const normLight = (l: GlobalLight): GlobalLight => ({ angle: ((l.angle % 360) + 360) % 360, altitude: Math.min(90, Math.max(0, l.altitude)) });
 // Open live-preview session (Fill/Stroke dialogs): one history step, rerun from its start on every change.
 let previewOpen = false;
 let previewError: string | null = null;
@@ -143,6 +152,7 @@ function info(): DocInfo | null {
     channels: { id: number; name: string }[];
     patterns: { id: string; name: string }[];
     layer_comps: { id: number; name: string; layer_count: number }[];
+    global_light: GlobalLight;
   };
   return {
     docId, version, name,
@@ -156,6 +166,7 @@ function info(): DocInfo | null {
     channels: ch.channels,
     patterns: ch.patterns,
     layerComps: ch.layer_comps.map(c => ({ id: c.id, name: c.name, layerCount: c.layer_count })),
+    globalLight: ch.global_light,
   };
 }
 
@@ -1181,6 +1192,81 @@ const api = {
     return changed();
   },
 
+  // Layer Style dialog: the style, blending options, fill opacity and (when an angle with global light
+  // changed) the document light as one "Layer Style" step; `preview` reruns inside the preview session.
+  setLayerStyle(id: number, style: LayerStyle, blending: Blending, fill: number, light: GlobalLight | null, preview = false) {
+    const e = need();
+    return edit('Layer Style', preview, () => {
+      e.paste_style(Uint32Array.of(id), JSON.stringify(style));
+      e.set_blending(id, JSON.stringify(blending));
+      e.set_props(id, JSON.stringify({ fill }));
+      if (light) e.set_document_m3(JSON.stringify({ global_light: normLight(light) }));
+    });
+  },
+
+  // Layers panel eyes and fx-badge drags: one step under `label` replacing `id`'s style.
+  editLayerStyle(id: number, style: LayerStyle, label: string) {
+    const e = need();
+    history.run(label, () => e.paste_style(Uint32Array.of(id), JSON.stringify(style)));
+    return changed();
+  },
+
+  // Copy changes nothing, so it records no step.
+  copyLayerStyle(id: number) {
+    styleClipboard = need().copy_style(id);
+    return info();
+  },
+
+  pasteLayerStyle(ids: number[]) {
+    const e = need();
+    const json = styleClipboard;
+    if (!json) throw new Error('Copy a layer style first.');
+    history.run('Paste Layer Style', () => e.paste_style(Uint32Array.from(ids), json));
+    return changed();
+  },
+
+  clearLayerStyle(ids: number[]) {
+    const e = need();
+    history.run('Clear Layer Style', () => { for (const id of ids) e.clear_style(id); });
+    return changed();
+  },
+
+  // Drag of the fx badge: moves the effects to `to`, or copies them with `copy`.
+  dragLayerStyle(from: number, to: number, copy: boolean) {
+    const e = need();
+    history.run(copy ? 'Copy Layer Style' : 'Move Layer Style', () => {
+      e.paste_style(Uint32Array.of(to), e.copy_style(from));
+      if (!copy) e.clear_style(from);
+    });
+    return changed();
+  },
+
+  setGlobalLight(light: GlobalLight) {
+    const e = need();
+    history.run('Global Light', () => e.set_document_m3(JSON.stringify({ global_light: normLight(light) })));
+    return changed();
+  },
+
+  createLayersFromStyle(id: number) {
+    const e = need();
+    let created: number[] = [];
+    history.run('Create Layers', () => { created = Array.from(e.create_layers_from_style(id)); });
+    return { ...changed(), created };
+  },
+
+  hideAllEffects() {
+    const e = need();
+    history.run('Hide All Effects', () => e.hide_all_effects());
+    return changed();
+  },
+
+  // `percent` 1..1000.
+  scaleEffects(id: number, percent: number) {
+    const e = need();
+    history.run('Scale Effects', () => e.scale_effects(id, percent / 100));
+    return changed();
+  },
+
   // Window > Layer Comps footer "+": snapshots every layer under "Layer Comp N" (lowest free N).
   captureLayerComp() {
     const e = need();
@@ -1374,7 +1460,7 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 
 // Ops that may run while a stroke is open without committing it (they never touch the document or history).
 const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove']);
-const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd']);
+const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd']);
 // An open move session commits before any other op, so history never sees a half move.
 const MOVE_OPS = new Set<keyof Api>(['moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds']);
 // An open transform session is cancelled by any other op: only the UI knows its current matrix.

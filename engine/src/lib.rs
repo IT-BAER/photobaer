@@ -115,6 +115,35 @@ impl Engine {
         self.0.doc.set_style(id, json).map_err(err)
     }
 
+    /// Sets the style scale, 0.01..10; refuses fully locked layers.
+    pub fn scale_effects(&mut self, id: u32, factor: f32) -> Result<(), JsError> {
+        self.0.doc.scale_effects(id, factor).map_err(err)
+    }
+
+    /// Turns every style off, or on when all are off; returns the new state.
+    pub fn hide_all_effects(&mut self) -> Result<bool, JsError> {
+        self.0.doc.hide_all_effects().map_err(err)
+    }
+
+    /// The layer's style JSON (never its blending options).
+    pub fn copy_style(&self, id: u32) -> Result<String, JsError> {
+        self.0.doc.copy_style(id).map_err(err)
+    }
+
+    /// A deep copy of the style JSON on every id; refuses fully locked and adjustment layers.
+    pub fn paste_style(&mut self, ids: Vec<u32>, json: &str) -> Result<(), JsError> {
+        self.0.doc.paste_style(&ids, json).map_err(err)
+    }
+
+    pub fn clear_style(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.clear_style(id).map_err(err)
+    }
+
+    /// Splits the behind planes into pixel layers below and bakes the rest; returns the new ids.
+    pub fn create_layers_from_style(&mut self, id: u32) -> Result<Vec<u32>, JsError> {
+        self.0.doc.create_layers_from_style(id).map_err(err)
+    }
+
     pub fn blob_add(&mut self, bytes: &[u8]) -> Result<u64, JsError> {
         self.0.doc.blob_add(bytes).map_err(err)
     }

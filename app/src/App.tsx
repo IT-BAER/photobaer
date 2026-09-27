@@ -4,12 +4,14 @@ import { Viewer, type ToolPointerEvent, type ViewerTool } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
 import { makeTileSource, gpuTestHook } from './render/tiles.ts';
 import { perfTestHook, type PerfProbe } from './render/perf.ts';
-import { locate, nodeById } from './layers.ts';
+import { flatNodes, locate, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { AdjustmentBody, PropertiesPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
+import { LayerStyleDialog, type StylePage } from './LayerStyleDialog.tsx';
+import { EFFECT_KINDS, EFFECT_LABEL, styleRefusal } from './layerStyle.ts';
 import type { SampleCanvas } from './LevelsCurvesBody.tsx';
 import { ADJUSTMENT_KINDS, MENU_LABEL, SHORTCUT, defaultAdjustment, type Kind } from './adjustments.ts';
 import type { Adjustment, AutosaveState, DocInfo, FillContent, FillParams, GradientParams, StrokeParams, StrokeSelectionParams } from './engine.worker.ts';
@@ -299,6 +301,10 @@ export function App() {
   const lutLoaded = useRef<Parameters<PickLookupFile>[0] | null>(null);
   const previewRef = useRef<{ open: boolean; commit: boolean; pending: Promise<unknown> }>({ open: false, commit: false, pending: Promise.resolve() });
   const gradEditor = useRef<GradientEditorHandle>(null);
+  // Layer > Layer Style dialog (`n` remounts it per open) and its two small companion dialogs.
+  const [styleDialog, setStyleDialog] = useState<{ id: number; page: StylePage; n: number } | null>(null);
+  const globalLightDialog = useRef<HTMLDialogElement>(null);
+  const scaleEffectsDialog = useRef<HTMLDialogElement>(null);
   const gradLib = useRef<GradientLibrary | null>(null);
   gradLib.current ??= new GradientLibrary();
 
@@ -535,6 +541,17 @@ export function App() {
     }
   }
 
+  // Opens the Layer Style dialog on `page` for layer `id`; refused on adjustment and fully locked layers.
+  function openLayerStyle(page: StylePage, id = active?.id) {
+    setMenu(null);
+    const n = doc && id !== undefined ? nodeById(doc.layers, id) : undefined;
+    if (!n) return;
+    const why = styleRefusal(n);
+    if (why) { setError(why); return; }
+    if (transformRef.current) endTransform(false);
+    setStyleDialog(d => ({ id: n.id, page, n: (d?.n ?? 0) + 1 }));
+  }
+
   // Layer > New Adjustment Layer and the Adjustments panel: the new layer is selected and shown in Properties.
   function newAdjustmentLayer(kind: Kind) {
     if (!active) return;
@@ -614,6 +631,10 @@ export function App() {
   const deleteMask = () => active && run('Delete layer mask', () => client.call('deleteMask', active.id));
   const toggleMaskEnabled = () => node?.mask && run(null, () => client.call('setProps', node.id, { mask_enabled: !node.mask!.enabled }));
 
+  const styled = doc ? flatNodes(doc.layers).filter(n => n.style) : [];
+  const anyStyled = styled.length > 0;
+  const allEffectsHidden = anyStyled && styled.every(n => !n.style!.enabled);
+
   const menus: Record<string, Item[]> = {
     File: [
       { label: 'New…', keys: 'Alt+Ctrl+N', run: () => { setMenu(null); newDialog.current?.showModal(); } },
@@ -672,6 +693,19 @@ export function App() {
         })),
       },
       { label: 'Layer Content Options…', run: openLayerContentOptions, off: !has || node?.kind !== 'fill' },
+      {
+        label: 'Layer Style', keys: '›', run: () => {}, off: !has || !node, sub: [
+          { label: 'Blending Options…', run: () => openLayerStyle('blending') },
+          ...EFFECT_KINDS.filter(k => k !== 'contour' && k !== 'texture').map(kind => ({ label: `${EFFECT_LABEL[kind]}…`, run: () => openLayerStyle({ kind, index: 0 }) })),
+          { label: 'Copy Layer Style', sep: true, run: () => node && run(null, () => client.call('copyLayerStyle', node.id)), off: !node?.style },
+          { label: 'Paste Layer Style', run: () => node && run(null, () => client.call('pasteLayerStyle', [node.id])) },
+          { label: 'Clear Layer Style', run: () => node && run(null, () => client.call('clearLayerStyle', [node.id])), off: !node?.style },
+          { label: 'Global Light…', sep: true, run: () => { setMenu(null); globalLightDialog.current?.showModal(); } },
+          { label: 'Create Layers', run: () => node && run('Creating layers…', () => client.call('createLayersFromStyle', node.id)), off: !node?.style },
+          { label: allEffectsHidden ? 'Show All Effects' : 'Hide All Effects', run: () => run(null, () => client.call('hideAllEffects')), off: !anyStyled },
+          { label: 'Scale Effects…', run: () => { setMenu(null); scaleEffectsDialog.current?.showModal(); }, off: !node?.style },
+        ],
+      },
       {
         label: 'Rasterize', keys: '›', run: () => {}, off: !has || node?.kind !== 'fill', sub: [
           { label: 'Fill Content', run: () => active && run('Rasterizing…', () => client.call('rasterizeFill', active.id)) },
@@ -2338,6 +2372,7 @@ export function App() {
                 newLayer={newLayer} newGroup={newGroup}
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
                 openProperties={() => setShowProperties(true)}
+                openLayerStyle={(id, page) => openLayerStyle(page, id)}
               />
               <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
               {showLayerComps && <LayerCompsPanel doc={doc} run={run} />}
@@ -2572,6 +2607,44 @@ export function App() {
           </fieldset>
           <div className="actions">
             <button type="button" onClick={() => trimDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      {doc && styleDialog && nodeById(doc.layers, styleDialog.id) && (
+        <LayerStyleDialog
+          key={styleDialog.n} doc={doc} node={nodeById(doc.layers, styleDialog.id)!} page={styleDialog.page}
+          onDoc={d => show(d)} onError={m => setError(m)} onClose={() => setStyleDialog(null)}
+          openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickColor={(rgb, title, commit) => picker.current?.open(rgb, title, commit)}
+        />
+      )}
+      <dialog ref={globalLightDialog}>
+        <form key={doc ? `${doc.globalLight.angle}/${doc.globalLight.altitude}` : ''} onSubmit={e => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          globalLightDialog.current?.close();
+          run(null, () => client.call('setGlobalLight', { angle: Number(f.get('angle')), altitude: Number(f.get('altitude')) }));
+        }}>
+          <h2>Global Light</h2>
+          <label>Angle <input name="angle" type="number" min={-360} max={360} step="any" defaultValue={doc?.globalLight.angle ?? 120} required /> °</label>
+          <label>Altitude <input name="altitude" type="number" min={0} max={90} step="any" defaultValue={doc?.globalLight.altitude ?? 30} required /> °</label>
+          <div className="actions">
+            <button type="button" onClick={() => globalLightDialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary">OK</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog ref={scaleEffectsDialog}>
+        <form key={node?.style ? `${node.id}/${node.style.scale}` : ''} onSubmit={e => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          scaleEffectsDialog.current?.close();
+          if (node) run(null, () => client.call('scaleEffects', node.id, Number(f.get('scale'))));
+        }}>
+          <h2>Scale Layer Effects</h2>
+          <label>Scale <input name="scale" type="number" min={1} max={1000} step={1} defaultValue={Math.round((node?.style?.scale ?? 1) * 100)} required /> %</label>
+          <div className="actions">
+            <button type="button" onClick={() => scaleEffectsDialog.current?.close()}>Cancel</button>
             <button type="submit" className="primary">OK</button>
           </div>
         </form>

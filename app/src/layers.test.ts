@@ -2,11 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { LayerNode } from './engine.worker.ts';
 import { dropTarget } from './layers.ts';
+import { defaultBlending } from './layerStyle.ts';
 
 const node = (id: number, children?: LayerNode[]): LayerNode => ({
   id, name: `n${id}`, kind: children ? 'group' : 'pixel', visible: true, opacity: 1, fill: 1,
   blend: children ? 'pass through' : 'normal', clipping: false,
-  locks: { transparency: false, pixels: false, position: false }, mask: null, ...(children ? { children } : {}),
+  locks: { transparency: false, pixels: false, position: false }, mask: null, style: null, blending: defaultBlending(), ...(children ? { children } : {}),
 });
 // Root bottom to top: 1, group 2 [3, 4], 5.
 const tree = () => [node(1), node(2, [node(3), node(4)]), node(5)];

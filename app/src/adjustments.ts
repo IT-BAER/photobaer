@@ -70,7 +70,7 @@ export function defaultAdjustment(kind: Kind): Adjustment {
 }
 
 export type FieldSpec =
-  | { type: 'number'; label: string; path: string; min: number; max: number; step: number }
+  | { type: 'number'; label: string; path: string; min: number; max: number; step: number; scale?: number }
   | { type: 'checkbox'; label: string; path: string }
   | { type: 'select'; label: string; path: string; options: [string, string][] };
 

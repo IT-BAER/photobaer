@@ -6,6 +6,7 @@ import {
 import { client } from './client.ts';
 import { BLEND_MODES, nodeById, dropTarget, type Where } from './layers.ts';
 import type { DocInfo, LayerNode } from './engine.worker.ts';
+import { effectRows, setEffectEnabled, type EffectKind } from './layerStyle.ts';
 
 export type Active = { id: number; target: 'pixels' | 'mask' };
 type SelectAfter = (d: DocInfo) => Active;
@@ -22,6 +23,7 @@ interface Props {
   deleteDisabled: boolean;
   addMask: () => void;
   openProperties: () => void;
+  openLayerStyle: (id: number, page: 'blending' | { kind: EffectKind; index: number }) => void;
 }
 
 const ICON = { size: 16, strokeWidth: 1.75 };
@@ -69,6 +71,9 @@ export function LayersPanel(props: Props) {
   const [renaming, setRenaming] = useState<number | null>(null);
   const [dragId, setDragId] = useState<number | null>(null);
   const [dropHint, setDropHint] = useState<{ id: number; where: Where } | null>(null);
+  // Layers whose effect rows are folded, and the layer whose fx badge is being dragged.
+  const [fxFolded, setFxFolded] = useState<Set<number>>(new Set());
+  const [fxDrag, setFxDrag] = useState<number | null>(null);
 
   const node = nodeById(doc.layers, active.id);
 
@@ -93,12 +98,62 @@ export function LayersPanel(props: Props) {
     });
   }
 
+  function toggleFx(id: number) {
+    setFxFolded(s => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  // The fx badge, its disclosure and the effect rows (the "Effects" row's eye is the style's master switch).
+  function effects(n: LayerNode, depth: number) {
+    const style = n.style;
+    const rows = style ? effectRows(style) : [];
+    if (!style || !rows.length) return { badge: null, list: null };
+    const open = !fxFolded.has(n.id);
+    const eye = (on: boolean, label: string, toggle: () => void) => (
+      <button className="visibility" aria-label={label} onClick={e => { e.stopPropagation(); toggle(); }}>{on && <Eye {...ICON} />}</button>
+    );
+    const badge = (
+      <>
+        <button
+          className={`layer-fx-badge${style.enabled ? '' : ' disabled'}`} draggable aria-label={`Edit effects for ${n.name}`}
+          title="Drag to move effects; Alt or Ctrl drag to copy"
+          onClick={e => { e.stopPropagation(); props.openLayerStyle(n.id, 'blending'); }}
+          onDragStart={e => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'copyMove'; setFxDrag(n.id); }}
+          onDragEnd={() => { setFxDrag(null); setDropHint(null); }}
+        >fx</button>
+        <button className="disclosure" aria-label={open ? `Hide effects of ${n.name}` : `Show effects of ${n.name}`} aria-expanded={open}
+          onClick={e => { e.stopPropagation(); toggleFx(n.id); }}>{open ? <ChevronDown {...ICON} /> : <ChevronRight {...ICON} />}</button>
+      </>
+    );
+    const list = open && (
+      <div role="group" className="layer-effects-list">
+        <div className="layer-effect-row" role="treeitem" aria-level={depth + 2}>
+          {eye(style.enabled, style.enabled ? `Hide effects of ${n.name}` : `Show effects of ${n.name}`,
+            () => run(null, () => client.call('editLayerStyle', n.id, { ...style, enabled: !style.enabled }, style.enabled ? 'Hide Layer Effects' : 'Show Layer Effects')))}
+          <span className="name">Effects</span>
+        </div>
+        {rows.map(r => (
+          <div key={`${r.kind}.${r.index}`} className={`layer-effect-row instance${r.enabled ? '' : ' disabled'}`} role="treeitem" aria-level={depth + 3}>
+            {eye(r.enabled, `${r.enabled ? 'Hide' : 'Show'} ${r.name} of ${n.name}`,
+              () => run(null, () => client.call('editLayerStyle', n.id, setEffectEnabled(style, r.kind, r.index, !r.enabled), `${r.enabled ? 'Hide' : 'Show'} ${r.name}`)))}
+            <button className="name" onClick={() => props.openLayerStyle(n.id, { kind: r.kind, index: r.index })}>{r.name}</button>
+          </div>
+        ))}
+      </div>
+    );
+    return { badge, list };
+  }
+
   function renderRow(n: LayerNode, depth: number, clipped: boolean): ReactNode {
     const isGroup = n.kind === 'group';
     const open = isGroup && !collapsed.has(n.id);
     const isActive = active.id === n.id;
     const hint = dropHint?.id === n.id ? dropHint.where : null;
     const locked = n.locks.transparency || n.locks.pixels || n.locks.position;
+    const fx = effects(n, depth);
     return (
       <div
         key={n.id}
@@ -115,6 +170,12 @@ export function LayersPanel(props: Props) {
           onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragId(n.id); }}
           onDragEnd={() => { setDragId(null); setDropHint(null); }}
           onDragOver={e => {
+            if (fxDrag !== null && fxDrag !== n.id && n.kind !== 'adjustment') {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = e.altKey || e.ctrlKey ? 'copy' : 'move';
+              setDropHint({ id: n.id, where: 'into' });
+              return;
+            }
             if (dragId === null || dragId === n.id) return;
             e.preventDefault();
             setDropHint({ id: n.id, where: zone(e, isGroup) });
@@ -122,6 +183,13 @@ export function LayersPanel(props: Props) {
           onDragLeave={() => setDropHint(h => (h?.id === n.id ? null : h))}
           onDrop={e => {
             e.preventDefault();
+            if (fxDrag !== null) {
+              const from = fxDrag;
+              setFxDrag(null);
+              setDropHint(null);
+              if (from !== n.id) run(null, () => client.call('dragLayerStyle', from, n.id, e.altKey || e.ctrlKey));
+              return;
+            }
             const where = zone(e, isGroup);
             setDropHint(null);
             if (dragId !== null) move(dragId, n.id, where);
@@ -179,9 +247,11 @@ export function LayersPanel(props: Props) {
           ) : (
             <span className="name" onDoubleClick={e => { e.stopPropagation(); setRenaming(n.id); }}>{n.name}</span>
           )}
+          {fx.badge}
           {locked && <Lock className="lock-badge" size={13} strokeWidth={1.75} aria-label="Locked" />}
           {hint === 'below' && <div className="drop-line drop-below" />}
         </div>
+        {fx.list}
         {open && n.children && n.children.length > 0 && (
           <div role="group">
             {[...n.children].reverse().map(c => renderRow(c, depth + 1, c.clipping))}
