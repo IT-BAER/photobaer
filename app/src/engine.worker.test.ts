@@ -1628,8 +1628,16 @@ test('a type mask commit makes the text coverage the selection and removes the t
   const [x, y, w, h] = c.selection!.bounds!;
   assert.ok(x >= 10 && w > 15 && y > 30 && y + h <= 62, `text-sized bounds ${c.selection!.bounds}`);
 
+  // Whitespace-only mask text has no outline: nothing is recorded and the worker stays usable.
+  await call('typeBegin', { text: t0, above: 0, mask: true });
+  await call('typeUpdate', { ...t0, text: ' ', runs: [{ ...t0.runs[0], length: 1 }], paragraphs: [{ ...t0.paragraphs[0], length: 1 }] }, ' ');
+  const ws = await call('addLayer', 0);
+  assert.equal(ws.error, undefined);
+  assert.equal((ws.result as Info).layers.length, 2, 'the temporary mask layer is gone, one new layer');
+  const del = (await call('deleteNode', (ws.result as { created: number }).created)).result as Info;
+
   // Empty mask text records nothing.
-  const n = c.history.labels.length;
+  const n = del.history.labels.length;
   await call('typeBegin', { text: t0, above: 0, mask: true });
   const e = (await call('typeCommit')).result as Info;
   assert.equal(e.history.labels.length, n);

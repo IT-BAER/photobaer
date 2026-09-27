@@ -1036,8 +1036,12 @@ const api = {
     if (!s) return info()!;
     typeSession = null;
     if (s.mask || (!s.changed && !s.isNew)) {
+      // Mask text without an outline (spaces only) ends like empty text.
+      let outlined = false;
       if (s.mask && !s.empty) {
-        e.select_text(s.id, fontReg(), resolution(e), 'new');
+        try { e.select_text(s.id, fontReg(), resolution(e), 'new'); outlined = true; } catch { /* no outline */ }
+      }
+      if (outlined) {
         e.delete_node(s.id);
         history.commit();
         selGen++;
