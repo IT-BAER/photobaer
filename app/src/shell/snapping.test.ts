@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { constrainedSnap, gridLine, rectAnchors, snapAxis, snapOffset, type SnapAxes } from './snapping.ts';
+import { constrainedSnap, gridLine, rectAnchors, setGridShown, setSnapSettings, snapAxis, snapGrid, snapOffset, type SnapAxes } from './snapping.ts';
 
 test('rectAnchors gives start, center, end per axis', () => {
   assert.deepEqual(rectAnchors({ x: 10, y: 20, w: 40, h: 10 }, 'x'), [10, 30, 50]);
@@ -94,4 +94,18 @@ test('a locked snap holds until the release threshold (10 screen px / zoom), not
   assert.deepEqual(held.lock.x, prev.x);
   const dropped = snapOffset({ x: 0, y: 0, w: 0, h: 0 }, [100], [], 111, 0, prev, 1);
   assert.equal(dropped.lock.x, null);
+});
+
+test('snapGrid gives the spacing only while snapping, Snap To Grid and the shown grid are all on', () => {
+  const grid = { spacing_x: 18, spacing_y: 12 };
+  setSnapSettings({ enabled: true, grid: true });
+  setGridShown(false);
+  assert.deepEqual(snapGrid(grid), [undefined, undefined]);
+  setGridShown(true);
+  assert.deepEqual(snapGrid(grid), [18, 12]);
+  setSnapSettings({ grid: false });
+  assert.deepEqual(snapGrid(grid), [undefined, undefined]);
+  setSnapSettings({ grid: true, enabled: false });
+  assert.deepEqual(snapGrid(grid), [undefined, undefined]);
+  setSnapSettings({ enabled: true });
 });

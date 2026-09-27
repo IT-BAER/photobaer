@@ -9,6 +9,7 @@ import { MODES, type TransformBarStore, type WarpSplit } from '../shell/Transfor
 import type { Command, Mode } from '../transform/session.ts';
 import type { Viewer } from '../viewer.ts';
 import type { DocInfo, LayerNode, SmartFilterInfo, SmartInfo } from '../worker/types.ts';
+import type { SnapSettings } from '../shell/snapping.ts';
 import { STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
@@ -42,6 +43,7 @@ export interface MenuCtx {
   showGradients: boolean; setShowGradients: SetState<boolean>;
   showRulers: boolean; setShowRulers: SetState<boolean>; showPixelGrid: boolean; setShowPixelGrid: SetState<boolean>;
   showGuides: boolean; setShowGuides: SetState<boolean>; showGrid: boolean; setShowGrid: SetState<boolean>;
+  snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef;
 }
 
@@ -56,7 +58,7 @@ export function buildMenus(c: MenuCtx) {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog,
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap,
   } = c;
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
@@ -238,6 +240,17 @@ export function buildMenus(c: MenuCtx) {
       { label: 'New Guides From Shape', run: () => node && run(null, () => client.call('newGuidesFromShape', [node.id])), off: !node },
       { label: showGrid ? 'Hide Grid' : 'Show Grid', keys: 'Ctrl+\'', sep: true, run: () => { setMenu(null); setShowGrid(v => !v); } },
       { label: showPixelGrid ? 'Hide Pixel Grid' : 'Show Pixel Grid', run: () => { setMenu(null); setShowPixelGrid(v => !v); } },
+      { label: `${snap.smartGuides ? '✓ ' : ''}Smart Guides`, run: () => { setMenu(null); setSnap({ smartGuides: !snap.smartGuides }); } },
+      { label: `${snap.enabled ? '✓ ' : ''}Snap`, keys: 'Ctrl+Shift+;', sep: true, run: () => { setMenu(null); setSnap({ enabled: !snap.enabled }); } },
+      {
+        label: 'Snap To', keys: '›', run: () => {}, off: !snap.enabled, sub: [
+          ...([['guides', 'Guides'], ['grid', 'Grid'], ['layers', 'Layers'], ['documentBounds', 'Document Bounds'], ['artboards', 'Artboards']] as const).map(([k, label]) => ({
+            label: `${snap[k] ? '✓ ' : ''}${label}`, run: () => { setMenu(null); setSnap({ [k]: !snap[k] }); },
+          })),
+          { label: 'All', sep: true, run: () => { setMenu(null); setSnap({ guides: true, grid: true, layers: true, documentBounds: true, artboards: true }); } },
+          { label: 'None', run: () => { setMenu(null); setSnap({ guides: false, grid: false, layers: false, documentBounds: false, artboards: false }); } },
+        ],
+      },
     ],
     Window: [
       { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); } },

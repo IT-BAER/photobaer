@@ -5,9 +5,10 @@ export interface SnapAxes { x: AxisLock | null; y: AxisLock | null }
 // View > Snap (master) and View > Snap To (docs/M4.md section 12); stored in app settings.
 export interface SnapSettings {
   enabled: boolean; guides: boolean; grid: boolean; layers: boolean; documentBounds: boolean; artboards: boolean;
+  smartGuides: boolean;
 }
 export const DEFAULT_SNAP_SETTINGS: SnapSettings = {
-  enabled: true, guides: true, grid: true, layers: true, documentBounds: true, artboards: true,
+  enabled: true, guides: true, grid: true, layers: true, documentBounds: true, artboards: true, smartGuides: true,
 };
 const SNAP_STORE_KEY = 'photobaer:snap';
 export function loadSnapSettings(): SnapSettings {
@@ -21,6 +22,17 @@ export function saveSnapSettings(s: SnapSettings) {
   try {
     globalThis.localStorage?.setItem(SNAP_STORE_KEY, JSON.stringify(s));
   } catch { /* storage unavailable: settings stay session-only */ }
+}
+
+// App-wide current settings; the View menu writes them, the move and transform tools read them.
+let current = loadSnapSettings();
+let gridShown = false;
+export const snapSettings = (): SnapSettings => current;
+export function setSnapSettings(patch: Partial<SnapSettings>) { current = { ...current, ...patch }; saveSnapSettings(current); }
+export function setGridShown(shown: boolean) { gridShown = shown; }
+// Grid spacing per axis to snap to, or none: the grid snaps only while it is shown.
+export function snapGrid(grid: { spacing_x: number; spacing_y: number } | undefined): [number | undefined, number | undefined] {
+  return current.enabled && current.grid && gridShown && grid ? [grid.spacing_x, grid.spacing_y] : [undefined, undefined];
 }
 
 // Nearest multiple of `spacing` to `v`. Grid snapping quantizes to the nearest grid line rather

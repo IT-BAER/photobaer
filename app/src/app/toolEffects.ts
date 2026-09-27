@@ -9,7 +9,7 @@ import type { Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import type { SelectionOverlay } from '../shell/SelectionOverlay.ts';
 import { marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from '../shell/selecttools.ts';
-import { constrainedSnap, type Rect, type SnapAxes } from '../shell/snapping.ts';
+import { constrainedSnap, snapGrid, snapSettings, type Rect, type SnapAxes } from '../shell/snapping.ts';
 import { TOOLS } from '../shell/tools.ts';
 import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo, GradientParams } from '../worker/types.ts';
@@ -259,7 +259,7 @@ export function useMoveTool(c: MoveToolCtx) {
     type Plan = { pixels: boolean; id: number; alt: boolean };
     type Drag = {
       origin: [number, number]; pos: [number, number]; shift: boolean; plan: Plan | null; ready: boolean; busy: boolean; failed: boolean;
-      want: [number, number]; sent: [number, number]; end: 'up' | 'cancel' | null; moving: Rect; tx: number[]; ty: number[]; lock: SnapAxes;
+      want: [number, number]; sent: [number, number]; end: 'up' | 'cancel' | null; moving: Rect; tx: number[]; ty: number[]; lock: SnapAxes; grid: [number | undefined, number | undefined];
     };
     let drag: Drag | null = null;
 
@@ -290,14 +290,14 @@ export function useMoveTool(c: MoveToolCtx) {
     const afterBegin = (d: DocInfo, p: Plan) => show(d, p.alt ? () => ({ id: movedId(d, p), target: 'pixels' }) : undefined);
 
     function aim(g: Drag) {
-      const r = constrainedSnap(g.moving, g.tx, g.ty, Math.round(g.pos[0] - g.origin[0]), Math.round(g.pos[1] - g.origin[1]), g.lock, v!.view.zoom, g.shift);
+      const r = constrainedSnap(g.moving, g.tx, g.ty, Math.round(g.pos[0] - g.origin[0]), Math.round(g.pos[1] - g.origin[1]), g.lock, v!.view.zoom, g.shift, ...g.grid);
       g.lock = r.lock;
       g.want = [Math.round(r.dx), Math.round(r.dy)];
       const d = docRef.current!;
       const lines: [number, number, number, number][] = [];
       if (r.lock.x) lines.push([r.lock.x.target, 0, r.lock.x.target, d.height]);
       if (r.lock.y) lines.push([0, r.lock.y.target, d.width, r.lock.y.target]);
-      overlayRef.current?.setGuides(lines);
+      overlayRef.current?.setGuides(snapSettings().smartGuides ? lines : []);
       redrawOverlay();
     }
     // One step in flight at a time, always the latest offset; the end commits after the last step.
@@ -324,11 +324,12 @@ export function useMoveTool(c: MoveToolCtx) {
       try {
         const d = await begin(p);
         afterBegin(d, p);
-        if (o.snap) {
+        if (o.snap && snapSettings().enabled) {
           const id = movedId(d, p);
-          const [t, b] = await Promise.all([client.call('snapTargets', id), p.pixels ? docRef.current?.selection?.bounds ?? null : client.call('movingBounds', id)]);
+          const [t, b] = await Promise.all([client.call('snapTargets', id, snapSettings()), p.pixels ? docRef.current?.selection?.bounds ?? null : client.call('movingBounds', id)]);
           g.tx = t.x;
           g.ty = t.y;
+          g.grid = snapGrid(docRef.current?.grid);
           if (b) g.moving = { x: b[0], y: b[1], w: b[2], h: b[3] };
         }
       } catch (err) {
@@ -345,7 +346,7 @@ export function useMoveTool(c: MoveToolCtx) {
         if (drag) return;
         const g: Drag = {
           origin: [e.x, e.y], pos: [e.x, e.y], shift: e.shiftKey, plan: null, ready: false, busy: false, failed: false,
-          want: [0, 0], sent: [0, 0], end: null, moving: { x: 0, y: 0, w: 0, h: 0 }, tx: [], ty: [], lock: { x: null, y: null },
+          want: [0, 0], sent: [0, 0], end: null, moving: { x: 0, y: 0, w: 0, h: 0 }, tx: [], ty: [], lock: { x: null, y: null }, grid: [undefined, undefined],
         };
         drag = g;
         void start(g, e);

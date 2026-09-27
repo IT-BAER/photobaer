@@ -28,7 +28,7 @@ import type { DigitState } from './shell/brushKeys.ts';
 import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
 import { Rulers, hitGuide, rulerDragToDoc, type DragGuide } from './shell/rulers.ts';
 import { loadPreferences } from './shell/preferences.ts';
-import type { Rect } from './shell/snapping.ts';
+import { setGridShown, setSnapSettings, snapSettings, type Rect, type SnapSettings } from './shell/snapping.ts';
 import { MODES, TransformBar, TransformBarStore } from './shell/TransformBar.tsx';
 import type { Mat3 } from './transform/matrix.ts';
 import { setNumeric, setReferenceNormalized } from './transform/session.ts';
@@ -111,6 +111,9 @@ export function App() {
   const [showPixelGrid, setShowPixelGrid] = useState(false);
   const [showGuides, setShowGuides] = useState(true);
   const [showGrid, setShowGrid] = useState(false);
+  setGridShown(showGrid);
+  const [snap, setSnapState] = useState(snapSettings);
+  const setSnap = (patch: Partial<SnapSettings>) => { setSnapSettings(patch); setSnapState(snapSettings()); };
   // Mirrors the ruler/guide/grid toggles for the mount-frozen guide-drag closures below (docRef pattern).
   const rulerFlagsRef = useRef({ showRulers, showPixelGrid, showGuides, showGrid });
   rulerFlagsRef.current = { showRulers, showPixelGrid, showGuides, showGrid };
@@ -754,7 +757,7 @@ export function App() {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog,
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap,
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;

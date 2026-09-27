@@ -88,6 +88,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (k === 'f5' && !ctrl) { e.preventDefault(); setDockTab(t => (t === 'brushSettings' ? 'color' : 'brushSettings')); }
       else if (ctrl && k === 'h') triggerBy(l => l.endsWith('selection edges'), e);
       else if (ctrl && k === 'r') triggerBy(l => l.endsWith('Rulers'), e);
+      else if (ctrl && e.shiftKey && (k === ';' || k === ':')) triggerBy(l => l.replace('✓ ', '') === 'Snap', e);
       else if (ctrl && e.altKey && k === ';') triggerBy(l => l === 'Lock Guides' || l === 'Unlock Guides', e);
       else if (ctrl && !e.altKey && k === ';') triggerBy(l => l === 'Show Guides' || l === 'Hide Guides', e);
       else if (ctrl && k === "'") triggerBy(l => l === 'Show Grid' || l === 'Hide Grid', e);

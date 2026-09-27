@@ -4,7 +4,7 @@ import type { Active } from '../LayersPanel.tsx';
 import { nodeById } from '../layers.ts';
 import type { PerfProbe } from '../render/perf.ts';
 import type { SelectionOverlay, TransformImage } from '../shell/SelectionOverlay.ts';
-import { snapOffset, type Rect, type SnapAxes } from '../shell/snapping.ts';
+import { snapGrid, snapOffset, snapSettings, type Rect, type SnapAxes } from '../shell/snapping.ts';
 import { TransformBarStore, type WarpBarState, type WarpSplit } from '../shell/TransformBar.tsx';
 import { IDENTITY, isIdentity, normalize, type Mat3, type Pt } from '../transform/matrix.ts';
 import {
@@ -179,11 +179,11 @@ export function transformSession(c: TransformCtx) {
     transformDraw(t);
   }
   function transformDragStep(t: TSession) {
-    const g = t.drag!, zoom = viewer.current!.view.zoom;
+    const g = t.drag!, zoom = viewer.current!.view.zoom, snap = t.snap && snapSettings().enabled, [gx, gy] = snapGrid(docRef.current?.grid);
     const next = dragState(g.start, g.hit, opFor(g.hit, g.mods, t.mode), g.mods, g.from, g.to, {
       linked: t.linked,
-      snapMove: t.snap ? (box, dx, dy) => { const r = snapOffset(box, t.tx, t.ty, dx, dy, t.lock, zoom); t.lock = r.lock; return [r.dx, r.dy]; } : undefined,
-      snapPoint: t.snap ? p => { const r = snapOffset({ x: p[0], y: p[1], w: 0, h: 0 }, t.tx, t.ty, 0, 0, { x: null, y: null }, zoom); return [p[0] + r.dx, p[1] + r.dy]; } : undefined,
+      snapMove: snap ? (box, dx, dy) => { const r = snapOffset(box, t.tx, t.ty, dx, dy, t.lock, zoom, 6, 10, gx, gy); t.lock = r.lock; return [r.dx, r.dy]; } : undefined,
+      snapPoint: snap ? p => { const r = snapOffset({ x: p[0], y: p[1], w: 0, h: 0 }, t.tx, t.ty, 0, 0, { x: null, y: null }, zoom, 6, 10, gx, gy); return [p[0] + r.dx, p[1] + r.dy]; } : undefined,
     });
     if (next) transformChange(t, next, false);
   }
@@ -322,7 +322,7 @@ export function transformSession(c: TransformCtx) {
     setTransformStore(store);
     show(r);
     transformDraw(t);
-    client.call('snapTargets', a.id).then(g => { t.tx = g.x; t.ty = g.y; }, () => {});
+    client.call('snapTargets', a.id, snapSettings()).then(g => { t.tx = g.x; t.ty = g.y; }, () => {});
   }
   // Tears down the session UI only; the caller settles the worker side.
   function closeTransform() {
