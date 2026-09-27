@@ -4,6 +4,7 @@ mod content;
 mod doc;
 mod gradient;
 mod livewire;
+mod geom;
 mod path;
 mod pattern;
 mod region;
