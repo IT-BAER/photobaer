@@ -2,6 +2,7 @@
 //! and program emission and execution. A child module of `doc`.
 
 use super::*;
+use crate::geom;
 
 // ---------- compositing ----------
 
@@ -305,12 +306,12 @@ pub(super) const FLAG_CLIP: u8 = 1;
 pub(super) struct Step {
     pub(super) op: Op,
     pub(super) src: u64,
-    mask: u64,
-    mask_kind: u8,
+    pub(super) mask: u64,
+    pub(super) mask_kind: u8,
     mask_const: f32,
     scale: f32,
     mode: Blend,
-    node: u32,
+    pub(super) node: u32,
     pub(super) flags: u8,
     pub(super) opcode: u32,
     pub(super) blend_if: BlendIf,
@@ -401,6 +402,7 @@ pub(super) struct Region {
     parts: Vec<(i64, i64, Part)>,
     masks: Vec<(i64, i64, Arc<Pixels>)>,
     mask_default: Option<f32>,
+    vector: Option<styles::Plane>,
     key: u64,
 }
 
@@ -517,7 +519,7 @@ pub(super) struct TileCache {
 const CACHE_BYTES: usize = 256 << 20;
 
 impl TileCache {
-    fn get(&mut self, key: u64) -> Option<Arc<Pixels>> {
+    pub(super) fn get(&mut self, key: u64) -> Option<Arc<Pixels>> {
         self.clock += 1;
         let clock = self.clock;
         let e = self.map.get_mut(&key)?;
@@ -525,7 +527,7 @@ impl TileCache {
         Some(e.0.clone())
     }
 
-    fn insert(&mut self, key: u64, px: Arc<Pixels>, level: u32) {
+    pub(super) fn insert(&mut self, key: u64, px: Arc<Pixels>, level: u32) {
         self.clock += 1;
         self.bytes += px.byte_len();
         if let Some(old) = self.map.insert(key, (px, level, self.clock)) {
@@ -548,7 +550,7 @@ impl TileCache {
 }
 
 // A 64-bit mixer for content keys (splitmix64 finalizer).
-fn mix(h: u64, v: u64) -> u64 {
+pub(super) fn mix(h: u64, v: u64) -> u64 {
     let mut z = h ^ v.wrapping_add(0x9E37_79B9_7F4A_7C15);
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
@@ -559,7 +561,7 @@ impl Document {
     // ---------- level pyramid ----------
 
     /// Document size in level-`level` pixels.
-    fn level_size(&self, level: u32) -> (u32, u32) {
+    pub(super) fn level_size(&self, level: u32) -> (u32, u32) {
         (self.width.div_ceil(1 << level), self.height.div_ceil(1 << level))
     }
 
@@ -569,7 +571,7 @@ impl Document {
     }
 
     /// Valid (inside the document rect) level-`level` pixels of tile (tx, ty).
-    fn level_valid(&self, level: u32, tx: u32, ty: u32) -> (usize, usize) {
+    pub(super) fn level_valid(&self, level: u32, tx: u32, ty: u32) -> (usize, usize) {
         let (w, h) = self.level_size(level);
         let v = |size: u32, t: u32| size.saturating_sub(t * TILE as u32).min(TILE as u32) as usize;
         (v(w, tx), v(h, ty))
@@ -750,33 +752,35 @@ impl Document {
     }
 
     fn node_tile(&self, node: &Node, prog: &mut Program) -> Option<u64> {
-        let Ok(tiles) = node.pixel_tiles() else { return None };
-        let t = self.level_tile(tiles, None, prog.level, prog.tx, prog.ty)?;
+        let t = self.level_tile(content_tiles(node)?, None, prog.level, prog.tx, prog.ty)?;
         Some(self.payload(prog, t))
     }
 
-    // (kind, tile key, const value) matching `MaskSrc`.
+    // (kind, tile key, const value) matching `MaskSrc`. An enabled vector mask or an artboard
+    // rect multiplies into the raster mask as one mask8 payload (docs/M4.md D16).
     fn node_mask(&self, node: &Node, prog: &mut Program) -> (u8, u64, f32) {
-        match &node.mask {
-            Some(m) if m.enabled => {
-                match self.level_tile(&m.tiles, Some(m.default), prog.level, prog.tx, prog.ty) {
-                    Some(t) => (2, self.payload(prog, t), 0.0),
-                    None => (1, 0, m.default as f32 / max_value(self.depth) as f32),
-                }
-            }
-            _ => (0, 0, 0.0),
+        let raster = node.mask.as_ref().filter(|m| m.enabled).map(|m| {
+            self.level_tile(&m.tiles, Some(m.default), prog.level, prog.tx, prog.ty)
+                .ok_or(m.default as f32 / max_value(self.depth) as f32)
+        });
+        if let Some(t) = self.clip_mask(node, raster.as_ref(), prog.level, prog.tx, prog.ty) {
+            return (2, self.payload(prog, t), 0.0);
+        }
+        match raster {
+            Some(Ok(t)) => (2, self.payload(prog, t), 0.0),
+            Some(Err(c)) => (1, 0, c),
+            None => (0, 0, 0.0),
         }
     }
 
-    // The payload key of a pixel, smart or fill node's content tile; none when it is empty.
+    // The payload key of a node's content tile; none when it is empty.
     fn node_src(&self, node: &Node, prog: &mut Program) -> Option<u64> {
-        match &node.kind {
-            Kind::Fill(c) => {
-                let t = self.fill_tile(c, prog.level, prog.tx, prog.ty)?;
-                Some(self.payload(prog, t))
-            }
-            _ => self.node_tile(node, prog),
-        }
+        let t = match &node.kind {
+            Kind::Fill(c) => self.fill_tile(c, prog.level, prog.tx, prog.ty)?,
+            Kind::Shape(s) => self.shape_tile(s, prog.level, prog.tx, prog.ty)?,
+            _ => return self.node_tile(node, prog),
+        };
+        Some(self.payload(prog, t))
     }
 
     // A fill layer's content rendered for one level tile (docs/M3.md section 2), cached under a
@@ -805,22 +809,7 @@ impl Document {
         if let Some(px) = self.tile_cache.borrow_mut().get(key) {
             return Some((key, px));
         }
-        let (w, h) = (self.width as f64, self.height as f64);
-        let none = Vec::new();
-        let sample: Box<dyn Fn(f64, f64) -> [f32; 4] + '_> = match c {
-            FillContent::Solid(s) => {
-                let rgba = [s.color[0], s.color[1], s.color[2], 255].map(|v| v as f32 / 255.0);
-                Box::new(move |_, _| rgba)
-            }
-            FillContent::Gradient(g) => Box::new(g.sampler([0.0, 0.0, w, h])),
-            FillContent::Pattern(p) => match pattern {
-                Some(e) => {
-                    let bytes = self.blobs.get(&e.blob).map_or(&none, |b| b.as_ref());
-                    Box::new(p.sampler(e.width, e.height, bytes, [0.0, 0.0]))
-                }
-                None => Box::new(|_, _| [0.0; 4]),
-            },
-        };
+        let sample = self.sampler(c, [0.0, 0.0, self.width as f64, self.height as f64]);
         // Level pixels sample at their centre in document px.
         let (vw, vh) = self.level_valid(level, tx, ty);
         let step = (1u32 << level) as f64;
@@ -836,6 +825,24 @@ impl Document {
         let px = Arc::new(Pixels::from_straight(self.depth, &out));
         self.tile_cache.borrow_mut().insert(key, px.clone(), level);
         Some((key, px))
+    }
+
+    /// Straight RGBA of fill content at a document point; gradients lay out over `bx` [x, y, w, h].
+    pub(super) fn sampler<'a>(&'a self, c: &'a FillContent, bx: [f64; 4]) -> Box<dyn Fn(f64, f64) -> [f32; 4] + 'a> {
+        match c {
+            FillContent::Solid(s) => {
+                let rgba = [s.color[0], s.color[1], s.color[2], 255].map(|v| v as f32 / 255.0);
+                Box::new(move |_, _| rgba)
+            }
+            FillContent::Gradient(g) => Box::new(g.sampler(bx)),
+            FillContent::Pattern(p) => match c.pattern_id().and_then(|id| self.patterns.iter().find(|e| e.id == id)) {
+                Some(e) => {
+                    let bytes = self.blobs.get(&e.blob).map_or(&[][..], |b| &b[..]);
+                    Box::new(p.sampler(e.width, e.height, bytes, [0.0, 0.0]))
+                }
+                None => Box::new(|_, _| [0.0; 4]),
+            },
+        }
     }
 
     // An adjustment's opcode, data key and data, cached by its params (which name its blob; blobs
@@ -880,6 +887,8 @@ impl Document {
                 return self.emit_styled(node, style, mode, prog);
             }
         }
+        // An artboard is isolated.
+        let mode = if node.artboard.is_some() && mode == Blend::PassThrough { Blend::Normal } else { mode };
         let (mk, mkey, mc) = self.node_mask(node, prog);
         if mode == Blend::PassThrough {
             let Kind::Group(children) = &node.kind else { return };
@@ -891,14 +900,19 @@ impl Document {
             return;
         }
         let src = match &node.kind {
-            Kind::Pixel(_) | Kind::Smart(_) | Kind::Fill(_) => match self.node_src(node, prog) {
-                Some(k) => k,
-                None => return,
-            },
-            // Drawn from B3 on.
-            Kind::Shape(_) | Kind::Text(_) => return,
+            Kind::Pixel(_) | Kind::Smart(_) | Kind::Fill(_) | Kind::Shape(_) | Kind::Text(_) => {
+                match self.node_src(node, prog) {
+                    Some(k) => k,
+                    None => return,
+                }
+            }
             Kind::Group(children) => {
                 prog.steps.push(Step::new(Op::PushTransparent));
+                if let Some(t) = node.artboard.as_ref().and_then(|a| self.artboard_tile(a, prog.level, prog.tx, prog.ty)) {
+                    let mut s = Step::new(Op::Draw);
+                    (s.src, s.node) = (self.payload(prog, t), node.id);
+                    prog.steps.push(s);
+                }
                 self.emit_list(children, prog);
                 0
             }
@@ -970,8 +984,8 @@ impl Document {
         let mut shape = Step::new(Op::PushShape);
         (shape.mask_kind, shape.mask, shape.mask_const, shape.scale) = (mk, mkey, mc, k);
         match &base.kind {
-            Kind::Adjustment(_) | Kind::Shape(_) | Kind::Text(_) => return,
-            Kind::Pixel(_) | Kind::Smart(_) | Kind::Fill(_) => {
+            Kind::Adjustment(_) => return,
+            Kind::Pixel(_) | Kind::Smart(_) | Kind::Fill(_) | Kind::Shape(_) | Kind::Text(_) => {
                 let Some(src) = self.node_src(base, prog) else { return };
                 shape.src = src;
                 prog.steps.push(shape);
@@ -1053,8 +1067,11 @@ impl Document {
                     Kind::Fill(c) if in_doc(i, j) => {
                         self.fill_tile(c, level, i as u32, j as u32).map(|(k, px)| (k, Part::Px(px)))
                     }
-                    Kind::Pixel(_) | Kind::Smart(_) => {
-                        self.region_tile(node.pixel_tiles().ok()?, None, level, i, j).map(|(k, px)| (k, Part::Px(px)))
+                    Kind::Shape(s) if in_doc(i, j) => {
+                        self.shape_tile(s, level, i as u32, j as u32).map(|(k, px)| (k, Part::Px(px)))
+                    }
+                    Kind::Pixel(_) | Kind::Smart(_) | Kind::Text(_) => {
+                        self.region_tile(content_tiles(node)?, None, level, i, j).map(|(k, px)| (k, Part::Px(px)))
                     }
                     _ => None,
                 };
@@ -1072,11 +1089,15 @@ impl Document {
         }
         let mask_default = mask.map(|m| m.default as f32 / max_value(self.depth) as f32);
         key = mix(key, mask_default.map_or(u64::MAX, |d| d.to_bits() as u64));
-        Some(Region { x0, y0, n, parts, masks, mask_default, key })
+        let vm = node.vector_mask.as_ref().filter(|m| m.enabled);
+        key = mix_bytes(key, serde_json::to_string(&vm).expect("vector mask serializes").as_bytes());
+        // ponytail: rendered on every styled tile, cache hit or not; key it lazily if it shows in profiles.
+        let vector = vm.map(|m| styles::Plane { w: n, h: n, v: self.vector_plane(m, level, x0, y0, n, n) });
+        Some(Region { x0, y0, n, parts, masks, mask_default, vector, key })
     }
 
-    // Straight RGBA of a region with alpha times the mask, and the mask plane.
-    pub(super) fn region_pixels(r: &Region) -> (Vec<[f32; 4]>, Option<styles::Plane>) {
+    // Straight RGBA of a region with alpha times the masks, the raster and the vector mask plane.
+    pub(super) fn region_pixels(r: &Region) -> (Vec<[f32; 4]>, Option<styles::Plane>, Option<&styles::Plane>) {
         let n = r.n;
         let mut content = vec![[0f32; 4]; n * n];
         for (i, j, part) in &r.parts {
@@ -1098,7 +1119,10 @@ impl Document {
             content.iter_mut().zip(&m.v).for_each(|(c, k)| c[3] *= k);
             m
         });
-        (content, mask)
+        if let Some(v) = &r.vector {
+            content.iter_mut().zip(&v.v).for_each(|(c, k)| c[3] *= k);
+        }
+        (content, mask, r.vector.as_ref())
     }
 
     // The layer bounds box effects read (document px) and a key for it: tight pixel bounds for
@@ -1112,13 +1136,17 @@ impl Document {
         if !reads {
             return ([0.0; 4], 0);
         }
-        match node.pixel_tiles() {
+        if let Kind::Shape(s) = &node.kind {
+            let b = geom::bounds(&s.path).map_or([0.0; 4], |[l, t, r, b]| [l, t, r - l, b - t]);
+            return (b, mix_bytes(3, serde_json::to_string(&s.path).expect("path serializes").as_bytes()));
+        }
+        match content_tiles(node) {
             // ponytail: scans every tile per rendered display tile; cache by key if it shows up in profiles.
-            Ok(tiles) => {
+            Some(tiles) => {
                 let key = tiles.iter().fold(1, |k, ((x, y), t)| k ^ mix(mix(t.id, *x as u64), *y as u64));
                 (tiles_bounds(tiles).map_or([0.0; 4], |b| b.map(|v| v as f64)), key)
             }
-            Err(_) => ([0.0, 0.0, self.width as f64, self.height as f64], 2),
+            None => ([0.0, 0.0, self.width as f64, self.height as f64], 2),
         }
     }
 
@@ -1166,7 +1194,7 @@ impl Document {
         let hits: Option<Vec<Arc<Pixels>>> =
             if random { None } else { keys.iter().map(|k| self.tile_cache.borrow_mut().get(*k)).collect() };
         let planes = hits.unwrap_or_else(|| {
-            let (content, mask) = Document::region_pixels(&region);
+            let (content, mask, vector) = Document::region_pixels(&region);
             let cx = styles::Ctx {
                 origin: [x0 as i32, y0 as i32],
                 level,
@@ -1185,7 +1213,7 @@ impl Document {
                 fill,
                 blending: &node.blending,
                 layer_mask: mask.as_ref(),
-                vector_mask: None,
+                vector_mask: vector,
             };
             let r = styles::render_layer(&style, &layer, &cx);
             debug_assert!(r.behind.iter().map(|b| (b.blend, b.opacity)).eq(behind.iter().copied()));
@@ -1440,6 +1468,21 @@ impl Document {
     }
 }
 
+/// The stored tiles a node draws: pixels, a smart object's cache, or a text layer's cache (none
+/// under a singular transform).
+fn content_tiles(node: &Node) -> Option<&Tiles> {
+    match &node.kind {
+        Kind::Pixel(t) => Some(t),
+        Kind::Smart(s) => Some(&s.cache),
+        Kind::Text(t) => {
+            let [a, b, c, d, ..] = t.data.transform;
+            let det = a * d - b * c;
+            (det != 0.0 && det.is_finite()).then_some(t.cache.as_ref()).flatten()
+        }
+        _ => None,
+    }
+}
+
 /// Tight bounds [x, y, w, h] of the non-transparent pixels of `tiles`.
 pub(super) fn tiles_bounds(tiles: &Tiles) -> Option<[i32; 4]> {
     let mut bb: Option<(i32, i32, i32, i32)> = None;
@@ -1470,7 +1513,7 @@ fn overlap(x0: i64, y0: i64, n: usize, i: i64, j: i64) -> impl Iterator<Item = (
     })
 }
 
-fn mix_bytes(key: u64, bytes: &[u8]) -> u64 {
+pub(super) fn mix_bytes(key: u64, bytes: &[u8]) -> u64 {
     bytes.chunks(8).fold(mix(key, bytes.len() as u64), |k, c| {
         let mut w = [0u8; 8];
         w[..c.len()].copy_from_slice(c);

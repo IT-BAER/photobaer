@@ -480,7 +480,7 @@ fn js_round(v: f64) -> f64 {
     (v + 0.5).floor()
 }
 
-fn convolve(p: &Plane, k: &[f32], horizontal: bool) -> Plane {
+pub(crate) fn convolve(p: &Plane, k: &[f32], horizontal: bool) -> Plane {
     let r = (k.len() / 2) as isize;
     let mut out = Plane::new(p.w, p.h);
     for y in 0..p.h as isize {

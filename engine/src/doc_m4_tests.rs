@@ -54,7 +54,7 @@ fn paragraph(length: u32) -> Value {
     })
 }
 
-fn text(shape: Value) -> Value {
+pub(super) fn text(shape: Value) -> Value {
     json!({
         "text": "Hi\nthere",
         "runs": [run(3, false), run(5, true)],

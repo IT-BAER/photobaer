@@ -8,6 +8,8 @@ mod canvas;
 mod smart;
 #[path = "compositor.rs"]
 mod compositor;
+#[path = "vector.rs"]
+mod vector;
 #[path = "select.rs"]
 mod select;
 #[path = "manifest.rs"]
@@ -2270,7 +2272,7 @@ impl Document {
                 for tx in tx0..=tx1 {
                     let (x0, y0) = (tx * t - pad, ty * t - pad);
                     let Some(region) = self.styled_region(node, 0, x0, y0, n) else { continue };
-                    let (px, mask) = Document::region_pixels(&region);
+                    let (px, mask, vector) = Document::region_pixels(&region);
                     let cx = styles::Ctx {
                         origin: [x0 as i32, y0 as i32],
                         level: 0,
@@ -2289,7 +2291,7 @@ impl Document {
                         fill: node.fill,
                         blending: &node.blending,
                         layer_mask: mask.as_ref(),
-                        vector_mask: None,
+                        vector_mask: vector,
                     };
                     let r = styles::render_layer(&style, &layer, &cx);
                     let p = pad as usize;
