@@ -114,7 +114,7 @@ test('a 16-bit PSD header is rejected', () => {
   assert.throws(() => importPsd(bytes));
 });
 
-test('a text layer imports its raster and warns once', () => {
+test('a text layer imports as a type layer that shows its raster', () => {
   const psd: Psd = {
     width: 4, height: 4, colorMode: 3, bitsPerChannel: 8,
     children: [{
@@ -123,7 +123,8 @@ test('a text layer imports its raster and warns once', () => {
     } as Layer],
   };
   const { engine, warnings } = importPsd(bytesOf(psd));
-  assert.deepEqual(warnings, ['text layers were imported as pixels']);
+  assert.deepEqual(warnings, []);
+  assert.equal(JSON.parse(engine.manifest()).layers[0].kind, 'text');
   assert.deepEqual([...engine.flatten_tile_rgba8(0, 0).slice(0, 4)], [5, 6, 7, 255]);
   engine.free();
 });

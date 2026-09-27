@@ -1,11 +1,12 @@
 // PSD open/save (M1.md section 6). Runs in the engine worker (no DOM) and in Node test/corpus code.
 import {
   initializeCanvas, readPsd, writePsd, type AdjustmentLayer, type BlendMode, type Color, type EffectContour, type Layer, type LayerEffectsInfo,
-  type Filter, type LinkedFile, type PixelData, type PlacedLayerFilter, type Psd, type VectorContent,
+  type Filter, type LayerTextData, type LinkedFile, type PixelData, type PlacedLayerFilter, type Psd, type VectorContent,
 } from 'ag-psd';
 import { Engine } from './engine-pkg/photobaer_engine.js';
 import { artboardIn, artboardOut, layoutIn, layoutOut } from './psd/layout.ts';
 import { rasterMaskOf, readSavedPaths, shapeIn, shapeOut, vectorMaskIn, vectorMaskOut, writeSavedPaths } from './psd/vector.ts';
+import { textIn, textOut } from './psd/text.ts';
 
 let canvasReady = false;
 function ensureCanvas() {
@@ -28,7 +29,7 @@ interface ManifestNode {
   tiles?: Sparse;
   children?: ManifestNode[];
   adjustment?: Adjustment;
-  content?: any; style?: any; blending: any; shape?: any; vector_mask?: any; artboard?: any;
+  content?: any; style?: any; blending: any; shape?: any; vector_mask?: any; artboard?: any; text?: any;
   smart?: {
     link: any; source: { blob: number | null }; source_size: [number, number]; transform: number[]; warp: unknown;
     filters: SmartFilterOut[]; stack_mask: { enabled: boolean; default: number; tiles?: Sparse } | null;
@@ -555,9 +556,6 @@ function addMaskIfAny(e: Engine, id: number, l: Layer, w: number, h: number) {
   placeMask(e, id, m, w, h);
 }
 
-function warnKinds(l: Layer, warn: (m: string) => void) {
-  if (l.text) warn('text layers were imported as pixels');
-}
 
 // A smart object source that needs an async image decoder (the worker's), keyed by node id.
 export interface PendingSource { id: number; bytes: Uint8Array }
@@ -689,6 +687,17 @@ function addM3Props({ e, warn, pats }: ImportCtx, id: number, l: Layer, adjustme
   else warn('layer styles that use a missing pattern were not imported');
 }
 
+// A type layer that cannot be mapped or that the engine refuses stays a pixel layer with its PSD pixels.
+function addSpecial(e: Engine, name: string, special: object, res: number, warn: Warn): number {
+  if (!('text' in special)) return e.add_special(0, JSON.stringify({ name, ...special }));
+  try {
+    return e.add_special(0, JSON.stringify({ name, text: textIn(special.text as LayerTextData, res, warn) }));
+  } catch {
+    warn('text layers with unsupported values were imported as pixels');
+    return e.add_layer(name, 0);
+  }
+}
+
 function addNode(c: ImportCtx, l: Layer): number {
   const { e, w, h, warn } = c;
   if (l.children) {
@@ -715,9 +724,9 @@ function addNode(c: ImportCtx, l: Layer): number {
   const stroked = !!l.vectorStroke && l.vectorStroke.strokeEnabled !== false;
   if (soft && stroked && l.vectorFill && l.vectorMask) warn('vector mask density, feather, invert and disable of stroked shape layers were dropped');
   const shape = !adj && l.vectorFill && l.vectorMask && (!soft || stroked) ? shapeIn(l, c.res, w, h, v => fillIn(v, c.pats, warn)) : null;
-  const special = adj ? { adjustment: adj } : shape ? null : l.vectorFill ? { content: fillIn(l.vectorFill, c.pats, warn) }
-    : l.placedLayer ? { smart: smartIn(e, l, c.files, warn) } : null;
-  const id = special || shape ? e.add_special(0, JSON.stringify({ name: l.name ?? '', ...special ?? { shape } })) : e.add_layer(l.name ?? '', 0);
+  const special = adj ? { adjustment: adj } : shape ? null : l.text ? { text: l.text }
+    : l.vectorFill ? { content: fillIn(l.vectorFill, c.pats, warn) } : l.placedLayer ? { smart: smartIn(e, l, c.files, warn) } : null;
+  const id = special || shape ? addSpecial(e, l.name ?? '', special ?? { shape }, c.res, warn) : e.add_layer(l.name ?? '', 0);
   const data = l.placedLayer && c.files.get(l.placedLayer.id)?.data;
   if (special && 'smart' in special && special.smart && data?.length) loadSource(c, id, data, special.smart.source_size as [number, number]);
   if (special && 'smart' in special) filtersIn(c, id, l);
@@ -726,13 +735,12 @@ function addNode(c: ImportCtx, l: Layer): number {
     blend: !l.blendMode || l.blendMode === 'pass through' ? 'normal' : l.blendMode,
     clipping: !!l.clipping, locks: locksOf(l),
   }));
-  // A smart object's layer pixels become its cache; fill and adjustment layers render from their params.
-  if (!shape && (!special || 'smart' in special)) place(e, id, l, w, h);
+  // Smart object and text layer pixels become their cache (D5); fill and adjustment layers render from their params.
+  if (!shape && (!special || 'smart' in special || 'text' in special)) place(e, id, l, w, h);
   addMaskIfAny(e, id, l, w, h);
   const vm = shape ? null : vectorMaskIn(l, w, h);
   if (vm) e.set_vector_mask(id, JSON.stringify(vm));
   addM3Props(c, id, l, !!adj);
-  warnKinds(l, warn);
   c.comps.set(l, id);
   return id;
 }
@@ -970,7 +978,7 @@ function exportNode(x: ExportCtx, n: ManifestNode): Layer {
   if (n.shape) return { ...common, top: 0, left: 0, ...shapeOut(n.shape, x.res, w, h, c => fillOut(c, x.names, warn), warn) };
   if (n.adjustment) return { ...common, top: 0, left: 0, adjustment: adjustmentOut(e, n.adjustment, warn) };
   if (n.content) return { ...common, top: 0, left: 0, vectorFill: fillOut(n.content, x.names, warn) };
-  const placed = n.smart ? smartOut(x, n) : {};
+  const placed = n.smart ? smartOut(x, n) : n.text ? { text: textOut(n.text, x.res, warn) } : {};
   const rect = tileBounds(n.tiles, w, h);
   if (!rect) return { ...common, ...placed, top: 0, left: 0 };
   const map = tileMap(n.tiles);

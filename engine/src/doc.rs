@@ -1912,11 +1912,18 @@ impl Document {
         if data.len() != TILE_BYTES_U8 {
             return Err(format!("expected {TILE_BYTES_U8} bytes, got {}", data.len()));
         }
-        self.node(id)?.pixel_tiles()?;
+        let text = matches!(self.node(id)?.kind, Kind::Text(_));
+        if !text {
+            self.node(id)?.pixel_tiles()?;
+        }
         let transparent = data.chunks_exact(4).all(|px| px[3] == 0);
         let tile_id = if transparent { 0 } else { self.alloc_tile_id() };
         let depth = self.depth;
-        let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+        let node = self.node_mut(id)?;
+        let tiles = match &mut node.kind {
+            Kind::Text(t) => t.cache.get_or_insert_with(Tiles::default),
+            _ => node.pixel_tiles_mut()?,
+        };
         let tile = (!transparent).then(|| Tile { id: tile_id, px: Arc::new(Pixels::from_rgba8(depth, data)) });
         tiles.put(tx as i32, ty as i32, tile);
         Ok(())
@@ -2004,28 +2011,33 @@ impl Document {
     }
 
     /// Inserts an adjustment, fill or smart node above `above` (0 = on top). `json` names the
-    /// node and carries exactly one of `adjustment`, `content` or `smart`; a smart cache starts empty.
+    /// node and carries exactly one of `adjustment`, `content`, `smart`, `shape` or `text`; a smart
+    /// or text cache starts empty (PSD import fills it through `set_tile_rgba8`, D5).
     pub fn add_special(&mut self, above: u32, json: &str) -> Result<u32, String> {
         let s: SpecialIn = serde_json::from_str(json).map_err(|e| format!("invalid node: {e}"))?;
-        let kind = match (s.adjustment, s.content, s.smart, s.shape) {
-            (None, None, None, Some(shape)) => {
+        let kind = match (s.adjustment, s.content, s.smart, s.shape, s.text) {
+            (None, None, None, None, Some(data)) => {
+                data.validate()?;
+                Kind::Text(Box::new(Text { data, cache: Some(Tiles::default()) }))
+            }
+            (None, None, None, Some(shape), None) => {
                 shape.validate(|id| self.patterns.iter().any(|p| p.id == id))?;
                 Kind::Shape(Box::new(shape))
             }
             // No range check here: PSD import also goes through `add_special` and must keep an
             // out-of-UI-range value byte-faithful (B2); only the UI-facing `set_adjustment` and
             // `apply_adjustment` enforce section 3's ranges (the trust boundary the dialogs cross).
-            (Some(a), None, None, None) => {
+            (Some(a), None, None, None, None) => {
                 self.check_blob(a.blob())?;
                 Kind::Adjustment(a)
             }
-            (None, Some(c), None, None) => {
+            (None, Some(c), None, None, None) => {
                 if let Some(id) = c.pattern_id().filter(|id| !self.patterns.iter().any(|p| p.id == *id)) {
                     return Err(format!("unknown pattern {id}"));
                 }
                 Kind::Fill(c)
             }
-            (None, None, Some(m), None) => {
+            (None, None, Some(m), None, None) => {
                 self.check_blob(m.source_blob)?;
                 Kind::Smart(Box::new(Smart {
                     link: m.link,
@@ -2040,7 +2052,7 @@ impl Document {
                     cache: Tiles::default(),
                 }))
             }
-            _ => return Err("a node needs exactly one of adjustment, content, smart and shape".into()),
+            _ => return Err("a node needs exactly one of adjustment, content, smart, shape and text".into()),
         };
         self.add_node(&s.name, above, kind)
     }

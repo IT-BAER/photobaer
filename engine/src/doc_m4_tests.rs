@@ -262,13 +262,16 @@ fn paint_fill_filters_and_adjustments_refuse_shape_and_text_layers() {
     let d = load(&v5_fixture().to_string()).unwrap();
     for (id, kind) in [(2, "shape layer"), (3, "text layer")] {
         let mut d = d.clone();
-        let errs = [
+        let mut errs = vec![
             d.fill(id, Target::Pixels, 1, 2, 3, 255).unwrap_err(),
             d.apply_adjustment(id, Target::Pixels, r#"{"kind":"invert","params":{}}"#).unwrap_err(),
             d.apply_destructive(id, r#"{"kind":"gaussian_blur","params":{"radius":2.0}}"#).unwrap_err(),
             d.invert(id, Target::Pixels).unwrap_err(),
-            d.set_tile_rgba8(id, 0, 0, &tile(1)).unwrap_err(),
         ];
+        // A text layer takes imported tiles as its cache (D5).
+        if id == 2 {
+            errs.push(d.set_tile_rgba8(id, 0, 0, &tile(1)).unwrap_err());
+        }
         for e in errs {
             assert!(e.contains(kind) && e.contains("rasterized"), "{e} names the {kind}");
         }
@@ -437,7 +440,29 @@ fn add_special_adds_a_validated_shape_layer() {
     bad["path"]["subpaths"][0]["points"][0][0] = json!(1e9);
     assert!(d.add_special(0, &json!({ "name": "s", "shape": bad }).to_string()).is_err());
     let two = json!({ "name": "s", "shape": shape, "content": { "type": "solid", "color": [0, 0, 0] } });
+    assert!(d.add_special(0, &json!({ "name": "s", "shape": shape, "text": text(json!({ "type": "point" })) }).to_string()).is_err());
     assert!(d.add_special(0, &two.to_string()).is_err());
+}
+
+#[test]
+fn add_special_adds_a_text_layer_whose_cache_takes_imported_tiles() {
+    let mut d = Document::new(300, 64, 8).unwrap();
+    let t = text(json!({ "type": "point" }));
+    let id = d.add_special(0, &json!({ "name": "t", "text": t }).to_string()).unwrap();
+    let mut px = vec![0u8; TILE_BYTES_U8];
+    px[..4].copy_from_slice(&[9, 8, 7, 255]);
+    d.set_tile_rgba8(id, 1, 0, &px).unwrap();
+    let v: Value = serde_json::from_str(&d.manifest()).unwrap();
+    let n = v["layers"].as_array().unwrap().iter().find(|n| n["id"] == id).unwrap();
+    assert_eq!(n["kind"], "text");
+    assert_eq!(norm(&n["text"]), norm(&t));
+    let tiles = n["tiles"].as_array().unwrap();
+    assert_eq!(tiles.len(), 1);
+    assert_eq!((tiles[0][0].as_i64(), tiles[0][1].as_i64()), (Some(1), Some(0)));
+    assert!(d.node(id).unwrap().pixel_tiles().is_err(), "paint tools still refuse a text layer");
+    let mut bad = t.clone();
+    bad["runs"][0]["length"] = json!(99);
+    assert!(d.add_special(0, &json!({ "name": "t", "text": bad }).to_string()).is_err());
 }
 
 #[test]
