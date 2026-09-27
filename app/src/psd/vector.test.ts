@@ -158,3 +158,24 @@ test('import uses engine setters: an out-of-UI-range adjustment beside shapes an
   assert.equal(soft.kind, 'fill');
   assert.ok(Math.abs(soft.vector_mask.density - 0.8) <= 1 / 255);
 });
+
+test('a group vector mask and an inverted or disabled fill-layer vector mask survive open -> save -> open', () => {
+  const red = { type: 'color' as const, color: { r: 255, g: 0, b: 0 } };
+  const psd: Psd = {
+    width: W, height: H,
+    children: [
+      { name: 'Group', vectorMask: { paths: [rect('combine')], invert: true }, children: [{ name: 'px', imageData: solid(W, H) }] },
+      { name: 'Inverted', vectorFill: red, vectorMask: { paths: [rect('combine')], invert: true } },
+      { name: 'Disabled', vectorFill: red, vectorMask: { paths: [rect('combine')], disable: true } },
+    ],
+  };
+  const first = layersOf(bytesOf(psd));
+  const { m } = layersOf(first.out);
+  const [group, inverted, disabled] = m.layers;
+  assert.equal(group.vector_mask.inverted, true);
+  assert.equal(group.vector_mask.path.subpaths.length, 1);
+  assert.equal(inverted.kind, 'fill');
+  assert.equal(inverted.vector_mask.inverted, true);
+  assert.equal(disabled.kind, 'fill');
+  assert.equal(disabled.vector_mask.enabled, false);
+});

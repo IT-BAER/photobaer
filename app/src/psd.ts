@@ -700,6 +700,8 @@ function addNode(c: ImportCtx, l: Layer): number {
     let idx = 0;
     for (const child of l.children) e.move_node(addNode(c, child), id, idx++);
     addMaskIfAny(e, id, l, w, h);
+    const vm = vectorMaskIn(l, w, h);
+    if (vm) e.set_vector_mask(id, JSON.stringify(vm));
     addM3Props(c, id, l, false);
     c.comps.set(l, id);
     return id;
@@ -707,11 +709,11 @@ function addNode(c: ImportCtx, l: Layer): number {
   const adj = l.adjustment && adjustmentIn(e, l.adjustment);
   if (l.adjustment && !adj) warn('adjustment layers without an engine model were imported as pixels');
   // A shape layer is fill content plus a vector mask; it renders from its path, not its stored raster.
-  // Density or feather shows the fill outside the path, which only a fill layer with a vector mask
-  // renders (corpus layer_mask_data); a stroked one stays a shape without them.
-  const soft = (l.mask?.vectorMaskDensity ?? 1) < 1 || (l.mask?.vectorMaskFeather ?? 0) > 0;
+  // Density, feather, invert or disable shows the fill outside the path, which only a fill layer
+  // with a vector mask renders (corpus layer_mask_data); a stroked one stays a shape without them.
+  const soft = (l.mask?.vectorMaskDensity ?? 1) < 1 || (l.mask?.vectorMaskFeather ?? 0) > 0 || !!l.vectorMask?.invert || !!l.vectorMask?.disable;
   const stroked = !!l.vectorStroke && l.vectorStroke.strokeEnabled !== false;
-  if (soft && stroked && l.vectorFill && l.vectorMask) warn('vector mask density and feather of stroked shape layers were dropped');
+  if (soft && stroked && l.vectorFill && l.vectorMask) warn('vector mask density, feather, invert and disable of stroked shape layers were dropped');
   const shape = !adj && l.vectorFill && l.vectorMask && (!soft || stroked) ? shapeIn(l, c.res, w, h, v => fillIn(v, c.pats, warn)) : null;
   const special = adj ? { adjustment: adj } : shape ? null : l.vectorFill ? { content: fillIn(l.vectorFill, c.pats, warn) }
     : l.placedLayer ? { smart: smartIn(e, l, c.files, warn) } : null;
