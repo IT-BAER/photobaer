@@ -99,6 +99,8 @@ export class Viewer {
   }
 
   fit() { if (this.#doc) this.setView(fit(this.#doc.width, this.#doc.height, this.#w, this.#h)); }
+  // Frames a document rect `[x, y, w, h]` (View > Fit Artboard on Screen).
+  fitRect(x: number, y: number, w: number, h: number) { this.setView({ ...fit(w, h, this.#w, this.#h), cx: x + w / 2, cy: y + h / 2 }); }
   actualPixels() { this.setView({ ...this.view, zoom: 1 / this.dpr }); }
   // The active tool (hand/zoom/rotate drive the viewer; anything else forwards through onPointer).
   setTool(t: ViewerTool) { this.#tool = t; }

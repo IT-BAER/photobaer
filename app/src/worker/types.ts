@@ -75,13 +75,14 @@ export interface LayerNode {
   vector_mask?: { path: VectorPath } | null;
   // `rect` is `[left, top, right, bottom]` (engine/src/path.rs `Artboard`); present on a `group`
   // layer promoted to an artboard.
-  artboard?: { rect: [number, number, number, number] } | null;
+  artboard?: { rect: [number, number, number, number]; background: ArtboardBackground; preset_name: string; guide_ids: number[] } | null;
   style: LayerStyle | null;
   blending: Blending;
   children?: LayerNode[];
 }
 // docs/M4.md section 12: a document-space vertical (x) or horizontal (y) guide.
 export interface Guide { id: number; axis: 'x' | 'y'; pos: number }
+export type ArtboardBackground = { type: 'none' | 'white' | 'black' | 'transparent' } | { type: 'color'; color: [number, number, number] };
 export interface SavedPathInfo { id: number; name: string; work: boolean; path: VectorPath }
 // A path-edit target: a shape layer's path, a layer's vector mask path, or a saved path.
 export type PathRole = 'shape' | 'vectorMask' | 'document';

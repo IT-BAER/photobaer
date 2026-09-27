@@ -5,6 +5,7 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { client } from './client.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo, SmartFilterKind } from './engine.worker.ts';
+import type { ArtboardBackground } from './worker/types.ts';
 import { locate } from './layers.ts';
 import {
   EDIT_LABEL, FIELD_SPECS, MENU_LABEL, defaultAdjustment, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
@@ -202,6 +203,42 @@ export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFil
                 openGradientEditor={openGradientEditor} pickLookupFile={pickLookupFile} histogramId={node.id} sampleCanvas={sampleCanvas} />}
         </>
       )}
+    </div>
+  );
+}
+
+// Properties for an artboard (docs/M4.md section 11): X/Y move it with its layers and guides,
+// W/H resize it, background. Each edit is one step labelled by its field.
+export function ArtboardPanel({ node, run }: { node: LayerNode; run: Run }) {
+  const a = node.artboard!;
+  const [l, t, r, b] = a.rect;
+  const commit = (rect: [number, number, number, number], background: ArtboardBackground, label: string) =>
+    void run(null, () => client.call('editArtboard', node.id, rect, background, label));
+  const field = (label: string, value: number, apply: (v: number) => [number, number, number, number], min: number) => (
+    <label>{label} <input
+      key={`${node.id}-${label}-${value}`} type="number" step={1} min={min} defaultValue={value} aria-label={`Artboard ${label}`}
+      onBlur={e => { const v = Math.round(Number(e.currentTarget.value)); if (Number.isFinite(v) && v >= min && v !== value) commit(apply(v), a.background, `Artboard ${label}`); }}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+    /></label>
+  );
+  return (
+    <div className="properties-panel">
+      <div className="panel-tabs"><span className="panel-tab">Properties</span></div>
+      <div className="adjustment-header"><h3>Artboard</h3></div>
+      <div className="professional-toggle-grid">
+        {field('X', l, v => [v, t, v + r - l, b], -1e7)}
+        {field('Y', t, v => [l, v, r, v + b - t], -1e7)}
+        {field('W', r - l, v => [l, t, l + v, b], 1)}
+        {field('H', b - t, v => [l, t, r, t + v], 1)}
+        <label>Background <select
+          value={a.background.type} aria-label="Artboard background"
+          onChange={e => commit(a.rect, { type: e.currentTarget.value as 'none' | 'white' | 'black' | 'transparent' }, 'Artboard Background')}
+        >
+          <option value="white">White</option><option value="black">Black</option><option value="transparent">Transparent</option>
+          <option value="none">None</option>
+          {a.background.type === 'color' && <option value="color" disabled>Other color</option>}
+        </select></label>
+      </div>
     </div>
   );
 }

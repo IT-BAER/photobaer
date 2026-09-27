@@ -1,6 +1,6 @@
 import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import {
-  Brush, ChevronDown, ChevronRight, CornerLeftDown, Eye, Folder, FolderPlus, Grid2x2, Link2, Lock, Move,
+  Brush, ChevronDown, ChevronRight, CornerLeftDown, Eye, Folder, FolderPlus, Frame, Grid2x2, Link2, Lock, Move,
   PaintBucket, SquareDashed, SquarePlus, Trash2,
 } from 'lucide-react';
 import { client } from './client.ts';
@@ -211,7 +211,9 @@ export function LayersPanel(props: Props) {
                 aria-label={open ? `Collapse ${n.name}` : `Expand ${n.name}`}
                 onClick={e => { e.stopPropagation(); toggleCollapsed(n.id); }}
               >{open ? <ChevronDown {...ICON} /> : <ChevronRight {...ICON} />}</button>
-              <Folder className="group-icon" size={18} strokeWidth={1.75} />
+              {n.artboard
+                ? <Frame className="group-icon" size={18} strokeWidth={1.75} aria-label="Artboard" />
+                : <Folder className="group-icon" size={18} strokeWidth={1.75} />}
             </>
           ) : n.kind === 'fill' ? (
             <PaintBucket className="fill-layer-icon" size={16} strokeWidth={1.75} aria-label="Fill layer" />

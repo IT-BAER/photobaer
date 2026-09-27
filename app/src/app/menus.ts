@@ -10,6 +10,7 @@ import type { Command, Mode } from '../transform/session.ts';
 import type { Viewer } from '../viewer.ts';
 import type { DocInfo, LayerNode, SmartFilterInfo, SmartInfo } from '../worker/types.ts';
 import type { SnapSettings } from '../shell/snapping.ts';
+import type { ArtboardMode } from './Dialogs.tsx';
 import { STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
@@ -45,6 +46,7 @@ export interface MenuCtx {
   showGuides: boolean; setShowGuides: SetState<boolean>; showGrid: boolean; setShowGrid: SetState<boolean>;
   snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef;
+  openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null;
 }
 
 export function buildMenus(c: MenuCtx) {
@@ -58,7 +60,7 @@ export function buildMenus(c: MenuCtx) {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap,
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
   } = c;
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
@@ -135,7 +137,14 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Delete Layer Mask', run: deleteMask, off: !has || !node?.mask },
       { label: node?.mask?.enabled === false ? 'Enable Layer Mask' : 'Disable Layer Mask', run: toggleMaskEnabled, off: !has || !node?.mask },
       {
-        label: 'New Fill Layer', keys: '›', run: () => {}, off: !has || !active, sep: true, sub: [
+        label: 'New Artboard', keys: '›', run: () => {}, off: !has, sep: true, sub: [
+          { label: 'Artboard…', run: () => openArtboard('new') },
+          { label: 'Artboard from Group…', run: () => openArtboard('fromGroup'), off: node?.kind !== 'group' || !!node.artboard },
+          { label: 'Artboard from Layers…', run: () => openArtboard('fromLayers'), off: !node || !!activeArtboard },
+        ],
+      },
+      {
+        label: 'New Fill Layer', keys: '›', run: () => {}, off: !has || !active, sub: [
           { label: 'Solid Color…', run: () => openNewFillLayer('solid') },
           { label: 'Gradient…', run: () => openNewFillLayer('gradient') },
           { label: 'Pattern…', run: () => openNewFillLayer('pattern') },
@@ -228,6 +237,13 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Zoom in', keys: 'Ctrl++', run: () => { setMenu(null); viewer.current?.zoomBy(2); }, off: !has },
       { label: 'Zoom out', keys: 'Ctrl+-', run: () => { setMenu(null); viewer.current?.zoomBy(0.5); }, off: !has },
       { label: 'Fit on screen', keys: 'Ctrl+0', run: () => { setMenu(null); viewer.current?.fit(); }, off: !has },
+      {
+        label: 'Fit Artboard on Screen', off: !activeArtboard, run: () => {
+          setMenu(null);
+          const r = activeArtboard?.artboard?.rect;
+          if (r) viewer.current?.fitRect(r[0], r[1], r[2] - r[0], r[3] - r[1]);
+        },
+      },
       { label: '100%', keys: 'Ctrl+1', run: () => { setMenu(null); viewer.current?.actualPixels(); }, off: !has },
       { label: 'Reset rotation', keys: 'Esc', run: () => { setMenu(null); viewer.current?.resetRotation(); }, off: !has },
       { label: showAnts ? 'Hide selection edges' : 'Show selection edges', keys: 'Ctrl+H', run: () => { setMenu(null); setShowAnts(v => !v); }, off: !has },
@@ -235,6 +251,8 @@ export function buildMenus(c: MenuCtx) {
       { label: showGuides ? 'Hide Guides' : 'Show Guides', keys: 'Ctrl+;', run: () => { setMenu(null); setShowGuides(v => !v); }, off: !has },
       { label: doc?.guidesLocked ? 'Unlock Guides' : 'Lock Guides', keys: 'Ctrl+Alt+;', run: () => run(null, () => client.call('setGuidesLocked', !doc?.guidesLocked)), off: !has },
       { label: 'Clear Guides', run: () => run(null, () => client.call('clearGuides', 'all', 0)), off: !doc?.guides.length },
+      { label: 'Clear Canvas Guides', run: () => run(null, () => client.call('clearGuides', 'canvas', 0)), off: !doc?.guides.length },
+      { label: 'Clear Selected Artboard Guides', run: () => activeArtboard && run(null, () => client.call('clearGuides', 'artboard', activeArtboard.id)), off: !activeArtboard?.artboard?.guide_ids.length },
       { label: 'New Guide…', run: () => { setMenu(null); newGuideDialog.current?.showModal(); }, off: !has },
       { label: 'New Guide Layout…', run: () => { setMenu(null); newGuideLayoutDialog.current?.showModal(); }, off: !has },
       { label: 'New Guides From Shape', run: () => node && run(null, () => client.call('newGuidesFromShape', [node.id])), off: !node },

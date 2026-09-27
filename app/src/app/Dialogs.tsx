@@ -14,7 +14,7 @@ import { PAINT_MODES } from '../shell/tools.ts';
 import { RULER_UNITS, unitToPx, type RulerUnit } from '../shell/units.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo } from '../worker/types.ts';
 import {
-  COLOR_RANGE_PRESETS, FILL_CONTENTS, FILL_LAYERS, MODIFY_OPS,
+  COLOR_RANGE_PRESETS, FILL_CONTENTS, FILL_LAYERS, MODIFY_OPS, selectCreated,
   type FillContentForm, type FillContents, type FillForm, type Run, type Show, type StrokeForm, type TrimBase,
 } from './helpers.ts';
 
@@ -479,8 +479,9 @@ export function ColorRangeDialog({ colorRangeDialog, setColorRangeOpen, active, 
   );
 }
 
-// docs/M4.md section 12: position is relative to the canvas (artboard targeting is B18, not landed yet).
+// docs/M4.md section 12: position is relative to the canvas, or to the targeted artboard's origin.
 export function NewGuideDialog({ newGuideDialog, run, doc, rulerUnit }: { newGuideDialog: DialogRef; run: Run; doc: DocInfo | null; rulerUnit: RulerUnit }) {
+  const artboards = doc?.layers.filter(n => n.artboard) ?? [];
   return (
     <dialog ref={newGuideDialog}>
       <form onSubmit={e => {
@@ -490,9 +491,12 @@ export function NewGuideDialog({ newGuideDialog, run, doc, rulerUnit }: { newGui
         const orientation = String(f.get('orientation'));
         const unit = String(f.get('unit')) as RulerUnit;
         const value = Number(f.get('position'));
-        const docSize = orientation === 'horizontal' ? doc.height : doc.width;
+        const board = artboards.find(n => n.id === Number(f.get('target')))?.artboard;
+        const h = orientation === 'horizontal';
+        const size = board ? (h ? board.rect[3] - board.rect[1] : board.rect[2] - board.rect[0]) : h ? doc.height : doc.width;
+        const origin = board ? board.rect[h ? 1 : 0] : 0;
         newGuideDialog.current?.close();
-        run(null, () => client.call('addGuide', orientation === 'horizontal' ? 'y' : 'x', unitToPx(value, unit, doc.resolution, docSize), 0));
+        run(null, () => client.call('addGuide', h ? 'y' : 'x', origin + unitToPx(value, unit, doc.resolution, size), board ? Number(f.get('target')) : 0));
       }}>
         <h2>New Guide</h2>
         <fieldset className="stroke-location">
@@ -503,6 +507,12 @@ export function NewGuideDialog({ newGuideDialog, run, doc, rulerUnit }: { newGui
         <label>Position <input name="position" type="number" step="any" defaultValue={0} required />
           <select name="unit" defaultValue={rulerUnit}>{RULER_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
         </label>
+        {artboards.length > 0 && (
+          <label>Target <select name="target" defaultValue={0}>
+            <option value={0}>Canvas</option>
+            {artboards.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select></label>
+        )}
         <div className="actions">
           <button type="button" onClick={() => newGuideDialog.current?.close()}>Cancel</button>
           <button type="submit" className="primary">OK</button>
@@ -544,6 +554,53 @@ export function NewGuideLayoutDialog({ newGuideLayoutDialog, run, doc }: { newGu
         <label><input name="clearExisting" type="checkbox" defaultChecked /> Clear existing guides</label>
         <div className="actions">
           <button type="button" onClick={() => newGuideLayoutDialog.current?.close()}>Cancel</button>
+          <button type="submit" className="primary">OK</button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+export type ArtboardMode = 'new' | 'fromGroup' | 'fromLayers';
+
+// Layer > New > Artboard / Artboard from Group / Artboard from Layers (docs/M4.md section 11).
+// `selected` is the active artboard (placement and default size); `layer` the active layer.
+export function ArtboardDialog({ artboardDialog, mode, run, doc, selected, layer }: {
+  artboardDialog: DialogRef; mode: ArtboardMode; run: Run; doc: DocInfo | null; selected: LayerNode | null; layer: number | null;
+}) {
+  const count = doc?.layers.filter(n => n.artboard).length ?? 0;
+  const r = selected?.artboard?.rect;
+  const size = r ? [r[2] - r[0], r[3] - r[1]] : [doc?.width ?? 0, doc?.height ?? 0];
+  const close = () => artboardDialog.current?.close();
+  return (
+    <dialog ref={artboardDialog}>
+      <form key={`${mode}-${count}-${selected?.id}`} onSubmit={e => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        const name = String(f.get('name')).trim();
+        close();
+        if (mode === 'new') {
+          const bg = String(f.get('background')) as 'white' | 'black' | 'transparent';
+          run(null, () => client.call('newArtboard', name || `Artboard ${count + 1}`, Number(f.get('w')), Number(f.get('h')), { type: bg }, selected?.id ?? 0), selectCreated);
+        } else if (layer != null && mode === 'fromGroup') {
+          run(null, () => client.call('artboardFromGroup', layer, name), selectCreated);
+        } else if (layer != null) {
+          run(null, () => client.call('artboardFromLayers', [layer], name), selectCreated);
+        }
+      }}>
+        <h2>{mode === 'new' ? 'New Artboard' : mode === 'fromGroup' ? 'Artboard from Group' : 'Artboard from Layers'}</h2>
+        <label>Name <input name="name" defaultValue={mode === 'new' ? `Artboard ${count + 1}` : 'Artboard 1'} /></label>
+        {mode === 'new' && (
+          <>
+            <label>Width <input name="w" type="number" min={1} max={300000} step={1} defaultValue={size[0]} required /> px</label>
+            <label>Height <input name="h" type="number" min={1} max={300000} step={1} defaultValue={size[1]} required /> px</label>
+            <label>Background <select name="background" defaultValue="white">
+              <option value="white">White</option><option value="black">Black</option><option value="transparent">Transparent</option>
+            </select></label>
+          </>
+        )}
+        <div className="actions">
+          <button type="button" onClick={close}>Cancel</button>
           <button type="submit" className="primary">OK</button>
         </div>
       </form>

@@ -9,10 +9,10 @@ import { denormalize, isIdentity } from './transform/matrix.ts';
 import { patternRefs, type Blending, type LayerStyle } from './layerStyle.ts';
 import type { PatternRecord } from './brushes/preset.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
-import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorPath, WorkerEvent } from './worker/types.ts';
+import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorPath, WorkerEvent } from './worker/types.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
-export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
+export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
 const DESTRUCTIVE = new Set<string>(DESTRUCTIVE_KINDS);
 
@@ -665,6 +665,48 @@ const api = {
     return { ...changed(), edited };
   },
 
+  // ---------- artboards (docs/M4.md section 11) ----------
+
+  // `after` = a selected artboard (placed to its right) or 0.
+  newArtboard(name: string, w: number, h: number, background: ArtboardBackground, after = 0) {
+    const e = need();
+    let created = 0;
+    history.run('New Artboard', () => { created = e.new_artboard(name, w, h, JSON.stringify(background), after); });
+    return { ...changed(), created };
+  },
+
+  artboardFromGroup(id: number, name: string) {
+    const e = need();
+    history.run('Artboard from Group', () => e.artboard_from_group(id, name));
+    return { ...changed(), created: id };
+  },
+
+  artboardFromLayers(ids: number[], name: string) {
+    const e = need();
+    let created = 0;
+    history.run('Artboard from Layers', () => { created = e.artboard_from_layers(Uint32Array.from(ids), name); });
+    return { ...changed(), created };
+  },
+
+  // Properties Artboard section: X/Y move the artboard with its layers and guides, W/H resize it.
+  editArtboard(id: number, rect: [number, number, number, number], background: ArtboardBackground, label: string) {
+    const e = need();
+    history.run(label, () => {
+      const node = findNode(e, id);
+      const old = node?.artboard;
+      if (!old) throw new Error(`node ${id} is not an artboard`);
+      const dx = Math.round(rect[0] - old.rect[0]), dy = Math.round(rect[1] - old.rect[1]);
+      if (dx || dy) {
+        for (const pid of collectPixelIds(JSON.parse(e.layers_json()) as LayerNode[], id)) e.offset_layer(pid, dx, dy);
+        e.offset_artboard(id, dx, dy);
+      }
+      const moved = findNode(e, id)!.artboard!;
+      const [x, y] = moved.rect;
+      e.set_artboard(id, JSON.stringify({ ...moved, rect: [x, y, x + Math.max(1, rect[2] - rect[0]), y + Math.max(1, rect[3] - rect[1])], background }));
+    });
+    return changed();
+  },
+
   // A layer's vector mask (manifest v5 `vector_mask`), or null to remove it.
   setVectorMask(id: number, mask: object | null) {
     const e = need();
@@ -837,6 +879,7 @@ const api = {
     e.restore(s.liveBase);
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     for (const pid of collectPixelIds(tree, s.targetId)) e.offset_layer(pid, dx, dy);
+    if (findNode(e, s.targetId)?.artboard) e.offset_artboard(s.targetId, dx, dy);
     s.lastDx = dx;
     s.lastDy = dy;
     version++;
@@ -848,6 +891,7 @@ const api = {
     if (!s) return info();
     e.drop_snapshot(s.liveBase);
     moveSession = null;
+    if (s.lastDx || s.lastDy) e.reparent_to_artboard(s.targetId);
     if (!s.duplicated && s.lastDx === 0 && s.lastDy === 0) history.abort(); else history.commit();
     return changed();
   },

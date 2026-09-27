@@ -961,8 +961,11 @@ impl Document {
     pub fn layer_bounds(&self, id: u32) -> Result<Option<[i32; 4]>, String> {
         match &self.node(id)?.kind {
             Kind::Text(t) => Ok(t.cache.as_ref().and_then(tiles_bounds)),
-            // ponytail: path bounds arrive with path.rs geometry (B2).
-            Kind::Shape(_) => Ok(None),
+            // Path bounds, stroke width not included.
+            Kind::Shape(sh) => Ok(crate::geom::bounds(&sh.path).map(|[l, t, r, b]| {
+                let (x, y) = (l.floor() as i32, t.floor() as i32);
+                [x, y, r.ceil() as i32 - x, b.ceil() as i32 - y]
+            })),
             _ => Ok(tiles_bounds(self.node(id)?.pixel_tiles()?)),
         }
     }

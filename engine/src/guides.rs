@@ -3,7 +3,7 @@
 //! artboard" (the sentinel already used for `above` elsewhere in this module).
 
 use super::*;
-use crate::path::{finite, range, Artboard, Axis, DocVector, Guide, VectorMask};
+use crate::path::{finite, range, Artboard, ArtboardBackground, Axis, DocVector, Guide, VectorMask};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -218,6 +218,151 @@ impl Document {
             self.insert_guide(Axis::Y, y as f64, 0)?,
             self.insert_guide(Axis::Y, (y + h) as f64, 0)?,
         ])
+    }
+
+    fn artboard_ids(&self) -> Vec<u32> {
+        self.nodes.iter().filter(|n| n.artboard.is_some()).map(|n| n.id).collect()
+    }
+
+    /// Union `[x, y, w, h]` of every leaf's content bounds under `id` (itself included).
+    fn subtree_bounds(&self, id: u32) -> Result<Option<[i32; 4]>, String> {
+        let mut ids = vec![];
+        fn leaves(n: &Node, out: &mut Vec<u32>) {
+            match &n.kind {
+                Kind::Group(ch) => ch.iter().for_each(|c| leaves(c, out)),
+                _ => out.push(n.id),
+            }
+        }
+        leaves(self.node(id)?, &mut ids);
+        let mut u: Option<[i32; 4]> = None;
+        for id in ids {
+            let Ok(Some(b)) = self.layer_bounds(id) else { continue };
+            u = Some(match u {
+                None => b,
+                Some(a) => {
+                    let (x0, y0) = (a[0].min(b[0]), a[1].min(b[1]));
+                    [x0, y0, (a[0] + a[2]).max(b[0] + b[2]) - x0, (a[1] + a[3]).max(b[1] + b[3]) - y0]
+                }
+            });
+        }
+        Ok(u)
+    }
+
+    /// Grows the canvas right and down to cover every artboard (the reference keeps them inside).
+    fn fit_canvas_to_artboards(&mut self) -> Result<(), String> {
+        let (mut w, mut h) = (self.width as i32, self.height as i32);
+        for n in self.nodes.iter().filter_map(|n| n.artboard.as_ref()) {
+            w = w.max(n.rect[2].ceil() as i32);
+            h = h.max(n.rect[3].ceil() as i32);
+        }
+        if (w, h) != (self.width as i32, self.height as i32) {
+            self.crop_to([0, 0, w, h], false)?;
+        }
+        Ok(())
+    }
+
+    /// "New Artboard": a top-level artboard group of `w` x `h` placed 100 px right of `after`
+    /// (a selected artboard), else of the topmost artboard, else at (0, 0).
+    pub fn new_artboard(&mut self, name: &str, w: f64, h: f64, background: &str, after: u32) -> Result<u32, String> {
+        self.check_idle()?;
+        range(w, 1.0, 300000.0, "artboard width")?;
+        range(h, 1.0, 300000.0, "artboard height")?;
+        let background: ArtboardBackground = serde_json::from_str(background).map_err(|e| format!("invalid artboard background: {e}"))?;
+        let from = if after != 0 { Some(after) } else { self.artboard_ids().last().copied() };
+        let (x, y) = match from {
+            Some(id) => {
+                let r = self.node(id)?.artboard.as_ref().ok_or_else(|| format!("node {id} is not an artboard"))?.rect;
+                (r[2] + 100.0, r[1])
+            }
+            None => (0.0, 0.0),
+        };
+        let id = self.add_group(name, 0)?;
+        self.node_mut(id)?.artboard =
+            Some(Artboard { rect: [x, y, x + w, y + h], background, preset_name: String::new(), guide_ids: Vec::new() });
+        self.fit_canvas_to_artboards()?;
+        Ok(id)
+    }
+
+    /// "Artboard from Group": the group moves to the top of the root list and gets the rect of
+    /// its content bounds (the canvas when empty) and no background.
+    pub fn artboard_from_group(&mut self, id: u32, name: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let n = self.node(id)?;
+        if !n.is_group() {
+            return Err("Select a group to convert to an artboard.".into());
+        }
+        if n.holds_artboard() {
+            return Err("Artboards cannot contain other artboards.".into());
+        }
+        if n.locks.position {
+            return Err("Unlock the group before converting it to an artboard.".into());
+        }
+        let [x, y, w, h] = self.subtree_bounds(id)?.unwrap_or([0, 0, self.width as i32, self.height as i32]);
+        if self.find_path(id)?.len() > 1 {
+            let top = self.nodes.len() as u32;
+            self.move_node(id, 0, top)?;
+        }
+        let rect = [x as f64, y as f64, (x + w) as f64, (y + h) as f64];
+        let node = self.node_mut(id)?;
+        if !name.is_empty() {
+            node.name = name.to_string();
+        }
+        node.artboard = Some(Artboard { rect, background: ArtboardBackground::None, preset_name: String::new(), guide_ids: Vec::new() });
+        self.fit_canvas_to_artboards()
+    }
+
+    /// "Artboard from Layers": groups the layers (same parent), then Artboard from Group.
+    pub fn artboard_from_layers(&mut self, ids: &[u32], name: &str) -> Result<u32, String> {
+        let gid = self.group_nodes(ids)?;
+        self.artboard_from_group(gid, name)?;
+        Ok(gid)
+    }
+
+    /// Moves an artboard's rect and its guides by (dx, dy); its layers move with the Move tool.
+    pub fn offset_artboard(&mut self, id: u32, dx: f64, dy: f64) -> Result<(), String> {
+        self.check_idle()?;
+        finite(dx, "dx")?;
+        finite(dy, "dy")?;
+        let a = self.artboard_mut(id)?;
+        a.rect = [a.rect[0] + dx, a.rect[1] + dy, a.rect[2] + dx, a.rect[3] + dy];
+        let guides = a.guide_ids.clone();
+        for g in self.vector.guides.iter_mut().filter(|g| guides.contains(&g.id)) {
+            g.pos += if g.axis == Axis::X { dx } else { dy };
+        }
+        self.fit_canvas_to_artboards()
+    }
+
+    /// After a move: a layer whose bounds centre now lies in another artboard (topmost visible
+    /// first) moves to the top of that artboard, or to the root top when it left every artboard.
+    /// Returns whether it moved.
+    pub fn reparent_to_artboard(&mut self, id: u32) -> Result<bool, String> {
+        self.check_idle()?;
+        let n = self.node(id)?;
+        if n.holds_artboard() || n.locks.position || self.artboard_ids().is_empty() {
+            return Ok(false);
+        }
+        let Some([x, y, w, h]) = self.subtree_bounds(id)? else { return Ok(false) };
+        let (cx, cy) = (x as f64 + w as f64 / 2.0, y as f64 + h as f64 / 2.0);
+        let target = self
+            .nodes
+            .iter()
+            .rev()
+            .find(|n| n.visible && n.artboard.as_ref().is_some_and(|a| cx >= a.rect[0] && cy >= a.rect[1] && cx < a.rect[2] && cy < a.rect[3]))
+            .map_or(0, |n| n.id);
+        // The artboard the layer is in now (0 = none); artboards are always top level.
+        let root = &self.nodes[self.find_path(id)?[0]];
+        let current = if root.artboard.is_some() { root.id } else { 0 };
+        if target == current {
+            return Ok(false);
+        }
+        // The source list is never the destination list here, so the top index is its length.
+        let top = match &self.node(target).map(|n| &n.kind) {
+            Ok(Kind::Group(ch)) => ch.len(),
+            _ => self.nodes.len(),
+        };
+        self.move_node(id, target, top as u32)?;
+        self.node_mut(id)?.clipping = false;
+        Ok(true)
     }
 
     /// Sets a node's vector mask, or removes it for `null`.

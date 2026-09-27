@@ -430,7 +430,7 @@ impl Document {
 
     // Clips every plane to `r` when `delete`, moves it by (-r.x, -r.y) and makes the canvas
     // r.w x r.h; `r` is not empty.
-    fn crop_to(&mut self, r: [i32; 4], delete: bool) -> Result<(), String> {
+    pub(super) fn crop_to(&mut self, r: [i32; 4], delete: bool) -> Result<(), String> {
         validate_dims(r[2] as u32, r[3] as u32, self.depth)?;
         let mut out = Vec::new();
         for at in self.planes() {

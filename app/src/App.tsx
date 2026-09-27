@@ -9,7 +9,7 @@ import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { PathsPanel } from './PathsPanel.tsx';
-import { PropertiesPanel, SmartFiltersPanel, type PickLookupFile } from './PropertiesPanel.tsx';
+import { ArtboardPanel, PropertiesPanel, SmartFiltersPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
 import { LayerStyleDialog, type StylePage } from './LayerStyleDialog.tsx';
 import { StyleLibrary, styleRefusal, type SavedStyle } from './layerStyle.ts';
@@ -57,7 +57,7 @@ import { usePaintTool } from './app/paintTool.ts';
 import { useShortcuts } from './app/shortcuts.ts';
 import {
   AdjustDialog, BlurDialog, ColorRangeDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, RotateDialog, SaveSelectionDialog,
+  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
   ScaleEffectsDialog, StrokeDialog, TrimDialog,
 } from './app/Dialogs.tsx';
 
@@ -72,6 +72,8 @@ export function App() {
   const prefs = useRef(loadPreferences());
   const dragGuideRef = useRef<DragGuide | null>(null);
   const newGuideDialog = useRef<HTMLDialogElement>(null);
+  const artboardDialog = useRef<HTMLDialogElement>(null);
+  const [artboardMode, setArtboardMode] = useState<ArtboardMode>('new');
   const newGuideLayoutDialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const newDialog = useRef<HTMLDialogElement>(null);
@@ -661,6 +663,8 @@ export function App() {
   const has = !!doc;
   const warping = transformStore?.get().mode === 'warp';
   const node = doc && active ? nodeById(doc.layers, active.id) : undefined;
+  // The artboard the active layer is (or is inside); artboards are always top level.
+  const activeArtboard = (doc && active && doc.layers.find(n => n.artboard && (n.id === active.id || nodeById(n.children ?? [], active.id)))) || null;
   const deleteDisabled = !doc || !active || (doc.layers.length === 1 && doc.layers[0].id === active.id);
 
   const newLayer = () => active && run('New layer', () => client.call('addLayer', active.id), selectCreated);
@@ -760,6 +764,7 @@ export function App() {
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap,
+    openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
@@ -1263,6 +1268,7 @@ export function App() {
           {doc && showProperties && node?.kind === 'adjustment' && node.adjustment && (
             <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}
+          {doc && showProperties && node?.artboard && <ArtboardPanel node={node} run={run} />}
           {doc && showProperties && node?.kind === 'smart' && node.smart && (
             <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}
@@ -1319,6 +1325,7 @@ export function App() {
       <TrimDialog trimDialog={trimDialog} run={run} />
       <NewGuideDialog newGuideDialog={newGuideDialog} run={run} doc={doc} rulerUnit={prefs.current.rulerUnit} />
       <NewGuideLayoutDialog newGuideLayoutDialog={newGuideLayoutDialog} run={run} doc={doc} />
+      <ArtboardDialog artboardDialog={artboardDialog} mode={artboardMode} run={run} doc={doc} selected={activeArtboard} layer={node?.id ?? null} />
       {doc && styleDialog && nodeById(doc.layers, styleDialog.id) && (
         <LayerStyleDialog
           key={styleDialog.n} doc={doc} node={nodeById(doc.layers, styleDialog.id)!} page={styleDialog.page}

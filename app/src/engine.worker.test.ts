@@ -1447,3 +1447,25 @@ test('Paths panel ops: Save Path names Path 1 then Path 2, vectorMask edits only
   const labels = (await call('makeWorkPath')).result as Info;
   assert.deepEqual(labels.history.labels.slice(-6), ['Save Path', 'Convert Path to Shape', 'Vector Mask', 'Edit Path', 'Make Selection from Path', 'Make Work Path from Selection']);
 });
+
+test('artboards: first at (0,0) with the document size, moving one moves its layers and guides', async () => {
+  await call('init');
+  await call('newDoc', 64, 40, 8, null);
+  type Info = { layers: any[]; guides: { id: number; pos: number }[]; width: number; created: number; history: { labels: string[] } };
+  const a = (await call('newArtboard', 'Artboard 1', 64, 40, { type: 'white' })).result as Info;
+  const ab = a.layers.find(l => l.id === a.created);
+  assert.deepEqual(ab.artboard.rect, [0, 0, 64, 40]);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', true, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', { source: 'solid', rgba: [255, 0, 0, 255], mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
+  await call('moveNode', 1, a.created, 0);
+  const g = (await call('addGuide', 'x', 20, a.created)).result as Info & { created: number };
+  await call('moveLayerBegin', a.created, false, 'Move');
+  await call('moveLayerStep', 10, 0);
+  const m = (await call('moveLayerCommit')).result as Info;
+  assert.deepEqual(m.layers.find(l => l.id === a.created).artboard.rect, [10, 0, 74, 40]);
+  assert.equal(m.guides.find(x => x.id === g.created)!.pos, 30);
+  assert.deepEqual((await call('movingBounds', 1)).result, [14, 4, 8, 8]);
+  assert.equal(m.width, 74, 'the canvas grows to cover the artboard');
+  const second = (await call('newArtboard', 'Artboard 2', 20, 20, { type: 'white' })).result as Info;
+  assert.equal(second.layers.find(l => l.id === second.created).artboard.rect[0], 174);
+});

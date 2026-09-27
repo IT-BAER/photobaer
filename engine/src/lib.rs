@@ -978,6 +978,31 @@ impl Engine {
         self.0.doc.set_vector_mask(id, json).map_err(err)
     }
 
+    /// `background` is an `ArtboardBackground` JSON; `after` a selected artboard or 0. Returns its id.
+    pub fn new_artboard(&mut self, name: &str, w: f64, h: f64, background: &str, after: u32) -> Result<u32, JsError> {
+        self.0.doc.new_artboard(name, w, h, background, after).map_err(err)
+    }
+
+    /// An empty `name` keeps the group's name.
+    pub fn artboard_from_group(&mut self, id: u32, name: &str) -> Result<(), JsError> {
+        self.0.doc.artboard_from_group(id, name).map_err(err)
+    }
+
+    /// Returns the new artboard group's id.
+    pub fn artboard_from_layers(&mut self, ids: Vec<u32>, name: &str) -> Result<u32, JsError> {
+        self.0.doc.artboard_from_layers(&ids, name).map_err(err)
+    }
+
+    /// Moves the rect and its guides; the caller moves its layers.
+    pub fn offset_artboard(&mut self, id: u32, dx: f64, dy: f64) -> Result<(), JsError> {
+        self.0.doc.offset_artboard(id, dx, dy).map_err(err)
+    }
+
+    /// After a move; returns whether the layer changed artboard.
+    pub fn reparent_to_artboard(&mut self, id: u32) -> Result<bool, JsError> {
+        self.0.doc.reparent_to_artboard(id).map_err(err)
+    }
+
     /// An `Artboard` JSON (manifest v5 `artboard`) on a top-level group, or `null`.
     pub fn set_artboard(&mut self, id: u32, json: &str) -> Result<(), JsError> {
         self.0.doc.set_artboard(id, json).map_err(err)

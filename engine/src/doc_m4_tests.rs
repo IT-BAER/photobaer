@@ -659,3 +659,70 @@ fn a_traced_ring_keeps_its_hole_under_nonzero() {
     d.make_selection_from_path("document", wp, Mode::New).unwrap();
     assert_eq!(d.selection_values(), ring);
 }
+
+// ---------- artboards (docs/M4.md section 11, B18) ----------
+
+fn rect_of(d: &Document, id: u32) -> [f64; 4] {
+    d.node(id).unwrap().artboard.as_ref().unwrap().rect
+}
+
+#[test]
+fn new_artboards_place_right_of_the_last_and_grow_the_canvas() {
+    let mut d = Document::new(64, 40, 8).unwrap();
+    let a = d.new_artboard("Artboard 1", 64.0, 40.0, r#"{"type":"white"}"#, 0).unwrap();
+    assert_eq!(rect_of(&d, a), [0.0, 0.0, 64.0, 40.0]);
+    let b = d.new_artboard("Artboard 2", 30.0, 50.0, r#"{"type":"transparent"}"#, 0).unwrap();
+    assert_eq!(rect_of(&d, b), [164.0, 0.0, 194.0, 50.0], "100 px right of the last one");
+    assert_eq!((d.width, d.height), (194, 50));
+    let c = d.new_artboard("Artboard 3", 10.0, 10.0, r#"{"type":"white"}"#, a).unwrap();
+    assert_eq!(rect_of(&d, c)[0], 164.0, "right of the selected artboard");
+    assert!(d.new_artboard("x", 0.0, 10.0, r#"{"type":"white"}"#, 0).is_err());
+    assert!(d.new_artboard("x", 10.0, 10.0, r#"{"type":"white"}"#, 1).is_err(), "layer 1 is not an artboard");
+}
+
+#[test]
+fn artboard_from_layers_wraps_them_with_their_bounds_and_nesting_is_refused() {
+    let mut d = Document::new(64, 64, 8).unwrap();
+    d.select_rect(10.0, 12.0, 20.0, 8.0, Mode::New).unwrap();
+    d.fill_ex(1, Target::Pixels, &FillSource::Solid([255, 0, 0, 255]), PaintMode::Blend(Blend::Normal), 1.0, false).unwrap();
+    d.deselect().unwrap();
+    let l2 = d.add_layer("b", 0).unwrap();
+    d.select_rect(40.0, 30.0, 5.0, 5.0, Mode::New).unwrap();
+    d.fill_ex(l2, Target::Pixels, &FillSource::Solid([0, 0, 255, 255]), PaintMode::Blend(Blend::Normal), 1.0, false).unwrap();
+    d.deselect().unwrap();
+    let ab = d.artboard_from_layers(&[1, l2], "Board").unwrap();
+    assert_eq!(rect_of(&d, ab), [10.0, 12.0, 45.0, 35.0]);
+    assert_eq!(d.node(ab).unwrap().name, "Board");
+    let g = d.add_group("g", 0).unwrap();
+    assert!(d.move_node(ab, g, 0).unwrap_err().contains("nested"));
+    assert!(d.group_nodes(&[ab]).unwrap_err().contains("nested"));
+    let outer = d.group_nodes(&[g]).unwrap();
+    let inner = d.add_group("inner", 0).unwrap();
+    d.move_node(inner, outer, 0).unwrap();
+    d.artboard_from_group(inner, "").unwrap();
+    assert_eq!(d.find_path(inner).unwrap().len(), 1, "a nested group moves to the top level");
+    assert_eq!(rect_of(&d, inner), [0.0, 0.0, 64.0, 64.0], "an empty group gets the canvas rect");
+    assert!(d.artboard_from_group(ab, "").is_err(), "an artboard cannot hold an artboard");
+}
+
+#[test]
+fn offset_artboard_moves_its_rect_and_guides_and_reparent_follows_the_layer_centre() {
+    let mut d = Document::new(200, 100, 8).unwrap();
+    let a = d.new_artboard("A", 50.0, 50.0, r#"{"type":"white"}"#, 0).unwrap();
+    let g = d.add_guide("x", 20.0, a).unwrap();
+    let canvas = d.add_guide("y", 5.0, 0).unwrap();
+    d.offset_artboard(a, 10.0, 0.0).unwrap();
+    assert_eq!(rect_of(&d, a), [10.0, 0.0, 60.0, 50.0]);
+    let pos = |d: &Document, id: u32| d.vector.guides.iter().find(|x| x.id == id).unwrap().pos;
+    assert_eq!((pos(&d, g), pos(&d, canvas)), (30.0, 5.0));
+
+    d.select_rect(20.0, 20.0, 10.0, 10.0, Mode::New).unwrap();
+    d.fill_ex(1, Target::Pixels, &FillSource::Solid([0, 0, 0, 255]), PaintMode::Blend(Blend::Normal), 1.0, false).unwrap();
+    d.deselect().unwrap();
+    assert!(d.reparent_to_artboard(1).unwrap());
+    assert_eq!(d.find_path(1).unwrap().len(), 2, "moved into A");
+    assert!(!d.reparent_to_artboard(1).unwrap(), "already in A");
+    d.offset_layer(1, 100, 0).unwrap();
+    assert!(d.reparent_to_artboard(1).unwrap());
+    assert_eq!(d.find_path(1).unwrap(), vec![d.nodes.len() - 1], "back to the root top");
+}

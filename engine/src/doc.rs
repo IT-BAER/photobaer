@@ -543,6 +543,11 @@ impl Node {
         matches!(self.kind, Kind::Group(_))
     }
 
+    /// Whether this node or a descendant is an artboard.
+    fn holds_artboard(&self) -> bool {
+        self.artboard.is_some() || matches!(&self.kind, Kind::Group(ch) if ch.iter().any(Node::holds_artboard))
+    }
+
     fn kind_name(&self) -> &'static str {
         match self.kind {
             Kind::Pixel(_) => "pixel",
@@ -864,6 +869,9 @@ impl Document {
         if paths.iter().any(|p| p[..p.len() - 1] != prefix[..]) {
             return Err("every node must have the same parent".into());
         }
+        if paths.iter().any(|p| node_at(&self.nodes, p).holds_artboard()) {
+            return Err("Artboards cannot be nested.".into());
+        }
         let mut idx: Vec<usize> = paths.iter().map(|p| *p.last().expect("path")).collect();
         idx.sort_unstable();
         let pos = idx[idx.len() - 1] + 1 - idx.len();
@@ -943,6 +951,9 @@ impl Document {
             }
             if p.len() >= src.len() && p[..src.len()] == src[..] {
                 return Err("cannot move a node into itself or its own descendant".into());
+            }
+            if node_at(&self.nodes, &src).holds_artboard() {
+                return Err("Artboards cannot be nested.".into());
             }
             p
         };
