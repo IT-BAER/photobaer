@@ -1,7 +1,7 @@
 // The draw program of docs/M1.md section 3 (version 2: docs/M3.md section 2), one compute
 // dispatch per step over 256x256 tiles.
 // Buffers are premultiplied f32 RGBA (shapes keep their value in .r); this mirrors the CPU
-// reference in engine/src/doc.rs and engine/src/blend.rs channel for channel.
+// reference in engine/src/compositor.rs and engine/src/blend.rs channel for channel.
 import { ADJUST, OP } from './program.ts';
 
 /// The per-step uniform, one 32-bit word per field in this order; composite.ts writes it by name.

@@ -104,7 +104,7 @@ test('lowering the payload cache limit evicts down to it, and delete drops one k
 });
 
 test('the draw op codes match the engine enum', () => {
-  const src = readFileSync(new URL('../../../engine/src/doc.rs', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../../../engine/src/compositor.rs', import.meta.url), 'utf8');
   const body = /enum Op \{([^}]*)\}/.exec(src)![1];
   const rust = Object.fromEntries([...body.matchAll(/(\w+) = (\d+)/g)].map(([, name, v]) =>
     [name[0].toLowerCase() + name.slice(1), Number(v)]));
