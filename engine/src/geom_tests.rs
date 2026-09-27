@@ -308,3 +308,31 @@ fn a_long_round_cap_dashed_stroke_renders_one_tile_quickly() {
     let limit = if cfg!(debug_assertions) { 5.0 } else { 0.5 };
     assert!(s < limit, "{s} s");
 }
+
+#[test]
+fn geom_fit_points_keeps_an_open_corner_and_straight_runs() {
+    let mut pts: Vec<[f64; 2]> = (0..=50).map(|i| [i as f64, 0.0]).collect();
+    pts.extend((1..=50).map(|i| [50.0, i as f64]));
+    let s = fit_points(&pts, 2.0, false);
+    assert!(!s.closed);
+    assert_eq!(s.points, vec![[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [50.0, 0.0, 50.0, 0.0, 50.0, 0.0], [50.0, 50.0, 50.0, 50.0, 50.0, 50.0]]);
+}
+
+#[test]
+fn geom_fit_points_fits_a_curve_within_tolerance() {
+    let arc: Vec<[f64; 2]> = (0..=90).map(|d| { let a = (d as f64).to_radians(); [50.0 * a.cos(), 50.0 * a.sin()] }).collect();
+    let s = fit_points(&arc, 1.0, false);
+    assert!(s.points.len() <= 4, "{:?}", s.points);
+    assert_eq!((s.points[0][0], s.points[0][1]), (50.0, 0.0), "ends stay put");
+    let flat = flatten(&s);
+    for q in &arc {
+        let d = flat.windows(2).map(|w| seg_dist(v(q[0], q[1]), v(w[0][0], w[0][1]), v(w[1][0], w[1][1]))).fold(f64::MAX, f64::min);
+        assert!(d <= 1.5, "{q:?} is {d} px off");
+    }
+    let circle: Vec<[f64; 2]> = (0..360).map(|d| { let a = (d as f64).to_radians(); [50.0 + 40.0 * a.cos(), 50.0 + 40.0 * a.sin()] }).collect();
+    let c = fit_points(&circle, 2.0, true);
+    assert!(c.closed && c.points.len() >= 2 && c.points.len() <= 8, "{:?}", c.points);
+    let b = bounds(&VectorPath { fill_rule: FillRule::Nonzero, subpaths: vec![c] }).unwrap();
+    assert!((b[0] - 10.0).abs() < 2.5 && (b[2] - 90.0).abs() < 2.5, "{b:?}");
+    assert!(fit_points(&[[1.0, 1.0], [1.0, 1.0]], 2.0, false).points.is_empty(), "one distinct point draws nothing");
+}

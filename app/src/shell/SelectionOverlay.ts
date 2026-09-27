@@ -10,6 +10,12 @@ export type Preview =
 export interface CursorState { x: number; y: number; sizeDoc: number; shape: 'round' | 'square'; crosshair: boolean }
 
 export interface BoxRect { x: number; y: number; w: number; h: number }
+// Pen and path selection tools, doc px: outline polylines [x, y, ...], anchors (6 px squares,
+// selected ones blue), handle lines [ax, ay, hx, hy] with 7 px dots, and a dashed rubber band.
+export interface PathEditOverlay {
+  lines: number[][]; anchors: { x: number; y: number; selected: boolean }[];
+  handles: [number, number, number, number][]; band: [number, number, number, number] | null;
+}
 export const HANDLE_CURSORS = ['nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize'];
 
 // Free transform overlay: the 8 dest handle points (clockwise from the top-left corner, corners at
@@ -49,6 +55,7 @@ export class SelectionOverlay {
   #warp: WarpGrid | null = null;
   #crop: CropOverlay | null = null;
   #corners: [number, number][] | null = null;
+  #pathEdit: PathEditOverlay | null = null;
   #dash = 0;
   #timer: ReturnType<typeof setInterval> | undefined;
   #last: [View, number, number, number] | null = null;
@@ -105,6 +112,10 @@ export class SelectionOverlay {
     this.#corners = c;
   }
 
+  setPathEdit(p: PathEditOverlay | null) {
+    this.#pathEdit = p;
+  }
+
   setImage(img: TransformImage | null) {
     this.#image = img;
   }
@@ -157,6 +168,7 @@ export class SelectionOverlay {
     if (this.#box) this.#drawBox(this.#box, view, cssW, cssH, dpr);
     if (this.#transform) this.#drawTransform(this.#transform, view, cssW, cssH, dpr);
     if (this.#warp) this.#drawWarp(this.#warp, view, cssW, cssH, dpr);
+    if (this.#pathEdit) this.#drawPathEdit(this.#pathEdit, view, cssW, cssH, dpr);
     if (this.#guides.length) this.#drawGuides(view, cssW, cssH, dpr);
     if (this.#cursor) this.#drawCursor(this.#cursor, view, cssW, cssH, dpr);
   }
@@ -383,6 +395,35 @@ export class SelectionOverlay {
         ctx.stroke();
       }
     });
+  }
+
+  #drawPathEdit(p: PathEditOverlay, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx, at = (x: number, y: number) => docToScreen(view, x, y, cssW, cssH);
+    const color = getComputedStyle(this.#canvas).getPropertyValue('--transform-box');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    for (const l of p.lines) for (let i = 0; i < l.length; i += 2) { const [x, y] = at(l[i], l[i + 1]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+    for (const [ax, ay, hx, hy] of p.handles) { ctx.moveTo(...at(ax, ay)); ctx.lineTo(...at(hx, hy)); }
+    ctx.stroke();
+    if (p.band) {
+      ctx.beginPath();
+      ctx.moveTo(...at(p.band[0], p.band[1]));
+      ctx.lineTo(...at(p.band[2], p.band[3]));
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = color;
+    for (const [, , hx, hy] of p.handles) { const [x, y] = at(hx, hy); ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill(); }
+    for (const a of p.anchors) {
+      const [x, y] = at(a.x, a.y);
+      ctx.fillStyle = a.selected ? color : '#fff';
+      ctx.fillRect(x - 3, y - 3, 6, 6);
+      ctx.strokeRect(x - 3, y - 3, 6, 6);
+    }
   }
 
   #drawTransform(t: TransformBox, view: View, cssW: number, cssH: number, dpr: number) {

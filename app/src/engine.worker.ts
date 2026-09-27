@@ -1,4 +1,4 @@
-import init, { Engine, Fonts, live_path } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts, fit_path, live_path } from './engine-pkg/photobaer_engine.js';
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
@@ -773,12 +773,33 @@ const api = {
   },
 
   // Shape tools (docs/M4.md section 5): Shape mode adds a layer on top, Path mode replaces the
-  // work path, Pixels mode paints on a pixel layer. `live` is the engine `Live` JSON.
-  newShape(shape: { name: string; live: object; fill: FillContent | null; stroke: object | null }) {
+  // work path, Pixels mode paints on a pixel layer. `live` is the engine `Live` JSON; the pen
+  // tools pass a drawn `path` instead.
+  newShape(shape: { name: string; live?: object; path?: VectorPath; fill: FillContent | null; stroke: object | null }, label = 'Shape Layer') {
     const e = need();
     let created = 0;
-    history.run('Shape Layer', () => { created = e.new_shape(JSON.stringify(shape)); });
+    history.run(label, () => { created = e.new_shape(JSON.stringify(shape)); });
     return { ...changed(), created };
+  },
+
+  // Freeform pen: samples [[x, y], ...] fit to one subpath (tolerance 0.5..10 px).
+  fitPath(points: [number, number][], tolerance: number, closed: boolean): VectorPath['subpaths'][number] {
+    return JSON.parse(fit_path(JSON.stringify(points), tolerance, closed));
+  },
+
+  // Magnetic freeform pen: 0.3 R + 0.59 G + 0.11 B of a layer's pixel at each rounded point
+  // [x, y, ...]; 0 outside the canvas or on a missing tile.
+  luminance(layerId: number, points: number[]): number[] {
+    const e = need(), ids = nodeTiles(e, layerId), tiles = new Map<number, Uint8Array | null>(), out: number[] = [];
+    for (let k = 0; k < points.length; k += 2) {
+      const x = Math.round(points[k]), y = Math.round(points[k + 1]);
+      if (!(x >= 0 && y >= 0 && x < e.width() && y < e.height())) { out.push(0); continue; }
+      const tx = Math.floor(x / 256), ty = Math.floor(y / 256), key = ty * 65536 + tx;
+      if (!tiles.has(key)) tiles.set(key, layerTile(e, ids, tx, ty));
+      const b = tiles.get(key), o = ((y - ty * 256) * 256 + (x - tx * 256)) * 4;
+      out.push(b ? 0.3 * b[o] + 0.59 * b[o + 1] + 0.11 * b[o + 2] : 0);
+    }
+    return out;
   },
 
   shapePath(live: object) {

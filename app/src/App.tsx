@@ -52,6 +52,7 @@ import {
 import { buildMenus } from './app/menus.ts';
 import { transformSession, type TSession } from './app/transform.ts';
 import { useBrushCursor, useBucket, useEyedropper, useGradientTool, useMoveTool, useSelectionTools, useShapeTools } from './app/toolEffects.ts';
+import { usePenTools, type PathSel } from './app/penTools.ts';
 import { useCropTool, usePerspectiveCropTool } from './app/cropTools.ts';
 import { usePaintTool } from './app/paintTool.ts';
 import { useShortcuts } from './app/shortcuts.ts';
@@ -122,6 +123,9 @@ export function App() {
   rulerFlagsRef.current = { showRulers, showPixelGrid, showGuides, showGrid };
   const [showLayerComps, setShowLayerComps] = useState(false);
   const [showPaths, setShowPaths] = useState(false);
+  const [pathSel, setPathSel] = useState<PathSel>({ selected: null, cleared: false });
+  const pathSelRef = useRef(pathSel);
+  pathSelRef.current = pathSel;
   const [showProperties, setShowProperties] = useState(false);
   const [showAdjustments, setShowAdjustments] = useState(false);
   const [showStyles, setShowStyles] = useState(false);
@@ -938,6 +942,13 @@ export function App() {
     viewer, tool, active, overlayRef, toolOptionsRef, gradLib, fgRef, bgRef, run, editTarget, quickMask,
   });
   useShapeTools({ viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run });
+  const penKeysRef = useRef<((e: KeyboardEvent) => boolean) | null>(null);
+  const penRedrawRef = useRef<(() => void) | null>(null);
+  usePenTools({
+    viewer, canvas, tool, doc, docRef, activeRef, overlayRef, redrawOverlay, toolOptionsRef, fgRef, bgRef, run, pathSelRef,
+    selectPath: id => setPathSel({ selected: id, cleared: false }), setError, penKeysRef, redrawRef: penRedrawRef,
+  });
+  useEffect(() => { penRedrawRef.current?.(); }, [doc?.version, active?.id, pathSel]);
 
   // Crop and perspective crop: pointer state in crop/geometry.ts; Enter, Esc, the bar buttons and a
   // tool switch reach the pending crop through `cropSession`.
@@ -1029,7 +1040,7 @@ export function App() {
 
   useShortcuts({
     menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setDockTab, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
-    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open,
+    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef,
   });
 
   // Brush presets: the selected preset (with a protected texture carried over) and the Brushes/Brush Settings panels.
@@ -1285,7 +1296,7 @@ export function App() {
               />
               <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
               {showLayerComps && <LayerCompsPanel doc={doc} run={run} />}
-              {showPaths && <PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} />}
+              {showPaths && <PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} />}
             </>
           )}
         </aside>

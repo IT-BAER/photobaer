@@ -12,6 +12,10 @@ interface Props {
   node: LayerNode | null;
   fg: Rgb;
   run: Run;
+  // Lifted to the app: the pen and path selection tools edit the selected path. `cleared` = the
+  // user cleared the selection (a click on the empty list area).
+  selected: number | null;
+  setSelected: (id: number | null, cleared?: boolean) => void;
 }
 
 const ICON = { size: 16, strokeWidth: 1.75 };
@@ -26,8 +30,7 @@ export function pathTarget(doc: DocInfo, node: LayerNode | null, selected: numbe
   return p ? ['document', p.id] : null;
 }
 
-export function PathsPanel({ doc, node, fg, run }: Props) {
-  const [selected, setSelected] = useState<number | null>(null);
+export function PathsPanel({ doc, node, fg, run, selected, setSelected }: Props) {
   const [renaming, setRenaming] = useState<number | null>(null);
   const target = pathTarget(doc, node, selected);
   const pixel = node?.kind === 'pixel';
@@ -37,7 +40,7 @@ export function PathsPanel({ doc, node, fg, run }: Props) {
 
   return (
     <div className="layers-panel">
-      <div className="layers-tree" role="listbox" aria-label="Paths">
+      <div className="layers-tree" role="listbox" aria-label="Paths" onClick={e => { if (e.target === e.currentTarget) setSelected(null, true); }}>
         {doc.paths.length === 0 && <div className="panel-empty">No paths</div>}
         {doc.paths.map(p => (
           <div

@@ -1038,7 +1038,7 @@ impl Engine {
         self.0.doc.text_hit(id, &fonts.0, resolution, x, y).map_err(err)
     }
 
-    /// `{ name, live, fill, stroke }`: a shape layer on top with the path generated from `live`.
+    /// `{ name, live | path, fill, stroke }`: a shape layer on top with the path generated from `live` or given.
     pub fn new_shape(&mut self, json: &str) -> Result<u32, JsError> {
         self.0.doc.new_shape(json).map_err(err)
     }
@@ -1059,6 +1059,16 @@ impl Engine {
 pub fn live_path(json: &str) -> Result<String, JsError> {
     let live: path::Live = serde_json::from_str(json).map_err(|e| JsError::new(&format!("invalid live shape: {e}")))?;
     Ok(serde_json::to_string(&doc::shapes::live_path(&live).map_err(err)?).unwrap())
+}
+
+/// Subpath JSON fit to freehand points JSON `[[x, y], ...]` (RDP, then cubics; tolerance 0.5..10 px).
+#[wasm_bindgen]
+pub fn fit_path(points_json: &str, tolerance: f64, closed: bool) -> Result<String, JsError> {
+    let pts: Vec<[f64; 2]> = serde_json::from_str(points_json).map_err(|e| JsError::new(&format!("invalid points: {e}")))?;
+    if !tolerance.is_finite() {
+        return Err(JsError::new("fit_path needs a finite tolerance"));
+    }
+    Ok(serde_json::to_string(&geom::fit_points(&pts, tolerance.clamp(0.5, 10.0), closed)).unwrap())
 }
 
 /// App-scope font registry (one per worker, shared by every document).

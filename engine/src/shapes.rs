@@ -9,7 +9,10 @@ use crate::path::{Cap, Join, Live, ShapeStroke, StrokeAlign, VectorPath};
 #[serde(deny_unknown_fields)]
 struct NewShapeIn {
     name: String,
-    live: Live,
+    #[serde(default)]
+    live: Option<Live>,
+    #[serde(default)]
+    path: Option<VectorPath>,
     fill: Option<FillContent>,
     stroke: Option<ShapeStroke>,
 }
@@ -44,11 +47,17 @@ pub fn live_path(live: &Live) -> Result<VectorPath, String> {
 }
 
 impl Document {
-    /// A shape layer on top whose path is generated from `live` (the tools' "Shape Layer").
+    /// A shape layer on top whose path is generated from `live` or given as `path` (exactly one;
+    /// the shape and pen tools' new shape layer).
     pub fn new_shape(&mut self, json: &str) -> Result<u32, String> {
         self.check_idle()?;
         let s: NewShapeIn = serde_json::from_str(json).map_err(|e| format!("invalid shape: {e}"))?;
-        let shape = ShapeData { path: live_path(&s.live)?, live: Some(s.live), fill: s.fill, stroke: s.stroke };
+        let path = match (&s.live, s.path) {
+            (Some(l), None) => live_path(l)?,
+            (None, Some(p)) => p,
+            _ => return Err("a new shape needs exactly one of live or path".into()),
+        };
+        let shape = ShapeData { path, live: s.live, fill: s.fill, stroke: s.stroke };
         shape.validate(|id| self.patterns.iter().any(|p| p.id == id))?;
         self.add_node(&s.name, 0, Kind::Shape(Box::new(shape)))
     }

@@ -785,6 +785,20 @@ fn new_shape_builds_the_path_from_live_on_top() {
 }
 
 #[test]
+fn new_shape_takes_a_drawn_path_without_live() {
+    let mut d = Document::new(200, 200, 8).unwrap();
+    let path: Value = serde_json::from_str(&square(10.0, 10.0, 50.0, 40.0)).unwrap();
+    let id = d.new_shape(&json!({ "name": "Shape", "path": path, "fill": red(), "stroke": null }).to_string()).unwrap();
+    assert_eq!(d.nodes.last().unwrap().id, id, "on top");
+    let s = shape_of(&d, id);
+    assert!(s.live.is_none());
+    assert_eq!(crate::geom::bounds(&s.path), Some([10.0, 10.0, 50.0, 40.0]));
+    let live = json!({ "type": "ellipse", "bounds": [0.0, 0.0, 10.0, 10.0] });
+    assert!(d.new_shape(&json!({ "name": "Shape", "fill": red(), "stroke": null }).to_string()).is_err(), "neither path nor live");
+    assert!(d.new_shape(&json!({ "name": "Shape", "live": live, "path": path, "fill": red(), "stroke": null }).to_string()).is_err(), "both");
+}
+
+#[test]
 fn set_shape_regenerates_the_path_only_when_live_changes() {
     let mut d = Document::new(200, 200, 8).unwrap();
     let live = json!({ "type": "rectangle", "bounds": [0.0, 0.0, 100.0, 60.0], "radii": [0.0, 0.0, 0.0, 0.0] });

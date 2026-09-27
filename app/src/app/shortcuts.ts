@@ -18,12 +18,14 @@ export interface ShortcutCtx {
   flowDigitRef: RefObject<DigitState | null>; opacityDigitRef: RefObject<DigitState | null>;
   moveKeysRef: RefObject<{ nudge: (dx: number, dy: number, alt: boolean) => void } | null>; selectByKey: (key: string, shift: boolean) => boolean;
   open: (f: File) => Promise<void>;
+  // The active pen or path selection tool's keys; true = handled.
+  penKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>;
 }
 
 export function useShortcuts(c: ShortcutCtx) {
   const {
     menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setDockTab, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
-    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open,
+    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef,
   } = c;
   useEffect(() => {
     const find = (pred: (label: string) => boolean) => Object.values(menusRef.current).flat().flatMap(i => [i, ...(i.sub ?? [])]).find(i => pred(i.label));
@@ -50,6 +52,7 @@ export function useShortcuts(c: ShortcutCtx) {
       if (t && (t.closest('dialog[open]') || (t.closest('input, select') && !t.closest('dialog:not([open])')))) return;
       capsLockRef.current = e.getModifierState('CapsLock');
       const k = e.key.toLowerCase(), ctrl = e.ctrlKey || e.metaKey;
+      if (penKeysRef.current?.(e)) return;
       if (polygonActionsRef.current?.active()) {
         if (k === 'escape') { e.preventDefault(); polygonActionsRef.current.cancel(); return; }
         if (k === 'backspace') { e.preventDefault(); polygonActionsRef.current.removeLast(); return; }

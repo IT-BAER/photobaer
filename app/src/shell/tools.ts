@@ -52,6 +52,10 @@ function shapeTool(id: string, label: string, icon: string, extra: OptionSchema[
   };
 }
 
+const PEN_MODE: OptionSchema = { id: 'mode', kind: 'select', label: 'Mode', default: 'path', choices: ['shape', 'path'] };
+const pen = (id: string, label: string, icon: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'pen', key: 'p', cursor: 'crosshair', icon, options });
+const pathSel = (id: string, label: string, icon: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'pathSelect', key: 'a', cursor: 'default', icon, options });
+
 export const TOOLS: Record<string, Tool> = {
   move: {
     id: 'move', label: 'Move', slot: 'move', key: 'v', cursor: 'move', icon: 'Move',
@@ -216,6 +220,31 @@ export const TOOLS: Record<string, Tool> = {
     CORNER_RADIUS,
   ]),
   line: shapeTool('line', 'Line', 'Slash', []),
+  pen: pen('pen', 'Pen', 'PenTool', [
+    PEN_MODE,
+    // Fill '' = the foreground color, Stroke '' = the background color; width 0 = no stroke.
+    { id: 'fill', kind: 'color', label: 'Fill', default: '' },
+    { id: 'stroke', kind: 'color', label: 'Stroke', default: '' },
+    { id: 'strokeWidth', kind: 'number', label: 'Stroke Width', default: 0, min: 0, max: 1000, unit: 'px' },
+    { id: 'pathOp', kind: 'select', label: 'Path Operations', default: 'new', choices: ['new', 'add', 'subtract', 'intersect', 'exclude'] },
+    { id: 'autoAddDelete', kind: 'boolean', label: 'Auto Add/Delete', default: true },
+    { id: 'rubberBand', kind: 'boolean', label: 'Rubber Band', default: true },
+    { id: 'alignEdges', kind: 'boolean', label: 'Align Edges', default: false },
+  ]),
+  freeformPen: pen('freeformPen', 'Freeform Pen', 'Signature', [
+    PEN_MODE,
+    { id: 'magnetic', kind: 'boolean', label: 'Magnetic', default: false },
+    { id: 'width', kind: 'number', label: 'Width', default: 10, min: 1, max: 256, unit: 'px' },
+    { id: 'curveFit', kind: 'number', label: 'Curve Fit', default: 2, min: 0.5, max: 10, unit: 'px' },
+  ]),
+  curvaturePen: pen('curvaturePen', 'Curvature Pen', 'Spline', [PEN_MODE]),
+  addAnchor: pen('addAnchor', 'Add Anchor Point', 'DiamondPlus', []),
+  deleteAnchor: pen('deleteAnchor', 'Delete Anchor Point', 'DiamondMinus', []),
+  convertPoint: pen('convertPoint', 'Convert Point', 'SplinePointer', []),
+  pathSelection: pathSel('pathSelection', 'Path Selection', 'MousePointer2', [
+    { id: 'constrain', kind: 'select', label: 'Constrain', default: 'free', choices: ['free', 'axis'] },
+  ]),
+  directSelection: pathSel('directSelection', 'Direct Selection', 'Navigation', []),
   hand: { id: 'hand', label: 'Hand', slot: 'hand', key: 'h', cursor: 'grab', icon: 'Hand', options: [] },
   rotate: { id: 'rotate', label: 'Rotate View', slot: 'rotate', key: 'r', cursor: 'alias', icon: 'RotateCw', options: [] },
   zoom: { id: 'zoom', label: 'Zoom', slot: 'zoom', key: 'z', cursor: 'zoom-in', icon: 'ZoomIn', options: [] },
@@ -232,6 +261,8 @@ export const SLOTS: Slot[] = [
   { id: 'eraser', key: 'e', tools: ['eraser'] },
   { id: 'gradient', key: 'g', tools: ['gradient', 'bucket'] },
   { id: 'shape', key: 'u', tools: ['rectangle', 'ellipse', 'triangle', 'polygon', 'line'] },
+  { id: 'pen', key: 'p', tools: ['pen', 'freeformPen', 'curvaturePen', 'addAnchor', 'deleteAnchor', 'convertPoint'] },
+  { id: 'pathSelect', key: 'a', tools: ['pathSelection', 'directSelection'] },
   { id: 'hand', key: 'h', tools: ['hand'] },
   { id: 'rotate', key: 'r', tools: ['rotate'] },
   { id: 'zoom', key: 'z', tools: ['zoom'] },

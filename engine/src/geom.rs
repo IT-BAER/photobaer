@@ -1197,6 +1197,73 @@ fn fit(p: &[V], tol: f64) -> Subpath {
     Subpath { closed: true, op: PathOp::Combine, points }
 }
 
+/// Ramer-Douglas-Peucker: the vertices of `p` needed to keep every point within `tol` px.
+fn rdp(p: &[V], tol: f64) -> Vec<V> {
+    let n = p.len();
+    if n < 3 {
+        return p.to_vec();
+    }
+    let mut keep = vec![false; n];
+    (keep[0], keep[n - 1]) = (true, true);
+    let mut stack = vec![(0, n - 1)];
+    while let Some((s, e)) = stack.pop() {
+        let (d, i) = (s + 1..e).map(|i| (seg_dist(p[i], p[s], p[e]), i)).fold((0.0, s), |m, x| if x.0 > m.0 { x } else { m });
+        if d > tol {
+            keep[i] = true;
+            stack.extend([(s, i), (i, e)]);
+        }
+    }
+    p.iter().zip(keep).filter(|x| x.1).map(|x| *x.0).collect()
+}
+
+/// Freehand samples to anchors: RDP within `tol`, then a cubic fit at the same tolerance. Open
+/// runs split where the simplified line turns over 60 degrees; one distinct point gives no points.
+pub fn fit_points(pts: &[[f64; 2]], tol: f64, closed: bool) -> Subpath {
+    let mut p: Vec<V> = pts.iter().map(|q| v(q[0], q[1])).collect();
+    p.dedup();
+    if closed && p.len() > 1 && p[0] == p[p.len() - 1] {
+        p.pop();
+    }
+    if closed && p.len() >= 3 {
+        let mut loop_ = p.clone();
+        loop_.push(p[0]);
+        let mut q = rdp(&loop_, tol);
+        q.pop();
+        if q.len() >= 3 {
+            return fit(&q, tol);
+        }
+    }
+    let empty = Subpath { closed: false, op: PathOp::Combine, points: vec![] };
+    if p.len() < 2 {
+        return empty;
+    }
+    let q = rdp(&p, tol);
+    let n = q.len();
+    let turn = |i: usize| (q[i] - q[i - 1]).norm().dot((q[i + 1] - q[i]).norm()).clamp(-1.0, 1.0).acos();
+    let cuts: Vec<usize> = std::iter::once(0).chain((1..n - 1).filter(|&i| turn(i) > 60f64.to_radians())).chain(std::iter::once(n - 1)).collect();
+    let mut bz: Vec<[V; 4]> = vec![];
+    for w in cuts.windows(2) {
+        let run = &q[w[0]..=w[1]];
+        let (a, b) = (run[0], run[run.len() - 1]);
+        if run.len() == 2 {
+            bz.push([a, a, b, b]);
+        } else {
+            fit_run(run, (run[1] - a).norm(), (run[run.len() - 2] - b).norm(), tol, &mut bz);
+        }
+    }
+    let m = bz.len();
+    let mut points: Vec<Point> = (0..m)
+        .map(|i| {
+            let (a, o) = (bz[i][0], bz[i][1]);
+            let h = if i == 0 { a } else { bz[i - 1][2] };
+            [a.x, a.y, h.x, h.y, o.x, o.y]
+        })
+        .collect();
+    let (e, h) = (bz[m - 1][3], bz[m - 1][2]);
+    points.push([e.x, e.y, h.x, h.y, e.x, e.y]);
+    Subpath { points, ..empty }
+}
+
 /// Even-odd point-in-polygon test.
 fn inside_poly(poly: &[V], q: V) -> bool {
     let mut odd = false;
