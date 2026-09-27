@@ -347,3 +347,34 @@ fn in_shape_text_flows_across_a_large_gap() {
     };
     assert_eq!(n(3000.0), n(400.0));
 }
+
+#[test]
+fn text_layout_lists_lines_with_glyph_clusters_in_text_space() {
+    let (d, id) = text_doc(&data("Hi\nyo", AntiAlias::Sharp));
+    let v: serde_json::Value = serde_json::from_str(&d.text_layout(id, &reg(), 72.0).unwrap()).unwrap();
+    assert_eq!(v["transform"], serde_json::json!([1.0, 0.0, 0.0, 1.0, 20.0, 60.0]));
+    let lines = v["lines"].as_array().unwrap();
+    assert_eq!(lines.len(), 2);
+    assert_eq!((lines[0]["start"].as_u64(), lines[1]["start"].as_u64(), lines[1]["end"].as_u64()), (Some(0), Some(3), Some(5)));
+    let g0 = lines[0]["glyphs"].as_array().unwrap();
+    assert_eq!(g0.iter().map(|g| g[0].as_f64().unwrap()).collect::<Vec<_>>()[..2], [0.0, 1.0], "clusters H, i");
+    assert!(g0[1][1].as_f64().unwrap() > g0[0][1].as_f64().unwrap() && g0[0][3].as_f64().unwrap() > 0.0, "x grows, advance > 0");
+    assert!(lines[1]["y"].as_f64().unwrap() > lines[0]["y"].as_f64().unwrap() && lines[0]["ascent"].as_f64().unwrap() > 0.0);
+    let (e, eid) = text_doc(&data("", AntiAlias::Sharp));
+    let v: serde_json::Value = serde_json::from_str(&e.text_layout(eid, &reg(), 72.0).unwrap()).unwrap();
+    let l = &v["lines"][0];
+    assert!(v["lines"].as_array().unwrap().len() == 1 && l["ascent"].as_f64().unwrap() > 0.0, "empty text: one caret line");
+}
+
+#[test]
+fn select_text_makes_the_outline_coverage_the_selection() {
+    let t = data("Hi", AntiAlias::Sharp);
+    let (mut d, id) = text_doc(&t);
+    d.select_text(id, &reg(), 72.0, Mode::New).unwrap();
+    let want = geom::fill_mask(&outline(&t, &reg(), 72.0).path(), 0, 0, 300, 120);
+    let got: Vec<u8> = d.selection_values().into_iter().map(|v| (v * 255.0).round() as u8).collect();
+    assert_eq!(got, want);
+    let empty = data("", AntiAlias::Sharp);
+    let (mut e, eid) = text_doc(&TextData { runs: vec![run(0, AntiAlias::Sharp)], ..empty });
+    assert!(e.select_text(eid, &reg(), 72.0, Mode::New).is_err(), "no outline, no selection");
+}

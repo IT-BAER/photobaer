@@ -8,7 +8,7 @@ interface ControlProps { tool: Tool; values: ToolOptions; setValues: (v: ToolOpt
 
 // Generic control for one option, keyed off its schema kind. Persists to the tool's localStorage
 // slot on every commit, so options survive a reload without an explicit save step.
-function Control({ tool, values, setValues, option: { id, kind, label, min, max, unit, choices }, fg }: ControlProps) {
+function Control({ tool, values, setValues, option: { id, kind, label, min, max, step, unit, choices }, fg }: ControlProps) {
   const value = values[id];
   const commit = (v: number | string | boolean) => {
     const next = { ...values, [id]: v };
@@ -54,7 +54,7 @@ function Control({ tool, values, setValues, option: { id, kind, label, min, max,
     <label className="opt-number">
       {label}
       <input
-        type="number" min={min} max={kind === 'percent' ? 100 : max} value={value as number}
+        type="number" min={min} max={kind === 'percent' ? 100 : max} step={step} value={value as number}
         onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) commit(v); }}
       />
       {kind === 'percent' ? '%' : unit}

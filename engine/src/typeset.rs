@@ -273,8 +273,9 @@ fn run_face(reg: &Registry, r: &Run) -> Option<u32> {
 }
 
 impl<'a> Ctx<'a> {
+    /// The run of char `ci`; past the end (empty text) the last char's run, else the first run.
     fn run(&self, ci: usize) -> &'a Run {
-        &self.t.runs[self.run_of[ci]]
+        &self.t.runs[self.run_of.get(ci).or(self.run_of.last()).copied().unwrap_or(0)]
     }
 
     /// Shapes chars [c0, c1) (one paragraph) into logical-order glyphs.

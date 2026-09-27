@@ -1,5 +1,6 @@
 import type { Blending, LayerStyle } from '../layerStyle.ts';
 import type { Live, ShapeStroke } from '../shell/shapetools.ts';
+import type { TextJson } from '../psd/text.ts';
 
 // A fill layer's content (docs/M3.md section 4); field names match the engine JSON verbatim.
 export interface GradientDef {
@@ -74,6 +75,8 @@ export interface LayerNode {
   smart?: SmartInfo;
   shape?: { path: VectorPath; live: Live | null; fill: FillContent | null; stroke: ShapeStroke | null };
   vector_mask?: VectorMaskInfo | null;
+  // Type layer model (engine/src/text.rs TextData).
+  text?: TextJson;
   // `rect` is `[left, top, right, bottom]` (engine/src/path.rs `Artboard`); present on a `group`
   // layer promoted to an artboard.
   artboard?: { rect: [number, number, number, number]; background: ArtboardBackground; preset_name: string; guide_ids: number[] } | null;
@@ -117,7 +120,8 @@ export interface GlobalLight { angle: number; altitude: number }
 export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?: number; w?: number; h?: number; points?: number[] };
 export type OpenResult = DocInfo & { warnings: string[] };
 export type AutosaveState = 'off' | 'other-tab' | 'idle' | 'saving' | 'saved' | 'error';
-export type WorkerEvent = { event: 'autosave'; state: AutosaveState; detail?: string } | { event: 'transformCancelled'; doc: DocInfo | null };
+export type WorkerEvent = { event: 'autosave'; state: AutosaveState; detail?: string } | { event: 'transformCancelled'; doc: DocInfo | null }
+  | { event: 'typeCommitted'; doc: DocInfo };
 export interface StrokeParams {
   rgba: [number, number, number, number]; mode: string; size: number;
   opacity?: number; flow?: number; hardness?: number; spacing?: number; angle?: number; roundness?: number;

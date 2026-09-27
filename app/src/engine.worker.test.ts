@@ -1563,3 +1563,75 @@ test('layerCode writes a plain shape layer as SVG and CSS', async () => {
   const css = (await call('layerCode', id, 'css')).result as { text: string };
   assert.match(css.text, /^\.photobaer-layer \{\n {2}position: absolute;\n {2}left: 10px;\n {2}top: 10px;\n {2}width: 100px;\n {2}height: 60px;\n/);
 });
+
+test('a type edit session: New Type Layer, one Edit Type Layer on commit, empty commit and cancel remove the layer', async () => {
+  await call('init');
+  await call('newDoc', 200, 100, 8, null);
+  await call('fontAdd', readFileSync(new URL('../public/fonts/NotoSans-Regular.ttf', import.meta.url)), 'bundled');
+  const { newText } = await import('./shell/typesession.ts');
+  type Info = { history: { labels: string[] }; layers: { id: number; name: string; kind: string; text?: { text: string } }[] };
+  type Begun = { id: number; layout: string; doc: Info };
+  const opts = { family: 'Noto Sans', style: 'Regular', size: 28, color: [0, 0, 0] as [number, number, number], alignment: 'left' as const, orientation: 'horizontal' as const };
+  const t0 = newText(opts, { type: 'point' }, [10, 60]);
+  const b = (await call('typeBegin', { text: t0, above: 0 })).result as Begun;
+  assert.deepEqual(b.doc.history.labels.slice(-1), ['New Type Layer']);
+  assert.equal(JSON.parse(b.layout).lines.length, 1, 'an empty layer has one caret line');
+  const t1 = { ...t0, text: 'Hi', runs: [{ ...t0.runs[0], length: 2 }], paragraphs: [{ ...t0.paragraphs[0], length: 2 }] };
+  const u = (await call('typeUpdate', t1, 'Hi')).result as { layout: string; doc: Info };
+  assert.equal(JSON.parse(u.layout).lines[0].glyphs.length, 2);
+  const c = (await call('typeCommit')).result as Info;
+  assert.deepEqual(c.history.labels.slice(-2), ['New Type Layer', 'Edit Type Layer']);
+  const layer = c.layers.find(l => l.id === b.id)!;
+  assert.deepEqual([layer.kind, layer.name, layer.text?.text], ['text', 'Hi', 'Hi']);
+
+  // An unchanged existing layer commits without a step; an empty commit deletes it.
+  await call('typeBegin', { id: b.id });
+  assert.equal(((await call('typeCommit')).result as Info).history.labels.length, c.history.labels.length);
+  await call('typeBegin', { id: b.id });
+  await call('typeUpdate', t0, '');
+  const e = (await call('typeCommit')).result as Info;
+  assert.equal(e.layers.some(l => l.id === b.id), false);
+  assert.equal(e.history.labels.at(-1), 'Edit Type Layer');
+
+  // Cancel on a new layer removes it with a Cancel Type Edit step.
+  const n = (await call('typeBegin', { text: t0, above: 0 })).result as Begun;
+  await call('typeUpdate', t1, 'Hi');
+  const x = (await call('typeCancel')).result as Info;
+  assert.equal(x.layers.some(l => l.id === n.id), false);
+  assert.deepEqual(x.history.labels.slice(-2), ['New Type Layer', 'Cancel Type Edit']);
+
+  // Any other op commits an open session first and reports it.
+  const m = (await call('typeBegin', { text: t0, above: 0 })).result as Begun;
+  await call('typeUpdate', t1, 'Hi');
+  const before = events.length;
+  const r = (await call('addLayer', 0)).result as Info;
+  assert.ok(r.history.labels.includes('Edit Type Layer'));
+  assert.ok(r.layers.some(l => l.id === m.id));
+  assert.ok(events.slice(before).some(ev => (ev as { event: string }).event === 'typeCommitted'));
+});
+
+test('a type mask commit makes the text coverage the selection and removes the temporary layer', async () => {
+  await call('init');
+  await call('newDoc', 200, 100, 8, null);
+  await call('fontAdd', readFileSync(new URL('../public/fonts/NotoSans-Regular.ttf', import.meta.url)), 'bundled');
+  const { newText } = await import('./shell/typesession.ts');
+  type Info = { history: { labels: string[] }; layers: { id: number }[]; selection: { bounds: number[] | null } | null };
+  const opts = { family: 'Noto Sans', style: 'Regular', size: 28, color: [0, 0, 0] as [number, number, number], alignment: 'left' as const, orientation: 'horizontal' as const };
+  const t0 = newText(opts, { type: 'point' }, [10, 60]);
+  const t1 = { ...t0, text: 'Hi', runs: [{ ...t0.runs[0], length: 2 }], paragraphs: [{ ...t0.paragraphs[0], length: 2 }] };
+  const b = (await call('typeBegin', { text: t0, above: 0, mask: true })).result as { id: number; doc: Info };
+  assert.equal(b.doc.layers.length, 2, 'the temporary layer exists while typing');
+  await call('typeUpdate', t1, 'Hi');
+  const c = (await call('typeCommit')).result as Info;
+  assert.equal(c.layers.length, 1);
+  assert.equal(c.history.labels.at(-1), 'Type Mask');
+  const [x, y, w, h] = c.selection!.bounds!;
+  assert.ok(x >= 10 && w > 15 && y > 30 && y + h <= 62, `text-sized bounds ${c.selection!.bounds}`);
+
+  // Empty mask text records nothing.
+  const n = c.history.labels.length;
+  await call('typeBegin', { text: t0, above: 0, mask: true });
+  const e = (await call('typeCommit')).result as Info;
+  assert.equal(e.history.labels.length, n);
+  assert.equal(e.layers.length, 1);
+});

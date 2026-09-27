@@ -20,12 +20,14 @@ export interface ShortcutCtx {
   open: (f: File) => Promise<void>;
   // The active pen or path selection tool's keys; true = handled.
   penKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>;
+  // An open type edit session's keys; checked first (Esc commits instead of resetting the view rotation).
+  typeKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>;
 }
 
 export function useShortcuts(c: ShortcutCtx) {
   const {
     menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setDockTab, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
-    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef,
+    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef,
   } = c;
   useEffect(() => {
     const find = (pred: (label: string) => boolean) => Object.values(menusRef.current).flat().flatMap(i => [i, ...(i.sub ?? [])]).find(i => pred(i.label));
@@ -52,6 +54,7 @@ export function useShortcuts(c: ShortcutCtx) {
       if (t && (t.closest('dialog[open]') || (t.closest('input, select') && !t.closest('dialog:not([open])')))) return;
       capsLockRef.current = e.getModifierState('CapsLock');
       const k = e.key.toLowerCase(), ctrl = e.ctrlKey || e.metaKey;
+      if (typeKeysRef.current?.(e)) return;
       if (penKeysRef.current?.(e)) return;
       if (polygonActionsRef.current?.active()) {
         if (k === 'escape') { e.preventDefault(); polygonActionsRef.current.cancel(); return; }

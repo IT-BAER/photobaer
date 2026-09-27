@@ -1038,6 +1038,16 @@ impl Engine {
         self.0.doc.text_hit(id, &fonts.0, resolution, x, y).map_err(err)
     }
 
+    /// The type layer's layout in text space: `{ transform, overflow, lines }` for caret math.
+    pub fn text_layout(&self, id: u32, fonts: &Fonts, resolution: f64) -> Result<String, JsError> {
+        self.0.doc.text_layout(id, &fonts.0, resolution).map_err(err)
+    }
+
+    /// Type Mask commit: the type layer's outline coverage becomes the selection per `mode`.
+    pub fn select_text(&mut self, id: u32, fonts: &Fonts, resolution: f64, mode: &str) -> Result<(), JsError> {
+        self.0.doc.select_text(id, &fonts.0, resolution, Mode::parse(mode).map_err(err)?).map_err(err)
+    }
+
     /// `{ name, live | path, fill, stroke }`: a shape layer on top with the path generated from `live` or given.
     pub fn new_shape(&mut self, json: &str) -> Result<u32, JsError> {
         self.0.doc.new_shape(json).map_err(err)

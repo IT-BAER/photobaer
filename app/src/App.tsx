@@ -17,6 +17,7 @@ import { GradientsPanel, PatternsPanel, StylesPanel, adoptPatterns } from './Pre
 import type { SampleCanvas } from './LevelsCurvesBody.tsx';
 import { COMMAND_LABEL, DESTRUCTIVE_LABEL, MENU_LABEL, defaultAdjustment, defaultDestructive, uiToGradientDef, type DestructiveKind, type Kind } from './adjustments.ts';
 import type { Adjustment, AutosaveState, DestructiveAdjustment, DocInfo, FillContent, FillParams, GradientParams, LayerNode } from './engine.worker.ts';
+import type { FaceInfo } from './worker/types.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
 import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
 import { ColorPanel } from './shell/ColorPanel.tsx';
@@ -56,6 +57,8 @@ import { shapeLibrary } from './shell/customShapes.ts';
 import { transformSession, type TSession } from './app/transform.ts';
 import { useBrushCursor, useBucket, useEyedropper, useGradientTool, useMoveTool, useSelectionTools, useShapeTools } from './app/toolEffects.ts';
 import { usePenTools, type PathSel } from './app/penTools.ts';
+import { useTypeTools, type TypeApi } from './app/typeTools.ts';
+import { loadFonts } from './fonts/sources.ts';
 import { useCropTool, usePerspectiveCropTool } from './app/cropTools.ts';
 import { usePaintTool } from './app/paintTool.ts';
 import { useShortcuts } from './app/shortcuts.ts';
@@ -69,6 +72,8 @@ export function App() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const overlayCanvas = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<SelectionOverlay | null>(null);
+  // Registered font faces (bundled, uploaded, local) for the type tools' family and style pickers.
+  const [faces, setFaces] = useState<FaceInfo[]>([]);
   const rulerTop = useRef<HTMLCanvasElement>(null);
   const rulerLeft = useRef<HTMLCanvasElement>(null);
   const pixelGridCanvas = useRef<HTMLCanvasElement>(null);
@@ -788,6 +793,7 @@ export function App() {
     client.onEvent = e => {
       if (e.event === 'autosave') setAutosave(e.state);
       else if (e.event === 'transformCancelled' && closeTransform()) show(e.doc);
+      else if (e.event === 'typeCommitted') { if (typeRef.current) typeRef.current.ended(e.doc); else show(e.doc); }
     };
     (async () => {
       try {
@@ -805,6 +811,7 @@ export function App() {
         perfRef.current = perfTestHook(v);
         (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client, ...gpuTestHook(client, r), ...(perfRef.current ? { perf: perfRef.current } : {}) };
         show(await client.call('init'));
+        loadFonts(client).then(f => { if (alive) setFaces(f); }, err => setError((err as Error).message));
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -959,6 +966,13 @@ export function App() {
     selectPath: id => setPathSel({ selected: id, cleared: false }), setError, penKeysRef, redrawRef: penRedrawRef,
   });
   useEffect(() => { penRedrawRef.current?.(); }, [doc?.version, active?.id, pathSel]);
+  const typeKeysRef = useRef<((e: KeyboardEvent) => boolean) | null>(null);
+  const typeRef = useRef<TypeApi | null>(null);
+  const [typeEditing, setTypeEditing] = useState(false);
+  useTypeTools({
+    viewer, tool, doc, docRef, activeRef, overlayRef, redrawOverlay, toolOptions, toolOptionsRef, fgRef, show, setError, typeKeysRef, typeRef,
+    setEditing: setTypeEditing,
+  });
 
   // Crop and perspective crop: pointer state in crop/geometry.ts; Enter, Esc, the bar buttons and a
   // tool switch reach the pending crop through `cropSession`.
@@ -1050,7 +1064,7 @@ export function App() {
 
   useShortcuts({
     menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setDockTab, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
-    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef,
+    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef,
   });
 
   // Brush presets: the selected preset (with a protected texture carried over) and the Brushes/Brush Settings panels.
@@ -1153,6 +1167,31 @@ export function App() {
       {shapeChoices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
     </select></label>
   );
+  const families = [...new Set(faces.map(f => f.family))].sort();
+  const typeFont = (
+    <span className="type-font">
+      <select aria-label="Font family" value={String(toolOptions.family)} onChange={e => {
+        const family = e.currentTarget.value, styles = faces.filter(f => f.family === family).map(f => f.style);
+        setToolOptions({ ...toolOptions, family, style: styles.includes(String(toolOptions.style)) ? toolOptions.style : styles[0] ?? 'Regular' });
+      }}>
+        {!families.includes(String(toolOptions.family)) && <option value={String(toolOptions.family)}>{String(toolOptions.family)}</option>}
+        {families.map(f => <option key={f} value={f}>{f}</option>)}
+      </select>
+    </span>
+  );
+  const typeStyles = faces.filter(f => f.family === toolOptions.family).map(f => f.style);
+  const typeStyle = (
+    <select aria-label="Font style" value={String(toolOptions.style)} onChange={e => setToolOptions({ ...toolOptions, style: e.currentTarget.value })}>
+      {!typeStyles.includes(String(toolOptions.style)) && <option value={String(toolOptions.style)}>{String(toolOptions.style)}</option>}
+      {typeStyles.map(st => <option key={st} value={st}>{st}</option>)}
+    </select>
+  );
+  const typeActions = typeEditing && (
+    <span className="crop-actions">
+      <button type="button" aria-label="Cancel type edit" onClick={() => typeRef.current?.cancel()}>Cancel</button>
+      <button type="button" className="primary" aria-label="Commit type edit" onClick={() => typeRef.current?.commit()}>Commit</button>
+    </span>
+  );
   const cropActions = (
     <span className="crop-actions">
       <button type="button" onClick={() => cropSession.current?.cancel()}>Cancel</button>
@@ -1247,7 +1286,7 @@ export function App() {
                 t.store.set({ warp: warpBar(ws) });
               })}
             />
-          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton, actions: cropActions, customShape: customShapeSelect }} fg={fg} />}
+          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions }} fg={fg} />}
           <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} />
             <canvas ref={pixelGridCanvas} className="overlay" />

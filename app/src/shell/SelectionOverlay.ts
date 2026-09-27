@@ -18,6 +18,13 @@ export interface PathEditOverlay {
 }
 export const HANDLE_CURSORS = ['nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize'];
 
+// Type edit session, all in document px: selection quads, the caret segment (drawn when `caretOn`,
+// width by line height), and a frame (text box with 8 handles, or a selected layer's bounds without).
+export interface TypeEditOverlay {
+  quads: [number, number][][]; caret: [number, number, number, number] | null; caretOn: boolean;
+  frame: [number, number][] | null; handles: boolean;
+}
+
 // Free transform overlay: the 8 dest handle points (clockwise from the top-left corner, corners at
 // even indexes), the dest reference point and an optional size readout, all in document px.
 export interface TransformBox { handles: [number, number][]; ref: [number, number]; dims: { text: string; at: [number, number] } | null }
@@ -56,6 +63,7 @@ export class SelectionOverlay {
   #crop: CropOverlay | null = null;
   #corners: [number, number][] | null = null;
   #pathEdit: PathEditOverlay | null = null;
+  #typeEdit: TypeEditOverlay | null = null;
   #dash = 0;
   #timer: ReturnType<typeof setInterval> | undefined;
   #last: [View, number, number, number] | null = null;
@@ -116,6 +124,10 @@ export class SelectionOverlay {
     this.#pathEdit = p;
   }
 
+  setTypeEdit(t: TypeEditOverlay | null) {
+    this.#typeEdit = t;
+  }
+
   setImage(img: TransformImage | null) {
     this.#image = img;
   }
@@ -169,6 +181,7 @@ export class SelectionOverlay {
     if (this.#transform) this.#drawTransform(this.#transform, view, cssW, cssH, dpr);
     if (this.#warp) this.#drawWarp(this.#warp, view, cssW, cssH, dpr);
     if (this.#pathEdit) this.#drawPathEdit(this.#pathEdit, view, cssW, cssH, dpr);
+    if (this.#typeEdit) this.#drawTypeEdit(this.#typeEdit, view, cssW, cssH, dpr);
     if (this.#guides.length) this.#drawGuides(view, cssW, cssH, dpr);
     if (this.#cursor) this.#drawCursor(this.#cursor, view, cssW, cssH, dpr);
   }
@@ -211,6 +224,51 @@ export class SelectionOverlay {
     ctx.setLineDash([]);
     ctx.strokeStyle = getComputedStyle(this.#canvas).getPropertyValue('--smart-guide');
     ctx.stroke();
+  }
+
+  #drawTypeEdit(t: TypeEditOverlay, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx, sc = (p: [number, number]) => docToScreen(view, p[0], p[1], cssW, cssH);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(40, 120, 255, 0.35)';
+    for (const q of t.quads) {
+      ctx.beginPath();
+      for (const p of q.map(sc)) ctx.lineTo(p[0], p[1]);
+      ctx.fill();
+    }
+    if (t.frame) {
+      const pts = t.frame.map(sc);
+      ctx.beginPath();
+      for (const p of pts) ctx.lineTo(p[0], p[1]);
+      ctx.closePath();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = getComputedStyle(this.#canvas).getPropertyValue('--transform-box') || '#333';
+      ctx.stroke();
+      if (t.handles) {
+        const mids = pts.map((p, i) => { const q = pts[(i + 1) % 4]; return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; });
+        for (const [x, y] of [...pts, ...mids]) {
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(x - 3.5, y - 3.5, 7, 7);
+          ctx.strokeRect(x - 3.5, y - 3.5, 7, 7);
+        }
+      }
+    }
+    if (t.caret && t.caretOn) {
+      const a = sc([t.caret[0], t.caret[1]]), b = sc([t.caret[2], t.caret[3]]);
+      const w = Math.max(1, Math.min(4, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 24)));
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.lineWidth = w + 2;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+      ctx.lineWidth = w;
+      ctx.strokeStyle = '#111';
+      ctx.stroke();
+    }
   }
 
   #drawBox(r: BoxRect, view: View, cssW: number, cssH: number, dpr: number) {

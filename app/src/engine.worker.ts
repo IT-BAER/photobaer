@@ -11,6 +11,8 @@ import type { PatternRecord } from './brushes/preset.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
 import { layerCss, pngSvg, shapeSvg } from './app/svgcss.ts';
 import { BOOL_LABEL } from './shell/shapetools.ts';
+import { layerName } from './shell/typesession.ts';
+import type { TextJson } from './psd/text.ts';
 import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
@@ -40,12 +42,16 @@ let moveSession: { liveBase: number; targetId: number; duplicated: boolean; last
 // with the source removed (the UI previews it), `refined` the matrix or warp mesh JSON last rendered for
 // real, `base` the snapshot a warp applies to after a baked matrix (null: the step's start), `label` the
 // commit label when it differs from the one the step opened with.
+// Type edit session (docs/M4.md section 10): one open history step ("Edit Type Layer", or "Type Mask"
+// holding the temporary layer); each update replaces the model and re-renders the layer.
+let typeSession: { id: number; isNew: boolean; mask: boolean; changed: boolean; empty: boolean } | null = null;
 let transformSession: { id: number; kind: TransformKind; hidden: number; refined: TransformOp | null; base: number | null; label: string | null } | null = null;
 // Copy Layer Style's clipboard: the style JSON only (never blending options), kept across documents.
 let styleClipboard: string | null = null;
 // Font registry and upload store: app scope, kept across documents; created on first use (after WASM init).
 let fonts: Fonts | null = null;
 const fontReg = () => fonts ??= new Fonts();
+const resolution = (e: Engine) => (JSON.parse(e.vector_json()) as { resolution: number }).resolution;
 let fontStore: Promise<FontStore | null> | null = null;
 // Open live-preview session (Fill/Stroke dialogs): one history step, rerun from its start on every change.
 let previewOpen = false;
@@ -966,6 +972,96 @@ const api = {
       if (buf && buf[(oy * 256 + ox) * 4 + 3] > 0) return group ? topLevelAncestor(tree, n.id) : n.id;
     }
     return null;
+  },
+
+  // Type session: `typeBegin` edits layer `id`, or creates one from `text` above `above` ("New Type Layer"
+  // first; a mask layer lives only inside the session). Returns the layer id and its text_layout JSON.
+  typeBegin(o: { id?: number; text?: TextJson; above?: number; mask?: boolean }) {
+    const e = need(), mask = !!o.mask;
+    if (typeSession) api.typeCommit();
+    let id = o.id ?? 0;
+    const create = () => {
+      id = e.add_special(o.above ?? 0, JSON.stringify({ name: layerName(''), text: o.text }));
+      e.render_text(id, fontReg(), resolution(e));
+    };
+    if (o.id !== undefined) history.begin('Edit Type Layer');
+    else if (!mask) { history.run('New Type Layer', create); history.begin('Edit Type Layer'); }
+    else {
+      history.begin('Type Mask');
+      try { create(); } catch (err) { history.restoreOpen(); history.abort(); throw err; }
+    }
+    typeSession = { id, isNew: o.id === undefined, mask, changed: false, empty: (findNode(e, id)?.text?.text ?? '') === '' };
+    version++;
+    return { id, layout: e.text_layout(id, fontReg(), resolution(e)), doc: info()! };
+  },
+
+  typeUpdate(text: TextJson, name: string) {
+    const e = need(), s = typeSession;
+    if (!s) throw new Error('No type edit is open.');
+    e.set_text(s.id, JSON.stringify(text));
+    if (!s.mask) e.set_props(s.id, JSON.stringify({ name }));
+    e.render_text(s.id, fontReg(), resolution(e));
+    s.changed = true;
+    s.empty = text.text === '';
+    version++;
+    return { layout: e.text_layout(s.id, fontReg(), resolution(e)), doc: info()! };
+  },
+
+  // The topmost visible type layer whose outline is within 2 px of (x, y); fully locked layers are skipped.
+  typeHit(x: number, y: number): number | null {
+    const e = need();
+    for (const n of visibleTopDown(JSON.parse(e.layers_json()) as LayerNode[])) {
+      if (n.kind !== 'text' || (n.locks.transparency && n.locks.pixels && n.locks.position)) continue;
+      if (e.text_hit(n.id, fontReg(), resolution(e), x, y)) return n.id;
+    }
+    return null;
+  },
+
+  typeLayout(id: number): string {
+    const e = need();
+    return e.text_layout(id, fontReg(), resolution(e));
+  },
+
+  // A whole-layer model change outside a session (options bar, panels): one step.
+  typeSet(id: number, text: TextJson, label: string) {
+    const e = need();
+    history.run(label, () => { e.set_text(id, JSON.stringify(text)); e.render_text(id, fontReg(), resolution(e)); });
+    return changed();
+  },
+
+  // Commit: empty text deletes the layer; a mask's outline becomes the selection; an unchanged
+  // existing layer records nothing.
+  typeCommit() {
+    const e = need(), s = typeSession;
+    if (!s) return info()!;
+    typeSession = null;
+    if (s.mask || (!s.changed && !s.isNew)) {
+      if (s.mask && !s.empty) {
+        e.select_text(s.id, fontReg(), resolution(e), 'new');
+        e.delete_node(s.id);
+        history.commit();
+        selGen++;
+        return changed();
+      }
+      history.restoreOpen();
+      history.abort();
+      version++;
+      return info()!;
+    }
+    if (s.empty) e.delete_node(s.id);
+    history.commit();
+    return changed();
+  },
+
+  // Cancel: back to the session's start; a new layer is removed ("Cancel Type Edit").
+  typeCancel() {
+    const e = need(), s = typeSession;
+    if (!s) return info()!;
+    typeSession = null;
+    history.restoreOpen();
+    history.abort();
+    if (s.isNew && !s.mask) history.run('Cancel Type Edit', () => e.delete_node(s.id));
+    return changed();
   },
 
   // Whole-layer move/duplicate session: `moveLayerBegin` opens one history step (duplicating the
@@ -1904,6 +2000,8 @@ const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'adjust', '
 const MOVE_OPS = new Set<keyof Api>(['moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels']);
 // App-scope font calls: never refused for a stale document id and never close an open session.
 const FONT_OPS = new Set<keyof Api>(['fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing']);
+// An open type session commits before any other op; the UI hears it as typeCommitted.
+const TYPE_OPS = new Set<keyof Api>(['typeBegin', 'typeUpdate', 'typeCommit', 'typeCancel', 'typeHit', 'typeLayout', 'sample', 'snapTargets', 'patternPixels']);
 // An open transform session is cancelled by any other op: only the UI knows its current matrix.
 const TRANSFORM_OPS = new Set<keyof Api>(['transformRefine', 'transformUnrefine', 'transformCommit', 'transformCancel', 'transformWarp', 'sample', 'snapTargets', 'movingBounds', 'selectionAt', 'patternPixels']);
 
@@ -1924,6 +2022,7 @@ onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[]; doc?
     // Anything but a preview rerun, its end or a read cancels an open preview.
     if (previewOpen && !PREVIEW_OPS.has(op) && eng) { try { endPreview(false); } catch { /* cancel never throws */ } version++; }
     if (moveSession && !MOVE_OPS.has(op) && eng) api.moveLayerCommit();
+    if (typeSession && !TYPE_OPS.has(op) && eng) postMessage({ event: 'typeCommitted', doc: api.typeCommit() } satisfies WorkerEvent);
     if (transformSession && !TRANSFORM_OPS.has(op) && eng) postMessage({ event: 'transformCancelled', doc: api.transformCancel() } satisfies WorkerEvent);
     return handle(id, op, args);
   });

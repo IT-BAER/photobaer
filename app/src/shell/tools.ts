@@ -4,7 +4,7 @@ import { BLEND_MODES } from '../layers.ts';
 export type OptionKind = 'number' | 'percent' | 'select' | 'boolean' | 'segmented' | 'custom' | 'color';
 export interface OptionSchema {
   id: string; kind: OptionKind; label: string; default: number | string | boolean;
-  min?: number; max?: number; unit?: string; choices?: string[];
+  min?: number; max?: number; step?: number; unit?: string; choices?: string[];
 }
 export interface Tool {
   id: string; label: string; slot: string; key: string; cursor: string; icon: string;
@@ -54,6 +54,18 @@ function shapeTool(id: string, label: string, icon: string, extra: OptionSchema[
 
 const PEN_MODE: OptionSchema = { id: 'mode', kind: 'select', label: 'Mode', default: 'path', choices: ['shape', 'path'] };
 const pen = (id: string, label: string, icon: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'pen', key: 'p', cursor: 'crosshair', icon, options });
+// Type tools (docs/M4.md section 10): family/style are drawn by the host; color '' = foreground.
+const typeTool = (id: string, label: string, icon: string, cursor: string): Tool => ({
+  id, label, slot: 'type', key: 't', cursor, icon,
+  options: [
+    { id: 'family', kind: 'custom', label: 'Font', default: 'Noto Sans' },
+    { id: 'style', kind: 'custom', label: 'Style', default: 'Regular' },
+    { id: 'size', kind: 'number', label: 'Size', default: 28, min: 0.01, max: 1296, step: 0.01, unit: 'pt' },
+    { id: 'alignment', kind: 'segmented', label: 'Alignment', default: 'left', choices: ['left', 'center', 'right'] },
+    { id: 'color', kind: 'color', label: 'Color', default: '' },
+    { id: 'typeActions', kind: 'custom', label: 'Commit', default: '' },
+  ],
+});
 const pathSel = (id: string, label: string, icon: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'pathSelect', key: 'a', cursor: 'default', icon, options });
 
 export const TOOLS: Record<string, Tool> = {
@@ -247,6 +259,10 @@ export const TOOLS: Record<string, Tool> = {
     { id: 'constrain', kind: 'select', label: 'Constrain', default: 'free', choices: ['free', 'axis'] },
   ]),
   directSelection: pathSel('directSelection', 'Direct Selection', 'Navigation', []),
+  horizontalType: typeTool('horizontalType', 'Horizontal Type', 'Type', 'text'),
+  verticalType: typeTool('verticalType', 'Vertical Type', 'TextCursor', 'vertical-text'),
+  horizontalTypeMask: typeTool('horizontalTypeMask', 'Horizontal Type Mask', 'SquareDashedText', 'text'),
+  verticalTypeMask: typeTool('verticalTypeMask', 'Vertical Type Mask', 'TypeOutline', 'vertical-text'),
   hand: { id: 'hand', label: 'Hand', slot: 'hand', key: 'h', cursor: 'grab', icon: 'Hand', options: [] },
   rotate: { id: 'rotate', label: 'Rotate View', slot: 'rotate', key: 'r', cursor: 'alias', icon: 'RotateCw', options: [] },
   zoom: { id: 'zoom', label: 'Zoom', slot: 'zoom', key: 'z', cursor: 'zoom-in', icon: 'ZoomIn', options: [] },
@@ -265,6 +281,7 @@ export const SLOTS: Slot[] = [
   { id: 'shape', key: 'u', tools: ['rectangle', 'ellipse', 'triangle', 'polygon', 'line', 'customShape'] },
   { id: 'pen', key: 'p', tools: ['pen', 'freeformPen', 'curvaturePen', 'addAnchor', 'deleteAnchor', 'convertPoint'] },
   { id: 'pathSelect', key: 'a', tools: ['pathSelection', 'directSelection'] },
+  { id: 'type', key: 't', tools: ['horizontalType', 'verticalType', 'horizontalTypeMask', 'verticalTypeMask'] },
   { id: 'hand', key: 'h', tools: ['hand'] },
   { id: 'rotate', key: 'r', tools: ['rotate'] },
   { id: 'zoom', key: 'z', tools: ['zoom'] },

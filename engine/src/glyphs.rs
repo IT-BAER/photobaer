@@ -586,6 +586,32 @@ impl Document {
         Ok(())
     }
 
+    /// The edit session's layout in text space (before `transform`): lines with their UTF-16 span
+    /// and glyphs as [cluster, x, y, advance], for caret and selection math.
+    pub fn text_layout(&self, id: u32, reg: &Registry, resolution: f64) -> Result<String, String> {
+        let t = self.text_data(id)?;
+        let l = typeset::layout(t, reg, resolution);
+        let lines: Vec<_> = l
+            .lines
+            .iter()
+            .map(|n| {
+                let glyphs: Vec<_> = l.glyphs[n.glyphs.clone()].iter().map(|g| [g.cluster as f64, g.x, g.y, g.advance]).collect();
+                serde_json::json!({ "x": n.x, "y": n.y, "width": n.width, "ascent": n.ascent, "descent": n.descent,
+                    "start": n.start, "end": n.end, "glyphs": glyphs })
+            })
+            .collect();
+        Ok(serde_json::json!({ "transform": t.transform, "overflow": l.overflow, "lines": lines }).to_string())
+    }
+
+    /// Type Mask commit: the outline's anti-aliased coverage becomes the selection per `mode`.
+    pub fn select_text(&mut self, id: u32, reg: &Registry, resolution: f64, mode: Mode) -> Result<(), String> {
+        self.check_idle()?;
+        let p = self.text_outline_path(id, reg, resolution)?;
+        let (w, h) = (self.width as usize, self.height as usize);
+        let cov = geom::fill_mask(&p, 0, 0, w, h).into_iter().map(|v| v as f32 / 255.0).collect();
+        self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), mode)
+    }
+
     /// Whether document point (x, y) is within 2 px of the type layer's outline or inside it.
     pub fn text_hit(&self, id: u32, reg: &Registry, resolution: f64, x: f64, y: f64) -> Result<bool, String> {
         let p = outline(self.text_data(id)?, reg, resolution).path();
