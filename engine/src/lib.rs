@@ -3,6 +3,7 @@ mod blend;
 mod content;
 mod doc;
 mod font;
+mod glyph_cells;
 mod gradient;
 mod livewire;
 mod geom;
@@ -1158,5 +1159,29 @@ impl Fonts {
         let t: text::TextData = serde_json::from_str(json).map_err(|e| err(format!("invalid text: {e}")))?;
         t.validate().map_err(err)?;
         Ok(serde_json::to_string(&doc::glyphs::outline(&t, &self.0, resolution).path()).unwrap())
+    }
+
+    /// Glyphs panel cells: `sel` JSON `{ from, to } | { gids }`; JSON `{ missing, size, cells }`
+    /// (`cells: [{ gid, cp, name }]`). Pair with `glyph_cells_alpha` for the matching coverage.
+    pub fn glyph_cells_json(&self, family: &str, style: &str, sel: &str) -> Result<String, JsError> {
+        let sel: glyph_cells::Selection = serde_json::from_str(sel).map_err(|e| err(e.to_string()))?;
+        let r = glyph_cells::glyph_cells(&self.0, family, style, sel);
+        Ok(serde_json::to_string(&serde_json::json!({ "missing": r.missing, "size": glyph_cells::CELL, "cells": r.cells })).unwrap())
+    }
+
+    /// The same cells' 8-bit coverage, row-major per cell, `cells.len() * size * size` bytes.
+    pub fn glyph_cells_alpha(&self, family: &str, style: &str, sel: &str) -> Result<Vec<u8>, JsError> {
+        let sel: glyph_cells::Selection = serde_json::from_str(sel).map_err(|e| err(e.to_string()))?;
+        Ok(glyph_cells::glyph_cells(&self.0, family, style, sel).alpha)
+    }
+
+    /// Alternate glyph ids for `gid` from the salt, swsh, titl and ornm GSUB features.
+    pub fn glyph_alternates(&self, family: &str, style: &str, gid: u16) -> Vec<u16> {
+        glyph_cells::glyph_alternates(&self.0, family, style, gid)
+    }
+
+    /// True when the resolved face (no fallback) has a glyph for every non-whitespace character.
+    pub fn font_covers(&self, family: &str, style: &str, text: &str) -> bool {
+        self.0.covers(family, style, text)
     }
 }

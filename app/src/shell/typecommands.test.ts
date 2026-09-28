@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { featureOn, layoutBounds, LOREM, loremText, setFeature, setParagraphs, setRuns, toParagraphText, toPointText } from './typecommands.ts';
+import { appendText, featureOn, missingRows, newStyle, fontText, fontUses, layoutBounds, LOREM, loremText, setFeature, setParagraphs, setRuns, substituteFonts, toParagraphText, toPointText } from './typecommands.ts';
 import { newText, type TextLayout } from './typesession.ts';
 import type { TextJson } from '../psd/text.ts';
 
@@ -62,4 +62,52 @@ test('Paste Lorem Ipsum replaces the text with one run and paragraph, or inserts
   assert.equal(at.text, `a${LOREM}b`);
   assert.deepEqual(at.runs.map((x: { length: number }) => x.length), [1 + LOREM.length, 1], 'the span holding the position grows');
   assert.deepEqual(loremText(t, 0).runs.map((x: { length: number }) => x.length), [1 + LOREM.length, 1], 'position 0 grows the first span');
+});
+
+const twoRuns = (): TextJson => {
+  const t = withText('Hello World');
+  return { ...t, runs: [{ ...t.runs[0], length: 6 }, { ...t.runs[0], family: 'Gone Sans', style: 'Bold', postscript_name: 'GoneSans-Bold', length: 5 }] };
+};
+
+test('Insert Glyph appends to the last run and paragraph', () => {
+  const t = appendText(twoRuns(), 'é');
+  assert.equal(t.text, 'Hello Worldé');
+  assert.deepEqual(t.runs.map((r: { length: number }) => r.length), [6, 6]);
+  assert.deepEqual(t.paragraphs.map((p: { length: number }) => p.length), [12]);
+});
+
+test('font uses list each family and style once; fontText joins the text set in one face', () => {
+  const t = twoRuns();
+  assert.deepEqual(fontUses(t), [['Noto Sans', 'Regular'], ['Gone Sans', 'Bold']]);
+  assert.equal(fontText(t, 'Gone Sans', 'Bold'), 'World');
+  assert.equal(fontText(t, 'Nope', 'Regular'), '');
+});
+
+test('substituteFonts maps matching runs only and clears their PostScript name; no match returns the same object', () => {
+  const t = twoRuns();
+  const s = substituteFonts(t, [{ source: { family: 'Gone Sans', style: 'Bold' }, target: { family: 'Noto Sans', style: 'Bold' } }]);
+  assert.deepEqual(s.runs.map((r: Record<string, unknown>) => [r.family, r.style, r.postscript_name, r.length]), [['Noto Sans', 'Regular', t.runs[0].postscript_name, 6], ['Noto Sans', 'Bold', '', 5]]);
+  assert.equal(substituteFonts(t, [{ source: { family: 'X', style: 'Y' }, target: { family: 'Noto Sans', style: 'Bold' } }]), t);
+});
+
+test('a saved style takes run 0 (and paragraph 0 for a paragraph style) without lengths; empty names count up', () => {
+  const t = twoRuns();
+  const a = newStyle([], 'character', '  ', t.runs[0], t.paragraphs[0]);
+  assert.equal(a.name, 'Character Style 1');
+  assert.equal('length' in a.character, false);
+  assert.equal(a.character.family, 'Noto Sans');
+  assert.equal(a.paragraph, undefined);
+  const b = newStyle([a], 'paragraph', ' Body ', t.runs[0], t.paragraphs[0]);
+  assert.equal(b.name, 'Body');
+  assert.equal(b.paragraph!.alignment, 'center');
+  assert.equal('length' in b.paragraph!, false);
+  assert.equal(newStyle([a, b], 'paragraph', '', t.runs[0], t.paragraphs[0]).name, 'Paragraph Style 3');
+  assert.notEqual(a.id, b.id);
+});
+
+test('missing rows list each missing face once with the layers and text that use it', () => {
+  const a = twoRuns(), b = { ...withText('Bye'), runs: [{ ...twoRuns().runs[1], length: 3 }] };
+  const rows = missingRows([[4, a], [9, b], [11, withText('ok')]], [['Gone Sans', 'Bold']]);
+  assert.deepEqual(rows, [{ family: 'Gone Sans', style: 'Bold', layerIds: [4, 9], text: 'WorldBye' }]);
+  assert.deepEqual(missingRows([[4, a]], []), []);
 });

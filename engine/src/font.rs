@@ -179,7 +179,6 @@ impl Registry {
     }
 
     /// Font file bytes and collection index of a face.
-    #[allow(dead_code)]
     pub fn data(&self, id: u32) -> Option<(&[u8], u32)> {
         self.faces.iter().find(|f| f.info.id == id).map(|f| (&f.data[..], f.index))
     }
@@ -189,9 +188,20 @@ impl Registry {
         ttf_parser::Face::parse(&f.data, f.index).ok()
     }
 
-    #[cfg(test)]
     pub fn has_char(&self, id: u32, ch: char) -> bool {
         self.parsed(id).is_some_and(|f| f.glyph_index(ch).is_some())
+    }
+
+    /// True when `family`/`style` resolves and its face has a glyph for every non-whitespace
+    /// character of `text`; false when the family is not registered (no fallback face is tried).
+    pub fn covers(&self, family: &str, style: &str, text: &str) -> bool {
+        self.resolve(family, style).is_some_and(|id| text.chars().filter(|c| !c.is_whitespace()).all(|c| self.has_char(id, c)))
+    }
+
+    /// First family of the general fallback chain that resolves, used for the Glyphs panel when
+    /// the requested family is not registered (mirrors the text-rendering fallback chain).
+    pub fn fallback_face(&self, style: &str) -> Option<u32> {
+        GENERAL.iter().find_map(|fam| self.resolve(fam, style))
     }
 
     fn draws_ascii(&self, id: u32) -> bool {

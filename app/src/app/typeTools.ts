@@ -43,6 +43,8 @@ export interface TypeToolsCtx {
   typeKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>; typeRef: RefObject<TypeApi | null>; setEditing: (b: boolean) => void;
   // Called with a new key whenever the session or its selection changes (panels re-read it).
   setTypeSel: (key: string) => void;
+  // Before editing an existing layer: true when its fonts are missing and a dialog took over (it calls resume).
+  missingGate: (id: number, resume: () => void) => Promise<boolean>;
 }
 
 interface Edit {
@@ -52,7 +54,7 @@ interface Edit {
 // Type tools and edit session (docs/M4.md section 10). The session model lives here; every change
 // is sent to the worker (typeUpdate), which renders and answers with the new layout.
 export function useTypeTools(c: TypeToolsCtx) {
-  const { viewer, tool, doc, docRef, activeRef, overlayRef, redrawOverlay, toolOptions, toolOptionsRef, fgRef, show, setError, typeKeysRef, typeRef, setEditing, setTypeSel } = c;
+  const { viewer, tool, doc, docRef, activeRef, overlayRef, redrawOverlay, toolOptions, toolOptionsRef, fgRef, show, setError, typeKeysRef, typeRef, setEditing, setTypeSel, missingGate } = c;
   const optionsRef = useRef<{ tool: string; o: ToolOptions } | null>(null);
   const applyOptionsRef = useRef<((prev: ToolOptions, next: ToolOptions) => void) | null>(null);
 
@@ -216,6 +218,7 @@ export function useTypeTools(c: TypeToolsCtx) {
         }
         const hit = await client.call('typeHit', ev.x, ev.y);
         if (hit !== null && !mask) {
+          if (await missingGate(hit, () => void begin({ id: hit }, ed => indexFor(ed, p)))) { drag = null; return; }
           await begin({ id: hit }, ed => indexFor(ed, p));
           drag = cur ? { kind: 'select' } : null;
           return;

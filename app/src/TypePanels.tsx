@@ -1,8 +1,10 @@
 // Character and Paragraph panels, the Properties type section and the Warp Text dialog (docs/M4.md
 // section 10). Edits go to the session selection, else to the selected type layers (app/typeMenu.ts).
-import type { RefObject } from 'react';
+import { useState, type RefObject } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import { ColorInput, Num } from './PropertiesPanel.tsx';
-import { applyType, applyWhole, paragraphOf, runOf, typeLayers, typeTarget, type TypeCtx } from './app/typeMenu.ts';
+import { applyType, applyWhole, loadStyles, paragraphOf, runOf, saveStyles, typeLayers, typeTarget, type TypeCtx } from './app/typeMenu.ts';
+import { newStyle } from './shell/typecommands.ts';
 import type { ToolOptions } from './shell/OptionsBar.tsx';
 import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
 import type { FaceInfo } from './worker/types.ts';
@@ -175,6 +177,37 @@ export function TypeProperties({ c, faces }: { c: TypeCtx; faces: FaceInfo[] }) 
         <Check label="Small Caps" checked={r.caps === 'small'} onChange={on => run('Small Caps', { caps: on ? 'small' : 'normal' })} />
         <Check label="Superscript" checked={r.baseline === 'super'} onChange={on => run('Superscript', { baseline: on ? 'super' : 'normal' })} />
         <Check label="Subscript" checked={r.baseline === 'sub'} onChange={on => run('Subscript', { baseline: on ? 'sub' : 'normal' })} />
+      </div>
+    </div>
+  );
+}
+
+const ICON = { size: 16, strokeWidth: 1.75 };
+
+// Window > Character Styles / Paragraph Styles: save takes the target's run (and paragraph); a click
+// applies the values to the session selection or the selected type layers as one step "Apply <name>".
+export function TextStylesPanel({ kind, c }: { kind: 'character' | 'paragraph'; c: TypeCtx }) {
+  const [list, setList] = useState(() => loadStyles(kind));
+  const [name, setName] = useState('');
+  const t = typeTarget(c), title = kind === 'character' ? 'Character' : 'Paragraph';
+  const store = (next: typeof list) => { saveStyles(kind, next); setList(next); };
+  return (
+    <div className="properties-panel type-panel">
+      <div className="panel-tabs"><span className="panel-tab">{title} Styles</span></div>
+      {!t && <p className="panel-empty">Select a text layer to save or apply a style.</p>}
+      <ul className="style-library-list" aria-label={`${title} styles`}>
+        {list.map(s => (
+          <li key={s.id}>
+            <button type="button" className="style-library-name" disabled={!t} onClick={() => applyType(c, s.character, s.paragraph ?? null, `Apply ${s.name}`)}>{s.name}</button>
+            <button type="button" aria-label={`Delete ${s.name}`} title="Delete style" onClick={() => store(list.filter(x => x.id !== s.id))}><Trash2 {...ICON} /></button>
+          </li>
+        ))}
+        {!list.length && <li className="adjustment-note">Save your text formatting as a named style to reuse it.</li>}
+      </ul>
+      <div className="panel-footer">
+        <input placeholder="Style name" aria-label={`${title} style name`} value={name} onChange={e => setName(e.currentTarget.value)} />
+        <button type="button" aria-label={`Save ${kind} style`} title={`Save ${kind} style`} disabled={!t}
+          onClick={() => { if (t) { store([...list, newStyle(list, kind, name, runOf(t), paragraphOf(t))]); setName(''); } }}><Plus {...ICON} /></button>
       </div>
     </div>
   );

@@ -2027,6 +2027,17 @@ const api = {
   fontFaces(): FaceInfo[] { return JSON.parse(fontReg().faces_json()); },
   fontFamilies(): string[] { return JSON.parse(fontReg().families_json()); },
   fontMissing(pairs: [string, string][]): [string, string][] { return JSON.parse(fontReg().missing_json(JSON.stringify(pairs))); },
+  // Glyphs panel: rasterized cells (30x30 8-bit coverage per glyph) and GSUB alternates.
+  glyphCells(family: string, style: string, sel: { from: number; to: number } | { gids: number[] }):
+    { missing: boolean; size: 30; cells: { gid: number; cp: number | null; name: string }[]; data: ArrayBuffer } {
+    const reg = fontReg();
+    const selJson = JSON.stringify(sel);
+    const meta = JSON.parse(reg.glyph_cells_json(family, style, selJson)) as
+      { missing: boolean; size: 30; cells: { gid: number; cp: number | null; name: string }[] };
+    return { ...meta, data: reg.glyph_cells_alpha(family, style, selJson).buffer as ArrayBuffer };
+  },
+  glyphAlternates(family: string, style: string, gid: number): number[] { return Array.from(fontReg().glyph_alternates(family, style, gid)); },
+  fontCovers(family: string, style: string, text: string): boolean { return fontReg().font_covers(family, style, text); },
 };
 
 export type Api = typeof api;
@@ -2047,7 +2058,7 @@ const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'adjust', '
 // An open move session commits before any other op, so history never sees a half move.
 const MOVE_OPS = new Set<keyof Api>(['moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels']);
 // App-scope font calls: never refused for a stale document id and never close an open session.
-const FONT_OPS = new Set<keyof Api>(['fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing']);
+const FONT_OPS = new Set<keyof Api>(['fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing', 'glyphCells', 'glyphAlternates', 'fontCovers']);
 // An open type session commits before any other op; the UI hears it as typeCommitted.
 const TYPE_OPS = new Set<keyof Api>(['typeBegin', 'typeUpdate', 'typeCommit', 'typeCancel', 'typeHit', 'typeLayout', 'sample', 'snapTargets', 'patternPixels']);
 // An open transform session is cancelled by any other op: only the UI knows its current matrix.

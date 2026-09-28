@@ -85,3 +85,56 @@ export function loremText(t: TextJson, at?: number): TextJson {
   };
   return { ...t, text: t.text.slice(0, p) + LOREM + t.text.slice(p), runs: grow(t.runs), paragraphs: grow(t.paragraphs) };
 }
+
+// Insert Glyph without a session: the text grows at its end, in the last run and paragraph.
+export function appendText(t: TextJson, s: string): TextJson {
+  const grow = (spans: Run[]) => spans.map((x, i) => (i === spans.length - 1 ? { ...x, length: x.length + s.length } : x));
+  return { ...t, text: t.text + s, runs: grow(t.runs), paragraphs: grow(t.paragraphs) };
+}
+
+// Every (family, style) the runs use, first use first.
+export function fontUses(t: TextJson): [string, string][] {
+  const seen = new Map<string, [string, string]>();
+  for (const r of t.runs as Run[]) seen.set(`${r.family}\0${r.style}`, [r.family, r.style]);
+  return [...seen.values()];
+}
+
+// The characters set in one face (preview text and coverage checks of the missing-font dialogs).
+export function fontText(t: TextJson, family: string, style: string): string {
+  let at = 0, out = '';
+  for (const r of t.runs as Run[]) {
+    if (r.family === family && r.style === style) out += t.text.slice(at, at + r.length);
+    at += r.length;
+  }
+  return out;
+}
+
+export interface FontSub { source: { family: string; style: string }; target: { family: string; style: string } }
+// Missing-font replacement: runs set in a source face take the target; unchanged text is returned as is.
+export function substituteFonts(t: TextJson, subs: FontSub[]): TextJson {
+  let hit = false;
+  const runs = (t.runs as Run[]).map(r => {
+    const s = subs.find(x => x.source.family === r.family && x.source.style === r.style);
+    if (!s) return r;
+    hit = true;
+    return { ...r, family: s.target.family, style: s.target.style, postscript_name: '' };
+  });
+  return hit ? { ...t, runs } : t;
+}
+
+// Character and Paragraph Styles (D12): app-wide values; a paragraph style also carries character attributes.
+export interface TextStyle { id: string; name: string; character: Record<string, unknown>; paragraph?: Record<string, unknown> }
+export function newStyle(list: TextStyle[], kind: 'character' | 'paragraph', name: string, run: Run, paragraph: Run): TextStyle {
+  const { length: _r, ...character } = run, { length: _p, ...para } = paragraph;
+  const fallback = `${kind === 'character' ? 'Character' : 'Paragraph'} Style ${list.length + 1}`;
+  return { id: crypto.randomUUID(), name: name.trim() || fallback, character, ...(kind === 'paragraph' ? { paragraph: para } : {}) };
+}
+
+// One row per missing (family, style): the type layers using it and their text in that face.
+export interface MissingRow { family: string; style: string; layerIds: number[]; text: string }
+export function missingRows(texts: [number, TextJson][], missing: [string, string][]): MissingRow[] {
+  return missing.map(([family, style]) => {
+    const users = texts.filter(([, t]) => fontUses(t).some(([f, s]) => f === family && s === style));
+    return { family, style, layerIds: users.map(([id]) => id), text: users.map(([, t]) => fontText(t, family, style)).join('') };
+  });
+}

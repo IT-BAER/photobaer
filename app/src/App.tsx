@@ -53,14 +53,18 @@ import {
 import { buildMenus } from './app/menus.ts';
 import { layerContextItems } from './app/vectorCommands.ts';
 import { ShapesPanel } from './ShapesPanel.tsx';
-import { CharacterPanel, ParagraphPanel, TypeProperties, WarpTextDialog } from './TypePanels.tsx';
-import { loadTypePrefs, typeContextItems, typeMenuItems, type TypeCtx } from './app/typeMenu.ts';
+import { CharacterPanel, ParagraphPanel, TextStylesPanel, TypeProperties, WarpTextDialog } from './TypePanels.tsx';
+import { loadTypePrefs, typeContextItems, typeMenuItems, type TypeCtx, type TypePanel } from './app/typeMenu.ts';
 import { shapeLibrary } from './shell/customShapes.ts';
 import { transformSession, type TSession } from './app/transform.ts';
 import { useBrushCursor, useBucket, useEyedropper, useGradientTool, useMoveTool, useSelectionTools, useShapeTools } from './app/toolEffects.ts';
 import { usePenTools, type PathSel } from './app/penTools.ts';
 import { TYPE_TOOLS, useTypeTools, type TypeApi } from './app/typeTools.ts';
-import { loadFonts } from './fonts/sources.ts';
+import { loadFonts, uploadFont } from './fonts/sources.ts';
+import { MissingFontsDialog, type FontDialog } from './MissingFonts.tsx';
+import { GlyphsPanel } from './GlyphsPanel.tsx';
+import type { TextJson } from './psd/text.ts';
+import { fontUses, missingRows } from './shell/typecommands.ts';
 import { useCropTool, usePerspectiveCropTool } from './app/cropTools.ts';
 import { usePaintTool } from './app/paintTool.ts';
 import { useShortcuts } from './app/shortcuts.ts';
@@ -76,6 +80,10 @@ export function App() {
   const overlayRef = useRef<SelectionOverlay | null>(null);
   // Registered font faces (bundled, uploaded, local) for the type tools' family and style pickers.
   const [faces, setFaces] = useState<FaceInfo[]>([]);
+  const [fontDialog, setFontDialog] = useState<FontDialog | null>(null);
+  const fontInput = useRef<HTMLInputElement>(null);
+  // Documents already checked for missing fonts (the Resolve dialog opens once per document).
+  const fontChecked = useRef(new Set<number>());
   const rulerTop = useRef<HTMLCanvasElement>(null);
   const rulerLeft = useRef<HTMLCanvasElement>(null);
   const pixelGridCanvas = useRef<HTMLCanvasElement>(null);
@@ -142,7 +150,7 @@ export function App() {
   const [showPatterns, setShowPatterns] = useState(false);
   const [showGradients, setShowGradients] = useState(false);
   const [showShapes, setShowShapes] = useState(false);
-  const [typePanels, setTypePanels] = useState({ character: false, paragraph: false });
+  const [typePanels, setTypePanels] = useState<Record<TypePanel, boolean>>({ character: false, paragraph: false, characterStyles: false, paragraphStyles: false, glyphs: false });
   const [typePrefs, setTypePrefs] = useState(loadTypePrefs);
   // Changes with the type session and its selection, so the type panels re-read it.
   const [, setTypeSel] = useState('');
@@ -779,10 +787,25 @@ export function App() {
     overlayRef, perfRef, transformRef, show, setError, viewer, setMenu, activeRef, run, againRef, docRef, canvas, setTransformMenu,
     setTransformStore, redrawOverlay,
   });
+  const docTexts = (): [number, TextJson][] =>
+    flatNodes(docRef.current?.layers ?? []).flatMap(n => (n.kind === 'text' && n.text ? [[n.id, n.text] as [number, TextJson]] : []));
+  // Missing (family, style) rows over the whole document or the given layers.
+  async function missingFonts(layerIds?: number[]) {
+    const texts = docTexts().filter(([id]) => !layerIds || layerIds.includes(id));
+    const pairs = [...new Map(texts.flatMap(([, t]) => fontUses(t)).map(p => [p.join('\0'), p])).values()];
+    return pairs.length ? missingRows(texts, await client.call('fontMissing', pairs)) : [];
+  }
+  async function openFontDialog(kind: 'resolve' | 'replace') {
+    setMenu(null);
+    const rows = await missingFonts();
+    if (!rows.length) { setError('Every font this document uses is installed.'); return; }
+    setFontDialog({ kind, rows });
+  }
   const typeCtx: TypeCtx = {
     typeRef, selected: selectedNodes, anyText: !!doc && flatNodes(doc.layers).some(n => n.kind === 'text'), run, setError,
     openWarp: () => { setMenu(null); warpDialog.current?.querySelector('form')?.reset(); warpDialog.current?.showModal(); },
     prefs: typePrefs, setPrefs: setTypePrefs, panels: typePanels, togglePanel: k => { setMenu(null); setTypePanels(v => ({ ...v, [k]: !v[k] })); },
+    fontDialog: k => void openFontDialog(k),
   };
   const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
   const menus = buildMenus({
@@ -985,7 +1008,20 @@ export function App() {
   useTypeTools({
     viewer, tool, doc, docRef, activeRef, overlayRef, redrawOverlay, toolOptions, toolOptionsRef, fgRef, show, setError, typeKeysRef, typeRef,
     setEditing: setTypeEditing, setTypeSel,
+    missingGate: async (id, resume) => {
+      const rows = await missingFonts([id]);
+      if (rows.length) setFontDialog({ kind: 'layer', id, rows, resume });
+      return rows.length > 0;
+    },
   });
+
+  // A document with missing fonts opens Resolve Missing Fonts once, after the fonts are registered.
+  useEffect(() => {
+    if (!doc || !faces.length || fontChecked.current.has(doc.docId)) return;
+    fontChecked.current.add(doc.docId);
+    const id = doc.docId;
+    missingFonts().then(rows => { if (rows.length && docRef.current?.docId === id) setFontDialog(f => f ?? { kind: 'resolve', rows }); }, () => {});
+  }, [doc?.docId, faces.length]);
 
   // Crop and perspective crop: pointer state in crop/geometry.ts; Enter, Esc, the bar buttons and a
   // tool switch reach the pending crop through `cropSession`.
@@ -1363,6 +1399,9 @@ export function App() {
               toolOptions={optionsByTool[typeTool] ?? loadToolOptions(TOOLS[typeTool])} setToolOption={(k, v) => patchToolOptions(typeTool, { [k]: v as string | number })} />
           )}
           {doc && typePanels.paragraph && <ParagraphPanel c={typeCtx} />}
+          {doc && typePanels.characterStyles && <TextStylesPanel kind="character" c={typeCtx} />}
+          {doc && typePanels.paragraphStyles && <TextStylesPanel kind="paragraph" c={typeCtx} />}
+          {doc && typePanels.glyphs && <GlyphsPanel c={typeCtx} faces={faces} />}
           {doc && showProperties && node?.kind === 'text' && node.text && <TypeProperties c={typeCtx} faces={faces} />}
           {doc && showProperties && node?.artboard && <ArtboardPanel node={node} run={run} />}
           {doc && showProperties && node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} selected={selectedNodes} />}
@@ -1415,6 +1454,22 @@ export function App() {
         fillContentDialog={fillContentDialog} submitFillContent={submitFillContent} fillContentForm={fillContentForm}
         setFillContentForm={setFillContentForm} picker={picker} doc={doc} brushLib={brushLib} show={show} setError={setError}
       />
+      {fontDialog && doc && (
+        <MissingFontsDialog key={fontDialog.kind} d={fontDialog} c={{
+          faces, docName: doc.name, texts: docTexts, close: () => setFontDialog(null),
+          commit: async (edits, label) => {
+            try { show(await client.call('typeSetMany', edits, label)); return true; } catch (e) { setError((e as Error).message); return false; }
+          },
+          upload: async () => fontInput.current?.click(),
+          manage: () => void missingFonts().then(rows => setFontDialog(rows.length ? { kind: 'resolve', rows } : null)),
+        }} />
+      )}
+      <input ref={fontInput} type="file" hidden accept=".ttf,.otf,.ttc,font/ttf,font/otf,font/collection" onChange={async e => {
+        const f = e.currentTarget.files?.[0];
+        e.currentTarget.value = '';
+        if (!f) return;
+        try { await uploadFont(client, f); setFaces(await client.call('fontFaces')); } catch (err) { setError((err as Error).message); }
+      }} />
       <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.pbaer,.psd"
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />

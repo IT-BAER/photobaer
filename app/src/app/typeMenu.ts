@@ -3,7 +3,7 @@
 import type { RefObject } from 'react';
 import { client } from '../client.ts';
 import type { TextJson } from '../psd/text.ts';
-import { ANTI_ALIAS, LOREM, OPENTYPE, featureOn, loremText, setFeature, setParagraphs } from '../shell/typecommands.ts';
+import { ANTI_ALIAS, LOREM, OPENTYPE, featureOn, loremText, setFeature, setParagraphs, type TextStyle } from '../shell/typecommands.ts';
 import { spanAt, type SpanAttrs } from '../shell/typesession.ts';
 import type { LayerNode } from '../worker/types.ts';
 import type { Item, Run } from './helpers.ts';
@@ -26,11 +26,25 @@ export function saveTypePrefs(p: TypePrefs) {
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch { /* storage blocked: the prefs last for this page */ }
 }
 
-export type TypePanel = 'character' | 'paragraph';
+// Character and Paragraph Styles lists in local storage (app-wide, D12); malformed entries are dropped.
+const STYLE_KEYS = { character: 'photobaer.characterStyles', paragraph: 'photobaer.paragraphStyles' };
+const isStyle = (x: any): x is TextStyle => !!x && typeof x.id === 'string' && typeof x.name === 'string' && !!x.character && typeof x.character === 'object' && !Array.isArray(x.character);
+export function loadStyles(kind: 'character' | 'paragraph'): TextStyle[] {
+  try { const v = JSON.parse(localStorage.getItem(STYLE_KEYS[kind]) ?? '[]'); return Array.isArray(v) ? v.filter(isStyle) : []; } catch { return []; }
+}
+export function saveStyles(kind: 'character' | 'paragraph', list: TextStyle[]) {
+  try { localStorage.setItem(STYLE_KEYS[kind], JSON.stringify(list)); } catch { /* storage blocked: the list lasts for this page */ }
+}
+
+export type TypePanel = 'character' | 'paragraph' | 'characterStyles' | 'paragraphStyles' | 'glyphs';
+export const TYPE_PANELS: [TypePanel, string][] = [
+  ['character', 'Character'], ['paragraph', 'Paragraph'], ['characterStyles', 'Character Styles'], ['paragraphStyles', 'Paragraph Styles'], ['glyphs', 'Glyphs'],
+];
 export interface TypeCtx {
   typeRef: RefObject<TypeApi | null>; selected: LayerNode[]; anyText: boolean; run: Run; setError: (m: string) => void;
   openWarp: () => void; prefs: TypePrefs; setPrefs: (p: TypePrefs) => void;
   panels: Record<TypePanel, boolean>; togglePanel: (p: TypePanel) => void;
+  fontDialog: (kind: 'resolve' | 'replace') => void;
 }
 
 export const typeLayers = (nodes: LayerNode[]) => nodes.filter(n => n.kind === 'text' && n.text);
@@ -81,8 +95,7 @@ export function typeMenuItems(c: TypeCtx): Item[] {
   const setPref = (p: Partial<TypePrefs>) => { const n = { ...prefs, ...p }; saveTypePrefs(n); setPrefs(n); };
   return [
     {
-      label: 'Panels', keys: '›', run: () => {}, sub: ([['character', 'Character'], ['paragraph', 'Paragraph']] as [TypePanel, string][])
-        .map(([k, label]) => ({ label: check(c.panels[k], label), run: () => c.togglePanel(k) })),
+      label: 'Panels', keys: '›', run: () => {}, sub: TYPE_PANELS.map(([k, label]) => ({ label: check(c.panels[k], label), run: () => c.togglePanel(k) })),
     },
     {
       label: 'Anti-Alias', keys: '›', sep: true, run: () => {}, off: !any, sub: ANTI_ALIAS.map(([label, v], i) => ({
@@ -121,6 +134,8 @@ export function typeMenuItems(c: TypeCtx): Item[] {
       ],
     },
     { label: 'Update All Text Layers', sep: true, off: !c.anyText, run: () => c.run('Updating…', () => client.call('typeRenderAll')) },
+    { label: 'Replace All Missing Fonts', off: !c.anyText, run: () => c.fontDialog('replace') },
+    { label: 'Resolve Missing Fonts', off: !c.anyText, run: () => c.fontDialog('resolve') },
     {
       label: 'Paste Lorem Ipsum', sep: true, off: !any, run: () => {
         const t = c.typeRef.current;

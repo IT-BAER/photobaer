@@ -1706,3 +1706,68 @@ test('type commands: conversions keep the text in place, work path, convert to s
   assert.deepEqual([shape.kind, shape.name], ['shape', 'Two']);
   assert.ok(s.history.labels.length > n0);
 });
+
+test('glyphCells is app scope: it survives newDoc/closeDoc and rasterizes an ASCII range', async () => {
+  await call('init');
+  await call('fontAdd', readFileSync(new URL('../public/fonts/NotoSans-Regular.ttf', import.meta.url)), 'bundled');
+  await call('newDoc', 64, 64, 8, null);
+  await call('closeDoc');
+  type Cells = { missing: boolean; size: number; cells: { gid: number; cp: number | null; name: string }[]; data: ArrayBuffer };
+  const r = await call('glyphCells', 'Noto Sans', 'Regular', { from: 32, to: 126 });
+  const c = r.result as Cells;
+  assert.equal(c.missing, false);
+  assert.equal(c.size, 30);
+  assert.ok(c.cells.some(cell => cell.cp === 65 && cell.name === 'A'));
+  assert.equal(c.data.byteLength, c.cells.length * 900);
+});
+
+test('text styles, Insert Glyph and missing-font replacement land as one step each through typeSetMany', async () => {
+  await call('init');
+  await call('newDoc', 300, 200, 8, null);
+  for (const f of ['NotoSans-Regular', 'NotoSans-Bold', 'NotoSerif-Regular']) await call('fontAdd', readFileSync(new URL(`../public/fonts/${f}.ttf`, import.meta.url)), 'bundled');
+  const { newText } = await import('./shell/typesession.ts');
+  const { newStyle, appendText, substituteFonts } = await import('./shell/typecommands.ts');
+  type Run = { family: string; style: string; size: number; length: number };
+  type Text = { text: string; runs: Run[]; paragraphs: Run[] };
+  type Info = { history: { labels: string[] }; layers: { id: number; text?: Text }[] };
+  const make = async (family: string, style: string, size: number, s: string) => {
+    const t0 = newText({ family, style, size, color: [0, 0, 0], alignment: 'left', orientation: 'horizontal' }, { type: 'point' }, [20, 60]);
+    const id = ((await call('typeBegin', { text: t0, above: 0 })).result as { id: number }).id;
+    await call('typeUpdate', { ...t0, text: s, runs: [{ ...t0.runs[0], length: s.length }], paragraphs: [{ ...t0.paragraphs[0], length: s.length }] }, s);
+    return ((await call('typeCommit')).result as Info).layers.find(l => l.id === id)!.text! as Text & { id?: never };
+  };
+  const src = await make('Noto Sans', 'Bold', 40, 'Src');
+  const a = await make('Noto Sans', 'Regular', 20, 'One'), b = await make('Noto Sans', 'Regular', 20, 'Two');
+  const info = (await call('typeRenderAll')).result as Info;
+  const [ia, ib] = info.layers.filter(l => l.text && ['One', 'Two'].includes(l.text.text)).map(l => l.id);
+
+  // A character style saved from run 0 applies to every run of both layers in one step.
+  const st = newStyle([], 'character', 'Head', src.runs[0] as never, src.paragraphs[0] as never);
+  const put = (t: Text) => ({ ...t, runs: t.runs.map(r => ({ ...r, ...st.character, length: r.length })) });
+  const n0 = info.history.labels.length;
+  const s = (await call('typeSetMany', [[ia, put(a)], [ib, put(b)]], 'Apply Head')).result as Info;
+  assert.deepEqual(s.history.labels.slice(n0), ['Apply Head']);
+  assert.deepEqual([ia, ib].map(id => { const r = s.layers.find(l => l.id === id)!.text!.runs[0]; return [r.style, r.size]; }), [['Bold', 40], ['Bold', 40]]);
+
+  // Insert Glyph with no session grows the text at its end.
+  const one = s.layers.find(l => l.id === ia)!.text!;
+  const g = (await call('typeSetMany', [[ia, appendText(one as never, 'é')]], 'Insert Glyph')).result as Info;
+  assert.equal(g.history.labels.at(-1), 'Insert Glyph');
+  const grown = g.layers.find(l => l.id === ia)!.text!;
+  assert.deepEqual([grown.text, grown.runs.at(-1)!.length, grown.paragraphs.at(-1)!.length], ['Oneé', 4, 4]);
+
+  // A layer set in a missing face re-renders in the replacement face.
+  const m = await make('Missing Sans', 'Regular', 28, 'Hello');
+  const mid = ((await call('typeRenderAll')).result as Info).layers.find(l => l.text?.text === 'Hello')!.id;
+  assert.deepEqual((await call('fontMissing', [['Missing Sans', 'Regular']])).result, [['Missing Sans', 'Regular']]);
+  const ink = async (id: number) => { const row = []; for (let x = 20; x < 110; x++) row.push(((await call('sample', x, 50, 1, id)).result as number[])[3]); return row.join(); };
+  await make('Noto Serif', 'Regular', 28, 'Hello');
+  const sid = ((await call('typeRenderAll')).result as Info).layers.find(l => l.text?.text === 'Hello' && l.text.runs[0].family === 'Noto Serif')!.id;
+  const w0 = await ink(mid);
+  const r = (await call('typeSetMany', [[mid, substituteFonts(m as never, [{ source: { family: 'Missing Sans', style: 'Regular' }, target: { family: 'Noto Serif', style: 'Regular' } }])]], 'Resolve Missing Fonts')).result as Info;
+  assert.equal(r.history.labels.at(-1), 'Resolve Missing Fonts');
+  assert.equal(r.layers.find(l => l.id === mid)!.text!.runs[0].family, 'Noto Serif');
+  const w1 = await ink(mid);
+  assert.notEqual(w1, w0, 'the fallback face pixels are gone');
+  assert.equal(w1, await ink(sid));
+});

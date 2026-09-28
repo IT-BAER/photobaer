@@ -22,7 +22,7 @@ const MAX_AREA: f64 = 1e8;
 /// Flattening refinement cap; bounds outline size under huge transform scales.
 const MAX_DETAIL: f64 = 64.0;
 
-type Poly = Vec<[f64; 2]>;
+pub(crate) type Poly = Vec<[f64; 2]>;
 
 /// A type layer's outline: polygons grouped by color in first-appearance order.
 pub struct Outline {
@@ -181,6 +181,18 @@ fn flatten_cmds(cmds: &[Cmd], map: impl Fn([f64; 2]) -> [f64; 2], q: f64, out: &
             out.push(f.into_iter().map(|p| [p[0] / q, p[1] / q]).collect());
         }
     }
+}
+
+/// One glyph's flattened outline polygons in `map`'s output space (the Glyphs panel cells reuse
+/// this instead of a layout run, so no `Registry` face cache or run color is involved).
+pub(crate) fn glyph_polys(face: &ttf_parser::Face, gid: GlyphId, map: impl Fn([f64; 2]) -> [f64; 2], q: f64) -> Vec<Poly> {
+    let mut b = Builder::default();
+    if face.outline_glyph(gid, &mut b).is_none() {
+        return vec![];
+    }
+    let mut polys = vec![];
+    flatten_cmds(&b.0, map, q, &mut polys);
+    polys
 }
 
 /// The power of two at or above the transform's largest scale (at least 1).

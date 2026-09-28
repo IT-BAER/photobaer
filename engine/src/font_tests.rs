@@ -142,6 +142,13 @@ fn a_forged_collection_count_is_rejected_without_scanning_billions_of_faces() {
 }
 
 #[test]
+fn covers_checks_every_non_whitespace_character_of_an_unfallen_back_face() {
+    let r = bundled();
+    assert!(r.covers("Noto Sans", "Regular", "Hello there"));
+    assert!(!r.covers("Helvetica", "Regular", "Hello"));
+}
+
+#[test]
 fn a_font_file_over_the_size_cap_is_rejected() {
     let e = Registry::default().add(vec![0; MAX_FONT_BYTES + 1], "upload").unwrap_err();
     assert!(e.contains("MB"), "{e}");
