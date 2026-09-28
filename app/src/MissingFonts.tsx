@@ -17,6 +17,7 @@ export interface FontDialogCtx {
   // One history step over every changed layer; resolves false when the worker refused it.
   commit: (edits: [number, TextJson][], label: string) => Promise<boolean>;
   upload: () => Promise<void>; manage: () => void; close: () => void;
+  ensure: (families: string[]) => Promise<void>;
 }
 
 // Families tried in order for the per-layer Replace; the first that draws the text wins, in Regular.
@@ -27,6 +28,7 @@ const families = (faces: FaceInfo[]) => [...new Set(faces.map(f => f.family))].s
 const stylesOf = (faces: FaceInfo[], family: string) => faces.filter(f => f.family === family).map(f => f.style);
 
 async function apply(c: FontDialogCtx, subs: FontSub[], label: string, layerIds?: number[]) {
+  await c.ensure(subs.map(s => s.target.family));
   const edits = c.texts().filter(([id]) => !layerIds || layerIds.includes(id))
     .map(([id, t]) => [id, substituteFonts(t, subs), t] as const).filter(([, n, t]) => n !== t).map(([id, n]) => [id, n] as [number, TextJson]);
   return !edits.length || c.commit(edits, label);
@@ -57,6 +59,7 @@ function LayerDialog({ d, c }: { d: Extract<FontDialog, { kind: 'layer' }>; c: F
     const subs: FontSub[] = [];
     for (const r of d.rows) {
       for (const family of order) {
+        if (DEFAULT_FAMILIES.includes(family)) await c.ensure([family]);
         if (await client.call('fontCovers', family, 'Regular', r.text)) { subs.push({ source: r, target: { family, style: 'Regular' } }); break; }
       }
     }
@@ -91,6 +94,7 @@ function ResolveDialog({ d, c }: { d: Extract<FontDialog, { kind: 'resolve' }>; 
     for (const r of d.rows) {
       const t = pick[key(r)];
       if (!t) continue;
+      await c.ensure([t.family]);
       if (!await client.call('fontCovers', t.family, t.style, r.text)) {
         setErr(`${t.family} does not contain every character used by ${r.family} ${r.style}. Choose another font.`);
         setBusy(false);

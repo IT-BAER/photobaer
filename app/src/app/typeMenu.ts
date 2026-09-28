@@ -45,6 +45,8 @@ export interface TypeCtx {
   openWarp: () => void; prefs: TypePrefs; setPrefs: (p: TypePrefs) => void;
   panels: Record<TypePanel, boolean>; togglePanel: (p: TypePanel) => void;
   fontDialog: (kind: 'resolve' | 'replace') => void;
+  // Loads system faces a family or PostScript name needs; loadSystemFonts is null without Local Font Access.
+  ensureFamilies: (names: string[]) => Promise<void>; loadSystemFonts: (() => void) | null;
 }
 
 export const typeLayers = (nodes: LayerNode[]) => nodes.filter(n => n.kind === 'text' && n.text);
@@ -53,6 +55,11 @@ const attrsOf = (a: SpanAttrs, s: Span) => (typeof a === 'function' ? a(s) : a);
 
 // Character and/or paragraph attributes on the session selection, else on all runs/paragraphs of the selected type layers.
 export function applyType(c: TypeCtx, run: SpanAttrs | null, para: Attrs | null, label: string) {
+  const family = run && typeof run === 'object' && typeof run.family === 'string' ? run.family : null;
+  if (family) { void c.ensureFamilies([family]).then(() => applyLoaded(c, run, para, label), e => c.setError((e as Error).message)); return; }
+  applyLoaded(c, run, para, label);
+}
+function applyLoaded(c: TypeCtx, run: SpanAttrs | null, para: Attrs | null, label: string) {
   const t = c.typeRef.current;
   if (t?.editing()) { if (run) t.applyRun(run); if (para) t.applyParagraph(para); return; }
   const edits = typeLayers(c.selected).map(n => {
@@ -136,6 +143,7 @@ export function typeMenuItems(c: TypeCtx): Item[] {
     { label: 'Update All Text Layers', sep: true, off: !c.anyText, run: () => c.run('Updating…', () => client.call('typeRenderAll')) },
     { label: 'Replace All Missing Fonts', off: !c.anyText, run: () => c.fontDialog('replace') },
     { label: 'Resolve Missing Fonts', off: !c.anyText, run: () => c.fontDialog('resolve') },
+    ...(c.loadSystemFonts ? [{ label: 'Load System Fonts', run: c.loadSystemFonts }] : []),
     {
       label: 'Paste Lorem Ipsum', sep: true, off: !any, run: () => {
         const t = c.typeRef.current;

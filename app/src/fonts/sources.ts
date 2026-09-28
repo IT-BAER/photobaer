@@ -33,6 +33,20 @@ export async function queryLocalFonts(): Promise<LocalFont[]> {
   return (window as unknown as { queryLocalFonts(): Promise<LocalFont[]> }).queryLocalFonts();
 }
 
+// Picker list: registered faces plus a placeholder (id -1) per system face of a family not registered yet.
+export function withLocal(faces: FaceInfo[], local: LocalFont[]): FaceInfo[] {
+  const have = new Set(faces.map(f => f.family));
+  const extra = local.filter(f => !have.has(f.family) && !/^[.@]/.test(f.family))
+    .map(f => ({ id: -1, family: f.family, style: f.style, weight: 400, italic: /italic|oblique/i.test(f.style), postscript: f.postscriptName, source: 'local' as const, color: false }));
+  return [...faces, ...extra];
+}
+
+// System faces a name asks for (documents store family and PostScript name), in families not registered yet.
+export function localMatches(local: LocalFont[], faces: FaceInfo[], names: string[]): LocalFont[] {
+  const have = new Set(faces.map(f => f.family)), want = new Set(names);
+  return local.filter(f => !have.has(f.family) && (want.has(f.family) || want.has(f.postscriptName)));
+}
+
 // Loads one local family's faces into the registry on demand (when it is picked or a document needs it).
 export async function loadLocalFamily(client: EngineClient, fonts: LocalFont[], family: string): Promise<FaceInfo[]> {
   const out: FaceInfo[] = [];

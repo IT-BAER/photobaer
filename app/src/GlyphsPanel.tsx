@@ -102,7 +102,7 @@ export function GlyphsPanel({ c, faces }: { c: TypeCtx; faces: FaceInfo[] }) {
   return (
     <div className="properties-panel type-panel glyphs-panel">
       <div className="panel-tabs"><span className="panel-tab">Glyphs</span></div>
-      <label>Font <select aria-label="Font" value={fam} onChange={e => setFamily(e.currentTarget.value)}>{families.map(f => <option key={f} value={f}>{f}</option>)}</select></label>
+      <label>Font <select aria-label="Font" value={fam} onChange={e => { const f = e.currentTarget.value; void c.ensureFamilies([f]).then(() => setFamily(f)); }}>{families.map(f => <option key={f} value={f}>{f}</option>)}</select></label>
       <label>Style <select aria-label="Style" value={sty} onChange={e => setStyle(e.currentTarget.value)}>{styles.map(s => <option key={s} value={s}>{s}</option>)}</select></label>
       <label>Subset <select aria-label="Subset" value={subset} onChange={e => setSubset(Number(e.currentTarget.value))}>
         {GLYPH_SUBSETS.map(([label], i) => <option key={label} value={i}>{label}</option>)}

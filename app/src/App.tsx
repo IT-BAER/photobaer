@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { client } from './client.ts';
 import { Viewer, type ToolPointerEvent } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
@@ -60,7 +60,7 @@ import { transformSession, type TSession } from './app/transform.ts';
 import { useBrushCursor, useBucket, useEyedropper, useGradientTool, useMoveTool, useSelectionTools, useShapeTools } from './app/toolEffects.ts';
 import { usePenTools, type PathSel } from './app/penTools.ts';
 import { TYPE_TOOLS, useTypeTools, type TypeApi } from './app/typeTools.ts';
-import { loadFonts, uploadFont } from './fonts/sources.ts';
+import { loadFonts, loadLocalFamily, localFontsSupported, localMatches, queryLocalFonts, uploadFont, withLocal, type LocalFont } from './fonts/sources.ts';
 import { MissingFontsDialog, type FontDialog } from './MissingFonts.tsx';
 import { GlyphsPanel } from './GlyphsPanel.tsx';
 import type { TextJson } from './psd/text.ts';
@@ -80,6 +80,11 @@ export function App() {
   const overlayRef = useRef<SelectionOverlay | null>(null);
   // Registered font faces (bundled, uploaded, local) for the type tools' family and style pickers.
   const [faces, setFaces] = useState<FaceInfo[]>([]);
+  // System fonts (Local Font Access): listed in the pickers, loaded into the registry when a name needs them.
+  const [localFonts, setLocalFonts] = useState<LocalFont[]>([]);
+  const localRef = useRef(localFonts);
+  localRef.current = localFonts;
+  const pickFaces = useMemo(() => withLocal(faces, localFonts), [faces, localFonts]);
   const [fontDialog, setFontDialog] = useState<FontDialog | null>(null);
   const fontInput = useRef<HTMLInputElement>(null);
   // Documents already checked for missing fonts (the Resolve dialog opens once per document).
@@ -793,7 +798,20 @@ export function App() {
   async function missingFonts(layerIds?: number[]) {
     const texts = docTexts().filter(([id]) => !layerIds || layerIds.includes(id));
     const pairs = [...new Map(texts.flatMap(([, t]) => fontUses(t)).map(p => [p.join('\0'), p])).values()];
-    return pairs.length ? missingRows(texts, await client.call('fontMissing', pairs)) : [];
+    if (!pairs.length) return [];
+    await ensureFamilies(pairs.map(p => p[0]));
+    return missingRows(texts, await client.call('fontMissing', pairs));
+  }
+  // Loads the system faces the names ask for (family or PostScript name) before an edit uses them.
+  async function ensureFamilies(names: string[]) {
+    const fams = [...new Set(localMatches(localRef.current, await client.call('fontFaces'), names).map(f => f.family))];
+    if (!fams.length) return;
+    for (const f of fams) await loadLocalFamily(client, localRef.current, f);
+    setFaces(await client.call('fontFaces'));
+  }
+  async function loadSystemFonts() {
+    setMenu(null);
+    try { setLocalFonts(await queryLocalFonts()); } catch (e) { setError(`System fonts are not available: ${(e as Error).message}`); }
   }
   async function openFontDialog(kind: 'resolve' | 'replace') {
     setMenu(null);
@@ -806,6 +824,7 @@ export function App() {
     openWarp: () => { setMenu(null); warpDialog.current?.querySelector('form')?.reset(); warpDialog.current?.showModal(); },
     prefs: typePrefs, setPrefs: setTypePrefs, panels: typePanels, togglePanel: k => { setMenu(null); setTypePanels(v => ({ ...v, [k]: !v[k] })); },
     fontDialog: k => void openFontDialog(k),
+    ensureFamilies, loadSystemFonts: localFontsSupported() ? () => void loadSystemFonts() : null,
   };
   const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
   const menus = buildMenus({
@@ -849,6 +868,10 @@ export function App() {
         (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client, ...gpuTestHook(client, r), ...(perfRef.current ? { perf: perfRef.current } : {}) };
         show(await client.call('init'));
         loadFonts(client).then(f => { if (alive) setFaces(f); }, err => setError((err as Error).message));
+        // A granted permission lists system fonts without a click; otherwise Type > Load System Fonts asks.
+        if (localFontsSupported()) navigator.permissions?.query({ name: 'local-fonts' as PermissionName })
+          .then(p => (p.state === 'granted' ? queryLocalFonts() : []))
+          .then(l => { if (alive && l.length) setLocalFonts(l); }, () => {});
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -1216,19 +1239,20 @@ export function App() {
       {shapeChoices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
     </select></label>
   );
-  const families = [...new Set(faces.map(f => f.family))].sort();
+  const families = [...new Set(pickFaces.map(f => f.family))].sort();
   const typeFont = (
     <span className="type-font">
       <select aria-label="Font family" value={String(toolOptions.family)} onChange={e => {
-        const family = e.currentTarget.value, styles = faces.filter(f => f.family === family).map(f => f.style);
+        const family = e.currentTarget.value, styles = pickFaces.filter(f => f.family === family).map(f => f.style);
         setToolOptions({ ...toolOptions, family, style: styles.includes(String(toolOptions.style)) ? toolOptions.style : styles[0] ?? 'Regular' });
+        void ensureFamilies([family]);
       }}>
         {!families.includes(String(toolOptions.family)) && <option value={String(toolOptions.family)}>{String(toolOptions.family)}</option>}
         {families.map(f => <option key={f} value={f}>{f}</option>)}
       </select>
     </span>
   );
-  const typeStyles = faces.filter(f => f.family === toolOptions.family).map(f => f.style);
+  const typeStyles = pickFaces.filter(f => f.family === toolOptions.family).map(f => f.style);
   const typeStyle = (
     <select aria-label="Font style" value={String(toolOptions.style)} onChange={e => setToolOptions({ ...toolOptions, style: e.currentTarget.value })}>
       {!typeStyles.includes(String(toolOptions.style)) && <option value={String(toolOptions.style)}>{String(toolOptions.style)}</option>}
@@ -1395,14 +1419,14 @@ export function App() {
             <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}
           {doc && typePanels.character && (
-            <CharacterPanel c={typeCtx} faces={faces} eastAsian={typePrefs.language === 'eastAsian'}
+            <CharacterPanel c={typeCtx} faces={pickFaces} eastAsian={typePrefs.language === 'eastAsian'}
               toolOptions={optionsByTool[typeTool] ?? loadToolOptions(TOOLS[typeTool])} setToolOption={(k, v) => patchToolOptions(typeTool, { [k]: v as string | number })} />
           )}
           {doc && typePanels.paragraph && <ParagraphPanel c={typeCtx} />}
           {doc && typePanels.characterStyles && <TextStylesPanel kind="character" c={typeCtx} />}
           {doc && typePanels.paragraphStyles && <TextStylesPanel kind="paragraph" c={typeCtx} />}
-          {doc && typePanels.glyphs && <GlyphsPanel c={typeCtx} faces={faces} />}
-          {doc && showProperties && node?.kind === 'text' && node.text && <TypeProperties c={typeCtx} faces={faces} />}
+          {doc && typePanels.glyphs && <GlyphsPanel c={typeCtx} faces={pickFaces} />}
+          {doc && showProperties && node?.kind === 'text' && node.text && <TypeProperties c={typeCtx} faces={pickFaces} />}
           {doc && showProperties && node?.artboard && <ArtboardPanel node={node} run={run} />}
           {doc && showProperties && node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} selected={selectedNodes} />}
           {doc && showProperties && node?.vector_mask && <VectorMaskPanel key={`vm${node.id}`} node={node} run={run} />}
@@ -1456,7 +1480,7 @@ export function App() {
       />
       {fontDialog && doc && (
         <MissingFontsDialog key={fontDialog.kind} d={fontDialog} c={{
-          faces, docName: doc.name, texts: docTexts, close: () => setFontDialog(null),
+          faces: pickFaces, docName: doc.name, texts: docTexts, close: () => setFontDialog(null), ensure: ensureFamilies,
           commit: async (edits, label) => {
             try { show(await client.call('typeSetMany', edits, label)); return true; } catch (e) { setError((e as Error).message); return false; }
           },
