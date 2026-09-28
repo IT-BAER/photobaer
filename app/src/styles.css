@@ -26,7 +26,9 @@ button { font: inherit; color: inherit; }
 .app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
 
 .menubar { display: flex; align-items: center; gap: 2px; padding: 0 8px; height: 32px; background: var(--panel); border-bottom: 1px solid var(--line); position: relative; z-index: 20; }
-.brand { display: block; margin-right: 12px; }
+/* The bear's ink centers over the 48px tool column (1px right border) at x 23.5: menubar padding
+   8 + 2.5 + ink center 12.94 (the PNG's ink sits 0.94px right of its box center). */
+.brand { display: block; margin: 0 9.5px 0 2.5px; }
 .menu { position: relative; }
 .menu > button { background: none; border: 0; padding: 4px 10px; border-radius: 4px; cursor: default; }
 .menu > button:hover, .menu > button.open { background: var(--panel-hi); }
