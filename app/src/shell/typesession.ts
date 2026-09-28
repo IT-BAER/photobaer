@@ -17,6 +17,8 @@ export interface TypeOptions {
 
 type Span = { length: number } & Record<string, any>;
 type Attrs = Record<string, unknown>;
+// Attributes, or a function of the span they land on (a nested map such as OpenType features).
+export type SpanAttrs = Attrs | ((s: Span) => Attrs);
 
 // Below this drag (document px, max of dx and dy) a click makes point text.
 export const BOX_MIN = 6;
@@ -52,7 +54,7 @@ export function newText(o: TypeOptions, shape: TextJson, origin: [number, number
 }
 
 // Index of the span holding UTF-16 position `pos` (the last span past the end).
-function spanAt(spans: Span[], pos: number) {
+export function spanAt(spans: Span[], pos: number) {
   let a = 0;
   for (let i = 0; i < spans.length; i++) {
     if (pos < a + spans[i].length) return i;
@@ -79,18 +81,19 @@ function splice(spans: Span[], start: number, end: number, n: number, attrs?: At
 }
 
 // Sets `attrs` on [a, b), splitting spans at both ends.
-function restyle(spans: Span[], a: number, b: number, attrs: Attrs): Span[] {
+function restyle(spans: Span[], a: number, b: number, attrs: SpanAttrs): Span[] {
+  const of = (s: Span) => (typeof attrs === 'function' ? attrs(s) : attrs);
   const out: Span[] = [];
   let p = 0;
   for (const s of spans) {
     const q = p + s.length;
     const cuts = [p, Math.min(Math.max(a, p), q), Math.min(Math.max(b, p), q), q];
     for (let i = 0; i < 3; i++) {
-      if (cuts[i + 1] > cuts[i]) out.push({ ...s, ...(i === 1 ? attrs : {}), length: cuts[i + 1] - cuts[i] });
+      if (cuts[i + 1] > cuts[i]) out.push({ ...s, ...(i === 1 ? of(s) : {}), length: cuts[i + 1] - cuts[i] });
     }
     p = q;
   }
-  return out.length ? out : spans.map(s => ({ ...s, ...attrs }));
+  return out.length ? out : spans.map(s => ({ ...s, ...of(s) }));
 }
 
 const words = new Intl.Segmenter(undefined, { granularity: 'word' });
@@ -172,9 +175,14 @@ export class TypeSession {
   }
 
   // Character attributes: on the selection (one step), or pending at a collapsed caret.
-  applyRun(attrs: Attrs, _now: number) {
+  applyRun(attrs: SpanAttrs, _now: number) {
     const [a, b] = this.range;
-    if (a === b) { this.pending = { ...this.pending, ...attrs }; this.#last = null; return; }
+    if (a === b) {
+      const at = { ...this.text.runs[spanAt(this.text.runs, Math.max(0, a - 1))], ...this.pending };
+      this.pending = { ...this.pending, ...(typeof attrs === 'function' ? attrs(at) : attrs) };
+      this.#last = null;
+      return;
+    }
     this.#push();
     this.text = { ...this.text, runs: restyle(this.text.runs, a, b, attrs) };
   }
@@ -187,6 +195,14 @@ export class TypeSession {
     const p1 = nl < 0 ? t.length : nl + 1;
     this.#push();
     this.text = { ...this.text, paragraphs: restyle(this.text.paragraphs, p0, Math.max(p1, p0 + 1), attrs) };
+  }
+
+  // A whole-model change (orientation, warp, anti-alias) as one step; the caret stays in range.
+  replace(text: TextJson) {
+    this.#push();
+    this.text = text;
+    this.caret = Math.min(this.caret, text.text.length);
+    this.anchor = Math.min(this.anchor, text.text.length);
   }
 
   undo() { return this.#swap(this.#undo, this.#redo); }

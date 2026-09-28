@@ -247,7 +247,7 @@ export function ArtboardPanel({ node, run }: { node: LayerNode; run: Run }) {
 }
 
 // A native color input that commits on the picker's `change` (React's onChange fires on every drag step).
-function ColorInput({ value, label, onCommit }: { value: [number, number, number]; label: string; onCommit: (c: [number, number, number]) => void }) {
+export function ColorInput({ value, label, onCommit }: { value: [number, number, number]; label: string; onCommit: (c: [number, number, number]) => void }) {
   const ref = useRef<HTMLInputElement>(null);
   const commit = useRef(onCommit);
   commit.current = onCommit;
@@ -261,7 +261,7 @@ function ColorInput({ value, label, onCommit }: { value: [number, number, number
 }
 
 // A number field that commits once on blur or Enter.
-function Num({ label, value, min, max, step, onCommit }: { label: string; value: number; min: number; max: number; step?: number; onCommit: (v: number) => void }) {
+export function Num({ label, value, min, max, step, onCommit }: { label: string; value: number; min: number; max: number; step?: number; onCommit: (v: number) => void }) {
   return (
     <label>{label} <input
       key={`${label}-${value}`} type="number" min={min} max={max} step={step} defaultValue={value} aria-label={label}

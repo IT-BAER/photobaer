@@ -1649,3 +1649,58 @@ test('a type mask commit makes the text coverage the selection and removes the t
   assert.equal(e.history.labels.length, n);
   assert.equal(e.layers.length, 1);
 });
+
+test('type commands: conversions keep the text in place, work path, convert to shape, set many and update all are one step each', async () => {
+  await call('init');
+  await call('newDoc', 300, 200, 8, null);
+  await call('fontAdd', readFileSync(new URL('../public/fonts/NotoSans-Regular.ttf', import.meta.url)), 'bundled');
+  const { newText } = await import('./shell/typesession.ts');
+  type Node = { id: number; name: string; kind: string; opacity: number; text?: { shape: { type: string; box?: number[] }; runs: { size: number }[] } };
+  type Info = { history: { labels: string[] }; layers: Node[]; paths: { work: boolean }[] };
+  type Layout = { transform: number[]; lines: { x: number; y: number; width: number }[] };
+  const opts = { family: 'Noto Sans', style: 'Regular', size: 28, color: [200, 0, 0] as [number, number, number], alignment: 'center' as const, orientation: 'horizontal' as const };
+  const make = async (shape: object, s: string) => {
+    const t0 = newText(opts, shape, [20, 30]);
+    const id = ((await call('typeBegin', { text: t0, above: 0 })).result as { id: number }).id;
+    await call('typeUpdate', { ...t0, text: s, runs: [{ ...t0.runs[0], length: s.length }], paragraphs: [{ ...t0.paragraphs[0], length: s.length }] }, s);
+    await call('typeCommit');
+    return id;
+  };
+  const anchor = async (id: number) => {
+    const l = JSON.parse((await call('typeLayout', id)).result as string) as Layout, n = l.lines[0], m = l.transform;
+    const x = n.x + n.width / 2, y = n.y;
+    return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+  };
+  const box = await make({ type: 'paragraph', box: [0, 0, 200, 80] }, 'Hello there');
+  const before = await anchor(box);
+  const p = (await call('typeConvert', [box], 'point')).result as Info;
+  assert.equal(p.history.labels.at(-1), 'Convert to Point Text');
+  assert.equal(p.layers.find(l => l.id === box)!.text!.shape.type, 'point');
+  const after = await anchor(box);
+  assert.ok(Math.abs(after[0] - before[0]) < 0.01 && Math.abs(after[1] - before[1]) < 0.01, `${before} -> ${after}`);
+  const q = (await call('typeConvert', [box], 'paragraph')).result as Info;
+  assert.equal(q.history.labels.at(-1), 'Convert to Paragraph Text');
+  assert.equal(q.layers.find(l => l.id === box)!.text!.shape.type, 'paragraph');
+
+  const w = (await call('typeWorkPath', box)).result as Info;
+  assert.equal(w.history.labels.at(-1), 'Create Work Path');
+  assert.ok(w.paths.some(x => x.work));
+
+  const two = await make({ type: 'point' }, 'Two');
+  const n0 = q.history.labels.length;
+  const cur = (w.layers.find(l => l.id === box)!.text)!;
+  const big = (t: typeof cur) => ({ ...t, runs: t.runs.map(r => ({ ...r, size: 40 })) });
+  const twoText = ((await call('typeBegin', { id: two })).result as { doc: Info }).doc.layers.find(l => l.id === two)!.text!;
+  await call('typeCancel');
+  const m = (await call('typeSetMany', [[box, big(cur)], [two, big(twoText)]], 'Font Size')).result as Info;
+  assert.equal(m.history.labels.at(-1), 'Font Size');
+  assert.deepEqual([box, two].map(id => m.layers.find(l => l.id === id)!.text!.runs[0].size), [40, 40]);
+
+  const u = (await call('typeRenderAll')).result as Info;
+  assert.equal(u.history.labels.at(-1), 'Update All Text Layers');
+  const s = (await call('typeToShape', [two])).result as Info;
+  assert.equal(s.history.labels.at(-1), 'Convert to Shape');
+  const shape = s.layers.find(l => l.id === two)!;
+  assert.deepEqual([shape.kind, shape.name], ['shape', 'Two']);
+  assert.ok(s.history.labels.length > n0);
+});

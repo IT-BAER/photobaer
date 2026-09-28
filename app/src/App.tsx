@@ -53,11 +53,13 @@ import {
 import { buildMenus } from './app/menus.ts';
 import { layerContextItems } from './app/vectorCommands.ts';
 import { ShapesPanel } from './ShapesPanel.tsx';
+import { CharacterPanel, ParagraphPanel, TypeProperties, WarpTextDialog } from './TypePanels.tsx';
+import { loadTypePrefs, typeContextItems, typeMenuItems, type TypeCtx } from './app/typeMenu.ts';
 import { shapeLibrary } from './shell/customShapes.ts';
 import { transformSession, type TSession } from './app/transform.ts';
 import { useBrushCursor, useBucket, useEyedropper, useGradientTool, useMoveTool, useSelectionTools, useShapeTools } from './app/toolEffects.ts';
 import { usePenTools, type PathSel } from './app/penTools.ts';
-import { useTypeTools, type TypeApi } from './app/typeTools.ts';
+import { TYPE_TOOLS, useTypeTools, type TypeApi } from './app/typeTools.ts';
 import { loadFonts } from './fonts/sources.ts';
 import { useCropTool, usePerspectiveCropTool } from './app/cropTools.ts';
 import { usePaintTool } from './app/paintTool.ts';
@@ -140,6 +142,12 @@ export function App() {
   const [showPatterns, setShowPatterns] = useState(false);
   const [showGradients, setShowGradients] = useState(false);
   const [showShapes, setShowShapes] = useState(false);
+  const [typePanels, setTypePanels] = useState({ character: false, paragraph: false });
+  const [typePrefs, setTypePrefs] = useState(loadTypePrefs);
+  // Changes with the type session and its selection, so the type panels re-read it.
+  const [, setTypeSel] = useState('');
+  const typeRef = useRef<TypeApi | null>(null);
+  const warpDialog = useRef<HTMLDialogElement>(null);
   const styleLib = useRef<StyleLibrary | null>(null);
   styleLib.current ??= new StyleLibrary();
   // Brush library (opened at mount) and the selected preset; null paints with the plain options-bar brush.
@@ -771,6 +779,12 @@ export function App() {
     overlayRef, perfRef, transformRef, show, setError, viewer, setMenu, activeRef, run, againRef, docRef, canvas, setTransformMenu,
     setTransformStore, redrawOverlay,
   });
+  const typeCtx: TypeCtx = {
+    typeRef, selected: selectedNodes, anyText: !!doc && flatNodes(doc.layers).some(n => n.kind === 'text'), run, setError,
+    openWarp: () => { setMenu(null); warpDialog.current?.querySelector('form')?.reset(); warpDialog.current?.showModal(); },
+    prefs: typePrefs, setPrefs: setTypePrefs, panels: typePanels, togglePanel: k => { setMenu(null); setTypePanels(v => ({ ...v, [k]: !v[k] })); },
+  };
+  const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
   const menus = buildMenus({
     setMenu, newDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeContents, run,
     openPreviewDialog, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
@@ -783,7 +797,7 @@ export function App() {
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap,
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
-    selectedNodes, showShapes, setShowShapes,
+    selectedNodes, showShapes, setShowShapes, typeItems: typeMenuItems(typeCtx),
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
@@ -967,11 +981,10 @@ export function App() {
   });
   useEffect(() => { penRedrawRef.current?.(); }, [doc?.version, active?.id, pathSel]);
   const typeKeysRef = useRef<((e: KeyboardEvent) => boolean) | null>(null);
-  const typeRef = useRef<TypeApi | null>(null);
   const [typeEditing, setTypeEditing] = useState(false);
   useTypeTools({
     viewer, tool, doc, docRef, activeRef, overlayRef, redrawOverlay, toolOptions, toolOptionsRef, fgRef, show, setError, typeKeysRef, typeRef,
-    setEditing: setTypeEditing,
+    setEditing: setTypeEditing, setTypeSel,
   });
 
   // Crop and perspective crop: pointer state in crop/geometry.ts; Enter, Esc, the bar buttons and a
@@ -1345,6 +1358,12 @@ export function App() {
           {doc && showProperties && node?.kind === 'adjustment' && node.adjustment && (
             <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
           )}
+          {doc && typePanels.character && (
+            <CharacterPanel c={typeCtx} faces={faces} eastAsian={typePrefs.language === 'eastAsian'}
+              toolOptions={optionsByTool[typeTool] ?? loadToolOptions(TOOLS[typeTool])} setToolOption={(k, v) => patchToolOptions(typeTool, { [k]: v as string | number })} />
+          )}
+          {doc && typePanels.paragraph && <ParagraphPanel c={typeCtx} />}
+          {doc && showProperties && node?.kind === 'text' && node.text && <TypeProperties c={typeCtx} faces={faces} />}
           {doc && showProperties && node?.artboard && <ArtboardPanel node={node} run={run} />}
           {doc && showProperties && node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} selected={selectedNodes} />}
           {doc && showProperties && node?.vector_mask && <VectorMaskPanel key={`vm${node.id}`} node={node} run={run} />}
@@ -1356,7 +1375,7 @@ export function App() {
               <LayersPanel
                 doc={doc} active={active} setActive={setActive} run={run}
                 selected={selectedNodes.map(n => n.id)} setPicked={setPicked}
-                contextItems={(n, nodes) => layerContextItems(n, nodes, run, setError)}
+                contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerContextItems(n, nodes, run, setError)]}
                 newLayer={newLayer} newGroup={newGroup}
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
                 openProperties={() => setShowProperties(true)}
@@ -1400,6 +1419,7 @@ export function App() {
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <FeatherDialog featherDialog={featherDialog} run={run} />
+      <WarpTextDialog dialog={warpDialog} c={typeCtx} />
       <ModifyDialog modifyDialog={modifyDialog} run={run} modifyOp={modifyOp} />
       <SaveSelectionDialog saveSelDialog={saveSelDialog} run={run} doc={doc} />
       <LoadSelectionDialog loadSelDialog={loadSelDialog} run={run} doc={doc} />

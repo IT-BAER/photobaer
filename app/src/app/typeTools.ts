@@ -8,7 +8,7 @@ import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import type { SelectionOverlay } from '../shell/SelectionOverlay.ts';
 import {
   boxDrag, caretX, indexAt, layerName, lineEndAt, lineHome, lineMove, lineOf, newText, nextBoundary, nextWord, prevBoundary, prevWord,
-  selectionRects, TypeSession, type TextLayout,
+  selectionRects, TypeSession, type SpanAttrs, type TextLayout,
 } from '../shell/typesession.ts';
 import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo } from '../worker/types.ts';
@@ -28,13 +28,21 @@ function invert(m: Mat, [x, y]: XY): XY {
 }
 
 // The host's controls: Commit/Cancel buttons and the worker's auto-commit notice.
-export interface TypeApi { editing: () => boolean; commit: () => void; cancel: () => void; ended: (doc: DocInfo) => void }
+export interface TypeApi {
+  editing: () => boolean; commit: () => void; cancel: () => void; ended: (doc: DocInfo) => void;
+  // The open session for panels and the Type menu: its model and selection, and edits on it.
+  session: () => { text: TextJson; range: [number, number] } | null;
+  applyRun: (a: SpanAttrs) => void; applyParagraph: (a: Record<string, unknown>) => void;
+  replace: (f: (t: TextJson) => TextJson) => void; insert: (str: string) => void;
+}
 
 export interface TypeToolsCtx {
   viewer: RefObject<Viewer | null>; tool: string; doc: DocInfo | null; docRef: RefObject<DocInfo | null>; activeRef: RefObject<Active | null>;
   overlayRef: RefObject<SelectionOverlay | null>; redrawOverlay: () => void; toolOptions: ToolOptions; toolOptionsRef: RefObject<ToolOptions>;
   fgRef: RefObject<Rgb>; show: (d: DocInfo | null, selectAfter?: SelectAfter) => void; setError: Dispatch<SetStateAction<string | null>>;
   typeKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>; typeRef: RefObject<TypeApi | null>; setEditing: (b: boolean) => void;
+  // Called with a new key whenever the session or its selection changes (panels re-read it).
+  setTypeSel: (key: string) => void;
 }
 
 interface Edit {
@@ -44,7 +52,7 @@ interface Edit {
 // Type tools and edit session (docs/M4.md section 10). The session model lives here; every change
 // is sent to the worker (typeUpdate), which renders and answers with the new layout.
 export function useTypeTools(c: TypeToolsCtx) {
-  const { viewer, tool, doc, docRef, activeRef, overlayRef, redrawOverlay, toolOptions, toolOptionsRef, fgRef, show, setError, typeKeysRef, typeRef, setEditing } = c;
+  const { viewer, tool, doc, docRef, activeRef, overlayRef, redrawOverlay, toolOptions, toolOptionsRef, fgRef, show, setError, typeKeysRef, typeRef, setEditing, setTypeSel } = c;
   const optionsRef = useRef<{ tool: string; o: ToolOptions } | null>(null);
   const applyOptionsRef = useRef<((prev: ToolOptions, next: ToolOptions) => void) | null>(null);
 
@@ -82,7 +90,10 @@ export function useTypeTools(c: TypeToolsCtx) {
       return l === Infinity ? [0, 0, 0, 0] : [l, tp, r, b];
     };
     const corners = (b: number[]): XY[] => [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]];
+    let selKey = '';
     const draw = () => {
+      const key = cur ? `${cur.id}:${cur.s.range}:${cur.s.steps}` : '';
+      if (key !== selKey) { selKey = key; setTypeSel(key); }
       const o = overlayRef.current;
       if (!o) return;
       if (!cur) { o.setTypeEdit(null); redrawOverlay(); return; }
@@ -348,6 +359,11 @@ export function useTypeTools(c: TypeToolsCtx) {
       commit: () => void finish('typeCommit'),
       cancel: () => void finish('typeCancel'),
       ended: d => { if (cur) { setCur(null); show(d); draw(); } },
+      session: () => cur && { text: cur.s.text, range: cur.s.range },
+      applyRun: a => { if (cur) { cur.s.applyRun(a, performance.now()); changed(); } },
+      applyParagraph: a => { if (cur) { cur.s.applyParagraph(a, performance.now()); changed(); } },
+      replace: f => { if (cur) { cur.s.replace(f(cur.s.text)); changed(); } },
+      insert: str => { if (cur) { cur.s.insert(str, performance.now()); changed(); } },
     };
     return () => {
       clearInterval(blink);

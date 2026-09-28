@@ -12,6 +12,7 @@ import { DESTRUCTIVE_KINDS } from './adjustments.ts';
 import { layerCss, pngSvg, shapeSvg } from './app/svgcss.ts';
 import { BOOL_LABEL } from './shell/shapetools.ts';
 import { layerName } from './shell/typesession.ts';
+import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
 import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
@@ -1027,6 +1028,48 @@ const api = {
   typeSet(id: number, text: TextJson, label: string) {
     const e = need();
     history.run(label, () => { e.set_text(id, JSON.stringify(text)); e.render_text(id, fontReg(), resolution(e)); });
+    return changed();
+  },
+
+  // Several layers' new text models (panels, Type menu, Properties) as one step.
+  typeSetMany(edits: [number, TextJson][], label: string) {
+    const e = need();
+    history.run(label, () => { for (const [id, t] of edits) { e.set_text(id, JSON.stringify(t)); e.render_text(id, fontReg(), resolution(e)); } });
+    return changed();
+  },
+
+  // Type > Convert to Point Text / Convert to Paragraph Text; layers already of that kind are skipped.
+  typeConvert(ids: number[], to: 'point' | 'paragraph') {
+    const e = need(), res = resolution(e);
+    const edits = ids.flatMap(id => {
+      const t = findNode(e, id)?.text as TextJson | undefined;
+      const layout = t && JSON.parse(e.text_layout(id, fontReg(), res));
+      const n = t && (to === 'point' ? toPointText(t, layout) : toParagraphText(t, layout));
+      return n ? [[id, n] as [number, TextJson]] : [];
+    });
+    return edits.length ? api.typeSetMany(edits, to === 'point' ? 'Convert to Point Text' : 'Convert to Paragraph Text') : info()!;
+  },
+
+  // Type > Create Work Path from the layer's outlines; refused on empty text.
+  typeWorkPath(id: number) {
+    const e = need();
+    if (!findNode(e, id)?.text?.text) throw new Error('The type layer has no text.');
+    history.run('Create Work Path', () => e.text_work_path(id, fontReg(), resolution(e)));
+    return changed();
+  },
+
+  typeToShape(ids: number[]) {
+    const e = need();
+    history.run('Convert to Shape', () => { for (const id of ids) e.convert_text_to_shape(id, fontReg(), resolution(e)); });
+    return changed();
+  },
+
+  typeRenderAll() {
+    const e = need();
+    const ids: number[] = [];
+    const walk = (ns: LayerNode[]) => { for (const n of ns) { if (n.kind === 'text') ids.push(n.id); if (n.children) walk(n.children); } };
+    walk(JSON.parse(e.layers_json()) as LayerNode[]);
+    history.run('Update All Text Layers', () => { for (const id of ids) e.render_text(id, fontReg(), resolution(e)); });
     return changed();
   },
 

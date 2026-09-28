@@ -185,3 +185,21 @@ test('selection rectangles are per line over the selected glyphs', () => {
     { line: 1, from: 0, to: 10 },
   ]);
 });
+
+test('run attributes can be computed per run; replace swaps the whole text model as one step', () => {
+  const s = new TypeSession(text());
+  s.insert('abcd', 0);
+  s.move(0, false);
+  s.applyRun({ features: { salt: true } }, 1);
+  s.insert('x', 2);
+  s.move(1, false);
+  s.move(3, true);
+  s.applyRun(r => ({ features: { ...r.features, swsh: true } }), 3);
+  assert.deepEqual(s.text.runs.map((r: { length: number; features?: object }) => [r.length, r.features]), [[1, { salt: true }], [2, { swsh: true }], [2, {}]]);
+  const steps = s.steps;
+  s.replace({ ...s.text, orientation: 'vertical' });
+  assert.equal(s.steps, steps + 1);
+  assert.equal(s.text.orientation, 'vertical');
+  s.undo();
+  assert.equal(s.text.orientation, 'horizontal');
+});
