@@ -136,7 +136,7 @@ test('text on a path maps to on-path text from the bezier curve', () => {
   assert.deepEqual(t.shape.path.subpaths[0].points, [[0, 0, 0, 0, 10, 0], [30, 0, 20, 0, 40, 0], [60, 0, 50, 0, 60, 0]]);
   assert.equal(t.shape.path.subpaths[0].closed, false);
   assert.equal(t.shape.start, 0);
-  assert.equal(t.shape.end, 60);
+  assert.equal(t.shape.end, 0, "end is measured back from the path end");
   assert.equal(t.shape.flip, true);
 });
 

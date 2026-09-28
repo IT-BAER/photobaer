@@ -738,8 +738,9 @@ fn in_shape(ctx: &Ctx, paras: &[(usize, usize, &Paragraph)], path: &VectorPath, 
     }
 }
 
-/// Moves a laid-out single line onto the first subpath: arc length from `start`, rotated to the
-/// tangent at the glyph centre; glyphs whose centre passes `end` (or the path end) are dropped.
+/// Moves a laid-out single line onto the first subpath: glyph starts at arc length `start` + offset,
+/// rotated to the tangent there; `end` is measured back from the path end and glyph starts outside
+/// [0, usable] are dropped. `flip` mirrors the positions along the path and turns glyphs by 180 degrees.
 fn on_path_place(path: &VectorPath, start: f64, end: f64, flip: bool, out: &mut Layout) {
     let Some(sp) = path.subpaths.first() else {
         out.glyphs.clear();
@@ -749,9 +750,6 @@ fn on_path_place(path: &VectorPath, start: f64, end: f64, flip: bool, out: &mut 
     let mut pts = flatten(sp);
     if sp.closed && !pts.is_empty() {
         pts.push(pts[0]);
-    }
-    if flip {
-        pts.reverse();
     }
     let mut cum = vec![0.0];
     for w in pts.windows(2) {
@@ -763,7 +761,7 @@ fn on_path_place(path: &VectorPath, start: f64, end: f64, flip: bool, out: &mut 
         out.lines.clear();
         return;
     }
-    let stop = if end > start { end.min(total) } else { total };
+    let usable = (total - end).max(0.0);
     // Point and unit tangent at arc length s (the end segments extend past the path).
     let at = |s: f64| {
         let i = cum.partition_point(|&c| c <= s).clamp(1, pts.len() - 1);
@@ -777,16 +775,17 @@ fn on_path_place(path: &VectorPath, start: f64, end: f64, flip: bool, out: &mut 
     let glyphs = std::mem::take(&mut out.glyphs);
     let base = out.lines.first().map_or(0.0, |l| l.y);
     for mut g in glyphs {
-        let s0 = start + g.x - x0;
-        if s0 + g.advance / 2.0 > stop + EPS {
+        let h = g.x - x0;
+        let f = if flip { usable - start - h - g.advance } else { start + h };
+        if f < -EPS || f > usable + EPS {
             continue;
         }
-        let (_, t) = at(s0 + g.advance / 2.0);
-        let (p, _) = at(s0);
+        let (p, t) = at(f);
+        let (sin, cos) = if flip { (-t[1], -t[0]) } else { (t[1], t[0]) };
         let off = g.y - base;
-        g.x = p[0] - t[1] * off;
-        g.y = p[1] + t[0] * off;
-        g.rotation = t[1].atan2(t[0]).to_degrees();
+        g.x = p[0] - sin * off;
+        g.y = p[1] + cos * off;
+        g.rotation = t[1].atan2(t[0]).to_degrees() + if flip { 180.0 } else { 0.0 };
         out.glyphs.push(g);
     }
     let (p, _) = at(start);

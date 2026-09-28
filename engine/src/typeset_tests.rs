@@ -274,15 +274,22 @@ fn on_path_follows_tangent_and_drops_past_end() {
         fill_rule: FillRule::Nonzero,
         subpaths: vec![Subpath { closed: false, op: PathOp::Combine, points: vec![p(0.0, 0.0), p(0.0, 100.0)] }],
     };
-    let t = data("HHHHHHHHHHHHHHHHHHHH", TextShape::OnPath { path: path.clone(), start: 10.0, end: 60.0, flip: false });
+    // `end` is measured back from the path end: usable length 100 - 40 = 60; glyph starts past it are dropped.
+    let t = data("HHHHHHHHHHHHHHHHHHHH", TextShape::OnPath { path: path.clone(), start: 10.0, end: 40.0, flip: false });
     let l = layout(&t, &r, 72.0);
     assert!(!l.glyphs.is_empty() && l.glyphs.len() < 20);
     assert!(l.glyphs.iter().all(|g| (g.rotation - 90.0).abs() < 1e-9 && g.x.abs() < 1e-9));
     assert!((l.glyphs[0].y - 10.0).abs() < 1e-9);
-    assert!(l.glyphs.iter().all(|g| g.y + g.advance / 2.0 <= 60.0 + 1e-9));
+    assert!(l.glyphs.iter().all(|g| g.y <= 60.0 + 1e-9));
+    let adv = l.glyphs[0].advance;
+    let kept = l.glyphs.len();
+    assert!(10.0 + kept as f64 * adv > 60.0, "the next glyph start lies past the usable length");
+    // Flip keeps the path direction: glyph i starts at usable - start - offset - advance, turned by 180 degrees.
     let t = data("HH", TextShape::OnPath { path, start: 0.0, end: 0.0, flip: true });
     let l = layout(&t, &r, 72.0);
-    assert!((l.glyphs[0].y - 100.0).abs() < 1e-9 && (l.glyphs[0].rotation + 90.0).abs() < 1e-9);
+    assert!((l.glyphs[0].y - (100.0 - adv)).abs() < 1e-9, "{} vs {}", l.glyphs[0].y, 100.0 - adv);
+    assert!((l.glyphs[1].y - (100.0 - 2.0 * adv)).abs() < 1e-9);
+    assert!(l.glyphs.iter().all(|g| (g.rotation - 270.0).abs() < 1e-9));
 }
 
 #[test]

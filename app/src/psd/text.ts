@@ -86,9 +86,7 @@ function bezierPath(cp: unknown) {
     return [s[0], s[1], prev ? prev[4] : s[0], prev ? prev[5] : s[1], s[2], s[3]];
   });
   if (!closed) points.push([last[6], last[7], last[4], last[5], last[6], last[7]]);
-  let length = 0;
-  for (let i = 0; i + 2 < cp.length; i += 2) length += Math.hypot(cp[i + 2] - cp[i], cp[i + 3] - cp[i + 1]);
-  return { path: { fill_rule: 'nonzero', subpaths: [{ closed, op: 'combine', points }] }, length };
+  return { fill_rule: 'nonzero', subpaths: [{ closed, op: 'combine', points }] };
 }
 
 // Box when frame type 1 or shapeType box; on a path when the frame has a curve and type != 0; else point.
@@ -99,7 +97,7 @@ function shapeIn(t: LayerTextData) {
     return { type: 'paragraph', box: [b[0], b[1], b[2], b[3]] };
   }
   const curve = tp?.data?.type !== 0 && tp?.bezierCurve ? bezierPath(tp.bezierCurve.controlPoints) : null;
-  if (curve) return { type: 'onPath', path: curve.path, start: 0, end: curve.length, flip: !!tp?.data?.pathData?.reversed };
+  if (curve) return { type: 'onPath', path: curve, start: 0, end: 0, flip: !!tp?.data?.pathData?.reversed };
   return { type: 'point' };
 }
 
