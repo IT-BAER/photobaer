@@ -104,7 +104,7 @@ export function typeMenuItems(c: TypeCtx): Item[] {
     },
     { label: 'Create Work Path', sep: true, off: !last || !last.text!.text, run: () => last && c.run(null, () => client.call('typeWorkPath', last.id)) },
     { label: 'Convert to Shape', off: layerOff, run: () => c.run('Converting…', () => client.call('typeToShape', ids)) },
-    { label: 'Rasterize Type Layer', sep: true, off: layerOff, run: () => c.run('Rasterizing…', () => client.call('rasterizeLayers', 'type', ids)) },
+    { label: 'Rasterize Type Layer', sep: true, off: layerOff, run: () => c.run('Rasterizing…', () => client.call('rasterizeLayers', 'type', ids, 'Rasterize Type Layer')) },
     { label: 'Convert to Paragraph Text', sep: true, off: !sel.some(n => n.text!.shape?.type !== 'paragraph'), run: () => c.run(null, () => client.call('typeConvert', ids, 'paragraph')) },
     { label: 'Convert to Point Text', off: !sel.some(n => n.text!.shape?.type === 'paragraph'), run: () => c.run(null, () => client.call('typeConvert', ids, 'point')) },
     { label: 'Warp Text…', off: !any, run: c.openWarp },

@@ -1215,7 +1215,7 @@ export function App() {
     <Fragment key={i.label}>
       {i.sep && <li role="separator" className="menu-sep" />}
       <li className={i.sub ? 'has-sub' : undefined}>
-        <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={i.run}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
+        <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={() => { if (!i.sub) setMenu(null); i.run(); }}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
         {i.sub && !i.off && <ul role="menu" aria-label={i.label}>{menuItems(i.sub)}</ul>}
       </li>
     </Fragment>

@@ -1544,6 +1544,8 @@ test('vector mask edits, Rasterize Shape / Vector Mask, and Paste Shape Attribut
   assert.equal(s.layers.find(l => l.id === a).kind, 'pixel');
   assert.equal(s.history.labels.at(-1), 'Rasterize Shape');
   assert.match((await call('rasterizeLayers', 'shape', [a])).error!, /is not a shape layer/);
+  const named = (await call('rasterizeLayers', 'vectorMask', [b], 'Rasterize Type Layer')).result as Info;
+  assert.equal(named.history.labels.at(-1), 'Rasterize Type Layer', 'a passed label names the step');
   const stroke = { enabled: true, width: 3, align: 'center', cap: 'butt', join: 'miter', miter_limit: 4, dash: [], dash_offset: 0, content: { type: 'solid', color: [0, 0, 255] }, opacity: 1, blend: 'normal' };
   const c = ((await call('newShape', { name: 'C', live: { type: 'ellipse', bounds: [1, 1, 9, 9] }, fill, stroke: null })).result as Info).created;
   const p = (await call('setShapes', [b, c].map(id => ({ id, shape: { live: s.layers.find(l => l.id === id)?.shape?.live ?? { type: 'ellipse', bounds: [1, 1, 9, 9] }, fill, stroke } })), 'Paste Shape Attributes')).result as Info;

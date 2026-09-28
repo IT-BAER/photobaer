@@ -853,9 +853,9 @@ const api = {
   },
 
   // Layer > Rasterize > Type / Shape / Vector Mask over the selected layers, one step.
-  rasterizeLayers(what: 'type' | 'shape' | 'vectorMask', ids: number[]) {
+  rasterizeLayers(what: 'type' | 'shape' | 'vectorMask', ids: number[], name?: string) {
     const e = need();
-    const label = { type: 'Rasterize Type', shape: 'Rasterize Shape', vectorMask: 'Rasterize Vector Mask' }[what];
+    const label = name ?? { type: 'Rasterize Type', shape: 'Rasterize Shape', vectorMask: 'Rasterize Vector Mask' }[what];
     history.run(label, () => {
       for (const id of ids) {
         if (what === 'type') e.rasterize_type(id);
