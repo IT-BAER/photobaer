@@ -22,6 +22,17 @@ export function zoomAt(v: View, factor: number, sx: number, sy: number, w: numbe
   return { ...v, zoom, cx: dx - ox, cy: dy - oy };
 }
 
+// Interpolates a to b at t in [0, 1]: zoom in log space, and the document point under screen (sx, sy)
+// moves linearly, so an anchored zoom (both ends share that point) keeps it fixed on screen.
+export function tweenView(a: View, b: View, t: number, sx: number, sy: number, w: number, h: number): View {
+  if (t <= 0) return a;
+  if (t >= 1) return b;
+  const zoom = a.zoom * (b.zoom / a.zoom) ** t, rot = a.rot + (b.rot - a.rot) * t;
+  const [ax, ay] = screenToDoc(a, sx, sy, w, h), [bx, by] = screenToDoc(b, sx, sy, w, h);
+  const [ox, oy] = screenToDoc({ zoom, rot, cx: 0, cy: 0 }, sx, sy, w, h);
+  return { zoom, rot, cx: ax + (bx - ax) * t - ox, cy: ay + (by - ay) * t - oy };
+}
+
 export function panBy(v: View, dsx: number, dsy: number): View {
   const c = Math.cos(v.rot), s = Math.sin(v.rot);
   const px = dsx / v.zoom, py = dsy / v.zoom;

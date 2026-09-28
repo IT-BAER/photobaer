@@ -14,6 +14,11 @@
   --ruler-bg: #202226;
   --transform-box: #4797ff;
   --checker: repeating-conic-gradient(#d8d8d8 0% 25%, #a6a6a6 0% 50%);
+  --ease-out: cubic-bezier(.2, .7, .3, 1);
+  --ease: cubic-bezier(.4, 0, .2, 1);
+  --t-hover: 135ms;
+  --t-press: 90ms;
+  --t-pop: 190ms;
   color-scheme: dark;
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -21,7 +26,15 @@
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--text); overflow: hidden; }
-button { font: inherit; color: inherit; }
+button { font: inherit; color: inherit; transition: background-color var(--t-hover) var(--ease), color var(--t-hover) var(--ease), border-color var(--t-hover) var(--ease), box-shadow var(--t-hover) var(--ease), opacity var(--t-hover) var(--ease); }
+button:active:not(:disabled) { transition-duration: var(--t-press); }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes fade-in { from { opacity: 0; } }
+.menu ul, .toolbar .flyout, dialog[open] { animation: pop-in var(--t-pop) var(--ease-out); }
+.menu li.has-sub > ul { animation-name: fade-in; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
 
 .app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
 
@@ -95,8 +108,11 @@ button { font: inherit; color: inherit; }
 .ref-grid button { width: 8px; height: 8px; padding: 0; border-radius: 1px; }
 .ref-grid button:hover { background: var(--accent); }
 
-.dock-tabs { padding: 6px 8px 0; }
-.panel-tab.active { background: var(--accent); color: var(--on-accent); }
+.dock-tabs { flex-wrap: nowrap; gap: 2px; margin: 6px; padding: 2px; overflow-x: auto; scrollbar-width: none; background: var(--bg); border-radius: 9px; box-shadow: inset 0 1px 2px #0006, 0 0 0 1px #ffffff0a; }
+.dock-tabs::-webkit-scrollbar { display: none; }
+.dock-tabs .panel-tab { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; height: 24px; padding: 0 4px; font-size: 12px; border: 0; border-radius: 7px; background: transparent; color: var(--dim); font-weight: 500; white-space: nowrap; cursor: pointer; }
+.dock-tabs .panel-tab:hover { color: var(--text); background: #ffffff0d; }
+.dock-tabs .panel-tab.active { color: var(--text); background: var(--panel-hi); box-shadow: 0 0 0 1px var(--line), 0 1px 2px #0006; }
 
 .color-panel, .swatches-panel { padding: 8px; border-bottom: 1px solid var(--line); }
 .color-wells { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
@@ -257,6 +273,7 @@ dialog button.primary { background: var(--accent); color: var(--on-accent); bord
 
 dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; min-width: 300px; }
 dialog::backdrop { background: #0008; }
+dialog.filter-dialog::backdrop { background: none; }
 dialog h2 { margin: 0 0 12px; font-size: 16px; }
 dialog label { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 dialog input, dialog select { flex: 1; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
@@ -270,7 +287,6 @@ dialog .actions { justify-content: flex-end; margin-top: 16px; }
 .glyph-scroll { max-height: 240px; overflow: auto; }
 
 /* Brush Settings and Brushes panels */
-.dock-tabs { flex-wrap: wrap; }
 .brush-settings, .brushes-panel { padding: 8px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
 .panel-note { margin: 0; color: var(--dim); }
 .brush-settings-body { display: grid; grid-template-columns: 112px 1fr; gap: 6px; min-height: 0; }

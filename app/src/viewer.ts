@@ -1,5 +1,5 @@
 import { FLOATS_PER_INSTANCE, type Renderer } from './render/renderer.ts';
-import { TILE, clipMatrix, docToScreen, fit, invalidateEntries, levelFor, panBy, screenToDoc, visibleRect, visibleTiles, zoomAt, type View } from './view.ts';
+import { TILE, clipMatrix, docToScreen, fit, invalidateEntries, levelFor, panBy, screenToDoc, visibleRect, visibleTiles, tweenView, zoomAt, type View } from './view.ts';
 
 // hand/zoom/rotate drive the viewer itself; any other tool id gets raw pointer events via onPointer.
 export type ViewerTool = 'hand' | 'zoom' | 'zoomOut' | 'rotate' | null;
@@ -50,6 +50,7 @@ export class Viewer {
   #free: number[] = [];
   #inflight = new Set<string>();
   #frame = 0;
+  #anim: { from: View; to: View; sx: number; sy: number; t0: number; ms: number } | null = null;
   #raf = 0;
   #inst = new Float32Array(1024 * FLOATS_PER_INSTANCE);
   #w = 1;
@@ -93,15 +94,34 @@ export class Viewer {
   }
 
   setView(v: View) {
+    this.#anim = null;
     this.view = v;
     this.onView(v);
     this.redraw();
   }
 
-  fit() { if (this.#doc) this.setView(fit(this.#doc.width, this.#doc.height, this.#w, this.#h)); }
+  // Eases to v (ease-out, zoom in log space) keeping screen point (sx, sy) anchored; a new call
+  // retargets from wherever the running ease is, so input never waits for it.
+  animateView(v: View, sx = this.#w / 2, sy = this.#h / 2, ms = 180) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.setView(v);
+    this.#anim = { from: this.view, to: v, sx, sy, t0: performance.now(), ms };
+    this.redraw();
+  }
+
+  #step() {
+    const a = this.#anim;
+    if (!a) return;
+    const t = Math.min(1, (performance.now() - a.t0) / a.ms);
+    this.view = tweenView(a.from, a.to, 1 - (1 - t) ** 3, a.sx, a.sy, this.#w, this.#h);
+    if (t === 1) this.#anim = null;
+    this.onView(this.view);
+    if (this.#anim) this.redraw();
+  }
+
+  fit() { if (this.#doc) this.animateView(fit(this.#doc.width, this.#doc.height, this.#w, this.#h)); }
   // Frames a document rect `[x, y, w, h]` (View > Fit Artboard on Screen).
-  fitRect(x: number, y: number, w: number, h: number) { this.setView({ ...fit(w, h, this.#w, this.#h), cx: x + w / 2, cy: y + h / 2 }); }
-  actualPixels() { this.setView({ ...this.view, zoom: 1 / this.dpr }); }
+  fitRect(x: number, y: number, w: number, h: number) { this.animateView({ ...fit(w, h, this.#w, this.#h), cx: x + w / 2, cy: y + h / 2 }); }
+  actualPixels() { this.animateView({ ...this.view, zoom: 1 / this.dpr }); }
   // The active tool (hand/zoom/rotate drive the viewer; anything else forwards through onPointer).
   setTool(t: ViewerTool) { this.#tool = t; }
   // A spring-loaded key override, e.g. held Space; null restores the active tool's own behavior.
@@ -110,11 +130,11 @@ export class Viewer {
   docToScreen(dx: number, dy: number): [number, number] { return docToScreen(this.view, dx, dy, this.#w, this.#h); }
   // The document rect on screen (a filter's live preview renders only this).
   visibleRect() { return this.#doc ? visibleRect(this.view, this.#w, this.#h, this.#doc.width, this.#doc.height) : null; }
-  zoomBy(f: number) { this.setView(zoomAt(this.view, f, this.#w / 2, this.#h / 2, this.#w, this.#h)); }
-  resetRotation() { this.setView({ ...this.view, rot: 0 }); }
+  zoomBy(f: number) { this.animateView(zoomAt(this.#anim?.to ?? this.view, f, this.#w / 2, this.#h / 2, this.#w, this.#h)); }
+  resetRotation() { this.animateView({ ...(this.#anim?.to ?? this.view), rot: 0 }); }
 
   redraw() {
-    if (!this.#raf) this.#raf = requestAnimationFrame(() => { this.#raf = 0; this.#draw(); });
+    if (!this.#raf) this.#raf = requestAnimationFrame(() => { this.#raf = 0; this.#step(); this.#draw(); });
   }
 
   #resetCache() {
@@ -289,7 +309,7 @@ export class Viewer {
         if (mode === 'zoom' || mode === 'zoomOut') {
           if (clicked) {
             const out = mode === 'zoomOut' || e.altKey;
-            this.setView(zoomAt(this.view, out ? 0.5 : 2, last[0], last[1], this.#w, this.#h));
+            this.animateView(zoomAt(this.#anim?.to ?? this.view, out ? 0.5 : 2, last[0], last[1], this.#w, this.#h), last[0], last[1]);
           }
         } else if (mode !== 'hand' && mode !== 'rotate') {
           this.#emit(toolEvent(e.type === 'pointercancel' ? 'cancel' : 'up', e, last));
@@ -304,7 +324,7 @@ export class Viewer {
       e.preventDefault();
       const [x, y] = local(e);
       const step = e.deltaMode === 1 ? 0.05 : 0.002;
-      this.setView(zoomAt(this.view, 2 ** (-e.deltaY * step), x, y, this.#w, this.#h));
+      this.animateView(zoomAt(this.#anim?.to ?? this.view, 2 ** (-e.deltaY * step), x, y, this.#w, this.#h), x, y, 110);
     }, { passive: false });
   }
 }

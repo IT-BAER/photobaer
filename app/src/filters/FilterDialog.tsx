@@ -117,7 +117,7 @@ export function FilterDialog({ ref, viewer, show, setError }: {
   const title = req ? (req.type === 'fade' ? `Fade ${req.step}` : req.spec.label) : 'Filter';
   const fields = req?.type === 'filter' ? fieldSpecs(req.spec) : FADE_FIELDS;
   return (
-    <dialog ref={dialog} aria-label={title} onClose={cancel} onKeyDown={e => setAlt(e.altKey)} onKeyUp={e => setAlt(e.altKey)}>
+    <dialog ref={dialog} className="filter-dialog" aria-label={title} onClose={cancel} onKeyDown={e => setAlt(e.altKey)} onKeyUp={e => setAlt(e.altKey)}>
       <form onSubmit={e => { e.preventDefault(); ok(); }}>
         <h2>{title}</h2>
         {req && fields.map(f => <Field key={f.path} spec={f} params={params} onChange={(path, v) => setParams(q => ({ ...q, [path]: v as ParamValue }))} />)}
