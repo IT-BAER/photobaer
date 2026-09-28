@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { docToScreen, screenToDoc, zoomAt, panBy, fit, levelFor, visibleTiles, clipMatrix, invalidateEntries, type View } from './view.ts';
+import { docToScreen, screenToDoc, zoomAt, panBy, fit, levelFor, visibleTiles, clipMatrix, invalidateEntries, visibleRect, type View } from './view.ts';
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 const W = 800, H = 600;
@@ -98,4 +98,10 @@ test('clipMatrix maps the view center to clip origin and a screen corner to (-1,
   const [dx, dy] = screenToDoc(v, 0, 0, W, H);
   const [cx, cy] = ap(dx, dy);
   near(cx, -1); near(cy, 1);
+});
+
+test('visibleRect bounds the viewport corners in whole doc px, clamped to the document', () => {
+  assert.deepEqual(visibleRect({ zoom: 2, rot: 0, cx: 50, cy: 50 }, 100, 60, 1000, 1000), [25, 35, 50, 30]);
+  assert.deepEqual(visibleRect({ zoom: 1, rot: 0, cx: 10, cy: 10 }, 100, 100, 30, 30), [0, 0, 30, 30]);
+  assert.deepEqual(visibleRect({ zoom: 1, rot: Math.PI / 4, cx: 100, cy: 100 }, 20, 20, 1000, 1000), [85, 85, 30, 30]);
 });

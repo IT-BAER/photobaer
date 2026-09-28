@@ -328,26 +328,6 @@ export function GlobalLightDialog({ globalLightDialog, doc, run }: { globalLight
   );
 }
 
-export function BlurDialog({ blurDialog, node, run }: { blurDialog: DialogRef; node: LayerNode | undefined; run: Run }) {
-  return (
-    <dialog ref={blurDialog}>
-      <form onSubmit={e => {
-        e.preventDefault();
-        const radius = Number(new FormData(e.currentTarget).get('radius'));
-        blurDialog.current?.close();
-        if (node) run(null, () => client.call('addSmartFilter', node.id, { kind: 'gaussian_blur', params: { radius } }, 'Gaussian Blur'));
-      }}>
-        <h2>Gaussian Blur</h2>
-        <label>Radius <input name="radius" type="number" min={0.1} max={250} step={0.1} defaultValue={2} required /> px</label>
-        <div className="actions">
-          <button type="button" onClick={() => blurDialog.current?.close()}>Cancel</button>
-          <button type="submit" className="primary">OK</button>
-        </div>
-      </form>
-    </dialog>
-  );
-}
-
 export function FilterBlendDialog({ filterBlendDialog, setFilterBlend, filterBlend, run, filters }: {
   filterBlendDialog: DialogRef; setFilterBlend: SetState<FilterBlend | null>; filterBlend: FilterBlend | null; run: Run; filters: SmartFilterInfo[];
 }) {

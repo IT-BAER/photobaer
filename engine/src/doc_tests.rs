@@ -794,7 +794,7 @@ fn v1_manifest_loads_as_pixel_nodes() {
     assert_eq!(n.locks, Locks::default());
     assert_eq!(at(&d, 0, 0), [7, 8, 9, 255]);
     let m = manifest_value(&d);
-    assert_eq!(m["version"].as_u64().unwrap(), 5);
+    assert_eq!(m["version"].as_u64().unwrap(), 6);
     assert_eq!(m["next_node_id"].as_u64().unwrap(), 3);
 }
 
@@ -854,7 +854,7 @@ fn manifest_rejections() {
         ("unknown kind", broken(|v| v["layers"][0]["kind"] = "text".into())),
         ("opacity out of range", broken(|v| v["layers"][0]["opacity"] = 2.into())),
         ("unknown field", broken(|v| v["layers"][0]["extra"] = 1.into())),
-        ("unsupported version", broken(|v| v["version"] = 6.into())),
+        ("unsupported version", broken(|v| v["version"] = 7.into())),
         ("tiles_x mismatch", broken(|v| v["tiles_x"] = 9.into())),
     ];
     for (what, json) in cases {
@@ -1589,7 +1589,7 @@ fn v3_round_trip_keeps_selection_channels_and_offset_tiles() {
     d.select_ellipse(0.0, 0.0, 200.0, 100.0, true, Mode::New).unwrap();
     d.offset_layer(1, -300, -40).unwrap();
     let m = manifest_value(&d);
-    assert_eq!(m["version"].as_u64().unwrap(), 5);
+    assert_eq!(m["version"].as_u64().unwrap(), 6);
     assert!(
         m["layers"][0]["tiles"].as_array().unwrap().iter().any(|e| e[0].as_i64().unwrap() < 0),
         "a tile outside the canvas is stored"
@@ -1627,7 +1627,7 @@ fn v2_manifest_still_loads() {
     assert_eq!(at(&d, 0, 0)[3], 0, "the empty dense slot stays empty");
     assert_eq!(d.flatten_tile_rgba8(1, 0).unwrap()[0..4], [7, 8, 9, 255]);
     let m = manifest_value(&d);
-    assert_eq!(m["version"].as_u64().unwrap(), 5);
+    assert_eq!(m["version"].as_u64().unwrap(), 6);
     assert_eq!(tile_id(&m["layers"][0]["tiles"], 1, 0), id, "dense slot 1 became tile (1, 0)");
     assert!(m["selection"].is_null());
     assert!(m["last_selection"].is_null());

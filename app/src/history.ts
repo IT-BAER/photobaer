@@ -78,6 +78,11 @@ export class History {
     return this.#undo[0]?.snap ?? null;
   }
 
+  // The snapshot before the last undo step (Edit > Fade mixes toward it), or null with no history.
+  lastSnapshot(): number | null {
+    return this.#undo.at(-1)?.snap ?? null;
+  }
+
   #push(step: Step) {
     this.#undo.push(step);
     this.#free(this.#redo.splice(0));

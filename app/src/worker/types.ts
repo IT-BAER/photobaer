@@ -52,7 +52,9 @@ export type DestructiveAdjustment =
 export type SmartLink = { type: 'embedded'; id: string } | { type: 'linked'; name: string; handle: string };
 // Engine warp mesh JSON: document-px control points over the source rect.
 export interface SmartWarp { cols: number; rows: number; points: [number, number][]; column_stops: number[]; row_stops: number[] }
-export type SmartFilterKind = Adjustment | { kind: 'gaussian_blur'; params: { radius: number } };
+// A registry filter (docs/M5.md section 1); the M3 adjustment kinds keep their typed params.
+export interface RegistryFilter { kind: string; params: Record<string, number | string | boolean> }
+export type SmartFilterKind = Adjustment | RegistryFilter;
 export interface SmartFilterInfo {
   id: number; filter: SmartFilterKind; enabled: boolean; opacity: number; blend: string; mask: { enabled: boolean; default: number } | null;
 }

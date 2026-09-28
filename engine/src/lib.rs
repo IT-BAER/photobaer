@@ -2,6 +2,7 @@ mod adjust;
 mod blend;
 mod content;
 mod doc;
+mod filters;
 mod font;
 mod glyph_cells;
 mod gradient;
@@ -181,6 +182,22 @@ impl Engine {
     /// Destructive apply of a destructive-only kind (shadows/highlights .. auto color).
     pub fn apply_destructive(&mut self, id: u32, json: &str) -> Result<(), JsError> {
         self.0.doc.apply_destructive(id, json).map_err(err)
+    }
+
+    /// Destructive filter `{ kind, params }` (docs/M5.md section 1) on `target` of layer `id`;
+    /// `view` `[x, y, w, h]` (empty for none) limits a live preview, `scale` below 1 runs a proxy.
+    pub fn apply_filter(&mut self, id: u32, target: &str, json: &str, view: Vec<i32>, scale: f32) -> Result<(), JsError> {
+        let view = match view.as_slice() {
+            [] => None,
+            &[x, y, w, h] => Some([x, y, w, h]),
+            _ => return Err(JsError::new("view must be empty or [x, y, w, h]")),
+        };
+        self.0.doc.apply_filter(id, Target::parse(target).map_err(err)?, json, view, scale).map_err(err)
+    }
+
+    /// Edit > Fade: JSON `{ opacity, mode }` toward layer `id` in snapshot `snap`.
+    pub fn fade(&mut self, id: u32, snap: u32, json: &str) -> Result<(), JsError> {
+        self.0.fade(id, snap, json).map_err(err)
     }
 
     /// Renders a fill layer into pixel tiles over the document bounds, keeping its id.
@@ -1089,6 +1106,12 @@ impl Engine {
     pub fn rasterize_vector_mask(&mut self, id: u32) -> Result<(), JsError> {
         self.0.doc.rasterize_vector_mask(id).map_err(err)
     }
+}
+
+/// The filter registry as JSON (docs/M5.md section 1, D3).
+#[wasm_bindgen]
+pub fn filter_schema() -> String {
+    filters::schema_json()
 }
 
 /// The path JSON a live shape JSON generates (the shape tools' Path mode).

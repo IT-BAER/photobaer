@@ -8,6 +8,7 @@ import type { Rgb } from '../shell/color.ts';
 import { MODES, type TransformBarStore, type WarpSplit } from '../shell/TransformBar.tsx';
 import type { Command, Mode } from '../transform/session.ts';
 import type { Viewer } from '../viewer.ts';
+import { GROUPS, menuLabel, type FilterSpec } from '../filters/schema.ts';
 import type { DocInfo, LayerNode, SmartFilterInfo, SmartInfo } from '../worker/types.ts';
 import type { SnapSettings } from '../shell/snapping.ts';
 import type { ArtboardMode } from './Dialogs.tsx';
@@ -38,7 +39,8 @@ export interface MenuCtx {
   openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; applyDestructive: (kind: DestructiveKind) => void;
   rotateDialog: DialogRef; trimDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
-  loadSelDialog: DialogRef; saveSelDialog: DialogRef; blurDialog: DialogRef; viewer: RefObject<Viewer | null>;
+  loadSelDialog: DialogRef; saveSelDialog: DialogRef; viewer: RefObject<Viewer | null>;
+  filterSpecs: FilterSpec[]; openFilter: (spec: FilterSpec) => void; lastFilter: () => void; openFade: () => void;
   showAnts: boolean; setShowAnts: SetState<boolean>; showAdjustments: boolean; setShowAdjustments: SetState<boolean>;
   showLayerComps: boolean; setShowLayerComps: SetState<boolean>; showPaths: boolean; setShowPaths: SetState<boolean>; showProperties: boolean; setShowProperties: SetState<boolean>;
   showStyles: boolean; setShowStyles: SetState<boolean>; showPatterns: boolean; setShowPatterns: SetState<boolean>;
@@ -59,11 +61,11 @@ export function buildMenus(c: MenuCtx) {
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
     globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog,
-    openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
+    openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
-    selectedNodes, showShapes, setShowShapes, typeItems,
+    selectedNodes, showShapes, setShowShapes, typeItems, filterSpecs, openFilter, lastFilter, openFade,
   } = c;
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
@@ -113,6 +115,7 @@ export function buildMenus(c: MenuCtx) {
     Edit: [
       { label: doc?.undoLabel ? `Undo ${doc.undoLabel}` : 'Undo', keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
       { label: doc?.redoLabel ? `Redo ${doc.redoLabel}` : 'Redo', keys: 'Shift+Ctrl+Z', run: () => run(null, () => client.call('redo')), off: !doc?.redoLabel },
+      { label: 'Fade…', keys: 'Shift+Ctrl+F', run: openFade, off: !doc?.undoLabel || !active || node?.kind !== 'pixel' },
       { label: 'Fill…', keys: 'Shift+F5', run: () => openPreviewDialog('fill'), off: !has || !active },
       { label: 'Fill with Foreground Color', keys: 'Alt+Backspace', run: () => quickFill(fg, 'Fill with Foreground Color'), off: !has || !active },
       { label: 'Fill with Background Color', keys: 'Ctrl+Backspace', run: () => quickFill(bg, 'Fill with Background Color'), off: !has || !active },
@@ -236,12 +239,12 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Transform Selection', run: () => void startTransform('free', true), off: !has || !!transformStore },
     ],
     Filter: [
-      { label: 'Convert for Smart Filters', run: () => node && run('Converting…', () => client.call('convertForSmartFilters', node.id)), off: !has || node?.kind !== 'pixel' },
-      {
-        label: 'Blur', keys: '›', sep: true, run: () => {}, off: !has || !smart, sub: [
-          { label: 'Gaussian Blur…', run: () => { setMenu(null); blurDialog.current?.showModal(); } },
-        ],
-      },
+      { label: 'Last Filter', keys: 'Alt+Ctrl+F', run: lastFilter, off: !has || !active },
+      { label: 'Convert for Smart Filters', sep: true, run: () => node && run('Converting…', () => client.call('convertForSmartFilters', node.id)), off: !has || node?.kind !== 'pixel' },
+      ...GROUPS.map(([g, name]) => ({ name, specs: filterSpecs.filter(s => s.group === g) })).filter(g => g.specs.length).map((g, i) => ({
+        label: g.name, keys: '›', sep: i === 0, run: () => {}, off: !has || !active,
+        sub: g.specs.map(s => ({ label: menuLabel(s), run: () => openFilter(s) })),
+      })),
     ],
     View: [
       { label: 'Zoom in', keys: 'Ctrl++', run: () => { setMenu(null); viewer.current?.zoomBy(2); }, off: !has },

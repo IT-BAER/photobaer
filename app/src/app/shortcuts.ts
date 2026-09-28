@@ -69,6 +69,8 @@ export function useShortcuts(c: ShortcutCtx) {
         return;
       }
       if (ctrl && e.altKey && k === 'n') trigger('New', e);
+      else if (ctrl && e.altKey && !e.shiftKey && k === 'f') trigger('Last Filter', e);
+      else if (ctrl && e.shiftKey && !e.altKey && k === 'f') trigger('Fade', e);
       else if (ctrl && k === 'o') trigger('Open', e);
       else if (ctrl && k === 's') trigger('Save project', e);
       else if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) trigger('Redo', e);

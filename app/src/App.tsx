@@ -68,8 +68,11 @@ import { fontUses, missingRows } from './shell/typecommands.ts';
 import { useCropTool, usePerspectiveCropTool } from './app/cropTools.ts';
 import { usePaintTool } from './app/paintTool.ts';
 import { useShortcuts } from './app/shortcuts.ts';
+import { FilterDialog, runFilter, type FilterDialogHandle } from './filters/FilterDialog.tsx';
+import { repeatLastFilter } from './filters/lastFilter.ts';
+import { schema, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
-  AdjustDialog, BlurDialog, ColorRangeDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
+  AdjustDialog, ColorRangeDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
   LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
   ScaleEffectsDialog, StrokeDialog, TrimDialog,
 } from './app/Dialogs.tsx';
@@ -227,8 +230,9 @@ export function App() {
   const [styleDialog, setStyleDialog] = useState<{ id: number; page: StylePage; n: number } | null>(null);
   const globalLightDialog = useRef<HTMLDialogElement>(null);
   const scaleEffectsDialog = useRef<HTMLDialogElement>(null);
-  // Filter > Blur > Gaussian Blur and Layer > Smart Filter > Blending Options (smart filters, section 7).
-  const blurDialog = useRef<HTMLDialogElement>(null);
+  // The Filter menu's generic dialog (also Edit > Fade) and Layer > Smart Filter > Blending Options.
+  const filterDialog = useRef<FilterDialogHandle>(null);
+  const [filterSpecs, setFilterSpecs] = useState<FilterSpec[]>(schema);
   const filterBlendDialog = useRef<HTMLDialogElement>(null);
   const [filterBlend, setFilterBlend] = useState<{ id: number; fid: number; blend: string; opacity: number } | null>(null);
   const gradLib = useRef<GradientLibrary | null>(null);
@@ -563,6 +567,28 @@ export function App() {
     run(null, () => st.pending.catch(() => {}).then(() => client.call('previewEnd', st.commit)));
   }
 
+  // Filter menu commands (docs/M5.md section 2) on the active target; a smart object appends a smart filter.
+  function openFilter(spec: FilterSpec) {
+    setMenu(null);
+    if (!active) return;
+    if (transformRef.current) endTransform(false);
+    runFilter(spec, active.id, editTarget(active), filterDialog.current, d => show(d)).catch(e => setError((e as Error).message));
+  }
+
+  function lastFilter() {
+    setMenu(null);
+    if (!active) return;
+    const a = active;
+    if (transformRef.current) endTransform(false);
+    repeatLastFilter(f => client.call('applyFilter', a.id, editTarget(a), { kind: f.kind, params: f.params }, f.label).then(d => show(d)), m => setError(m))
+      .catch(e => setError((e as Error).message));
+  }
+
+  function openFade() {
+    setMenu(null);
+    if (active && doc?.undoLabel) filterDialog.current?.open({ type: 'fade', id: active.id, step: doc.undoLabel });
+  }
+
   function openAdjust(kind: Kind | DestructiveKind) {
     setMenu(null);
     if (!active || !node) return;
@@ -839,10 +865,10 @@ export function App() {
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
     globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog,
-    openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, blurDialog, viewer, showAnts, setShowAnts,
+    openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap,
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, lastFilter, openFade,
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
     selectedNodes, showShapes, setShowShapes, typeItems: typeMenuItems(typeCtx),
   });
@@ -872,6 +898,7 @@ export function App() {
         perfRef.current = perfTestHook(v);
         (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client, ...gpuTestHook(client, r), ...(perfRef.current ? { perf: perfRef.current } : {}) };
         show(await client.call('init'));
+        client.call('filterSchema').then(f => { setSchema(f as FilterSpec[]); setFilterSpecs(f as FilterSpec[]); }, err => setError((err as Error).message));
         loadFonts(client).then(f => { if (alive) setFaces(f); }, err => setError((err as Error).message));
         // A granted permission lists system fonts without a click; otherwise Type > Load System Fonts asks.
         if (localFontsSupported()) navigator.permissions?.query({ name: 'local-fonts' as PermissionName })
@@ -1520,7 +1547,7 @@ export function App() {
         />
       )}
       <GlobalLightDialog globalLightDialog={globalLightDialog} doc={doc} run={run} />
-      <BlurDialog blurDialog={blurDialog} node={node} run={run} />
+      <FilterDialog ref={filterDialog} viewer={viewer} show={d => show(d)} setError={m => setError(m)} />
       <FilterBlendDialog
         filterBlendDialog={filterBlendDialog} setFilterBlend={setFilterBlend} filterBlend={filterBlend} run={run} filters={filters}
       />

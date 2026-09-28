@@ -12,15 +12,6 @@ const NO_SOURCE: &str = "This Smart Object has no source pixels; use Replace Con
 const GONE: &str = "That smart filter is no longer in the stack.";
 const NO_MASK: &str = "The selected smart filters have no filter mask.";
 
-// Pixels a `styles::gaussian` of `size` reaches past the content on each side.
-fn blur_reach(size: f32) -> i32 {
-    if size <= 12.0 {
-        (size.ceil() as i32).max(1)
-    } else {
-        styles::gauss_boxes(size as f64 / 3.0).iter().sum::<usize>() as i32
-    }
-}
-
 fn filter_at(filters: &mut [SmartFilter], fid: u32) -> Result<&mut SmartFilter, String> {
     filters.iter_mut().find(|f| f.id == fid).ok_or_else(|| GONE.to_string())
 }
@@ -177,7 +168,7 @@ impl Document {
     pub(super) fn filtered(&mut self, base: Tiles, filters: &[SmartFilter], stack: Option<&Mask>) -> Result<Tiles, String> {
         let on: Vec<&SmartFilter> = filters.iter().filter(|f| f.enabled).collect();
         let Some(b) = tile_rect(&base).filter(|_| !on.is_empty()) else { return Ok(base) };
-        let reach: i32 = on.iter().map(|f| if let Filter::GaussianBlur(g) = &f.filter { blur_reach(g.radius) } else { 0 }).sum();
+        let reach: i32 = on.iter().map(|f| f.filter.reach()).sum();
         let r = [b[0] - reach, b[1] - reach, b[2] + 2 * reach, b[3] + 2 * reach];
         check_area(r)?;
         let (w, h) = (r[2] as usize, r[3] as usize);
@@ -188,22 +179,26 @@ impl Document {
         for f in on {
             let own = plane(f.mask.as_ref());
             let weight = |i: usize| f.opacity * own.as_ref().map_or(1.0, |m| m[i]) * stack.as_ref().map_or(1.0, |m| m[i]);
-            if let Filter::GaussianBlur(g) = &f.filter {
-                let ch: Vec<Vec<f32>> = (0..4)
-                    .map(|c| styles::gaussian(&styles::Plane { w, h, v: px.iter().skip(c).step_by(4).copied().collect() }, g.radius).v)
-                    .collect();
+            let spec = f.filter.spec()?;
+            if !spec.adjustment {
+                let mut plane = filters::Plane { x: r[0], y: r[1], w, h, data: px.clone() };
+                plane.unpremultiply();
+                filters::apply(&f.filter, &mut plane, &filters::Ctx { blobs: &self.blobs, cov: None })?;
                 for i in 0..w * h {
                     let a = weight(i);
                     if a <= 0.0 {
                         continue;
                     }
-                    let (old, bl): ([f32; 4], [f32; 4]) = (px[i * 4..i * 4 + 4].try_into().expect("4 channels"), std::array::from_fn(|c| ch[c][i]));
-                    let src = if f.blend == Blend::Normal || bl[3] <= 0.0 {
-                        bl
+                    let old: [f32; 4] = px[i * 4..i * 4 + 4].try_into().expect("4 channels");
+                    let n = &plane.data[i * 4..i * 4 + 4];
+                    let na = if spec.keep_alpha { old[3] } else { n[3].clamp(0.0, 1.0) };
+                    let nc = [n[0].clamp(0.0, 1.0), n[1].clamp(0.0, 1.0), n[2].clamp(0.0, 1.0)];
+                    let src = if f.blend == Blend::Normal || na <= 0.0 || old[3] <= 0.0 {
+                        [nc[0] * na, nc[1] * na, nc[2] * na, na]
                     } else {
-                        let un = |p: [f32; 4]| if p[3] > 0.0 { [p[0] / p[3], p[1] / p[3], p[2] / p[3]] } else { [0.0; 3] };
-                        let c = blend_rgb(f.blend, un(old), un(bl));
-                        [c[0] * bl[3], c[1] * bl[3], c[2] * bl[3], bl[3]]
+                        let un = [old[0] / old[3], old[1] / old[3], old[2] / old[3]];
+                        let c = blend_rgb(f.blend, un, nc);
+                        [c[0] * na, c[1] * na, c[2] * na, na]
                     };
                     for c in 0..4 {
                         px[i * 4 + c] = old[c] + (src[c] - old[c]) * a;
@@ -267,14 +262,10 @@ impl Document {
         Ok(out)
     }
 
-    fn check_filter(&self, f: &Filter) -> Result<(), String> {
-        f.validate()?;
-        self.check_blob(f.blob())
-    }
-
     // Appends an enabled normal filter at full opacity; returns its id.
-    fn push_filter(&mut self, id: u32, filter: Filter, mask: Option<Mask>) -> Result<u32, String> {
-        self.check_filter(&filter)?;
+    pub(super) fn push_filter(&mut self, id: u32, filter: Filter, mask: Option<Mask>) -> Result<u32, String> {
+        let filter = filter.normalized()?;
+        self.check_blob(filter.blob())?;
         self.edit_filters(id, |filters, _| {
             let fid = filters.iter().map(|f| f.id).max().unwrap_or(0) + 1;
             filters.push(SmartFilter { id: fid, filter, enabled: true, opacity: 1.0, blend: Blend::Normal, mask });
@@ -284,8 +275,7 @@ impl Document {
 
     /// Appends filter `json` (`{ kind, params }`) to smart object `id`'s stack; returns its id.
     pub fn add_smart_filter(&mut self, id: u32, json: &str) -> Result<u32, String> {
-        let f: Filter = serde_json::from_str(json).map_err(|e| format!("invalid smart filter: {e}"))?;
-        self.push_filter(id, f, None)
+        self.push_filter(id, Filter::parse(json)?, None)
     }
 
     /// Applying a hosted adjustment to a smart object: a new filter masked to the selection.
@@ -296,9 +286,11 @@ impl Document {
 
     /// JSON `{ filter?, enabled?, opacity?, blend? }` for filter `fid`.
     pub fn set_smart_filter(&mut self, id: u32, fid: u32, json: &str) -> Result<(), String> {
-        let p: FilterPatch = serde_json::from_str(json).map_err(|e| format!("invalid smart filter: {e}"))?;
-        if let Some(f) = &p.filter {
-            self.check_filter(f)?;
+        let mut p: FilterPatch = serde_json::from_str(json).map_err(|e| format!("invalid smart filter: {e}"))?;
+        if let Some(f) = p.filter.take() {
+            let f = f.normalized()?;
+            self.check_blob(f.blob())?;
+            p.filter = Some(f);
         }
         if let Some(o) = p.opacity {
             unit(o, "filter opacity")?;
@@ -1152,7 +1144,8 @@ mod tests {
         let f = &smart_of(&d, id).filters[1];
         assert_eq!((f.enabled, f.blend, f.opacity), (false, Blend::Multiply, 0.25));
         d.set_smart_filter(id, b, r#"{"filter":{"kind":"posterize","params":{"levels":8}}}"#).unwrap();
-        assert!(matches!(smart_of(&d, id).filters[1].filter, Filter::Posterize(ref p) if p.levels == 8));
+        let f = &smart_of(&d, id).filters[1].filter;
+        assert_eq!((f.kind.as_str(), f.num("levels")), ("posterize", 8.0));
         let gone = "That smart filter is no longer in the stack.";
         assert_eq!(d.set_smart_filter(id, 9, r#"{"enabled":true}"#).unwrap_err(), gone);
         assert!(d.set_smart_filter(id, a, r#"{"opacity":2}"#).is_err());

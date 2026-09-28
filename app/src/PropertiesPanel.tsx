@@ -15,6 +15,7 @@ import {
 } from './adjustments.ts';
 import { rampCss, type Gradient } from './gradients/gradient.ts';
 import { LevelsCurvesBody, type SampleCanvas } from './LevelsCurvesBody.tsx';
+import { fieldSpecs, specOf } from './filters/schema.ts';
 
 type Run = (label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) => Promise<void>;
 export type OpenGradientEditor = (g: Gradient, onOk: (g: Gradient) => void) => void;
@@ -163,11 +164,10 @@ export function PropertiesPanel({ doc, node, run, openGradientEditor, pickLookup
   );
 }
 
-const BLUR_RADIUS: FieldSpec = { type: 'number', label: 'Radius', path: 'radius', min: 0.1, max: 250, step: 0.1 };
 const OPACITY: FieldSpec = { type: 'number', label: 'Opacity', path: 'opacity', min: 0, max: 100, step: 1, scale: 100 };
 
 export function filterLabel(f: SmartFilterKind): string {
-  return f.kind === 'gaussian_blur' ? 'Gaussian Blur' : MENU_LABEL[f.kind];
+  return specOf(f.kind)?.label ?? f.kind;
 }
 
 // Properties for a smart object (B11-4): each filter's enable checkbox and opacity slider, and the params of
@@ -179,6 +179,7 @@ export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFil
   const [picked, setPicked] = useState<number | null>(null);
   const dragging = useRef(false);
   const current = filters.find(f => f.id === picked) ?? filters.at(-1);
+  const spec = current && specOf(current.filter.kind);
   const set = (fid: number, patch: Partial<Omit<SmartFilterInfo, 'id' | 'mask'>>, live: boolean) => {
     if (live) { dragging.current = true; void run(null, () => client.call('setSmartFilter', node.id, fid, patch, 'Smart Filter', true)); return; }
     if (dragging.current) { dragging.current = false; void run(null, () => client.call('previewEnd', true)); return; }
@@ -200,9 +201,10 @@ export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFil
       {current && (
         <>
           <h3>{filterLabel(current.filter)}</h3>
-          {current.filter.kind === 'gaussian_blur'
-            ? <Field spec={BLUR_RADIUS} params={current.filter.params} onChange={(_, v, live) => set(current.id, { filter: { kind: 'gaussian_blur', params: { radius: v as number } } }, live)} />
-            : <AdjustmentBody key={current.id} adjustment={current.filter} onChange={(a, live) => set(current.id, { filter: a as Adjustment }, live)}
+          {spec && spec.editor !== 'adjustment'
+            ? fieldSpecs(spec).map(fs => <Field key={fs.path} spec={fs} params={current.filter.params}
+                onChange={(path, v, live) => set(current.id, { filter: { kind: spec.id, params: { ...current.filter.params, [path]: v } } as SmartFilterKind }, live)} />)
+            : <AdjustmentBody key={current.id} adjustment={current.filter as Adjustment} onChange={(a, live) => set(current.id, { filter: a as Adjustment }, live)}
                 openGradientEditor={openGradientEditor} pickLookupFile={pickLookupFile} histogramId={node.id} sampleCanvas={sampleCanvas} />}
         </>
       )}

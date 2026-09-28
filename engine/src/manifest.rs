@@ -258,6 +258,7 @@ impl Document {
                     Vec::new(),
                     None,
                     None,
+                    false,
                 )
             }
             2 => {
@@ -273,6 +274,7 @@ impl Document {
                     Vec::new(),
                     None,
                     None,
+                    false,
                 )
             }
             3 => {
@@ -287,6 +289,7 @@ impl Document {
                     m.channels,
                     None,
                     None,
+                    false,
                 )
             }
             4 => {
@@ -307,9 +310,10 @@ impl Document {
                     m.channels,
                     Some(extras),
                     None,
+                    false,
                 )
             }
-            5 => {
+            5 | 6 => {
                 let m: ManifestV5In = serde_json::from_str(json).map_err(|e| format!("invalid manifest: {e}"))?;
                 let extras = V4Extras {
                     global_light: m.global_light,
@@ -335,6 +339,7 @@ impl Document {
                     m.channels,
                     Some(extras),
                     Some(vector),
+                    probe.version == 6,
                 )
             }
             v => Err(format!("unsupported version {v}")),
@@ -352,6 +357,7 @@ impl Document {
         channels: Vec<ChannelIn>,
         extras: Option<V4Extras>,
         vector: Option<DocVector>,
+        v6: bool,
     ) -> Result<Document, String> {
         let Head { width, height, depth, tiles_x, tiles_y } = head;
         validate_dims(width, height, depth)?;
@@ -377,6 +383,7 @@ impl Document {
             max_referenced_id: 0,
             v4: extras.is_some(),
             v5,
+            v6,
             vector,
             patterns: HashSet::new(),
             blob_refs: Vec::new(),
@@ -539,6 +546,7 @@ struct LoadCtx {
     max_referenced_id: u64,
     v4: bool,
     v5: bool,
+    v6: bool,
     vector: DocVector,
     patterns: HashSet<String>,
     blob_refs: Vec<u64>,
@@ -773,15 +781,18 @@ fn take_smart(s: &SmartIn, cache: &[Coord], path: &[usize], ctx: &mut LoadCtx) -
             return Err(format!("duplicate smart filter id {}", f.id));
         }
         unit(f.opacity, "filter opacity")?;
-        f.filter.validate()?;
+        let filter = f.filter.clone().normalized()?;
+        if !ctx.v6 && filter.spec()?.group != "adjust" && filter.kind != "gaussian_blur" {
+            return Err(format!("smart filter kind \"{}\" needs a v6 manifest", filter.kind));
+        }
         if f.blend == Blend::PassThrough {
             return Err("pass through is only allowed on groups".into());
         }
-        ctx.blob_refs.extend(f.filter.blob());
+        ctx.blob_refs.extend(filter.blob());
         let mask = f.mask.as_ref().map(|m| take_mask(m, Slot::FilterMask(path.to_vec(), i), ctx)).transpose()?;
         filters.push(SmartFilter {
             id: f.id,
-            filter: f.filter.clone(),
+            filter,
             enabled: f.enabled,
             opacity: f.opacity,
             blend: f.blend,

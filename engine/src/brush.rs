@@ -935,6 +935,12 @@ impl EngineCore {
         self.snapshots.remove(&id);
     }
 
+    /// Edit > Fade toward layer `id` in snapshot `snap` (the state before the last step).
+    pub fn fade(&mut self, id: u32, snap: u32, json: &str) -> Result<(), String> {
+        let prev = self.snapshots.get(&snap).ok_or("There is nothing to fade.")?;
+        self.doc.fade(id, prev, json)
+    }
+
     // Searches the current document first, then every live snapshot: an
     // autosave can hold a snapshot's tile ids after the live doc drops them.
     pub fn tile_bytes(&self, id: u64) -> Result<Vec<u8>, String> {

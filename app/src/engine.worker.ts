@@ -1,4 +1,4 @@
-import init, { Engine, Fonts, fit_path, live_path } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts, filter_schema, fit_path, live_path } from './engine-pkg/photobaer_engine.js';
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
@@ -1733,6 +1733,25 @@ const api = {
       e.convert_for_smart_filters(id, JSON.stringify({ link_id: uuid(), source_blob: blob }));
     });
     return changed();
+  },
+
+  // The filter registry (docs/M5.md section 1) the Filter menu and dialog are built from.
+  filterSchema() {
+    return JSON.parse(filter_schema()) as unknown[];
+  },
+
+  // A registry filter on `target`; a preview limits it to `view` [x, y, w, h] at proxy `scale`.
+  applyFilter(id: number, target: 'pixels' | 'mask' | 'selection', filter: SmartFilterKind, label: string, preview = false, view: number[] = [], scale = 1) {
+    const e = need();
+    return edit(label, preview, () => e.apply_filter(id, target, JSON.stringify(filter), Int32Array.from(view), scale));
+  },
+
+  // Edit > Fade: mixes layer `id` back toward the state before the last step.
+  fade(id: number, params: { opacity: number; mode: string }, preview = false) {
+    const e = need();
+    const snap = history.lastSnapshot();
+    if (snap === null) throw new Error('There is nothing to fade.');
+    return edit('Fade', preview, () => e.fade(id, snap, JSON.stringify(params)));
   },
 
   // Appends a smart filter (Filter > Blur > Gaussian Blur); `preview` reruns inside the dialog's session.

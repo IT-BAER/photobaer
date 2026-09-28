@@ -1,5 +1,5 @@
 import { FLOATS_PER_INSTANCE, type Renderer } from './render/renderer.ts';
-import { TILE, clipMatrix, docToScreen, fit, invalidateEntries, levelFor, panBy, screenToDoc, visibleTiles, zoomAt, type View } from './view.ts';
+import { TILE, clipMatrix, docToScreen, fit, invalidateEntries, levelFor, panBy, screenToDoc, visibleRect, visibleTiles, zoomAt, type View } from './view.ts';
 
 // hand/zoom/rotate drive the viewer itself; any other tool id gets raw pointer events via onPointer.
 export type ViewerTool = 'hand' | 'zoom' | 'zoomOut' | 'rotate' | null;
@@ -108,6 +108,8 @@ export class Viewer {
   setSpring(t: ViewerTool) { this.#spring = t; }
   screenToDoc(sx: number, sy: number): [number, number] { return screenToDoc(this.view, sx, sy, this.#w, this.#h); }
   docToScreen(dx: number, dy: number): [number, number] { return docToScreen(this.view, dx, dy, this.#w, this.#h); }
+  // The document rect on screen (a filter's live preview renders only this).
+  visibleRect() { return this.#doc ? visibleRect(this.view, this.#w, this.#h, this.#doc.width, this.#doc.height) : null; }
   zoomBy(f: number) { this.setView(zoomAt(this.view, f, this.#w / 2, this.#h / 2, this.#w, this.#h)); }
   resetRotation() { this.setView({ ...this.view, rot: 0 }); }
 

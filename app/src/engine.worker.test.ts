@@ -1771,3 +1771,23 @@ test('text styles, Insert Glyph and missing-font replacement land as one step ea
   assert.notEqual(w1, w0, 'the fallback face pixels are gone');
   assert.equal(w1, await ink(sid));
 });
+
+test('applyFilter runs a registry filter as one step, previews in a session, and Fade mixes it back', async () => {
+  await call('init');
+  const schema = (await call('filterSchema')).result as { id: string; label: string }[];
+  assert.ok(schema.some(s => s.id === 'gaussian_blur' && s.label === 'Gaussian Blur'));
+  await call('newDoc', 8, 8, 8, [200, 100, 50, 255]);
+  const none = await call('fade', 1, { opacity: 50, mode: 'normal' });
+  assert.equal(none.error, 'There is nothing to fade.');
+  await call('applyFilter', 1, 'pixels', { kind: 'stylize.solarize', params: {} }, 'Solarize', true, [0, 0, 4, 4], 1);
+  assert.deepEqual(await px(1, 1), [110, 200, 100, 255], 'the preview filters inside the view rect');
+  assert.deepEqual(await px(6, 6), [200, 100, 50, 255], 'and leaves the rest');
+  await call('previewEnd', false);
+  const r = await call('applyFilter', 1, 'pixels', { kind: 'stylize.solarize', params: {} }, 'Solarize');
+  assert.equal((r.result as { undoLabel: string }).undoLabel, 'Solarize');
+  assert.deepEqual(await px(6, 6), [110, 200, 100, 255]);
+  const f = await call('fade', 1, { opacity: 50, mode: 'normal' });
+  assert.equal((f.result as { undoLabel: string }).undoLabel, 'Fade');
+  const [red, green, blue] = await px(6, 6);
+  assert.ok(Math.abs(red! - 155) <= 1 && Math.abs(green! - 150) <= 1 && Math.abs(blue! - 75) <= 1, `half faded, got ${[red, green, blue]}`);
+});

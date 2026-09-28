@@ -4,10 +4,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::adjust::{
-    Adjustment, BlackWhite, BrightnessContrast, ChannelMixer, ColorBalance, ColorLookup, Curves, Exposure, GradientMap,
-    HueSaturation, Invert, Levels, PhotoFilter, Posterize, SelectiveColor, Threshold, Vibrance,
-};
 use crate::blend::Blend;
 use crate::doc::{Mask, Tiles};
 use crate::gradient;
@@ -253,61 +249,7 @@ pub enum StackMode {
     Variance,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct GaussianBlur {
-    pub radius: f32,
-}
-
-/// A command a smart filter hosts in M3 (D8): the 16 adjustment kinds plus Gaussian blur.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "params", rename_all = "snake_case", deny_unknown_fields)]
-pub enum Filter {
-    BrightnessContrast(BrightnessContrast),
-    Levels(Levels),
-    Curves(Curves),
-    Exposure(Exposure),
-    Vibrance(Vibrance),
-    HueSaturation(HueSaturation),
-    ColorBalance(ColorBalance),
-    BlackWhite(BlackWhite),
-    PhotoFilter(PhotoFilter),
-    ChannelMixer(ChannelMixer),
-    ColorLookup(ColorLookup),
-    Invert(Invert),
-    Posterize(Posterize),
-    Threshold(Threshold),
-    GradientMap(GradientMap),
-    SelectiveColor(SelectiveColor),
-    GaussianBlur(GaussianBlur),
-}
-
-impl Filter {
-    pub fn blob(&self) -> Option<u64> {
-        match self {
-            Filter::ColorLookup(c) => c.table,
-            _ => None,
-        }
-    }
-
-    /// The adjustment kind this filter runs, none for Gaussian blur (both share the kind tags).
-    pub fn adjustment(&self) -> Option<Adjustment> {
-        serde_json::from_value(serde_json::to_value(self).ok()?).ok()
-    }
-
-    pub fn from_adjustment(a: &Adjustment) -> Filter {
-        serde_json::from_value(serde_json::to_value(a).expect("an adjustment serializes")).expect("every adjustment kind is a filter")
-    }
-
-    /// The UI ranges (section 3 for the adjustments; blur radius 0.1..=250 px).
-    pub fn validate(&self) -> Result<(), String> {
-        match (self, self.adjustment()) {
-            (_, Some(a)) => a.validate(),
-            (Filter::GaussianBlur(g), None) if (0.1..=250.0).contains(&g.radius) => Ok(()),
-            _ => Err("Gaussian blur radius must be in 0.1..=250".into()),
-        }
-    }
-}
+pub use crate::filters::Filter;
 
 /// One entry of a smart object's filter stack, which runs bottom to top in array order.
 #[derive(Clone)]

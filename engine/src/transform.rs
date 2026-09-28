@@ -41,7 +41,7 @@ pub(super) fn check_area(r: [i32; 4]) -> Result<(), String> {
 const TI: i32 = TILE as i32;
 
 // Tile coords covering a document rect, not clipped to the canvas.
-fn tile_span(r: [i32; 4]) -> Vec<(i32, i32)> {
+pub(super) fn tile_span(r: [i32; 4]) -> Vec<(i32, i32)> {
     if r[2] <= 0 || r[3] <= 0 {
         return Vec::new();
     }
@@ -55,7 +55,7 @@ fn tile_span(r: [i32; 4]) -> Vec<(i32, i32)> {
     out
 }
 
-fn intersect(a: [i32; 4], b: [i32; 4]) -> [i32; 4] {
+pub(super) fn intersect(a: [i32; 4], b: [i32; 4]) -> [i32; 4] {
     let (x0, y0) = (a[0].max(b[0]), a[1].max(b[1]));
     let (x1, y1) = ((a[0] + a[2]).min(b[0] + b[2]), (a[1] + a[3]).min(b[1] + b[3]));
     [x0, y0, (x1 - x0).max(0), (y1 - y0).max(0)]
@@ -79,7 +79,7 @@ fn check_tile_range(tx0: i64, ty0: i64, tx1: i64, ty1: i64) -> Result<(), String
     Ok(())
 }
 
-fn all_default(px: &Pixels, default: u32) -> bool {
+pub(super) fn all_default(px: &Pixels, default: u32) -> bool {
     match px {
         Pixels::Mask8(d) => d.iter().all(|v| *v as u32 == default),
         Pixels::Mask16(d) => d.iter().all(|v| *v as u32 == default),

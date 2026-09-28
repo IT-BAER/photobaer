@@ -37,6 +37,15 @@ export function levelFor(zoom: number, dpr: number, maxLevel: number): number {
   return Math.min(maxLevel, Math.max(0, l));
 }
 
+// The doc rect [x, y, w, h] bounding the (rotated) viewport, in whole px clamped to the document.
+export function visibleRect(v: View, w: number, h: number, docW: number, docH: number): [number, number, number, number] {
+  const q = [screenToDoc(v, 0, 0, w, h), screenToDoc(v, w, 0, w, h), screenToDoc(v, w, h, w, h), screenToDoc(v, 0, h, w, h)];
+  const xs = q.map(p => p[0]), ys = q.map(p => p[1]);
+  const x0 = Math.max(0, Math.floor(Math.min(...xs))), y0 = Math.max(0, Math.floor(Math.min(...ys)));
+  const x1 = Math.min(docW, Math.ceil(Math.max(...xs))), y1 = Math.min(docH, Math.ceil(Math.max(...ys)));
+  return [x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0)];
+}
+
 // Tiles of the given level that intersect the rotated viewport, nearest to the viewport center first.
 export function visibleTiles(v: View, w: number, h: number, level: number, docW: number, docH: number): [number, number][] {
   const size = TILE << level;
