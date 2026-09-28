@@ -1,6 +1,7 @@
 {
   "name": "photobaer",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "build:engine": "cargo build --release --target wasm32-unknown-unknown --manifest-path engine/Cargo.toml && wasm-bindgen --target web --out-dir app/src/engine-pkg engine/target/wasm32-unknown-unknown/release/photobaer_engine.wasm",
