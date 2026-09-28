@@ -13,6 +13,8 @@ import {
 import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo } from '../worker/types.ts';
 import type { SelectAfter } from './helpers.ts';
+import { PointSnapper } from '../shell/snapping.ts';
+import { loadPointSnap } from './toolEffects.ts';
 
 export const TYPE_TOOLS = ['horizontalType', 'verticalType', 'horizontalTypeMask', 'verticalTypeMask'];
 const BLINK_MS = 500;
@@ -68,7 +70,7 @@ export function useTypeTools(c: TypeToolsCtx) {
     let flushing: Promise<void> = Promise.resolve();
     let dirty = false;
     type Drag =
-      | { kind: 'box'; start: XY; cur: XY }
+      | { kind: 'box'; start: XY; cur: XY; snap: PointSnapper }
       | { kind: 'select' }
       | { kind: 'move'; start: XY; t0: Mat }
       | { kind: 'resize'; handle: number; box0: number[] };
@@ -223,14 +225,16 @@ export function useTypeTools(c: TypeToolsCtx) {
           drag = cur ? { kind: 'select' } : null;
           return;
         }
-        drag = { kind: 'box', start: p, cur: p };
+        const box = { kind: 'box' as const, start: p, cur: p, snap: new PointSnapper() };
+        drag = box;
+        loadPointSnap(box.snap, docRef.current?.grid, () => { box.start = box.snap.start(box.start, v.view.zoom); });
         return;
       }
       const g = drag, e = cur;
       if (!g) return;
       if (g.kind === 'box') {
-        g.cur = p;
-        const [a, b] = [g.start, p];
+        g.cur = g.snap.point(p, v.view.zoom);
+        const [a, b] = [g.start, g.cur];
         if (ev.type === 'move') {
           overlayRef.current?.setPreview(boxDrag(b[0] - a[0], b[1] - a[1]) ? { kind: 'rect', x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]), w: Math.abs(b[0] - a[0]), h: Math.abs(b[1] - a[1]) } : null);
           redrawOverlay();

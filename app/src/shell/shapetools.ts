@@ -2,7 +2,7 @@
 // appearance to fill and stroke, and the Properties Appearance helpers. Pure, no engine calls.
 import type { BoolOp, FillContent } from '../worker/types.ts';
 import type { Preview } from './SelectionOverlay.ts';
-import { marqueeRect, snap45Length } from './selecttools.ts';
+import { marqueeEnd, marqueeRect, snap45Length } from './selecttools.ts';
 
 // Combine Shapes / Pathfinder undo and menu labels.
 export const BOOL_LABEL: Record<BoolOp, string> = {
@@ -29,12 +29,20 @@ export interface ShapeToolOpts {
 
 // The live shape for a drag from `start` to `cur`; a click without drag uses the W/H options
 // (anchored at the click) and draws nothing while either is 0. Null = no shape.
+const boxOpts = (o: ShapeToolOpts) => ({ ...o, style: 'normal' as const, ratioW: 1, ratioH: 1, fixedW: 0, fixedH: 0 });
+
+// The drag point dragLive keeps from `cur` (Shift moves it onto the square or 45 degree line).
+export function dragEnd(start: [number, number], cur: [number, number], o: ShapeToolOpts): [number, number] {
+  if (!o.constrain) return cur;
+  return o.kind === 'line' ? snap45Length(start, cur) : marqueeEnd(start, cur, boxOpts(o));
+}
+
 export function dragLive(start: [number, number], cur: [number, number], o: ShapeToolOpts): Live | null {
   if (o.kind === 'line') {
     const end = o.constrain ? snap45Length(start, cur) : cur;
     return { type: 'line', start, end };
   }
-  let r = marqueeRect(start, cur, { ...o, style: 'normal', ratioW: 1, ratioH: 1, fixedW: 0, fixedH: 0 });
+  let r = marqueeRect(start, cur, boxOpts(o));
   if (Math.hypot(r.w, r.h) <= 1e-6) {
     if (o.width <= 0 || o.height <= 0) return null;
     r = { x: start[0], y: start[1], w: o.width, h: o.height };

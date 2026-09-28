@@ -30,6 +30,14 @@ export function marqueeRect(start: [number, number], cur: [number, number], o: M
   return { x: dx >= 0 ? sx : sx - w, y: dy >= 0 ? sy : sy - h, w, h };
 }
 
+// The drag point that marqueeRect keeps from `cur`: the corner away from the start, moved onto the
+// square or ratio line when constrained; a fixed size keeps `cur`.
+export function marqueeEnd(start: [number, number], cur: [number, number], o: MarqueeOpts): [number, number] {
+  if (o.style === 'fixed size') return cur;
+  const r = marqueeRect(start, cur, { ...o, fromCenter: false });
+  return [cur[0] >= start[0] ? r.x + r.w : r.x, cur[1] >= start[1] ? r.y + r.h : r.y];
+}
+
 // Projects `to` onto the nearest of the 8 45-degree directions from `from`, keeping the
 // component of the drag vector along that direction (not the raw drag length).
 export function snap45(from: [number, number], to: [number, number]): [number, number] {

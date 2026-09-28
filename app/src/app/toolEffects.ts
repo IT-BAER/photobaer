@@ -8,15 +8,23 @@ import { dragResize, showCrosshair } from '../shell/brushKeys.ts';
 import type { Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import type { SelectionOverlay } from '../shell/SelectionOverlay.ts';
-import { marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from '../shell/selecttools.ts';
-import { draftPreview, dragLive, shapeStyle, type ShapeKind } from '../shell/shapetools.ts';
+import { marqueeEnd, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from '../shell/selecttools.ts';
+import { draftPreview, dragEnd, dragLive, shapeStyle, type ShapeKind } from '../shell/shapetools.ts';
 import { shapeLibrary, toBounds } from '../shell/customShapes.ts';
 import { hexToRgb } from '../shell/color.ts';
-import { constrainedSnap, snapGrid, snapSettings, type Rect, type SnapAxes } from '../shell/snapping.ts';
+import { constrainedSnap, PointSnapper, snapGrid, snapSettings, type Rect, type SnapAxes } from '../shell/snapping.ts';
 import { TOOLS } from '../shell/tools.ts';
 import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo, GradientParams } from '../worker/types.ts';
 import { PAINT_TOOLS, SAMPLE_SIZES, SELECT_TOOLS, makeLatch, selectCreated, type Run, type Show } from './helpers.ts';
+
+// Loads a drag's point snap targets (nothing moves yet, so no layer is excluded); `loaded` runs
+// when they arrive, a pointer event or two after the press.
+export function loadPointSnap(ps: PointSnapper, grid: DocInfo['grid'] | undefined, loaded: () => void) {
+  ps.load([], [], [undefined, undefined]);
+  if (!snapSettings().enabled) return;
+  client.call('snapTargets', -1, snapSettings()).then(t => { ps.load(t.x, t.y, snapGrid(grid)); loaded(); }, () => {});
+}
 
 type PolygonActions = { active: () => boolean; commit: () => void; cancel: () => void; removeLast: () => void };
 
@@ -72,11 +80,15 @@ export function useSelectionTools(c: SelectionToolsCtx) {
     if (tool === 'marqueeRect' || tool === 'marqueeEllipse') {
       v.onPointer = e => {
         if (e.type === 'down') {
-          dragRef.current = { start: [e.x, e.y], mode: selectMode(toolOptionsRef.current.mode as string, e.shiftKey, e.altKey), shiftLatch: makeLatch(e.shiftKey), altLatch: makeLatch(e.altKey) };
+          const d = { start: [e.x, e.y] as [number, number], mode: selectMode(toolOptionsRef.current.mode as string, e.shiftKey, e.altKey), shiftLatch: makeLatch(e.shiftKey), altLatch: makeLatch(e.altKey), snap: new PointSnapper() };
+          dragRef.current = d;
+          loadPointSnap(d.snap, docRef.current?.grid, () => { d.start = d.snap.start(d.start, v.view.zoom); });
         } else {
-          const d = dragRef.current as { start: [number, number]; mode: SelectMode; shiftLatch: (b: boolean) => boolean; altLatch: (b: boolean) => boolean } | null;
+          const d = dragRef.current as { start: [number, number]; mode: SelectMode; shiftLatch: (b: boolean) => boolean; altLatch: (b: boolean) => boolean; snap: PointSnapper } | null;
           if (!d) return;
-          const r = marqueeRect(d.start, [e.x, e.y], { ...marqueeOpts(), constrain: d.shiftLatch(e.shiftKey), fromCenter: d.altLatch(e.altKey) });
+          const mo = { ...marqueeOpts(), constrain: d.shiftLatch(e.shiftKey), fromCenter: d.altLatch(e.altKey) };
+          const end = d.snap.point(marqueeEnd(d.start, [e.x, e.y], mo), v.view.zoom, { origin: d.start, constrained: mo.style === 'fixed ratio' || (mo.constrain && mo.style === 'normal'), fromCenter: mo.fromCenter });
+          const r = marqueeRect(d.start, end, mo);
           if (e.type === 'move') { overlayRef.current?.setPreview({ kind: shapeKind(), ...r }); return; }
           dragRef.current = null;
           overlayRef.current?.setPreview(null);
@@ -539,29 +551,36 @@ export function useGradientTool(c: GradientToolCtx) {
 
 export interface ShapeToolsCtx {
   viewer: RefObject<Viewer | null>; tool: string; active: Active | null; overlayRef: RefObject<SelectionOverlay | null>;
-  toolOptionsRef: RefObject<ToolOptions>; fgRef: RefObject<Rgb>; run: Run;
+  toolOptionsRef: RefObject<ToolOptions>; fgRef: RefObject<Rgb>; run: Run; docRef: RefObject<DocInfo | null>;
 }
 
 const SHAPE_NAMES: Record<string, string> = { rectangle: 'Rectangle', ellipse: 'Ellipse', triangle: 'Triangle', polygon: 'Polygon', line: 'Line', customShape: 'Shape' };
 
 export function useShapeTools(c: ShapeToolsCtx) {
-  const { viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run } = c;
+  const { viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run, docRef } = c;
   // Shape tools (docs/M4.md section 5): drag corner to corner with a draft outline; Shift squares
   // (line: 45 degrees), Alt draws from the center; Mode picks a shape layer, the work path or pixels.
   useEffect(() => {
     const v = viewer.current;
     if (!v || !(tool in SHAPE_NAMES)) return;
     const kind: ShapeKind = tool === 'customShape' ? 'custom' : tool as ShapeKind;
-    let drag: { start: [number, number] } | null = null;
+    let drag: { start: [number, number]; snap: PointSnapper } | null = null;
     const liveOf = (e: ToolPointerEvent) => {
-      const o = toolOptionsRef.current;
-      return dragLive(drag!.start, [e.x, e.y], {
+      const o = toolOptionsRef.current, d = drag!;
+      const opts = {
         kind, constrain: e.shiftKey, fromCenter: kind !== 'line' && e.altKey, cornerRadius: Number(o.cornerRadius ?? 0),
         sides: Number(o.sides ?? 5), starInset: Number(o.starInset ?? 0), width: Number(o.width), height: Number(o.height),
-      });
+      };
+      const end = d.snap.point(dragEnd(d.start, [e.x, e.y], opts), v.view.zoom, { origin: d.start, constrained: opts.constrain, fromCenter: opts.fromCenter });
+      return dragLive(d.start, end, opts);
     };
     v.onPointer = e => {
-      if (e.type === 'down') { drag = { start: [e.x, e.y] }; return; }
+      if (e.type === 'down') {
+        const d = { start: [e.x, e.y] as [number, number], snap: new PointSnapper() };
+        drag = d;
+        loadPointSnap(d.snap, docRef.current?.grid, () => { d.start = d.snap.start(d.start, v.view.zoom); });
+        return;
+      }
       if (!drag) return;
       const live = liveOf(e);
       if (e.type === 'move') { overlayRef.current?.setPreview(live && draftPreview(live)); return; }

@@ -30,7 +30,7 @@ import type { DigitState } from './shell/brushKeys.ts';
 import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
 import { Rulers, hitGuide, rulerDragToDoc, type DragGuide } from './shell/rulers.ts';
 import { loadPreferences } from './shell/preferences.ts';
-import { setGridShown, setSnapSettings, snapSettings, type Rect, type SnapSettings } from './shell/snapping.ts';
+import { setGridShown, setSnapSettings, snapAxis, snapGrid, snapSettings, type AxisLock, type Rect, type SnapSettings } from './shell/snapping.ts';
 import { MODES, TransformBar, TransformBarStore } from './shell/TransformBar.tsx';
 import type { Mat3 } from './transform/matrix.ts';
 import { setNumeric, setReferenceNormalized } from './transform/session.ts';
@@ -301,13 +301,18 @@ export function App() {
       const el = e.currentTarget as Element;
       el.setPointerCapture(e.pointerId);
       const axis = e.altKey ? (defaultAxis === 'x' ? 'y' : 'x') : defaultAxis;
+      // The new guide snaps to the snap targets on its axis once they arrive.
+      let targets: number[] = [], lock: AxisLock | null = null;
+      const grid = snapGrid(docRef.current.grid)[axis === 'x' ? 0 : 1];
+      if (snapSettings().enabled) client.call('snapTargets', -1, snapSettings()).then(t => { targets = axis === 'x' ? t.x : t.y; }, () => {});
       const track = (raw: Event) => {
         const ev = raw as PointerEvent;
         const r = c.getBoundingClientRect();
         const sx = ev.clientX - r.left, sy = ev.clientY - r.top;
         const [w, h] = v.size;
-        const pos = rulerDragToDoc(v.view, axis, axis === 'x' ? sx : sy, w, h);
-        dragGuideRef.current = { id: -1, axis, pos };
+        const pos = Math.round(rulerDragToDoc(v.view, axis, axis === 'x' ? sx : sy, w, h));
+        lock = snapAxis([0], targets, pos, lock, 6 / v.view.zoom, 10 / v.view.zoom, grid);
+        dragGuideRef.current = { id: -1, axis, pos: lock ? lock.target : pos };
         redrawRulers();
       };
       const up = (raw: Event) => {
@@ -1018,7 +1023,7 @@ export function App() {
   useGradientTool({
     viewer, tool, active, overlayRef, toolOptionsRef, gradLib, fgRef, bgRef, run, editTarget, quickMask,
   });
-  useShapeTools({ viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run });
+  useShapeTools({ viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run, docRef });
   const penKeysRef = useRef<((e: KeyboardEvent) => boolean) | null>(null);
   const penRedrawRef = useRef<(() => void) | null>(null);
   usePenTools({

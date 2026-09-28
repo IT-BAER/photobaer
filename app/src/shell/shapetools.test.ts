@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dashFor, dragLive, radiusMax, setRadius, shapeStyle, strokeStyleOf, type ShapeToolOpts } from './shapetools.ts';
+import { dashFor, dragEnd, dragLive, radiusMax, setRadius, shapeStyle, strokeStyleOf, type ShapeToolOpts } from './shapetools.ts';
 
 const OPTS: ShapeToolOpts = { kind: 'rectangle', constrain: false, fromCenter: false, cornerRadius: 0, sides: 5, starInset: 0, width: 0, height: 0 };
 
@@ -60,4 +60,12 @@ test('stroke styles: dotted is [w, 1.5w] with a round cap, dashed [4w, 2w]; the 
   assert.equal(strokeStyleOf([], 2), 'solid');
   assert.equal(strokeStyleOf([2, 3], 2), 'dotted');
   assert.equal(strokeStyleOf([8, 4], 2), 'dashed');
+});
+
+test('dragEnd is the corner dragLive keeps: Shift moves it onto the square, a line onto 45 degrees', () => {
+  assert.deepEqual(dragEnd([10, 10], [110, 70], OPTS), [110, 70]);
+  assert.deepEqual(dragEnd([10, 10], [110, 70], { ...OPTS, constrain: true }), [110, 110]);
+  assert.deepEqual(dragEnd([110, 70], [10, 60], { ...OPTS, constrain: true }), [10, -30], 'up and left');
+  const l = dragEnd([0, 0], [10, 9], { ...OPTS, kind: 'line', constrain: true });
+  assert.ok(Math.abs(l[0] - l[1]) < 1e-9);
 });

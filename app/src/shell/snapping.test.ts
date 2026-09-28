@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { constrainedSnap, gridLine, rectAnchors, setGridShown, setSnapSettings, snapAxis, snapGrid, snapOffset, type SnapAxes } from './snapping.ts';
+import { constrainedSnap, gridLine, PointSnapper, rectAnchors, setGridShown, setSnapSettings, snapAxis, snapGrid, snapOffset, type SnapAxes } from './snapping.ts';
 
 test('rectAnchors gives start, center, end per axis', () => {
   assert.deepEqual(rectAnchors({ x: 10, y: 20, w: 40, h: 10 }, 'x'), [10, 30, 50]);
@@ -108,4 +108,34 @@ test('snapGrid gives the spacing only while snapping, Snap To Grid and the shown
   setSnapSettings({ grid: true, enabled: false });
   assert.deepEqual(snapGrid(grid), [undefined, undefined]);
   setSnapSettings({ enabled: true });
+});
+
+test('PointSnapper snaps each axis of a point to a target inside the catch threshold', () => {
+  const ps = new PointSnapper();
+  ps.load([100], [50], [undefined, undefined]);
+  assert.deepEqual(ps.point([104, 58], 1), [100, 58], 'x within 6, y 8 away stays');
+  assert.deepEqual(ps.point([108, 53], 1), [100, 50], 'x lock holds to 10, y catches');
+  assert.deepEqual(ps.point([111, 53], 1), [111, 50], 'x released past 10');
+});
+
+test('PointSnapper from the center also snaps to targets mirrored through the origin', () => {
+  const ps = new PointSnapper();
+  ps.load([100], [], [undefined, undefined]);
+  // origin 50: the opposite edge sits at 2*50 - p, so p 3 puts it at 97, near 100 -> p snaps to 0.
+  assert.deepEqual(ps.point([3, 40], 1, { origin: [50, 50], fromCenter: true }), [0, 40]);
+});
+
+test('PointSnapper constrained keeps the point on its ray from the origin', () => {
+  const ps = new PointSnapper();
+  ps.load([100], [], [undefined, undefined]);
+  // a Shift square from 0,0: the corner 97,97 moves along the diagonal to 100,100.
+  assert.deepEqual(ps.point([97, 97], 1, { origin: [0, 0], constrained: true }), [100, 100]);
+  ps.load([], [], [undefined, undefined]);
+  assert.deepEqual(ps.point([97, 97], 1, { origin: [0, 0], constrained: true }), [97, 97], 'no targets, no change');
+});
+
+test('PointSnapper snaps to grid lines while the grid spacing is given', () => {
+  const ps = new PointSnapper();
+  ps.load([], [], [18, undefined]);
+  assert.deepEqual(ps.point([35, 35], 1), [36, 35]);
 });

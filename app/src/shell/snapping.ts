@@ -98,3 +98,49 @@ export function constrainedSnap(
   if (r.lock.y && uy) return { dx: (r.dy / uy) * ux, dy: r.dy, lock: { x: null, y: r.lock.y } };
   return { dx: cx, dy: cy, lock: { x: null, y: null } };
 }
+
+type XY = [number, number];
+// Snaps a drag point (a shape, marquee or type box corner) to the targets on each axis. `origin` is
+// the drag start: `fromCenter` also mirrors the targets through it, `constrained` (Shift, fixed ratio)
+// moves the point only along its ray from the origin, locking the axis that needs the smaller move.
+export class PointSnapper {
+  private tx: number[] = [];
+  private ty: number[] = [];
+  private grid: [number | undefined, number | undefined] = [undefined, undefined];
+  private locks: SnapAxes = { x: null, y: null };
+  private mode = '';
+  load(tx: number[], ty: number[], grid: [number | undefined, number | undefined]) {
+    this.tx = tx; this.ty = ty; this.grid = grid; this.locks = { x: null, y: null };
+  }
+  // The drag start: snapped, without leaving a lock for the end point.
+  start(p: XY, zoom: number): XY {
+    const s = this.point(p, zoom);
+    this.locks = { x: null, y: null };
+    return s;
+  }
+  point(p: XY, zoom: number, o: { origin?: XY; constrained?: boolean; fromCenter?: boolean } = {}): XY {
+    const mode = `${!!o.constrained}:${!!o.fromCenter}`;
+    if (mode !== this.mode) { this.mode = mode; this.locks = { x: null, y: null }; }
+    const axis = (i: 0 | 1, z: number, lock: AxisLock | null) => {
+      const t = i ? this.ty : this.tx;
+      const targets = o.fromCenter && o.origin ? [...t, ...t.map(v => 2 * o.origin![i] - v)] : t;
+      return snapAxis([0], targets, p[i], lock, 6 / z, 10 / z, this.grid[i]);
+    };
+    if (o.constrained && o.origin) {
+      const c = [p[0] - o.origin[0], p[1] - o.origin[1]], len = Math.hypot(c[0], c[1]);
+      let best: { i: 0 | 1; delta: number; lock: AxisLock } | null = null;
+      for (const i of [0, 1] as const) {
+        if (Math.abs(c[i]) < 1e-9) continue;
+        const lock = axis(i, zoom * len / Math.abs(c[i]), i ? this.locks.y : this.locks.x);
+        if (!lock) continue;
+        const delta = (lock.target - p[i]) / c[i];
+        if (!best || Math.abs(delta) < Math.abs(best.delta)) best = { i, delta, lock };
+      }
+      this.locks = { x: best?.i === 0 ? best.lock : null, y: best?.i === 1 ? best.lock : null };
+      return best ? [p[0] + c[0] * best.delta, p[1] + c[1] * best.delta] : p;
+    }
+    const x = axis(0, zoom, this.locks.x), y = axis(1, zoom, this.locks.y);
+    this.locks = { x, y };
+    return [x ? x.target : p[0], y ? y.target : p[1]];
+  }
+}

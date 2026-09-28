@@ -290,8 +290,13 @@ fn work_path_convert_and_hit_test() {
     assert!(!d.text_hit(id, &reg(), 72.0, 290.0, 5.0).unwrap());
     d.node_mut(id).unwrap().locks.position = true;
     d.node_mut(id).unwrap().opacity = 0.5;
+    let style = r#"{"enabled":true,"scale":0.5,"drop_shadows":[],"inner_shadows":[],"color_overlays":[],"gradient_overlays":[],
+        "pattern_overlays":[],"strokes":[],"outer_glow":null,"inner_glow":null,"bevel":null,"contour":null,"texture":null,"satin":null}"#;
+    d.set_style(id, style).unwrap();
+    let before = d.node(id).unwrap().style.clone();
     d.convert_text_to_shape(id, &reg(), 72.0).unwrap();
     let n = d.node(id).unwrap();
+    assert!(before.is_some() && n.style == before, "the layer style survives");
     assert!(matches!(&n.kind, Kind::Shape(s) if matches!(&s.fill, Some(FillContent::Solid(f)) if f.color == [200, 30, 10])));
     assert_eq!((n.name.as_str(), n.opacity, n.locks), ("Hello", 0.5, Locks::default()));
     assert!(d.convert_text_to_shape(id, &reg(), 72.0).is_err());
