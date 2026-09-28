@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { TextLayout } from './typesession.ts';
-import { boxDrag, caretX, indexAt, layerName, lineMove, newText, selectionRects, TypeSession } from './typesession.ts';
+import { boxDrag, caretX, indexAt, layerName, lineMove, newText, nextBoundary, prevBoundary, selectionRects, TypeSession } from './typesession.ts';
 
 const text = (s = '') => newText({ family: '', style: 'Regular', size: 28, color: [0, 0, 0], alignment: 'left', orientation: 'horizontal' }, { type: 'point' }, [10, 20]);
 const at = (t0: number) => { let t = t0; return () => (t += 100); };
@@ -14,7 +14,7 @@ test('a drag of 5 px makes point text, 6 px or more makes paragraph text', () =>
   assert.equal(boxDrag(-2, -6), true);
 });
 
-test('typing abc is one undo step, ab c is two', () => {
+test('typing abc is one undo step, ab c is three (a space ends the word, the next word starts a step)', () => {
   const now = at(0);
   const a = new TypeSession(text());
   for (const c of 'abc') a.insert(c, now());
@@ -22,31 +22,64 @@ test('typing abc is one undo step, ab c is two', () => {
   assert.equal(a.steps, 1);
   const b = new TypeSession(text());
   for (const c of 'ab c') b.insert(c, now());
-  assert.equal(b.steps, 2);
+  assert.equal(b.steps, 3);
+  b.undo();
+  assert.equal(b.text.text, 'ab ');
   b.undo();
   assert.equal(b.text.text, 'ab');
   assert.equal(b.caret, 2);
   b.redo();
+  b.redo();
   assert.equal(b.text.text, 'ab c');
 });
 
-test('a pause longer than the window starts a new step', () => {
+test('the coalescing window is 2000 ms', () => {
   const s = new TypeSession(text());
   s.insert('a', 0);
-  s.insert('b', 100_000);
+  s.insert('b', 2000);
+  assert.equal(s.steps, 1);
+  s.insert('c', 4001);
   assert.equal(s.steps, 2);
 });
 
-test('Backspace removes a surrogate pair and a combining sequence as one', () => {
+test('Backspace chains into one step, forward Delete never coalesces', () => {
+  const s = new TypeSession(text());
+  s.insert('abcd', 0);
+  s.move(4, false);
+  s.backspace(10);
+  s.backspace(20);
+  assert.equal(s.text.text, 'ab');
+  assert.equal(s.steps, 2);
+  s.move(0, false);
+  s.deleteForward(30);
+  s.deleteForward(40);
+  assert.equal(s.text.text, '');
+  assert.equal(s.steps, 4);
+});
+
+test('pending character attributes break coalescing', () => {
+  const s = new TypeSession(text());
+  s.insert('a', 0);
+  s.applyRun({ size: 50 }, 1);
+  s.insert('b', 2);
+  assert.equal(s.steps, 2);
+});
+
+test('Backspace, Delete and arrows step one code point: a surrogate pair and CR LF are one, a combining mark is its own', () => {
+  assert.equal(prevBoundary('x\r\ny', 3), 1);
+  assert.equal(nextBoundary('x\r\ny', 1), 3);
+  assert.equal(nextBoundary('\u{1F600}', 0), 2);
+  assert.equal(prevBoundary('é', 2), 1);
   const s = new TypeSession(text());
   s.insert('a\u{1F600}é', 0);
   s.backspace(1);
-  assert.equal(s.text.text, 'a\u{1F600}');
+  assert.equal(s.text.text, 'a\u{1F600}e');
   s.backspace(2);
+  s.backspace(3);
   assert.equal(s.text.text, 'a');
   assert.equal(s.caret, 1);
   s.move(0, false);
-  s.deleteForward(3);
+  s.deleteForward(4);
   assert.equal(s.text.text, '');
   assert.equal(sum(s.text.runs), 0);
   assert.equal(s.text.runs.length, 1, 'an empty text keeps one zero-length run');
@@ -82,6 +115,11 @@ test('paragraph attributes apply to the caret paragraph', () => {
   s.insert('one\ntwo', 0);
   s.applyParagraph({ alignment: 'center' }, 1);
   assert.deepEqual(s.text.paragraphs.map((p: { length: number; alignment: string }) => [p.length, p.alignment]), [[4, 'left'], [3, 'center']]);
+  const t = new TypeSession(text());
+  t.insert('\ntwo', 0);
+  t.move(0, false);
+  t.applyParagraph({ alignment: 'center' }, 1);
+  assert.deepEqual(t.text.paragraphs.map((p: { length: number; alignment: string }) => [p.length, p.alignment]), [[1, 'center'], [3, 'left']], 'caret 0 styles the first paragraph');
 });
 
 test('changed is false until the text or attributes differ from the start', () => {
@@ -127,6 +165,11 @@ test('a click picks the nearest line and the nearest caret position', () => {
   assert.equal(indexAt(TWO, 'ab\ncd', 12, 18, false), 1);
   assert.equal(indexAt(TWO, 'ab\ncd', 40, 18, false), 2, 'past the end stays before the newline');
   assert.equal(indexAt(TWO, 'ab\ncd', 16, 60, false), 5);
+  const comb: TextLayout = { transform: [1, 0, 0, 1, 0, 0], overflow: false, lines: [
+    { x: 0, y: 20, width: 20, ascent: 16, descent: 4, start: 0, end: 3, glyphs: [[0, 0, 20, 10], [2, 10, 20, 10]] },
+  ] };
+  assert.equal(indexAt(comb, 'éx', 7, 20, false), 2, 'the far half of a glyph hits after its whole cluster');
+  assert.equal(indexAt(comb, 'éx', 3, 20, false), 0);
 });
 
 test('Up and Down move by laid-out line keeping x', () => {

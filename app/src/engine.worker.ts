@@ -995,13 +995,14 @@ const api = {
     return { id, layout: e.text_layout(id, fontReg(), resolution(e)), doc: info()! };
   },
 
-  typeUpdate(text: TextJson, name: string) {
+  // `changed`: the text differs from the session's start (an edit undone back to it records no step).
+  typeUpdate(text: TextJson, name: string, changed = true) {
     const e = need(), s = typeSession;
     if (!s) throw new Error('No type edit is open.');
     e.set_text(s.id, JSON.stringify(text));
     if (!s.mask) e.set_props(s.id, JSON.stringify({ name }));
     e.render_text(s.id, fontReg(), resolution(e));
-    s.changed = true;
+    s.changed = changed;
     s.empty = text.text === '';
     version++;
     return { layout: e.text_layout(s.id, fontReg(), resolution(e)), doc: info()! };
@@ -2029,5 +2030,5 @@ onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[]; doc?
     if (typeSession && !TYPE_OPS.has(op) && eng) postMessage({ event: 'typeCommitted', doc: api.typeCommit() } satisfies WorkerEvent);
     if (transformSession && !TRANSFORM_OPS.has(op) && eng) postMessage({ event: 'transformCancelled', doc: api.transformCancel() } satisfies WorkerEvent);
     return handle(id, op, args);
-  });
+  }).catch(err => postMessage({ id, error: err instanceof Error ? err.message : String(err), docId }));
 };

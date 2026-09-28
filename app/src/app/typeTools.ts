@@ -108,13 +108,14 @@ export function useTypeTools(c: TypeToolsCtx) {
     const flush = (e: Edit) => {
       dirty = true;
       flushing = flushing.then(async () => {
-        if (!dirty) return;
+        // A session the worker already committed (another op ran first) takes no more updates.
+        if (!dirty || cur !== e) return;
         dirty = false;
         try {
-          const r = await client.call('typeUpdate', e.s.text, layerName(e.s.value));
+          const r = await client.call('typeUpdate', e.s.text, layerName(e.s.value), e.s.changed);
           e.layout = JSON.parse(r.layout);
           show(r.doc);
-        } catch (err) { setError((err as Error).message); }
+        } catch (err) { if (cur === e) setError((err as Error).message); }
         draw();
       });
     };
@@ -310,6 +311,8 @@ export function useTypeTools(c: TypeToolsCtx) {
       events = events.then(async () => {
         const e = cur, act = e && keyAction(e, ev);
         if (act) await act();
+        // The session ended before the key ran: hand it back to the app shortcuts.
+        else if (!e) dispatchEvent(new KeyboardEvent('keydown', { key: ev.key, code: ev.code, ctrlKey: ev.ctrlKey, shiftKey: ev.shiftKey, altKey: ev.altKey, metaKey: ev.metaKey, repeat: ev.repeat }));
       }).catch(err => setError((err as Error).message));
       return true;
     };

@@ -1588,6 +1588,12 @@ test('a type edit session: New Type Layer, one Edit Type Layer on commit, empty 
   await call('typeBegin', { id: b.id });
   assert.equal(((await call('typeCommit')).result as Info).history.labels.length, c.history.labels.length);
   await call('typeBegin', { id: b.id });
+  await call('typeUpdate', { ...t1, text: 'Ho' }, 'Ho', true);
+  await call('typeUpdate', t1, 'Hi', false);
+  const back = (await call('typeCommit')).result as Info;
+  assert.equal(back.history.labels.length, c.history.labels.length, 'edits undone back to the start record no step');
+  assert.equal(back.layers.find(l => l.id === b.id)?.text?.text, 'Hi');
+  await call('typeBegin', { id: b.id });
   await call('typeUpdate', t0, '');
   const e = (await call('typeCommit')).result as Info;
   assert.equal(e.layers.some(l => l.id === b.id), false);

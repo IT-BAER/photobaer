@@ -21,8 +21,7 @@ type Attrs = Record<string, unknown>;
 // Below this drag (document px, max of dx and dy) a click makes point text.
 export const BOX_MIN = 6;
 export const boxDrag = (dx: number, dy: number) => Math.max(Math.abs(dx), Math.abs(dy)) >= BOX_MIN;
-// ponytail: coalescing window is a guess (the reference value is unreadable); tune if typing splits oddly.
-export const COALESCE_MS = 1000;
+export const COALESCE_MS = 2000;
 const NAME_MAX = 30;
 
 export function layerName(text: string) {
@@ -94,12 +93,12 @@ function restyle(spans: Span[], a: number, b: number, attrs: Attrs): Span[] {
   return out.length ? out : spans.map(s => ({ ...s, ...attrs }));
 }
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 const words = new Intl.Segmenter(undefined, { granularity: 'word' });
 
 export function boundaries(text: string) {
   const b = [0];
-  for (const s of graphemes.segment(text)) b.push(s.index + s.segment.length);
+  // Code points; CR LF counts as one.
+  for (let i = 0; i < text.length; b.push(i)) i += text.startsWith('\r\n', i) || text.codePointAt(i)! > 0xffff ? 2 : 1;
   return b;
 }
 export const prevBoundary = (text: string, i: number) => boundaries(text).filter(b => b < i).at(-1) ?? 0;
@@ -114,7 +113,7 @@ export function nextWord(text: string, i: number) {
   return text.length;
 }
 
-// Word characters (line-break classes AL, HL, NU, ID, CM) coalesce into one typing step.
+// Typing coalesces while the previous and the new edit are word characters (line-break classes AL, HL, NU, ID, CM).
 const WORD = /^[\p{L}\p{N}\p{M}]+$/u;
 
 interface Snap { text: TextJson; caret: number; anchor: number }
@@ -130,7 +129,7 @@ export class TypeSession {
   #start: string;
   #undo: Snap[] = [];
   #redo: Snap[] = [];
-  #last: { kind: 'insert' | 'delete'; pos: number; at: number } | null = null;
+  #last: { kind: 'insert' | 'delete'; pos: number; at: number; word: boolean } | null = null;
 
   constructor(text: TextJson) {
     this.text = text;
@@ -175,7 +174,7 @@ export class TypeSession {
   // Character attributes: on the selection (one step), or pending at a collapsed caret.
   applyRun(attrs: Attrs, _now: number) {
     const [a, b] = this.range;
-    if (a === b) { this.pending = { ...this.pending, ...attrs }; return; }
+    if (a === b) { this.pending = { ...this.pending, ...attrs }; this.#last = null; return; }
     this.#push();
     this.text = { ...this.text, runs: restyle(this.text.runs, a, b, attrs) };
   }
@@ -183,7 +182,7 @@ export class TypeSession {
   // Paragraph attributes on every paragraph the caret or selection touches (one step).
   applyParagraph(attrs: Attrs, _now: number) {
     const [a, b] = this.range, t = this.value;
-    const p0 = t.lastIndexOf('\n', a - 1) + 1;
+    const p0 = a > 0 ? t.lastIndexOf('\n', a - 1) + 1 : 0;
     const nl = t.indexOf('\n', b);
     const p1 = nl < 0 ? t.length : nl + 1;
     this.#push();
@@ -213,17 +212,18 @@ export class TypeSession {
 
   #edit(start: number, end: number, str: string, kind: 'insert' | 'delete', now: number) {
     const t = this.value;
-    const unit = kind === 'insert' ? str : t.slice(start, end);
+    const word = WORD.test(kind === 'insert' ? str : t.slice(start, end));
     const l = this.#last;
-    const adjacent = l && l.kind === kind && now - l.at <= COALESCE_MS
-      && (kind === 'insert' ? start === end && start === l.pos : end === l.pos || start === l.pos);
-    if (!(adjacent && WORD.test(unit) && [...graphemes.segment(unit)].length === 1)) this.#push();
+    // A delete joins only a Backspace chain: its end is where the previous delete left the caret.
+    const join = l && l.kind === kind && l.word && word && now - l.at <= COALESCE_MS
+      && end === l.pos && (kind === 'delete' || start === end);
+    if (!join) this.#push();
     const runs = splice(this.text.runs, start, end, str.length, kind === 'insert' ? this.pending : null);
     this.text = { ...this.text, text: t.slice(0, start) + str + t.slice(end), runs, paragraphs: splice(this.text.paragraphs, start, end, str.length) };
     this.caret = this.anchor = start + str.length;
     this.goal = null;
     if (kind === 'insert') this.pending = null;
-    this.#last = { kind, pos: this.caret, at: now };
+    this.#last = { kind, pos: this.caret, at: now, word };
   }
 }
 
@@ -276,6 +276,9 @@ export function caretX(layout: TextLayout, text: string, i: number, vertical: bo
 function indexInLine(layout: TextLayout, text: string, n: number, x: number, vertical: boolean) {
   const line = layout.lines[n];
   const cs = clusters(line, text, vertical), end = lineEnd(line, text);
+  // Inside a glyph: its leading half (by direction) hits before the cluster, the other half after it.
+  const k = cs.find(q => x >= q.lo && x < q.hi && q.c < end);
+  if (k) return (x < (k.lo + k.hi) / 2) !== k.rtl ? k.c : Math.min(cs.find(q => q.c > k.c)?.c ?? end, end);
   let best = line.start, d = Infinity;
   for (const b of boundaries(text)) {
     if (b < line.start || b > end) continue;
