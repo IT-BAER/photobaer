@@ -3,9 +3,9 @@ import { unitToPx, type RulerUnit } from './units.ts';
 import type { Guide } from '../worker/types.ts';
 
 export const RULER_THICKNESS = 20;
-// Pixel grid draws at 800% and above (docs/M4.md B16 gap: threshold not confirmed in the reference, own choice).
+// Pixel grid draws at 800% and above (threshold not confirmed in the reference, own choice).
 export const PIXEL_GRID_MIN_ZOOM = 8;
-// Guide grab tolerance in screen px (own choice: not specified in the reference for guide dragging, B17's
+// Guide grab tolerance in screen px (own choice: not specified in the reference for guide dragging; the
 // snap catch/release values are a different feature).
 export const GUIDE_HIT_PX = 4;
 
@@ -13,7 +13,7 @@ export const GUIDE_HIT_PX = 4;
 // real guide id for the former, any negative sentinel for the latter (draw-only, never sent to the engine).
 export interface DragGuide { id: number; axis: 'x' | 'y'; pos: number }
 
-// Ruler-drag -> document coordinate (docs/M4.md B16): flat, ignoring view rotation like the ticks
+// Ruler-drag -> document coordinate: flat, ignoring view rotation like the ticks
 // themselves (rulers stay screen-axis aligned regardless of the rotated view).
 export function rulerDragToDoc(view: View, axis: 'x' | 'y', screenPos: number, cssW: number, cssH: number): number {
   const flat: View = { ...view, rot: 0 };
@@ -61,7 +61,7 @@ export function ticksFor(pxPerUnit: number, originPx: number, spanPx: number, mi
 }
 
 // Top/left ruler bars and the pixel-grid overlay (docs/M4.md section 12). Rulers stay screen-axis
-// aligned regardless of view rotation (own choice, gap B16); the pixel grid follows the rotated view.
+// aligned regardless of view rotation (own choice); the pixel grid follows the rotated view.
 export class Rulers {
   #top: CanvasRenderingContext2D;
   #left: CanvasRenderingContext2D;

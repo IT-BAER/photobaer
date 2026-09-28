@@ -37,7 +37,7 @@ export function snapGrid(grid: { spacing_x: number; spacing_y: number } | undefi
 
 // Nearest multiple of `spacing` to `v`. Grid snapping quantizes to the nearest grid line rather
 // than matching a bounded target list (own choice: the reference build stores a Snap To Grid
-// toggle but no consuming/target code was found for it - docs/M4.md gap B17).
+// toggle but no consuming/target code was found for it).
 export function gridLine(v: number, spacing: number): number {
   return Math.round(v / spacing) * spacing;
 }

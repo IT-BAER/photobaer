@@ -189,7 +189,7 @@ impl Document {
     }
 
     /// "New Guides From Shape": 4 guides at the union of `ids`' content bounds' edges (no
-    /// stroke/antialiasing inclusion, gap B16). Refuses when none has visible content.
+    /// stroke/antialiasing inclusion). Refuses when none has visible content.
     pub fn new_guides_from_shape(&mut self, ids: &[u32]) -> Result<Vec<u32>, String> {
         self.check_idle()?;
         if ids.is_empty() {

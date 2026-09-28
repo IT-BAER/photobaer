@@ -640,7 +640,7 @@ impl Document {
             Kind::Pixel(t) => tiles_bounds(t),
             Kind::Smart(s) => tiles_bounds(&s.cache),
             Kind::Text(t) => t.cache.as_ref().and_then(tiles_bounds),
-            // ponytail: path bounds arrive with path.rs geometry (B2).
+            // ponytail: path bounds arrive with path.rs geometry.
             Kind::Shape(_) => None,
             Kind::Adjustment(_) | Kind::Fill(_) => Some([0, 0, self.width as i32, self.height as i32]),
             Kind::Group(ch) => ch.iter().filter_map(|c| self.content_bounds(c)).reduce(|a, b| {
