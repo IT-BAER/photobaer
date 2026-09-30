@@ -5,6 +5,8 @@ export type OptionKind = 'number' | 'percent' | 'select' | 'boolean' | 'segmente
 export interface OptionSchema {
   id: string; kind: OptionKind; label: string; default: number | string | boolean;
   min?: number; max?: number; step?: number; unit?: string; choices?: string[];
+  // `icon` draws a boolean as an icon toggle (label as tooltip); `sep` puts a divider before the option.
+  icon?: string; sep?: boolean;
 }
 export interface Tool {
   id: string; label: string; slot: string; key: string; cursor: string; icon: string;
@@ -23,25 +25,25 @@ const SELECT_COMMON: OptionSchema[] = [
 const BRUSH_COMMON: OptionSchema[] = [
   { id: 'size', kind: 'number', label: 'Size', default: 30, min: 1, max: 5000, unit: 'px' },
   { id: 'hardness', kind: 'percent', label: 'Hardness', default: 100, min: 0, max: 100 },
-  { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES },
+  { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES, sep: true },
   { id: 'opacity', kind: 'percent', label: 'Opacity', default: 100, min: 0, max: 100 },
   { id: 'flow', kind: 'percent', label: 'Flow', default: 100, min: 0, max: 100 },
   { id: 'smoothing', kind: 'percent', label: 'Smoothing', default: 10, min: 0, max: 100 },
-  { id: 'airbrush', kind: 'boolean', label: 'Airbrush', default: false },
-  { id: 'wetEdges', kind: 'boolean', label: 'Wet edges', default: false },
-  { id: 'pressureSize', kind: 'boolean', label: 'Pressure: size', default: false },
-  { id: 'pressureOpacity', kind: 'boolean', label: 'Pressure: opacity', default: false },
+  { id: 'airbrush', kind: 'boolean', label: 'Airbrush', default: false, icon: 'SprayCan', sep: true },
+  { id: 'wetEdges', kind: 'boolean', label: 'Wet Edges', default: false, icon: 'Droplets' },
+  { id: 'pressureSize', kind: 'boolean', label: 'Pressure for Size', default: false, icon: 'Scaling' },
+  { id: 'pressureOpacity', kind: 'boolean', label: 'Pressure for Opacity', default: false, icon: 'Droplet' },
 ];
 
 // Retouch tools (docs/M5.md section 9); the stamps take the brush options without Wet edges.
 const RETOUCH_BRUSH: OptionSchema[] = BRUSH_COMMON.filter(o => o.id !== 'wetEdges');
-const SAMPLE_ALL: OptionSchema = { id: 'allLayers', kind: 'boolean', label: 'All layers', default: false };
+const SAMPLE_ALL: OptionSchema = { id: 'allLayers', kind: 'boolean', label: 'Sample All Layers', default: false };
 const STRUCTURE: OptionSchema = { id: 'structure', kind: 'number', label: 'Structure', default: 4, min: 1, max: 7 };
 const COLOR_ADAPT: OptionSchema = { id: 'color', kind: 'number', label: 'Color', default: 2, min: 0, max: 10 };
 const HEAL_BRUSH: OptionSchema[] = [
   { id: 'size', kind: 'number', label: 'Size', default: 30, min: 1, max: 5000, unit: 'px' },
   { id: 'hardness', kind: 'percent', label: 'Hardness', default: 100, min: 0, max: 100 },
-  { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES },
+  { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES, sep: true },
 ];
 const healing = (id: string, label: string, icon: string, cursor: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'healing', key: 'j', cursor, icon, options });
 const stamp = (id: string, label: string, icon: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'stamp', key: 's', cursor: 'none', icon, options });
@@ -192,7 +194,7 @@ export const TOOLS: Record<string, Tool> = {
     id: 'pencil', label: 'Pencil', slot: 'brush', key: 'b', cursor: 'none', icon: 'Pencil',
     options: [
       { id: 'size', kind: 'number', label: 'Size', default: 30, min: 1, max: 5000, unit: 'px' },
-      { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES },
+      { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES, sep: true },
       { id: 'opacity', kind: 'percent', label: 'Opacity', default: 100, min: 0, max: 100 },
       { id: 'smoothing', kind: 'percent', label: 'Smoothing', default: 10, min: 0, max: 100 },
       { id: 'autoErase', kind: 'boolean', label: 'Auto erase', default: false },
@@ -206,7 +208,7 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'mode', kind: 'select', label: 'Mode', default: 'brush', choices: ['brush', 'pencil', 'block'] },
       { id: 'opacity', kind: 'percent', label: 'Opacity', default: 100, min: 0, max: 100 },
       { id: 'flow', kind: 'percent', label: 'Flow', default: 100, min: 0, max: 100 },
-      { id: 'airbrush', kind: 'boolean', label: 'Airbrush', default: false },
+      { id: 'airbrush', kind: 'boolean', label: 'Airbrush', default: false, icon: 'SprayCan', sep: true },
       { id: 'smoothing', kind: 'percent', label: 'Smoothing', default: 10, min: 0, max: 100 },
       { id: 'eraseToHistory', kind: 'boolean', label: 'Erase to history', default: false },
     ],
@@ -241,13 +243,13 @@ export const TOOLS: Record<string, Tool> = {
   ]),
   cloneStamp: stamp('cloneStamp', 'Clone Stamp', 'Stamp', [
     ...RETOUCH_BRUSH,
-    { id: 'aligned', kind: 'boolean', label: 'Aligned', default: true },
+    { id: 'aligned', kind: 'boolean', label: 'Aligned', default: true, sep: true },
     { id: 'sample', kind: 'select', label: 'Sample', default: 'currentLayer', choices: ['currentLayer', 'currentBelow', 'allLayers'] },
-    { id: 'ignoreAdjustments', kind: 'boolean', label: 'Ignore adjustments', default: false },
+    { id: 'ignoreAdjustments', kind: 'boolean', label: 'Ignore Adjustment Layers', default: false, icon: 'CircleSlash2' },
   ]),
   patternStamp: stamp('patternStamp', 'Pattern Stamp', 'Grid3x3', [
     ...RETOUCH_BRUSH,
-    { id: 'aligned', kind: 'boolean', label: 'Aligned', default: true },
+    { id: 'aligned', kind: 'boolean', label: 'Aligned', default: true, sep: true },
     { id: 'impressionist', kind: 'boolean', label: 'Impressionist', default: false },
     // '' = the first library pattern; the picker is drawn by the host.
     { id: 'pattern', kind: 'custom', label: 'Pattern', default: '' },
@@ -269,12 +271,12 @@ export const TOOLS: Record<string, Tool> = {
     options: [
       // Pattern source is not in B3 (no pattern picker yet); hidden rather than offered disabled.
       { id: 'source', kind: 'select', label: 'Source', default: 'foreground', choices: ['foreground', 'background'] },
-      { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES },
+      { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES, sep: true },
       { id: 'opacity', kind: 'percent', label: 'Opacity', default: 100, min: 0, max: 100 },
       { id: 'tolerance', kind: 'number', label: 'Tolerance', default: 32, min: 0, max: 255 },
       { id: 'antiAlias', kind: 'boolean', label: 'Anti-alias', default: true },
       { id: 'contiguous', kind: 'boolean', label: 'Contiguous', default: true },
-      { id: 'allLayers', kind: 'boolean', label: 'All layers', default: false },
+      { id: 'allLayers', kind: 'boolean', label: 'Sample All Layers', default: false },
     ],
   },
   rectangle: shapeTool('rectangle', 'Rectangle', 'RectangleHorizontal', [CORNER_RADIUS]),

@@ -8,7 +8,7 @@ import { RotateCcw, ArrowLeftRight } from 'lucide-react';
 import { SLOTS, TOOLS, cycleTool, type Slot } from './tools.ts';
 import { rgbToHex, type Rgb } from './color.ts';
 
-const ICONS: Record<string, ComponentType<{ size?: number; strokeWidth?: number }>> = {
+export const ICONS: Record<string, ComponentType<{ size?: number; strokeWidth?: number }>> = {
   Move, Square, Circle, Minus, Rows3, Lasso, PenTool, Magnet, MousePointerClick, Wand2, Crop, Frame,
   Pipette, Brush, Pencil, Eraser, Blend, PaintBucket, Hand, RotateCw, ZoomIn, RectangleHorizontal, Triangle, Hexagon, Slash,
   Signature, Spline, DiamondPlus, DiamondMinus, SplinePointer, MousePointer2, Navigation, Shapes,

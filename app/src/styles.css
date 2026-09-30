@@ -104,11 +104,27 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .toolbar-footer .chip { width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--line); }
 .toolbar-footer button[aria-pressed=true] { color: var(--accent); }
 
-.options-bar { display: flex; align-items: center; gap: 10px; padding: 4px 10px; min-height: 34px; flex: 0 0 auto; flex-wrap: wrap; row-gap: 4px; background: var(--panel); border-bottom: 1px solid var(--line); white-space: nowrap; }
-.options-tool-label { font-weight: 600; color: var(--dim); }
+.options-bar { display: flex; align-items: center; gap: 10px; padding: 0 10px 0 0; height: 34px; flex: 0 0 auto; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain; white-space: nowrap; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.options-tool { position: sticky; left: 0; z-index: 1; display: grid; place-items: center; flex: none; align-self: stretch; width: 36px; background: var(--panel); color: var(--accent); box-shadow: 1px 0 0 var(--line); }
+.options-item { display: contents; }
+.options-divider { flex: none; width: 1px; height: 16px; background: var(--line); }
+.opt-number { display: flex; align-items: center; gap: 3px; }
+.opt-scrub { color: var(--dim); cursor: ew-resize; user-select: none; touch-action: none; }
+.opt-scrub:hover { color: var(--text); }
+.opt-unit { color: var(--dim); }
+.options-bar input[type=number], .options-popover input[type=number] { width: 44px; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; appearance: textfield; -moz-appearance: textfield; }
+.options-bar input[type=number]::-webkit-inner-spin-button, .options-popover input[type=number]::-webkit-inner-spin-button { display: none; }
+.opt-drop, .opt-icon, .brush-tip { display: inline-flex; align-items: center; gap: 4px; padding: 0; background: none; border: 0; border-radius: 4px; color: var(--dim); cursor: pointer; }
+.opt-drop:hover, .opt-icon:hover, .brush-tip:hover { color: var(--text); background: #ffffff0d; }
+.opt-icon { width: 24px; height: 24px; justify-content: center; }
+.opt-icon[aria-pressed=true] { color: var(--on-accent); background: var(--accent); }
+.brush-tip { height: 26px; padding: 0 4px; color: var(--text); }
+.brush-tip-preview { width: 18px; height: 18px; border-radius: 50%; }
+.options-popover { position: fixed; z-index: 50; display: grid; gap: 6px; width: 220px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 24px #0008; }
+.options-popover input[type=range] { width: 100%; accent-color: var(--accent); }
 .options-bar label { display: flex; align-items: center; gap: 4px; }
-.options-bar input[type=number] { width: 56px; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
 .options-bar select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
+.transform-bar { padding-left: 10px; }
 .transform-bar button, .crop-actions button { padding: 2px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
 .transform-bar button.primary, .crop-actions button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .crop-actions { display: flex; gap: 6px; }
