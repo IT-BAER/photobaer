@@ -453,6 +453,8 @@ export function useBrushCursor(c: BrushCursorCtx) {
     const v = viewer.current, c = canvas.current;
     overlayRef.current?.setCursor(null);
     if (!v || !c || !PAINT_TOOLS.has(tool)) { redrawOverlay(); return; }
+    // The overlay draws the outline or crosshair, so the system pointer would sit on top of it.
+    c.style.cursor = 'none';
     let pos: [number, number] | null = null;
     let drag: { x: number; y: number; size: number; hardness: number } | null = null;
     const local = (e: PointerEvent): [number, number] => {
@@ -502,6 +504,7 @@ export function useBrushCursor(c: BrushCursorCtx) {
       c.removeEventListener('pointerup', up);
       c.removeEventListener('pointercancel', up);
       c.removeEventListener('contextmenu', context);
+      c.style.cursor = '';
       overlayRef.current?.setCursor(null);
       redrawOverlay();
     };
