@@ -695,3 +695,84 @@ fn v6_round_trips_kernel_and_curve_params() {
     v["layers"][3]["smart"]["filters"][4]["filter"]["params"]["kernel"] = json!([1, 2]);
     assert!(load_v4(&v.to_string()).err().expect("rejected").contains("kernel"));
 }
+
+// 64x64 flat 90 with a black 16x16 hole at (24, 24), the hole selected.
+fn hole_doc() -> Document {
+    let mut d = doc_with(64, 64, |x, y| if (24..40).contains(&x) && (24..40).contains(&y) { gray(0) } else { gray(90) });
+    d.select_rect(24.0, 24.0, 16.0, 16.0, Mode::New).unwrap();
+    d
+}
+
+#[test]
+fn content_aware_fill_fills_a_flat_hole_with_the_flat_value() {
+    let mut d = hole_doc();
+    assert!(d.content_aware_fill(1, 4.0, 5.0, None, false).unwrap());
+    for y in 0..64 {
+        for x in 0..64 {
+            assert_eq!(lpx(&d, 1, x, y), gray(90), "({x}, {y})");
+        }
+    }
+    assert!(d.has_selection());
+}
+
+#[test]
+fn content_aware_fill_at_half_opacity_is_the_half_mix_of_old_and_fill() {
+    let mut d = hole_doc();
+    d.content_aware_fill(1, 4.0, 5.0, Some((PaintMode::Blend(Blend::Normal), 0.5, false)), false).unwrap();
+    assert_eq!(lpx(&d, 1, 30, 30), gray(45));
+    assert_eq!(lpx(&d, 1, 10, 10), gray(90));
+}
+
+#[test]
+fn content_aware_fill_mixes_a_feathered_edge_by_its_coverage_once() {
+    let mut d = hole_doc();
+    d.feather_selection(4.0).unwrap();
+    d.content_aware_fill(1, 4.0, 5.0, None, false).unwrap();
+    let sel = d.selection.clone().unwrap();
+    let mut partial = 0;
+    for (x, y) in (0..64).flat_map(|y| (0..64).map(move |x| (x, y))) {
+        let u = d.sel_at(&sel, x, y);
+        let old = if (24..40).contains(&x) && (24..40).contains(&y) { 0.0 } else { 90.0 };
+        let want = old + (90.0 - old) * u;
+        let got = lpx(&d, 1, x, y)[0] as f32;
+        partial += (u > 0.0 && u < 1.0 && old == 0.0) as usize;
+        assert!((got - want).abs() <= 1.0, "({x}, {y}) u {u}: {got} vs {want}");
+    }
+    assert!(partial > 0);
+}
+
+#[test]
+fn content_aware_fill_of_a_layer_with_every_pixel_in_the_hole_keeps_transparency() {
+    let sq = |x: i32, y: i32, a: i32| (a..a + 2).contains(&x) && (a..a + 2).contains(&y);
+    let mut d = doc_with(64, 64, |x, y| if sq(x, y, 30) || sq(x, y, 34) { gray(90) } else { [0; 4] });
+    d.select_rect(24.0, 24.0, 16.0, 16.0, Mode::New).unwrap();
+    assert!(!d.content_aware_fill(1, 4.0, 5.0, None, false).unwrap());
+    assert_eq!((lpx(&d, 1, 34, 30), lpx(&d, 1, 30, 30)), ([0; 4], gray(90)));
+}
+
+#[test]
+fn content_aware_fill_deselect_clears_the_selection() {
+    let mut d = hole_doc();
+    assert!(d.content_aware_fill(1, 4.0, 5.0, None, true).unwrap());
+    assert!(!d.has_selection());
+}
+
+#[test]
+fn content_aware_fill_without_a_source_or_on_a_locked_or_non_pixel_layer_changes_nothing() {
+    let mut d = doc_with(64, 64, |x, y| if x < 20 && y < 20 { gray(90) } else { [0; 4] });
+    d.select_rect(40.0, 40.0, 16.0, 16.0, Mode::New).unwrap();
+    assert!(!d.content_aware_fill(1, 4.0, 5.0, None, true).unwrap());
+    assert!(d.has_selection());
+    assert_eq!((lpx(&d, 1, 45, 45), lpx(&d, 1, 10, 10)), ([0; 4], gray(90)));
+    let mut d = doc_with(64, 64, |x, y| if (30..34).contains(&x) && (30..34).contains(&y) { gray(90) } else { [0; 4] });
+    d.select_rect(24.0, 24.0, 16.0, 16.0, Mode::New).unwrap();
+    assert!(!d.content_aware_fill(1, 4.0, 5.0, None, true).unwrap(), "every opaque pixel is in the hole");
+    assert_eq!((lpx(&d, 1, 31, 31), lpx(&d, 1, 26, 26)), (gray(90), [0; 4]));
+    let mut d = hole_doc();
+    d.node_mut(1).unwrap().locks.pixels = true;
+    let name = d.node(1).unwrap().name.clone();
+    assert_eq!(d.content_aware_fill(1, 4.0, 5.0, None, false).unwrap_err(), format!("{name} is locked."));
+    let g = d.add_group("g", 0).unwrap();
+    assert_eq!(d.content_aware_fill(g, 4.0, 5.0, None, false).unwrap_err(), "Content-Aware Fill needs a pixel layer.");
+    assert_eq!(lpx(&d, 1, 30, 30), gray(0));
+}

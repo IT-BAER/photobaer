@@ -125,7 +125,7 @@ fn box_pass(p: &mut Plane, r: usize, along_x: bool) {
     }
 }
 
-fn box_blur(p: &mut Plane, r: usize) {
+pub(crate) fn box_blur(p: &mut Plane, r: usize) {
     box_pass(p, r, true);
     box_pass(p, r, false);
 }

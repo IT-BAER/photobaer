@@ -5,6 +5,7 @@ mod doc;
 mod filters;
 mod font;
 mod glyph_cells;
+mod heal;
 mod gradient;
 mod livewire;
 mod geom;
@@ -635,6 +636,12 @@ impl Engine {
     /// "pattern" | "history", rgba?, patternId?, snapshotId?, mode, opacity, preserveTransparency}`.
     pub fn fill_ex(&mut self, id: u32, target: &str, params_json: &str) -> Result<(), JsError> {
         self.0.fill_ex(id, target, params_json).map_err(err)
+    }
+
+    /// Edit > Content-Aware Fill (docs/M5.md section 10): `params_json` is `{structure 1..7, color
+    /// 0..10, mode?, opacity?, preserveTransparency?, deselect?}`; true when a pixel changed.
+    pub fn content_aware_fill(&mut self, id: u32, params_json: &str) -> Result<bool, JsError> {
+        self.0.content_aware_fill(id, params_json).map_err(err)
     }
 
     /// Stroke ring (B6 spec v1 Part E2): `params_json` is `{width, rgba, location: "inside" |

@@ -141,6 +141,7 @@ export interface FillParams {
   source: 'solid' | 'pattern' | 'history'; rgba?: Rgba; patternId?: number;
   mode: string; opacity: number; preserveTransparency: boolean;
 }
+export interface ContentAwareOpts { mode: string; opacity: number; preserveTransparency: boolean }
 export interface StrokeSelectionParams {
   width: number; rgba: Rgba; location: 'inside' | 'center' | 'outside'; mode: string; opacity: number; preserveTransparency: boolean;
 }

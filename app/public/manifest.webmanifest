@@ -1,6 +1,6 @@
 {
-  "name": "Photobaer",
-  "short_name": "Photobaer",
+  "name": "photobaer",
+  "short_name": "photobaer",
   "description": "Image editor that runs in the browser and works offline.",
   "id": "./",
   "start_url": "./",

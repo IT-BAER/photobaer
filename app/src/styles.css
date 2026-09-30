@@ -261,9 +261,14 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .curve-point.selected { fill: var(--text); }
 
 .welcome { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; pointer-events: none; }
-.welcome h1 { margin: 0; font-size: 32px; color: var(--accent); }
+.welcome h1 { margin: 0; font-size: 34px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+.welcome .tagline { margin: 0 0 12px; color: var(--dim); }
 .welcome .actions, dialog .actions { display: flex; gap: 8px; justify-content: center; pointer-events: auto; }
-.welcome p { color: var(--dim); }
+.welcome button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.welcome button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.welcome .drop-hint { display: grid; gap: 4px; margin-top: 16px; padding: 18px 28px; border: 1px dashed var(--line); border-radius: 8px; color: var(--dim); }
+.welcome .drop-hint small { font-size: 11px; opacity: 0.75; }
+.workspace.no-doc > .sidebar { display: none; }
 .welcome button, dialog button { padding: 6px 16px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
 .welcome button:hover, dialog button:hover { border-color: var(--accent); }
 dialog button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
@@ -271,7 +276,7 @@ dialog button.primary { background: var(--accent); color: var(--on-accent); bord
 .busy { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 6px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
 .error { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); max-width: 80%; padding: 8px 14px; background: var(--danger); color: #fff; border-radius: 6px; cursor: pointer; }
 
-.status { display: flex; gap: 16px; padding: 0 10px; height: 24px; align-items: center; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
+.status { display: flex; gap: 16px; padding: 0 10px; height: 24px; align-items: center; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; pointer-events: none; user-select: none; }
 .status .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 
 dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; min-width: 300px; }
@@ -430,6 +435,11 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .layer-effect-row .visibility { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; background: none; border: 0; color: var(--dim); cursor: pointer; }
 .layer-effect-row button.name { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
 .breadcrumb { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.menubar-end { margin-left: auto; display: flex; gap: 2px; }
+.breadcrumb + .menubar-end { margin-left: 12px; }
+.menubar-end .heart { color: #a855f7; }
+.menubar-end > a, .menubar-end > button { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px 10px; border-radius: 4px; color: inherit; text-decoration: none; font: inherit; cursor: default; }
+.menubar-end > a:hover, .menubar-end > button:hover { background: var(--panel-hi); }
 
 /* Pathfinder buttons: two overlapping squares, the result drawn solid. */
 .pathfinder { display: flex; gap: 6px; padding: 4px 0 8px; }

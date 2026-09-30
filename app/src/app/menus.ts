@@ -24,6 +24,7 @@ export interface MenuCtx {
   has: boolean; active: Active | null; saveProject: () => Promise<void>; savePsd: () => Promise<void>;
   exportAs: (mime: Mime, ext: string) => Promise<void>; exportLayerComps: (mime: Mime, ext: string) => Promise<void>;
   doc: DocInfo | null; closeContents: () => Promise<void>; run: Run; openPreviewDialog: (which: 'fill' | 'stroke') => void;
+  contentAwareFill: (dialog: boolean) => void;
   quickFill: (rgb: Rgb, label: string) => void; fg: Rgb; bg: Rgb; quickMask: boolean; startTransform: (mode?: Mode, selection?: boolean) => Promise<void>;
   transformAgain: () => void; transformStore: TransformBarStore | null; transformMode: (m: Mode) => void; warping: boolean;
   warpMenuSplit: (mode: WarpSplit) => void; transformRemap: (c: Command, label: string) => void;
@@ -56,7 +57,7 @@ export interface MenuCtx {
 export function buildMenus(c: MenuCtx) {
   const {
     setMenu, newDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeContents, run,
-    openPreviewDialog, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
+    openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
@@ -120,6 +121,8 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Fill with Foreground Color', keys: 'Alt+Backspace', run: () => quickFill(fg, 'Fill with Foreground Color'), off: !has || !active },
       { label: 'Fill with Background Color', keys: 'Ctrl+Backspace', run: () => quickFill(bg, 'Fill with Background Color'), off: !has || !active },
       { label: 'Stroke…', run: () => openPreviewDialog('stroke'), off: !doc?.selection || !active },
+      { label: 'Content-Aware Fill…', run: () => contentAwareFill(true), off: !has || !active },
+      { label: 'Delete and Fill Selection', run: () => contentAwareFill(false), off: !has || !active },
       { label: 'Clear', keys: 'Delete', run: () => active && run('Clearing…', () => client.call('clearSelected', active.id, quickMask ? 'selection' : active.target)), off: !doc?.selection || !active },
       { label: 'Free Transform', keys: 'Ctrl+T', run: () => void startTransform(), off: !has || !active },
       {

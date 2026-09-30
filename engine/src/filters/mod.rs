@@ -17,6 +17,7 @@ mod registry;
 mod sharpen;
 mod stylize;
 
+pub(crate) use blur::box_blur;
 pub use registry::lookup;
 
 /// How much of the layer one output pixel reads: itself, a `reach` neighborhood, or everything.
@@ -304,6 +305,27 @@ fn check(spec: &Spec, p: &Param, v: &Value) -> Result<Value, String> {
 /// Runs `f` over `plane` (straight RGBA); the plane is the output rect grown by the reach.
 pub fn apply(f: &Filter, plane: &mut Plane, ctx: &Ctx) -> Result<(), String> {
     (f.spec()?.apply)(plane, f, ctx)
+}
+
+/// 32-bit seeded generator (Wave patterns, patch search): a seed hash, then a counter-based mixer.
+pub(crate) struct Rng(u32);
+
+impl Rng {
+    pub(crate) fn new(seed: u32) -> Rng {
+        Rng((seed ^ 0x9E37_79B9).wrapping_mul(0x85EB_CA6B) ^ (seed >> 13))
+    }
+
+    pub(crate) fn next(&mut self) -> f64 {
+        self.0 = self.0.wrapping_add(0x6D2B_79F5);
+        let mut o = self.0;
+        o = (o ^ (o >> 15)).wrapping_mul(o | 1);
+        o ^= o.wrapping_add((o ^ (o >> 7)).wrapping_mul(o | 61));
+        (o ^ (o >> 14)) as f64 / 4_294_967_296.0
+    }
+
+    pub(crate) fn range(&mut self, a: f64, b: f64) -> f64 {
+        a + self.next() * (b - a)
+    }
 }
 
 /// A value in 0..1 from the seed and a document position and channel (D4): a tile rendered alone

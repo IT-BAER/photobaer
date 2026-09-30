@@ -14,7 +14,7 @@ import { BOOL_LABEL } from './shell/shapetools.ts';
 import { layerName } from './shell/typesession.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
-import type { Adjustment, FaceInfo, AutosaveState, Box, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
+import type { Adjustment, FaceInfo, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
@@ -387,6 +387,17 @@ const api = {
       p.snapshotId = snap;
     }
     return edit(label, preview, () => e.fill_ex(id, target, JSON.stringify(p)));
+  },
+
+  // Edit > Content-Aware Fill / Delete and Fill Selection; `opts` null = Normal at full opacity.
+  // No changed pixel throws, so the step is dropped.
+  contentAwareFill(id: number, structure: number, color: number, opts: ContentAwareOpts | null, deselect: boolean, label: string) {
+    const e = need();
+    const params = JSON.stringify({ structure, color, ...(opts ?? {}), deselect });
+    if (deselect) selGen++;
+    return edit(label, false, () => {
+      if (!e.content_aware_fill(id, params)) throw new Error('Content-Aware Fill produced no pixels.');
+    });
   },
 
   strokeSelection(id: number, params: StrokeSelectionParams, preview = false) {

@@ -320,6 +320,8 @@ pub enum FillSource {
     Pattern(Arc<Pattern>),
     /// The same layer id's pixel tiles in a history snapshot.
     History(Tiles),
+    /// Straight RGBA in document coords; transparent outside the plane.
+    Plane(filters::Plane),
 }
 
 /// Fill's per-pixel color and alpha at document coords `(gx, gy)` (B6 spec v1 Part E1): a solid
@@ -337,6 +339,14 @@ fn fill_src_sample(src: &FillSource, hist_tile: Option<&Pixels>, p: usize, gx: i
         FillSource::History(_) => {
             let hp = hist_tile.map_or([0.0; 4], |px| px.rgba_f32(p));
             ([hp[0], hp[1], hp[2]], hp[3])
+        }
+        FillSource::Plane(pl) => {
+            let (x, y) = (gx - pl.x, gy - pl.y);
+            if x < 0 || y < 0 || x as usize >= pl.w || y as usize >= pl.h {
+                return ([0.0; 3], 0.0);
+            }
+            let i = (y as usize * pl.w + x as usize) * 4;
+            ([pl.data[i], pl.data[i + 1], pl.data[i + 2]], pl.data[i + 3])
         }
     }
 }
@@ -1295,7 +1305,7 @@ impl Document {
         self.check_idle()?;
         let opacity = opacity.clamp(0.0, 1.0);
         match target {
-            Target::Pixels => self.fill_ex_pixels(id, src, mode, opacity, preserve_transparency),
+            Target::Pixels => self.fill_ex_pixels(id, src, mode, opacity, preserve_transparency).map(|_| ()),
             Target::Mask => self.fill_ex_mask(id, src, mode, opacity),
             Target::Selection => self.fill_ex_selection(src, mode, opacity),
         }
@@ -1308,15 +1318,16 @@ impl Document {
         mode: PaintMode,
         opacity: f32,
         preserve_transparency: bool,
-    ) -> Result<(), String> {
+    ) -> Result<bool, String> {
         self.check_pixel_paint(id)?;
         let keep_alpha = preserve_transparency || self.node(id)?.locks.transparency;
         let depth = self.depth;
         let (w, h) = (self.width as i32, self.height as i32);
         let [rx, ry, rw, rh] = self.selection_bounds().unwrap_or([0, 0, w, h]);
         if rw <= 0 || rh <= 0 {
-            return Ok(());
+            return Ok(false);
         }
+        let mut changed = false;
         let selected = self.selection.is_some();
         let mut out: Vec<((i32, i32), Option<Pixels>)> = Vec::new();
         for (tx, ty) in self.tiles_of_rect(rx, ry, rx + rw, ry + rh) {
@@ -1328,7 +1339,7 @@ impl Document {
             };
             let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
             let mut fresh = vec![0f32; TILE_PIXELS * 4];
-            let mut any = false;
+            let (mut any, mut touched) = (false, false);
             for py in 0..TILE as i32 {
                 for px_ in 0..TILE as i32 {
                     let p = (py * TILE as i32 + px_) as usize;
@@ -1343,10 +1354,18 @@ impl Document {
                         paint_pixel(mode, old, src_rgb, c, keep_alpha)
                     };
                     any |= new[3] > 0.0;
+                    touched |= new != old;
                     fresh[p * 4..p * 4 + 4].copy_from_slice(&new);
                 }
             }
-            out.push(((tx, ty), any.then(|| Pixels::from_straight(depth, &fresh))));
+            let px = any.then(|| Pixels::from_straight(depth, &fresh));
+            // A change counts once it survives the tile's quantization.
+            changed |= touched
+                && (0..TILE_PIXELS).any(|p| {
+                    let stored = |t: Option<&Pixels>| t.map_or([0.0; 4], |t| t.rgba_f32(p));
+                    stored(px.as_ref()) != stored(old_tile.as_deref())
+                });
+            out.push(((tx, ty), px));
         }
         let mut tiles_out = Vec::with_capacity(out.len());
         for (at, px) in out {
@@ -1356,7 +1375,61 @@ impl Document {
         for ((tx, ty), t) in tiles_out {
             tiles.put(tx, ty, t);
         }
-        Ok(())
+        Ok(changed)
+    }
+
+    /// Edit > Content-Aware Fill (docs/M5.md section 10): fills the selection (or the layer) from
+    /// the layer pixels around it, applied like Fill; true when a pixel changed.
+    pub fn content_aware_fill(
+        &mut self,
+        id: u32,
+        structure: f32,
+        color: f32,
+        opts: Option<(PaintMode, f32, bool)>,
+        deselect: bool,
+    ) -> Result<bool, String> {
+        self.check_idle()?;
+        let node = self.node(id)?;
+        if !matches!(node.kind, Kind::Pixel(_)) {
+            return Err("Content-Aware Fill needs a pixel layer.".into());
+        }
+        if node.locks.pixels {
+            return Err(format!("{} is locked.", node.name));
+        }
+        let doc = [0, 0, self.width as i32, self.height as i32];
+        let Some(lb) = self.layer_bounds(id)? else { return Ok(false) };
+        let e = transform::intersect(if self.selection.is_some() { self.selection_bounds().unwrap_or([0; 4]) } else { lb }, doc);
+        if e[2] <= 0 || e[3] <= 0 {
+            return Ok(false);
+        }
+        let m = 24.max((e[2].max(e[3]) + 1) / 2);
+        let g = transform::intersect(transform::intersect([e[0] - m, e[1] - m, e[2] + 2 * m, e[3] + 2 * m], doc), lb);
+        if g[2] <= 0 || g[3] <= 0 {
+            return Ok(false);
+        }
+        let (w, h, ti) = (g[2] as usize, g[3] as usize, TILE as i32);
+        let tiles = node.pixel_tiles()?;
+        let (mut data, mut cov) = (vec![0f32; w * h * 4], vec![1f32; w * h]);
+        for j in 0..h {
+            for i in 0..w {
+                let (x, y) = (g[0] + i as i32, g[1] + j as i32);
+                let p = (y.rem_euclid(ti) * ti + x.rem_euclid(ti)) as usize;
+                let v = tiles.get(x.div_euclid(ti), y.div_euclid(ti)).map_or([0.0; 4], |t| t.px.rgba_f32(p));
+                data[(j * w + i) * 4..][..4].copy_from_slice(&v);
+                // Hard hole: fill_ex_pixels applies the selection coverage once.
+                if let Some(sel) = &self.selection {
+                    cov[j * w + i] = if self.sel_at(sel, x, y) > 0.0 { 1.0 } else { 0.0 };
+                }
+            }
+        }
+        let img = filters::Plane { x: g[0], y: g[1], w, h, data };
+        let fill = crate::heal::content_aware_fill(&img, &cov, structure, color, 1346916180, None);
+        let (mode, opacity, preserve) = opts.unwrap_or((PaintMode::Blend(Blend::Normal), 1.0, false));
+        let changed = self.fill_ex_pixels(id, &FillSource::Plane(fill), mode, opacity.clamp(0.0, 1.0), preserve)?;
+        if changed && deselect {
+            self.deselect()?;
+        }
+        Ok(changed)
     }
 
     /// Layer mask target (item 2b): same `p = srcA * u * opacity` weighting as the pixel fill, but

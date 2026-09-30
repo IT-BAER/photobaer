@@ -17,7 +17,7 @@ import { GradientsPanel, PatternsPanel, StylesPanel, adoptPatterns } from './Pre
 import type { SampleCanvas } from './LevelsCurvesBody.tsx';
 import { COMMAND_LABEL, DESTRUCTIVE_LABEL, MENU_LABEL, defaultAdjustment, defaultDestructive, uiToGradientDef, type DestructiveKind, type Kind } from './adjustments.ts';
 import type { Adjustment, AutosaveState, DestructiveAdjustment, DocInfo, FillContent, FillParams, GradientParams, LayerNode } from './engine.worker.ts';
-import type { FaceInfo } from './worker/types.ts';
+import type { ContentAwareOpts, FaceInfo } from './worker/types.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
 import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
 import { ColorPanel } from './shell/ColorPanel.tsx';
@@ -72,7 +72,7 @@ import { FilterDialog, runFilter, type FilterDialogHandle } from './filters/Filt
 import { repeatLastFilter } from './filters/lastFilter.ts';
 import { schema, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
-  AdjustDialog, ColorRangeDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
+  AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
   LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
   ScaleEffectsDialog, StrokeDialog, TrimDialog,
 } from './app/Dialogs.tsx';
@@ -209,6 +209,7 @@ export function App() {
   const perfRef = useRef<PerfProbe | null>(null);
   // Fill/Stroke dialogs preview live; closing ends the preview session, committing only after OK.
   const fillDialog = useRef<HTMLDialogElement>(null);
+  const contentAwareDialog = useRef<HTMLDialogElement>(null);
   const strokeDialog = useRef<HTMLDialogElement>(null);
   const [fillForm, setFillForm] = useState<FillForm>(loadFillForm);
   const [strokeForm, setStrokeForm] = useState<StrokeForm>(STROKE_DEFAULT);
@@ -346,7 +347,7 @@ export function App() {
   function show(d: DocInfo | null, selectAfter?: SelectAfter) {
     setDoc(d);
     viewer.current?.setDoc(d);
-    document.title = d ? `${d.name} - Photobaer` : 'Photobaer';
+    document.title = d ? `${d.name} - photobaer` : 'photobaer';
     if (!d) { setActive(null); return; }
     // Node ids restart per document: a previous document's active layer never carries over.
     const sameDoc = d.docId === docRef.current?.docId;
@@ -535,9 +536,30 @@ export function App() {
     (which === 'fill' ? fillDialog : strokeDialog).current?.showModal();
   }
 
+  // Edit > Content-Aware Fill, Delete and Fill Selection and the Fill dialog's Content-Aware contents.
+  function contentAwareRefusal(): string | null {
+    if (active?.target === 'mask') return 'Select the layer pixels to use Content-Aware Fill.';
+    return doc?.selection?.bounds ? null : 'Select the area to fill.';
+  }
+
+  function contentAwareCall(id: number, structure: number, color: number, opts: ContentAwareOpts | null, deselect: boolean, label: string) {
+    return client.call('contentAwareFill', id, structure, color, opts, deselect, label);
+  }
+
+  function contentAwareFill(dialog: boolean) {
+    setMenu(null);
+    if (!active) return;
+    const why = contentAwareRefusal();
+    if (why) { setError(why); return; }
+    if (dialog) { contentAwareDialog.current?.showModal(); return; }
+    const id = active.id;
+    run('Filling…', () => contentAwareCall(id, 4, 5, null, true, 'Delete and Fill Selection'));
+  }
+
   async function fillParams(f: FillForm): Promise<FillParams> {
     const base = { mode: f.mode, opacity: f.opacity / 100, preserveTransparency: f.preserve };
     if (f.contents === 'history') return { source: 'history', ...base };
+    if (f.contents === 'contentAware') throw new Error('Content-Aware Fill has no fill source.');
     if (f.contents === 'pattern') {
       const lib = brushLib.current;
       const ref = f.pattern || lib?.library.patterns()[0]?.id;
@@ -559,12 +581,18 @@ export function App() {
       if (st.commit && adjustForm) adjustPreview(adjustForm);
     }
     st.open = false;
+    let then: (() => Promise<DocInfo>) | null = null;
     if (previewDialog === 'fill') {
-      const { contents, color, pattern } = fillForm;
-      try { localStorage.setItem(FILL_KEY, JSON.stringify({ contents, color, pattern })); } catch { /* session-only */ }
+      const { contents, color, pattern, caStructure, caColor } = fillForm;
+      try { localStorage.setItem(FILL_KEY, JSON.stringify({ contents, color, pattern, caStructure, caColor })); } catch { /* session-only */ }
+      if (st.commit && contents === 'contentAware' && active) {
+        const why = contentAwareRefusal();
+        const id = active.id, opts = { mode: fillForm.mode, opacity: fillForm.opacity / 100, preserveTransparency: fillForm.preserve };
+        then = () => (why ? Promise.reject(new Error(why)) : contentAwareCall(id, caStructure, caColor, opts, false, 'Content-Aware Fill'));
+      }
     }
     setPreviewDialog(null);
-    run(null, () => st.pending.catch(() => {}).then(() => client.call('previewEnd', st.commit)));
+    run(null, () => st.pending.catch(() => {}).then(() => client.call('previewEnd', st.commit)).then(d => (then ? then() : d)));
   }
 
   // Filter menu commands (docs/M5.md section 2) on the active target; a smart object appends a smart filter.
@@ -860,7 +888,7 @@ export function App() {
   const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
   const menus = buildMenus({
     setMenu, newDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeContents, run,
-    openPreviewDialog, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
+    openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
@@ -973,6 +1001,8 @@ export function App() {
     if ((previewDialog !== 'fill' && previewDialog !== 'stroke') || !active || !st.open) return;
     const a = active;
     st.pending = (async () => {
+      // Content-Aware has no live preview: the fill runs on OK.
+      if (previewDialog === 'fill' && fillForm.contents === 'contentAware') { show(await client.call('previewEnd', false)); return; }
       const d = previewDialog === 'fill'
         ? await fillParams(fillForm).then(p => (st.open ? client.call('fillEx', a.id, editTarget(a), p, 'Fill', true) : null))
         : st.open ? await client.call('strokeSelection', a.id, {
@@ -1315,7 +1345,7 @@ export function App() {
   return (
     <div className="app">
       <header className="menubar">
-        <img className="brand" src="./logo-light.png" alt="Photobaer" width={24} height={24} />
+        <img className="brand" src="./logo-light.png" alt="photobaer" width={24} height={24} />
         {Object.entries(menus).map(([name, items]) => (
           <div key={name} className="menu">
             <button className={menu === name ? 'open' : ''} onClick={() => setMenu(menu === name ? null : name)} onMouseEnter={() => menu && setMenu(name)}>{name}</button>
@@ -1331,6 +1361,15 @@ export function App() {
             <button type="button" onClick={() => closeContents()}>Close</button>
           </span>
         ) : null}
+        <span className="menubar-end">
+          <a href="https://github.com/sponsors/IT-BAER" target="_blank" rel="noopener noreferrer">
+            <svg className="heart" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.6 4.5c2.1 0 3.8 1.2 5.4 3.1 1.6-1.9 3.3-3.1 5.4-3.1 3.6 0 5.7 3.8 4.2 7.2C19.5 16.4 12 21 12 21z" /></svg>
+            Donate
+          </a>
+          <button type="button" title="Fullscreen" aria-label="Fullscreen" onClick={() => void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen())}>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.5" d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" /></svg>
+          </button>
+        </span>
       </header>
       {menu && <div className="scrim" onClick={() => setMenu(null)} />}
       {transformMenu && transformStore && (
@@ -1354,7 +1393,7 @@ export function App() {
           </div>
         </>
       )}
-      <main className="workspace with-sidebar">
+      <main className={`workspace${doc ? ' with-sidebar' : ' no-doc'}`}>
         <ToolBar
           active={tool} setActive={setTool} lastUsed={lastUsed} setLastUsed={setLastUsed}
           fg={fg} bg={bg} openPicker={openPicker} swap={swapColors} reset={resetColors}
@@ -1401,12 +1440,16 @@ export function App() {
             {showRulers && <div className="ruler-corner" />}
             {!doc && !busy && (
               <div className="welcome">
-                <h1>Photobaer</h1>
+                <h1>photobaer</h1>
+                <p className="tagline">Image editing in your browser</p>
                 <div className="actions">
+                  <button className="primary" onClick={() => fileInput.current?.click()}>Open image…</button>
                   <button onClick={() => newDialog.current?.showModal()}>New image</button>
-                  <button onClick={() => fileInput.current?.click()}>Open…</button>
                 </div>
-                <p>Or drop a PNG, JPEG, WebP, PSD or .pbaer file here.</p>
+                <div className="drop-hint">
+                  Drop an image here
+                  <small>PNG, JPEG, WebP, GIF, BMP, AVIF, PSD or .pbaer</small>
+                </div>
               </div>
             )}
             {busy && <div className="busy">{busy}</div>}
@@ -1530,6 +1573,10 @@ export function App() {
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <FeatherDialog featherDialog={featherDialog} run={run} />
+      <ContentAwareFillDialog dialog={contentAwareDialog} submit={(structure, color) => {
+        const id = active?.id;
+        if (id !== undefined) run('Filling…', () => contentAwareCall(id, structure, color, null, false, 'Content-Aware Fill'));
+      }} />
       <WarpTextDialog dialog={warpDialog} c={typeCtx} />
       <ModifyDialog modifyDialog={modifyDialog} run={run} modifyOp={modifyOp} />
       <SaveSelectionDialog saveSelDialog={saveSelDialog} run={run} doc={doc} />

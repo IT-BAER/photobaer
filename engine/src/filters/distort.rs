@@ -4,7 +4,7 @@
 use std::f64::consts::{FRAC_2_PI, FRAC_PI_2, PI, TAU};
 
 use super::blur::premultiplied;
-use super::{hash, Ctx, Filter, Plane};
+use super::{hash, Ctx, Filter, Plane, Rng};
 
 #[derive(Clone, Copy)]
 enum Edge {
@@ -189,27 +189,6 @@ pub fn twirl(p: &mut Plane, f: &Filter, _: &Ctx) -> Result<(), String> {
         (cx + m.cos() * d, cy + m.sin() * d)
     });
     Ok(())
-}
-
-// 32-bit generator behind the Wave patterns: a seed hash, then a counter-based mixer.
-struct Rng(u32);
-
-impl Rng {
-    fn new(seed: u32) -> Rng {
-        Rng((seed ^ 0x9E37_79B9).wrapping_mul(0x85EB_CA6B) ^ (seed >> 13))
-    }
-
-    fn next(&mut self) -> f64 {
-        self.0 = self.0.wrapping_add(0x6D2B_79F5);
-        let mut o = self.0;
-        o = (o ^ (o >> 15)).wrapping_mul(o | 1);
-        o ^= o.wrapping_add((o ^ (o >> 7)).wrapping_mul(o | 61));
-        (o ^ (o >> 14)) as f64 / 4_294_967_296.0
-    }
-
-    fn range(&mut self, a: f64, b: f64) -> f64 {
-        a + self.next() * (b - a)
-    }
 }
 
 fn wave_at(kind: &str, t: f64) -> f64 {

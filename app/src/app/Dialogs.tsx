@@ -1,4 +1,4 @@
-import type { Dispatch, FormEvent, RefObject, SetStateAction } from 'react';
+import { useState, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
 import { client } from '../client.ts';
 import type { Active } from '../LayersPanel.tsx';
 import { BLEND_MODES } from '../layers.ts';
@@ -41,6 +41,12 @@ export function FillDialog({ fillDialog, endPreviewDialog, previewRef, fillForm,
         </select></label>
         <label>Custom color <button type="button" className="gradient-swatch" aria-label="Custom fill color" style={{ background: rgbToHex(fillForm.color) }}
           onClick={() => picker.current?.open(fillForm.color, 'Fill Color', c => setFillForm(f => ({ ...f, color: c, contents: 'color' })))} /></label>
+        {fillForm.contents === 'contentAware' && <>
+          <label>Content-Aware Structure <input name="caStructure" type="range" min={1} max={7} value={fillForm.caStructure}
+            onChange={e => setFillForm({ ...fillForm, caStructure: Number(e.currentTarget.value) })} /> {fillForm.caStructure}</label>
+          <label>Content-Aware Color <input name="caColor" type="range" min={0} max={10} value={fillForm.caColor}
+            onChange={e => setFillForm({ ...fillForm, caColor: Number(e.currentTarget.value) })} /> {fillForm.caColor}</label>
+        </>}
         {fillForm.contents === 'pattern' && (
           <label>Pattern <select name="pattern" value={fillForm.pattern || brushLib.current?.library.patterns()[0]?.id} onChange={e => setFillForm({ ...fillForm, pattern: e.currentTarget.value })}>
             {brushLib.current?.library.patterns().map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -54,6 +60,25 @@ export function FillDialog({ fillDialog, endPreviewDialog, previewRef, fillForm,
         <label><input name="preserve" type="checkbox" checked={fillForm.preserve} onChange={e => setFillForm({ ...fillForm, preserve: e.currentTarget.checked })} /> Preserve Transparency</label>
         <div className="actions">
           <button type="button" onClick={() => fillDialog.current?.close()}>Cancel</button>
+          <button type="submit" className="primary">OK</button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+// Edit > Content-Aware Fill…: Structure 1..7 and Color Adaptation 0..10, no live preview.
+export function ContentAwareFillDialog({ dialog, submit }: { dialog: DialogRef; submit: (structure: number, color: number) => void }) {
+  const [structure, setStructure] = useState(4);
+  const [color, setColor] = useState(5);
+  return (
+    <dialog ref={dialog} aria-label="Content-Aware Fill">
+      <form onSubmit={e => { e.preventDefault(); dialog.current?.close(); submit(structure, color); }}>
+        <h2>Content-Aware Fill</h2>
+        <label>Structure <input name="structure" type="range" min={1} max={7} value={structure} onChange={e => setStructure(Number(e.currentTarget.value))} /> {structure}</label>
+        <label>Color Adaptation <input name="color" type="range" min={0} max={10} value={color} onChange={e => setColor(Number(e.currentTarget.value))} /> {color}</label>
+        <div className="actions">
+          <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
           <button type="submit" className="primary">OK</button>
         </div>
       </form>

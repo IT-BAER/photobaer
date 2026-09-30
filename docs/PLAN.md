@@ -1,6 +1,6 @@
-# Photobaer plan: image editor with feature parity to the reference app (web PWA + desktop)
+# photobaer plan: image editor with feature parity to the reference app (web PWA + desktop)
 
-Working name: Photobaer. It never names the reference app or its vendor, and never ships their
+Working name: photobaer. It never names the reference app or its vendor, and never ships their
 icons, strings, CSS or layout assets.
 
 ## 0. Ground rules

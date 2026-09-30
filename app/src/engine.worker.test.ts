@@ -520,6 +520,24 @@ test('strokeSelection needs a selection and lands as Stroke', async () => {
   assert.deepEqual([await px(4, 4), await px(7, 7)], [[0, 0, 0, 255], [255, 255, 255, 255]]);
 });
 
+test('contentAwareFill fills the selection as one step and reports an empty result', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, [90, 90, 90, 255]);
+  const args = (deselect: boolean, label: string) => [1, 4, 5, null, deselect, label];
+  await call('select', { kind: 'rect', x: 24, y: 24, w: 16, h: 16 }, 'new', false, 0, 'Rectangular Marquee');
+  const before = (await call('fillEx', 1, 'pixels', solid([0, 0, 0, 255]), 'Fill')).result as { selGen: number };
+  const r = await call('contentAwareFill', ...args(true, 'Delete and Fill Selection'));
+  const d = r.result as { undoLabel: string; selection: unknown; selGen: number };
+  assert.equal(d.undoLabel, 'Delete and Fill Selection');
+  assert.equal(d.selection, null);
+  assert.notEqual(d.selGen, before.selGen, 'the ants redraw after the deselect');
+  assert.deepEqual(await px(30, 30), [90, 90, 90, 255]);
+  await call('newDoc', 16, 16, 8, [0, 0, 0, 0]);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  const none = await call('contentAwareFill', ...args(false, 'Content-Aware Fill'));
+  assert.equal(none.error, 'Content-Aware Fill produced no pixels.');
+});
+
 test('gradient renders a black to white row as one Gradient step', async () => {
   await call('init');
   await call('newDoc', 16, 4, 8, [255, 0, 0, 255]);

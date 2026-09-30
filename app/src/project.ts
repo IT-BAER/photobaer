@@ -64,11 +64,11 @@ export async function unpackProject(file: Blob): Promise<{ manifest: string; til
   try {
     buf = await new Response(file.stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
   } catch {
-    throw new Error('not a Photobaer project (not gzip)');
+    throw new Error('not a photobaer project (not gzip)');
   }
   const dv = new DataView(buf);
   const bytes = new Uint8Array(buf);
-  if (buf.byteLength < 16 || new TextDecoder().decode(bytes.subarray(0, 8)) !== MAGIC) throw new Error('not a Photobaer project');
+  if (buf.byteLength < 16 || new TextDecoder().decode(bytes.subarray(0, 8)) !== MAGIC) throw new Error('not a photobaer project');
   if (dv.getUint32(8, true) !== VERSION) throw new Error(`unsupported project version ${dv.getUint32(8, true)}`);
   let at = 16 + dv.getUint32(12, true);
   if (at > buf.byteLength) throw new Error('project file truncated');

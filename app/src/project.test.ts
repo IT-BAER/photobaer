@@ -77,8 +77,8 @@ test('a truncated file is rejected', async () => {
 
 test('a file that is not a project is rejected', async () => {
   const gz = await new Response(new Blob(['hello world, not a project']).stream().pipeThrough(new CompressionStream('gzip'))).blob();
-  await assert.rejects(unpackProject(gz), /not a Photobaer project/);
-  await assert.rejects(unpackProject(new Blob(['plain'])), /not a Photobaer project/);
+  await assert.rejects(unpackProject(gz), /not a photobaer project/);
+  await assert.rejects(unpackProject(new Blob(['plain'])), /not a photobaer project/);
 });
 
 const manifestV4 = JSON.stringify({

@@ -34,16 +34,18 @@ type TrimBase = 'transparent' | 'topLeftPixel' | 'bottomRightPixel';
 
 // Edit > Fill: only contents, color and pattern persist across openings.
 const FILL_KEY = 'photobaer:fill';
-const FILL_CONTENTS = { foreground: 'Foreground Color', background: 'Background Color', color: 'Color…', pattern: 'Pattern', history: 'History', black: 'Black', gray: '50% Gray', white: 'White' };
+const FILL_CONTENTS = { foreground: 'Foreground Color', background: 'Background Color', color: 'Color…', contentAware: 'Content-Aware', pattern: 'Pattern', history: 'History', black: 'Black', gray: '50% Gray', white: 'White' };
 type FillContents = keyof typeof FILL_CONTENTS;
-interface FillForm { contents: FillContents; color: Rgb; pattern: string; mode: string; opacity: number; preserve: boolean }
+interface FillForm { contents: FillContents; color: Rgb; pattern: string; caStructure: number; caColor: number; mode: string; opacity: number; preserve: boolean }
 function loadFillForm(): FillForm {
-  const f: FillForm = { contents: 'foreground', color: [0, 0, 0], pattern: '', mode: 'normal', opacity: 100, preserve: false };
+  const f: FillForm = { contents: 'foreground', color: [0, 0, 0], pattern: '', caStructure: 4, caColor: 5, mode: 'normal', opacity: 100, preserve: false };
   try {
     const s = JSON.parse(localStorage.getItem(FILL_KEY) ?? 'null') as Partial<FillForm> | null;
     if (s && typeof s.contents === 'string' && s.contents in FILL_CONTENTS) f.contents = s.contents;
     if (Array.isArray(s?.color) && s.color.length === 3 && s.color.every(c => Number.isInteger(c) && c >= 0 && c <= 255)) f.color = s.color;
     if (typeof s?.pattern === 'string') f.pattern = s.pattern;
+    if (Number.isInteger(s?.caStructure) && s!.caStructure! >= 1 && s!.caStructure! <= 7) f.caStructure = s!.caStructure!;
+    if (Number.isInteger(s?.caColor) && s!.caColor! >= 0 && s!.caColor! <= 10) f.caColor = s!.caColor!;
   } catch { /* unavailable or corrupt: defaults */ }
   return f;
 }

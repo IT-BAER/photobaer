@@ -242,6 +242,22 @@ struct StrokeIn {
     dual_brush: DualBrushIn,
 }
 
+/// `content_aware_fill` JSON params; `mode` absent = Normal at full opacity.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ContentAwareIn {
+    structure: f32,
+    color: f32,
+    #[serde(default)]
+    mode: Option<String>,
+    #[serde(default = "one")]
+    opacity: f32,
+    #[serde(default)]
+    preserve_transparency: bool,
+    #[serde(default)]
+    deselect: bool,
+}
+
 /// `fill_ex` JSON params (B6 spec v1 Part E1): `source` is "solid", "pattern" or "history".
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -734,6 +750,17 @@ impl EngineCore {
             other => return Err(format!("unknown fill source {other}")),
         };
         self.doc.fill_ex(id, target, &src, mode, p.opacity, p.preserve_transparency)
+    }
+
+    /// Edit > Content-Aware Fill: `params_json` is `{structure, color, mode?, opacity?,
+    /// preserveTransparency?, deselect?}`; true when a pixel changed.
+    pub fn content_aware_fill(&mut self, id: u32, params_json: &str) -> Result<bool, String> {
+        let p: ContentAwareIn = serde_json::from_str(params_json).map_err(|e| format!("bad content-aware fill params: {e}"))?;
+        let opts = match p.mode {
+            Some(m) => Some((PaintMode::parse(&m)?, p.opacity, p.preserve_transparency)),
+            None => None,
+        };
+        self.doc.content_aware_fill(id, p.structure, p.color, opts, p.deselect)
     }
 
     /// Stroke ring (B6 spec v1 Part E2): `params_json` is `{width, rgba, location, mode, opacity,
