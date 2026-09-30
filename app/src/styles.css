@@ -1,3 +1,5 @@
+@font-face { font-family: 'Comfortaa'; font-style: normal; font-weight: 600; font-display: swap; src: url('./assets/comfortaa/Comfortaa-SemiBold-latin.woff2') format('woff2'); }
+
 :root {
   --bg: #131416;
   --panel: #1c1d1f;
@@ -36,7 +38,7 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-.app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
+.app { display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); height: 100%; }
 
 .menubar { display: flex; align-items: center; gap: 2px; padding: 0 8px; height: 32px; background: var(--panel); border-bottom: 1px solid var(--line); position: relative; z-index: 20; }
 /* The bear's ink centers over the 48px tool column (1px right border) at x 23.5: menubar padding
@@ -261,14 +263,21 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .curve-point.selected { fill: var(--text); }
 
 .welcome { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; pointer-events: none; }
-.welcome h1 { margin: 0; font-size: 34px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+.welcome h1 { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 0; font: 600 46px/1.1 'Comfortaa', sans-serif; letter-spacing: -0.025em; color: #ecedef; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4); }
+.welcome h1 img { flex: none; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4)); }
 .welcome .tagline { margin: 0 0 12px; color: var(--dim); }
 .welcome .actions, dialog .actions { display: flex; gap: 8px; justify-content: center; pointer-events: auto; }
+.welcome button:focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; }
 .welcome button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .welcome button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.welcome .drop-hint { display: grid; gap: 4px; margin-top: 16px; padding: 18px 28px; border: 1px dashed var(--line); border-radius: 8px; color: var(--dim); }
-.welcome .drop-hint small { font-size: 11px; opacity: 0.75; }
-.workspace.no-doc > .sidebar { display: none; }
+.welcome .drop-hint { display: grid; gap: 4px; margin-top: 16px; padding: 18px 28px; border: 1px dashed var(--line); border-radius: 8px; color: var(--dim); pointer-events: auto; transition: border-color var(--t-hover) var(--ease), background-color var(--t-hover) var(--ease); }
+.welcome .drop-hint.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); }
+.welcome .drop-hint small { font-size: 12px; }
+.workspace.no-doc > .sidebar, .workspace.no-doc .options-bar { display: none; }
+@media (max-width: 600px) {
+  .welcome h1 { font-size: 34px; gap: 8px; }
+  .welcome h1 img { width: 48px; height: 48px; }
+}
 .welcome button, dialog button { padding: 6px 16px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
 .welcome button:hover, dialog button:hover { border-color: var(--accent); }
 dialog button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }

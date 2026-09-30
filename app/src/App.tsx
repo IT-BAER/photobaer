@@ -120,6 +120,7 @@ export function App() {
   const [renderer, setRenderer] = useState('');
   const [busy, setBusy] = useState<string | null>('Starting…');
   const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
   const [fg, setFg] = useState<Rgb>(hexToRgb('#e8a23a')!);
   const [bg, setBg] = useState<Rgb>([255, 255, 255]);
@@ -347,7 +348,7 @@ export function App() {
   function show(d: DocInfo | null, selectAfter?: SelectAfter) {
     setDoc(d);
     viewer.current?.setDoc(d);
-    document.title = d ? `${d.name} - photobaer` : 'photobaer';
+    document.title = d ? `${d.name} - photobaer` : 'photobaer – Online Photo Editor';
     if (!d) { setActive(null); return; }
     // Node ids restart per document: a previous document's active layer never carries over.
     const sameDoc = d.docId === docRef.current?.docId;
@@ -1440,13 +1441,18 @@ export function App() {
             {showRulers && <div className="ruler-corner" />}
             {!doc && !busy && (
               <div className="welcome">
-                <h1>photobaer</h1>
+                <h1><img src="./logo-light.png" alt="" width={64} height={64} />photobaer</h1>
                 <p className="tagline">Image editing in your browser</p>
                 <div className="actions">
                   <button className="primary" onClick={() => fileInput.current?.click()}>Open image…</button>
                   <button onClick={() => newDialog.current?.showModal()}>New image</button>
                 </div>
-                <div className="drop-hint">
+                <div
+                  className={`drop-hint${dragOver ? ' over' : ''}`}
+                  onDragEnter={() => setDragOver(true)}
+                  onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(false); }}
+                  onDrop={() => setDragOver(false)}
+                >
                   Drop an image here
                   <small>PNG, JPEG, WebP, GIF, BMP, AVIF, PSD or .pbaer</small>
                 </div>
