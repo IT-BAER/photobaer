@@ -738,20 +738,3 @@ mod tests {
         assert_eq!(f.params["center"], json!({ "x": 0.5, "y": 0.5 }));
     }
 }
-
-#[cfg(test)]
-mod tmp_timing {
-    #[test]
-    #[ignore]
-    fn tmp_time_defaults_512() {
-        use super::super::{Ctx, Filter, Plane};
-        let blobs = std::collections::HashMap::new();
-        for kind in ["blur.box_blur", "blur.lens_blur", "blur.motion_blur", "blur.radial_blur", "blur.shape_blur", "blur.smart_blur", "blur.surface_blur", "gaussian_blur"] {
-            let f = Filter::parse(&format!(r#"{{"kind":"{kind}","params":{{}}}}"#)).unwrap();
-            let mut p = Plane { x: 0, y: 0, w: 512, h: 512, data: (0..512 * 512 * 4).map(|i| (i % 251) as f32 / 251.0).collect() };
-            let t = std::time::Instant::now();
-            super::super::apply(&f, &mut p, &Ctx { blobs: &blobs, cov: None, bounds: [0, 0, 4000, 3000], scale: 0.128, mask: None }).unwrap();
-            eprintln!("{kind}: {:?}", t.elapsed());
-        }
-    }
-}

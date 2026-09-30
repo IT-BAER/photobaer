@@ -239,9 +239,11 @@ impl Document {
         let shared = if scale < 1.0 {
             Some(proxy(&src, &f, intersect(grow(out, reach), grow(doc, reach)), out, doc, scale as f64, &ctx)?)
         } else if spec.exec == Exec::Global {
-            let mut p = src.plane(full, doc);
+            // The whole layer, not just the selection rect: the coverage keeps the output inside.
+            let whole = bounds.map_or(full, |b| intersect(b, doc));
+            let mut p = src.plane(whole, doc);
             let cov: Option<Vec<f32>> = self.selection.as_ref().filter(|_| selected).map(|sel| {
-                (0..p.w * p.h).map(|i| self.sel_at(sel, full[0] + (i % p.w) as i32, full[1] + (i / p.w) as i32)).collect()
+                (0..p.w * p.h).map(|i| self.sel_at(sel, whole[0] + (i % p.w) as i32, whole[1] + (i / p.w) as i32)).collect()
             });
             filters::apply(&f, &mut p, &Ctx { cov: cov.as_deref(), ..ctx })?;
             Some(Res::Full(p))

@@ -165,7 +165,7 @@ impl Document {
     /// `base` (an unfiltered cache) through the enabled filters bottom to top, over its tile rect
     /// grown by the blur reach: each result mixes onto its input by opacity x filter mask x stack
     /// mask in the filter's mode (disabled masks count as 1). No enabled filter returns `base`.
-    pub(super) fn filtered(&mut self, base: Tiles, filters: &[SmartFilter], stack: Option<&Mask>) -> Result<Tiles, String> {
+    pub(super) fn filtered(&mut self, base: Tiles, filters: &[SmartFilter], stack: Option<&Mask>, layer: Option<&Mask>) -> Result<Tiles, String> {
         let on: Vec<&SmartFilter> = filters.iter().filter(|f| f.enabled).collect();
         let Some(b) = tile_rect(&base).filter(|_| !on.is_empty()) else { return Ok(base) };
         let reach: i32 = on.iter().map(|f| f.filter.reach()).sum();
@@ -176,6 +176,16 @@ impl Document {
         let mut px = self.rgba_plane(&base, r, None).data;
         let plane = |m: Option<&Mask>| m.filter(|m| m.enabled).map(|m| self.mask_plane(&m.tiles, m.default, r).data);
         let stack = plane(stack);
+        // The filter context matches a destructive apply: tight bounds and the layer mask.
+        let tight = tiles_bounds(&base).unwrap_or(b);
+        let lmask = layer.map(|m| self.mask_plane(&m.tiles, m.default, r).data);
+        let lm_default = layer.map_or(0.0, |m| m.default as f32 / self.max());
+        let mask_at = lmask.as_ref().map(|m| {
+            move |x: i32, y: i32| {
+                let (lx, ly) = (x - r[0], y - r[1]);
+                if lx < 0 || ly < 0 || lx >= r[2] || ly >= r[3] { lm_default } else { m[ly as usize * w + lx as usize] }
+            }
+        });
         for f in on {
             let own = plane(f.mask.as_ref());
             let weight = |i: usize| f.opacity * own.as_ref().map_or(1.0, |m| m[i]) * stack.as_ref().map_or(1.0, |m| m[i]);
@@ -183,7 +193,7 @@ impl Document {
             if !spec.adjustment {
                 let mut plane = filters::Plane { x: r[0], y: r[1], w, h, data: px.clone() };
                 plane.unpremultiply();
-                filters::apply(&f.filter, &mut plane, &filters::Ctx { blobs: &self.blobs, cov: None, bounds: b, scale: 1.0, mask: None })?;
+                filters::apply(&f.filter, &mut plane, &filters::Ctx { blobs: &self.blobs, cov: None, bounds: tight, scale: 1.0, mask: mask_at.as_ref().map(|f| f as &dyn Fn(i32, i32) -> f32) })?;
                 for i in 0..w * h {
                     let a = weight(i);
                     if a <= 0.0 {
@@ -244,7 +254,8 @@ impl Document {
         let base = self.smart_render(src, size, t, warp)?;
         let s = self.smart(id)?;
         let (filters, stack) = (s.filters.clone(), s.stack_mask.clone());
-        self.filtered(base, &filters, stack.as_ref())
+        let layer = self.node(id)?.mask.clone();
+        self.filtered(base, &filters, stack.as_ref(), layer.as_ref())
     }
 
     // Edits a copy of the filter stack and stack mask with `f`, then re-renders the whole stack
@@ -256,7 +267,8 @@ impl Document {
         let (t, warp, mut filters, mut stack) = (s.transform, s.warp.clone(), s.filters.clone(), s.stack_mask.clone());
         let out = f(&mut filters, &mut stack)?;
         let base = self.smart_render(&src, size, &t, warp.as_ref())?;
-        let cache = self.filtered(base, &filters, stack.as_ref())?;
+        let layer = self.node(id)?.mask.clone();
+        let cache = self.filtered(base, &filters, stack.as_ref(), layer.as_ref())?;
         let s = self.smart_node_mut(id)?;
         (s.filters, s.stack_mask, s.cache) = (filters, stack, cache);
         Ok(out)

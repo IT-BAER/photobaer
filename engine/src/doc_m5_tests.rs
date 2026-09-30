@@ -380,3 +380,54 @@ fn lens_blur_reads_the_layer_mask_as_its_depth_map() {
     assert_eq!((lpx(&d, 1, 4, 3), lpx(&d, 1, 5, 3)), (gray(0), gray(255)), "mask 0: in focus");
     assert!((60..=200).contains(&lpx(&d, 1, 15, 3)[0]), "mask 255: blurred, got {:?}", lpx(&d, 1, 15, 3));
 }
+
+#[test]
+fn a_global_filter_reads_past_the_selection_rect() {
+    let mut d = doc_with(40, 40, |x, y| gray(((x * 37 + y * 11) % 256) as u8));
+    let mut flat = d.clone();
+    let spin = filter("blur.radial_blur", json!({ "amount": 30 }));
+    flat.apply_filter(1, Target::Pixels, &spin, None, 1.0).unwrap();
+    d.select_rect(22.0, 22.0, 12.0, 12.0, Mode::New).unwrap();
+    d.apply_filter(1, Target::Pixels, &spin, None, 1.0).unwrap();
+    for (x, y) in [(22, 22), (33, 22), (27, 33), (33, 33)] {
+        assert_eq!(lpx(&d, 1, x, y), lpx(&flat, 1, x, y), "{x},{y}");
+    }
+}
+
+// Layer 1 as a smart object with `kind` as its only smart filter, next to the same filter
+// applied destructively; `mask` fills a layer mask on both first.
+fn smart_and_flat(d: Document, kind: &str, params: Value, mask: Option<[f64; 4]>) -> (Document, Document) {
+    let (mut d, mut flat) = (d.clone(), d);
+    for doc in [&mut d, &mut flat] {
+        if let Some([x, y, w, h]) = mask {
+            doc.add_mask(1, true).unwrap();
+            doc.select_rect(x, y, w, h, Mode::New).unwrap();
+            doc.fill(1, Target::Mask, 0, 0, 0, 255).unwrap();
+            doc.selection = None;
+        }
+    }
+    d.convert_for_smart_filters(1, &json!({ "link_id": "l", "source_blob": null }).to_string()).unwrap();
+    d.add_smart_filter(1, &filter(kind, params.clone())).unwrap();
+    flat.apply_filter(1, Target::Pixels, &filter(kind, params), None, 1.0).unwrap();
+    (d, flat)
+}
+
+#[test]
+fn a_smart_radial_blur_centers_on_the_tight_layer_bounds() {
+    let d = doc_with(64, 64, |x, y| if (10..50).contains(&x) && (10..40).contains(&y) { gray(((x * 37 + y * 11) % 256) as u8) } else { [0; 4] });
+    let (d, flat) = smart_and_flat(d, "blur.radial_blur", json!({ "amount": 30 }), None);
+    // Inside the content, clear of its edges (the center is (30, 25)).
+    for (x, y) in [(25, 25), (35, 28), (30, 20)] {
+        assert_eq!(lpx(&d, 1, x, y), lpx(&flat, 1, x, y), "{x},{y}");
+    }
+}
+
+#[test]
+fn a_smart_lens_blur_reads_the_layer_mask_as_its_depth_map() {
+    let d = doc_with(40, 20, |x, y| if (10..30).contains(&x) && (5..15).contains(&y) { gray(if x % 2 == 0 { 0 } else { 255 }) } else { [0; 4] });
+    let (d, flat) = smart_and_flat(d, "blur.lens_blur", json!({ "radius": 3, "depthMapSource": "layerMask" }), Some([0.0, 0.0, 20.0, 20.0]));
+    assert_eq!(lpx(&d, 1, 15, 10), gray(255), "mask 0: in focus");
+    for (x, y) in [(14, 10), (25, 10)] {
+        assert_eq!(lpx(&d, 1, x, y), lpx(&flat, 1, x, y), "{x},{y}");
+    }
+}
