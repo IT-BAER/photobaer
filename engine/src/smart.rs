@@ -444,6 +444,7 @@ impl Document {
             stack_mask: None,
             stack_mode: None,
             cache: pixels,
+            mask_key: 0,
         }));
         Ok(())
     }
@@ -478,6 +479,36 @@ impl Document {
         let (t, warp) = (s.transform, s.warp.clone());
         let cache = self.smart_cache(id, &src, size, &t, warp.as_ref())?;
         self.smart_node_mut(id)?.cache = cache;
+        Ok(())
+    }
+
+    /// After each committed edit: re-renders every smart object whose enabled filters read the layer
+    /// mask when that mask changed since its cache was rendered.
+    // ponytail: key 0 (never settled) costs one extra render; stamp the key at every cache write if that matters.
+    pub fn settle_smart(&mut self) -> Result<(), String> {
+        if self.loading.is_some() {
+            return Ok(());
+        }
+        fn walk(nodes: &[Node], out: &mut Vec<(u32, u64)>) {
+            for n in nodes {
+                match &n.kind {
+                    Kind::Smart(s) if s.filters.iter().any(|f| f.enabled && f.filter.reads_mask()) => {
+                        let key = mask_key(n.mask.as_ref());
+                        if key != s.mask_key {
+                            out.push((n.id, key));
+                        }
+                    }
+                    Kind::Group(ch) => walk(ch, out),
+                    _ => {}
+                }
+            }
+        }
+        let mut stale = Vec::new();
+        walk(&self.nodes, &mut stale);
+        for (id, key) in stale {
+            self.render_smart(id)?;
+            self.smart_node_mut(id)?.mask_key = key;
+        }
         Ok(())
     }
 
@@ -524,6 +555,7 @@ impl Document {
             stack_mask: None,
             stack_mode: None,
             cache,
+            mask_key: 0,
         }));
         self.add_node(&p.name, above, kind)
     }
@@ -739,6 +771,7 @@ impl Document {
             stack_mask: None,
             stack_mode: None,
             cache,
+            mask_key: 0,
         })));
         let list = list_mut(&mut self.nodes, &prefix);
         node.blending = list[*idx.last().expect("one id")].blending.clone();
@@ -748,6 +781,19 @@ impl Document {
         list.insert(idx[0], node);
         Ok(id)
     }
+}
+
+// A fingerprint of a layer mask's default and tile ids (every tile write takes a new id); never 0.
+fn mask_key(m: Option<&Mask>) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    if let Some(m) = m {
+        m.default.hash(&mut h);
+        for (x, y) in m.tiles.coords() {
+            (x, y, m.tiles.get(x, y).map_or(0, |t| t.id)).hash(&mut h);
+        }
+    }
+    h.finish() | 1
 }
 
 #[cfg(test)]

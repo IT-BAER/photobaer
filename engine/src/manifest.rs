@@ -811,6 +811,7 @@ fn take_smart(s: &SmartIn, cache: &[Coord], path: &[usize], ctx: &mut LoadCtx) -
         stack_mask,
         stack_mode: s.stack_mode,
         cache,
+        mask_key: 0,
     })
 }
 

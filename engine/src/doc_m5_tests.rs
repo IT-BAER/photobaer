@@ -457,3 +457,25 @@ fn a_smart_lens_blur_reads_the_layer_mask_as_its_depth_map() {
         assert_eq!(lpx(&d, 1, x, y), lpx(&flat, 1, x, y), "{x},{y}");
     }
 }
+
+#[test]
+fn settle_re_renders_a_smart_cache_whose_depth_mask_changed() {
+    let d = doc_with(40, 20, |x, y| if (10..30).contains(&x) && (5..15).contains(&y) { gray(if x % 2 == 0 { 0 } else { 255 }) } else { [0; 4] });
+    let lens = json!({ "radius": 3, "depthMapSource": "layerMask" });
+    let (mut d, _) = smart_and_flat(d, "blur.lens_blur", lens.clone(), Some([0.0, 0.0, 20.0, 20.0]));
+    let before = lpx(&d, 1, 25, 10);
+    d.fill(1, Target::Mask, 0, 0, 0, 255).unwrap();
+    d.settle_smart().unwrap();
+    // The flat twin: the same mask edit on the unfiltered layer, then the filter.
+    let flat = {
+        let mut f = doc_with(40, 20, |x, y| if (10..30).contains(&x) && (5..15).contains(&y) { gray(if x % 2 == 0 { 0 } else { 255 }) } else { [0; 4] });
+        f.add_mask(1, true).unwrap();
+        f.fill(1, Target::Mask, 0, 0, 0, 255).unwrap();
+        f.apply_filter(1, Target::Pixels, &filter("blur.lens_blur", lens), None, 1.0).unwrap();
+        f
+    };
+    assert_ne!(lpx(&d, 1, 25, 10), before, "an all-black mask puts everything in focus");
+    for (x, y) in [(14, 10), (25, 10)] {
+        assert_eq!(lpx(&d, 1, x, y), lpx(&flat, 1, x, y), "{x},{y}");
+    }
+}

@@ -222,6 +222,12 @@ impl Engine {
         self.0.doc.render_smart(id).map_err(err)
     }
 
+    /// Re-renders smart objects whose filters read a layer mask that changed; history runs it
+    /// after each committed step.
+    pub fn settle_smart(&mut self) -> Result<(), JsError> {
+        self.0.doc.settle_smart().map_err(err)
+    }
+
     /// Sets the transform (3x3, source px -> document px) and warp (`warp_layer` mesh JSON over
     /// the source, empty for none) and re-renders.
     pub fn set_smart_placement(&mut self, id: u32, m: Vec<f64>, warp: &str) -> Result<(), JsError> {

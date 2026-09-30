@@ -276,4 +276,6 @@ pub struct Smart {
     pub stack_mask: Option<Mask>,
     pub stack_mode: Option<StackMode>,
     pub cache: Tiles,
+    /// The layer mask fingerprint `cache` was rendered with (0 = unknown; see `settle_smart`).
+    pub mask_key: u64,
 }

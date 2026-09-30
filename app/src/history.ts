@@ -2,6 +2,8 @@ export interface Snapshots {
   snapshot(): number;
   restore(id: number): void;
   drop(id: number): void;
+  // Runs after each committed step (derived caches that depend on the edit).
+  settle?(): void;
 }
 
 interface Step { label: string; snap: number }
@@ -41,6 +43,7 @@ export class History {
       this.#s.drop(snap);
       throw e;
     }
+    this.#s.settle?.();
     this.#push({ label, snap });
   }
 
@@ -56,6 +59,7 @@ export class History {
     const open = this.#open;
     if (!open) throw new Error('no history step is open');
     this.#open = null;
+    this.#s.settle?.();
     this.#push(label ? { ...open, label } : open);
   }
 

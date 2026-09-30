@@ -2056,6 +2056,7 @@ impl Document {
                     stack_mask: None,
                     stack_mode: None,
                     cache: Tiles::default(),
+                    mask_key: 0,
                 }))
             }
             _ => return Err("a node needs exactly one of adjustment, content, smart, shape and text".into()),

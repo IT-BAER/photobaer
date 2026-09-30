@@ -139,3 +139,16 @@ test('clear frees everything', () => {
   assert.equal(h.undoLabel, null);
   assert.equal(h.redoLabel, null);
 });
+
+test('settle runs after every committed step, never after a failed one', () => {
+  const s = store();
+  const seen: string[] = [];
+  const h = new History({ ...s, snapshot: s.snapshot, restore: s.restore, drop: s.drop, settle: () => { seen.push(s.value); } });
+  h.run('A', () => { s.value = 'a'; });
+  assert.throws(() => h.run('X', () => { s.value = 'x'; throw new Error('no'); }));
+  h.begin('B');
+  s.value = 'ab';
+  assert.deepEqual(seen, ['a']);
+  h.commit();
+  assert.deepEqual(seen, ['a', 'ab']);
+});

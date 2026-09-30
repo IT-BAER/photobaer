@@ -62,8 +62,9 @@ const historyOf = (e: Engine) => new History({
   snapshot: () => e.snapshot(),
   restore: id => e.restore(id),
   drop: id => e.drop_snapshot(id),
+  settle: () => e.settle_smart(),
 });
-let history = new History({ snapshot: () => need().snapshot(), restore: id => need().restore(id), drop: id => need().drop_snapshot(id) });
+let history = new History({ snapshot: () => need().snapshot(), restore: id => need().restore(id), drop: id => need().drop_snapshot(id), settle: () => need().settle_smart() });
 // Edit Contents sessions (D6): each open source document's parent, innermost last. `id` is the smart object
 // being edited in the parent, `saved` the nested document's version at its last write-back.
 interface Parent { eng: Engine; history: History; name: string; id: number; saved: number }
