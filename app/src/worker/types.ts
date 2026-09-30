@@ -133,6 +133,7 @@ export interface StrokeParams {
   stride?: 3 | 6; seed?: number;
   // UI-level flag; strokeBegin resolves it to an actual snapshot id (or omits it) before it reaches the engine.
   eraseToHistory?: boolean;
+  historySource?: boolean;
 }
 
 type Rgba = [number, number, number, number];

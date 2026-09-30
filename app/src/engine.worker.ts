@@ -1706,13 +1706,19 @@ const api = {
   // Brush presets send the full engine StrokeIn shape (brushes/preset.ts toStrokeParams).
   strokeBegin(layerId: number, target: 'pixels' | 'selection', params: StrokeParams | Record<string, unknown>, label: string) {
     const e = need();
-    const { eraseToHistory, ...rest } = params as StrokeParams;
+    const { eraseToHistory, historySource, ...rest } = params as StrokeParams;
     const p: Record<string, unknown> = rest;
     const src = p.source as { kind: string; patternId?: unknown } | undefined;
     if (src?.kind === 'pattern') p.source = { ...src, patternId: engineAsset(e, src.patternId, 'pattern') };
     if (eraseToHistory) {
       const snap = history.oldestSnapshot();
       if (snap !== null) p.eraseToHistory = snap;
+    }
+    // The history brushes paint from the oldest history state, like Erase to History.
+    if (historySource) {
+      const snap = history.oldestSnapshot();
+      if (snap === null) throw new Error('Set a history state as the source in the History panel.');
+      p.source = { kind: 'history', snapshotId: snap };
     }
     history.begin(label);
     try {

@@ -35,6 +35,8 @@ pub(super) enum SourceIn {
         #[serde(default)]
         impressionist: bool,
     },
+    #[serde(rename_all = "camelCase")]
+    History { snapshot_id: u32 },
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -181,6 +183,14 @@ impl CloneSrc {
     }
 }
 
+impl CloneSrc {
+    /// The visible composite of `snap`, read 1:1 at document coordinates.
+    fn history(snap: &Document) -> CloneSrc {
+        let d = Box::new(snap.clone());
+        CloneSrc { anchor: [0.0; 2], origin: [0.0; 2], m: [1.0, 0.0, 0.0, 1.0], exact: true, frozen: Frozen::Comp(d, RefCell::default()), w: snap.width as i32, h: snap.height as i32 }
+    }
+}
+
 impl PatSrc {
     fn new(pat: Arc<Pattern>, origin: [f64; 2], impressionist: bool) -> Result<PatSrc, String> {
         if !origin.iter().all(|v| v.is_finite()) {
@@ -224,8 +234,13 @@ impl StrokeSource {
         doc: Option<&Document>,
         layer: u32,
         patterns: &HashMap<u32, Arc<Pattern>>,
+        snapshots: &HashMap<u32, Document>,
     ) -> Result<StrokeSource, String> {
         match p {
+            SourceIn::History { snapshot_id } => {
+                let snap = snapshots.get(snapshot_id).ok_or_else(|| format!("unknown snapshot {snapshot_id}"))?;
+                Ok(StrokeSource::Clone(CloneSrc::history(snap)))
+            }
             SourceIn::Clone { .. } => {
                 let doc = doc.ok_or("a clone source needs an open document")?;
                 Ok(StrokeSource::Clone(CloneSrc::new(doc, p, layer)?))
@@ -337,7 +352,7 @@ fn drag_seed(dx: i32, dy: i32) -> u32 {
 
 impl Document {
     // Straight RGBA of layer `id` over `r` ([x0, y0, x1, y1], inside the canvas).
-    fn layer_plane(&self, id: u32, r: [i32; 4]) -> Result<Plane, String> {
+    pub(super) fn layer_plane(&self, id: u32, r: [i32; 4]) -> Result<Plane, String> {
         let tiles = self.node(id)?.pixel_tiles()?;
         let (w, h, ti) = ((r[2] - r[0]) as usize, (r[3] - r[1]) as usize, TILE as i32);
         let mut data = Vec::with_capacity(w * h * 4);
@@ -351,7 +366,7 @@ impl Document {
     }
 
     // The selection coverage over `r`; all 1 without a selection.
-    fn selection_plane(&self, r: [i32; 4]) -> Vec<f32> {
+    pub(super) fn selection_plane(&self, r: [i32; 4]) -> Vec<f32> {
         let mut out = Vec::with_capacity(((r[2] - r[0]) * (r[3] - r[1])) as usize);
         for y in r[1]..r[3] {
             for x in r[0]..r[2] {
@@ -363,7 +378,7 @@ impl Document {
 
     // Rewrites the pixels of `r` ([x0, y0, x1, y1], inside the canvas) with `f(x, y, old)` where it
     // returns Some; true when a stored value changed.
-    fn edit_rect(&mut self, id: u32, r: [i32; 4], keep_alpha: bool, mut f: impl FnMut(i32, i32, [f32; 4]) -> Option<[f32; 4]>) -> Result<bool, String> {
+    pub(super) fn edit_rect(&mut self, id: u32, r: [i32; 4], keep_alpha: bool, mut f: impl FnMut(i32, i32, [f32; 4]) -> Option<[f32; 4]>) -> Result<bool, String> {
         let (depth, ti) = (self.depth, TILE as i32);
         let mut changed = false;
         let mut out: Vec<((i32, i32), Option<Pixels>)> = Vec::new();

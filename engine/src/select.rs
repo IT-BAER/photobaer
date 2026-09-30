@@ -493,6 +493,7 @@ impl Document {
         if placed_dabs.is_empty() {
             return Ok(Vec::new());
         }
+        placed_dabs = self.art_expand(st, placed_dabs);
         // Per touched tile the local pixel box the new dabs cover; only those pixels are repainted.
         let mut dirty: Vec<((i32, i32), [i32; 4])> = Vec::new();
         let mut rect: Option<[i32; 4]> = None;
@@ -519,6 +520,7 @@ impl Document {
                 .enabled
                 .then(|| stroke::dual_brush_mask(&st.dual_brush, (x0, y0, x1, y1), d.dab_index, st.seed));
             let dual_w = (x1 - x0) as usize;
+            let mut fx_cov = st.effect.is_some().then(|| vec![0f32; dual_w * (y1 - y0) as usize]);
             for (tx, ty) in self.tiles_of_rect(x0, y0, x1, y1) {
                 let key = (tx, ty);
                 if !st.tiles.contains_key(&key) {
@@ -566,6 +568,10 @@ impl Document {
                         if cov <= 0.0 {
                             continue;
                         }
+                        if let Some(fc) = fx_cov.as_mut() {
+                            fc[(oy + py - y0) as usize * dual_w + (ox + px - x0) as usize] = cov;
+                            continue;
+                        }
                         let p = (py * TILE as i32 + px) as usize;
                         let prev = t.s[p];
                         let new = stroke::accumulate(prev, cap, flow, cov);
@@ -588,11 +594,14 @@ impl Document {
                     None => dirty.push((key, [lx0, ly0, lx1, ly1])),
                 }
             }
+            if let Some(fc) = fx_cov {
+                self.effect_dab(st, d, [x0, y0, x1, y1], &fc)?;
+            }
         }
         let Some(rect) = rect else {
             return Ok(Vec::new());
         };
-        if !st.heal.is_some_and(Heal::is_spot) {
+        if st.effect.is_none() && !st.heal.is_some_and(Heal::is_spot) {
             for (key, b) in &dirty {
                 self.stroke_flush_tile(st, *key, *b)?;
             }

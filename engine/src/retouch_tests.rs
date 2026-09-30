@@ -208,3 +208,201 @@ fn heal_and_source_params_are_validated() {
     bad["layerId"] = json!(99);
     assert_eq!(dab(&mut e, 5.0, 10, 10, json!({ "source": bad })).unwrap_err(), "The clone source layer is gone.");
 }
+
+// A hard dab of `size` at pixel (x, y) carrying `effect`.
+fn fx(e: &mut EngineCore, size: f32, x: i32, y: i32, effect: serde_json::Value) -> Result<(), String> {
+    dab(e, size, x, y, json!({ "effect": effect, "hardness": 1 }))
+}
+
+fn tone(tool: &str, range: &str, protect: bool) -> serde_json::Value {
+    json!({ "kind": "toning", "tool": tool, "range": range, "exposure": 0.5, "protectTones": protect })
+}
+
+fn flat(v: [u8; 4]) -> EngineCore {
+    EngineCore::new(doc_with(40, 40, |_, _| v))
+}
+
+fn hsb(c: [u8; 4]) -> (f32, f32) {
+    let (r, g, b) = (c[0] as f32, c[1] as f32, c[2] as f32);
+    let (max, min) = (r.max(g).max(b), r.min(g).min(b));
+    let d = max - min;
+    let h = if d == 0.0 {
+        0.0
+    } else if max == r {
+        60.0 * (((g - b) / d).rem_euclid(6.0))
+    } else if max == g {
+        60.0 * ((b - r) / d + 2.0)
+    } else {
+        60.0 * ((r - g) / d + 4.0)
+    };
+    (h, if max == 0.0 { 0.0 } else { d / max })
+}
+
+fn hist_src(id: u32) -> serde_json::Value {
+    json!({ "kind": "history", "snapshotId": id })
+}
+
+#[test]
+fn dodge_and_burn_midtones_move_gray_by_a_quarter_exposure() {
+    let mut e = flat(gray(128));
+    fx(&mut e, 9.0, 20, 20, tone("dodge", "midtones", false)).unwrap();
+    assert!((at(&e.doc, 20, 20)[0] as i32 - 144).abs() <= 1, "{:?}", at(&e.doc, 20, 20));
+    let mut e = flat(gray(128));
+    fx(&mut e, 9.0, 20, 20, tone("burn", "midtones", false)).unwrap();
+    assert!((at(&e.doc, 20, 20)[0] as i32 - 112).abs() <= 1, "{:?}", at(&e.doc, 20, 20));
+}
+
+#[test]
+fn dodge_highlights_leaves_black_alone() {
+    let mut e = flat(gray(0));
+    fx(&mut e, 9.0, 20, 20, tone("dodge", "highlights", false)).unwrap();
+    assert_eq!(at(&e.doc, 20, 20), gray(0));
+}
+
+#[test]
+fn protect_tones_keeps_the_hue() {
+    let mut e = flat([200, 100, 50, 255]);
+    fx(&mut e, 9.0, 20, 20, tone("dodge", "midtones", true)).unwrap();
+    let c = at(&e.doc, 20, 20);
+    let (h0, _) = hsb([200, 100, 50, 255]);
+    assert!((hsb(c).0 - h0).abs() <= 1.0, "hue {} vs {h0}", hsb(c).0);
+    assert!(c[0] as u32 + c[1] as u32 + c[2] as u32 > 350, "lighter: {c:?}");
+}
+
+#[test]
+fn sponge_desaturate_keeps_the_max_channel() {
+    let mut e = flat([200, 100, 50, 255]);
+    fx(&mut e, 9.0, 20, 20, json!({ "kind": "sponge", "mode": "desaturate", "vibrance": true, "flow": 1 })).unwrap();
+    let c = at(&e.doc, 20, 20);
+    assert!((c[0] as i32 - 200).abs() <= 1, "{c:?}");
+    assert!(hsb(c).1 < hsb([200, 100, 50, 255]).1, "{c:?}");
+}
+
+#[test]
+fn blur_and_sharpen_leave_a_flat_color_alone() {
+    for tool in ["blur", "sharpen"] {
+        let mut e = flat([90, 120, 200, 255]);
+        fx(&mut e, 9.0, 20, 20, json!({ "kind": "focus", "tool": tool, "allLayers": false })).unwrap();
+        for (x, y) in [(20, 20), (17, 20), (24, 24)] {
+            assert_eq!(at(&e.doc, x, y), [90, 120, 200, 255], "{tool}");
+        }
+    }
+}
+
+#[test]
+fn blur_compounds_per_dab() {
+    let mut e = EngineCore::new(doc_with(41, 41, |x, _| if x == 20 { [0, 0, 0, 255] } else { gray(255) }));
+    let blur = json!({ "kind": "focus", "tool": "blur", "allLayers": false });
+    fx(&mut e, 9.0, 20, 20, blur.clone()).unwrap();
+    let once = at(&e.doc, 20, 20)[0];
+    assert!(once > 0, "the line gets lighter");
+    fx(&mut e, 9.0, 20, 20, blur).unwrap();
+    assert!(at(&e.doc, 20, 20)[0] > once);
+}
+
+#[test]
+fn history_brush_restores_the_source_state_exactly() {
+    let mut e = ramp();
+    let snap = e.snapshot();
+    dab(&mut e, 5.0, 50, 50, json!({ "rgba": [255, 0, 0, 255] })).unwrap();
+    assert_eq!(at(&e.doc, 50, 50), [255, 0, 0, 255]);
+    dab(&mut e, 5.0, 50, 50, json!({ "source": hist_src(snap) })).unwrap();
+    for y in 46..55 {
+        for x in 46..55 {
+            assert_eq!(at(&e.doc, x, y), [x as u8, y as u8, 0, 255]);
+        }
+    }
+}
+
+#[test]
+fn history_source_rejects_an_unknown_snapshot() {
+    let mut e = ramp();
+    assert_eq!(dab(&mut e, 5.0, 10, 10, json!({ "source": hist_src(7) })).unwrap_err(), "unknown snapshot 7");
+}
+
+fn smudge(strength: f32, finger: Option<[u8; 3]>) -> serde_json::Value {
+    let mut v = json!({ "kind": "smudge", "strength": strength, "allLayers": false, "blend": "normal" });
+    if let Some(f) = finger {
+        v["fingerPaint"] = json!(f);
+    }
+    v
+}
+
+fn drag(e: &mut EngineCore, p: serde_json::Value, (x0, x1): (f64, f64), y: f64) {
+    let mut q = json!({ "rgba": [0, 0, 0, 255], "mode": "normal", "size": 9, "aliased": true, "hardness": 1, "spacing": 0.02 });
+    q["effect"] = p;
+    e.stroke_begin(1, "pixels", &q.to_string()).unwrap();
+    e.stroke_to(&[x0, y, 1.0, x1, y, 1.0]).unwrap();
+    e.stroke_end().unwrap();
+}
+
+fn red_left() -> EngineCore {
+    EngineCore::new(doc_with(60, 21, |x, _| if x < 30 { [255, 0, 0, 255] } else { gray(255) }))
+}
+
+#[test]
+fn smudge_strength_zero_is_identity_and_one_drags_color() {
+    let mut e = red_left();
+    drag(&mut e, smudge(0.0, None), (20.5, 40.5), 10.5);
+    for x in 0..60 {
+        assert_eq!(at(&e.doc, x, 10), if x < 30 { [255, 0, 0, 255] } else { gray(255) });
+    }
+    let mut e = red_left();
+    drag(&mut e, smudge(1.0, None), (20.5, 40.5), 10.5);
+    let c = at(&e.doc, 36, 10);
+    assert!(c[0] == 255 && c[1] < 100, "{c:?}");
+}
+
+#[test]
+fn smudge_finger_paint_starts_with_the_color() {
+    let mut e = flat(gray(255));
+    fx(&mut e, 9.0, 20, 20, smudge(1.0, Some([0, 0, 255]))).unwrap();
+    assert_eq!(at(&e.doc, 20, 20), [0, 0, 255, 255]);
+    let mut e = flat(gray(255));
+    fx(&mut e, 9.0, 20, 20, smudge(1.0, None)).unwrap();
+    assert_eq!(at(&e.doc, 20, 20), gray(255), "the first dab without finger paint does nothing");
+}
+
+fn art(style: &str, tolerance: f32) -> serde_json::Value {
+    json!({ "source": hist_src(0), "art": { "style": style, "area": 50, "tolerance": tolerance } })
+}
+
+#[test]
+fn art_history_restores_the_dab_center_and_tolerance_skips_close_pixels() {
+    let mut e = ramp();
+    assert_eq!(e.snapshot(), 0);
+    dab(&mut e, 5.0, 50, 50, json!({ "rgba": [255, 0, 0, 255] })).unwrap();
+    dab(&mut e, 5.0, 50, 50, art("dab", 0.0)).unwrap();
+    assert_eq!(at(&e.doc, 50, 50), [50, 50, 0, 255]);
+    dab(&mut e, 5.0, 50, 50, json!({ "rgba": [255, 0, 0, 255] })).unwrap();
+    dab(&mut e, 5.0, 50, 50, art("tightLong", 1.0)).unwrap();
+    assert_eq!(at(&e.doc, 50, 50), [255, 0, 0, 255], "tolerance 100 % skips every dab");
+    let mut e = ramp();
+    e.snapshot();
+    dab(&mut e, 5.0, 50, 50, art("tightShort", 1.0)).unwrap();
+    assert_eq!(at(&e.doc, 50, 50), [50, 50, 0, 255]);
+}
+
+#[test]
+fn cancel_after_an_effect_stroke_restores_the_tiles() {
+    let mut e = flat(gray(128));
+    let before = at(&e.doc, 20, 20);
+    let q = json!({ "rgba": [0, 0, 0, 255], "mode": "normal", "size": 9, "effect": tone("dodge", "midtones", false) });
+    e.stroke_begin(1, "pixels", &q.to_string()).unwrap();
+    e.stroke_to(&[20.5, 20.5, 1.0]).unwrap();
+    assert_ne!(at(&e.doc, 20, 20), before);
+    e.stroke_cancel().unwrap();
+    assert_eq!(at(&e.doc, 20, 20), before);
+}
+
+#[test]
+fn effect_and_art_params_are_validated() {
+    let mut e = flat(gray(128));
+    let eff = tone("dodge", "midtones", false);
+    let err = dab(&mut e, 5.0, 10, 10, json!({ "effect": eff, "source": clone_src([1, 1], [2, 2], [1, 0, 0, 1]) })).unwrap_err();
+    assert!(err.contains("effect"), "{err}");
+    let q = json!({ "rgba": [0, 0, 0, 255], "mode": "normal", "size": 5, "effect": eff });
+    assert!(e.stroke_begin(1, "selection", &q.to_string()).unwrap_err().contains("effect"));
+    let q = json!({ "rgba": [0, 0, 0, 255], "mode": "normal", "size": 5, "art": { "style": "dab", "area": 50, "tolerance": 0 } });
+    assert_eq!(e.stroke_begin(1, "pixels", &q.to_string()).unwrap_err(), "the art history brush needs a history source");
+}

@@ -16,6 +16,8 @@ import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo, StrokeParams } from '../worker/types.ts';
 import { PAINT_LABELS, PAINT_TOOLS, type Run } from './helpers.ts';
 
+const EFFECT_TOOLS = new Set(['dodge', 'burn', 'sponge', 'blur', 'sharpen', 'smudge']);
+
 export interface PaintToolCtx {
   viewer: RefObject<Viewer | null>; tool: string; toolOptionsRef: RefObject<ToolOptions>; currentPreset: (id: string | null) => BrushPreset | null;
   selectedPresetRef: RefObject<string | null>; brushLib: RefObject<{ library: BrushLibrary; assets: EngineAssets } | null>;
@@ -69,7 +71,7 @@ export function usePaintTool(c: PaintToolCtx) {
       return currentPreset(selectedPresetRef.current);
     }
 
-    async function paramsFor(x: number, y: number, stride: Stride, seed: number): Promise<StrokeParams | Record<string, unknown>> {
+    async function paramsFor(x: number, y: number, stride: Stride, seed: number, alt: boolean): Promise<StrokeParams | Record<string, unknown>> {
       const o = toolOptionsRef.current;
       const input = { stride, seed };
       const pencilParams = async (rgb: Rgb, mode: string) => {
@@ -97,14 +99,28 @@ export function usePaintTool(c: PaintToolCtx) {
         if (o.mode === 'block') return { rgba: [...rgb, 255], mode, size: 16 / (viewer.current?.view.zoom || 1), tip: 'square', aliased: true, ...input };
         return presetStrokeParams(preset, o, { tool: 'eraser', rgba: [...rgb, 255], mode, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
       }
-      const out = presetStrokeParams(preset, o, { tool: 'brush', rgba: [...fgRef.current, 255], mode: o.mode as string, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
-      return { ...out, ...await retouchParams(x, y) };
+      const mode = EFFECT_TOOLS.has(tool) ? 'normal' : o.mode as string;
+      const out = presetStrokeParams(preset, o, { tool: 'brush', rgba: [...fgRef.current, 255], mode, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
+      // Smudge spaces its dabs at most 2 % of the tip.
+      if (tool === 'smudge') out.spacing = Math.min(Number(out.spacing ?? 0.25), 0.02);
+      return { ...out, ...await retouchParams(x, y, alt) };
     }
 
     // Stamp and heal tools (docs/M5.md section 9): the color source or the heal kind of the stroke.
-    async function retouchParams(x: number, y: number): Promise<Record<string, unknown>> {
+    async function retouchParams(x: number, y: number, alt: boolean): Promise<Record<string, unknown>> {
       const o = toolOptionsRef.current;
+      const pct = (v: unknown, d: number) => (typeof v === 'number' ? v : d) / 100;
       if (tool === 'spotHealing') return { heal: o.type };
+      if (tool === 'dodge' || tool === 'burn') return { effect: { kind: 'toning', tool, range: o.range, exposure: pct(o.exposure, 50), protectTones: !!o.protectTones } };
+      if (tool === 'sponge') return { effect: { kind: 'sponge', mode: o.mode, vibrance: !!o.vibrance, flow: pct(o.flow, 100) } };
+      if (tool === 'blur' || tool === 'sharpen') return { effect: { kind: 'focus', tool, allLayers: !!o.allLayers } };
+      if (tool === 'smudge') {
+        // Finger painting (the option, or Alt at stroke start, not both) starts with the foreground.
+        const finger = !!o.fingerPainting !== alt;
+        return { effect: { kind: 'smudge', strength: pct(o.strength, 50), allLayers: !!o.allLayers, blend: o.mode, ...(finger ? { fingerPaint: fgRef.current } : {}) } };
+      }
+      if (tool === 'historyBrush') return { historySource: true };
+      if (tool === 'artHistoryBrush') return { historySource: true, art: { style: o.style, area: o.area, tolerance: pct(o.tolerance, 0) } };
       if (tool === 'patternStamp') {
         const lib = brushLib.current;
         const ref = (o.pattern as string) || lib?.library.patterns()[0]?.id;
@@ -141,14 +157,14 @@ export function usePaintTool(c: PaintToolCtx) {
       if (st.frame) { cancelAnimationFrame(st.frame); st.frame = 0; }
       st.buildUp = null;
     }
-    function strokeParams(x: number, y: number, stride: Stride) {
-      return paramsFor(x, y, stride, strokeSeed(active!.id, ++strokeCounter.current));
+    function strokeParams(x: number, y: number, stride: Stride, alt = false) {
+      return paramsFor(x, y, stride, strokeSeed(active!.id, ++strokeCounter.current), alt);
     }
 
     async function begin(e: ToolPointerEvent) {
       if (!active) return;
       const stride = strideFor(e.pointerType);
-      const p = await strokeParams(e.x, e.y, stride);
+      const p = await strokeParams(e.x, e.y, stride, e.altKey);
       await client.call('strokeBegin', active.id, quickMask ? 'selection' : 'pixels', p, PAINT_LABELS[tool]);
       st.layerId = active.id;
       st.stride = stride;

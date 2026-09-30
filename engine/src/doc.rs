@@ -18,6 +18,8 @@ mod manifest;
 mod brush;
 #[path = "retouch.rs"]
 mod retouch;
+#[path = "retouch_fx.rs"]
+mod retouch_fx;
 #[path = "guides.rs"]
 mod guides;
 #[path = "paths.rs"]
@@ -44,6 +46,7 @@ pub use transform::{Lift, Remap};
 pub use brush::EngineCore;
 use brush::*;
 use retouch::*;
+use retouch_fx::*;
 use compositor::*;
 use manifest::*;
 

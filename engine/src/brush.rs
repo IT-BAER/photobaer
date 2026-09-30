@@ -244,6 +244,10 @@ struct StrokeIn {
     source: Option<SourceIn>,
     #[serde(default)]
     heal: Option<String>,
+    #[serde(default)]
+    effect: Option<EffectIn>,
+    #[serde(default)]
+    art: Option<ArtIn>,
 }
 
 /// `content_aware_fill` JSON params; `mode` absent = Normal at full opacity.
@@ -387,6 +391,7 @@ fn parse_stroke(
     params_json: &str,
     tips: &HashMap<u32, Arc<SampledTip>>,
     patterns: &HashMap<u32, Arc<Pattern>>,
+    snapshots: &HashMap<u32, Document>,
     keep_alpha: bool,
     sel_was_none: bool,
     doc: Option<&Document>,
@@ -562,7 +567,15 @@ fn parse_stroke(
         (Some(_), Some(_)) => return Err("a spot heal takes no source".into()),
         _ => {}
     }
-    let source = p.source.as_ref().map(|s| StrokeSource::build(s, doc, layer_id, patterns)).transpose()?;
+    let effect = p.effect.map(EffectIn::build).transpose()?;
+    if effect.is_some() && (target != Target::Pixels || p.source.is_some() || heal.is_some() || p.erase_to_history.is_some()) {
+        return Err("an effect stroke needs the pixels target and takes no source, heal or erase to history".into());
+    }
+    let art = p.art.map(Art::build).transpose()?;
+    if art.is_some() && !matches!(p.source, Some(SourceIn::History { .. })) {
+        return Err("the art history brush needs a history source".into());
+    }
+    let source = p.source.as_ref().map(|s| StrokeSource::build(s, doc, layer_id, patterns, snapshots)).transpose()?;
 
     let hist = match p.erase_to_history {
         None => None,
@@ -611,6 +624,9 @@ fn parse_stroke(
         dual_brush,
         source,
         heal,
+        effect,
+        art,
+        smudge_prev: None,
     })
 }
 
@@ -673,6 +689,10 @@ pub struct Stroke {
     pub(super) dual_brush: DualBrush,
     pub(super) source: Option<StrokeSource>,
     pub(super) heal: Option<Heal>,
+    pub(super) effect: Option<Effect>,
+    pub(super) art: Option<Art>,
+    // The previous smudge dab center.
+    pub(super) smudge_prev: Option<(f64, f64)>,
     // Erase to history: the same layer's tiles in the chosen snapshot.
     pub(super) hist: Option<Tiles>,
     // A quick-mask stroke that created the selection removes it again on cancel.
@@ -909,7 +929,7 @@ impl EngineCore {
         };
         let sel_was_none = self.doc.selection.is_none();
         let snapshots = &self.snapshots;
-        let stroke = parse_stroke(layer_id, target, params_json, &self.tips, &self.patterns, keep_alpha, sel_was_none, Some(&self.doc), |id| {
+        let stroke = parse_stroke(layer_id, target, params_json, &self.tips, &self.patterns, &self.snapshots, keep_alpha, sel_was_none, Some(&self.doc), |id| {
             let snap = snapshots.get(&id).ok_or_else(|| format!("unknown snapshot {id}"))?;
             let tiles = snap
                 .node(layer_id)
@@ -934,7 +954,7 @@ impl EngineCore {
         }
         let mut doc = Document::new(w, h, 8)?;
         let layer = 1; // Document::new's Background layer.
-        let mut st = parse_stroke(layer, Target::Pixels, params_json, &self.tips, &self.patterns, false, true, None, |id| {
+        let mut st = parse_stroke(layer, Target::Pixels, params_json, &self.tips, &self.patterns, &HashMap::new(), false, true, None, |id| {
             Err(format!("brush preview has no snapshot {id}"))
         })?;
         st.prng = stroke::Prng::new(0);

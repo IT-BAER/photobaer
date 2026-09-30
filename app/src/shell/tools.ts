@@ -47,6 +47,20 @@ const HEAL_BRUSH: OptionSchema[] = [
 ];
 const healing = (id: string, label: string, icon: string, cursor: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'healing', key: 'j', cursor, icon, options });
 const stamp = (id: string, label: string, icon: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'stamp', key: 's', cursor: 'none', icon, options });
+const SIZE_HARD = BRUSH_COMMON.slice(0, 2);
+const SMOOTHING = BRUSH_COMMON.find(o => o.id === 'smoothing')!;
+const STRENGTH: OptionSchema = { id: 'strength', kind: 'percent', label: 'Strength', default: 50, min: 0, max: 100 };
+const toning = (id: string, label: string, icon: string): Tool => ({
+  id, label, slot: 'toning', key: 'o', cursor: 'none', icon, options: [
+    ...SIZE_HARD,
+    { id: 'range', kind: 'select', label: 'Range', default: 'midtones', choices: ['shadows', 'midtones', 'highlights'], sep: true },
+    { id: 'exposure', kind: 'percent', label: 'Exposure', default: 50, min: 0, max: 100 },
+    { id: 'airbrush', kind: 'boolean', label: 'Airbrush', default: false, icon: 'SprayCan' },
+    { id: 'protectTones', kind: 'boolean', label: 'Protect Tones', default: true },
+    SMOOTHING,
+  ],
+});
+const focus = (id: string, label: string, icon: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'focus', key: '', cursor: 'none', icon, options });
 
 const CORNER_RADIUS: OptionSchema = { id: 'cornerRadius', kind: 'number', label: 'Corner Radius', default: 0, min: 0, max: 1000, unit: 'px' };
 
@@ -254,6 +268,38 @@ export const TOOLS: Record<string, Tool> = {
     // '' = the first library pattern; the picker is drawn by the host.
     { id: 'pattern', kind: 'custom', label: 'Pattern', default: '' },
   ]),
+  historyBrush: { id: 'historyBrush', label: 'History Brush', slot: 'historyBrush', key: 'y', cursor: 'none', icon: 'History', options: BRUSH_COMMON },
+  artHistoryBrush: {
+    id: 'artHistoryBrush', label: 'Art History Brush', slot: 'historyBrush', key: 'y', cursor: 'none', icon: 'PaintbrushVertical', options: [
+      BRUSH_COMMON[0],
+      { id: 'style', kind: 'select', label: 'Style', default: 'tightShort', choices: ['tightShort', 'tightMedium', 'tightLong', 'looseMedium', 'looseLong', 'dab', 'tightCurl', 'tightCurlLong', 'looseCurl', 'looseCurlLong'] },
+      { id: 'area', kind: 'number', label: 'Area', default: 50, min: 1, max: 500, unit: 'px' },
+      { id: 'tolerance', kind: 'percent', label: 'Tolerance', default: 0, min: 0, max: 100 },
+      { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES, sep: true },
+      { id: 'opacity', kind: 'percent', label: 'Opacity', default: 100, min: 0, max: 100 },
+    ],
+  },
+  blur: focus('blur', 'Blur', 'Droplet', [...SIZE_HARD, { ...STRENGTH, sep: true }, SAMPLE_ALL, SMOOTHING]),
+  sharpen: focus('sharpen', 'Sharpen', 'Focus', [...SIZE_HARD, { ...STRENGTH, sep: true }, SAMPLE_ALL, SMOOTHING]),
+  smudge: focus('smudge', 'Smudge', 'Pointer', [
+    ...SIZE_HARD,
+    { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: ['normal', 'darken', 'lighten', 'hue', 'saturation', 'color', 'luminosity'], sep: true },
+    STRENGTH, SAMPLE_ALL,
+    { id: 'fingerPainting', kind: 'boolean', label: 'Finger Painting', default: false },
+    { id: 'pressureOpacity', kind: 'boolean', label: 'Pressure for Strength', default: false, icon: 'Droplet' },
+    SMOOTHING,
+  ]),
+  dodge: toning('dodge', 'Dodge', 'Sun'),
+  burn: toning('burn', 'Burn', 'Moon'),
+  sponge: {
+    id: 'sponge', label: 'Sponge', slot: 'toning', key: 'o', cursor: 'none', icon: 'Contrast', options: [
+      ...SIZE_HARD,
+      { id: 'mode', kind: 'select', label: 'Mode', default: 'desaturate', choices: ['desaturate', 'saturate'], sep: true },
+      { id: 'flow', kind: 'percent', label: 'Flow', default: 100, min: 0, max: 100 },
+      { id: 'vibrance', kind: 'boolean', label: 'Vibrance', default: true },
+      SMOOTHING,
+    ],
+  },
   gradient: {
     id: 'gradient', label: 'Gradient', slot: 'gradient', key: 'g', cursor: 'crosshair', icon: 'Blend',
     options: [
@@ -334,8 +380,11 @@ export const SLOTS: Slot[] = [
   { id: 'healing', key: 'j', tools: ['spotHealing', 'healingBrush', 'patch', 'contentAwareMove', 'redEye'] },
   { id: 'brush', key: 'b', tools: ['brush', 'pencil'] },
   { id: 'stamp', key: 's', tools: ['cloneStamp', 'patternStamp'] },
+  { id: 'historyBrush', key: 'y', tools: ['historyBrush', 'artHistoryBrush'] },
   { id: 'eraser', key: 'e', tools: ['eraser'] },
   { id: 'gradient', key: 'g', tools: ['gradient', 'bucket'] },
+  { id: 'focus', key: '', tools: ['blur', 'sharpen', 'smudge'] },
+  { id: 'toning', key: 'o', tools: ['dodge', 'burn', 'sponge'] },
   { id: 'shape', key: 'u', tools: ['rectangle', 'ellipse', 'triangle', 'polygon', 'line', 'customShape'] },
   { id: 'pen', key: 'p', tools: ['pen', 'freeformPen', 'curvaturePen', 'addAnchor', 'deleteAnchor', 'convertPoint'] },
   { id: 'pathSelect', key: 'a', tools: ['pathSelection', 'directSelection'] },

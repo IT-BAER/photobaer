@@ -570,6 +570,7 @@ pub struct Dynamics {
 
 /// One placed dab, after dynamics and scattering (a stroke_apply "anchor" placed by `Spacer`
 /// expands into one or more of these via `place_dabs`).
+#[derive(Clone)]
 pub struct PlacedDab {
     pub x: f64,
     pub y: f64,
@@ -584,6 +585,8 @@ pub struct PlacedDab {
     pub rgb: Option<[f32; 3]>,
     pub tex_depth: f32,
     pub dab_index: u32,
+    /// Segment direction in degrees at the anchor this dab came from.
+    pub dir: f32,
 }
 
 fn rgb_to_hsb(rgb: [f32; 3]) -> (f32, f32, f32) {
@@ -756,6 +759,7 @@ pub fn place_dabs(
             rgb,
             tex_depth,
             dab_index: ctx.dab_index,
+            dir: anchor.dir,
         });
         *dab_index += 1;
     }
