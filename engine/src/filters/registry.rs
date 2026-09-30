@@ -1,6 +1,6 @@
 //! The registry table in reference menu order within each group (docs/M5.md section 14).
 
-use super::{blur, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
+use super::{blur, noise, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
 use crate::adjust;
 
 const fn none(_: &Filter) -> i32 {
@@ -65,6 +65,15 @@ const SEED: Param = Param { kind: PKind::Seed, ..num("seed", "Seed", 0.0, u32::M
 
 const fn local(id: &'static str, label: &'static str, params: &'static [Param], reach: fn(&Filter) -> i32, apply: fn(&mut Plane, &Filter, &Ctx) -> Result<(), String>) -> Spec {
     Spec { params, exec: Exec::Local, keep_alpha: false, reach, ..entry(id, label, "blur", apply) }
+}
+
+// A neighborhood filter that changes color only.
+const fn kept(id: &'static str, label: &'static str, group: &'static str, params: &'static [Param], reach: fn(&Filter) -> i32, apply: fn(&mut Plane, &Filter, &Ctx) -> Result<(), String>) -> Spec {
+    Spec { params, exec: Exec::Local, reach, ..entry(id, label, group, apply) }
+}
+
+const fn amount(key: &'static str, label: &'static str, min: f64, max: f64, step: f64, default: f64) -> Param {
+    Param { kind: PKind::Percent, ..num(key, label, min, max, step, "%", default) }
 }
 
 pub static ALL: &[Spec] = &[
@@ -138,6 +147,73 @@ pub static ALL: &[Spec] = &[
         &[px("radius", "Radius", 1.0, 100.0, 1.0, 5.0), int("threshold", "Threshold", 2.0, 255.0, 15.0)],
         blur::surface_reach,
         blur::surface_blur,
+    ),
+    Spec {
+        params: &[
+            amount("amount", "Amount", 0.1, 400.0, 0.1, 12.5),
+            select("distribution", "Distribution", &["uniform", "gaussian"], "uniform"),
+            flag("monochromatic", "Monochromatic"),
+            SEED,
+        ],
+        ..entry("noise.add_noise", "Add Noise", "noise", noise::add_noise)
+    },
+    kept("noise.despeckle", "Despeckle", "noise", &[], sharpen::one, noise::despeckle),
+    kept(
+        "noise.dust_and_scratches",
+        "Dust & Scratches",
+        "noise",
+        &[px("radius", "Radius", 1.0, 100.0, 1.0, 1.0), int("threshold", "Threshold", 0.0, 255.0, 0.0)],
+        noise::radius_reach,
+        noise::dust_and_scratches,
+    ),
+    Spec { group: "noise", ..local("noise.median", "Median", &[px("radius", "Radius", 1.0, 500.0, 1.0, 1.0)], noise::radius_reach, noise::median_filter) },
+    kept(
+        "noise.reduce_noise",
+        "Reduce Noise",
+        "noise",
+        &[
+            num("strength", "Strength", 0.0, 10.0, 1.0, "", 5.0),
+            pct("preserveDetails", "Preserve Details", 60.0),
+            pct("reduceColorNoise", "Reduce Color Noise", 45.0),
+            pct("sharpenDetails", "Sharpen Details", 25.0),
+            flag("removeJpegArtifact", "Remove JPEG Artifact"),
+            num("redStrength", "Red Strength", 0.0, 10.0, 1.0, "", 0.0),
+            num("greenStrength", "Green Strength", 0.0, 10.0, 1.0, "", 0.0),
+            num("blueStrength", "Blue Strength", 0.0, 10.0, 1.0, "", 0.0),
+        ],
+        noise::reduce_reach,
+        noise::reduce_noise,
+    ),
+    kept("sharpen.sharpen", "Sharpen", "sharpen", &[], sharpen::one, sharpen::sharpen),
+    kept("sharpen.sharpen_edges", "Sharpen Edges", "sharpen", &[], sharpen::one, sharpen::sharpen_edges),
+    kept("sharpen.sharpen_more", "Sharpen More", "sharpen", &[], sharpen::one, sharpen::sharpen_more),
+    kept(
+        "sharpen.smart_sharpen",
+        "Smart Sharpen",
+        "sharpen",
+        &[
+            amount("amount", "Amount", 1.0, 500.0, 1.0, 150.0),
+            px("radius", "Radius", 0.1, 64.0, 0.1, 1.0),
+            pct("reduceNoise", "Reduce Noise", 20.0),
+            select("remove", "Remove", &["gaussianBlur", "lensBlur", "motionBlur"], "lensBlur"),
+            angle("angle", "Angle", 0.0),
+            pct("fadeAmountShadow", "Shadow Fade Amount", 0.0),
+            pct("tonalWidthShadow", "Shadow Tonal Width", 50.0),
+            px("radiusShadow", "Shadow Radius", 1.0, 100.0, 1.0, 1.0),
+            pct("fadeAmountHighlight", "Highlight Fade Amount", 0.0),
+            pct("tonalWidthHighlight", "Highlight Tonal Width", 50.0),
+            px("radiusHighlight", "Highlight Radius", 1.0, 100.0, 1.0, 1.0),
+        ],
+        sharpen::smart_reach,
+        sharpen::smart_sharpen,
+    ),
+    kept(
+        "sharpen.unsharp_mask",
+        "Unsharp Mask",
+        "sharpen",
+        &[amount("amount", "Amount", 1.0, 500.0, 1.0, 50.0), px("radius", "Radius", 0.1, 1000.0, 0.1, 1.0), int("threshold", "Threshold", 0.0, 255.0, 0.0)],
+        sharpen::unsharp_reach,
+        sharpen::unsharp,
     ),
     entry("stylize.solarize", "Solarize", "stylize", stylize::solarize),
     adjustment("brightness_contrast", "Brightness/Contrast"),

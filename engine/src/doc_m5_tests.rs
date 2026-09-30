@@ -194,6 +194,32 @@ fn tile_by_tile_equals_whole_layer_for_the_local_blurs() {
 }
 
 #[test]
+fn tile_by_tile_equals_whole_layer_for_sharpen_and_noise() {
+    for (kind, params, m) in [
+        ("sharpen.sharpen", json!({}), 1),
+        ("sharpen.sharpen_edges", json!({}), 1),
+        ("sharpen.sharpen_more", json!({}), 1),
+        ("sharpen.unsharp_mask", json!({ "amount": 200, "radius": 2.5, "threshold": 4 }), 3),
+        ("sharpen.smart_sharpen", json!({ "radius": 2, "fadeAmountShadow": 40, "fadeAmountHighlight": 30, "radiusShadow": 5 }), 5),
+        ("sharpen.smart_sharpen", json!({ "radius": 2, "remove": "motionBlur", "angle": 20 }), 4),
+        ("noise.add_noise", json!({ "amount": 40, "distribution": "gaussian", "seed": 9 }), 0),
+        ("noise.dust_and_scratches", json!({ "radius": 2, "threshold": 10 }), 2),
+        ("noise.median", json!({ "radius": 4 }), 4),
+        ("noise.reduce_noise", json!({ "strength": 8, "removeJpegArtifact": true, "redStrength": 5 }), 80),
+    ] {
+        assert_eq!(whole_layer_diff(kind, params, m), 0, "{kind}");
+    }
+}
+
+#[test]
+fn sharpen_and_noise_menus_list_the_reference_order() {
+    let v: Value = serde_json::from_str(&filters::schema_json()).unwrap();
+    let ids = |g: &str| v.as_array().unwrap().iter().filter(|e| e["group"] == g).map(|e| e["id"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+    assert_eq!(ids("sharpen"), ["sharpen.sharpen", "sharpen.sharpen_edges", "sharpen.sharpen_more", "sharpen.smart_sharpen", "sharpen.unsharp_mask"]);
+    assert_eq!(ids("noise"), ["noise.add_noise", "noise.despeckle", "noise.dust_and_scratches", "noise.median", "noise.reduce_noise"]);
+}
+
+#[test]
 fn blur_spreads_past_a_small_layer_and_clamps_at_the_document_edge() {
     let mut d = Document::new(8, 8, 8).unwrap();
     d.select_rect(2.0, 2.0, 2.0, 2.0, Mode::New).unwrap();

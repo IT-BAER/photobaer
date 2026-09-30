@@ -10,7 +10,9 @@ use serde_json::{json, Map, Value};
 use crate::adjust::Adjustment;
 
 mod blur;
+mod noise;
 mod registry;
+mod sharpen;
 mod stylize;
 
 pub use registry::lookup;
@@ -275,6 +277,11 @@ pub fn hash(seed: u32, x: i32, y: i32, c: u32) -> f32 {
         h ^= h >> 16;
     }
     (h >> 8) as f32 / (1u32 << 24) as f32
+}
+
+/// A standard normal value from two `hash` draws (Box-Muller), same positional rule.
+pub fn gauss(seed: u32, x: i32, y: i32, c: u32) -> f32 {
+    (-2.0 * hash(seed, x, y, c).max(1e-7).ln()).sqrt() * (2.0 * std::f32::consts::PI * hash(seed ^ 0x5bf0_3635, x, y, c)).cos()
 }
 
 /// The registry as JSON for the app (D3).

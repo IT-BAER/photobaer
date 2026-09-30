@@ -3,7 +3,7 @@
 
 use std::f64::consts::PI;
 
-use super::{hash, Ctx, Filter, Plane};
+use super::{gauss, hash, Ctx, Filter, Plane};
 use crate::styles;
 
 pub fn blur_reach(_: &Filter) -> i32 {
@@ -78,7 +78,10 @@ pub fn average(p: &mut Plane, _: &Filter, ctx: &Ctx) -> Result<(), String> {
 
 // Pixels a `styles::gaussian` of `size` reaches past the content on each side.
 pub fn gaussian_reach(f: &Filter) -> i32 {
-    let size = f.num("radius") as f32;
+    gauss_reach(f.num("radius") as f32)
+}
+
+pub(super) fn gauss_reach(size: f32) -> i32 {
     if size <= 12.0 {
         (size.ceil() as i32).max(1)
     } else {
@@ -87,16 +90,18 @@ pub fn gaussian_reach(f: &Filter) -> i32 {
 }
 
 pub fn gaussian(p: &mut Plane, f: &Filter, _: &Ctx) -> Result<(), String> {
-    let radius = f.num("radius") as f32;
-    premultiplied(p, |p| {
-        for c in 0..4 {
-            let ch = styles::Plane { w: p.w, h: p.h, v: p.data.iter().skip(c).step_by(4).copied().collect() };
-            for (i, v) in styles::gaussian(&ch, radius).v.into_iter().enumerate() {
-                p.data[i * 4 + c] = v;
-            }
-        }
-    });
+    premultiplied(p, |p| gaussian_all(p, f.num("radius") as f32));
     Ok(())
+}
+
+// Every channel through `styles::gaussian` of `size`, as stored.
+pub(super) fn gaussian_all(p: &mut Plane, size: f32) {
+    for c in 0..4 {
+        let ch = styles::Plane { w: p.w, h: p.h, v: p.data.iter().skip(c).step_by(4).copied().collect() };
+        for (i, v) in styles::gaussian(&ch, size).v.into_iter().enumerate() {
+            p.data[i * 4 + c] = v;
+        }
+    }
 }
 
 // A box of radius `r` along x (or y), edges clamped. The running sum is f64 so a tile and the
@@ -149,35 +154,42 @@ fn split(v: f64) -> (isize, f32) {
     (f as isize, (v - f) as f32)
 }
 
-fn motion_samples(f: &Filter) -> usize {
-    f.num("distance").round().max(1.0) as usize
+fn motion_samples(distance: f64) -> usize {
+    distance.round().max(1.0) as usize
 }
 
 pub fn motion_reach(f: &Filter) -> i32 {
-    ((motion_samples(f) - 1) as f64 / 2.0).ceil() as i32 + 1
+    motion_span(f.num("distance"))
+}
+
+pub(super) fn motion_span(distance: f64) -> i32 {
+    ((motion_samples(distance) - 1) as f64 / 2.0).ceil() as i32 + 1
 }
 
 /// The mean of `distance` samples on a line through the pixel at `angle` (counterclockwise).
 pub fn motion(p: &mut Plane, f: &Filter, _: &Ctx) -> Result<(), String> {
-    let n = motion_samples(f);
-    let a = f.num("angle").to_radians();
+    premultiplied(p, |p| motion_all(p, f.num("distance"), f.num("angle")));
+    Ok(())
+}
+
+// Every channel as stored.
+pub(super) fn motion_all(p: &mut Plane, distance: f64, angle: f64) {
+    let n = motion_samples(distance);
+    let a = angle.to_radians();
     let snap = |v: f64| if v.abs() < 1e-9 { 0.0 } else { v };
     let (u, v) = (snap(a.cos()), snap(-a.sin()));
     let half = (n - 1) as f64 / 2.0;
     // Per sample: whole-pixel offsets and fractions, the same for every pixel.
     let taps: Vec<_> = (0..n).map(|k| (split(u * (k as f64 - half)), split(v * (k as f64 - half)))).collect();
-    premultiplied(p, |p| {
-        let src = p.data.clone();
-        for y in 0..p.h {
-            for x in 0..p.w {
-                for c in 0..4 {
-                    let sum: f32 = taps.iter().map(|&((dx, fx), (dy, fy))| bilinear(&src, p.w, p.h, x as isize + dx, y as isize + dy, fx, fy, c)).sum();
-                    p.data[(y * p.w + x) * 4 + c] = sum / n as f32;
-                }
+    let src = p.data.clone();
+    for y in 0..p.h {
+        for x in 0..p.w {
+            for c in 0..4 {
+                let sum: f32 = taps.iter().map(|&((dx, fx), (dy, fy))| bilinear(&src, p.w, p.h, x as isize + dx, y as isize + dy, fx, fy, c)).sum();
+                p.data[(y * p.w + x) * 4 + c] = sum / n as f32;
             }
         }
-    });
-    Ok(())
+    }
 }
 
 /// Spin: samples along the arc around the center over `amount` degrees; zoom: along the ray over
@@ -368,7 +380,7 @@ pub fn smart_reach(f: &Filter) -> i32 {
 }
 
 // Sobel magnitude per pixel, the largest over the color channels.
-fn edges(p: &Plane) -> Vec<f32> {
+pub(super) fn edges(p: &Plane) -> Vec<f32> {
     let (w, h) = (p.w as isize, p.h as isize);
     let mut out = vec![0f32; p.w * p.h];
     for y in 0..h {
@@ -424,7 +436,7 @@ pub fn lens_reach(f: &Filter) -> i32 {
 
 // Offsets inside an iris of `blades` straight sides (rotated by `rot` radians) at radius `a`;
 // `curve` 0..1 rounds the sides out toward the circle.
-fn iris(a: f64, blades: f64, rot: f64, curve: f64) -> Vec<(isize, isize)> {
+pub(super) fn iris(a: f64, blades: f64, rot: f64, curve: f64) -> Vec<(isize, isize)> {
     let a = a.round().max(0.0);
     let seg = 2.0 * PI / blades;
     let mut out = Vec::new();
@@ -490,7 +502,7 @@ pub fn lens(p: &mut Plane, f: &Filter, ctx: &Ctx) -> Result<(), String> {
             let (x, y) = (p.x + (i % p.w) as i32, p.y + (i / p.w) as i32);
             let rnd = |c: u32| {
                 if gaussian {
-                    (-2.0 * hash(seed, x, y, c).max(1e-7).ln()).sqrt() * (2.0 * std::f32::consts::PI * hash(seed ^ 0x5bf0_3635, x, y, c)).cos() * 0.35
+                    gauss(seed, x, y, c) * 0.35
                 } else {
                     hash(seed, x, y, c) - 0.5
                 }
@@ -524,7 +536,7 @@ fn specular(p: &mut Plane, thr: f32, brightness: f32) {
 
 // Each pixel with radius r >= 0.5 becomes the mean over the nearest of 8 kernels sized up to
 // `max`, reading only inside the plane.
-fn bokeh(p: &mut Plane, radii: &[f32], max: f32, kernel: impl Fn(f64) -> Vec<(isize, isize)>) {
+pub(super) fn bokeh(p: &mut Plane, radii: &[f32], max: f32, kernel: impl Fn(f64) -> Vec<(isize, isize)>) {
     if max < 0.5 {
         return;
     }
