@@ -201,12 +201,12 @@ impl Filter {
         (c("x"), c("y"))
     }
 
-    /// The same filter with its px params times `s` (a preview proxy), kept inside their range.
     /// Reads the target layer's mask (`Ctx::mask`), so a smart cache depends on it.
     pub fn reads_mask(&self) -> bool {
         self.kind == "blur.lens_blur" && self.text("depthMapSource") == "layerMask"
     }
 
+    /// The same filter with its px params times `s` (a preview proxy), kept inside their range.
     pub fn scaled(&self, s: f64) -> Filter {
         let mut f = self.clone();
         if let Ok(spec) = self.spec() {

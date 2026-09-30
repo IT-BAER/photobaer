@@ -148,10 +148,15 @@ fn proxy(src: &Src, f: &Filter, r: [i32; 4], out: [i32; 4], doc: [i32; 4], s: f6
 }
 
 // One preview tile of layer pixels without a selection: `old` (or transparent) with the proxy
-// written over `o`. Rows are interpolated once over the proxy columns the tile needs.
-fn preview_tile<T: Copy + Default>(old: Option<&[T]>, o: [i32; 4], at: (i32, i32), res: &Res, keep_alpha: bool, q: impl Fn(f32) -> T, alpha: impl Fn(T) -> f32) -> Box<[T]> {
+// written over `o`. Rows are interpolated once over the proxy columns the tile needs, clamped and
+// scaled to `max` there, so a pixel costs one lerp and a cast per channel.
+fn preview_tile<T: Copy + Default>(old: Option<&[T]>, o: [i32; 4], at: (i32, i32), res: &Res, keep_alpha: bool, max: f32, cast: impl Fn(f32) -> T, alpha: impl Fn(T) -> f32) -> Box<[T]> {
     let Res::Proxy { small, cols, rows, out } = res else { unreachable!("preview tiles come from a proxy") };
-    let mut buf: Box<[T]> = old.map_or_else(|| vec![T::default(); TILE_PIXELS * 4].into(), Into::into);
+    let whole = o[2] == TI && o[3] == TI;
+    let mut buf: Box<[T]> = match old {
+        Some(d) if !whole || keep_alpha => d.into(),
+        _ => vec![T::default(); TILE_PIXELS * 4].into(),
+    };
     let (c0, c1) = ((o[0] - out[0]) as usize, (o[0] + o[2] - out[0]) as usize);
     let (lo, hi) = (cols[c0].0, cols[c1 - 1].1);
     let mut line = vec![0f32; (hi - lo + 1) * 4];
@@ -159,16 +164,16 @@ fn preview_tile<T: Copy + Default>(old: Option<&[T]>, o: [i32; 4], at: (i32, i32
         let (v0, v1, fv) = rows[(y - out[1]) as usize];
         let (a, b) = (&small.data[(v0 * small.w + lo) * 4..], &small.data[(v1 * small.w + lo) * 4..]);
         for (k, l) in line.iter_mut().enumerate() {
-            *l = a[k] + (b[k] - a[k]) * fv;
+            *l = (a[k] + (b[k] - a[k]) * fv).clamp(0.0, 1.0) * max + 0.5;
         }
         let base = ((y - at.1 * TI) * TI + o[0] - at.0 * TI) as usize * 4;
         for (px, &(u0, u1, fu)) in buf[base..base + o[2] as usize * 4].chunks_exact_mut(4).zip(&cols[c0..c1]) {
             let (a, b) = (&line[(u0 - lo) * 4..][..4], &line[(u1 - lo) * 4..][..4]);
             for c in 0..3 {
-                px[c] = q(a[c] + (b[c] - a[c]) * fu);
+                px[c] = cast(a[c] + (b[c] - a[c]) * fu);
             }
             if !keep_alpha {
-                px[3] = q(a[3] + (b[3] - a[3]) * fu);
+                px[3] = cast(a[3] + (b[3] - a[3]) * fu);
             } else if alpha(px[3]) == 0.0 {
                 px[..3].fill(T::default());
             }
@@ -257,13 +262,12 @@ impl Document {
             for (tx, ty) in tile_span(out) {
                 let o = intersect([tx * TI, ty * TI, TI, TI], out);
                 let old = tiles.get(tx, ty).map(|t| &*t.px);
-                let q = |v: f32| v.clamp(0.0, 1.0) * max + 0.5;
                 let px = if depth == 8 {
                     let d = if let Some(Pixels::U8(d)) = old { Some(&d[..]) } else { None };
-                    Pixels::U8(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, |v| q(v) as u8, |a| a as f32))
+                    Pixels::U8(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, max, |v| v as u8, |a| a as f32))
                 } else {
                     let d = if let Some(Pixels::U16(d)) = old { Some(&d[..]) } else { None };
-                    Pixels::U16(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, |v| q(v) as u16, |a| a as f32))
+                    Pixels::U16(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, max, |v| v as u16, |a| a as f32))
                 };
                 put.push(((tx, ty), px.any_alpha().then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })));
             }

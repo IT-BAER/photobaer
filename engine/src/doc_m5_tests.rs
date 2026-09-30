@@ -252,6 +252,9 @@ fn a_proxy_preview_scales_px_params_and_covers_the_view() {
         assert!(a.abs_diff(b) <= 24, "proxy near full resolution at x {x}: {a} vs {b}");
     }
     assert_eq!(lpx(&d, 1, 5, 10), gray(0));
+    let mut part = doc_with(64, 64, |x, _| gray(if x < 32 { 0 } else { 255 }));
+    part.apply_filter(1, Target::Pixels, &g, Some([0, 0, 16, 64]), 0.5).unwrap();
+    assert_eq!(lpx(&part, 1, 40, 10), gray(255), "pixels outside the view keep their value");
     assert!(d.apply_filter(1, Target::Pixels, &g, None, 0.0).is_err(), "scale 0 is refused");
 }
 
