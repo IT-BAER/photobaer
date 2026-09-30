@@ -26,7 +26,15 @@ interface Props {
 }
 
 export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, openPicker, swap, reset, quickMask, setQuickMask }: Props) {
-  const [flyout, setFlyout] = useState<string | null>(null);
+  const [flyout, setFlyoutState] = useState<{ id: string; top: number; left: number } | null>(null);
+  // The flyout is fixed so the scrolling tool list does not clip it.
+  const setFlyout = (id: string | null, el?: HTMLElement) => {
+    const r = el?.getBoundingClientRect();
+    setFlyoutState(id && r ? { id, top: r.top, left: r.right + 4 } : null);
+  };
+  const keepInView = (ul: HTMLUListElement | null) => {
+    if (ul && ul.getBoundingClientRect().bottom > innerHeight - 8) ul.style.top = `${Math.max(8, innerHeight - 8 - ul.offsetHeight)}px`;
+  };
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentOf = (slot: Slot) => (SLOTS.find(s => s.id === slot.id)!.tools.includes(active) ? active : lastUsed[slot.id]);
@@ -53,50 +61,52 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
         buttons[(i + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length].focus();
       }}
     >
-      {SLOTS.map(slot => {
-        const toolId = currentOf(slot);
-        const tool = TOOLS[toolId];
-        const Icon = ICONS[tool.icon];
-        return (
-          <div key={slot.id} className="tool-slot">
-            <button
-              className="slot" data-slot={slot.id} aria-label={tool.label} aria-pressed={active === toolId}
-              title={`${tool.label} (${slot.key.toUpperCase()})`}
-              onClick={() => pressSlot(slot)}
-              onContextMenu={e => { e.preventDefault(); setFlyout(slot.id); }}
-              onPointerDown={() => { timer.current = setTimeout(() => setFlyout(slot.id), LONG_PRESS_MS); }}
-              onPointerUp={() => { if (timer.current) clearTimeout(timer.current); }}
-              onPointerLeave={() => { if (timer.current) clearTimeout(timer.current); }}
-            >
-              <Icon size={18} strokeWidth={1.75} />
-              {slot.tools.length > 1 && <span className="corner-mark" />}
-            </button>
-            {flyout === slot.id && (
-              <>
-                {/* A right-click on another slot opens its flyout instead of the browser menu. */}
-                <div className="scrim" onClick={() => setFlyout(null)} onContextMenu={e => {
-                  e.preventDefault();
-                  const hit = document.elementsFromPoint(e.clientX, e.clientY).find(el => el instanceof HTMLElement && el.dataset.slot);
-                  setFlyout((hit as HTMLElement | undefined)?.dataset.slot ?? null);
-                }} />
-                <ul className="flyout" role="menu">
-                  {slot.tools.map(id => {
-                    const t = TOOLS[id];
-                    const TIcon = ICONS[t.icon];
-                    return (
-                      <li key={id}>
-                        <button role="menuitem" aria-label={t.label} aria-pressed={active === id} onClick={() => choose(slot, id)}>
-                          <TIcon size={16} strokeWidth={1.75} /><span>{t.label}</span><kbd>{t.key.toUpperCase()}</kbd>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
-          </div>
-        );
-      })}
+      <div className="toolbar-main">
+        {SLOTS.map(slot => {
+          const toolId = currentOf(slot);
+          const tool = TOOLS[toolId];
+          const Icon = ICONS[tool.icon];
+          return (
+            <div key={slot.id} className="tool-slot">
+              <button
+                className="slot" data-slot={slot.id} aria-label={tool.label} aria-pressed={active === toolId}
+                title={`${tool.label} (${slot.key.toUpperCase()})`}
+                onClick={() => pressSlot(slot)}
+                onContextMenu={e => { e.preventDefault(); setFlyout(slot.id, e.currentTarget); }}
+                onPointerDown={e => { const el = e.currentTarget; timer.current = setTimeout(() => setFlyout(slot.id, el), LONG_PRESS_MS); }}
+                onPointerUp={() => { if (timer.current) clearTimeout(timer.current); }}
+                onPointerLeave={() => { if (timer.current) clearTimeout(timer.current); }}
+              >
+                <Icon size={18} strokeWidth={1.75} />
+                {slot.tools.length > 1 && <span className="corner-mark" />}
+              </button>
+              {flyout?.id === slot.id && (
+                <>
+                  {/* A right-click on another slot opens its flyout instead of the browser menu. */}
+                  <div className="scrim" onClick={() => setFlyout(null)} onContextMenu={e => {
+                    e.preventDefault();
+                    const hit = document.elementsFromPoint(e.clientX, e.clientY).find(el => el instanceof HTMLElement && el.dataset.slot) as HTMLElement | undefined;
+                    setFlyout(hit?.dataset.slot ?? null, hit);
+                  }} />
+                  <ul className="flyout" role="menu" ref={keepInView} style={{ top: flyout.top, left: flyout.left }}>
+                    {slot.tools.map(id => {
+                      const t = TOOLS[id];
+                      const TIcon = ICONS[t.icon];
+                      return (
+                        <li key={id}>
+                          <button role="menuitem" aria-label={t.label} aria-pressed={active === id} onClick={() => choose(slot, id)}>
+                            <TIcon size={16} strokeWidth={1.75} /><span>{t.label}</span><kbd>{t.key.toUpperCase()}</kbd>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
       <div className="toolbar-footer">
         <button aria-label="Foreground color" title="Foreground color" className="chip fg" style={{ background: rgbToHex(fg) }} onClick={() => openPicker('fg')} />
         <button aria-label="Background color" title="Background color" className="chip bg" style={{ background: rgbToHex(bg) }} onClick={() => openPicker('bg')} />

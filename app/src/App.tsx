@@ -82,6 +82,23 @@ import {
 // Set by vite.config.ts from CHANGELOG.md.
 declare const __APP_VERSION__: string;
 
+// Menus are fixed so the scrolling menubar does not clip them; both stay inside the viewport.
+function placeMenu(ul: HTMLUListElement | null) {
+  if (!ul) return;
+  const r = ul.parentElement!.getBoundingClientRect();
+  ul.style.left = `${Math.max(0, Math.min(r.left, innerWidth - ul.offsetWidth))}px`;
+  ul.style.top = `${r.bottom + 2}px`;
+  ul.style.maxHeight = `${innerHeight - r.bottom - 6}px`;
+}
+
+function placeSubmenu(li: HTMLElement) {
+  const ul = li.querySelector<HTMLElement>(':scope > ul');
+  if (!ul) return;
+  const r = li.getBoundingClientRect(), w = ul.offsetWidth;
+  ul.style.left = `${r.right + 2 + w <= innerWidth ? r.right + 2 : Math.max(0, r.left - 2 - w)}px`;
+  ul.style.top = `${Math.max(4, Math.min(r.top - 5, innerHeight - 4 - ul.offsetHeight))}px`;
+}
+
 export function App() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const overlayCanvas = useRef<HTMLCanvasElement>(null);
@@ -1350,18 +1367,7 @@ export function App() {
       <button type="button" className="primary" onClick={() => cropSession.current?.commit()}>Apply</button>
     </span>
   );
-  // A submenu opens beside its item; one that would run past the window bottom moves up, never above the top.
-  const fitSub = (li: HTMLElement) => {
-    const ul = li.querySelector<HTMLElement>(':scope > ul');
-    if (!ul) return;
-    ul.style.top = '';
-    const over = ul.getBoundingClientRect().bottom - innerHeight + 4;
-    if (over > 0) ul.style.top = `${Math.max(-5 - over, 4 - li.getBoundingClientRect().top)}px`;
-  };
-  const menuItems = (items: Item[]): ReactNode => items.map(i => (
-    <Fragment key={i.label}>
-      {i.sep && <li role="separator" className="menu-sep" />}
-      <li className={i.sub ? 'has-sub' : undefined} onMouseEnter={i.sub ? e => fitSub(e.currentTarget) : undefined} onFocus={i.sub ? e => fitSub(e.currentTarget) : undefined}>
+      <li className={i.sub ? 'has-sub' : undefined} onMouseEnter={i.sub ? e => placeSubmenu(e.currentTarget) : undefined} onFocus={i.sub ? e => placeSubmenu(e.currentTarget) : undefined}>
         <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={() => { if (!i.sub) setMenu(null); i.run(); }}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
         {i.sub && !i.off && <ul role="menu" aria-label={i.label}>{menuItems(i.sub)}</ul>}
       </li>
@@ -1375,7 +1381,7 @@ export function App() {
           <div key={name} className="menu">
             <button className={menu === name ? 'open' : ''} onClick={() => setMenu(menu === name ? null : name)} onMouseEnter={() => menu && setMenu(name)}>{name}</button>
             {menu === name && (
-              <ul role="menu">{menuItems(items)}</ul>
+              <ul role="menu" ref={placeMenu}>{menuItems(items)}</ul>
             )}
           </div>
         ))}
@@ -1569,7 +1575,7 @@ export function App() {
         <span>{Math.round(view.zoom * 1000) / 10}%</span>
         <span>{deg ? `${deg}°` : ''}</span>
         <span className="grow">{doc ? (SELECT_TOOLS.includes(tool) ? 'drag to select, Shift add, Alt subtract' : `${activeTool.label}: drag to use, Space to pan, wheel to zoom`) : ''}</span>
-        <span>{AUTOSAVE_TEXT[autosave]}</span>
+        <span className="shrink">{AUTOSAVE_TEXT[autosave]}</span>
         <span>{renderer}</span>
       </footer>
       <ColorPicker ref={picker} />
