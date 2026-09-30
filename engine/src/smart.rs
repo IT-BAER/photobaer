@@ -183,7 +183,7 @@ impl Document {
             if !spec.adjustment {
                 let mut plane = filters::Plane { x: r[0], y: r[1], w, h, data: px.clone() };
                 plane.unpremultiply();
-                filters::apply(&f.filter, &mut plane, &filters::Ctx { blobs: &self.blobs, cov: None })?;
+                filters::apply(&f.filter, &mut plane, &filters::Ctx { blobs: &self.blobs, cov: None, bounds: b, scale: 1.0, mask: None })?;
                 for i in 0..w * h {
                     let a = weight(i);
                     if a <= 0.0 {

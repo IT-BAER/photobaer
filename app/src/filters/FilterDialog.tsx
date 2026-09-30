@@ -3,6 +3,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref, type RefObj
 import { client } from '../client.ts';
 import type { FieldSpec } from '../adjustments.ts';
 import { BLEND_MODES } from '../layers.ts';
+import { setIn } from '../layerStyle.ts';
 import { Field } from '../PropertiesPanel.tsx';
 import type { Viewer } from '../viewer.ts';
 import type { DocInfo } from '../worker/types.ts';
@@ -120,7 +121,7 @@ export function FilterDialog({ ref, viewer, show, setError }: {
     <dialog ref={dialog} className="filter-dialog" aria-label={title} onClose={cancel} onKeyDown={e => setAlt(e.altKey)} onKeyUp={e => setAlt(e.altKey)}>
       <form onSubmit={e => { e.preventDefault(); ok(); }}>
         <h2>{title}</h2>
-        {req && fields.map(f => <Field key={f.path} spec={f} params={params} onChange={(path, v) => setParams(q => ({ ...q, [path]: v as ParamValue }))} />)}
+        {req && fields.map(f => <Field key={f.path} spec={f} params={params} onChange={(path, v) => setParams(q => setIn(q, path, v as ParamValue))} />)}
         {(req?.type === 'fade' || req?.spec.preview) && (
           <label className="adjustment-check"><input type="checkbox" checked={previewOn} onChange={e => setPreviewOn(e.currentTarget.checked)} /> Preview</label>
         )}

@@ -3,7 +3,7 @@ import type { FieldSpec } from '../adjustments.ts';
 import type { ParamValue } from './lastFilter.ts';
 
 export interface FilterParam {
-  key: string; label: string; kind: 'number' | 'int' | 'percent' | 'angle' | 'select' | 'bool' | 'blob' | 'seed';
+  key: string; label: string; kind: 'number' | 'int' | 'percent' | 'angle' | 'select' | 'bool' | 'blob' | 'seed' | 'point';
   min: number; max: number; step: number; unit: string; default: ParamValue | null; choices?: string[];
 }
 export interface FilterSpec {
@@ -39,11 +39,13 @@ export function defaults(s: FilterSpec): Record<string, ParamValue> {
 const words = (c: string) => c.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, m => m.toUpperCase());
 const withUnit = (p: FilterParam) => (p.unit ? `${p.label} (${p.unit})` : p.label);
 
+// A point param is two fields, its x and y as fractions of the layer bounds.
 export function fieldSpecs(s: FilterSpec): FieldSpec[] {
-  return visibleParams(s).map((p): FieldSpec => {
-    if (p.kind === 'bool') return { type: 'checkbox', label: p.label, path: p.key };
-    if (p.kind === 'select') return { type: 'select', label: p.label, path: p.key, options: (p.choices ?? []).map(c => [c, words(c)]) };
-    return { type: 'number', label: withUnit(p), path: p.key, min: p.min, max: p.max, step: p.step };
+  return visibleParams(s).flatMap((p): FieldSpec[] => {
+    if (p.kind === 'bool') return [{ type: 'checkbox', label: p.label, path: p.key }];
+    if (p.kind === 'select') return [{ type: 'select', label: p.label, path: p.key, options: (p.choices ?? []).map(c => [c, words(c)]) }];
+    if (p.kind === 'point') return (['x', 'y'] as const).map(k => ({ type: 'number', label: `${p.label} ${k.toUpperCase()}`, path: `${p.key}.${k}`, min: p.min, max: p.max, step: p.step }));
+    return [{ type: 'number', label: withUnit(p), path: p.key, min: p.min, max: p.max, step: p.step }];
   });
 }
 

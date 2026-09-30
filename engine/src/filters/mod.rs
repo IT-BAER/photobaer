@@ -35,6 +35,8 @@ pub enum PKind {
     Blob,
     /// The per-instance random seed (u32, D4).
     Seed,
+    /// `{ x, y }` as fractions of the layer bounds.
+    Point,
 }
 
 #[derive(Clone, Copy)]
@@ -42,6 +44,7 @@ pub enum Def {
     Num(f64),
     Str(&'static str),
     Bool(bool),
+    Point(f64, f64),
 }
 
 pub struct Param {
@@ -102,10 +105,17 @@ impl Plane {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Ctx<'a> {
     pub blobs: &'a HashMap<u64, Arc<Vec<u8>>>,
     /// Selection coverage per plane pixel, for global filters that read only the selected area.
     pub cov: Option<&'a [f32]>,
+    /// The layer bounds in document px: the rect point params are fractions of.
+    pub bounds: [i32; 4],
+    /// Plane px per document px (below 1 in a preview proxy).
+    pub scale: f64,
+    /// The target layer's mask (0..1) at a document px, when it has one.
+    pub mask: Option<&'a dyn Fn(i32, i32) -> f32>,
 }
 
 /// A stored filter: `{ kind, params }` with params normalized against the registry schema.
@@ -176,6 +186,19 @@ impl Filter {
         self.params.get(key).and_then(Value::as_f64).unwrap_or(0.0)
     }
 
+    pub fn text(&self, key: &str) -> &str {
+        self.params.get(key).and_then(Value::as_str).unwrap_or("")
+    }
+
+    pub fn flag(&self, key: &str) -> bool {
+        self.params.get(key).and_then(Value::as_bool).unwrap_or(false)
+    }
+
+    pub fn point(&self, key: &str) -> (f64, f64) {
+        let c = |k: &str| self.params.get(key).and_then(|p| p.get(k)).and_then(Value::as_f64).unwrap_or(0.5);
+        (c("x"), c("y"))
+    }
+
     /// The same filter with its px params times `s` (a preview proxy), kept inside their range.
     pub fn scaled(&self, s: f64) -> Filter {
         let mut f = self.clone();
@@ -196,6 +219,7 @@ fn default_value(p: &Param) -> Value {
         Def::Num(n) => json!(n),
         Def::Str(s) => json!(s),
         Def::Bool(b) => json!(b),
+        Def::Point(x, y) => json!({ "x": x, "y": y }),
     }
 }
 
@@ -224,6 +248,14 @@ fn check(spec: &Spec, p: &Param, v: &Value) -> Result<Value, String> {
         PKind::Bool => v.as_bool().map(Value::Bool).ok_or_else(|| bad("true or false")),
         PKind::Blob => v.as_u64().map(|n| json!(n)).ok_or_else(|| bad("a blob id")),
         PKind::Seed => v.as_u64().filter(|n| *n <= u32::MAX as u64).map(|n| json!(n)).ok_or_else(|| bad("a 32-bit seed")),
+        PKind::Point => {
+            let o = v.as_object().filter(|o| o.len() == 2).ok_or_else(|| bad("a point { x, y }"))?;
+            let c = |k: &str| o.get(k).and_then(Value::as_f64).filter(|n| (p.min..=p.max).contains(n));
+            match (c("x"), c("y")) {
+                (Some(x), Some(y)) => Ok(json!({ "x": x, "y": y })),
+                _ => Err(bad(&format!("a point {{ x, y }} with both {}", range()))),
+            }
+        }
     }
 }
 
@@ -263,6 +295,7 @@ pub fn schema_json() -> String {
                         PKind::Bool => ("bool", None),
                         PKind::Blob => ("blob", None),
                         PKind::Seed => ("seed", None),
+                        PKind::Point => ("point", None),
                     };
                     let mut o = json!({ "key": p.key, "label": p.label, "kind": kind, "min": p.min, "max": p.max, "step": p.step,
                         "unit": p.unit, "default": default_value(p) });

@@ -47,7 +47,10 @@ fn run(d: &mut Document, kind: &str) {
 fn schema_lists_the_first_entries_in_menu_order() {
     let v: Value = serde_json::from_str(&filters::schema_json()).unwrap();
     let ids: Vec<&str> = v.as_array().unwrap().iter().filter(|e| e["group"] == "blur").map(|e| e["id"].as_str().unwrap()).collect();
-    assert_eq!(ids, ["blur.average", "blur.blur", "blur.blur_more", "gaussian_blur"]);
+    assert_eq!(ids, [
+        "blur.average", "blur.blur", "blur.blur_more", "blur.box_blur", "gaussian_blur", "blur.lens_blur", "blur.motion_blur", "blur.radial_blur",
+        "blur.shape_blur", "blur.smart_blur", "blur.surface_blur",
+    ]);
     let sol = v.as_array().unwrap().iter().find(|e| e["id"] == "stylize.solarize").unwrap();
     assert_eq!((sol["label"].as_str(), sol["alpha"].as_str(), sol["exec"].as_str()), (Some("Solarize"), Some("kept"), Some("point")));
     let g = v.as_array().unwrap().iter().find(|e| e["id"] == "gaussian_blur").unwrap();
@@ -140,24 +143,24 @@ fn seam_doc() -> Document {
     })
 }
 
-#[test]
-fn tile_by_tile_equals_whole_layer_for_blur_more_across_a_seam() {
+// Worst 8-bit difference between `kind` run tile by tile on the seam doc and one plane over the
+// whole layer grown by `m`, reads outside repeating the edge.
+fn whole_layer_diff(kind: &str, params: Value, m: usize) -> u8 {
     let mut d = seam_doc();
     let src = d.clone();
-    run(&mut d, "blur.blur_more");
-    // One plane over the whole layer grown by the reach (3), reads outside repeating the edge.
-    let (w, h, m) = (300usize, 20usize, 3usize);
+    d.apply_filter(1, Target::Pixels, &filter(kind, params.clone()), None, 1.0).unwrap();
+    let (w, h) = (300usize, 20usize);
     let (pw, ph) = (w + 2 * m, h + 2 * m);
-    let mut plane = filters::Plane { x: -3, y: -3, w: pw, h: ph, data: vec![0.0; pw * ph * 4] };
+    let mut plane = filters::Plane { x: -(m as i32), y: -(m as i32), w: pw, h: ph, data: vec![0.0; pw * ph * 4] };
     for y in 0..ph {
         for x in 0..pw {
-            let (sx, sy) = ((x as i32 - 3).clamp(0, w as i32 - 1), (y as i32 - 3).clamp(0, h as i32 - 1));
+            let (sx, sy) = ((x as i32 - m as i32).clamp(0, w as i32 - 1), (y as i32 - m as i32).clamp(0, h as i32 - 1));
             plane.data[(y * pw + x) * 4..][..4].copy_from_slice(&lpx(&src, 1, sx, sy).map(|c| c as f32 / 255.0));
         }
     }
-    let f = filters::Filter::parse(&filter("blur.blur_more", json!({}))).unwrap();
+    let f = filters::Filter::parse(&filter(kind, params)).unwrap();
     let blobs = HashMap::new();
-    filters::apply(&f, &mut plane, &Ctx { blobs: &blobs, cov: None }).unwrap();
+    filters::apply(&f, &mut plane, &Ctx { blobs: &blobs, cov: None, bounds: [0, 0, 300, 20], scale: 1.0, mask: None }).unwrap();
     let mut worst = 0u8;
     for y in 0..h {
         for x in 0..w {
@@ -166,8 +169,28 @@ fn tile_by_tile_equals_whole_layer_for_blur_more_across_a_seam() {
             worst = worst.max((0..4).map(|c| got[c].abs_diff(want[c])).max().unwrap());
         }
     }
-    assert_eq!(worst, 0, "tile runs read their neighbors for the reach");
-    assert_ne!(lpx(&d, 1, 255, 5), lpx(&src, 1, 255, 5), "the seam column changed");
+    assert!((0..20).any(|y| lpx(&d, 1, 255, y) != lpx(&src, 1, 255, y)), "{kind}: the seam column changed");
+    worst
+}
+
+#[test]
+fn tile_by_tile_equals_whole_layer_for_blur_more_across_a_seam() {
+    assert_eq!(whole_layer_diff("blur.blur_more", json!({}), 3), 0, "tile runs read their neighbors for the reach");
+}
+
+#[test]
+fn tile_by_tile_equals_whole_layer_for_the_local_blurs() {
+    for (kind, params, m) in [
+        ("blur.box_blur", json!({ "radius": 3 }), 3),
+        ("blur.motion_blur", json!({ "angle": 30, "distance": 9 }), 6),
+        ("blur.shape_blur", json!({ "radius": 3, "shape": "star" }), 3),
+        ("blur.surface_blur", json!({ "radius": 2, "threshold": 60 }), 2),
+        ("blur.surface_blur", json!({ "radius": 100, "threshold": 60 }), 100),
+        ("blur.smart_blur", json!({ "radius": 1.5, "threshold": 40, "mode": "overlayEdge" }), 6),
+        ("blur.lens_blur", json!({ "radius": 4, "noiseAmount": 30, "seed": 7 }), 4),
+    ] {
+        assert_eq!(whole_layer_diff(kind, params, m), 0, "{kind}");
+    }
 }
 
 #[test]
@@ -344,4 +367,16 @@ fn adjustment_filters_keep_the_shortest_float_form() {
     let a: crate::adjust::Adjustment = serde_json::from_value(json!({ "kind": "exposure", "params": { "exposure": 0.1, "offset": 0.0, "gamma": 1.1 } })).unwrap();
     let s = serde_json::to_string(&filters::Filter::from_adjustment(&a).normalized().unwrap()).unwrap();
     assert!(s.contains("\"exposure\":0.1,") && s.contains("\"gamma\":1.1"), "{s}");
+}
+
+#[test]
+fn lens_blur_reads_the_layer_mask_as_its_depth_map() {
+    let mut d = doc_with(20, 6, |x, _| gray(if x % 2 == 0 { 0 } else { 255 }));
+    d.add_mask(1, true).unwrap();
+    d.select_rect(0.0, 0.0, 10.0, 6.0, Mode::New).unwrap();
+    d.fill(1, Target::Mask, 0, 0, 0, 255).unwrap();
+    d.selection = None;
+    d.apply_filter(1, Target::Pixels, &filter("blur.lens_blur", json!({ "radius": 3, "depthMapSource": "layerMask" })), None, 1.0).unwrap();
+    assert_eq!((lpx(&d, 1, 4, 3), lpx(&d, 1, 5, 3)), (gray(0), gray(255)), "mask 0: in focus");
+    assert!((60..=200).contains(&lpx(&d, 1, 15, 3)[0]), "mask 255: blurred, got {:?}", lpx(&d, 1, 15, 3));
 }

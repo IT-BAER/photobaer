@@ -23,3 +23,13 @@ test('preview proxy scale keeps the visible area at or under 512 x 512', () => {
   assert.equal(previewScale(400, 300), 1);
   assert.equal(previewScale(1024, 1024), 0.5);
 });
+
+test('a point param shows as X and Y fields of its fractions', () => {
+  const s = spec([p('center', 'point', { min: 0, max: 1, step: 0.01, default: { x: 0.5, y: 0.5 } })]);
+  assert.equal(menuLabel(s), 'Thing…');
+  assert.deepEqual(fieldSpecs(s), [
+    { type: 'number', label: 'center X', path: 'center.x', min: 0, max: 1, step: 0.01 },
+    { type: 'number', label: 'center Y', path: 'center.y', min: 0, max: 1, step: 0.01 },
+  ]);
+  assert.deepEqual(defaults(s), { center: { x: 0.5, y: 0.5 } });
+});

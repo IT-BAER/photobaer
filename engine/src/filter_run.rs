@@ -4,7 +4,7 @@
 
 use super::transform::{all_default, intersect, tile_span};
 use super::*;
-use crate::filters::{Ctx, Exec, Plane};
+use crate::filters::{Ctx, Exec, PKind, Plane};
 
 const NOTHING: &str = "There is nothing to filter here.";
 const NO_MATCH: &str = "The previous state has no matching layer to fade toward.";
@@ -143,7 +143,7 @@ fn proxy(src: &Src, f: &Filter, r: [i32; 4], out: [i32; 4], doc: [i32; 4], s: f6
         }
         small.data[k * 4 + 3] = alpha as f32;
     }
-    filters::apply(&f.scaled(s), &mut small, ctx)?;
+    filters::apply(&f.scaled(s), &mut small, &Ctx { scale: s, ..*ctx })?;
     Ok(Res::Proxy { cols: taps(r[0], out[0], out[2], pw, s), rows: taps(r[1], out[1], out[3], ph, s), small, out })
 }
 
@@ -199,7 +199,7 @@ impl Document {
         let spec = f.spec()?;
         let doc = [0, 0, self.width as i32, self.height as i32];
         let max = self.max();
-        let (src, bounds) = match target {
+        let (src, bounds, refb) = match target {
             Target::Pixels => {
                 self.check_pixel_edit(id)?;
                 if matches!(self.node(id)?.kind, Kind::Smart(_)) {
@@ -208,18 +208,25 @@ impl Document {
                 }
                 let grown = |b: [i32; 4]| if spec.keep_alpha || spec.exec == Exec::Global { b } else { grow(b, f.reach()) };
                 let tiles = self.node(id)?.pixel_tiles()?.clone();
-                let b = if scale < 1.0 { tile_bounds(&tiles) } else { self.layer_bounds(id)? };
-                (Src::Pixels(tiles), b.map(grown))
+                // Point params are fractions of the tight bounds, so only they pay for them in a preview.
+                let exact = spec.params.iter().any(|p| matches!(p.kind, PKind::Point));
+                let b = if scale < 1.0 && !exact { tile_bounds(&tiles) } else { self.layer_bounds(id)? };
+                (Src::Pixels(tiles), b.map(grown), b.unwrap_or(doc))
             }
             Target::Mask => {
                 let m = self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
-                (Src::Gray(m.tiles.clone(), m.default as f32 / max), Some(doc))
+                (Src::Gray(m.tiles.clone(), m.default as f32 / max), Some(doc), doc)
             }
             Target::Selection => {
                 let s = self.selection.clone().unwrap_or_default();
-                (Src::Gray(s.tiles, s.default as f32 / max), Some(doc))
+                (Src::Gray(s.tiles, s.default as f32 / max), Some(doc), doc)
             }
         };
+        let mask = match target {
+            Target::Pixels => self.node(id)?.mask.as_ref().map(|m| Src::Gray(m.tiles.clone(), m.default as f32 / max)),
+            _ => None,
+        };
+        let mask_at = mask.as_ref().map(|m| move |x: i32, y: i32| m.read(x, y)[0]);
         let selected = target != Target::Selection && self.selection.is_some();
         let sel_rect = if selected { Some(self.selection_bounds().unwrap_or([0, 0, 0, 0])) } else { None };
         let full = bounds.map(|b| sel_rect.map_or(intersect(b, doc), |s| intersect(intersect(b, doc), s))).filter(|r| !empty(*r));
@@ -228,7 +235,7 @@ impl Document {
             return if view.is_some() { Ok(()) } else { Err(NOTHING.into()) };
         };
         let reach = f.reach().max(0);
-        let ctx = Ctx { blobs: &self.blobs, cov: None };
+        let ctx = Ctx { blobs: &self.blobs, cov: None, bounds: refb, scale: 1.0, mask: mask_at.as_ref().map(|f| f as &dyn Fn(i32, i32) -> f32) };
         let shared = if scale < 1.0 {
             Some(proxy(&src, &f, intersect(grow(out, reach), grow(doc, reach)), out, doc, scale as f64, &ctx)?)
         } else if spec.exec == Exec::Global {
@@ -236,7 +243,7 @@ impl Document {
             let cov: Option<Vec<f32>> = self.selection.as_ref().filter(|_| selected).map(|sel| {
                 (0..p.w * p.h).map(|i| self.sel_at(sel, full[0] + (i % p.w) as i32, full[1] + (i / p.w) as i32)).collect()
             });
-            filters::apply(&f, &mut p, &Ctx { blobs: &self.blobs, cov: cov.as_deref() })?;
+            filters::apply(&f, &mut p, &Ctx { cov: cov.as_deref(), ..ctx })?;
             Some(Res::Full(p))
         } else {
             None
