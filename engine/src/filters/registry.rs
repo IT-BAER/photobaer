@@ -1,6 +1,6 @@
 //! The registry table in reference menu order within each group (docs/M5.md section 14).
 
-use super::{blur, noise, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
+use super::{blur, distort, noise, other, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
 use crate::adjust;
 
 const fn none(_: &Filter) -> i32 {
@@ -76,6 +76,21 @@ const fn amount(key: &'static str, label: &'static str, min: f64, max: f64, step
     Param { kind: PKind::Percent, ..num(key, label, min, max, step, "%", default) }
 }
 
+const fn global(id: &'static str, label: &'static str, group: &'static str, params: &'static [Param], apply: fn(&mut Plane, &Filter, &Ctx) -> Result<(), String>) -> Spec {
+    Spec { params, exec: Exec::Global, keep_alpha: false, ..entry(id, label, group, apply) }
+}
+
+const fn kernel(key: &'static str, label: &'static str) -> Param {
+    Param { kind: PKind::Kernel, default: Def::Kernel, ..num(key, label, -999.0, 999.0, 1.0, "", 0.0) }
+}
+
+const fn curve(key: &'static str, label: &'static str) -> Param {
+    Param { kind: PKind::Curve, default: Def::Curve, ..num(key, label, -1.0, 1.0, 0.01, "", 0.0) }
+}
+
+const UNDEFINED: Param = select("undefinedAreas", "Undefined Areas", &["wrapAround", "repeatEdgePixels"], "repeatEdgePixels");
+const PRESERVE: Param = select("preserve", "Preserve", &["squareness", "roundness"], "squareness");
+
 pub static ALL: &[Spec] = &[
     Spec { exec: Exec::Global, ..entry("blur.average", "Average", "blur", blur::average) },
     Spec { exec: Exec::Local, keep_alpha: false, reach: blur::blur_reach, ..entry("blur.blur", "Blur", "blur", blur::blur) },
@@ -148,6 +163,61 @@ pub static ALL: &[Spec] = &[
         blur::surface_reach,
         blur::surface_blur,
     ),
+    global(
+        "distort.displace",
+        "Displace",
+        "distort",
+        &[
+            amount("horizontalScale", "Horizontal Scale", -999.0, 999.0, 1.0, 10.0),
+            amount("verticalScale", "Vertical Scale", -999.0, 999.0, 1.0, 10.0),
+            select("displacementMap", "Displacement Map", &["stretchToFit", "tile"], "stretchToFit"),
+            UNDEFINED,
+        ],
+        distort::displace,
+    ),
+    global("distort.pinch", "Pinch", "distort", &[amount("amount", "Amount", -100.0, 100.0, 1.0, 50.0)], distort::pinch),
+    global("distort.polar_coordinates", "Polar Coordinates", "distort", &[select("conversion", "Conversion", &["rectToPolar", "polarToRect"], "rectToPolar")], distort::polar),
+    global(
+        "distort.ripple",
+        "Ripple",
+        "distort",
+        &[amount("amount", "Amount", -999.0, 999.0, 1.0, 100.0), select("size", "Size", &["small", "medium", "large"], "medium")],
+        distort::ripple,
+    ),
+    global("distort.shear", "Shear", "distort", &[curve("shearCurve", "Shear Curve"), UNDEFINED], distort::shear),
+    global(
+        "distort.spherize",
+        "Spherize",
+        "distort",
+        &[amount("amount", "Amount", -100.0, 100.0, 1.0, 100.0), select("mode", "Mode", &["normal", "horizontalOnly", "verticalOnly"], "normal")],
+        distort::spherize,
+    ),
+    global("distort.twirl", "Twirl", "distort", &[Param { min: -999.0, max: 999.0, ..angle("angle", "Angle", 50.0) }], distort::twirl),
+    global(
+        "distort.wave",
+        "Wave",
+        "distort",
+        &[
+            int("generators", "Number of Generators", 1.0, 999.0, 5.0),
+            int("wavelengthMin", "Wavelength Min", 1.0, 9999.0, 10.0),
+            int("wavelengthMax", "Wavelength Max", 1.0, 9999.0, 120.0),
+            int("amplitudeMin", "Amplitude Min", 1.0, 9999.0, 5.0),
+            int("amplitudeMax", "Amplitude Max", 1.0, 9999.0, 35.0),
+            amount("horizontalScale", "Horizontal Scale", 1.0, 100.0, 1.0, 100.0),
+            amount("verticalScale", "Vertical Scale", 1.0, 100.0, 1.0, 100.0),
+            select("type", "Type", &["sine", "triangle", "square"], "sine"),
+            int("randomize", "Randomize", 0.0, 999999.0, 0.0),
+            UNDEFINED,
+        ],
+        distort::wave,
+    ),
+    global(
+        "distort.zigzag",
+        "ZigZag",
+        "distort",
+        &[num("amount", "Amount", -100.0, 100.0, 1.0, "", 10.0), int("ridges", "Ridges", 0.0, 20.0, 5.0), select("style", "Style", &["pondRipples", "outFromCenter", "aroundCenter"], "pondRipples")],
+        distort::zigzag,
+    ),
     Spec {
         params: &[
             amount("amount", "Amount", 0.1, 400.0, 0.1, 12.5),
@@ -216,6 +286,33 @@ pub static ALL: &[Spec] = &[
         sharpen::unsharp,
     ),
     entry("stylize.solarize", "Solarize", "stylize", stylize::solarize),
+    global(
+        "video.de_interlace",
+        "De-Interlace",
+        "video",
+        &[select("eliminate", "Eliminate", &["oddFields", "evenFields"], "oddFields"), select("createNewFields", "Create New Fields by", &["duplication", "interpolation"], "interpolation")],
+        other::de_interlace,
+    ),
+    entry("video.ntsc_colors", "NTSC Colors", "video", other::ntsc_colors),
+    kept("other.custom", "Custom", "other", &[kernel("kernel", "Kernel"), int("scale", "Scale", -9999.0, 9999.0, 1.0), int("offset", "Offset", -9999.0, 9999.0, 0.0)], other::two, other::custom),
+    Spec {
+        params: &[select("input", "Input", &["rgb", "hsb", "hsl"], "rgb"), select("output", "Output", &["rgb", "hsb", "hsl"], "hsb")],
+        ..entry("other.hsb_hsl", "HSB/HSL", "other", other::hsb_hsl)
+    },
+    kept("other.high_pass", "High Pass", "other", &[px("radius", "Radius", 0.1, 1000.0, 0.1, 10.0)], blur::gaussian_reach, other::high_pass),
+    Spec { keep_alpha: false, ..kept("other.maximum", "Maximum", "other", &[px("radius", "Radius", 1.0, 500.0, 1.0, 1.0), PRESERVE], noise::radius_reach, other::maximum) },
+    Spec { keep_alpha: false, ..kept("other.minimum", "Minimum", "other", &[px("radius", "Radius", 1.0, 500.0, 1.0, 1.0), PRESERVE], noise::radius_reach, other::minimum) },
+    global(
+        "other.offset",
+        "Offset",
+        "other",
+        &[
+            Param { unit: "px", ..int("horizontal", "Horizontal", -30000.0, 30000.0, 0.0) },
+            Param { unit: "px", ..int("vertical", "Vertical", -30000.0, 30000.0, 0.0) },
+            select("undefinedAreas", "Undefined Areas", &["setToBackground", "repeatEdgePixels", "wrapAround"], "wrapAround"),
+        ],
+        other::offset,
+    ),
     adjustment("brightness_contrast", "Brightness/Contrast"),
     adjustment("levels", "Levels"),
     adjustment("curves", "Curves"),

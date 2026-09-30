@@ -53,7 +53,7 @@ function useSampler(sampleCanvas: SampleCanvas | undefined) {
 }
 
 // Number field committing on Enter or blur.
-function ValueInput({ label, value, step = 1, disabled, set }: { label: string; value: number; step?: number; disabled?: boolean; set: (v: number) => void }) {
+export function ValueInput({ label, value, step = 1, min, max, disabled, set }: { label: string; value: number; step?: number; min?: number; max?: number; disabled?: boolean; set: (v: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
   const done = () => {
     const v = Number(draft);
@@ -61,7 +61,7 @@ function ValueInput({ label, value, step = 1, disabled, set }: { label: string; 
     if (draft !== null && draft.trim() !== '' && Number.isFinite(v) && v !== value) set(v);
   };
   return (
-    <input type="number" aria-label={label} title={label} step={step} disabled={disabled} value={draft ?? value}
+    <input type="number" aria-label={label} title={label} step={step} min={min} max={max} disabled={disabled} value={draft ?? value}
       onChange={e => setDraft(e.currentTarget.value)} onBlur={done}
       onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } else if (e.key === 'Escape') setDraft(null);

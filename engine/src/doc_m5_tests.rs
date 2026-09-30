@@ -482,3 +482,216 @@ fn settle_re_renders_a_smart_cache_whose_depth_mask_changed() {
         assert_eq!(lpx(&d, 1, x, y), lpx(&flat, 1, x, y), "{x},{y}");
     }
 }
+
+// ---- B4: distort, other, video ----
+
+// A smooth two-channel ramp with a constant blue, opaque.
+fn ramp(w: u32, h: u32) -> Document {
+    doc_with(w, h, |x, y| [(x as u32 * 255 / w) as u8, (y as u32 * 255 / h) as u8, 90, 255])
+}
+
+fn filtered(d: &Document, kind: &str, params: Value) -> Document {
+    let mut o = d.clone();
+    o.apply_filter(1, Target::Pixels, &filter(kind, params), None, 1.0).unwrap();
+    o
+}
+
+fn same(a: &Document, b: &Document, w: i32, h: i32) -> bool {
+    (0..h).all(|y| (0..w).all(|x| lpx(a, 1, x, y) == lpx(b, 1, x, y)))
+}
+
+#[test]
+fn neutral_distorts_change_nothing() {
+    let d = ramp(40, 30);
+    for (kind, params) in [
+        ("distort.twirl", json!({ "angle": 0 })),
+        ("distort.pinch", json!({ "amount": 0 })),
+        ("distort.spherize", json!({ "amount": 0 })),
+        ("distort.ripple", json!({ "amount": 0 })),
+        ("distort.shear", json!({ "shearCurve": [{ "y": 0, "offset": 0 }, { "y": 1, "offset": 0 }] })),
+        ("distort.zigzag", json!({ "amount": 0 })),
+        ("distort.displace", json!({})),
+    ] {
+        assert!(same(&d, &filtered(&d, kind, params), 40, 30), "{kind}");
+    }
+}
+
+#[test]
+fn distorts_move_pixels_when_not_neutral() {
+    let d = ramp(40, 30);
+    for (kind, params) in [
+        ("distort.twirl", json!({ "angle": 90 })),
+        ("distort.pinch", json!({ "amount": 80 })),
+        ("distort.spherize", json!({ "amount": 100 })),
+        ("distort.ripple", json!({ "amount": 300 })),
+        ("distort.shear", json!({ "shearCurve": [{ "y": 0, "offset": -0.3 }, { "y": 1, "offset": 0.3 }] })),
+        ("distort.zigzag", json!({ "amount": 50 })),
+        ("distort.zigzag", json!({ "amount": 50, "style": "aroundCenter" })),
+        ("distort.wave", json!({})),
+        ("distort.polar_coordinates", json!({})),
+    ] {
+        assert!(!same(&d, &filtered(&d, kind, params.clone()), 40, 30), "{kind} {params}");
+    }
+}
+
+#[test]
+fn polar_round_trip_is_close_inside_the_circle() {
+    let d = ramp(128, 128);
+    let back = filtered(&filtered(&d, "distort.polar_coordinates", json!({ "conversion": "rectToPolar" })), "distort.polar_coordinates", json!({ "conversion": "polarToRect" }));
+    for y in 40..80 {
+        for x in 6..122 {
+            let (a, b) = (lpx(&d, 1, x, y), lpx(&back, 1, x, y));
+            assert!((0..3).all(|c| a[c].abs_diff(b[c]) <= 2), "{x},{y}: {a:?} vs {b:?}");
+        }
+    }
+}
+
+#[test]
+fn offset_wraps_repeats_and_clears() {
+    let d = doc_with(3, 1, |x, _| gray(x as u8 * 100));
+    let row = |d: &Document| (0..3).map(|x| lpx(d, 1, x, 0)[0]).collect::<Vec<_>>();
+    assert_eq!(row(&filtered(&d, "other.offset", json!({ "horizontal": 1 }))), [200, 0, 100]);
+    assert_eq!(row(&filtered(&d, "other.offset", json!({ "horizontal": 1, "undefinedAreas": "repeatEdgePixels" }))), [0, 0, 100]);
+    let c = filtered(&d, "other.offset", json!({ "horizontal": 1, "undefinedAreas": "setToBackground" }));
+    assert_eq!((lpx(&c, 1, 0, 0), lpx(&c, 1, 1, 0)), ([0; 4], gray(0)));
+}
+
+#[test]
+fn custom_identity_and_scale() {
+    let d = ramp(20, 20);
+    let mut id = vec![0.0; 25];
+    id[12] = 1.0;
+    assert!(same(&d, &filtered(&d, "other.custom", json!({ "kernel": id })), 20, 20));
+    let half = filtered(&d, "other.custom", json!({ "scale": 2 }));
+    for (x, y) in [(3, 3), (10, 12)] {
+        let (a, b) = (lpx(&d, 1, x, y), lpx(&half, 1, x, y));
+        assert!((0..3).all(|c| (a[c] as i32 - 2 * b[c] as i32).abs() <= 1) && b[3] == 255, "{a:?} {b:?}");
+    }
+}
+
+#[test]
+fn high_pass_of_a_flat_layer_is_mid_gray() {
+    let d = doc_with(12, 12, |_, _| gray(200));
+    let o = filtered(&d, "other.high_pass", json!({ "radius": 3 }));
+    assert!(lpx(&o, 1, 5, 5)[0].abs_diff(128) <= 1, "{:?}", lpx(&o, 1, 5, 5));
+}
+
+#[test]
+fn high_pass_and_custom_offset_ignore_alpha() {
+    let d = doc_with(12, 12, |_, _| [100, 100, 100, 128]);
+    let o = filtered(&d, "other.high_pass", json!({ "radius": 3 }));
+    assert!(lpx(&o, 1, 5, 5)[0].abs_diff(128) <= 1, "{:?}", lpx(&o, 1, 5, 5));
+    let o = filtered(&d, "other.custom", json!({ "offset": 10 }));
+    assert!(lpx(&o, 1, 5, 5)[0].abs_diff(110) <= 1, "{:?}", lpx(&o, 1, 5, 5));
+}
+
+#[test]
+fn maximum_grows_a_dot_and_minimum_removes_it() {
+    let dot = doc_with(9, 9, |x, y| gray(if (x, y) == (4, 4) { 255 } else { 0 }));
+    for preserve in ["squareness", "roundness"] {
+        let m = filtered(&dot, "other.maximum", json!({ "radius": 1, "preserve": preserve }));
+        let lit = (0..9).flat_map(|y| (0..9).map(move |x| (x, y))).filter(|&(x, y)| lpx(&m, 1, x, y)[0] == 255).count();
+        assert_eq!(lit, if preserve == "squareness" { 9 } else { 5 }, "{preserve}");
+        let n = filtered(&dot, "other.minimum", json!({ "radius": 1, "preserve": preserve }));
+        assert!((0..9).all(|y| (0..9).all(|x| lpx(&n, 1, x, y)[0] == 0)), "{preserve}");
+    }
+}
+
+#[test]
+fn de_interlace_odd_duplication_copies_the_even_rows() {
+    let d = doc_with(2, 6, |_, y| gray(y as u8 * 10));
+    let o = filtered(&d, "video.de_interlace", json!({ "eliminate": "oddFields", "createNewFields": "duplication" }));
+    assert_eq!((0..6).map(|y| lpx(&o, 1, 0, y)[0]).collect::<Vec<_>>(), [0, 0, 20, 20, 40, 40]);
+    let i = filtered(&d, "video.de_interlace", json!({ "eliminate": "oddFields" }));
+    assert_eq!((0..6).map(|y| lpx(&i, 1, 0, y)[0]).collect::<Vec<_>>(), [0, 10, 20, 30, 40, 40], "interpolated: the mean of neighbors, the last row copies");
+}
+
+#[test]
+fn ntsc_colors_clamps_luma_and_scales_chroma() {
+    let d = doc_with(2, 1, |x, _| if x == 0 { [255, 0, 0, 255] } else { gray(250) });
+    let o = filtered(&d, "video.ntsc_colors", json!({}));
+    assert_eq!(lpx(&o, 1, 1, 0), gray(235), "luma clamped to 235");
+    let r = lpx(&o, 1, 0, 0);
+    assert!(r[0] <= 235 && r[1] >= 16 && r[2] >= 16, "{r:?}");
+}
+
+#[test]
+fn tile_by_tile_equals_whole_layer_for_the_other_local_filters() {
+    let mut id = vec![0.0; 25];
+    id[12] = 1.0;
+    id[0] = -1.0;
+    id[24] = 2.0;
+    for (kind, params, m) in [
+        ("other.custom", json!({ "kernel": id, "scale": 3, "offset": 10 }), 2),
+        ("other.high_pass", json!({ "radius": 3 }), 3),
+        ("other.maximum", json!({ "radius": 2, "preserve": "squareness" }), 2),
+        ("other.maximum", json!({ "radius": 2, "preserve": "roundness" }), 2),
+        ("other.minimum", json!({ "radius": 2, "preserve": "squareness" }), 2),
+        ("other.minimum", json!({ "radius": 2, "preserve": "roundness" }), 2),
+    ] {
+        assert_eq!(whole_layer_diff(kind, params, m), 0, "{kind}");
+    }
+}
+
+#[test]
+fn ripple_is_deterministic_and_wave_follows_its_randomize() {
+    let d = ramp(60, 40);
+    let a = filtered(&d, "distort.ripple", json!({ "amount": 200 }));
+    assert!(same(&a, &filtered(&d, "distort.ripple", json!({ "amount": 200 })), 60, 40));
+    let w = |r: i32| filtered(&d, "distort.wave", json!({ "randomize": r }));
+    assert!(same(&w(0), &w(0), 60, 40));
+    assert!(!same(&w(0), &w(1), 60, 40));
+}
+
+#[test]
+fn video_distort_and_other_menus_list_the_reference_order() {
+    let v: Value = serde_json::from_str(&filters::schema_json()).unwrap();
+    let ids = |g: &str| v.as_array().unwrap().iter().filter(|e| e["group"] == g).map(|e| e["id"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+    assert_eq!(ids("distort"), [
+        "distort.displace", "distort.pinch", "distort.polar_coordinates", "distort.ripple", "distort.shear", "distort.spherize", "distort.twirl", "distort.wave", "distort.zigzag",
+    ]);
+    assert_eq!(ids("video"), ["video.de_interlace", "video.ntsc_colors"]);
+    assert_eq!(ids("other"), ["other.custom", "other.hsb_hsl", "other.high_pass", "other.maximum", "other.minimum", "other.offset"]);
+    let find = |id: &str| v.as_array().unwrap().iter().find(|e| e["id"] == id).unwrap().clone();
+    let k = &find("other.custom")["params"][0];
+    assert_eq!((k["kind"].as_str(), k["default"].as_array().map(Vec::len), k["default"][12].as_f64()), (Some("kernel"), Some(25), Some(1.0)));
+    assert_eq!(find("distort.shear")["params"][0]["kind"], "curve");
+}
+
+#[test]
+fn kernel_and_curve_params_validate() {
+    let mut d = doc_with(4, 4, |_, _| gray(100));
+    let e = d.apply_filter(1, Target::Pixels, &filter("other.custom", json!({ "kernel": vec![0.0; 24] })), None, 1.0).unwrap_err();
+    assert!(e.contains("Custom") && e.contains("kernel"), "{e}");
+    let e = d.apply_filter(1, Target::Pixels, &filter("other.custom", json!({ "kernel": vec!["x"; 25] })), None, 1.0).unwrap_err();
+    assert!(e.contains("kernel"), "{e}");
+    let e = d.apply_filter(1, Target::Pixels, &filter("other.custom", json!({ "kernel": vec![1e300; 25] })), None, 1.0).unwrap_err();
+    assert!(e.contains("-999..=999"), "{e}");
+    let e = d.apply_filter(1, Target::Pixels, &filter("distort.shear", json!({ "shearCurve": [{ "y": 0, "offset": 0 }] })), None, 1.0).unwrap_err();
+    assert!(e.contains("Shear") && e.contains("shearCurve"), "{e}");
+    let f = filters::Filter::parse(&filter("distort.shear", json!({ "shearCurve": [{ "y": 2, "offset": 5 }, { "y": -1, "offset": -5 }] }))).unwrap();
+    assert_eq!(f.params["shearCurve"], json!([{ "y": 0.0, "offset": -1.0 }, { "y": 1.0, "offset": 1.0 }]), "clamped and sorted");
+}
+
+#[test]
+fn v6_round_trips_kernel_and_curve_params() {
+    let mut v = v6_fixture();
+    let filters = v["layers"][3]["smart"]["filters"].as_array_mut().unwrap();
+    let mut k = vec![0.0; 25];
+    k[12] = 2.0;
+    k[3] = -1.0;
+    for (id, kind, params) in [
+        (5, "other.custom", json!({ "kernel": k })),
+        (6, "distort.shear", json!({ "shearCurve": [{ "y": 0.0, "offset": 0.25 }, { "y": 0.5, "offset": -0.5 }, { "y": 1.0, "offset": 0.0 }] })),
+    ] {
+        filters.push(json!({ "id": id, "filter": { "kind": kind, "params": params }, "enabled": true, "opacity": 1.0, "blend": "normal", "mask": null }));
+    }
+    let first = load_v4(&v.to_string()).unwrap().manifest();
+    assert_eq!(load_v4(&first).unwrap().manifest(), first);
+    let m: Value = serde_json::from_str(&first).unwrap();
+    let fl = m["layers"][3]["smart"]["filters"].as_array().unwrap();
+    assert_eq!(fl[fl.len() - 2]["filter"]["params"]["kernel"][3], -1.0);
+    assert_eq!(fl[fl.len() - 1]["filter"]["params"]["shearCurve"][1]["offset"], -0.5);
+    v["layers"][3]["smart"]["filters"][4]["filter"]["params"]["kernel"] = json!([1, 2]);
+    assert!(load_v4(&v.to_string()).err().expect("rejected").contains("kernel"));
+}

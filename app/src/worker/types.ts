@@ -1,6 +1,7 @@
 import type { Blending, LayerStyle } from '../layerStyle.ts';
 import type { Live, ShapeStroke } from '../shell/shapetools.ts';
 import type { TextJson } from '../psd/text.ts';
+import type { ParamValue } from '../filters/lastFilter.ts';
 
 // A fill layer's content (docs/M3.md section 4); field names match the engine JSON verbatim.
 export interface GradientDef {
@@ -53,7 +54,7 @@ export type SmartLink = { type: 'embedded'; id: string } | { type: 'linked'; nam
 // Engine warp mesh JSON: document-px control points over the source rect.
 export interface SmartWarp { cols: number; rows: number; points: [number, number][]; column_stops: number[]; row_stops: number[] }
 // A registry filter (docs/M5.md section 1); the M3 adjustment kinds keep their typed params.
-export interface RegistryFilter { kind: string; params: Record<string, number | string | boolean | { x: number; y: number }> }
+export interface RegistryFilter { kind: string; params: Record<string, ParamValue> }
 export type SmartFilterKind = Adjustment | RegistryFilter;
 export interface SmartFilterInfo {
   id: number; filter: SmartFilterKind; enabled: boolean; opacity: number; blend: string; mask: { enabled: boolean; default: number } | null;

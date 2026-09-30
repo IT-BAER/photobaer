@@ -1,6 +1,7 @@
 // Filter > Last Filter (docs/M5.md section 2): the last filter applied successfully in this session.
 
-export type ParamValue = number | string | boolean | { x: number; y: number };
+export type CurvePoint = { y: number; offset: number };
+export type ParamValue = number | string | boolean | { x: number; y: number } | number[] | CurvePoint[];
 export interface AppliedFilter { kind: string; params: Record<string, ParamValue>; label: string }
 
 let last: AppliedFilter | null = null;

@@ -14,7 +14,7 @@ pub fn blur_more_reach(_: &Filter) -> i32 {
     3
 }
 
-fn premultiplied(p: &mut Plane, f: impl FnOnce(&mut Plane)) {
+pub(super) fn premultiplied(p: &mut Plane, f: impl FnOnce(&mut Plane)) {
     p.premultiply();
     f(p);
     p.unpremultiply();

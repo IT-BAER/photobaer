@@ -4,10 +4,12 @@ import { client } from '../client.ts';
 import type { FieldSpec } from '../adjustments.ts';
 import { BLEND_MODES } from '../layers.ts';
 import { setIn } from '../layerStyle.ts';
+import { ValueInput } from '../LevelsCurvesBody.tsx';
 import { Field } from '../PropertiesPanel.tsx';
 import type { Viewer } from '../viewer.ts';
 import type { DocInfo } from '../worker/types.ts';
-import { applyFilter, type ParamValue } from './lastFilter.ts';
+import { applyFilter, type CurvePoint, type ParamValue } from './lastFilter.ts';
+import { ShearCurve } from './ShearCurve.tsx';
 import { defaults, fieldSpecs, previewScale, type FilterSpec } from './schema.ts';
 
 type Target = 'pixels' | 'mask' | 'selection';
@@ -121,7 +123,18 @@ export function FilterDialog({ ref, viewer, show, setError }: {
     <dialog ref={dialog} className="filter-dialog" aria-label={title} onClose={cancel} onKeyDown={e => setAlt(e.altKey)} onKeyUp={e => setAlt(e.altKey)}>
       <form onSubmit={e => { e.preventDefault(); ok(); }}>
         <h2>{title}</h2>
-        {req && fields.map(f => <Field key={f.path} spec={f} params={params} onChange={(path, v) => setParams(q => setIn(q, path, v as ParamValue))} />)}
+        {req?.type === 'filter' && req.spec.params.filter(p => p.kind === 'curve').map(p => (
+          <ShearCurve key={p.key} value={params[p.key] as CurvePoint[]} onChange={v => setParams(q => ({ ...q, [p.key]: v }))} />
+        ))}
+        {req && fields.filter(f => !f.path.startsWith('kernel.')).map(f => <Field key={f.path} spec={f} params={params} onChange={(path, v) => setParams(q => setIn(q, path, v as ParamValue))} />)}
+        {req?.type === 'filter' && req.spec.params.some(p => p.kind === 'kernel') && (
+          <div className="kernel-grid">
+            {fields.filter(f => f.path.startsWith('kernel.')).map(f => f.type === 'number' && (
+              <ValueInput key={f.path} label={f.label} min={f.min} max={f.max} step={f.step} value={Number((params.kernel as number[])[Number(f.path.slice(7))])}
+                set={v => setParams(q => setIn(q, f.path, Math.min(f.max, Math.max(f.min, v)) as ParamValue))} />
+            ))}
+          </div>
+        )}
         {(req?.type === 'fade' || req?.spec.preview) && (
           <label className="adjustment-check"><input type="checkbox" checked={previewOn} onChange={e => setPreviewOn(e.currentTarget.checked)} /> Preview</label>
         )}

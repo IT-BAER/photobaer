@@ -33,3 +33,13 @@ test('a point param shows as X and Y fields of its fractions', () => {
   ]);
   assert.deepEqual(defaults(s), { center: { x: 0.5, y: 0.5 } });
 });
+
+test('a kernel param shows as 25 fields row by row and a curve as none', () => {
+  const k = spec([p('kernel', 'kernel', { min: -999, max: 999, default: Array.from({ length: 25 }, (_, i) => (i === 12 ? 1 : 0)) })]);
+  const f = fieldSpecs(k);
+  assert.equal(f.length, 25);
+  assert.deepEqual(f[7], { type: 'number', label: 'kernel 2,3', path: 'kernel.7', min: -999, max: 999, step: 1 });
+  assert.equal(menuLabel(k), 'Thing…');
+  assert.deepEqual((defaults(k).kernel as number[])[12], 1);
+  assert.deepEqual(fieldSpecs(spec([p('shearCurve', 'curve', { default: [{ y: 0, offset: 0 }, { y: 1, offset: 0 }] })])), []);
+});

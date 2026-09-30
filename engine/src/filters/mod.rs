@@ -10,7 +10,9 @@ use serde_json::{json, Map, Value};
 use crate::adjust::Adjustment;
 
 mod blur;
+mod distort;
 mod noise;
+mod other;
 mod registry;
 mod sharpen;
 mod stylize;
@@ -39,6 +41,10 @@ pub enum PKind {
     Seed,
     /// `{ x, y }` as fractions of the layer bounds.
     Point,
+    /// Exactly 25 numbers, a 5x5 convolution kernel row by row.
+    Kernel,
+    /// 2..16 `{ y, offset }` points, y in 0..1 and offset in -1..1, sorted by y.
+    Curve,
 }
 
 #[derive(Clone, Copy)]
@@ -47,6 +53,10 @@ pub enum Def {
     Str(&'static str),
     Bool(bool),
     Point(f64, f64),
+    /// The identity kernel.
+    Kernel,
+    /// The flat curve.
+    Curve,
 }
 
 pub struct Param {
@@ -201,6 +211,17 @@ impl Filter {
         (c("x"), c("y"))
     }
 
+    /// The 25 kernel numbers of a `Kernel` param.
+    pub fn kernel(&self, key: &str) -> Vec<f32> {
+        self.params.get(key).and_then(Value::as_array).map_or_else(Vec::new, |a| a.iter().filter_map(Value::as_f64).map(|n| n as f32).collect())
+    }
+
+    /// The `(y, offset)` points of a `Curve` param, sorted by y.
+    pub fn curve(&self, key: &str) -> Vec<(f64, f64)> {
+        let at = |o: &Value, k: &str| o.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+        self.params.get(key).and_then(Value::as_array).map_or_else(Vec::new, |a| a.iter().map(|o| (at(o, "y"), at(o, "offset"))).collect())
+    }
+
     /// Reads the target layer's mask (`Ctx::mask`), so a smart cache depends on it.
     pub fn reads_mask(&self) -> bool {
         self.kind == "blur.lens_blur" && self.text("depthMapSource") == "layerMask"
@@ -227,6 +248,8 @@ fn default_value(p: &Param) -> Value {
         Def::Str(s) => json!(s),
         Def::Bool(b) => json!(b),
         Def::Point(x, y) => json!({ "x": x, "y": y }),
+        Def::Kernel => json!((0..25).map(|i| f64::from(i == 12)).collect::<Vec<_>>()),
+        Def::Curve => json!([{ "y": 0.0, "offset": 0.0 }, { "y": 1.0, "offset": 0.0 }]),
     }
 }
 
@@ -262,6 +285,18 @@ fn check(spec: &Spec, p: &Param, v: &Value) -> Result<Value, String> {
                 (Some(x), Some(y)) => Ok(json!({ "x": x, "y": y })),
                 _ => Err(bad(&format!("a point {{ x, y }} with both {}", range()))),
             }
+        }
+        PKind::Kernel => {
+            let k: Option<Vec<f64>> = v.as_array().filter(|a| a.len() == 25).and_then(|a| a.iter().map(|n| n.as_f64().filter(|n| (p.min..=p.max).contains(n))).collect());
+            k.map(|k| json!(k)).ok_or_else(|| bad(&format!("an array of 25 numbers {}", range())))
+        }
+        PKind::Curve => {
+            let pt = |o: &Value| Some((o.get("y")?.as_f64().filter(|n| n.is_finite())?, o.get("offset")?.as_f64().filter(|n| n.is_finite())?));
+            let pts: Option<Vec<(f64, f64)>> = v.as_array().filter(|a| (2..=16).contains(&a.len())).and_then(|a| a.iter().map(pt).collect());
+            let mut pts = pts.ok_or_else(|| bad("2 to 16 points { y, offset }"))?;
+            pts.iter_mut().for_each(|p| *p = (p.0.clamp(0.0, 1.0), p.1.clamp(-1.0, 1.0)));
+            pts.sort_by(|a, b| a.0.total_cmp(&b.0));
+            Ok(Value::Array(pts.into_iter().map(|(y, offset)| json!({ "y": y, "offset": offset })).collect()))
         }
     }
 }
@@ -308,6 +343,8 @@ pub fn schema_json() -> String {
                         PKind::Blob => ("blob", None),
                         PKind::Seed => ("seed", None),
                         PKind::Point => ("point", None),
+                        PKind::Kernel => ("kernel", None),
+                        PKind::Curve => ("curve", None),
                     };
                     let mut o = json!({ "key": p.key, "label": p.label, "kind": kind, "min": p.min, "max": p.max, "step": p.step,
                         "unit": p.unit, "default": default_value(p) });
