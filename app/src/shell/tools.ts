@@ -29,13 +29,13 @@ const BRUSH_COMMON: OptionSchema[] = [
   { id: 'smoothing', kind: 'percent', label: 'Smoothing', default: 10, min: 0, max: 100 },
   { id: 'airbrush', kind: 'boolean', label: 'Airbrush', default: false },
   { id: 'wetEdges', kind: 'boolean', label: 'Wet edges', default: false },
-  { id: 'pressureSize', kind: 'boolean', label: 'Pressure controls size', default: false },
-  { id: 'pressureOpacity', kind: 'boolean', label: 'Pressure controls opacity', default: false },
+  { id: 'pressureSize', kind: 'boolean', label: 'Pressure: size', default: false },
+  { id: 'pressureOpacity', kind: 'boolean', label: 'Pressure: opacity', default: false },
 ];
 
 // Retouch tools (docs/M5.md section 9); the stamps take the brush options without Wet edges.
 const RETOUCH_BRUSH: OptionSchema[] = BRUSH_COMMON.filter(o => o.id !== 'wetEdges');
-const SAMPLE_ALL: OptionSchema = { id: 'allLayers', kind: 'boolean', label: 'Sample All Layers', default: false };
+const SAMPLE_ALL: OptionSchema = { id: 'allLayers', kind: 'boolean', label: 'All layers', default: false };
 const STRUCTURE: OptionSchema = { id: 'structure', kind: 'number', label: 'Structure', default: 4, min: 1, max: 7 };
 const COLOR_ADAPT: OptionSchema = { id: 'color', kind: 'number', label: 'Color', default: 2, min: 0, max: 10 };
 const HEAL_BRUSH: OptionSchema[] = [
@@ -243,7 +243,7 @@ export const TOOLS: Record<string, Tool> = {
     ...RETOUCH_BRUSH,
     { id: 'aligned', kind: 'boolean', label: 'Aligned', default: true },
     { id: 'sample', kind: 'select', label: 'Sample', default: 'currentLayer', choices: ['currentLayer', 'currentBelow', 'allLayers'] },
-    { id: 'ignoreAdjustments', kind: 'boolean', label: 'Ignore Adjustment Layers', default: false },
+    { id: 'ignoreAdjustments', kind: 'boolean', label: 'Ignore adjustments', default: false },
   ]),
   patternStamp: stamp('patternStamp', 'Pattern Stamp', 'Grid3x3', [
     ...RETOUCH_BRUSH,

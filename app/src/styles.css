@@ -104,7 +104,7 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .toolbar-footer .chip { width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--line); }
 .toolbar-footer button[aria-pressed=true] { color: var(--accent); }
 
-.options-bar { display: flex; align-items: center; gap: 12px; padding: 0 10px; height: 34px; flex: 0 0 auto; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; white-space: nowrap; }
+.options-bar { display: flex; align-items: center; gap: 10px; padding: 4px 10px; min-height: 34px; flex: 0 0 auto; flex-wrap: wrap; row-gap: 4px; background: var(--panel); border-bottom: 1px solid var(--line); white-space: nowrap; }
 .options-tool-label { font-weight: 600; color: var(--dim); }
 .options-bar label { display: flex; align-items: center; gap: 4px; }
 .options-bar input[type=number] { width: 56px; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
