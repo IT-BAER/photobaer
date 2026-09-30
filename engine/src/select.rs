@@ -592,8 +592,10 @@ impl Document {
         let Some(rect) = rect else {
             return Ok(Vec::new());
         };
-        for (key, b) in &dirty {
-            self.stroke_flush_tile(st, *key, *b)?;
+        if !st.heal.is_some_and(Heal::is_spot) {
+            for (key, b) in &dirty {
+                self.stroke_flush_tile(st, *key, *b)?;
+            }
         }
         Ok(vec![rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1]])
     }
@@ -623,9 +625,14 @@ impl Document {
                 // Wet edges (E1.8) are a look remap of the accumulated coverage at flush, not a
                 // different accumulation rule; `st.opacity` is the stroke-wide cap the remap reads.
                 let s_val = if st.wet_edges { stroke::wet_edge_remap(t.s[p], st.opacity) } else { t.s[p] };
-                let c = (s_val * cov.at(p)).clamp(0.0, 1.0);
+                let mut c = (s_val * cov.at(p)).clamp(0.0, 1.0);
                 let old = t.orig.as_ref().map_or([0.0; 4], |o| o.px.rgba_f32(p));
-                let rgb = t.rgb.as_ref().map_or(st.rgb, |buf| buf[p]);
+                let mut rgb = t.rgb.as_ref().map_or(st.rgb, |buf| buf[p]);
+                if let (Some(src), true) = (&st.source, c > 0.0) {
+                    let v = src.sample(tx * TILE as i32 + px, ty * TILE as i32 + py);
+                    rgb = [v[0], v[1], v[2]];
+                    c *= v[3];
+                }
                 let new = match &hist {
                     // Erase to history: move towards the snapshot's pixel in straight RGBA.
                     Some(h) => {

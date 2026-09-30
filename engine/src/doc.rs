@@ -16,6 +16,8 @@ mod select;
 mod manifest;
 #[path = "brush.rs"]
 mod brush;
+#[path = "retouch.rs"]
+mod retouch;
 #[path = "guides.rs"]
 mod guides;
 #[path = "paths.rs"]
@@ -35,9 +37,13 @@ mod filter_run;
 #[cfg(test)]
 #[path = "doc_m5_tests.rs"]
 mod m5_tests;
+#[cfg(test)]
+#[path = "retouch_tests.rs"]
+mod retouch_tests;
 pub use transform::{Lift, Remap};
 pub use brush::EngineCore;
 use brush::*;
+use retouch::*;
 use compositor::*;
 use manifest::*;
 

@@ -699,6 +699,32 @@ impl Engine {
         self.0.content_aware_fill(id, params_json).map_err(err)
     }
 
+    /// Red Eye: darkens the reddish pixels inside the circle of the `w` x `h` box at (`x`, `y`);
+    /// `pupil` and `darken` are 0..1. True when a pixel changed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn red_eye(&mut self, id: u32, x: i32, y: i32, w: u32, h: u32, pupil: f32, darken: f32) -> Result<bool, JsError> {
+        self.0.doc.red_eye(id, x, y, w, h, pupil, darken).map_err(err)
+    }
+
+    /// Patch: repairs the selection by the drag (`dx`, `dy`); `params_json` is `{mode: "source" |
+    /// "destination", contentAware, structure, color}`. Needs a selection; true when a pixel changed.
+    pub fn patch(&mut self, id: u32, dx: i32, dy: i32, params_json: &str) -> Result<bool, JsError> {
+        self.0.doc.patch(id, dx, dy, params_json).map_err(err)
+    }
+
+    /// Content-Aware Move: moves the selection by the drag; `params_json` is `{extend, structure,
+    /// color}`. Needs a selection; true when a pixel changed.
+    pub fn content_aware_move(&mut self, id: u32, dx: i32, dy: i32, params_json: &str) -> Result<bool, JsError> {
+        self.0.doc.content_aware_move(id, dx, dy, params_json).map_err(err)
+    }
+
+    /// The clone overlay for destination layer `layer_id`: straight RGBA8 `out_w` x `out_h` (1..=512)
+    /// of the clone source (`{kind: "clone", ...}`, the stroke's) over the document rect (x, y, w, h).
+    #[allow(clippy::too_many_arguments)]
+    pub fn clone_sample(&self, layer_id: u32, params_json: &str, x: f64, y: f64, w: f64, h: f64, out_w: u32, out_h: u32) -> Result<Vec<u8>, JsError> {
+        self.0.doc.clone_sample(layer_id, params_json, x, y, w, h, out_w, out_h).map_err(err)
+    }
+
     /// Stroke ring (B6 spec v1 Part E2): `params_json` is `{width, rgba, location: "inside" |
     /// "center" | "outside", mode, opacity, preserveTransparency}`. Needs a selection.
     pub fn stroke_selection(&mut self, id: u32, params_json: &str) -> Result<(), JsError> {

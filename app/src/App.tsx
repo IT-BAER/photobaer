@@ -46,7 +46,7 @@ import { GradientEditor, type GradientEditorHandle } from './shell/GradientEdito
 import { rampCss, type Method } from './gradients/gradient.ts';
 import { BUILTIN_GRADIENTS, GradientLibrary, resolvePreset, type GradientPreset } from './gradients/presets.ts';
 import {
-  AUTOSAVE_TEXT, FILL_KEY, FILL_LAYERS, MODIFY_OPS, PAINT_TOOLS, SELECT_TOOLS, STROKE_DEFAULT, VIEWER_TOOL, fallbackActive,
+  AUTOSAVE_TEXT, FILL_KEY, FILL_LAYERS, MODIFY_OPS, SELECT_TOOLS, STROKE_DEFAULT, VIEWER_TOOL, fallbackActive,
   fillContentFromForm, formFromFillContent, loadFillForm, pickPlaceFile, saveBlob, selectAfterDelete, selectCreated,
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
@@ -67,6 +67,8 @@ import type { TextJson } from './psd/text.ts';
 import { fontUses, missingRows } from './shell/typecommands.ts';
 import { useCropTool, usePerspectiveCropTool } from './app/cropTools.ts';
 import { usePaintTool } from './app/paintTool.ts';
+import { useCloneOverlay, useRetouchTools } from './app/retouchTools.ts';
+import { CloneSourcePanel } from './CloneSourcePanel.tsx';
 import { useShortcuts } from './app/shortcuts.ts';
 import { FilterDialog, runFilter, type FilterDialogHandle } from './filters/FilterDialog.tsx';
 import { repeatLastFilter } from './filters/lastFilter.ts';
@@ -163,6 +165,7 @@ export function App() {
   const [showPatterns, setShowPatterns] = useState(false);
   const [showGradients, setShowGradients] = useState(false);
   const [showShapes, setShowShapes] = useState(false);
+  const [showCloneSource, setShowCloneSource] = useState(false);
   const [typePanels, setTypePanels] = useState<Record<TypePanel, boolean>>({ character: false, paragraph: false, characterStyles: false, paragraphStyles: false, glyphs: false });
   const [typePrefs, setTypePrefs] = useState(loadTypePrefs);
   // Changes with the type session and its selection, so the type panels re-read it.
@@ -903,7 +906,7 @@ export function App() {
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, lastFilter, openFade,
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
-    selectedNodes, showShapes, setShowShapes, typeItems: typeMenuItems(typeCtx),
+    selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, typeItems: typeMenuItems(typeCtx),
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
@@ -1182,6 +1185,10 @@ export function App() {
     setError, lastStrokePoint, run,
   });
 
+  const retouch = { viewer, canvas, overlayRef, redrawOverlay, tool, active, docRef, toolOptionsRef, run, setError };
+  useRetouchTools(retouch);
+  useCloneOverlay(retouch);
+
   useBrushCursor({
     viewer, canvas, overlayRef, tool, redrawOverlay, toolOptionsRef, capsLockRef, patchToolOptions,
   });
@@ -1213,7 +1220,7 @@ export function App() {
     const tex = protectedTexture.current;
     return p && tex && p.dynamics.texture.enabled ? { ...p, dynamics: { ...p.dynamics, texture: tex } } : p;
   }
-  const brushTarget = (PAINT_TOOLS.has(tool) ? tool : 'brush') as PaintTool;
+  const brushTarget = (['brush', 'pencil', 'eraser'].includes(tool) ? tool : 'brush') as PaintTool;
   const targetOptions = optionsByTool[brushTarget] ?? loadToolOptions(TOOLS[brushTarget]);
   const presets = brushLib.current?.library.list() ?? [];
   const selectedPreset = currentPreset(selectedPresetId);
@@ -1289,6 +1296,11 @@ export function App() {
       saveToolOptions(TOOLS.gradient, next);
     });
   }
+  const patternSelect = (
+    <select aria-label="Pattern" value={String(toolOptions.pattern ?? '')} onChange={e => setToolOptions({ ...toolOptions, pattern: e.currentTarget.value })}>
+      {(brushLib.current?.library.patterns() ?? []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+    </select>
+  );
   const gradientButton = (
     <button type="button" className="gradient-ramp-button" aria-label="Edit gradient" title="Click to edit the gradient"
       style={{ backgroundImage: `${rampCss(gradPreset, gradOptions.method as Method)}, var(--checker)` }} onClick={editGradient} />
@@ -1443,7 +1455,7 @@ export function App() {
                 t.store.set({ warp: warpBar(ws) });
               })}
             />
-          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions }} fg={fg} />}
+          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions }} fg={fg} />}
           <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} />
             <canvas ref={pixelGridCanvas} className="overlay" />
@@ -1512,6 +1524,7 @@ export function App() {
               fill={id => panelFillLayer({ type: 'pattern', pattern_id: id, scale: 1, angle: 0, linked: true, offset: [0, 0] })} />
           )}
           {doc && active && showGradients && <GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} />}
+          {doc && showCloneSource && <CloneSourcePanel docId={doc.docId} />}
           {doc && showShapes && (
             <ShapesPanel selected={String((optionsByTool.customShape ?? loadToolOptions(TOOLS.customShape)).customShape ?? '')} arm={armShape} />
           )}

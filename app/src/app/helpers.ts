@@ -7,8 +7,11 @@ import type { AutosaveState, DocInfo, FillContent, StrokeSelectionParams } from 
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
 const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso', 'magneticLasso', 'quickSelection', 'magicWand'];
-const PAINT_LABELS: Record<string, string> = { brush: 'Brush', pencil: 'Pencil', eraser: 'Eraser' };
-const PAINT_TOOLS = new Set(['brush', 'pencil', 'eraser']);
+const PAINT_LABELS: Record<string, string> = {
+  brush: 'Brush', pencil: 'Pencil', eraser: 'Eraser', cloneStamp: 'Clone Stamp', patternStamp: 'Pattern Stamp',
+  spotHealing: 'Spot Healing Brush', healingBrush: 'Healing Brush',
+};
+const PAINT_TOOLS = new Set(Object.keys(PAINT_LABELS));
 
 // Select > Modify (docs/M2.md section 3): op -> [min, max, default].
 const MODIFY_OPS: Record<'border' | 'smooth' | 'expand' | 'contract', { label: string; min: number; max: number; default: number }> = {

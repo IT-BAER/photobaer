@@ -46,6 +46,10 @@ impl Pattern {
         Ok(Pattern { w, h, lum, rgba })
     }
 
+    pub fn size(&self) -> (u32, u32) {
+        (self.w, self.h)
+    }
+
     fn texel(&self, x: i32, y: i32) -> f32 {
         let tx = x.rem_euclid(self.w as i32) as usize;
         let ty = y.rem_euclid(self.h as i32) as usize;

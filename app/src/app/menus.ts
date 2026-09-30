@@ -51,7 +51,7 @@ export interface MenuCtx {
   snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef;
   openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null; selectedNodes: LayerNode[];
-  showShapes: boolean; setShowShapes: SetState<boolean>; typeItems: Item[]; aboutDialog: DialogRef;
+  showShapes: boolean; setShowShapes: SetState<boolean>; showCloneSource: boolean; setShowCloneSource: SetState<boolean>; typeItems: Item[]; aboutDialog: DialogRef;
 }
 
 export function buildMenus(c: MenuCtx) {
@@ -66,7 +66,7 @@ export function buildMenus(c: MenuCtx) {
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
-    selectedNodes, showShapes, setShowShapes, typeItems, filterSpecs, openFilter, lastFilter, openFade, aboutDialog,
+    selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, typeItems, filterSpecs, openFilter, lastFilter, openFade, aboutDialog,
   } = c;
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
@@ -288,6 +288,7 @@ export function buildMenus(c: MenuCtx) {
     ],
     Window: [
       { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); } },
+      { label: showCloneSource ? 'Hide Clone Source' : 'Show Clone Source', run: () => { setMenu(null); setShowCloneSource(v => !v); } },
       { label: showLayerComps ? 'Hide Layer Comps' : 'Show Layer Comps', run: () => { setMenu(null); setShowLayerComps(v => !v); } },
       { label: showPaths ? 'Hide Paths' : 'Show Paths', run: () => { setMenu(null); setShowPaths(v => !v); } },
       { label: showProperties ? 'Hide Properties' : 'Show Properties', run: () => { setMenu(null); setShowProperties(v => !v); } },

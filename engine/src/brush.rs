@@ -240,6 +240,10 @@ struct StrokeIn {
     texture: TextureIn,
     #[serde(default)]
     dual_brush: DualBrushIn,
+    #[serde(default)]
+    source: Option<SourceIn>,
+    #[serde(default)]
+    heal: Option<String>,
 }
 
 /// `content_aware_fill` JSON params; `mode` absent = Normal at full opacity.
@@ -385,6 +389,7 @@ fn parse_stroke(
     patterns: &HashMap<u32, Arc<Pattern>>,
     keep_alpha: bool,
     sel_was_none: bool,
+    doc: Option<&Document>,
     resolve_hist: impl FnOnce(u32) -> Result<Tiles, String>,
 ) -> Result<Stroke, String> {
     let p: StrokeIn = serde_json::from_str(params_json).map_err(|e| format!("bad stroke params: {e}"))?;
@@ -544,6 +549,21 @@ fn parse_stroke(
         PoseOverride::default()
     };
 
+    let heal = p.heal.as_deref().map(Heal::parse).transpose()?;
+    if (p.source.is_some() || heal.is_some()) && target != Target::Pixels {
+        return Err("a clone, pattern or heal stroke needs the pixels target".into());
+    }
+    if p.source.is_some() && p.erase_to_history.is_some() {
+        return Err("erase to history can't use a source".into());
+    }
+    match (heal, &p.source) {
+        (Some(Heal::Healing), Some(SourceIn::Clone { .. })) => {}
+        (Some(Heal::Healing), _) => return Err("the healing brush needs a clone source".into()),
+        (Some(_), Some(_)) => return Err("a spot heal takes no source".into()),
+        _ => {}
+    }
+    let source = p.source.as_ref().map(|s| StrokeSource::build(s, doc, layer_id, patterns)).transpose()?;
+
     let hist = match p.erase_to_history {
         None => None,
         Some(id) => {
@@ -589,6 +609,8 @@ fn parse_stroke(
         tiles: HashMap::new(),
         texture,
         dual_brush,
+        source,
+        heal,
     })
 }
 
@@ -649,6 +671,8 @@ pub struct Stroke {
     pub(super) seed: u32,
     pub(super) texture: TextureCfg,
     pub(super) dual_brush: DualBrush,
+    pub(super) source: Option<StrokeSource>,
+    pub(super) heal: Option<Heal>,
     // Erase to history: the same layer's tiles in the chosen snapshot.
     pub(super) hist: Option<Tiles>,
     // A quick-mask stroke that created the selection removes it again on cancel.
@@ -885,7 +909,7 @@ impl EngineCore {
         };
         let sel_was_none = self.doc.selection.is_none();
         let snapshots = &self.snapshots;
-        let stroke = parse_stroke(layer_id, target, params_json, &self.tips, &self.patterns, keep_alpha, sel_was_none, |id| {
+        let stroke = parse_stroke(layer_id, target, params_json, &self.tips, &self.patterns, keep_alpha, sel_was_none, Some(&self.doc), |id| {
             let snap = snapshots.get(&id).ok_or_else(|| format!("unknown snapshot {id}"))?;
             let tiles = snap
                 .node(layer_id)
@@ -910,7 +934,7 @@ impl EngineCore {
         }
         let mut doc = Document::new(w, h, 8)?;
         let layer = 1; // Document::new's Background layer.
-        let mut st = parse_stroke(layer, Target::Pixels, params_json, &self.tips, &self.patterns, false, true, |id| {
+        let mut st = parse_stroke(layer, Target::Pixels, params_json, &self.tips, &self.patterns, false, true, None, |id| {
             Err(format!("brush preview has no snapshot {id}"))
         })?;
         st.prng = stroke::Prng::new(0);
@@ -939,8 +963,10 @@ impl EngineCore {
         self.doc.stroke_apply(st, samples)
     }
 
+    /// Closes the stroke; a heal stroke repairs what it covered first.
     pub fn stroke_end(&mut self) -> Result<(), String> {
-        self.stroke.take().map(|_| ()).ok_or_else(|| "no stroke is open".to_string())
+        let st = self.stroke.take().ok_or_else(|| "no stroke is open".to_string())?;
+        self.doc.heal_stroke(&st).map(|_| ())
     }
 
     /// Drops the stroke and puts the stroke-start tiles back, ids included.

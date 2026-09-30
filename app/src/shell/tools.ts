@@ -33,6 +33,19 @@ const BRUSH_COMMON: OptionSchema[] = [
   { id: 'pressureOpacity', kind: 'boolean', label: 'Pressure controls opacity', default: false },
 ];
 
+// Retouch tools (docs/M5.md section 9); the stamps take the brush options without Wet edges.
+const RETOUCH_BRUSH: OptionSchema[] = BRUSH_COMMON.filter(o => o.id !== 'wetEdges');
+const SAMPLE_ALL: OptionSchema = { id: 'allLayers', kind: 'boolean', label: 'Sample All Layers', default: false };
+const STRUCTURE: OptionSchema = { id: 'structure', kind: 'number', label: 'Structure', default: 4, min: 1, max: 7 };
+const COLOR_ADAPT: OptionSchema = { id: 'color', kind: 'number', label: 'Color', default: 2, min: 0, max: 10 };
+const HEAL_BRUSH: OptionSchema[] = [
+  { id: 'size', kind: 'number', label: 'Size', default: 30, min: 1, max: 5000, unit: 'px' },
+  { id: 'hardness', kind: 'percent', label: 'Hardness', default: 100, min: 0, max: 100 },
+  { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: PAINT_MODES },
+];
+const healing = (id: string, label: string, icon: string, cursor: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'healing', key: 'j', cursor, icon, options });
+const stamp = (id: string, label: string, icon: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'stamp', key: 's', cursor: 'none', icon, options });
+
 const CORNER_RADIUS: OptionSchema = { id: 'cornerRadius', kind: 'number', label: 'Corner Radius', default: 0, min: 0, max: 1000, unit: 'px' };
 
 // The shared shape tool options (docs/M4.md section 5); the line defaults to an outline.
@@ -198,6 +211,47 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'eraseToHistory', kind: 'boolean', label: 'Erase to history', default: false },
     ],
   },
+  spotHealing: healing('spotHealing', 'Spot Healing Brush', 'Bandage', 'none', [
+    ...HEAL_BRUSH,
+    { id: 'type', kind: 'select', label: 'Type', default: 'contentAware', choices: ['proximityMatch', 'createTexture', 'contentAware'] },
+    SAMPLE_ALL,
+  ]),
+  healingBrush: healing('healingBrush', 'Healing Brush', 'Syringe', 'none', [
+    ...HEAL_BRUSH,
+    { id: 'source', kind: 'select', label: 'Source', default: 'sampled', choices: ['sampled', 'pattern'] },
+    { id: 'aligned', kind: 'boolean', label: 'Aligned', default: false },
+    { id: 'diffusion', kind: 'boolean', label: 'Diffusion', default: false },
+    SAMPLE_ALL,
+  ]),
+  patch: healing('patch', 'Patch', 'SquareDashed', 'move', [
+    { id: 'patchMode', kind: 'select', label: 'Patch', default: 'normal', choices: ['normal', 'contentAware'] },
+    { id: 'mode', kind: 'select', label: 'Source', default: 'source', choices: ['source', 'destination'] },
+    STRUCTURE, COLOR_ADAPT,
+    { id: 'transparent', kind: 'boolean', label: 'Transparent', default: false },
+    SAMPLE_ALL,
+  ]),
+  contentAwareMove: healing('contentAwareMove', 'Content-Aware Move', 'Move3d', 'move', [
+    { id: 'mode', kind: 'select', label: 'Mode', default: 'move', choices: ['move', 'extend'] },
+    STRUCTURE, COLOR_ADAPT, SAMPLE_ALL,
+    { id: 'transformOnDrop', kind: 'boolean', label: 'Transform On Drop', default: false },
+  ]),
+  redEye: healing('redEye', 'Red Eye', 'Eye', 'crosshair', [
+    { id: 'pupilSize', kind: 'percent', label: 'Pupil Size', default: 50, min: 0, max: 100 },
+    { id: 'darken', kind: 'percent', label: 'Darken Amount', default: 50, min: 0, max: 100 },
+  ]),
+  cloneStamp: stamp('cloneStamp', 'Clone Stamp', 'Stamp', [
+    ...RETOUCH_BRUSH,
+    { id: 'aligned', kind: 'boolean', label: 'Aligned', default: true },
+    { id: 'sample', kind: 'select', label: 'Sample', default: 'currentLayer', choices: ['currentLayer', 'currentBelow', 'allLayers'] },
+    { id: 'ignoreAdjustments', kind: 'boolean', label: 'Ignore Adjustment Layers', default: false },
+  ]),
+  patternStamp: stamp('patternStamp', 'Pattern Stamp', 'Grid3x3', [
+    ...RETOUCH_BRUSH,
+    { id: 'aligned', kind: 'boolean', label: 'Aligned', default: true },
+    { id: 'impressionist', kind: 'boolean', label: 'Impressionist', default: false },
+    // '' = the first library pattern; the picker is drawn by the host.
+    { id: 'pattern', kind: 'custom', label: 'Pattern', default: '' },
+  ]),
   gradient: {
     id: 'gradient', label: 'Gradient', slot: 'gradient', key: 'g', cursor: 'crosshair', icon: 'Blend',
     options: [
@@ -275,7 +329,9 @@ export const SLOTS: Slot[] = [
   { id: 'wand', key: 'w', tools: ['quickSelection', 'magicWand'] },
   { id: 'crop', key: 'c', tools: ['crop', 'perspectiveCrop'] },
   { id: 'eyedropper', key: 'i', tools: ['eyedropper'] },
+  { id: 'healing', key: 'j', tools: ['spotHealing', 'healingBrush', 'patch', 'contentAwareMove', 'redEye'] },
   { id: 'brush', key: 'b', tools: ['brush', 'pencil'] },
+  { id: 'stamp', key: 's', tools: ['cloneStamp', 'patternStamp'] },
   { id: 'eraser', key: 'e', tools: ['eraser'] },
   { id: 'gradient', key: 'g', tools: ['gradient', 'bucket'] },
   { id: 'shape', key: 'u', tools: ['rectangle', 'ellipse', 'triangle', 'polygon', 'line', 'customShape'] },

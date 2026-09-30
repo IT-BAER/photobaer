@@ -171,6 +171,21 @@ function changed() {
 }
 
 // One undo step, or with `preview` a rerun inside the open preview session (no autosave until previewEnd).
+// One undo step when `fn` changed a pixel, none when it did not.
+function stepIfChanged(label: string, fn: () => boolean) {
+  history.begin(label);
+  let ok = false;
+  try {
+    ok = fn();
+  } catch (err) {
+    history.restoreOpen();
+    history.abort();
+    throw err;
+  }
+  if (ok) history.commit(); else history.abort();
+  return changed();
+}
+
 function edit(label: string, preview: boolean, fn: () => void) {
   if (!preview) {
     history.run(label, fn);
@@ -388,6 +403,28 @@ const api = {
       p.snapshotId = snap;
     }
     return edit(label, preview, () => e.fill_ex(id, target, JSON.stringify(p)));
+  },
+
+  // Red Eye tool (docs/M5.md section 9): the rect in document px, pupil and darken 0..1.
+  redEye(id: number, rect: [number, number, number, number], pupil: number, darken: number) {
+    const e = need();
+    return stepIfChanged('Red Eye Correction', () => e.red_eye(id, ...rect, pupil, darken));
+  },
+
+  // Patch / Content-Aware Move: the selection moved by (dx, dy); the selection itself stays.
+  patch(id: number, dx: number, dy: number, params: { mode: 'source' | 'destination'; contentAware: boolean; structure: number; color: number }) {
+    const e = need();
+    return stepIfChanged('Patch', () => e.patch(id, dx, dy, JSON.stringify(params)));
+  },
+  contentAwareMove(id: number, dx: number, dy: number, params: { extend: boolean; structure: number; color: number }) {
+    const e = need();
+    return stepIfChanged('Content-Aware Move', () => e.content_aware_move(id, dx, dy, JSON.stringify(params)));
+  },
+
+  // Clone overlay: the clone source seen through the doc rect (x, y, w, h), as out_w x out_h RGBA8.
+  cloneSample(layerId: number, source: Record<string, unknown>, rect: [number, number, number, number], outW: number, outH: number) {
+    const px = need().clone_sample(layerId, JSON.stringify(source), ...rect, outW, outH);
+    return { w: outW, h: outH, data: px.buffer as ArrayBuffer };
   },
 
   // Edit > Content-Aware Fill / Delete and Fill Selection; `opts` null = Normal at full opacity.
@@ -1671,6 +1708,8 @@ const api = {
     const e = need();
     const { eraseToHistory, ...rest } = params as StrokeParams;
     const p: Record<string, unknown> = rest;
+    const src = p.source as { kind: string; patternId?: unknown } | undefined;
+    if (src?.kind === 'pattern') p.source = { ...src, patternId: engineAsset(e, src.patternId, 'pattern') };
     if (eraseToHistory) {
       const snap = history.oldestSnapshot();
       if (snap !== null) p.eraseToHistory = snap;
@@ -2116,10 +2155,10 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 }
 
 // Ops that may run while a stroke is open without committing it (they never touch the document or history).
-const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'patternPixels']);
-const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels']);
+const STROKE_OPS = new Set<keyof Api>(['cloneSample', 'strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'patternPixels']);
+const PREVIEW_OPS = new Set<keyof Api>(['cloneSample', 'fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels']);
 // An open move session commits before any other op, so history never sees a half move.
-const MOVE_OPS = new Set<keyof Api>(['moveFloat', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels']);
+const MOVE_OPS = new Set<keyof Api>(['cloneSample', 'moveFloat', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels']);
 // App-scope font calls: never refused for a stale document id and never close an open session.
 const FONT_OPS = new Set<keyof Api>(['fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing', 'glyphCells', 'glyphAlternates', 'fontCovers']);
 // An open type session commits before any other op; the UI hears it as typeCommitted.

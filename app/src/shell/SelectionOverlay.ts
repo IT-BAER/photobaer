@@ -38,6 +38,10 @@ export interface WarpGrid { cols: number; rows: number; points: [number, number]
 // readout and the straighten line being dragged.
 export interface CropOverlay { rect: BoxRect; canvas: BoxRect; lines: [number, number, number, number][]; dims: string; line: [number, number, number, number] | null }
 
+// Clone Stamp / Healing Brush: the source point (doc px, drawn as a crosshair) and the source
+// pixels seen through the tip, drawn at doc rect (x, y, w, h).
+export interface CloneOverlay { src: [number, number]; image: { canvas: CanvasImageSource; x: number; y: number; w: number; h: number } | null }
+
 // Handle points clockwise from the top-left corner (corners at even indexes), in document px.
 export function boxHandles(r: BoxRect): [number, number][] {
   const { x, y, w, h } = r, mx = x + w / 2, my = y + h / 2;
@@ -55,6 +59,7 @@ export class SelectionOverlay {
   #hidden = false;
   #mask: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number } | null = null;
   #cursor: CursorState | null = null;
+  #clone: CloneOverlay | null = null;
   #guides: [number, number, number, number][] = [];
   #box: BoxRect | null = null;
   #transform: TransformBox | null = null;
@@ -98,6 +103,10 @@ export class SelectionOverlay {
 
   // Move/transform smart guides: full-document lines (x0, y0, x1, y1 in doc px) at the locked
   // snap targets, own colour, drawn only while set (cleared with an empty array).
+  setClone(c: CloneOverlay | null) {
+    this.#clone = c;
+  }
+
   setGuides(lines: [number, number, number, number][]) {
     this.#guides = lines;
   }
@@ -199,7 +208,30 @@ export class SelectionOverlay {
     if (this.#pathEdit) this.#drawPathEdit(this.#pathEdit, view, cssW, cssH, dpr);
     if (this.#typeEdit) this.#drawTypeEdit(this.#typeEdit, view, cssW, cssH, dpr);
     if (this.#guides.length) this.#drawGuides(view, cssW, cssH, dpr);
+    if (this.#clone) this.#drawClone(this.#clone, view, cssW, cssH, dpr);
     if (this.#cursor) this.#drawCursor(this.#cursor, view, cssW, cssH, dpr);
+  }
+
+  #drawClone(c: CloneOverlay, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (c.image) {
+      const [x0, y0] = docToScreen(view, c.image.x, c.image.y, cssW, cssH);
+      const [x1, y1] = docToScreen(view, c.image.x + c.image.w, c.image.y + c.image.h, cssW, cssH);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(c.image.canvas, x0, y0, x1 - x0, y1 - y0);
+    }
+    const [sx, sy] = docToScreen(view, c.src[0], c.src[1], cssW, cssH);
+    ctx.beginPath();
+    ctx.moveTo(sx - 8, sy); ctx.lineTo(sx + 8, sy);
+    ctx.moveTo(sx, sy - 8); ctx.lineTo(sx, sy + 8);
+    ctx.setLineDash([]);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#000';
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
   }
 
   // Screen-space outline (or crosshair) at the cursor's doc position; not part of the ants/preview

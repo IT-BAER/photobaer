@@ -10,10 +10,11 @@ import type { BrushLibrary } from '../brushes/store.ts';
 import { BuildUp, inputFields, strideFor, strokeSeed, type Stride } from '../brushes/strokeInput.ts';
 import type { Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
+import { cloneSources } from '../shell/retouch.ts';
 import { Smoother } from '../shell/smoothing.ts';
 import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo, StrokeParams } from '../worker/types.ts';
-import { PAINT_LABELS, type Run } from './helpers.ts';
+import { PAINT_LABELS, PAINT_TOOLS, type Run } from './helpers.ts';
 
 export interface PaintToolCtx {
   viewer: RefObject<Viewer | null>; tool: string; toolOptionsRef: RefObject<ToolOptions>; currentPreset: (id: string | null) => BrushPreset | null;
@@ -28,12 +29,12 @@ export function usePaintTool(c: PaintToolCtx) {
     viewer, tool, toolOptionsRef, currentPreset, selectedPresetRef, brushLib, bgRef, fgRef, active, docRef, strokeCounter, quickMask, perfRef,
     setError, lastStrokePoint, run,
   } = c;
-  // Brush, pencil and eraser: pointermove samples are coalesced and sent as one strokeTo per
-  // animation frame; the smoother runs on the document-space samples before they are queued.
+  // Brush, pencil, eraser and the stamp/heal brushes: pointermove samples are coalesced and sent as
+  // one strokeTo per animation frame; the smoother runs on the document-space samples before they are queued.
   // Samples carry x, y, pressure (stride 3) or also tiltX, tiltY, twist for pen strokes (stride 6).
   useEffect(() => {
     const v = viewer.current;
-    if (!v || !(tool === 'brush' || tool === 'pencil' || tool === 'eraser')) return;
+    if (!v || !PAINT_TOOLS.has(tool)) return;
     const st: {
       smoother: Smoother | null; layerId: number | null; raf: number; stride: Stride;
       pending: number[]; last: number[] | null; lastSampleAt: number;
@@ -96,7 +97,29 @@ export function usePaintTool(c: PaintToolCtx) {
         if (o.mode === 'block') return { rgba: [...rgb, 255], mode, size: 16 / (viewer.current?.view.zoom || 1), tip: 'square', aliased: true, ...input };
         return presetStrokeParams(preset, o, { tool: 'eraser', rgba: [...rgb, 255], mode, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
       }
-      return presetStrokeParams(preset, o, { tool: 'brush', rgba: [...fgRef.current, 255], mode: o.mode as string, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
+      const out = presetStrokeParams(preset, o, { tool: 'brush', rgba: [...fgRef.current, 255], mode: o.mode as string, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
+      return { ...out, ...await retouchParams(x, y) };
+    }
+
+    // Stamp and heal tools (docs/M5.md section 9): the color source or the heal kind of the stroke.
+    async function retouchParams(x: number, y: number): Promise<Record<string, unknown>> {
+      const o = toolOptionsRef.current;
+      if (tool === 'spotHealing') return { heal: o.type };
+      if (tool === 'patternStamp') {
+        const lib = brushLib.current;
+        const ref = (o.pattern as string) || lib?.library.patterns()[0]?.id;
+        const patternId = ref && lib ? await lib.assets.pattern(ref) : undefined;
+        if (patternId === undefined) throw new Error('Choose a pattern first.');
+        return { source: { kind: 'pattern', patternId, origin: o.aligned ? [0, 0] : [x, y], impressionist: !!o.impressionist } };
+      }
+      if (tool !== 'cloneStamp' && tool !== 'healingBrush') return {};
+      const slot = cloneSources.slot(), docId = docRef.current?.docId ?? -1;
+      if (!slot.anchor) throw new Error(tool === 'cloneStamp' ? 'Alt-click to set a clone source first.' : 'Alt-click to set a source for the Healing Brush.');
+      if (slot.docId !== docId) throw new Error('The clone source document is closed. Alt-click to set a new source.');
+      const map = cloneSources.beginStroke({ x, y }, docId, !!o.aligned)!;
+      const sample = tool === 'cloneStamp' ? o.sample : o.allLayers ? 'allLayers' : 'currentLayer';
+      const source = { kind: 'clone', ...map, sample, ignoreAdjustments: !!o.ignoreAdjustments, ...(slot.layerId !== null ? { layerId: slot.layerId } : {}) };
+      return tool === 'healingBrush' ? { source, heal: 'healing' } : { source };
     }
 
     // One animation-frame loop per stroke while build-up or smoothing catch-up needs time-driven samples.
@@ -170,6 +193,11 @@ export function usePaintTool(c: PaintToolCtx) {
     v.onPointer = e => {
       if (!active) return;
       if (e.type === 'down') {
+        // Alt-click sets the clone source of the active slot and paints nothing.
+        if (e.altKey && (tool === 'cloneStamp' || tool === 'healingBrush')) {
+          cloneSources.setAnchor({ x: e.x, y: e.y }, docRef.current?.docId ?? -1, active.id);
+          return;
+        }
         if (e.shiftKey && lastStrokePoint.current[active.id]) { void shiftLine(e); return; }
         st.begun = begin(e).catch(err => setError((err as Error).message));
       } else if (e.type === 'move') {
