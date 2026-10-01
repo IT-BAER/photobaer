@@ -1,40 +1,33 @@
-# photobaer plan: image editor with feature parity to the reference app (web PWA + desktop)
-
-Working name: photobaer. It never names the reference app or its vendor, and never ships their
-icons, strings, CSS or layout assets.
+# photobaer plan: image editor with Photoshop-level features (web PWA + desktop)
 
 ## 0. Ground rules
 
-- **Own implementation.** Build the same features, not a copy of the code. Features and file
-  formats are not protected; the reference app's code, CSS, icons, UI strings and branding are
-  (it has no license). Sources: the reference app (its build may be read to learn how a feature
-  behaves and looks), the public Adobe Photoshop user guide and the public PSD file format
-  specification. Code, CSS and icons are always written here, never copied; icons come from
-  lucide (ISC).
-- The reference app is never named in code, comments, docs or commit messages. The command-ID
-  list below is a feature checklist only (it mirrors the public Photoshop menu structure).
+- **Own implementation.** Features and file formats are built here; code, CSS and icons are
+  always written here, never copied. Icons come from lucide (ISC). Sources: the public Adobe
+  Photoshop user guide and the public PSD file format specification. Photoshop is an Adobe
+  trademark.
 - Own license chosen before the first public commit (decision D6).
 
-## 1. Scope source (measured 2026-09-25, reference app 0.1.21)
+## 1. Scope
 
-855 command IDs registered in the renderer bundles. Registered is not the same as implemented;
-each item is confirmed by black-box use before it enters a milestone.
+Feature areas, following the public Photoshop menu structure. Each item is confirmed before it
+enters a milestone.
 
-| Area | IDs | Main content |
-|---|---|---|
-| layer | 218 | layers, groups, masks, vector masks, clipping, layer styles (10 effects), adjustment and fill layers, smart objects and smart filters, artboards, frames, align/distribute, shape boolean ops, video layers, copy CSS/SVG |
-| tool | 107 (about 70 unique) | marquee, lasso (poly, magnetic), magic wand, quick/object selection, crop, perspective crop, slice, eyedropper, color sampler, ruler, count, note, healing (spot, brush, patch, content-aware move, red eye), brush, pencil, color replacement, mixer brush, clone and pattern stamp, history and art history brush, eraser (background, magic), gradient, paint bucket, blur/sharpen/smudge, dodge/burn/sponge, pen (freeform, curvature, anchor edit), type (horizontal, vertical, masks), path and direct selection, shapes, hand, rotate view, zoom |
-| filter | 86 | blur (incl. lens, surface, blur gallery), distort, noise, pixelate, render (clouds, flame, tree, lighting, lens flare), sharpen (smart, unsharp), stylize (oil paint, wind, extrude), other (high pass, offset, custom), liquify, vanishing point, adaptive wide angle, lens correction, camera raw, filter gallery |
-| view | 83 | zoom modes, rulers, guides, grid, pixel grid, smart guides, snapping, slices, screen modes, proof setup (CMYK plates, color blindness), gamut warning, pixel aspect ratio |
-| edit | 80 | undo/redo/history, clipboard incl. paste in place/into/outside, fill, stroke, content-aware fill and scale, free transform, warp (split), puppet warp, perspective warp, auto-align/auto-blend, define brush/pattern/shape, color settings, assign/convert profile, preferences (19 pages), preset manager, spell check, find and replace text |
-| file | 65 | new/open/save/save as/copy, place embedded/linked, export as, quick export PNG, layers to files, artboards to files/PDF, generate image assets, save for web, automate (batch, droplet, photomerge, merge to HDR, contact sheet, crop and straighten, image processor, load files into stack), scripts, file info, print, package |
-| image | 63 | 22 adjustments, auto tone/contrast/color, image and canvas size, rotation, crop, trim, reveal all, apply image, calculations, modes (bitmap, grayscale, duotone, indexed, RGB, CMYK, Lab, multichannel; 8/16/32 bit), variables/data sets, analysis/measurement |
-| window | 63 | 30 panels, document arrangement (tile, n-up, float), workspaces (essentials, photography, painting, motion, graphic and web) |
-| select | 30 | all/deselect/inverse, color range, focus area, subject, select and mask, modify (border, smooth, expand, contract, feather), grow/similar, save/load selection, quick mask, layer selection |
-| type | 51 | point/paragraph text, character and paragraph panels and styles, OpenType features, anti-alias modes, vertical text, warp text, convert to shape/work path, missing fonts, East Asian and Middle Eastern composers |
-| help | 9 | about, shortcuts reference, legal notices |
+| Area | Main content |
+|---|---|
+| layer | layers, groups, masks, vector masks, clipping, layer styles (10 effects), adjustment and fill layers, smart objects and smart filters, artboards, frames, align/distribute, shape boolean ops, video layers, copy CSS/SVG |
+| tool | marquee, lasso (poly, magnetic), magic wand, quick/object selection, crop, perspective crop, slice, eyedropper, color sampler, ruler, count, note, healing (spot, brush, patch, content-aware move, red eye), brush, pencil, color replacement, mixer brush, clone and pattern stamp, history and art history brush, eraser (background, magic), gradient, paint bucket, blur/sharpen/smudge, dodge/burn/sponge, pen (freeform, curvature, anchor edit), type (horizontal, vertical, masks), path and direct selection, shapes, hand, rotate view, zoom |
+| filter | blur (incl. lens, surface, blur gallery), distort, noise, pixelate, render (clouds, flame, tree, lighting, lens flare), sharpen (smart, unsharp), stylize (oil paint, wind, extrude), other (high pass, offset, custom), liquify, vanishing point, adaptive wide angle, lens correction, camera raw, filter gallery |
+| view | zoom modes, rulers, guides, grid, pixel grid, smart guides, snapping, slices, screen modes, proof setup (CMYK plates, color blindness), gamut warning, pixel aspect ratio |
+| edit | undo/redo/history, clipboard incl. paste in place/into/outside, fill, stroke, content-aware fill and scale, free transform, warp (split), puppet warp, perspective warp, auto-align/auto-blend, define brush/pattern/shape, color settings, assign/convert profile, preferences (19 pages), preset manager, spell check, find and replace text |
+| file | new/open/save/save as/copy, place embedded/linked, export as, quick export PNG, layers to files, artboards to files/PDF, generate image assets, save for web, automate (batch, droplet, photomerge, merge to HDR, contact sheet, crop and straighten, image processor, load files into stack), scripts, file info, print, package |
+| image | 22 adjustments, auto tone/contrast/color, image and canvas size, rotation, crop, trim, reveal all, apply image, calculations, modes (bitmap, grayscale, duotone, indexed, RGB, CMYK, Lab, multichannel; 8/16/32 bit), variables/data sets, analysis/measurement |
+| window | 30 panels, document arrangement (tile, n-up, float), workspaces (essentials, photography, painting, motion, graphic and web) |
+| select | all/deselect/inverse, color range, focus area, subject, select and mask, modify (border, smooth, expand, contract, feather), grow/similar, save/load selection, quick mask, layer selection |
+| type | point/paragraph text, character and paragraph panels and styles, OpenType features, anti-alias modes, vertical text, warp text, convert to shape/work path, missing fonts, East Asian and Middle Eastern composers |
+| help | about, shortcuts reference, legal notices |
 
-Other measured reference app parts: AI background removal and select subject (withoutBG ONNX model, 140 MB,
+Planned extras: AI background removal and select subject (withoutBG ONNX model, 140 MB,
 Apache-2.0 but it contains DINOv3 material under the Meta DINOv3 License), RAW via LibRaw
 (LGPL-2.1 or CDDL) plus lensfun data, PDF import (pdf.js), JS scripting via QuickJS, a CLI and a
 local agent/MCP API, autosave recovery, i18n.
@@ -58,7 +51,7 @@ Shell: PWA (service worker, File Handling API, File System Access API) | Tauri 2
 
 Key points:
 - **Tiled document.** 256x256 tiles, copy-on-write, mip pyramid for zoomed-out views, paging to
-  OPFS for documents larger than RAM (the reference app pages tiles the same way).
+  OPFS for documents larger than RAM.
 - **GPU compositor.** All blend modes, masks, layer styles and adjustment layers as WGSL shaders;
   a bit-exact CPU path in Rust for export and tests. Photopea stores layer pixels in GPU memory
   and blends there (Photopea docs: 850 ms CPU vs 55 ms WebGL for a 10-layer 2048x1152 redraw).
@@ -158,9 +151,9 @@ notes, count tool, slices, i18n. Video layers and timeline last; exclude if nobo
 
 ## 6. Risks
 
-- **Scope.** Photopea has been built by one developer since 2012. Full parity with 855 commands is
+- **Scope.** Photopea has been built by one developer since 2012. Full parity is
   a multi-year effort; M0 to M3 is the realistic first product. (Estimate, inferred, not measured.)
-- **Legal.** The rules of section 0. No reference app assets, strings or look-alike branding.
+- **Legal.** Own implementation as in section 0.
   Photoshop is an Adobe trademark: do not use it in the product name.
 - **Model licenses.** DINOv3 terms (inside withoutBG) and each other model need review before shipping.
 - **LGPL in WASM.** LibRaw as separate replaceable module with source offer, or use the CDDL option.
