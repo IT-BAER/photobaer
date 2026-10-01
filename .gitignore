@@ -4,3 +4,4 @@ app/src/engine-pkg/
 engine/target/
 tests/corpus/
 TODO.md
+.claude/
