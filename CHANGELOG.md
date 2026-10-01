@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-01
+
+### Added
+
+- Donate dialog with PayPal and Buy Me a Coffee.
+- security.txt with a security contact.
+
+### Changed
+
+- AI training crawlers (GPTBot, ClaudeBot, Google-Extended) are no longer allowed in robots.txt.
+  Search and answer crawlers stay allowed. robots.txt also states this as a Content-Signal.
+
 ## [0.2.1] - 2026-10-01
 
 ### Added
@@ -104,7 +116,8 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.2.1...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/IT-BAER/photobaer/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/IT-BAER/photobaer/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/IT-BAER/photobaer/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/IT-BAER/photobaer/compare/v0.1.2...v0.1.3
