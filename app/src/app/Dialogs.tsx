@@ -213,6 +213,10 @@ export function AboutDialog({ aboutDialog }: { aboutDialog: DialogRef }) {
           <a href="https://github.com/IT-BAER/photobaer" target="_blank" rel="noreferrer">Source code</a>
         </p>
         <p className="dim">The photobaer name and logo are not covered by the code license.</p>
+        <p className="dim">
+          <a href="/impressum/" target="_blank" rel="noreferrer">Impressum</a> · <a href="/privacy/" target="_blank" rel="noreferrer">Privacy</a> ·{' '}
+          <a href="/terms/" target="_blank" rel="noreferrer">Terms</a> · <a href="/licenses/" target="_blank" rel="noreferrer">Licenses</a>
+        </p>
         <div className="actions"><button className="primary">OK</button></div>
       </form>
     </dialog>

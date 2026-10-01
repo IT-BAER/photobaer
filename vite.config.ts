@@ -3,12 +3,24 @@ import react from '@vitejs/plugin-react';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { thirdPartyNotices } from './scripts/third-party.mjs';
 
 // SharedArrayBuffer and WASM threads need cross-origin isolation; every host must send these.
 const headers = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' };
 
 // Website files (content pages, their images, crawler files) are not part of the offline app.
-const SITE_ONLY = /^(img\/|[^/]+\/index\.html$|site\.css$|og-image\.png$|robots\.txt$|sitemap\.xml$|llms\.txt$)/;
+const SITE_ONLY = /^(img\/|licenses\/|[^/]+\/index\.html$|site\.css$|og-image\.png$|robots\.txt$|sitemap\.xml$|llms\.txt$)/;
+
+function notices(): Plugin {
+  return {
+    name: 'photobaer-notices',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'licenses/third-party.txt', source: thirdPartyNotices(fileURLToPath(new URL('.', import.meta.url))) });
+    },
+  };
+}
 
 // Lists every built file so the service worker can precache the whole app for offline use,
 // and stamps sw.js with a content hash so every changed build installs a new worker.
@@ -41,7 +53,7 @@ const version = /^## \[(\d+\.\d+\.\d+)\]/m.exec(readFileSync(new URL('./CHANGELO
 export default defineConfig({
   root: 'app',
   base: './',
-  plugins: [react(), precache()],
+  plugins: [react(), notices(), precache()],
   define: { __APP_VERSION__: JSON.stringify(version) },
   server: { headers },
   preview: { headers },
