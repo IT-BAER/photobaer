@@ -51,7 +51,7 @@ export interface MenuCtx {
   snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef;
   openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null; selectedNodes: LayerNode[];
-  showShapes: boolean; setShowShapes: SetState<boolean>; typeItems: Item[];
+  showShapes: boolean; setShowShapes: SetState<boolean>; typeItems: Item[]; aboutDialog: DialogRef;
 }
 
 export function buildMenus(c: MenuCtx) {
@@ -66,7 +66,7 @@ export function buildMenus(c: MenuCtx) {
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
-    selectedNodes, showShapes, setShowShapes, typeItems, filterSpecs, openFilter, lastFilter, openFade,
+    selectedNodes, showShapes, setShowShapes, typeItems, filterSpecs, openFilter, lastFilter, openFade, aboutDialog,
   } = c;
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
@@ -295,6 +295,9 @@ export function buildMenus(c: MenuCtx) {
       { label: showPatterns ? 'Hide Patterns' : 'Show Patterns', run: () => { setMenu(null); setShowPatterns(v => !v); } },
       { label: showGradients ? 'Hide Gradients' : 'Show Gradients', run: () => { setMenu(null); setShowGradients(v => !v); } },
       { label: showShapes ? 'Hide Shapes' : 'Show Shapes', run: () => { setMenu(null); setShowShapes(v => !v); } },
+    ],
+    Help: [
+      { label: 'About photobaer…', run: () => { setMenu(null); aboutDialog.current?.showModal(); aboutDialog.current?.querySelector('button')?.focus(); } },
     ],
   };
   return menus;

@@ -73,7 +73,7 @@ import { repeatLastFilter } from './filters/lastFilter.ts';
 import { schema, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
+  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, AboutDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
   ScaleEffectsDialog, StrokeDialog, TrimDialog,
 } from './app/Dialogs.tsx';
 
@@ -104,6 +104,7 @@ export function App() {
   const newGuideLayoutDialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const newDialog = useRef<HTMLDialogElement>(null);
+  const aboutDialog = useRef<HTMLDialogElement>(null);
   const featherDialog = useRef<HTMLDialogElement>(null);
   const modifyDialog = useRef<HTMLDialogElement>(null);
   const colorRangeDialog = useRef<HTMLDialogElement>(null);
@@ -888,7 +889,7 @@ export function App() {
   };
   const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
   const menus = buildMenus({
-    setMenu, newDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeContents, run,
+    setMenu, newDialog, aboutDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeContents, run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
@@ -1456,6 +1457,7 @@ export function App() {
                   Drop an image here
                   <small>PNG, JPEG, WebP, GIF, BMP, AVIF, PSD or .pbaer</small>
                 </div>
+                <small className="copyright">© 2026 IT-BAER</small>
               </div>
             )}
             {busy && <div className="busy">{busy}</div>}
@@ -1578,6 +1580,7 @@ export function App() {
       <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.pbaer,.psd"
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
+      <AboutDialog aboutDialog={aboutDialog} />
       <FeatherDialog featherDialog={featherDialog} run={run} />
       <ContentAwareFillDialog dialog={contentAwareDialog} submit={(structure, color) => {
         const id = active?.id;

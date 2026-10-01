@@ -262,10 +262,17 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .curve-point { fill: var(--bg); stroke: var(--text); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .curve-point.selected { fill: var(--text); }
 
-.welcome { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; pointer-events: none; }
+.welcome { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; }
 .welcome h1 { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 0; font: 600 46px/1.1 'Comfortaa', sans-serif; letter-spacing: -0.025em; color: #ecedef; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4); }
 .welcome h1 img { flex: none; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4)); }
 .welcome .tagline { margin: 0 0 12px; color: var(--dim); }
+.welcome h1, .welcome .tagline { pointer-events: none; user-select: none; }
+.welcome .copyright { position: absolute; left: 0; right: 0; bottom: 12px; color: var(--dim); font-size: 11px; user-select: none; }
+.about-dialog { text-align: center; }
+.about-dialog h2 { display: flex; flex-direction: column; align-items: center; gap: 6px; font: 600 24px/1.1 'Comfortaa', sans-serif; }
+.about-dialog p { margin: 6px 0; }
+.about-dialog .dim { color: var(--dim); font-size: 12px; }
+.about-dialog a { color: var(--accent-hover); }
 .welcome .actions, dialog .actions { display: flex; gap: 8px; justify-content: center; pointer-events: auto; }
 .welcome button:focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; }
 .welcome button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }

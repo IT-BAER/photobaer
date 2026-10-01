@@ -201,6 +201,24 @@ export function NewImageDialog({ newDialog, createNew }: { newDialog: DialogRef;
   );
 }
 
+export function AboutDialog({ aboutDialog }: { aboutDialog: DialogRef }) {
+  return (
+    <dialog ref={aboutDialog} className="about-dialog" aria-label="About photobaer">
+      <form method="dialog">
+        <h2><img src="./logo-light.png" alt="" width={40} height={40} />photobaer</h2>
+        <p>Image editing in your browser</p>
+        <p>© 2026 IT-BAER</p>
+        <p>
+          Code licensed under <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer">AGPL-3.0</a>.{' '}
+          <a href="https://github.com/IT-BAER/photobaer" target="_blank" rel="noreferrer">Source code</a>
+        </p>
+        <p className="dim">The photobaer name and logo are not covered by the code license.</p>
+        <div className="actions"><button className="primary">OK</button></div>
+      </form>
+    </dialog>
+  );
+}
+
 export function FeatherDialog({ featherDialog, run }: { featherDialog: DialogRef; run: Run }) {
   return (
     <dialog ref={featherDialog}>
