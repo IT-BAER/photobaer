@@ -1621,6 +1621,44 @@ fn layer_bounds_are_tight_and_empty_layers_have_none() {
     assert!(d.layer_bounds(g).is_err());
 }
 
+#[test]
+fn layer_bounds_match_a_full_scan_for_random_tile_layouts() {
+    let mut s = 12345u32;
+    let mut r = |n: u32| {
+        s = s.wrapping_mul(1103515245).wrapping_add(12345);
+        (s >> 8) % n
+    };
+    for trial in 0..60 {
+        let depth = if trial % 2 == 0 { 8 } else { 16 };
+        let mut d = Document::new(1280, 1024, depth).unwrap();
+        let mut bb: Option<(i32, i32, i32, i32)> = None;
+        for ty in 0..4 {
+            for tx in 0..5 {
+                let kind = r(4);
+                if kind == 0 {
+                    continue;
+                }
+                let mut data = vec![0u8; TILE_BYTES_U8];
+                let mut set = |p: usize| {
+                    data[p * 4..p * 4 + 4].copy_from_slice(&[9, 9, 9, 1 + (p % 255) as u8]);
+                    let (x, y) = ((tx * TILE + p % TILE) as i32, (ty * TILE + p / TILE) as i32);
+                    bb = Some(bb.map_or((x, y, x + 1, y + 1), |b| (b.0.min(x), b.1.min(y), b.2.max(x + 1), b.3.max(y + 1))));
+                };
+                match kind {
+                    1 => (0..TILE_PIXELS).for_each(&mut set),
+                    2 => (0..1 + r(4)).for_each(|_| set(r(TILE_PIXELS as u32) as usize)),
+                    _ => {} // a stored tile with no visible pixel
+                }
+                d.set_tile_rgba8(1, tx as u32, ty as u32, &data).unwrap();
+            }
+        }
+        let (dx, dy) = (r(700) as i32 - 350, r(700) as i32 - 350);
+        d.offset_layer(1, dx, dy).unwrap();
+        let want = bb.map(|b| [b.0 + dx, b.1 + dy, b.2 - b.0, b.3 - b.1]);
+        assert_eq!(d.layer_bounds(1).unwrap(), want, "trial {trial}");
+    }
+}
+
 // ---------- manifest v3 ----------
 
 #[test]

@@ -605,6 +605,64 @@ impl Document {
         let sel = if selected { Some(self.selection.as_ref().ok_or("nothing is selected")?) } else { None };
         let bounds = if selected { self.selection_bounds() } else { self.layer_bounds(id)? };
         let Some(b) = bounds else { return Ok(out) };
+        let lo = (-64.0 * f).floor() as i32;
+        let (hx, hy) = (((self.width as f64 + 64.0) * f).ceil() as i32, ((self.height as f64 + 64.0) * f).ceil() as i32);
+        // Identity (every move and transform start): a nearest copy, one tile lookup per tile run.
+        if *m == [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0] && f == 1.0 && sel.is_none() && self.depth() == 8 {
+            // Full size, 8-bit: straight bytes copied a tile row at a time.
+            let (x0, x1) = (rect[0].max(lo).max(b[0]), (rect[0] + w as i32).min(hx).min(b[0] + b[2]));
+            for j in 0..h {
+                let y = rect[1] + j as i32;
+                if y < lo || y >= hy || y < b[1] || y >= b[1] + b[3] {
+                    continue;
+                }
+                let mut x = x0;
+                while x < x1 {
+                    let end = ((x.div_euclid(TI) + 1) * TI).min(x1);
+                    if let Some(Pixels::U8(d)) = tiles.get(x.div_euclid(TI), y.div_euclid(TI)).map(|t| &*t.px) {
+                        let (p, n, at) = ((y.rem_euclid(TI) * TI + x.rem_euclid(TI)) as usize, (end - x) as usize, (j * w + (x - rect[0]) as usize) * 4);
+                        out[at..at + n * 4].copy_from_slice(&d[p * 4..(p + n) * 4]);
+                    }
+                    x = end;
+                }
+            }
+            out.chunks_exact_mut(4).filter(|p| p[3] == 0).for_each(|p| p.fill(0));
+            return Ok(out);
+        }
+        if *m == [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0] {
+            let mut last: ((i32, i32), Option<&Tile>) = ((i32::MIN, i32::MIN), None);
+            for j in 0..h {
+                let y = rect[1] + j as i32;
+                let sy = ((y as f64 + 0.5) / f).floor() as i32;
+                if y < lo || y >= hy || sy < b[1] || sy >= b[1] + b[3] {
+                    continue;
+                }
+                for i in 0..w {
+                    let x = rect[0] + i as i32;
+                    let sx = ((x as f64 + 0.5) / f).floor() as i32;
+                    if x < lo || x >= hx || sx < b[0] || sx >= b[0] + b[2] {
+                        continue;
+                    }
+                    let key = (sx.div_euclid(TI), sy.div_euclid(TI));
+                    if last.0 != key {
+                        last = (key, tiles.get(key.0, key.1));
+                    }
+                    let Some(t) = last.1 else { continue };
+                    let mut v = t.px.rgba_f32((sy.rem_euclid(TI) * TI + sx.rem_euclid(TI)) as usize);
+                    if let Some(s) = sel {
+                        v[3] = v[3].min(self.sel_at(s, sx, sy));
+                    }
+                    if v[3] <= 0.0 {
+                        continue;
+                    }
+                    let at = (j * w + i) * 4;
+                    for (c, u) in v.into_iter().enumerate() {
+                        out[at + c] = (u * 255.0).round().clamp(0.0, 255.0) as u8;
+                    }
+                }
+            }
+            return Ok(out);
+        }
         // Nearest proxy of the source.
         let pw = ((b[2] as f64 * f).round() as usize).max(1);
         let ph = ((b[3] as f64 * f).round() as usize).max(1);
@@ -627,8 +685,6 @@ impl Document {
         let rs = Resampler::new(plane, &pm, Interp::Bilinear, 0.0)?;
         let mut buf = vec![0f32; w * h * 4];
         rs.render(rect[0], rect[1], w, h, &mut buf);
-        let lo = (-64.0 * f).floor() as i32;
-        let (hx, hy) = (((self.width as f64 + 64.0) * f).ceil() as i32, ((self.height as f64 + 64.0) * f).ceil() as i32);
         for j in 0..h {
             for i in 0..w {
                 let (x, y) = (rect[0] + i as i32, rect[1] + j as i32);
@@ -1017,6 +1073,29 @@ pub(super) mod tests {
         // Clipped to the canvas + 64 px.
         let far = d.transform_preview(1, &tr(-100.0, 0.0), 1.0, false, [-95, 5, 3, 3]).unwrap();
         assert!(far.iter().all(|v| *v == 0));
+    }
+
+    #[test]
+    fn identity_preview_matches_the_resampled_preview() {
+        let mut d = noise_doc(600, 500, true);
+        d.offset_layer(1, -30, 20).unwrap();
+        let rect = [-70, -50, 700, 600];
+        let near_id = tr(1e-9, 0.0);
+        for selected in [false, true] {
+            if selected {
+                d.select_ellipse(40.0, 60.0, 300.0, 200.0, true, Mode::New).unwrap();
+            }
+            let a = d.transform_preview(1, &ID, 1.0, selected, rect).unwrap();
+            let b = d.transform_preview(1, &near_id, 1.0, selected, rect).unwrap();
+            assert_eq!(a.len(), b.len());
+            // Color under alpha 0 is invisible; the 1e-9 shift leaks it from a neighbor.
+            let seen = |v: &[u8], p: usize| if v[p * 4 + 3] == 0 { [0; 4] } else { [v[p * 4], v[p * 4 + 1], v[p * 4 + 2], v[p * 4 + 3]] };
+            let bad = (0..a.len() / 4).find(|&p| (0..4).any(|c| seen(&a, p)[c].abs_diff(seen(&b, p)[c]) > 1));
+            if let Some(p) = bad {
+                let (x, y) = (rect[0] + (p % rect[2] as usize) as i32, rect[1] + (p / rect[2] as usize) as i32);
+                panic!("selected {selected}: pixel ({x}, {y}) is {:?}, resampled {:?}", &a[p * 4..p * 4 + 4], &b[p * 4..p * 4 + 4]);
+            }
+        }
     }
 
     // Deterministic noise over a w x h layer; alpha 255, or noise too when `alpha` is set.

@@ -1485,22 +1485,23 @@ fn content_tiles(node: &Node) -> Option<&Tiles> {
     }
 }
 
-/// Tight bounds [x, y, w, h] of the non-transparent pixels of `tiles`.
+/// Tight bounds [x, y, w, h] of the non-transparent pixels of `tiles`. The outer ring of tiles
+/// goes first, so inner tiles that cannot widen the bounds are skipped without a scan.
 pub(super) fn tiles_bounds(tiles: &Tiles) -> Option<[i32; 4]> {
+    let coords = tiles.coords();
+    let (tx0, tx1) = coords.iter().fold((i32::MAX, i32::MIN), |(a, b), c| (a.min(c.0), b.max(c.0)));
+    let (ty0, ty1) = coords.iter().fold((i32::MAX, i32::MIN), |(a, b), c| (a.min(c.1), b.max(c.1)));
+    let ring = |&(tx, ty): &(i32, i32)| tx == tx0 || tx == tx1 || ty == ty0 || ty == ty1;
+    let t = TILE as i32;
     let mut bb: Option<(i32, i32, i32, i32)> = None;
-    for (tx, ty) in tiles.coords() {
-        let px = &tiles.get(tx, ty).expect("a listed tile").px;
-        let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
-        for p in 0..TILE_PIXELS {
-            if px.rgba_f32(p)[3] <= 0.0 {
-                continue;
-            }
-            let (gx, gy) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
-            bb = Some(match bb {
-                None => (gx, gy, gx + 1, gy + 1),
-                Some(b) => (b.0.min(gx), b.1.min(gy), b.2.max(gx + 1), b.3.max(gy + 1)),
-            });
+    for &(tx, ty) in coords.iter().filter(|c| ring(c)).chain(coords.iter().filter(|c| !ring(c))) {
+        let (ox, oy) = (tx * t, ty * t);
+        if bb.is_some_and(|b| b.0 <= ox && b.1 <= oy && ox + t <= b.2 && oy + t <= b.3) {
+            continue;
         }
+        let Some((x0, y0, x1, y1)) = tiles.get(tx, ty).expect("a listed tile").px.alpha_rect() else { continue };
+        let r = (ox + x0, oy + y0, ox + x1, oy + y1);
+        bb = Some(bb.map_or(r, |b| (b.0.min(r.0), b.1.min(r.1), b.2.max(r.2), b.3.max(r.3))));
     }
     bb.map(|(x0, y0, x1, y1)| [x0, y0, x1 - x0, y1 - y0])
 }

@@ -188,6 +188,25 @@ impl Pixels {
         }
     }
 
+    // Tile-local [x0, y0, x1) x [y0, y1) around the pixels with alpha > 0; None for masks.
+    fn alpha_rect(&self) -> Option<(i32, i32, i32, i32)> {
+        fn scan<T: Copy + Default + PartialEq>(d: &[T]) -> Option<(i32, i32, i32, i32)> {
+            let mut r: Option<(i32, i32, i32, i32)> = None;
+            for (y, row) in d.chunks_exact(TILE * 4).enumerate() {
+                let Some(a) = row.chunks_exact(4).position(|p| p[3] != T::default()) else { continue };
+                let b = row.chunks_exact(4).rposition(|p| p[3] != T::default()).expect("a was found");
+                let (y, a, b) = (y as i32, a as i32, b as i32 + 1);
+                r = Some(r.map_or((a, y, b, y + 1), |r| (r.0.min(a), r.1, r.2.max(b), y + 1)));
+            }
+            r
+        }
+        match self {
+            Pixels::U8(d) => scan(d),
+            Pixels::U16(d) => scan(d),
+            _ => None,
+        }
+    }
+
     fn byte_len(&self) -> usize {
         match self {
             Pixels::U8(d) | Pixels::Mask8(d) => d.len(),
