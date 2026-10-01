@@ -59,7 +59,7 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
         return (
           <div key={slot.id} className="tool-slot">
             <button
-              className="slot" aria-label={tool.label} aria-pressed={active === toolId}
+              className="slot" data-slot={slot.id} aria-label={tool.label} aria-pressed={active === toolId}
               title={`${tool.label} (${slot.key.toUpperCase()})`}
               onClick={() => pressSlot(slot)}
               onContextMenu={e => { e.preventDefault(); setFlyout(slot.id); }}
@@ -72,7 +72,12 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
             </button>
             {flyout === slot.id && (
               <>
-                <div className="scrim" onClick={() => setFlyout(null)} />
+                {/* A right-click on another slot opens its flyout instead of the browser menu. */}
+                <div className="scrim" onClick={() => setFlyout(null)} onContextMenu={e => {
+                  e.preventDefault();
+                  const hit = document.elementsFromPoint(e.clientX, e.clientY).find(el => el instanceof HTMLElement && el.dataset.slot);
+                  setFlyout((hit as HTMLElement | undefined)?.dataset.slot ?? null);
+                }} />
                 <ul className="flyout" role="menu">
                   {slot.tools.map(id => {
                     const t = TOOLS[id];
