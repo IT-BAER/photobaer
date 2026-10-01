@@ -26,6 +26,14 @@
 }
 
 * { box-sizing: border-box; }
+/* Chromium ignores ::-webkit-scrollbar once scrollbar-width/color are set, and its thin bar keeps arrows. */
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--disabled) 55%, transparent) transparent; }
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--disabled) 55%, transparent) padding-box; border: 2px solid transparent; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--disabled); }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
 html, body, #root { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--text); overflow: hidden; }
 button { font: inherit; color: inherit; transition: background-color var(--t-hover) var(--ease), color var(--t-hover) var(--ease), border-color var(--t-hover) var(--ease), box-shadow var(--t-hover) var(--ease), opacity var(--t-hover) var(--ease); }
@@ -409,23 +417,24 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .gradient-noise .gradient-row { margin: 0; }
 
 /* Layer > Layer Style dialog. */
-.layer-style-dialog { width: 820px; max-width: 95vw; height: 520px; max-height: 90vh; display: flex; flex-direction: column; }
+.layer-style-dialog { width: 860px; max-width: 95vw; height: 520px; max-height: 90vh; display: flex; flex-direction: column; }
 .layer-style-dialog:not([open]) { display: none; }
-.layer-style-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr 120px; gap: 12px; }
-.layer-style-list { margin: 0; padding: 0; list-style: none; overflow-y: auto; border-right: 1px solid var(--line); }
+.layer-style-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 240px 1fr 120px; gap: 12px; }
+.layer-style-list { margin: 0; padding: 0 8px 0 0; list-style: none; overflow-y: auto; border-right: 1px solid var(--line); }
 .layer-style-row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 4px; }
 .layer-style-row.sub { padding-left: 22px; }
 .layer-style-row.active { background: color-mix(in srgb, var(--accent) 25%, transparent); }
 .layer-style-row input { flex: 0 0 auto; }
 .layer-style-dialog .layer-style-row button { padding: 2px 4px; background: none; border: 0; }
-.layer-style-dialog .layer-style-row .layer-style-name { flex: 1; text-align: left; color: inherit; }
+.layer-style-dialog .layer-style-row .layer-style-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: inherit; }
 .layer-style-dialog .layer-style-row .layer-style-name:first-child { padding-left: 22px; }
-.layer-style-page { overflow-y: auto; min-width: 0; }
+.layer-style-page { overflow-y: auto; min-width: 0; padding-right: 8px; }
 .layer-style-page h3 { margin: 0 0 8px; font-size: 14px; }
 .layer-style-side { display: flex; flex-direction: column; gap: 8px; }
 .layer-style-defaults { display: flex; gap: 8px; margin-top: 12px; }
 .layer-style-swatch { width: 72px; height: 72px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: repeating-conic-gradient(#d8d8d8 0% 25%, #a6a6a6 0% 50%) 0 0 / 8px 8px; }
 .layer-style-swatch > div { width: 40px; height: 40px; }
+.adjustment-field:has(.contour-grid) { grid-template-columns: 1fr auto; }
 .contour-grid { display: grid; grid-template-columns: repeat(6, 36px); gap: 4px; }
 .layer-style-dialog .contour-grid button { padding: 2px; line-height: 0; }
 .layer-style-dialog .contour-grid button.active, .layer-style-dialog .style-pattern-grid button.active { border-color: var(--accent); }

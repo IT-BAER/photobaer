@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Layer Style dialog: no horizontal scrollbar (the contour presets fit), effect names with action
+  buttons stay on one line, and the list and settings keep a right margin.
+- Scrollbars are thin and without arrow buttons.
+
 ## [0.1.3] - 2026-10-01
 
 ### Fixed
