@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-01
+
 ### Fixed
 
 - Escape cancels a Move drag and puts the layer or selected pixels back.
@@ -66,7 +68,8 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.1.2...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/IT-BAER/photobaer/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/IT-BAER/photobaer/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/IT-BAER/photobaer/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/IT-BAER/photobaer/releases/tag/v0.1.0
