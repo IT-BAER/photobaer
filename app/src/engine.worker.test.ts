@@ -565,6 +565,69 @@ test('moveLayerBegin/Step/Commit previews from the same base and lands as one Mo
   assert.deepEqual(await px(5, 6), [255, 0, 0, 255]);
 });
 
+test('moveFloat returns the layer image, hides the layer until a step, and a release without a step restores it', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('moveLayerBegin', 1, false, 'Move');
+  const f = (await call('moveFloat')).result as { image: { w: number; h: number; f: number }; data: ArrayBuffer };
+  assert.deepEqual([f.image.w, f.image.h, f.image.f], [16, 16, 1]);
+  assert.deepEqual([...new Uint8Array(f.data).slice(0, 4)], [255, 0, 0, 255]);
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [0, 0, 0, 0], 'the composite shows the layer hidden');
+  const c = await call('moveLayerCommit');
+  assert.equal((c.result as { undoLabel: string | null }).undoLabel, null);
+  assert.deepEqual(await px(5, 5), [255, 0, 0, 255]);
+});
+
+test('moveFloat on a big layer caps the whole image and adds a sharp image of the view', async () => {
+  await call('init');
+  await call('newDoc', 4096, 2048, 8, [255, 0, 0, 255]);
+  await call('moveLayerBegin', 1, false, 'Move');
+  type Img = { image: { x: number; y: number; w: number; h: number; f: number }; data: ArrayBuffer };
+  const f = (await call('moveFloat', 1, [1000, 500, 400, 200])).result as Img & { over: Img | null };
+  assert.deepEqual([f.image.w, f.image.h, f.image.f], [2048, 1024, 0.5]);
+  assert.deepEqual([f.over!.image.x, f.over!.image.y, f.over!.image.w, f.over!.image.h, f.over!.image.f], [800, 400, 800, 400, 1]);
+  assert.equal(f.over!.data.byteLength, 800 * 400 * 4);
+  await call('moveLayerCancel');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('moveLayerBegin', 1, false, 'Move');
+  assert.equal(((await call('moveFloat', 1, [0, 0, 16, 16])).result as { over: unknown }).over, null);
+  await call('moveLayerCancel');
+});
+
+test('a floated move lands with its step as one Move', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('moveLayerBegin', 1, false, 'Move');
+  await call('moveFloat');
+  await call('moveLayerStep', 3, 0);
+  assert.deepEqual(await px(1, 5), [0, 0, 0, 0]);
+  assert.deepEqual(await px(5, 5), [255, 0, 0, 255]);
+  assert.equal(((await call('moveLayerCommit')).result as { undoLabel: string }).undoLabel, 'Move');
+});
+
+test('moveFloat refuses a layer with a visible layer above it and leaves the document as is', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('addLayer', 0);
+  await call('moveLayerBegin', 1, false, 'Move');
+  assert.equal((await call('moveFloat')).result, null);
+  assert.deepEqual(await px(5, 5), [255, 0, 0, 255]);
+  await call('moveLayerCancel');
+});
+
+test('moveFloat on selected pixels clears them until a step; the release without a step restores them', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('movePixelsBegin', 1, 'Move Selection', false);
+  const f = (await call('moveFloat')).result as { image: { x: number; y: number; w: number; h: number } };
+  assert.deepEqual([f.image.x, f.image.y, f.image.w, f.image.h], [2, 2, 4, 4]);
+  assert.deepEqual(await px(3, 3), [0, 0, 0, 0]);
+  assert.deepEqual(await px(8, 8), [255, 0, 0, 255]);
+  assert.equal(((await call('movePixelsCommit')).result as { undoLabel: string | null }).undoLabel, 'Rectangular Marquee');
+  assert.deepEqual(await px(3, 3), [255, 0, 0, 255]);
+});
+
 test('moveLayerCommit with a zero net offset makes no history step', async () => {
   await call('init');
   await call('newDoc', 16, 16, 8, null);

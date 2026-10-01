@@ -7,7 +7,7 @@ import { BUILTIN_GRADIENTS, resolvePreset, type GradientLibrary } from '../gradi
 import { dragResize, showCrosshair } from '../shell/brushKeys.ts';
 import type { Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
-import type { SelectionOverlay } from '../shell/SelectionOverlay.ts';
+import type { SelectionOverlay, TransformImage } from '../shell/SelectionOverlay.ts';
 import { marqueeEnd, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from '../shell/selecttools.ts';
 import { draftPreview, dragEnd, dragLive, shapeStyle, type ShapeKind } from '../shell/shapetools.ts';
 import { shapeLibrary, toBounds } from '../shell/customShapes.ts';
@@ -16,6 +16,7 @@ import { constrainedSnap, PointSnapper, snapGrid, snapSettings, type Rect, type 
 import { TOOLS } from '../shell/tools.ts';
 import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo, GradientParams } from '../worker/types.ts';
+import { sourceImage } from './transform.ts';
 import { PAINT_TOOLS, SAMPLE_SIZES, SELECT_TOOLS, makeLatch, selectCreated, type Run, type Show } from './helpers.ts';
 
 // Loads a drag's point snap targets (nothing moves yet, so no layer is excluded); `loaded` runs
@@ -275,6 +276,7 @@ export function useMoveTool(c: MoveToolCtx) {
     type Drag = {
       origin: [number, number]; pos: [number, number]; shift: boolean; plan: Plan | null; ready: boolean; busy: boolean; failed: boolean;
       want: [number, number]; sent: [number, number]; end: 'up' | 'cancel' | null; moving: Rect; tx: number[]; ty: number[]; lock: SnapAxes; grid: [number | undefined, number | undefined];
+      float: TransformImage | null; settled: boolean;
     };
     let drag: Drag | null = null;
 
@@ -313,20 +315,36 @@ export function useMoveTool(c: MoveToolCtx) {
       if (r.lock.x) lines.push([r.lock.x.target, 0, r.lock.x.target, d.height]);
       if (r.lock.y) lines.push([0, r.lock.y.target, d.width, r.lock.y.target]);
       overlayRef.current?.setGuides(snapSettings().smartGuides ? lines : []);
+      if (g.float) {
+        const m = [1, 0, g.want[0], 0, 1, g.want[1], 0, 0, 1];
+        overlayRef.current?.setImage({ ...g.float, m });
+        if (g.plan!.pixels) overlayRef.current?.setAntsMatrix(m);
+      }
       redrawOverlay();
     }
-    // One step in flight at a time, always the latest offset; the end commits after the last step.
+    // One step in flight at a time, always the latest offset, sent once the previous one is on
+    // screen (the viewer holds partial versions back); the end commits after the last step. A
+    // floating drag only moves the overlay image and lands with one step at the end.
     function pump(g: Drag) {
       if (!g.ready || g.busy) return;
-      if (!g.failed && (g.want[0] !== g.sent[0] || g.want[1] !== g.sent[1])) {
+      const to: [number, number] = g.float && g.end === 'cancel' ? [0, 0] : g.want;
+      const due = g.float ? !!g.end && !g.settled : to[0] !== g.sent[0] || to[1] !== g.sent[1];
+      if (!g.failed && due) {
         g.busy = true;
-        g.sent = g.want;
-        step(g.plan!, ...g.want).then(show, err => { g.failed = true; setError((err as Error).message); }).finally(() => { g.busy = false; pump(g); });
+        g.settled = true;
+        g.sent = to;
+        step(g.plan!, ...to).then(d => {
+          if (g.float) overlayRef.current?.setAntsMatrix(null);
+          show(d);
+          return d && v!.drawn(d.version);
+        }, err => { g.failed = true; setError((err as Error).message); }).finally(() => { g.busy = false; pump(g); });
         return;
       }
       if (!g.end && !g.failed) return;
       if (drag === g) drag = null;
+      v!.hold(false);
       overlayRef.current?.setGuides([]);
+      if (g.float) { overlayRef.current?.setImage(null); overlayRef.current?.setAntsMatrix(null); }
       redrawOverlay();
       const p = g.plan!;
       run(null, () => (g.failed || g.end === 'cancel' ? cancel(p) : commit(p)));
@@ -334,7 +352,7 @@ export function useMoveTool(c: MoveToolCtx) {
     async function start(g: Drag, e: ToolPointerEvent) {
       const o = toolOptionsRef.current;
       const p = await plan(g.origin, e.altKey, !!o.autoSelect !== (e.ctrlKey || e.metaKey));
-      if (!p) { if (drag === g) drag = null; return; }
+      if (!p) { if (drag === g) { drag = null; v!.hold(false); } return; }
       g.plan = p;
       try {
         const d = await begin(p);
@@ -346,6 +364,15 @@ export function useMoveTool(c: MoveToolCtx) {
           g.ty = t.y;
           g.grid = snapGrid(docRef.current?.grid);
           if (b) g.moving = { x: b[0], y: b[1], w: b[2], h: b[3] };
+        }
+        // When the worker can float the moved pixels, the drag only moves this image on the overlay.
+        const f = await client.call('moveFloat', v!.view.zoom * v!.dpr, v!.visibleRect());
+        const img = f && sourceImage(f);
+        if (f && img) {
+          const { image: _i, data: _d, over, ...info } = f;
+          const top = over && sourceImage(over);
+          g.float = { ...img, clip: [0, 0, info.width, info.height], ...(top ? { over: top } : {}) };
+          show(info);
         }
       } catch (err) {
         setError((err as Error).message);
@@ -362,8 +389,10 @@ export function useMoveTool(c: MoveToolCtx) {
         const g: Drag = {
           origin: [e.x, e.y], pos: [e.x, e.y], shift: e.shiftKey, plan: null, ready: false, busy: false, failed: false,
           want: [0, 0], sent: [0, 0], end: null, moving: { x: 0, y: 0, w: 0, h: 0 }, tx: [], ty: [], lock: { x: null, y: null }, grid: [undefined, undefined],
+          float: null, settled: false,
         };
         drag = g;
+        v.hold(true);
         void start(g, e);
         return;
       }
@@ -392,7 +421,9 @@ export function useMoveTool(c: MoveToolCtx) {
       const g = drag;
       drag = null;
       if (g) { g.end = 'cancel'; pump(g); }
+      v.hold(false);
       overlayRef.current?.setGuides([]);
+      if (g?.float) { overlayRef.current?.setImage(null); overlayRef.current?.setAntsMatrix(null); }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, doc?.docId]);

@@ -43,6 +43,16 @@ export interface TransformCtx {
   setTransformStore: Dispatch<SetStateAction<TransformBarStore | null>>; redrawOverlay: () => void;
 }
 
+// A transform or move preview source (straight RGBA8 from the worker) as a canvas.
+export function sourceImage(r: { image: { x: number; y: number; w: number; h: number; f: number } | null; data: ArrayBuffer | null }): TransformImage | null {
+  if (!r.image || !r.data) return null;
+  const src = document.createElement('canvas');
+  src.width = r.image.w;
+  src.height = r.image.h;
+  src.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(r.data), r.image.w, r.image.h), 0, 0);
+  return { source: src, ...r.image, m: IDENTITY };
+}
+
 export function transformSession(c: TransformCtx) {
   const { overlayRef, perfRef, transformRef, show, setError, viewer, setMenu, activeRef, run, againRef, docRef, canvas, setTransformMenu, setTransformStore, redrawOverlay } = c;
   // Free transform session (Ctrl+T): pointer, keys, options bar and context menu edit a TState; the
@@ -256,15 +266,6 @@ export function transformSession(c: TransformCtx) {
     if (m === 'warp') void warpSwitch(t);
     else { t.mode = m; t.store.set({ mode: m }); }
   };
-  // The session preview source as a canvas.
-  function sourceImage(r: { image: { x: number; y: number; w: number; h: number; f: number } | null; data: ArrayBuffer | null }): TransformImage | null {
-    if (!r.image || !r.data) return null;
-    const src = document.createElement('canvas');
-    src.width = r.image.w;
-    src.height = r.image.h;
-    src.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(r.data), r.image.w, r.image.h), 0, 0);
-    return { source: src, ...r.image, m: IDENTITY };
-  }
   // Edit > Transform: inside a session these change it, outside they start one or act directly.
   function transformMode(m: Mode) {
     if (transformRef.current) withTransform(t => setTransformMode(t, m));

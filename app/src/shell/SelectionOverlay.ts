@@ -30,7 +30,8 @@ export interface TypeEditOverlay {
 export interface TransformBox { handles: [number, number][]; ref: [number, number]; dims: { text: string; at: [number, number] } | null }
 // Preview source: image pixel (i, j) sits at document ((x + i) / f, (y + j) / f) before the
 // row-major 3x3 matrix `m` maps it; `map` (a warp) replaces the matrix when set.
-export interface TransformImage { source: CanvasImageSource; x: number; y: number; w: number; h: number; f: number; m: number[]; map?: (x: number, y: number) => [number, number] }
+// `clip` limits the drawn image to a document rect [x, y, w, h] (the canvas).
+export interface TransformImage { source: CanvasImageSource; x: number; y: number; w: number; h: number; f: number; m: number[]; map?: (x: number, y: number) => [number, number]; clip?: number[]; over?: TransformImage }
 // Warp overlay: a (3 cols + 1) x (3 rows + 1) row-major grid of Bezier control points in document px.
 export interface WarpGrid { cols: number; rows: number; points: [number, number][] }
 // Crop tool: the box and the canvas (both document px), guide lines inside the box, the size
@@ -172,7 +173,19 @@ export class SelectionOverlay {
     const ctx = this.#ctx;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
-    if (this.#image) this.#drawImage(this.#image, view, cssW, cssH, dpr);
+    if (this.#image) {
+      const c = this.#image.clip;
+      ctx.save();
+      if (c) {
+        const p = [[c[0], c[1]], [c[0] + c[2], c[1]], [c[0] + c[2], c[1] + c[3]], [c[0], c[1] + c[3]]].map(([x, y]) => docToScreen(view, x, y, cssW, cssH));
+        ctx.beginPath();
+        p.forEach(([x, y], i) => (i ? ctx.lineTo(x * dpr, y * dpr) : ctx.moveTo(x * dpr, y * dpr)));
+        ctx.clip();
+      }
+      this.#drawImage(this.#image, view, cssW, cssH, dpr);
+      if (this.#image.over) this.#drawImage({ ...this.#image.over, m: this.#image.m }, view, cssW, cssH, dpr);
+      ctx.restore();
+    }
     if (this.#crop) this.#drawCrop(this.#crop, view, cssW, cssH, dpr);
     if (this.#corners) this.#drawCorners(this.#corners, view, cssW, cssH, dpr);
     if (this.#hidden) return;

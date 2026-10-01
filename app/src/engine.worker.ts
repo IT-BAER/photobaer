@@ -38,7 +38,8 @@ let selGen = 0;
 let strokeOpen = false;
 // Move tool live session: a snapshot taken right after any duplicate, restored and replayed
 // from on every step so the previewed offset never compounds.
-let moveSession: { liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number } | null = null;
+// `pixels`: a selected-pixels session; `floating`: the live document hides the moved pixels (moveFloat).
+let moveSession: { liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number; pixels: boolean; floating: boolean } | null = null;
 // Free transform / Transform Selection / Warp session: one open history step. `hidden` is the document
 // with the source removed (the UI previews it), `refined` the matrix or warp mesh JSON last rendered for
 // real, `base` the snapshot a warp applies to after a baked matrix (null: the step's start), `label` the
@@ -227,9 +228,9 @@ function scheduleSave(ms: number) {
   if (!autosave) return;
   clearTimeout(timer);
   timer = setTimeout(() => {
-    // A transform session hides its source pixels; commit and cancel schedule the next save. An Edit
-    // Contents session never autosaves: the autosave keeps the outermost document.
-    if (transformSession || parents.length) return;
+    // Transform and move sessions show unfinished pixels; commit and cancel schedule the next save. An
+    // Edit Contents session never autosaves: the autosave keeps the outermost document.
+    if (transformSession || moveSession || parents.length) return;
     if (saving) { again = true; return; }
     saving = runSave().finally(() => {
       saving = null;
@@ -1138,7 +1139,7 @@ const api = {
       walk(JSON.parse(e.layers_json()) as LayerNode[]);
       if (used.has(base)) { let i = 2; while (used.has(`${base} ${i}`)) i++; e.set_props(targetId, JSON.stringify({ name: `${base} ${i}` })); }
     }
-    moveSession = { liveBase: e.snapshot(), targetId, duplicated: duplicate, lastDx: 0, lastDy: 0 };
+    moveSession = { liveBase: e.snapshot(), targetId, duplicated: duplicate, lastDx: 0, lastDy: 0, pixels: false, floating: false };
     return { ...changed(), activeId: targetId };
   },
 
@@ -1146,6 +1147,7 @@ const api = {
     const e = need(), s = moveSession;
     if (!s) return info();
     e.restore(s.liveBase);
+    s.floating = false;
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     for (const pid of collectPixelIds(tree, s.targetId)) e.offset_layer(pid, dx, dy);
     if (findNode(e, s.targetId)?.artboard) e.offset_artboard(s.targetId, dx, dy);
@@ -1158,6 +1160,7 @@ const api = {
   moveLayerCommit() {
     const e = need(), s = moveSession;
     if (!s) return info();
+    if (s.floating) e.restore(s.liveBase);
     e.drop_snapshot(s.liveBase);
     moveSession = null;
     if (s.lastDx || s.lastDy) e.reparent_to_artboard(s.targetId);
@@ -1180,7 +1183,7 @@ const api = {
   movePixelsBegin(id: number, label: string, copy = false) {
     const e = need();
     history.begin(label);
-    moveSession = { liveBase: e.snapshot(), targetId: id, duplicated: copy, lastDx: 0, lastDy: 0 };
+    moveSession = { liveBase: e.snapshot(), targetId: id, duplicated: copy, lastDx: 0, lastDy: 0, pixels: true, floating: false };
     return changed();
   },
 
@@ -1188,6 +1191,7 @@ const api = {
     const e = need(), s = moveSession;
     if (!s) return info();
     e.restore(s.liveBase);
+    s.floating = false;
     e.move_selected_pixels(s.targetId, dx, dy, s.duplicated);
     s.lastDx = dx;
     s.lastDy = dy;
@@ -1199,6 +1203,7 @@ const api = {
   movePixelsCommit() {
     const e = need(), s = moveSession;
     if (!s) return info();
+    if (s.floating) e.restore(s.liveBase);
     e.drop_snapshot(s.liveBase);
     moveSession = null;
     if (s.lastDx === 0 && s.lastDy === 0) history.abort(); else history.commit();
@@ -1213,6 +1218,33 @@ const api = {
     history.restoreOpen();
     history.abort();
     return changed();
+  },
+
+  // Right after a move begin: when the moved pixels look the same drawn as a plain image on top (a
+  // top-level pixel layer, normal blend, full opacity and fill, no mask, style or clipping, nothing
+  // visible above), returns that image like transformBegin and shows the document without them
+  // until the next step; otherwise null and nothing changes. `scale` is image px per document px
+  // (the view's device scale), at most 1. The image is capped at 2 MP; when that makes it softer
+  // than `scale`, `over` is a sharp image of the visible rect `view` plus half a view around it.
+  moveFloat(scale = 1, view: Box | null = null) {
+    const e = need(), s = moveSession;
+    if (!s || s.lastDx || s.lastDy) return null;
+    const tree = JSON.parse(e.layers_json()) as LayerNode[];
+    const i = tree.findIndex(n => n.id === s.targetId), n = tree[i];
+    if (!n || n.kind !== 'pixel' || !n.visible || n.blend !== 'normal' || n.opacity !== 1 || n.fill !== 1) return null;
+    if (n.clipping || n.mask || n.vector_mask || n.style || visibleTopDown(tree.slice(i + 1)).length) return null;
+    const sel = s.pixels ? (JSON.parse(e.channels_json()) as { selection: { bounds: Box | null } | null }).selection?.bounds ?? null : null;
+    const found = s.pixels ? intersect(sel, e.layer_bounds(s.targetId) as Box | null) : e.layer_bounds(s.targetId) as Box | null;
+    if (!found) return null;
+    const sharp = Math.min(1, scale), f = Math.min(sharp, Math.sqrt((1 << 21) / (found[2] * found[3])));
+    const { image, data } = liftPreview(e, s.targetId, Array.from(found) as Box, s.pixels, Math.max(64, Math.ceil(Math.max(found[2], found[3]) * f)));
+    const near = view && f < 0.9 * sharp ? intersect(found, [view[0] - view[2] / 2, view[1] - view[3] / 2, view[2] * 2, view[3] * 2]) : null;
+    const over = near && liftPreview(e, s.targetId, near.map(Math.round) as Box, s.pixels, Math.ceil(Math.max(near[2], near[3]) * sharp));
+    if (s.pixels) { if (!s.duplicated) e.clear(s.targetId, 'pixels'); }
+    else e.set_props(s.targetId, JSON.stringify({ visible: false }));
+    s.floating = true;
+    version++;
+    return { ...info()!, image, data, over };
   },
 
   // Opens a transform session on the layer, its selected pixels or the selection. The preview
@@ -2076,8 +2108,8 @@ export type Api = typeof api;
 async function handle(id: number, op: keyof Api, args: unknown[]) {
   try {
     const result = await (api[op] as (...a: unknown[]) => unknown)(...args);
-    const data = (result as { data?: unknown } | null)?.data;
-    postMessage({ id, result, docId }, { transfer: data instanceof ArrayBuffer ? [data] : [] });
+    const r = result as { data?: unknown; over?: { data?: unknown } | null } | null;
+    postMessage({ id, result, docId }, { transfer: [r?.data, r?.over?.data].filter(d => d instanceof ArrayBuffer) });
   } catch (err) {
     postMessage({ id, error: err instanceof Error ? err.message : String(err), docId });
   }
@@ -2087,7 +2119,7 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 const STROKE_OPS = new Set<keyof Api>(['strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'patternPixels']);
 const PREVIEW_OPS = new Set<keyof Api>(['fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels']);
 // An open move session commits before any other op, so history never sees a half move.
-const MOVE_OPS = new Set<keyof Api>(['moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels']);
+const MOVE_OPS = new Set<keyof Api>(['moveFloat', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels']);
 // App-scope font calls: never refused for a stale document id and never close an open session.
 const FONT_OPS = new Set<keyof Api>(['fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing', 'glyphCells', 'glyphAlternates', 'fontCovers']);
 // An open type session commits before any other op; the UI hears it as typeCommitted.
