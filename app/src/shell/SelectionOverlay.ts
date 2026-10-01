@@ -67,6 +67,7 @@ export class SelectionOverlay {
   #dash = 0;
   #timer: ReturnType<typeof setInterval> | undefined;
   #last: [View, number, number, number] | null = null;
+  #raf = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.#canvas = canvas;
@@ -79,9 +80,11 @@ export class SelectionOverlay {
     this.#syncTimer();
   }
 
+  // Redraws on the next frame (coalesced), so a drag preview follows the pointer instead of the ants timer.
   setPreview(p: Preview) {
     this.#preview = p;
     this.#syncTimer();
+    if (!this.#raf) this.#raf = requestAnimationFrame(() => { this.#raf = 0; if (this.#last) this.draw(...this.#last); });
   }
 
   setHidden(b: boolean) {
