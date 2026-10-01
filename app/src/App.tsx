@@ -75,7 +75,7 @@ import { repeatLastFilter } from './filters/lastFilter.ts';
 import { schema, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, AboutDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
+  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, AboutDialog, DonateDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
   ScaleEffectsDialog, StrokeDialog, TrimDialog,
 } from './app/Dialogs.tsx';
 
@@ -129,6 +129,7 @@ export function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const newDialog = useRef<HTMLDialogElement>(null);
   const aboutDialog = useRef<HTMLDialogElement>(null);
+  const donateDialog = useRef<HTMLDialogElement>(null);
   const featherDialog = useRef<HTMLDialogElement>(null);
   const modifyDialog = useRef<HTMLDialogElement>(null);
   const colorRangeDialog = useRef<HTMLDialogElement>(null);
@@ -1398,10 +1399,10 @@ export function App() {
           </span>
         ) : null}
         <span className="menubar-end">
-          <a href="https://github.com/sponsors/IT-BAER" target="_blank" rel="noopener noreferrer">
+          <button type="button" onClick={() => donateDialog.current?.showModal()}>
             <svg className="heart" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.6 4.5c2.1 0 3.8 1.2 5.4 3.1 1.6-1.9 3.3-3.1 5.4-3.1 3.6 0 5.7 3.8 4.2 7.2C19.5 16.4 12 21 12 21z" /></svg>
             Donate
-          </a>
+          </button>
           <button type="button" title="Fullscreen" aria-label="Fullscreen" onClick={() => void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen())}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.5" d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" /></svg>
           </button>
@@ -1625,6 +1626,7 @@ export function App() {
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <AboutDialog aboutDialog={aboutDialog} />
+      <DonateDialog donateDialog={donateDialog} />
       <FeatherDialog featherDialog={featherDialog} run={run} />
       <ContentAwareFillDialog dialog={contentAwareDialog} submit={(structure, color) => {
         const id = active?.id;

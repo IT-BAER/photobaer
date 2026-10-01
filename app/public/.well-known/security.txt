@@ -1,0 +1,4 @@
+Contact: mailto:admin@it-baer.net
+Expires: 2027-10-01T00:00:00Z
+Preferred-Languages: en, de
+Canonical: https://photobaer.com/.well-known/security.txt

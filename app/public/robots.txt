@@ -1,8 +1,9 @@
 User-agent: *
 Allow: /
+Content-Signal: search=yes, ai-input=yes, ai-train=no
 
 User-agent: GPTBot
-Allow: /
+Disallow: /
 
 User-agent: OAI-SearchBot
 Allow: /
@@ -11,7 +12,7 @@ User-agent: ChatGPT-User
 Allow: /
 
 User-agent: ClaudeBot
-Allow: /
+Disallow: /
 
 User-agent: Claude-SearchBot
 Allow: /
@@ -20,6 +21,6 @@ User-agent: PerplexityBot
 Allow: /
 
 User-agent: Google-Extended
-Allow: /
+Disallow: /
 
 Sitemap: https://photobaer.com/sitemap.xml

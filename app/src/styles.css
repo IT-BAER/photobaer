@@ -521,3 +521,23 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .clone-overlay { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; border: 0; }
 .shapes-footer { display: flex; align-items: center; gap: 8px; }
 @media (max-width: 640px) { dialog { padding: 16px 12px; } }
+
+/* Donate dialog: centered card with brand-colored payment options. */
+.donate-dialog { width: 380px; max-width: calc(100vw - 32px); padding: 24px 24px 18px; text-align: center; }
+.donate-dialog .donate-heart { display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 50%; background: color-mix(in srgb, #a855f7 18%, transparent); color: #a855f7; }
+.donate-dialog h2 { margin: 0 0 8px; font: 600 22px/1.2 'Comfortaa', sans-serif; }
+.donate-dialog p { margin: 0 auto; max-width: 300px; line-height: 1.45; text-wrap: balance; }
+.donate-dialog .dim { margin-top: 14px; color: var(--dim); font-size: 12px; }
+.donate-options { display: grid; gap: 10px; margin: 18px 0 0; }
+.donate-option { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 8px; text-align: left; text-decoration: none; transition: filter var(--t-hover) var(--ease), transform var(--t-hover) var(--ease); }
+.donate-option:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.donate-option:focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; }
+.donate-option > svg { flex: none; width: 22px; height: 22px; }
+.donate-option strong { display: block; font-size: 14px; }
+.donate-option small { display: block; font-size: 12px; opacity: 0.8; }
+.donate-option .donate-arrow { margin-left: auto; flex: none; opacity: 0.7; }
+.donate-option.paypal { background: #0070e0; color: #fff; }
+.donate-option.bmc { background: #ffdd00; color: #0d0c22; }
+.donate-dialog .actions { justify-content: center; margin-top: 12px; }
+.donate-dialog .actions button { background: none; border-color: transparent; color: var(--dim); }
+.donate-dialog .actions button:hover { color: var(--text); border-color: var(--line); }
