@@ -7,17 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-01
+
 ### Added
 
+- Retouching tools: Spot Healing Brush, Healing Brush, Patch, Content-Aware Move, Red Eye, Clone
+  Stamp and Pattern Stamp, with a Clone Source panel (five sources, offset, scale, rotation, overlay).
+- Dodge, Burn, Sponge, Blur, Sharpen, Smudge, History Brush and Art History Brush.
 - Website pages for search engines and AI assistants: /photoshop-alternative/, /psd-editor-online/
   and /features/, with a page description, preview image and structured data on every page.
 - robots.txt, sitemap.xml and llms.txt.
+
+### Changed
+
+- The options bar fits in one row: brush size and hardness in a popover, compact number fields
+  that change by dragging their label, icon toggles for airbrush, pressure and similar options.
+- Paint tools show the brush outline or crosshair instead of the system pointer over the canvas.
+- Small windows: the tool list, menus, panels and status bar stay inside the window; under 640 px
+  the panels move below the canvas.
 
 ### Fixed
 
 - The browser tab shows the full page title while no image is open.
 - Opening a website page no longer replaces the app that the browser keeps for offline use.
-
 - Layer Style dialog: no horizontal scrollbar (the contour presets fit), effect names with action
   buttons stay on one line, and the list and settings keep a right margin.
 - Scrollbars are thin and without arrow buttons.
@@ -84,7 +96,8 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.1.3...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/IT-BAER/photobaer/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/IT-BAER/photobaer/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/IT-BAER/photobaer/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/IT-BAER/photobaer/compare/v0.1.0...v0.1.1
