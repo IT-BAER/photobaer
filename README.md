@@ -1,6 +1,21 @@
 # photobaer
 
+<p align="center"><img src="docs/screenshots/header.webp" alt="photobaer: image editing in your browser" width="900"></p>
+
 A browser image editor. https://photobaer.com
+
+## Screenshots
+
+<p align="center"><img src="docs/screenshots/layers.webp" alt="Layers with groups, Vibrance and Curves adjustment layers, Curves properties" width="900"></p>
+
+<p align="center">
+<img src="docs/screenshots/transform.webp" alt="Free Transform with numeric options on a styled layer" width="49%">
+<img src="docs/screenshots/styles.webp" alt="Layer Style dialog with Stroke and Drop Shadow" width="49%">
+<img src="docs/screenshots/brush.webp" alt="Brush tool with the Brush Settings panel" width="49%">
+<img src="docs/screenshots/psd.webp" alt="A layered PSD reopened with its group, layer effects and adjustment layer" width="49%">
+</p>
+
+<p align="center"><sub>Adjustment layers and groups, Free Transform, layer styles, brushes, PSD open and save.</sub></p>
 
 ## License
 
