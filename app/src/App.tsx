@@ -1367,6 +1367,9 @@ export function App() {
       <button type="button" className="primary" onClick={() => cropSession.current?.commit()}>Apply</button>
     </span>
   );
+  const menuItems = (items: Item[]): ReactNode => items.map(i => (
+    <Fragment key={i.label}>
+      {i.sep && <li role="separator" className="menu-sep" />}
       <li className={i.sub ? 'has-sub' : undefined} onMouseEnter={i.sub ? e => placeSubmenu(e.currentTarget) : undefined} onFocus={i.sub ? e => placeSubmenu(e.currentTarget) : undefined}>
         <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={() => { if (!i.sub) setMenu(null); i.run(); }}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
         {i.sub && !i.off && <ul role="menu" aria-label={i.label}>{menuItems(i.sub)}</ul>}
