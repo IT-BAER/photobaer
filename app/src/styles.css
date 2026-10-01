@@ -280,6 +280,9 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .welcome .drop-hint { display: grid; gap: 4px; margin-top: 16px; padding: 18px 28px; border: 1px dashed var(--line); border-radius: 8px; color: var(--dim); pointer-events: auto; transition: border-color var(--t-hover) var(--ease), background-color var(--t-hover) var(--ease); }
 .welcome .drop-hint.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); }
 .welcome .drop-hint small { font-size: 12px; }
+.welcome .copyright a { color: var(--accent-hover); text-decoration: none; pointer-events: auto; }
+.welcome .copyright a:hover { text-decoration: underline; }
+.welcome .copyright svg { vertical-align: -3px; }
 .workspace.no-doc > .sidebar, .workspace.no-doc .options-bar { display: none; }
 @media (max-width: 600px) {
   .welcome h1 { font-size: 34px; gap: 8px; }

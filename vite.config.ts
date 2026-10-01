@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
-import { readdirSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 
 // SharedArrayBuffer and WASM threads need cross-origin isolation; every host must send these.
@@ -23,10 +23,14 @@ function precache(): Plugin {
   };
 }
 
+// The app version is the newest released CHANGELOG.md section, which is also the release notes.
+const version = /^## \[(\d+\.\d+\.\d+)\]/m.exec(readFileSync(new URL('./CHANGELOG.md', import.meta.url), 'utf8'))?.[1] ?? '0.0.0';
+
 export default defineConfig({
   root: 'app',
   base: './',
   plugins: [react(), precache()],
+  define: { __APP_VERSION__: JSON.stringify(version) },
   server: { headers },
   preview: { headers },
   build: { outDir: '../dist', emptyOutDir: true, target: 'es2023' },
