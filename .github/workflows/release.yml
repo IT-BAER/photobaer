@@ -41,4 +41,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           (cd dist && zip -qr "../photobaer-${GITHUB_REF_NAME}.zip" .)
-          gh release create "$GITHUB_REF_NAME" "photobaer-${GITHUB_REF_NAME}.zip" --title "photobaer $GITHUB_REF_NAME" --generate-notes
+          # Release notes are the CHANGELOG.md section of this version; the release fails without one.
+          awk -v v="## [${GITHUB_REF_NAME#v}]" 'index($0, v) == 1 { on = 1; next } /^(## \[|\[[^]]+\]: )/ { on = 0 } on' CHANGELOG.md > notes.md
+          test -s notes.md
+          gh release create "$GITHUB_REF_NAME" "photobaer-${GITHUB_REF_NAME}.zip" --title "photobaer $GITHUB_REF_NAME" --notes-file notes.md
