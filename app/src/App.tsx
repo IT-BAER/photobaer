@@ -1338,10 +1338,18 @@ export function App() {
       <button type="button" className="primary" onClick={() => cropSession.current?.commit()}>Apply</button>
     </span>
   );
+  // A submenu opens beside its item; one that would run past the window bottom moves up, never above the top.
+  const fitSub = (li: HTMLElement) => {
+    const ul = li.querySelector<HTMLElement>(':scope > ul');
+    if (!ul) return;
+    ul.style.top = '';
+    const over = ul.getBoundingClientRect().bottom - innerHeight + 4;
+    if (over > 0) ul.style.top = `${Math.max(-5 - over, 4 - li.getBoundingClientRect().top)}px`;
+  };
   const menuItems = (items: Item[]): ReactNode => items.map(i => (
     <Fragment key={i.label}>
       {i.sep && <li role="separator" className="menu-sep" />}
-      <li className={i.sub ? 'has-sub' : undefined}>
+      <li className={i.sub ? 'has-sub' : undefined} onMouseEnter={i.sub ? e => fitSub(e.currentTarget) : undefined} onFocus={i.sub ? e => fitSub(e.currentTarget) : undefined}>
         <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={() => { if (!i.sub) setMenu(null); i.run(); }}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
         {i.sub && !i.off && <ul role="menu" aria-label={i.label}>{menuItems(i.sub)}</ul>}
       </li>
