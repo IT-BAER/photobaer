@@ -397,13 +397,22 @@ export function useMoveTool(c: MoveToolCtx) {
         return;
       }
       const g = drag;
-      if (!g) return;
+      if (!g || g.end) return;
       g.pos = [e.x, e.y];
       g.shift = e.shiftKey;
       if (g.ready && !g.failed) aim(g);
       if (e.type !== 'move') g.end = e.type === 'cancel' ? 'cancel' : 'up';
       pump(g);
     };
+    // Escape ends the drag like a pointer cancel; the pointer events that follow are ignored.
+    const onKey = (e: KeyboardEvent) => {
+      const g = drag;
+      if (e.key !== 'Escape' || !g || g.end) return;
+      e.preventDefault();
+      g.end = 'cancel';
+      pump(g);
+    };
+    window.addEventListener('keydown', onKey);
     moveKeysRef.current = {
       nudge(dx, dy, alt) {
         if (drag) return;
@@ -417,6 +426,7 @@ export function useMoveTool(c: MoveToolCtx) {
     };
     return () => {
       v.onPointer = () => {};
+      window.removeEventListener('keydown', onKey);
       moveKeysRef.current = null;
       const g = drag;
       drag = null;

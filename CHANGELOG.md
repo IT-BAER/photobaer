@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Escape cancels a Move drag and puts the layer or selected pixels back.
+
 ## [0.1.2] - 2026-10-01
 
 ### Fixed
