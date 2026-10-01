@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-01
+
+### Added
+
+- photobaer-mcp, an MCP server on npm: Claude Code, Codex and other agents open images from disk,
+  run filters and menu commands, look at a preview and save the result in a photobaer tab.
+  Setup in Help > Use with AI Agents. The editing stays in the browser tab.
+- WebMCP tools for in-browser agents: document info, menu commands, filters with parameters, preview.
+- App-styled tooltips replace the browser's title tooltips.
+
+### Fixed
+
+- The tool flyout highlights the hovered tool and closes when a menu bar menu opens.
+
 ## [0.2.2] - 2026-10-01
 
 ### Added
@@ -116,7 +130,8 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.2.2...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/IT-BAER/photobaer/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/IT-BAER/photobaer/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/IT-BAER/photobaer/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/IT-BAER/photobaer/compare/v0.1.3...v0.2.0
