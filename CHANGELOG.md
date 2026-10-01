@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Website pages for search engines and AI assistants: /photoshop-alternative/, /psd-editor-online/
+  and /features/, with a page description, preview image and structured data on every page.
+- robots.txt, sitemap.xml and llms.txt.
+
 ### Fixed
+
+- The browser tab shows the full page title while no image is open.
+- Opening a website page no longer replaces the app that the browser keeps for offline use.
 
 - Layer Style dialog: no horizontal scrollbar (the contour presets fit), effect names with action
   buttons stay on one line, and the list and settings keep a right margin.

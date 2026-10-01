@@ -7,6 +7,9 @@ import { join, relative, resolve } from 'node:path';
 // SharedArrayBuffer and WASM threads need cross-origin isolation; every host must send these.
 const headers = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' };
 
+// Website files (content pages, their images, crawler files) are not part of the offline app.
+const SITE_ONLY = /^(img\/|[^/]+\/index\.html$|site\.css$|og-image\.png$|robots\.txt$|sitemap\.xml$|llms\.txt$)/;
+
 // Lists every built file so the service worker can precache the whole app for offline use,
 // and stamps sw.js with a content hash so every changed build installs a new worker.
 function precache(): Plugin {
@@ -19,7 +22,7 @@ function precache(): Plugin {
       const files = (readdirSync(outDir, { recursive: true, withFileTypes: true }))
         .filter(d => d.isFile())
         .map(d => relative(outDir, join(d.parentPath, d.name)).replaceAll('\\', '/'))
-        .filter(f => f !== 'sw.js' && f !== 'precache.json');
+        .filter(f => f !== 'sw.js' && f !== 'precache.json' && !SITE_ONLY.test(f));
       writeFileSync(join(outDir, 'precache.json'), JSON.stringify(files));
       const hash = createHash('sha256');
       for (const f of files.sort()) hash.update(f).update(readFileSync(join(outDir, f)));

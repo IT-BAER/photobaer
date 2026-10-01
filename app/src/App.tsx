@@ -81,6 +81,8 @@ import {
 
 // Set by vite.config.ts from CHANGELOG.md.
 declare const __APP_VERSION__: string;
+// The SEO title from index.html, shown while no document is open.
+const PAGE_TITLE = document.title;
 
 // Menus are fixed so the scrolling menubar does not clip them; both stay inside the viewport.
 function placeMenu(ul: HTMLUListElement | null) {
@@ -372,7 +374,7 @@ export function App() {
   function show(d: DocInfo | null, selectAfter?: SelectAfter) {
     setDoc(d);
     viewer.current?.setDoc(d);
-    document.title = d ? `${d.name} - photobaer` : 'photobaer – Online Photo Editor';
+    document.title = d ? `${d.name} - photobaer` : PAGE_TITLE;
     if (!d) { setActive(null); return; }
     // Node ids restart per document: a previous document's active layer never carries over.
     const sameDoc = d.docId === docRef.current?.docId;

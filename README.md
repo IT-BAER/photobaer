@@ -2,7 +2,7 @@
 
 <p align="center"><img src="docs/screenshots/header.webp" alt="photobaer: image editing in your browser" width="900"></p>
 
-A browser image editor. https://photobaer.com
+A free, open-source online photo editor and Photoshop alternative. It runs in the browser, works offline, keeps your files on your device and opens and saves PSD files. https://photobaer.com
 
 ## Screenshots
 

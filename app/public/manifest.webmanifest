@@ -1,7 +1,8 @@
 {
   "name": "photobaer",
   "short_name": "photobaer",
-  "description": "Image editor that runs in the browser and works offline.",
+  "description": "Free, open-source photo editor that runs in the browser, works offline and opens and saves PSD files.",
+  "categories": ["photo", "graphics", "productivity"],
   "id": "./",
   "start_url": "./",
   "scope": "./",

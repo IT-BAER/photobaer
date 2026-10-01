@@ -4,14 +4,102 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#16181b" />
-    <title>photobaer – Online Photo Editor</title>
+    <title>photobaer – Free Online Photo Editor & Photoshop Alternative</title>
+    <meta name="description" content="Free, open-source online photo editor and Photoshop alternative. Layers, adjustment layers, layer styles and PSD files. Runs in your browser, works offline." />
+    <link rel="canonical" href="https://photobaer.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="photobaer" />
+    <meta property="og:url" content="https://photobaer.com/" />
+    <meta property="og:title" content="photobaer – Free Online Photo Editor & Photoshop Alternative" />
+    <meta property="og:description" content="Open-source image editor in your browser: layers, adjustment layers, layer styles, brushes, PSD open and save. Works offline, files stay on your device." />
+    <meta property="og:image" content="https://photobaer.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="photobaer logo next to a layers panel: adjustment layers, layer styles, blend modes, PSD, works offline" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="./favicon.png" type="image/png" media="(prefers-color-scheme: light)" />
     <link rel="icon" href="./logo-light.png" type="image/png" media="(prefers-color-scheme: dark)" />
     <link rel="apple-touch-icon" href="./icon-192-v2.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebApplication",
+          "@id": "https://photobaer.com/#app",
+          "name": "photobaer",
+          "url": "https://photobaer.com/",
+          "description": "Free, open-source online photo editor and Photoshop alternative that runs in the browser, works offline, keeps files on your device and opens and saves PSD files.",
+          "applicationCategory": "MultimediaApplication",
+          "applicationSubCategory": "Photo editor",
+          "operatingSystem": "Any (web browser)",
+          "browserRequirements": "Requires JavaScript and WebAssembly",
+          "isAccessibleForFree": true,
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+          "image": "https://photobaer.com/og-image.png",
+          "screenshot": "https://raw.githubusercontent.com/IT-BAER/photobaer/main/docs/screenshots/layers.webp",
+          "featureList": [
+            "Layers, groups, layer masks and clipping masks",
+            "Adjustment layers such as Levels, Curves and Vibrance",
+            "Layer styles: drop shadow, glow, bevel, stroke, satin and overlays",
+            "Smart objects and smart filters",
+            "Selection tools: marquee, lasso, magic wand, quick selection, color range",
+            "Brushes with ABR brush import, eraser, gradient and paint bucket",
+            "Clone stamp, healing brush, spot healing, patch and content-aware fill",
+            "Dodge, burn, sponge, blur, sharpen and smudge tools",
+            "Free transform, warp, crop and perspective crop",
+            "Type tool, shapes, pen tool, paths and vector masks",
+            "Blur, sharpen, noise and distort filters",
+            "Open and save PSD files",
+            "Works offline as an installable web app",
+            "Files stay on your device"
+          ],
+          "author": { "@id": "https://photobaer.com/#org" },
+          "sameAs": ["https://github.com/IT-BAER/photobaer"]
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://photobaer.com/#org",
+          "name": "IT-BAER",
+          "url": "https://photobaer.com/",
+          "logo": "https://photobaer.com/icon-512-v2.png",
+          "sameAs": ["https://github.com/IT-BAER"]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://photobaer.com/#site",
+          "name": "photobaer",
+          "url": "https://photobaer.com/",
+          "publisher": { "@id": "https://photobaer.com/#org" }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Plain HTML for crawlers and the first paint; React replaces it on mount. -->
+      <main style="max-width:720px;margin:0 auto;padding:48px 16px;font:15px/1.6 system-ui,sans-serif;color:#dee0e3;background:#131416">
+        <h1 style="font-size:28px;line-height:1.2">photobaer: free online photo editor and Photoshop alternative</h1>
+        <p>photobaer is a free, open-source image editor that runs in your browser. It works offline, keeps your files on your device and opens and saves PSD files. No account, no upload, no install.</p>
+        <h2>Features</h2>
+        <ul>
+          <li>Layers, groups, layer masks, clipping masks and blend modes</li>
+          <li>Adjustment layers (Levels, Curves, Vibrance and more) and fill layers</li>
+          <li>Layer styles: drop shadow, glow, bevel, stroke, satin and overlays</li>
+          <li>Smart objects and smart filters</li>
+          <li>Selection tools: marquee, lasso, magic wand, quick selection, color range, quick mask</li>
+          <li>Brushes with ABR import, eraser, gradient, paint bucket</li>
+          <li>Retouching: clone stamp, healing brush, spot healing, patch, content-aware fill, dodge, burn</li>
+          <li>Free transform, warp, crop and perspective crop</li>
+          <li>Type, shapes, pen tool, paths and vector masks</li>
+          <li>Open PNG, JPEG, WebP, GIF, BMP, AVIF and PSD; save PSD; export PNG, JPEG and WebP</li>
+        </ul>
+        <p><a href="/photoshop-alternative/" style="color:#4797ff">Why photobaer is a Photoshop alternative</a> · <a href="/psd-editor-online/" style="color:#4797ff">Edit PSD files online</a> · <a href="/features/" style="color:#4797ff">All features</a> · <a href="https://github.com/IT-BAER/photobaer" style="color:#4797ff">Source code on GitHub</a></p>
+      </main>
+    </div>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

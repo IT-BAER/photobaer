@@ -20,7 +20,9 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   const put = (key, r) => { if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(key, copy)); } return r; };
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(r => put('./', r)).catch(() => caches.match('./', { ignoreVary: true })));
+    // Only the app URL refreshes the cached shell; content pages such as /features/ pass through.
+    const shell = new URL(req.url).pathname === new URL('./', location).pathname;
+    e.respondWith(fetch(req).then(r => (shell ? put('./', r) : r)).catch(() => caches.match('./', { ignoreVary: true })));
     return;
   }
   // ignoreVary: static hosts often send "Vary: Origin", which would make module-script requests miss offline.
