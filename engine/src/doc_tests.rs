@@ -1556,6 +1556,49 @@ fn a_filled_mask_keeps_its_value_where_offset_layer_shifts_in_new_area() {
 }
 
 #[test]
+fn offset_layer_moves_every_pixel_and_mask_value_unchanged() {
+    // Raw stored values per pixel; a missing tile reads as transparent or the mask default.
+    fn read(t: &Tiles, cache: &mut std::collections::HashMap<(i32, i32), Vec<u8>>, empty: &[u8], x: i32, y: i32) -> Vec<u8> {
+        let k = (x.div_euclid(TILE as i32), y.div_euclid(TILE as i32));
+        let b = cache.entry(k).or_insert_with(|| t.get(k.0, k.1).map_or(Vec::new(), |t| t.px.to_bytes()));
+        if b.is_empty() {
+            return empty.to_vec();
+        }
+        let (n, p) = (empty.len(), (y.rem_euclid(TILE as i32) * TILE as i32 + x.rem_euclid(TILE as i32)) as usize);
+        b[p * n..(p + 1) * n].to_vec()
+    }
+    for depth in [8u8, 16] {
+        for (dx, dy) in [(37, -91), (-300, 5), (256, 0), (1, 255)] {
+            let mut d = Document::new(512, 512, depth).unwrap();
+            for (tx, ty) in [(0u32, 0u32), (1, 0), (1, 1)] {
+                let mut data = vec![0u8; TILE_BYTES_U8];
+                for p in 0..TILE_PIXELS {
+                    let (x, y) = (tx as usize * TILE + p % TILE, ty as usize * TILE + p / TILE);
+                    data[p * 4..p * 4 + 4].copy_from_slice(&[(x % 251) as u8, (y % 241) as u8, ((x + y) % 239) as u8, ((x * 7 + y) % 256) as u8]);
+                }
+                d.set_tile_rgba8(1, tx, ty, &data).unwrap();
+            }
+            d.add_mask(1, true).unwrap();
+            d.set_mask_tile8(1, 1, 0, &mask_pattern(5, 1, 0)).unwrap();
+            let n = d.node(1).unwrap();
+            let (src, msrc, mdef) = (n.pixel_tiles().unwrap().clone(), n.mask.as_ref().unwrap().tiles.clone(), n.mask.as_ref().unwrap().default);
+            d.offset_layer(1, dx, dy).unwrap();
+            let n = d.node(1).unwrap();
+            let (dst, mdst) = (n.pixel_tiles().unwrap(), &n.mask.as_ref().unwrap().tiles);
+            let w = if depth == 8 { 1 } else { 2 };
+            let (rgba0, m0) = (vec![0u8; 4 * w], if depth == 8 { vec![mdef as u8] } else { (mdef as u16).to_le_bytes().to_vec() });
+            let (mut c, mut mc, mut dc, mut mdc) = Default::default();
+            for y in -300..900 {
+                for x in -300..900 {
+                    assert_eq!(read(dst, &mut dc, &rgba0, x, y), read(&src, &mut c, &rgba0, x - dx, y - dy), "pixel {x},{y} depth {depth} offset {dx},{dy}");
+                    assert_eq!(read(mdst, &mut mdc, &m0, x, y), read(&msrc, &mut mc, &m0, x - dx, y - dy), "mask {x},{y} depth {depth} offset {dx},{dy}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn offset_layer_refuses_offsets_the_manifest_cannot_store() {
     let mut d = Document::new(256, 256, 8).unwrap();
     d.set_tile_rgba8(1, 0, 0, &vec![255u8; TILE_BYTES_U8]).unwrap();
@@ -1671,3 +1714,58 @@ fn v3_selection_and_channel_rejections() {
 
 #[path = "doc_tests_more.rs"]
 mod more;
+
+fn tiles_bytes(t: &Tiles) -> Vec<((i32, i32), Vec<u8>)> {
+    t.coords().into_iter().map(|(x, y)| ((x, y), t.get(x, y).unwrap().px.to_bytes())).collect()
+}
+
+fn soft_selection_doc(depth: u8) -> Document {
+    let mut d = Document::new(512, 512, depth).unwrap();
+    for (tx, ty) in [(0u32, 0u32), (1, 0), (0, 1), (1, 1)] {
+        let mut data = vec![0u8; TILE_BYTES_U8];
+        for p in 0..TILE_PIXELS {
+            let (x, y) = (tx as usize * TILE + p % TILE, ty as usize * TILE + p / TILE);
+            data[p * 4..p * 4 + 4].copy_from_slice(&[(x % 251) as u8, (y % 241) as u8, ((x + y) % 239) as u8, ((x * 3 + y * 5) % 256) as u8]);
+        }
+        d.set_tile_rgba8(1, tx, ty, &data).unwrap();
+    }
+    d.select_ellipse(130.5, 90.25, 300.0, 210.0, true, Mode::New).unwrap();
+    d
+}
+
+#[test]
+fn a_whole_pixel_selected_move_matches_the_resampled_move() {
+    let nearest = crate::resample::Interp::Nearest;
+    for depth in [8u8, 16] {
+        for (dx, dy, copy) in [(37.0, -91.0, false), (-300.0, 5.0, true), (256.0, 0.0, false), (1.0, 330.0, false)] {
+            let (mut a, mut b) = (soft_selection_doc(depth), soft_selection_doc(depth));
+            a.transform_selected_pixels(1, &[1.0, 0.0, dx, 0.0, 1.0, dy, 0.0, 0.0, 1.0], nearest, None, copy).unwrap();
+            // A fraction of a pixel takes the resampling path but samples the same source pixels.
+            b.transform_selected_pixels(1, &[1.0, 0.0, dx + 1e-9, 0.0, 1.0, dy, 0.0, 0.0, 1.0], nearest, None, copy).unwrap();
+            let at = format!("depth {depth} offset {dx},{dy} copy {copy}");
+            assert_eq!(tiles_bytes(a.node(1).unwrap().pixel_tiles().unwrap()), tiles_bytes(b.node(1).unwrap().pixel_tiles().unwrap()), "pixels, {at}");
+            assert_eq!(tiles_bytes(&a.selection.as_ref().unwrap().tiles), tiles_bytes(&b.selection.as_ref().unwrap().tiles), "selection, {at}");
+        }
+    }
+}
+
+#[test]
+fn move_selected_pixels_reuses_its_lift_only_for_the_same_content() {
+    let expect = |f: &dyn Fn(&mut Document), dx: f64, dy: f64| {
+        let mut d = soft_selection_doc(8);
+        f(&mut d);
+        d.transform_selected_pixels(1, &[1.0, 0.0, dx, 0.0, 1.0, dy, 0.0, 0.0, 1.0], crate::resample::Interp::Nearest, None, false).unwrap();
+        (tiles_bytes(d.node(1).unwrap().pixel_tiles().unwrap()), tiles_bytes(&d.selection.as_ref().unwrap().tiles))
+    };
+    let got = |e: &EngineCore| (tiles_bytes(e.doc.node(1).unwrap().pixel_tiles().unwrap()), tiles_bytes(&e.doc.selection.as_ref().unwrap().tiles));
+    let mut e = EngineCore::new(soft_selection_doc(8));
+    let base = e.snapshot();
+    e.move_selected_pixels(1, 5, 3, false).unwrap();
+    e.restore(base).unwrap();
+    e.move_selected_pixels(1, 40, 7, false).unwrap();
+    assert!(got(&e) == expect(&|_| {}, 40.0, 7.0), "a second step from the same base");
+    e.restore(base).unwrap();
+    e.doc.fill(1, Target::Pixels, 10, 20, 30, 255).unwrap();
+    e.move_selected_pixels(1, 40, 7, false).unwrap();
+    assert!(got(&e) == expect(&|d| d.fill(1, Target::Pixels, 10, 20, 30, 255).unwrap(), 40.0, 7.0), "changed pixels lift again");
+}

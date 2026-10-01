@@ -35,7 +35,7 @@ mod filter_run;
 #[cfg(test)]
 #[path = "doc_m5_tests.rs"]
 mod m5_tests;
-pub use transform::Remap;
+pub use transform::{Lift, Remap};
 pub use brush::EngineCore;
 use brush::*;
 use compositor::*;
@@ -158,6 +158,25 @@ impl Pixels {
             Pixels::U8(vec![0u8; TILE_PIXELS * 4].into_boxed_slice())
         } else {
             Pixels::U16(vec![0u16; TILE_PIXELS * 4].into_boxed_slice())
+        }
+    }
+
+    // Copies `n` pixels from `src` at `from` to `at`; both sides share the document depth.
+    fn copy_run(&mut self, at: usize, src: &Pixels, from: usize, n: usize) {
+        match (self, src) {
+            (Pixels::U8(d), Pixels::U8(s)) => d[at * 4..(at + n) * 4].copy_from_slice(&s[from * 4..(from + n) * 4]),
+            (Pixels::U16(d), Pixels::U16(s)) => d[at * 4..(at + n) * 4].copy_from_slice(&s[from * 4..(from + n) * 4]),
+            (Pixels::Mask8(d), Pixels::Mask8(s)) => d[at..at + n].copy_from_slice(&s[from..from + n]),
+            (Pixels::Mask16(d), Pixels::Mask16(s)) => d[at..at + n].copy_from_slice(&s[from..from + n]),
+            _ => unreachable!("tile depth differs from the document depth"),
+        }
+    }
+
+    fn mask_filled(depth: u8, v: u32) -> Pixels {
+        if depth == 8 {
+            Pixels::Mask8(vec![v as u8; TILE_PIXELS].into_boxed_slice())
+        } else {
+            Pixels::Mask16(vec![v as u16; TILE_PIXELS].into_boxed_slice())
         }
     }
 

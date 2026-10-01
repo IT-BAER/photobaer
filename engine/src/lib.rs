@@ -839,6 +839,11 @@ impl Engine {
         self.0.doc.transform_selected_pixels(id, &m, Interp::parse(interp).map_err(err)?, bg, copy).map_err(err)
     }
 
+    /// Moves the selected pixels by whole pixels; a drag that restores one base per step lifts it once.
+    pub fn move_selected_pixels(&mut self, id: u32, dx: i32, dy: i32, copy: bool) -> Result<(), JsError> {
+        self.0.move_selected_pixels(id, dx, dy, copy).map_err(err)
+    }
+
     /// `kind` is cw|ccw|180|flipH|flipV.
     pub fn rotate_layer_exact(&mut self, id: u32, kind: &str) -> Result<(), JsError> {
         self.0.doc.rotate_layer_exact(id, Remap::parse(kind).map_err(err)?).map_err(err)

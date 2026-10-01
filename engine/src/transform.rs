@@ -6,6 +6,15 @@ use crate::path::Live;
 use crate::resample::{Interp, Plane, Resampler};
 use std::collections::BTreeSet;
 
+/// Selected pixels lifted off a layer: `lifted` (alpha min(alpha, coverage)), the coverage over the
+/// selection bounds and the layer with its hole. Independent of where the pixels go.
+pub struct Lift {
+    bounds: [i32; 4],
+    lifted: Tiles,
+    cover: Tiles,
+    hole: Tiles,
+}
+
 /// Exact index remaps in a layer's content-bounds frame.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Remap {
@@ -323,25 +332,54 @@ impl Document {
     ) -> Result<(), String> {
         self.check_idle()?;
         self.check_pixel_paint(id)?;
+        match self.lift(id, bg, copy)? {
+            Some(l) => self.place_lift(id, &l, m, interp),
+            None => Ok(()),
+        }
+    }
+
+    // Identifies a lift's inputs by tile ids, so a cached lift is reused only for the same content.
+    pub(super) fn lift_key(&self, id: u32, bg: Option<[u8; 3]>, copy: bool) -> Result<Vec<u64>, String> {
+        let sel = self.selection.as_ref().ok_or("nothing is selected")?;
+        let bg = bg.map_or(1 << 24, |c| u32::from_be_bytes([0, c[0], c[1], c[2]]));
+        let mut key = vec![id as u64, copy as u64, bg as u64, sel.default as u64, self.width as u64, self.height as u64, self.depth as u64];
+        for t in [self.node(id)?.pixel_tiles()?, &sel.tiles] {
+            key.push(u64::MAX);
+            for (tx, ty) in t.coords() {
+                key.extend([tx as u32 as u64, ty as u32 as u64, t.id_at(tx, ty)]);
+            }
+        }
+        Ok(key)
+    }
+
+    // The offset-independent half of moving selected pixels, or None with nothing selected.
+    pub(super) fn lift(&mut self, id: u32, bg: Option<[u8; 3]>, copy: bool) -> Result<Option<Lift>, String> {
         let sel = self.selection.clone().ok_or("nothing is selected")?;
-        let Some(b) = self.selection_bounds() else { return Ok(()) };
+        let Some(b) = self.selection_bounds() else { return Ok(None) };
         check_area(b)?;
         let old = self.node(id)?.pixel_tiles()?.clone();
-        let rs = Resampler::new(self.rgba_plane(&old, b, Some(&sel)), m, interp, 0.0)?;
-        let moved = self.render_tiles(&rs, None, None)?;
-        let outline = self.transformed_selection(m, interp)?;
         let bg = bg.map(|c| [c[0] as f32 / 255.0, c[1] as f32 / 255.0, c[2] as f32 / 255.0, 1.0]);
-        let mut layer = old.clone();
-        let mut buf = vec![0f32; TILE_PIXELS * 4];
-        // A copy leaves no hole.
-        for (tx, ty) in tile_span(b).into_iter().filter(|_| !copy) {
-            let Some(t) = old.get(tx, ty) else { continue };
+        let (mut lifted, mut cover, mut hole) = (Tiles::default(), Tiles::default(), old.clone());
+        let (mut cov, mut up, mut buf) = (vec![0f32; TILE_PIXELS], vec![0f32; TILE_PIXELS * 4], vec![0f32; TILE_PIXELS * 4]);
+        for (tx, ty) in tile_span(b) {
             let (ox, oy) = (tx * TI, ty * TI);
+            for (p, c) in cov.iter_mut().enumerate() {
+                let (x, y) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
+                let inside = x >= b[0] && y >= b[1] && x < b[0] + b[2] && y < b[1] + b[3];
+                *c = if inside { self.sel_at(&sel, x, y) } else { 0.0 };
+            }
+            let c = Pixels::mask_from_norm(self.depth, &cov);
+            if !all_default(&c, 0) {
+                cover.put(tx, ty, Some(Tile { id: self.alloc_tile_id(), px: Arc::new(c) }));
+            }
+            let Some(t) = old.get(tx, ty) else { continue };
             let mut changed = false;
             for p in 0..TILE_PIXELS {
                 let mut v = t.px.rgba_f32(p);
-                let l = v[3].min(self.sel_at(&sel, ox + (p % TILE) as i32, oy + (p / TILE) as i32));
-                if l > 0.0 {
+                let l = v[3].min(cov[p]);
+                up[p * 4..p * 4 + 4].copy_from_slice(&if l > 0.0 { [v[0], v[1], v[2], l] } else { [0.0; 4] });
+                // A copy leaves no hole.
+                if l > 0.0 && !copy {
                     changed = true;
                     match bg {
                         Some(c) => (0..4).for_each(|i| v[i] = v[i] * (1.0 - l) + c[i] * l),
@@ -355,12 +393,36 @@ impl Document {
                 }
                 buf[p * 4..p * 4 + 4].copy_from_slice(&v);
             }
+            let px = Pixels::from_straight(self.depth, &up);
+            if px.any_alpha() {
+                lifted.put(tx, ty, Some(Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
+            }
             if changed {
                 let px = Pixels::from_straight(self.depth, &buf);
                 let tile = px.any_alpha().then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) });
-                layer.put(tx, ty, tile);
+                hole.put(tx, ty, tile);
             }
         }
+        Ok(Some(Lift { bounds: b, lifted, cover, hole }))
+    }
+
+    // Puts a lift down through `m`: a whole-pixel nearest translation shifts the tiles as they
+    // are, anything else resamples. The layer gets hole + moved pixels, the selection the moved coverage.
+    pub(super) fn place_lift(&mut self, id: u32, l: &Lift, m: &[f64; 9], interp: Interp) -> Result<(), String> {
+        let whole = |v: f64| v.fract() == 0.0 && v.abs() <= i32::MAX as f64;
+        let shift = *m == [1.0, 0.0, m[2], 0.0, 1.0, m[5], 0.0, 0.0, 1.0] && whole(m[2]) && whole(m[5]) && matches!(interp, Interp::Nearest);
+        let (moved, outline) = if shift {
+            let (dx, dy) = (m[2] as i32, m[5] as i32);
+            let moved = self.shift_tiles(&l.lifted, dx, dy, None);
+            let mut outline = self.shift_tiles(&l.cover, dx, dy, Some(0));
+            self.clip_mask_to_canvas(&mut outline);
+            (moved, outline)
+        } else {
+            let rs = Resampler::new(self.rgba_plane(&l.lifted, l.bounds, None), m, interp, 0.0)?;
+            (self.render_tiles(&rs, None, None)?, self.transformed_selection(m, interp)?)
+        };
+        let mut layer = l.hole.clone();
+        let mut buf = vec![0f32; TILE_PIXELS * 4];
         for (tx, ty) in moved.coords() {
             let s = moved.get(tx, ty).expect("a listed tile");
             let tile = match layer.get(tx, ty) {
@@ -385,6 +447,28 @@ impl Document {
         *self.node_mut(id)?.pixel_tiles_mut()? = layer;
         self.selection = Some(SelMask { default: 0, tiles: outline });
         Ok(())
+    }
+
+    // Zeroes mask values outside the canvas; tiles left all zero are dropped.
+    fn clip_mask_to_canvas(&mut self, tiles: &mut Tiles) {
+        let (w, h) = (self.width as i32, self.height as i32);
+        for (tx, ty) in tiles.coords() {
+            let (ox, oy) = (tx * TI, ty * TI);
+            if ox >= 0 && oy >= 0 && ox + TI <= w && oy + TI <= h {
+                continue;
+            }
+            let t = tiles.get(tx, ty).expect("a listed tile");
+            let mut v: Vec<f32> = (0..TILE_PIXELS).map(|p| t.px.mask_f32(p)).collect();
+            for (p, x) in v.iter_mut().enumerate() {
+                let (x0, y0) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
+                if x0 < 0 || y0 < 0 || x0 >= w || y0 >= h {
+                    *x = 0.0;
+                }
+            }
+            let px = Pixels::mask_from_norm(self.depth, &v);
+            let tile = (!all_default(&px, 0)).then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) });
+            tiles.put(tx, ty, tile);
+        }
     }
 
     // Every pixel of `src` moved by an exact integer map (`fwd`, inverse `inv`, document px); a

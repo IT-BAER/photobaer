@@ -675,6 +675,9 @@ pub struct EngineCore {
     // Fill/texture patterns (E2.1), outside the document/snapshots for the same reason as tips.
     patterns: HashMap<u32, Arc<Pattern>>,
     next_pattern_id: u32,
+    // The last selected-pixels lift and its key: a move drag restores one base per step and
+    // lifts it once. ponytail: one entry; it holds the lifted tiles until the next lift.
+    lift: Option<(Vec<u64>, Arc<Lift>)>,
 }
 
 impl EngineCore {
@@ -690,7 +693,26 @@ impl EngineCore {
             next_tip_id: 0,
             patterns: HashMap::new(),
             next_pattern_id: 0,
+            lift: None,
         }
+    }
+
+    /// `transform_selected_pixels` by whole pixels, reusing the cached lift for the same content.
+    pub fn move_selected_pixels(&mut self, id: u32, dx: i32, dy: i32, copy: bool) -> Result<(), String> {
+        self.doc.check_idle()?;
+        self.doc.check_pixel_paint(id)?;
+        let key = self.doc.lift_key(id, None, copy)?;
+        let lift = match &self.lift {
+            Some((k, l)) if *k == key => l.clone(),
+            _ => {
+                let Some(l) = self.doc.lift(id, None, copy)? else { return Ok(()) };
+                let l = Arc::new(l);
+                self.lift = Some((key, l.clone()));
+                l
+            }
+        };
+        let m = [1.0, 0.0, dx as f64, 0.0, 1.0, dy as f64, 0.0, 0.0, 1.0];
+        self.doc.place_lift(id, &lift, &m, crate::resample::Interp::Nearest)
     }
 
     /// Registers a sampled brush tip (E1.11): 8-bit coverage, row-major, `1..=2500` per side.

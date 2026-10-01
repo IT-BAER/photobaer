@@ -1188,7 +1188,7 @@ const api = {
     const e = need(), s = moveSession;
     if (!s) return info();
     e.restore(s.liveBase);
-    e.transform_selected_pixels(s.targetId, Float64Array.of(1, 0, dx, 0, 1, dy, 0, 0, 1), 'nearest', new Uint8Array(), s.duplicated);
+    e.move_selected_pixels(s.targetId, dx, dy, s.duplicated);
     s.lastDx = dx;
     s.lastDy = dy;
     version++;

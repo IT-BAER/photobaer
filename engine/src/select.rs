@@ -988,38 +988,34 @@ impl Document {
                 }
             }
         }
-        let max = self.max();
-        let def = mask_default.map_or(0.0, |d| d as f32 / max);
+        let blank = match mask_default {
+            Some(v) => Pixels::mask_filled(self.depth, v),
+            None => Pixels::transparent(self.depth),
+        };
         let mut out = Tiles::default();
-        let mut buf = vec![0f32; TILE_PIXELS * if mask_default.is_some() { 1 } else { 4 }];
+        let ti = TILE as i32;
         for (dtx, dty) in dest {
-            let mut any = false;
-            for p in 0..TILE_PIXELS {
-                let sx = dtx * TILE as i32 + (p % TILE) as i32 - dx;
-                let sy = dty * TILE as i32 + (p / TILE) as i32 - dy;
-                let sp = (sy.rem_euclid(TILE as i32) * TILE as i32 + sx.rem_euclid(TILE as i32)) as usize;
-                let tile = src.get(t(sx), t(sy));
-                match mask_default {
-                    Some(_) => {
-                        let v = tile.map_or(def, |t| t.px.mask_f32(sp));
-                        any |= (v - def).abs() > f32::EPSILON;
-                        buf[p] = v;
-                    }
-                    None => {
-                        let v = tile.map_or([0.0; 4], |t| t.px.rgba_f32(sp));
-                        any |= v[3] > 0.0;
-                        buf[p * 4..p * 4 + 4].copy_from_slice(&v);
+            // Each destination row reads from at most two source tiles; values copy in native form.
+            let mut px = blank.clone();
+            let sx0 = dtx * ti - dx;
+            let split = (ti - sx0.rem_euclid(ti)) as usize;
+            for y in 0..TILE {
+                let sy = dty * ti + y as i32 - dy;
+                let row = sy.rem_euclid(ti) as usize * TILE;
+                for (at, sx, n) in [(0, sx0, split), (split, sx0 + split as i32, TILE - split)] {
+                    if let (true, Some(tile)) = (n > 0, src.get(t(sx), t(sy))) {
+                        px.copy_run(y * TILE + at, &tile.px, row + sx.rem_euclid(ti) as usize, n);
                     }
                 }
             }
-            if !any {
-                continue;
-            }
-            let px = match mask_default {
-                Some(_) => Pixels::mask_from_norm(self.depth, &buf),
-                None => Pixels::from_straight(self.depth, &buf),
+            let any = match (&px, &blank) {
+                (Pixels::Mask8(a), Pixels::Mask8(b)) => a != b,
+                (Pixels::Mask16(a), Pixels::Mask16(b)) => a != b,
+                _ => px.any_alpha(),
             };
-            out.put(dtx, dty, Some(Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
+            if any {
+                out.put(dtx, dty, Some(Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
+            }
         }
         out
     }
