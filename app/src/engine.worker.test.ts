@@ -1872,3 +1872,18 @@ test('applyFilter runs a registry filter as one step, previews in a session, and
   const [red, green, blue] = await px(6, 6);
   assert.ok(Math.abs(red! - 155) <= 1 && Math.abs(green! - 150) <= 1 && Math.abs(blue! - 75) <= 1, `half faded, got ${[red, green, blue]}`);
 });
+
+test('moving a large layer stays fast while undo snapshots grow the wasm heap', () => {
+  const e = new Engine(4000, 3000, 8);
+  const id = e.add_layer('L', 0);
+  e.fill(id, 'pixels', 255, 255, 255, 255);
+  let ms = 0;
+  for (let i = 0; i < 4; i++) {
+    e.snapshot();
+    const t0 = performance.now();
+    e.offset_layer(id, 60, 40);
+    ms = performance.now() - t0;
+  }
+  e.free();
+  assert.ok(ms < 200, `4th move took ${Math.round(ms)} ms`);
+});

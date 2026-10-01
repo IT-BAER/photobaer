@@ -19,6 +19,61 @@ mod styles;
 mod text;
 mod typeset;
 
+// dlmalloc grows wasm memory by what one request needs, and V8 makes each memory.grow cost
+// time proportional to the heap; when a request grows memory, reserve 1/8 of the heap in one grow.
+#[cfg(target_arch = "wasm32")]
+mod heap {
+    use core::arch::wasm32::memory_size;
+    use std::alloc::{GlobalAlloc, Layout, System};
+
+    pub struct Headroom;
+
+    unsafe fn reserve_if_grown(before: usize) {
+        if memory_size(0) != before {
+            unsafe {
+                let r = Layout::from_size_align_unchecked(before * 65536 / 8, 16);
+                let p = System.alloc(r);
+                if !p.is_null() {
+                    System.dealloc(p, r);
+                }
+            }
+        }
+    }
+
+    unsafe impl GlobalAlloc for Headroom {
+        unsafe fn alloc(&self, l: Layout) -> *mut u8 {
+            let before = memory_size(0);
+            unsafe {
+                let p = System.alloc(l);
+                reserve_if_grown(before);
+                p
+            }
+        }
+        unsafe fn alloc_zeroed(&self, l: Layout) -> *mut u8 {
+            let before = memory_size(0);
+            unsafe {
+                let p = System.alloc_zeroed(l);
+                reserve_if_grown(before);
+                p
+            }
+        }
+        unsafe fn realloc(&self, p: *mut u8, l: Layout, size: usize) -> *mut u8 {
+            let before = memory_size(0);
+            unsafe {
+                let q = System.realloc(p, l, size);
+                reserve_if_grown(before);
+                q
+            }
+        }
+        unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
+            unsafe { System.dealloc(p, l) }
+        }
+    }
+
+    #[global_allocator]
+    static A: Headroom = Headroom;
+}
+
 use blend::PaintMode;
 use doc::{Document, EngineCore, Remap, Target};
 use resample::Interp;
