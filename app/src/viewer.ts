@@ -17,7 +17,8 @@ export interface ViewDoc { docId: number; version: number; width: number; height
 export interface TileResult { docId: number; version: number; fill: ((slot: number) => boolean | void) | null }
 export type TileSource = (level: number, tx: number, ty: number) => Promise<TileResult>;
 
-interface Entry { slot: number; version: number; used: number }
+// `next` is a newer version staged while the viewer holds (see `hold`).
+interface Entry { slot: number; version: number; used: number; next?: { slot: number; version: number } }
 
 const MAX_INFLIGHT = 4;
 
@@ -38,6 +39,8 @@ export class Viewer {
   // `readyAt` is when the last tile the frame needed was stored (performance.now()).
   onVersionDrawn: (version: number, readyAt: number) => void = () => {};
   #storedAt = 0;
+  #hold = false;
+  #waiters: { version: number; done: () => void }[] = [];
 
   #tool: ViewerTool = null;
   #spring: ViewerTool = null;
@@ -69,12 +72,32 @@ export class Viewer {
   get dpr() { return window.devicePixelRatio || 1; }
   get size() { return [this.#w, this.#h] as const; }
 
+  // While held, a new version reaches the screen only once every visible tile has it, so a frame
+  // never mixes versions. Only for whole-version updates (a move drag): a stroke's per-frame
+  // dirty tiles would never all be current.
+  hold(on: boolean) {
+    this.#hold = on;
+    if (!on) this.#promote();
+    this.redraw();
+  }
+
+  // Resolves once `version` (or a newer one) is fully drawn, or after `ms` at the latest.
+  drawn(version: number, ms = 1000): Promise<void> {
+    return new Promise(res => {
+      const w = { version, done: () => { clearTimeout(t); res(); } };
+      const t = setTimeout(() => { this.#waiters = this.#waiters.filter(x => x !== w); res(); }, ms);
+      this.#waiters.push(w);
+      this.redraw();
+    });
+  }
+
   setDoc(d: ViewDoc | null) {
     // A canvas size change (crop, trim, rotation, their undo) refits like a new document.
     const fresh = !d || !this.#doc || d.docId !== this.#doc.docId || d.width !== this.#doc.width || d.height !== this.#doc.height;
     this.#doc = d;
     if (fresh) {
       this.#resetCache();
+      for (const w of this.#waiters.splice(0)) w.done();
       if (d) this.setView(fit(d.width, d.height, this.#w, this.#h));
     }
     this.redraw();
@@ -159,12 +182,15 @@ export class Viewer {
     if (!d) return this.#r.draw(frame);
     this.#frame++;
     const { level, tiles } = this.#visible(d);
+    const at = (tx: number, ty: number) => this.#cache.get(`${level}/${tx}/${ty}`);
+    if (this.#hold && tiles.every(([tx, ty]) => { const e = at(tx, ty); return e && (e.version === d.version || e.next?.version === d.version); })) this.#promote();
     if (this.#inst.length < tiles.length * FLOATS_PER_INSTANCE) this.#inst = frame.instances = new Float32Array(tiles.length * 2 * FLOATS_PER_INSTANCE);
     const want: [number, number, number][] = [];
     let freshVisible = true;
     for (const [tx, ty] of tiles) {
       const e = this.#touch(level, tx, ty);
-      if (!e || e.version !== d.version) { want.push([level, tx, ty]); freshVisible = false; }
+      if (!e || e.version !== d.version) freshVisible = false;
+      if (!e || (e.version !== d.version && e.next?.version !== d.version)) want.push([level, tx, ty]);
       const size = TILE << level;
       const x0 = tx * size, y0 = ty * size;
       const x1 = Math.min(x0 + size, d.width), y1 = Math.min(y0 + size, d.height);
@@ -182,7 +208,10 @@ export class Viewer {
     if (!top || top.version !== d.version) want.push([d.maxLevel, 0, 0]);
     this.#r.draw(frame);
     this.#pump(want);
-    if (freshVisible) this.onVersionDrawn(d.version, this.#storedAt);
+    if (freshVisible) {
+      this.onVersionDrawn(d.version, this.#storedAt);
+      this.#waiters = this.#waiters.filter(w => w.version > d.version || (w.done(), false));
+    }
   }
 
   #visible(d: ViewDoc) {
@@ -232,6 +261,7 @@ export class Viewer {
     this.#storedAt = performance.now();
     let e = this.#cache.get(key);
     if (e && e.version > r.version) return;
+    if (this.#hold && e && e.version < r.version) return this.#stage(e, r);
     if (!r.fill) {
       if (e && e.slot >= 0) this.#free.push(e.slot);
       this.#cache.set(key, { slot: -1, version: r.version, used: e?.used ?? this.#frame });
@@ -240,12 +270,47 @@ export class Viewer {
     const slot = e && e.slot >= 0 ? e.slot : this.#free.pop() ?? this.#evict();
     if (slot === undefined) return;
     if (r.fill(slot) === false) {
-      if (e) this.#cache.delete(key);
+      if (e) this.#drop(key);
       this.#free.push(slot);
       return;
     }
-    e = { slot, version: r.version, used: e?.used ?? this.#frame };
+    e = { slot, version: r.version, used: e?.used ?? this.#frame, next: e?.next };
     this.#cache.set(key, e);
+  }
+
+  // Fills a held entry's spare slot; the entry keeps drawing its current slot until `#promote`.
+  #stage(e: Entry, r: TileResult) {
+    const n = e.next;
+    if (n && n.version >= r.version) return;
+    if (!r.fill) {
+      if (n && n.slot >= 0) this.#free.push(n.slot);
+      e.next = { slot: -1, version: r.version };
+      return;
+    }
+    const slot = n && n.slot >= 0 ? n.slot : this.#free.pop() ?? this.#evict();
+    if (slot === undefined) return;
+    if (r.fill(slot) === false) {
+      this.#free.push(slot);
+      e.next = undefined;
+      return;
+    }
+    e.next = { slot, version: r.version };
+  }
+
+  #promote() {
+    for (const e of this.#cache.values()) {
+      if (!e.next) continue;
+      if (e.slot >= 0) this.#free.push(e.slot);
+      ({ slot: e.slot, version: e.version } = e.next);
+      e.next = undefined;
+    }
+  }
+
+  // Removes an entry and returns its staged slot (its own slot is the caller's).
+  #drop(key: string) {
+    const n = this.#cache.get(key)?.next;
+    if (n && n.slot >= 0) this.#free.push(n.slot);
+    this.#cache.delete(key);
   }
 
   // Least recently drawn entry that was not drawn in the current frame.
@@ -254,7 +319,7 @@ export class Viewer {
     for (const [k, e] of this.#cache) if (e.slot >= 0 && e.used < bestUsed) { best = k; bestUsed = e.used; }
     if (best === null) return undefined;
     const slot = this.#cache.get(best)!.slot;
-    this.#cache.delete(best);
+    this.#drop(best);
     return slot;
   }
 
