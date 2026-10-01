@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Blend, Brush, Circle, Crop, Eraser, Frame, Hand, Hexagon, Lasso, Magnet, Minus, Move, MousePointerClick,
   DiamondMinus, DiamondPlus, MousePointer2, Navigation, PaintBucket, PenTool, Pencil, Signature, Spline, SplinePointer, Pipette, RectangleHorizontal, RotateCw, Rows3, Shapes, Slash, Square, SquareDashedText, TextCursor, Triangle, Type, TypeOutline, Wand2, ZoomIn, Bandage, Syringe, SquareDashed, Move3d, Eye, Stamp, Grid3x3,
@@ -38,6 +38,13 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
     if (ul && ul.getBoundingClientRect().bottom > innerHeight - 8) ul.style.top = `${Math.max(8, innerHeight - 8 - ul.offsetHeight)}px`;
   };
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The menubar sits above the scrim, so a press there must close the flyout too.
+  useEffect(() => {
+    if (!flyout) return;
+    const close = (e: PointerEvent) => { if (!(e.target as Element).closest?.('.flyout')) setFlyoutState(null); };
+    document.addEventListener('pointerdown', close, true);
+    return () => document.removeEventListener('pointerdown', close, true);
+  }, [flyout]);
 
   const currentOf = (slot: Slot) => (SLOTS.find(s => s.id === slot.id)!.tools.includes(active) ? active : lastUsed[slot.id]);
 

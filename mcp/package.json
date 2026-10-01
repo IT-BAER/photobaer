@@ -1,0 +1,43 @@
+{
+  "name": "photobaer-mcp",
+  "version": "0.1.1",
+  "description": "MCP server that lets Claude Code, Codex and other agents edit images in photobaer, the free browser photo editor",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "photobaer-mcp": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "homepage": "https://photobaer.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IT-BAER/photobaer.git",
+    "directory": "mcp"
+  },
+  "keywords": [
+    "mcp",
+    "photo-editor",
+    "image",
+    "photoshop",
+    "claude",
+    "codex"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/ws": "^8.18.2",
+    "typescript": "^7.0.2"
+  }
+}

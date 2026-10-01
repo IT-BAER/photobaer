@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -30,11 +31,13 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+          registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
 
       # Builds the engine first; node tests import the generated engine package.
       - run: pnpm build
       - run: pnpm test
+      - run: npm ci --prefix mcp && npm test --prefix mcp && npm run build --prefix mcp
 
       - name: Create release
         env:
@@ -45,3 +48,14 @@ jobs:
           awk -v v="## [${GITHUB_REF_NAME#v}]" 'index($0, v) == 1 { on = 1; next } /^(## \[|\[[^]]+\]: )/ { on = 0 } on' CHANGELOG.md > notes.md
           test -s notes.md
           gh release create "$GITHUB_REF_NAME" "photobaer-${GITHUB_REF_NAME}.zip" --title "$GITHUB_REF_NAME" --notes-file notes.md
+
+      # photobaer-mcp has its own version: it is published only when mcp/package.json names a new one.
+      # Auth is npm trusted publishing (OIDC via id-token: write), set up on npmjs.com for this workflow; no token secret.
+      - name: Publish photobaer-mcp
+        working-directory: mcp
+        run: |
+          v=$(node -p "require('./package.json').version")
+          if npm view "photobaer-mcp@$v" version >/dev/null 2>&1; then echo "photobaer-mcp $v is already published"; exit 0; fi
+          # Trusted publishing needs npm 11.5.1 or newer.
+          npm install -g npm@^11.5.1
+          npm publish --access public

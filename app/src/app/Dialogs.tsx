@@ -224,6 +224,48 @@ export function AboutDialog({ aboutDialog }: { aboutDialog: DialogRef }) {
   );
 }
 
+// A self-hosted copy pairs with its own origin instead of photobaer.com.
+const agentServer = (origin: string) => `npx -y photobaer-mcp${origin === 'https://photobaer.com' ? '' : ` --url ${origin}/`}`;
+const agentSetup = (origin: string) => [
+  { name: 'Claude Code', cmd: `claude mcp add photobaer -- ${agentServer(origin)}` },
+  { name: 'Codex', cmd: `codex mcp add photobaer -- ${agentServer(origin)}` },
+];
+const AGENT_PROMPT = 'Use the photobaer MCP tools. Call connect first; it opens photobaer in my browser. '
+  + 'Open my image with open_file, edit it with list_filters and run_filter, or list_commands and run_command, '
+  + 'check each result with get_preview, and save it with save_file.\n\nTask: ';
+
+function CopyRow({ text, multiline }: { text: string; multiline?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="copy-row">
+      {multiline ? <textarea readOnly value={text} rows={5} /> : <input readOnly value={text} onFocus={e => e.currentTarget.select()} />}
+      <button type="button" onClick={() => navigator.clipboard.writeText(text).then(() => setCopied(true), () => {})}>{copied ? 'Copied' : 'Copy'}</button>
+    </div>
+  );
+}
+
+export function AgentDialog({ agentDialog }: { agentDialog: DialogRef }) {
+  const native = 'modelContext' in document || 'modelContext' in navigator;
+  return (
+    <dialog ref={agentDialog} className="agent-dialog" aria-labelledby="agent-title">
+      <form method="dialog">
+        <h2 id="agent-title">Use with AI agents</h2>
+        <p>
+          Coding agents such as Claude Code and Codex can open images from your disk in photobaer, run filters and menu commands, look at the result and save it.
+          The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab.
+        </p>
+        <h3>1. Add the photobaer MCP server to your agent</h3>
+        {agentSetup(location.origin).map(a => <label key={a.name} className="copy-label">{a.name}<CopyRow text={a.cmd} /></label>)}
+        <p className="dim">Needs Node.js 20 or newer. On the first connect, Chrome and Edge ask to allow access to apps on this device. Allow it, or the agent cannot reach the tab.</p>
+        <h3>2. Start with this prompt</h3>
+        <CopyRow text={AGENT_PROMPT} multiline />
+        {native && <p className="dim">This browser also has WebMCP enabled, so in-browser agents can use the same tools on this tab.</p>}
+        <div className="actions"><button className="primary">Close</button></div>
+      </form>
+    </dialog>
+  );
+}
+
 const HEART = 'M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.6 4.5c2.1 0 3.8 1.2 5.4 3.1 1.6-1.9 3.3-3.1 5.4-3.1 3.6 0 5.7 3.8 4.2 7.2C19.5 16.4 12 21 12 21z';
 // Brand marks from simple-icons (CC0).
 const DONATE_OPTIONS = [

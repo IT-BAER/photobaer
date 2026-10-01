@@ -51,6 +51,7 @@ import {
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
 import { buildMenus } from './app/menus.ts';
+import { agentTools, registerWebMcp, type ModelContext, type WebMcpCtx } from './app/webmcp.ts';
 import { layerContextItems } from './app/vectorCommands.ts';
 import { ShapesPanel } from './ShapesPanel.tsx';
 import { CharacterPanel, ParagraphPanel, TextStylesPanel, TypeProperties, WarpTextDialog } from './TypePanels.tsx';
@@ -71,11 +72,12 @@ import { useCloneOverlay, useRetouchTools } from './app/retouchTools.ts';
 import { CloneSourcePanel } from './CloneSourcePanel.tsx';
 import { useShortcuts } from './app/shortcuts.ts';
 import { FilterDialog, runFilter, type FilterDialogHandle } from './filters/FilterDialog.tsx';
-import { repeatLastFilter } from './filters/lastFilter.ts';
+import { applyFilter, repeatLastFilter, type ParamValue } from './filters/lastFilter.ts';
+import { connectBridge, pairing, toBase64, type Format } from './app/agentBridge.ts';
 import { schema, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, AboutDialog, DonateDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
+  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, AboutDialog, AgentDialog, DonateDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
   ScaleEffectsDialog, StrokeDialog, TrimDialog,
 } from './app/Dialogs.tsx';
 
@@ -130,6 +132,7 @@ export function App() {
   const newDialog = useRef<HTMLDialogElement>(null);
   const aboutDialog = useRef<HTMLDialogElement>(null);
   const donateDialog = useRef<HTMLDialogElement>(null);
+  const agentDialog = useRef<HTMLDialogElement>(null);
   const featherDialog = useRef<HTMLDialogElement>(null);
   const modifyDialog = useRef<HTMLDialogElement>(null);
   const colorRangeDialog = useRef<HTMLDialogElement>(null);
@@ -915,7 +918,7 @@ export function App() {
   };
   const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
   const menus = buildMenus({
-    setMenu, newDialog, aboutDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeContents, run,
+    setMenu, newDialog, aboutDialog, agentDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeContents, run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
@@ -930,6 +933,71 @@ export function App() {
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
+  const runRef = useRef(run);
+  runRef.current = run;
+
+  // Agent operations reject with the engine's message instead of showing the error banner.
+  const agentOps = {
+    runFilter(id: string, params: Record<string, ParamValue>) {
+      const a = activeRef.current;
+      if (!a) return Promise.reject(new Error('No active layer'));
+      if (transformRef.current) endTransform(false);
+      return applyFilter(async f => show(await client.call('applyFilter', a.id, editTarget(a), { kind: f.kind, params: f.params }, f.label)),
+        { kind: id, params, label: filterSpecs.find(s => s.id === id)?.label ?? id });
+    },
+    async openFile(f: File) {
+      if (transformRef.current) endTransform(false);
+      const d = await client.call('openFile', f);
+      show(d);
+      return { warnings: d.warnings };
+    },
+    async exportFile(format: Format, quality = 0.92) {
+      if (format === 'psd') return client.call('savePsd');
+      const blob = format === 'project' ? await client.call('saveProject') : await client.call('exportImage', `image/${format}`, quality);
+      return { blob, warnings: [] };
+    },
+  };
+  const agentRef = useRef(agentOps);
+  agentRef.current = agentOps;
+  const [agent, setAgent] = useState(false);
+  const bridgeRef = useRef<{ close(): void } | null>(null);
+
+  // Agent calls wait for start-up: the filter schema loads after the engine's init.
+  const [started] = useState(() => { let done!: () => void; return { promise: new Promise<void>(r => { done = r; }), done }; });
+  useEffect(() => { if (filterSpecs.length) started.done(); }, [filterSpecs.length, started]);
+  useEffect(() => {
+    const ctx: WebMcpCtx = {
+      ready: () => started.promise, doc: () => docRef.current, menus: () => menusRef.current, active: () => activeRef.current?.id ?? null,
+      selectLayer: id => { setPicked([]); setActive({ id, target: 'pixels' }); },
+      newDocument: (w, h) => runRef.current('Creating…', () => client.call('newDoc', w, h, 8, [255, 255, 255, 255])),
+      filters: schema, runFilter: (id, params) => agentRef.current.runFilter(id, params),
+      async preview(max) {
+        const bmp = await createImageBitmap(await client.call('exportImage', 'image/png'));
+        const k = Math.min(1, max / Math.max(bmp.width, bmp.height)), width = Math.max(1, Math.round(bmp.width * k)), height = Math.max(1, Math.round(bmp.height * k));
+        const c = new OffscreenCanvas(width, height);
+        c.getContext('2d')!.drawImage(bmp, 0, 0, width, height);
+        bmp.close();
+        return { mimeType: 'image/png', data: await toBase64(await c.convertToBlob({ type: 'image/png' })), width, height };
+      },
+    };
+    // Chrome before 150 exposed the draft API on navigator.
+    const mc = ((document as { modelContext?: ModelContext }).modelContext ?? (navigator as { modelContext?: ModelContext }).modelContext);
+    const ctl = new AbortController();
+    registerWebMcp(mc, ctx, ctl.signal);
+    // photobaer-mcp opens the page with #agent=PORT.TOKEN; the fragment is dropped from the address bar once read.
+    const pair = () => {
+      const p = pairing(location.hash);
+      if (!p) return;
+      history.replaceState(null, '', location.pathname + location.search);
+      bridgeRef.current?.close();
+      bridgeRef.current = connectBridge(p, agentTools(ctx), {
+        openFile: f => agentRef.current.openFile(f), exportFile: (f, q) => agentRef.current.exportFile(f, q), status: setAgent,
+      });
+    };
+    pair();
+    addEventListener('hashchange', pair);
+    return () => { ctl.abort(); removeEventListener('hashchange', pair); bridgeRef.current?.close(); };
+  }, [started]);
 
   useEffect(() => {
     let alive = true;
@@ -1399,6 +1467,7 @@ export function App() {
           </span>
         ) : null}
         <span className="menubar-end">
+          {agent && <button type="button" className="agent-chip" title="An AI agent controls this tab. Click to disconnect." onClick={() => bridgeRef.current?.close()}>Agent connected ✕</button>}
           <button type="button" onClick={() => donateDialog.current?.showModal()}>
             <svg className="heart" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.6 4.5c2.1 0 3.8 1.2 5.4 3.1 1.6-1.9 3.3-3.1 5.4-3.1 3.6 0 5.7 3.8 4.2 7.2C19.5 16.4 12 21 12 21z" /></svg>
             Donate
@@ -1627,6 +1696,7 @@ export function App() {
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <AboutDialog aboutDialog={aboutDialog} />
       <DonateDialog donateDialog={donateDialog} />
+      <AgentDialog agentDialog={agentDialog} />
       <FeatherDialog featherDialog={featherDialog} run={run} />
       <ContentAwareFillDialog dialog={contentAwareDialog} submit={(structure, color) => {
         const id = active?.id;
