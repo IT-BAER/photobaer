@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Escape cancels a Move drag and puts the layer or selected pixels back.
+- A Move drag shows the parts of a layer that lie outside the canvas while they are dragged back in.
 
 ## [0.1.2] - 2026-10-01
 

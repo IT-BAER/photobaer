@@ -605,15 +605,14 @@ impl Document {
         let sel = if selected { Some(self.selection.as_ref().ok_or("nothing is selected")?) } else { None };
         let bounds = if selected { self.selection_bounds() } else { self.layer_bounds(id)? };
         let Some(b) = bounds else { return Ok(out) };
-        let lo = (-64.0 * f).floor() as i32;
-        let (hx, hy) = (((self.width as f64 + 64.0) * f).ceil() as i32, ((self.height as f64 + 64.0) * f).ceil() as i32);
-        // Identity (every move and transform start): a nearest copy, one tile lookup per tile run.
+        // Identity (every move and transform start): a nearest copy of the source, one tile lookup per
+        // tile run, not clipped to the canvas because the caller moves it.
         if *m == [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0] && f == 1.0 && sel.is_none() && self.depth() == 8 {
             // Full size, 8-bit: straight bytes copied a tile row at a time.
-            let (x0, x1) = (rect[0].max(lo).max(b[0]), (rect[0] + w as i32).min(hx).min(b[0] + b[2]));
+            let (x0, x1) = (rect[0].max(b[0]), (rect[0] + w as i32).min(b[0] + b[2]));
             for j in 0..h {
                 let y = rect[1] + j as i32;
-                if y < lo || y >= hy || y < b[1] || y >= b[1] + b[3] {
+                if y < b[1] || y >= b[1] + b[3] {
                     continue;
                 }
                 let mut x = x0;
@@ -634,13 +633,13 @@ impl Document {
             for j in 0..h {
                 let y = rect[1] + j as i32;
                 let sy = ((y as f64 + 0.5) / f).floor() as i32;
-                if y < lo || y >= hy || sy < b[1] || sy >= b[1] + b[3] {
+                if sy < b[1] || sy >= b[1] + b[3] {
                     continue;
                 }
                 for i in 0..w {
                     let x = rect[0] + i as i32;
                     let sx = ((x as f64 + 0.5) / f).floor() as i32;
-                    if x < lo || x >= hx || sx < b[0] || sx >= b[0] + b[2] {
+                    if sx < b[0] || sx >= b[0] + b[2] {
                         continue;
                     }
                     let key = (sx.div_euclid(TI), sy.div_euclid(TI));
@@ -663,6 +662,8 @@ impl Document {
             }
             return Ok(out);
         }
+        let lo = (-64.0 * f).floor() as i32;
+        let (hx, hy) = (((self.width as f64 + 64.0) * f).ceil() as i32, ((self.height as f64 + 64.0) * f).ceil() as i32);
         // Nearest proxy of the source.
         let pw = ((b[2] as f64 * f).round() as usize).max(1);
         let ph = ((b[3] as f64 * f).round() as usize).max(1);
@@ -1073,6 +1074,16 @@ pub(super) mod tests {
         // Clipped to the canvas + 64 px.
         let far = d.transform_preview(1, &tr(-100.0, 0.0), 1.0, false, [-95, 5, 3, 3]).unwrap();
         assert!(far.iter().all(|v| *v == 0));
+    }
+
+    #[test]
+    fn identity_preview_keeps_pixels_outside_the_canvas() {
+        let mut d = sample_doc();
+        d.offset_layer(1, 400, 0).unwrap();
+        let out = d.transform_preview(1, &ID, 1.0, false, [405, 5, 3, 3]).unwrap();
+        assert_eq!(out, grid(&d, 1, [405, 5, 3, 3]).concat());
+        let half = d.transform_preview(1, &ID, 0.5, false, [200, 0, 8, 8]).unwrap();
+        assert!(half.chunks_exact(4).any(|p| p[3] > 0));
     }
 
     #[test]
