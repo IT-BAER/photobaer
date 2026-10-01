@@ -162,7 +162,7 @@ export class SelectionOverlay {
     if (active && !this.#timer) this.#timer = setInterval(() => {
       this.#dash = (this.#dash + 1) % 8;
       if (this.#last) this.draw(...this.#last);
-    }, 100);
+    }, 80);
     else if (!active && this.#timer) { clearInterval(this.#timer); this.#timer = undefined; }
   }
 
@@ -609,7 +609,7 @@ export class SelectionOverlay {
     ctx.strokeStyle = '#fff';
     ctx.stroke();
     ctx.setLineDash([4 / s, 4 / s]);
-    ctx.lineDashOffset = -this.#dash * (4 / s);
+    ctx.lineDashOffset = -this.#dash / s;
     ctx.strokeStyle = '#000';
     ctx.stroke();
   }
