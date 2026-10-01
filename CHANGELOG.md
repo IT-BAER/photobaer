@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-01
+
+### Fixed
+
+- Installed apps now pick up new releases completely: each build installs a fresh service worker
+  and cache, so the manifest, icons and fonts no longer stay at the version first installed.
+- Installed apps on desktop Chrome get the new app icon (icon files have new names).
+
 ## [0.1.1] - 2026-10-01
 
 ### Added
@@ -49,6 +57,7 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/IT-BAER/photobaer/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/IT-BAER/photobaer/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/IT-BAER/photobaer/releases/tag/v0.1.0

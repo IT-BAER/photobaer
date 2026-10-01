@@ -1,12 +1,14 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 
 // SharedArrayBuffer and WASM threads need cross-origin isolation; every host must send these.
 const headers = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' };
 
-// Lists every built file so the service worker can precache the whole app for offline use.
+// Lists every built file so the service worker can precache the whole app for offline use,
+// and stamps sw.js with a content hash so every changed build installs a new worker.
 function precache(): Plugin {
   let outDir = '';
   return {
@@ -19,6 +21,13 @@ function precache(): Plugin {
         .map(d => relative(outDir, join(d.parentPath, d.name)).replaceAll('\\', '/'))
         .filter(f => f !== 'sw.js' && f !== 'precache.json');
       writeFileSync(join(outDir, 'precache.json'), JSON.stringify(files));
+      const hash = createHash('sha256');
+      for (const f of files.sort()) hash.update(f).update(readFileSync(join(outDir, f)));
+      const sw = join(outDir, 'sw.js');
+      const src = readFileSync(sw, 'utf8');
+      const out = src.replace("const CACHE = 'photobaer';", `const CACHE = 'photobaer-${hash.digest('hex').slice(0, 16)}';`);
+      if (out === src) throw new Error('sw.js: CACHE declaration not found');
+      writeFileSync(sw, out);
     },
   };
 }
