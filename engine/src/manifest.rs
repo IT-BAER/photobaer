@@ -313,7 +313,7 @@ impl Document {
                     false,
                 )
             }
-            5 | 6 => {
+            5..=7 => {
                 let m: ManifestV5In = serde_json::from_str(json).map_err(|e| format!("invalid manifest: {e}"))?;
                 let extras = V4Extras {
                     global_light: m.global_light,
@@ -328,7 +328,11 @@ impl Document {
                     grid: m.grid,
                     guides_locked: m.guides_locked,
                     artboards_locked: m.artboards_locked,
+                    vanishing_planes: m.vanishing_planes,
                 };
+                if probe.version < 7 && !vector.vanishing_planes.is_empty() {
+                    return Err("vanishing_planes need manifest v7".into());
+                }
                 Document::build(
                     Head { width: m.width, height: m.height, depth: m.depth, tiles_x: m.tiles_x, tiles_y: m.tiles_y },
                     m.next_id,
@@ -339,7 +343,7 @@ impl Document {
                     m.channels,
                     Some(extras),
                     Some(vector),
-                    probe.version == 6,
+                    probe.version >= 6,
                 )
             }
             v => Err(format!("unsupported version {v}")),
@@ -1189,6 +1193,8 @@ struct ManifestV5In {
     grid: Grid,
     guides_locked: bool,
     artboards_locked: bool,
+    #[serde(default)]
+    vanishing_planes: Vec<crate::vanishing::VPlane>,
 }
 
 // The document-level fields v4 adds; v1 to v3 load with the defaults.

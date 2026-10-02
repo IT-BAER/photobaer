@@ -1,6 +1,6 @@
 //! Filter registry, runner, Fade and manifest v6 (docs/M5.md sections 1-2, batch B1).
 
-use super::m3_tests::{load as load_v4, v4_fixture};
+use super::m3_tests::{load as load_v4, reload, v4_fixture};
 use super::*;
 use crate::filters::{self, Ctx};
 use serde_json::{json, Value};
@@ -365,7 +365,7 @@ fn v6_round_trip_of_a_stack_with_blur_solarize_and_a_blob_param_is_byte_identica
     let d = load_v4(&v6_fixture().to_string()).unwrap();
     let first = d.manifest();
     let v: Value = serde_json::from_str(&first).unwrap();
-    assert_eq!(v["version"], 6);
+    assert_eq!(v["version"], 7);
     let kinds: Vec<&str> = v["layers"][3]["smart"]["filters"].as_array().unwrap().iter().map(|f| f["filter"]["kind"].as_str().unwrap()).collect();
     assert_eq!(kinds, ["color_lookup", "gaussian_blur", "blur.blur", "stylize.solarize"]);
     assert_eq!(v["layers"][3]["smart"]["filters"][0]["filter"]["params"]["table"], 11, "the blob param is kept");
@@ -1597,4 +1597,133 @@ fn content_aware_scale_protects_skin_tones() {
     cas(&mut off, 66.0, 100.0, false);
     cas(&mut on, 66.0, 100.0, true);
     assert!(skin_columns(&on) > skin_columns(&off), "{} vs {}", skin_columns(&on), skin_columns(&off));
+}
+
+// A `vanishing_point` state over `planes` (id, corners) with dabs (plane, from, to, radius) at full hardness and opacity.
+fn vp_state(planes: &[(&str, [[f64; 2]; 4])], dabs: &[(&str, [f64; 2], [f64; 2], f64)]) -> Value {
+    let planes: Vec<Value> = planes.iter().map(|(id, c)| json!({ "id": id, "corners": c })).collect();
+    let stamps: Vec<Value> = dabs.iter().map(|(p, f, t, r)| json!({ "planeId": p, "from": f, "to": t, "radius": r, "opacity": 1.0, "hardness": 1.0 })).collect();
+    json!({ "planes": planes, "stamps": stamps, "gridSize": 10, "brushHardness": 100.0, "brushOpacity": 100.0 })
+}
+
+fn vp_doc() -> Document {
+    doc_with(64, 48, |x, y| [(x * 4) as u8, (y * 5) as u8, ((x * y) % 251) as u8, 255])
+}
+
+const SQUARE: [[f64; 2]; 4] = [[8.0, 8.0], [40.0, 8.0], [40.0, 40.0], [8.0, 40.0]];
+
+#[test]
+fn vanishing_point_on_a_square_plane_is_a_plain_offset_copy() {
+    let before = vp_doc();
+    let mut d = before.clone();
+    // The disc of radius 6 px around (32, 24) copies from 16 px to the left.
+    let st = vp_state(&[("p1", SQUARE)], &[("p1", [0.25, 0.5], [0.75, 0.5], 6.0 / 32.0)]);
+    d.apply_filter(1, Target::Pixels, &filter("vanishing_point", json!({ "state": st })), None, 1.0).unwrap();
+    for y in 0..48 {
+        for x in 0..64 {
+            let (dx, dy) = (x as f64 + 0.5 - 32.0, y as f64 + 0.5 - 24.0);
+            let want = if dx.hypot(dy) <= 6.0 { lpx(&before, 1, x - 16, y) } else { lpx(&before, 1, x, y) };
+            assert_eq!(lpx(&d, 1, x, y), want, "{x},{y}");
+        }
+    }
+}
+
+#[test]
+fn vanishing_point_dabs_shrink_with_the_perspective() {
+    let mut d = doc_with(512, 320, |x, y| [(x / 2) as u8, (y / 2) as u8, 60, 255]);
+    let before = d.clone();
+    let plane = [[136.0, 16.0], [376.0, 16.0], [496.0, 304.0], [16.0, 304.0]];
+    let st = vp_state(&[("p", plane)], &[("p", [0.3, 0.15], [0.6, 0.15], 0.25), ("p", [0.3, 0.85], [0.6, 0.85], 0.25)]);
+    d.apply_filter(1, Target::Pixels, &filter("vanishing_point", json!({ "state": st })), None, 1.0).unwrap();
+    let h = crate::pwarp::homography([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], plane).unwrap();
+    let span = |v: f64| {
+        let y = crate::pwarp::map(&h, 0.6, v).1.floor() as i32;
+        let painted = (0..512).filter(|&x| lpx(&d, 1, x, y) != lpx(&before, 1, x, y)).count() as f64;
+        (painted, 240.0 + 240.0 * (y as f64 + 0.5 - 16.0) / 288.0)
+    };
+    let ((top, wt), (bottom, wb)) = (span(0.15), span(0.85));
+    assert!(((top / bottom) / (wt / wb) - 1.0).abs() < 0.02, "spans {top} / {bottom} vs widths {wt} / {wb}");
+}
+
+#[test]
+fn vanishing_point_remap_keeps_planes_loadable() {
+    use crate::vanishing::{remap_planes, VPlane};
+    // Cross product 1e-5; a 25 % scale would take it to 6.25e-7, below the convex limit.
+    let thin = [[0.0, 0.0], [1.0, 0.0], [1.0, 1e-5], [0.0, 1e-5]];
+    let mut planes = vec![VPlane { id: "a".into(), corners: thin, parent_id: None, hinge_edge: None, angle_degrees: None }];
+    remap_planes(&mut planes, &[0.25, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 1.0]);
+    assert!(crate::pwarp::convex(planes[0].corners), "{:?}", planes[0].corners);
+}
+
+#[test]
+fn vanishing_point_connected_planes_and_bad_states() {
+    use crate::vanishing::{connected, Edge, VPlane};
+    let parent = VPlane { id: "a".into(), corners: [[0.0, 0.0], [40.0, 0.0], [40.0, 20.0], [0.0, 20.0]], parent_id: None, hinge_edge: None, angle_degrees: None };
+    let near = |c: [[f64; 2]; 4], e: [[f64; 2]; 4]| c.iter().flatten().zip(e.iter().flatten()).all(|(a, b)| (a - b).abs() < 1e-9);
+    // Right edge (40,0)-(40,20), away (1,0), len min(40,20)/4 = 5: offset (5 cos, -5 sin).
+    let c = connected(&parent, Edge::Right, 90.0, "b".into());
+    assert!(near(c.corners, [[40.0, 0.0], [40.0, 20.0], [40.0, 15.0], [40.0, -5.0]]), "{:?}", c.corners);
+    assert_eq!((c.parent_id.as_deref(), c.hinge_edge, c.angle_degrees), (Some("a"), Some(Edge::Right), Some(90.0)));
+    assert!(near(connected(&parent, Edge::Right, 0.0, "c".into()).corners, [[40.0, 0.0], [40.0, 20.0], [45.0, 20.0], [45.0, 0.0]]));
+    assert!(near(connected(&parent, Edge::Top, 90.0, "d".into()).corners, [[0.0, 0.0], [40.0, 0.0], [40.0, -5.0], [0.0, -5.0]]));
+    let mut d = vp_doc();
+    let rejected = |st: Value| filters::Filter::parse(&filter("vanishing_point", json!({ "state": st }))).unwrap_err();
+    let concave = [[0.0, 0.0], [10.0, 0.0], [2.0, 2.0], [0.0, 10.0]];
+    assert!(rejected(vp_state(&[("p", concave)], &[])).contains("Vanishing Point"));
+    let mut nan = vp_state(&[("p", SQUARE)], &[]);
+    nan["planes"][0]["corners"][1][0] = Value::Null;
+    assert!(rejected(nan).contains("Vanishing Point"));
+    let many: Vec<(String, [[f64; 2]; 4])> = (0..65).map(|i| (format!("p{i}"), SQUARE)).collect();
+    let many: Vec<(&str, [[f64; 2]; 4])> = many.iter().map(|(i, c)| (i.as_str(), *c)).collect();
+    assert!(rejected(vp_state(&many, &[])).contains("64"));
+    assert!(filters::Filter::parse(&filter("vanishing_point", json!({ "state": vp_state(&many[..64], &[]) }))).is_ok());
+    let dabs = vec![("p", [0.1, 0.1], [0.5, 0.5], 0.1); 50_001];
+    assert!(rejected(vp_state(&[("p", SQUARE)], &dabs)).contains("50000"));
+    assert!(filters::Filter::parse(&filter("vanishing_point", json!({ "state": vp_state(&[("p", SQUARE)], &dabs[1..]) }))).is_ok());
+    assert!(rejected(vp_state(&[("p", SQUARE)], &[("q", [0.1, 0.1], [0.5, 0.5], 0.1)])).contains("unknown plane"));
+    assert!(d.set_vanishing_planes(&json!([{ "id": "p", "corners": concave }]).to_string()).is_err());
+    assert!(d.set_vanishing_planes(&json!([{ "id": "x".repeat(33), "corners": SQUARE }]).to_string()).is_err());
+}
+
+#[test]
+fn vanishing_point_planes_and_dabs_survive_an_autosave_restore() {
+    let mut d = vp_doc();
+    d.convert_for_smart_filters(1, &json!({ "link_id": "l", "source_blob": null }).to_string()).unwrap();
+    let st = vp_state(&[("p1", SQUARE)], &[("p1", [0.25, 0.5], [0.75, 0.5], 0.2)]);
+    d.apply_filter(1, Target::Pixels, &filter("vanishing_point", json!({ "state": st })), None, 1.0).unwrap();
+    let planes = json!([{ "id": "p1", "corners": SQUARE }, { "id": "p2", "corners": [[40.0, 8.0], [56.0, 8.0], [56.0, 40.0], [40.0, 40.0]], "parentId": "p1", "hingeEdge": "right", "angleDegrees": 0.0 }]);
+    d.set_vanishing_planes(&planes.to_string()).unwrap();
+    let (first, second) = reload(&d);
+    assert_eq!(first, second, "write -> read -> write is byte identical");
+    let v: Value = serde_json::from_str(&first).unwrap();
+    assert_eq!(v["version"], 7);
+    assert_eq!(v["vanishing_planes"], planes);
+    assert_eq!(v["layers"][0]["smart"]["filters"][0]["filter"]["params"]["state"], st);
+    // v6 loads with no planes and refuses the v7 field.
+    let mut old = v.clone();
+    old["version"] = 6.into();
+    assert!(Document::from_manifest(&old.to_string()).err().unwrap().contains("v7"));
+    old.as_object_mut().unwrap().remove("vanishing_planes");
+    let six = Document::from_manifest(&old.to_string()).unwrap();
+    assert!(six.vector.vanishing_planes.is_empty());
+}
+
+#[test]
+fn vanishing_point_planes_follow_canvas_size_and_crop() {
+    let mut d = vp_doc();
+    d.convert_for_smart_filters(1, &json!({ "link_id": "l", "source_blob": null }).to_string()).unwrap();
+    let st = vp_state(&[("p1", SQUARE)], &[("p1", [0.25, 0.5], [0.75, 0.5], 0.2)]);
+    d.apply_filter(1, Target::Pixels, &filter("vanishing_point", json!({ "state": st })), None, 1.0).unwrap();
+    d.set_vanishing_planes(&json!([{ "id": "p1", "corners": SQUARE }]).to_string()).unwrap();
+    let before = layer_px(&d);
+    d.canvas_size(74, 48, (1, 0), None).unwrap();
+    d.render_smart(1).unwrap();
+    for y in 0..48 {
+        for x in 0..64 {
+            assert_eq!(lpx(&d, 1, x + 10, y), before[(y * 64 + x) as usize], "{x},{y}");
+        }
+    }
+    assert_eq!(d.vector.vanishing_planes[0].corners[0], [18.0, 8.0]);
+    d.crop_rotated([4.0, 2.0, 60.0, 40.0], 0.0, true).unwrap();
+    assert_eq!(d.vector.vanishing_planes[0].corners[2], [46.0, 38.0]);
 }

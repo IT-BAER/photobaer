@@ -2847,3 +2847,34 @@ test('Content-Aware Scale previews over the whole document and commits one step 
   await call('undo');
   assert.deepEqual((await call('movingBounds', 1)).result, [0, 0, 32, 32]);
 });
+
+test('Vanishing Point commits one "Vanishing Point" step with dabs and one "Vanishing Point Planes" step without', async () => {
+  await call('init');
+  await call('newDoc', 32, 32, 8, [255, 255, 255, 255]);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 16, h: 32 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  const d0 = (await call('selectCommand', 'deselect')).result as { history: { labels: string[] } };
+  const v = (await call('vpBegin', 1, 64, null)).result as { w: number; h: number; scale: number; planes: unknown[]; state: unknown };
+  assert.deepEqual([v.w, v.h, v.scale, v.planes, v.state], [32, 32, 1, [], null]);
+  const planes = [{ id: 'p1', corners: [[0, 0], [32, 0], [32, 32], [0, 32]] }];
+  const dab = { planeId: 'p1', from: [0.25, 0.5], to: [0.75, 0.5], radius: 0.125, opacity: 1, hardness: 1 };
+  const state = { planes, stamps: [dab], gridSize: 10, brushHardness: 100, brushOpacity: 100 };
+  const prev = new Uint8Array((await call('vpPreview', state)).result as ArrayBuffer);
+  assert.deepEqual([...prev.subarray((16 * 32 + 24) * 4, (16 * 32 + 24) * 4 + 4)], [255, 0, 0, 255], 'the preview clones red into the right half');
+  const steps = (d: { history: { labels: string[] } }) => d.history.labels.length;
+  const d = (await call('vpCommit', 1, null, state)).result as FilterDoc & { history: { labels: string[] } };
+  assert.equal(d.undoLabel, 'Vanishing Point');
+  assert.equal(steps(d), steps(d0) + 1);
+  assert.deepEqual(await pixelAt(24, 16), [255, 0, 0, 255]);
+  assert.deepEqual(((await call('vpBegin', 1, 64, null)).result as { planes: unknown[] }).planes, planes, 'the planes are saved with the step');
+  await call('vpEnd');
+  await call('undo');
+  assert.deepEqual(await pixelAt(24, 16), [255, 255, 255, 255]);
+  assert.deepEqual(((await call('vpBegin', 1, 64, null)).result as { planes: unknown[] }).planes, [], 'undo restores the planes too');
+  const p = (await call('vpCommit', 1, null, { ...state, stamps: [] })).result as FilterDoc & { history: { labels: string[] } };
+  assert.equal(p.undoLabel, 'Vanishing Point Planes');
+  assert.equal(steps(p), steps(d0) + 1);
+  assert.deepEqual(await pixelAt(24, 16), [255, 255, 255, 255], 'a planes-only step paints nothing');
+  assert.deepEqual(((await call('vpBegin', 1, 64, null)).result as { planes: unknown[] }).planes, planes);
+  await call('vpEnd');
+});

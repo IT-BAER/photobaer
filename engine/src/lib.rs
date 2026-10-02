@@ -22,6 +22,7 @@ mod stroke;
 mod styles;
 mod text;
 mod typeset;
+mod vanishing;
 
 // dlmalloc grows wasm memory by what one request needs, and V8 makes each memory.grow cost
 // time proportional to the heap; when a request grows memory, reserve 1/8 of the heap in one grow.
@@ -248,6 +249,11 @@ impl Engine {
     /// `max_side` px and a mesh of `spacing` px, or re-editing Liquify smart filter `filter_id`.
     pub fn liquify_begin(&mut self, id: u32, max_side: u32, spacing: u32, filter_id: Option<u32>) -> Result<liquify::Liquify, JsError> {
         self.0.doc.liquify_begin(id, max_side, spacing, filter_id).map_err(err)
+    }
+
+    /// Replaces the document's Vanishing Point planes (docs/M5.md section 7).
+    pub fn set_vanishing_planes(&mut self, json: &str) -> Result<(), JsError> {
+        self.0.doc.set_vanishing_planes(json).map_err(err)
     }
 
     /// A Puppet Warp mesh JSON over layer `id`'s opaque pixels (density fewerPoints, normal or
@@ -1261,6 +1267,29 @@ pub fn filter_schema() -> String {
 #[wasm_bindgen]
 pub fn puppet_geometry(rig_json: &str) -> Result<String, JsError> {
     puppet::geometry(rig_json).map_err(|e| JsError::new(&e))
+}
+
+/// A Vanishing Point dialog preview: the dabs of `state_json` painted onto straight RGBA8 `rgba`
+/// (w x h px, `scale` px per document px), each sampling `rgba` as given.
+#[wasm_bindgen]
+pub fn vanishing_render(rgba: &[u8], w: u32, h: u32, scale: f64, state_json: &str) -> Result<Vec<u8>, JsError> {
+    let v: serde_json::Value = serde_json::from_str(state_json).map_err(|e| JsError::new(&e.to_string()))?;
+    let st = vanishing::State::parse(&v).map_err(|e| JsError::new(&e))?;
+    let (w, h) = (w as usize, h as usize);
+    if rgba.len() != w * h * 4 {
+        return Err(JsError::new("rgba must hold w x h x 4 bytes"));
+    }
+    let mut p = filters::Plane { x: 0, y: 0, w, h, data: rgba.iter().map(|&v| f32::from(v) / 255.0).collect() };
+    vanishing::render(&st, &mut p, scale);
+    Ok(p.data.iter().map(|v| (v.clamp(0.0, 1.0) * 255.0 + 0.5) as u8).collect())
+}
+
+/// A Vanishing Point plane JSON hinged on `edge` (top, right, bottom, left) of plane JSON `parent`.
+#[wasm_bindgen]
+pub fn vanishing_connected(parent: &str, edge: &str, angle: f64, id: &str) -> Result<String, JsError> {
+    let p: vanishing::VPlane = serde_json::from_str(parent).map_err(|e| JsError::new(&e.to_string()))?;
+    let e: vanishing::Edge = serde_json::from_value(serde_json::Value::from(edge)).map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(serde_json::to_string(&vanishing::connected(&p, e, angle, id.into())).unwrap())
 }
 
 /// The path JSON a live shape JSON generates (the shape tools' Path mode).

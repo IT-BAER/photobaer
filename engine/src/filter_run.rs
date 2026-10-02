@@ -399,11 +399,15 @@ impl Document {
                 let s = self.smart(id)?;
                 let i = s.filters.iter().position(|f| f.id == fid).ok_or_else(|| format!("smart object {id} has no filter {fid}"))?;
                 let f = &s.filters[i].filter;
-                if f.kind != "liquify" {
-                    return Err("That smart filter is not Liquify.".into());
-                }
-                let b = f.blob().ok_or("Liquify needs a mesh")?;
-                let mesh = Mesh::from_bytes(self.blobs.get(&b).ok_or_else(|| format!("unknown blob {b}"))?)?;
+                let mesh = match f.kind.as_str() {
+                    "liquify" => {
+                        let b = f.blob().ok_or("Liquify needs a mesh")?;
+                        Mesh::from_bytes(self.blobs.get(&b).ok_or_else(|| format!("unknown blob {b}"))?)?
+                    }
+                    // The Vanishing Point dialog reads the same proxy of the input below its filter.
+                    "vanishing_point" => Mesh::new(self.width, self.height, spacing),
+                    _ => return Err("That smart filter is not Liquify.".into()),
+                };
                 let (t, warp, below, stack) = (s.transform, s.warp.clone(), s.filters[..i].to_vec(), s.stack_mask.clone());
                 let (src, size) = self.placement_source(id)?;
                 let base = self.smart_render(&src, size, &t, warp.as_ref())?;

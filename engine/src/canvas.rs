@@ -316,7 +316,8 @@ impl Document {
         }
     }
 
-    // Puppet and Perspective Warp smart filters follow the canvas: their points map by `m`.
+    // Puppet, Perspective Warp and Vanishing Point smart filters and the document's vanishing
+    // planes follow the canvas: their points map by `m`.
     fn remap_warps(&mut self, m: &[f64; 9]) {
         fn walk(nodes: &mut [Node], m: &[f64; 9]) {
             for n in nodes {
@@ -326,11 +327,15 @@ impl Document {
                         for f in s.filters.iter_mut().map(|sf| &mut sf.filter) {
                             let key = match f.kind.as_str() {
                                 "puppet_warp" => "rig",
-                                "perspective_warp" => "state",
+                                "perspective_warp" | "vanishing_point" => "state",
                                 _ => continue,
                             };
                             let Some(v) = f.params.get(key) else { continue };
-                            let out = if key == "rig" { crate::puppet::remapped(v, m) } else { crate::pwarp::remapped(v, m) };
+                            let out = match f.kind.as_str() {
+                                "puppet_warp" => crate::puppet::remapped(v, m),
+                                "perspective_warp" => crate::pwarp::remapped(v, m),
+                                _ => crate::vanishing::remapped(v, m),
+                            };
                             if let Ok(out) = out {
                                 f.params.insert(key.into(), out);
                             }
@@ -341,6 +346,7 @@ impl Document {
             }
         }
         walk(&mut self.nodes, m);
+        crate::vanishing::remap_planes(&mut self.vector.vanishing_planes, m);
     }
 
     // Liquify smart filter meshes follow the canvas: each is resampled into the new document frame

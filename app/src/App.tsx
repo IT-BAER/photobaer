@@ -77,6 +77,7 @@ import { NavigatorPanel } from './NavigatorPanel.tsx';
 import { useShortcuts } from './app/shortcuts.ts';
 import { FilterDialog, runFilter, type FilterDialogHandle } from './filters/FilterDialog.tsx';
 import { LiquifyDialog, type LiquifyDialogHandle } from './filters/LiquifyDialog.tsx';
+import { VanishingPointDialog, type VanishingPointDialogHandle } from './filters/VanishingPointDialog.tsx';
 import { DeformSession, type DeformRequest } from './shell/DeformSession.tsx';
 import type { Grid } from './transform/puppet.ts';
 import { applyFilter, repeatLastFilter, type ParamValue } from './filters/lastFilter.ts';
@@ -290,6 +291,7 @@ export function App() {
   // The Filter menu's generic dialog (also Edit > Fade) and Layer > Smart Filter > Blending Options.
   const filterDialog = useRef<FilterDialogHandle>(null);
   const liquifyDialog = useRef<LiquifyDialogHandle>(null);
+  const vpDialog = useRef<VanishingPointDialogHandle>(null);
   const [deform, setDeform] = useState<DeformRequest | null>(null);
   const [filterSpecs, setFilterSpecs] = useState<FilterSpec[]>(schema);
   const filterBlendDialog = useRef<HTMLDialogElement>(null);
@@ -835,6 +837,15 @@ export function App() {
     liquifyDialog.current?.open({ id: active.id, filterId, width: doc.width, height: doc.height, guides: doc.guides, layers });
   }
 
+  // Filter > Vanishing Point (Alt+Ctrl+V) on the active layer's pixels; `filterId` re-edits its smart filter.
+  function openVanishingPoint(filterId: number | null = null) {
+    setMenu(null);
+    if (!active || !doc) return;
+    if (transformRef.current) endTransform(false);
+    if (editTarget(active) !== 'pixels') { setError('Vanishing Point works on layer pixels, not on a mask.'); return; }
+    vpDialog.current?.open({ id: active.id, filterId, width: doc.width, height: doc.height });
+  }
+
   // Edit > Content-Aware Scale: the filter dialog on the active pixel layer.
   function openContentAwareScale() {
     setMenu(null);
@@ -1158,7 +1169,7 @@ export function App() {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openVanishingPoint: () => openVanishingPoint(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems: typeMenuItems(typeCtx),
   });
@@ -1893,7 +1904,7 @@ export function App() {
           {doc && showProperties && node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} selected={selectedNodes} />}
           {doc && showProperties && node?.vector_mask && <VectorMaskPanel key={`vm${node.id}`} node={node} run={run} />}
           {doc && showProperties && node?.kind === 'smart' && node.smart && (
-            <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} openLiquify={openLiquify} />
+            <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} openLiquify={openLiquify} openVanishingPoint={openVanishingPoint} />
           )}
           {doc && active && (
             <>
@@ -1990,6 +2001,7 @@ export function App() {
       <GlobalLightDialog globalLightDialog={globalLightDialog} doc={doc} run={run} />
       <FilterDialog ref={filterDialog} viewer={viewer} show={d => show(d)} setError={m => setError(m)} />
       <LiquifyDialog ref={liquifyDialog} show={d => show(d)} setError={m => setError(m)} />
+      <VanishingPointDialog ref={vpDialog} show={d => show(d)} setError={m => setError(m)} />
       <FilterBlendDialog
         filterBlendDialog={filterBlendDialog} setFilterBlend={setFilterBlend} filterBlend={filterBlend} run={run} filters={filters}
       />

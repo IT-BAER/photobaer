@@ -92,6 +92,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && !e.altKey && !e.shiftKey && k === 'x') triggerBy(l => l === 'Cut', e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 'x') trigger('Liquify', e);
       else if (ctrl && e.altKey && e.shiftKey && k === 'v') triggerBy(l => l === 'Paste Into', e);
+      else if (ctrl && e.altKey && !e.shiftKey && k === 'v') trigger('Vanishing Point', e);
       else if (ctrl && !e.altKey && e.shiftKey && k === 'v') triggerBy(l => l === 'Paste in Place', e);
       else if (ctrl && k === 'i') adjustment('Invert', e);
       else if (ctrl && e.altKey && e.shiftKey && k === 'l') trigger('Auto Contrast', e);

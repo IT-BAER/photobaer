@@ -308,6 +308,9 @@ pub struct DocVector {
     pub grid: Grid,
     pub guides_locked: bool,
     pub artboards_locked: bool,
+    /// Vanishing Point planes (manifest v7).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub vanishing_planes: Vec<crate::vanishing::VPlane>,
 }
 
 impl Default for DocVector {
@@ -319,6 +322,7 @@ impl Default for DocVector {
             grid: Grid::default(),
             guides_locked: false,
             artboards_locked: false,
+            vanishing_planes: Vec::new(),
         }
     }
 }
@@ -328,6 +332,7 @@ impl DocVector {
         range(self.resolution, 1.0, 30000.0, "resolution")?;
         range(self.grid.spacing_x, f64::MIN_POSITIVE, f64::MAX, "grid spacing_x")?;
         range(self.grid.spacing_y, f64::MIN_POSITIVE, f64::MAX, "grid spacing_y")?;
+        crate::vanishing::check_planes(&self.vanishing_planes)?;
         let mut ids = std::collections::HashSet::new();
         for p in &self.paths {
             if !ids.insert(p.id) {

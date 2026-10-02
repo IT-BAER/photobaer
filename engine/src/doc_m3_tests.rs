@@ -309,7 +309,7 @@ fn v4_round_trip_of_every_new_field_is_byte_identical() {
             }
         }
         add_vector_mask(&mut v["layers"]);
-        v["version"] = 6.into();
+        v["version"] = 7.into();
         let extra = json!({ "resolution": 72.0, "paths": [], "guides": [], "grid": { "spacing_x": 100.0, "spacing_y": 100.0 },
             "guides_locked": false, "artboards_locked": false });
         v.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
@@ -360,7 +360,7 @@ fn v1_to_v3_documents_get_the_m3_defaults() {
     assert_eq!(n.blending, Blending::default());
     assert_eq!(d.global_light, GlobalLight { angle: 120.0, altitude: 30.0 });
     let m: Value = serde_json::from_str(&d.manifest()).unwrap();
-    assert_eq!(m["version"], 6);
+    assert_eq!(m["version"], 7);
     assert_eq!(m["layers"][0]["blending"]["blend_clipped"], true);
     assert_eq!(m["layers"][0]["blending"]["transparency_shapes"], true);
     assert_eq!(m["layers"][0]["blending"]["blend_if"]["gray"]["source"], json!([0, 0, 255, 255]));
@@ -611,7 +611,7 @@ fn smart_transform(d: &Document, id: u32) -> [f64; 9] {
 }
 
 // Writes the manifest, loads it with every tile and blob, and writes it again.
-fn reload(d: &Document) -> (String, String) {
+pub(super) fn reload(d: &Document) -> (String, String) {
     let m = d.manifest();
     let mut e = Document::from_manifest(&m).unwrap();
     let ids: Vec<u64> = e.loading.as_ref().unwrap().pending_ids.iter().copied().collect();

@@ -115,7 +115,7 @@ pub fn homography(src: [[f64; 2]; 4], dst: [[f64; 2]; 4]) -> Option<[f64; 9]> {
     Some(h)
 }
 
-fn invert(m: &[f64; 9]) -> Option<[f64; 9]> {
+pub(crate) fn invert(m: &[f64; 9]) -> Option<[f64; 9]> {
     let [a, b, c, d, e, f, g, h, i] = *m;
     let (r, s, t) = (e * i - f * h, f * g - d * i, d * h - e * g);
     let det = a * r + b * s + c * t;

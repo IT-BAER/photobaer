@@ -412,6 +412,15 @@ impl Document {
         serde_json::to_string(&self.vector).expect("vector serialization cannot fail")
     }
 
+    /// Replaces the document's Vanishing Point planes (JSON array of `vanishing::VPlane`).
+    pub fn set_vanishing_planes(&mut self, json: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let p: Vec<crate::vanishing::VPlane> = serde_json::from_str(json).map_err(|e| format!("invalid vanishing planes: {e}"))?;
+        crate::vanishing::check_planes(&p)?;
+        self.vector.vanishing_planes = p;
+        Ok(())
+    }
+
     /// Sets `spacing_x`/`spacing_y` (px, > 0) and/or the lock flags. JSON: `{ grid?: { spacing_x,
     /// spacing_y }, guidesLocked?, artboardsLocked? }`.
     pub fn set_grid_and_locks(&mut self, json: &str) -> Result<(), String> {

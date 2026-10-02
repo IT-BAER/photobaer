@@ -726,6 +726,12 @@ pub static ALL: &[Spec] = &[
         preview: false,
         ..global("perspective_warp", "Perspective Warp", "warp", &[Param { kind: PKind::Quads, default: Def::Required, ..num("state", "State", 0.0, 0.0, 0.0, "", 0.0) }], crate::pwarp::apply)
     },
+    // Filter > Vanishing Point: its own dialog; a smart filter on smart objects.
+    Spec {
+        extent: Some(crate::vanishing::extent),
+        preview: false,
+        ..global("vanishing_point", "Vanishing Point", "vanishing", &[Param { kind: PKind::Stamps, default: Def::Required, ..num("state", "State", 0.0, 0.0, 0.0, "", 0.0) }], crate::vanishing::apply)
+    },
 
     // Edit > Content-Aware Scale: its own dialog, not in the Filter menu.
     Spec {

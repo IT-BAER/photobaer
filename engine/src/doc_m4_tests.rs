@@ -180,7 +180,7 @@ fn v5_round_trip_of_every_new_field_is_byte_identical() {
     let d = load(&v5_fixture().to_string()).unwrap();
     let first = d.manifest();
     let mut expected = v5_fixture();
-    expected["version"] = 6.into();
+    expected["version"] = 7.into();
     assert_eq!(norm(&serde_json::from_str(&first).unwrap()), norm(&expected), "no field is dropped or changed");
     let again = load(&first).unwrap();
     assert_eq!(again.manifest(), first, "write -> read -> write is byte identical");
@@ -197,7 +197,7 @@ fn v5_round_trip_of_every_new_field_is_byte_identical() {
 fn v4_documents_open_with_the_m4_defaults() {
     let d = load_v4(&v4_fixture().to_string()).unwrap();
     let v: Value = serde_json::from_str(&d.manifest()).unwrap();
-    assert_eq!(v["version"], 6);
+    assert_eq!(v["version"], 7);
     assert_eq!(v["resolution"], 72.0);
     assert_eq!(v["paths"], json!([]));
     assert_eq!(v["guides"], json!([]));

@@ -64,6 +64,10 @@ export type LiquifyOp =
   | { op: 'begin'; brush: LiquifyBrush; x: number; y: number } | { op: 'to'; x: number; y: number } | { op: 'hold' } | { op: 'end' }
   | { op: 'mask'; source: 'selection' | 'transparency' | null; mode: string } | { op: 'reconstruct'; amount: number } | { op: 'restore' }
   | { op: 'spacing'; spacing: number } | { op: 'pin'; on: boolean };
+// Vanishing Point (docs/M5.md section 7): plane corners in document px, dabs in plane UV.
+export interface VanishingPlane { id: string; corners: [number, number][]; parentId?: string; hingeEdge?: 'top' | 'right' | 'bottom' | 'left'; angleDegrees?: number }
+export interface VanishingDab { planeId?: string; from: [number, number]; to: [number, number]; radius: number; opacity: number; hardness: number }
+export interface VanishingState { planes: VanishingPlane[]; stamps: VanishingDab[]; gridSize: number; brushHardness: number; brushOpacity: number }
 export interface SmartFilterInfo {
   id: number; filter: SmartFilterKind; enabled: boolean; opacity: number; blend: string; mask: { enabled: boolean; default: number } | null;
 }

@@ -629,3 +629,26 @@ dialog.liquify-dialog .actions { margin-top: 8px; }
 .liquify-options label { margin: 4px 0; }
 .liquify-options input[type="number"], .liquify-options select { width: 90px; flex: none; margin-left: auto; }
 .liquify-row { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+dialog.vp-dialog { width: min(1120px, calc(100vw - 32px)); height: min(820px, calc(100vh - 32px)); padding: 12px 16px; }
+dialog.vp-dialog form { display: flex; flex-direction: column; height: 100%; }
+dialog.vp-dialog h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); }
+.vp-bar, .vp-status { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 4px 0; }
+.vp-bar [role="toolbar"] { display: flex; gap: 2px; }
+.vp-bar button[aria-pressed="true"] { background: var(--accent, #2d6cdf); color: #fff; }
+.vp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 230px; gap: 8px; }
+.vp-stage { overflow: auto; background: #1b1b1b; border: 1px solid var(--line); border-radius: 4px; }
+.vp-content { position: relative; }
+.vp-canvas, .vp-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+.vp-overlay { touch-action: none; cursor: crosshair; }
+.vp-overlay[data-tool="hand"] { cursor: grab; }
+.vp-overlay[data-tool="stamp"] { cursor: none; }
+.vp-plane polygon, .vp-plane polyline, .vp-plane rect { stroke: #4da3ff; }
+.vp-plane rect { fill: #fff; }
+.vp-invalid polygon, .vp-invalid rect { stroke: #ff3b30; }
+.vp-draft, .vp-source, .vp-brush { stroke: #fff; }
+.vp-options { overflow: auto; padding-right: 4px; }
+.vp-options label { margin: 4px 0; }
+.vp-options input[type="number"], .vp-options select { width: 80px; flex: none; margin-left: auto; }
+.vp-planes { list-style: none; margin: 0; padding: 0; }
+.vp-planes [aria-current="true"] { font-weight: 600; }
+.vp-zoom { display: flex; gap: 4px; align-items: center; }

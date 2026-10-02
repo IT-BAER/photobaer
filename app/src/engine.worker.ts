@@ -1,4 +1,4 @@
-import init, { Engine, Fonts, filter_schema, fit_path, live_path, puppet_geometry, type Liquify } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts, filter_schema, fit_path, live_path, puppet_geometry, vanishing_connected, vanishing_render, type Liquify } from './engine-pkg/photobaer_engine.js';
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
@@ -16,7 +16,7 @@ import { layerName } from './shell/typesession.ts';
 import { locate, nodeById } from './layers.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
-import type { AlignMode, Adjustment, FaceInfo, LiquifyOp, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
+import type { AlignMode, Adjustment, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { boxScale, thumbSize } from './app/navigator.ts';
 import { TILE } from './view.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
@@ -45,6 +45,8 @@ let selGen = 0;
 let strokeOpen = false;
 // The open Liquify dialog's mesh and layer proxy (docs/M5.md section 6).
 let liquify: Liquify | null = null;
+// The open Vanishing Point dialog's layer proxy (straight RGBA8, docs/M5.md section 7).
+let vp: { data: Uint8Array; w: number; h: number; scale: number } | null = null;
 // Move tool live session: a snapshot taken right after any duplicate, restored and replayed
 // from on every step so the previewed offset never compounds.
 // `pixels`: a selected-pixels session; `floating`: the live document hides the moved pixels (moveFloat).
@@ -2304,6 +2306,59 @@ const api = {
   liquifyEnd() {
     liquify?.free();
     liquify = null;
+  },
+
+  // Filter > Vanishing Point: the proxy of layer `id` (or of the input below smart filter `filterId`),
+  // the document planes and, when re-editing, the filter's state.
+  vpBegin(id: number, maxSide: number, filterId: number | null) {
+    const e = need();
+    const l = e.liquify_begin(id, maxSide, 16, filterId ?? undefined);
+    try {
+      vp = { data: l.render(), w: l.proxy_width(), h: l.proxy_height(), scale: l.scale() };
+    } finally {
+      l.free();
+    }
+    const planes = (JSON.parse(e.vector_json()) as { vanishing_planes?: VanishingPlane[] }).vanishing_planes ?? [];
+    let state: VanishingState | null = null;
+    if (filterId !== null) {
+      const find = (ns: LayerNode[]): LayerNode | undefined => ns.map(n => (n.id === id ? n : n.children && find(n.children))).find(Boolean);
+      const f = find(JSON.parse(e.layers_json()) as LayerNode[])?.smart?.filters.find(f => f.id === filterId)?.filter as { params?: { state?: VanishingState } } | undefined;
+      state = f?.params?.state ?? null;
+    }
+    return { data: vp.data.slice().buffer, w: vp.w, h: vp.h, scale: vp.scale, planes, state };
+  },
+
+  // The proxy with `state`'s dabs, every dab sampling the proxy as opened.
+  vpPreview(state: VanishingState) {
+    if (!vp) throw new Error('No Vanishing Point session is open.');
+    return vanishing_render(vp.data, vp.w, vp.h, vp.scale, JSON.stringify(state)).buffer as ArrayBuffer;
+  },
+
+  vpConnected(parent: VanishingPlane, edge: string, angle: number, id: string) {
+    return JSON.parse(vanishing_connected(JSON.stringify(parent), edge, angle, id)) as VanishingPlane;
+  },
+
+  // OK: with dabs (or re-editing a filter) one "Vanishing Point" step that also saves the planes,
+  // without dabs one "Vanishing Point Planes" step.
+  vpCommit(id: number, filterId: number | null, state: VanishingState) {
+    const e = need();
+    vp = null;
+    const planes = JSON.stringify(state.planes);
+    if (!state.stamps.length && filterId === null) {
+      history.run('Vanishing Point Planes', () => e.set_vanishing_planes(planes));
+      return changed();
+    }
+    const filter = { kind: 'vanishing_point', params: { state } };
+    history.run('Vanishing Point', () => {
+      e.set_vanishing_planes(planes);
+      if (filterId === null) e.apply_filter(id, 'pixels', JSON.stringify(filter), new Int32Array(), 1);
+      else e.set_smart_filter(id, filterId, JSON.stringify({ filter }));
+    });
+    return changed();
+  },
+
+  vpEnd() {
+    vp = null;
   },
 
   // Edit > Fade: mixes layer `id` back toward the state before the last step.

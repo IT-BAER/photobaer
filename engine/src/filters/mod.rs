@@ -66,6 +66,8 @@ pub enum PKind {
     Rig,
     /// Perspective Warp quads (`pwarp::State`).
     Quads,
+    /// Vanishing Point planes and dabs (`vanishing::State`).
+    Stamps,
 }
 
 #[derive(Clone, Copy)]
@@ -402,6 +404,7 @@ fn check(spec: &Spec, p: &Param, v: &Value) -> Result<Value, String> {
         }
         PKind::Rig => crate::puppet::check(v),
         PKind::Quads => crate::pwarp::check(v),
+        PKind::Stamps => crate::vanishing::check(v),
     }
 }
 
@@ -484,6 +487,7 @@ pub fn schema_json() -> String {
                         PKind::Stack => ("stack", None),
                         PKind::Rig => ("rig", None),
                         PKind::Quads => ("quads", None),
+                        PKind::Stamps => ("stamps", None),
                     };
                     let mut o = json!({ "key": p.key, "label": p.label, "kind": kind, "min": p.min, "max": p.max, "step": p.step,
                         "unit": p.unit, "default": default_value(p) });
