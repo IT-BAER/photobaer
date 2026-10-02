@@ -644,11 +644,20 @@ pub fn colorize(p: &Plane, color: [u8; 3]) -> Vec<[f32; 4]> {
 }
 
 /// Drop shadow (`inner` false) or inner shadow coverage.
+// `p` with each pixel outside the canvas set to the nearest canvas pixel: Photoshop draws no inner
+// shadow where a layer meets the canvas edge.
+fn canvas_clamped(p: &Plane, cx: &Ctx) -> Plane {
+    let [ox, oy] = cx.origin.map(|v| v as f64);
+    let clamp = |i: usize, o: f64, doc: f64, n: usize| ((o + i as f64).clamp(0.0, (doc - 1.0).max(0.0)) - o).clamp(0.0, n as f64 - 1.0) as usize;
+    let (w, h) = (p.w, p.h);
+    p.map(|i, _| p.v[clamp(i / w, oy, cx.doc[1], h) * w + clamp(i % w, ox, cx.doc[0], w)])
+}
+
 pub fn shadow_coverage(s: &Shadow, inner: bool, shape: &Shape, cx: &Ctx) -> Plane {
     let angle = if s.use_global_light { cx.light.angle } else { s.angle };
     let size = s.size * cx.scale;
     let sp = size * s.spread;
-    let src = if inner { shape.plane.map(|_, a| 1.0 - a) } else { shape.plane.clone() };
+    let src = if inner { canvas_clamped(&shape.plane, cx).map(|_, a| 1.0 - a) } else { shape.plane.clone() };
     let (dx, dy) = offset(angle, s.distance * cx.scale);
     let mut v = gaussian(&spread(&shift(&src, dx, dy), sp), size - sp);
     if inner {
@@ -1261,6 +1270,21 @@ mod tests {
         let white = |a: f32| paint_pixel(PaintMode::Blend(Blend::Multiply), [1.0; 4], [0.0; 3], a * 0.75, false);
         let px = |x: usize| (white(v.v[10 * W + x])[0] * 255.0).round() as u8;
         assert_eq!((px(19), px(20), px(22), px(24), px(25)), (255, 64, 64, 64, 255));
+    }
+
+    // geodeck-graphs.psd: a layer that ends at the canvas edge gets no inner shadow along that edge.
+    #[test]
+    fn inner_shadow_skips_the_canvas_edge() {
+        let mut p = Plane::new(50, 50);
+        for y in 15..45 {
+            p.v[y * 50 + 15..y * 50 + 35].fill(1.0);
+        }
+        let s = Shadow { distance: 0.0, spread: 1.0, size: 3.0, ..shadow() };
+        let v = with_cx([-5, -5], |cx| shadow_coverage(&s, true, &Shape::new(p), cx));
+        let at = |x: usize, y: usize| v.v[y * 50 + x];
+        assert!(at(25, 15) > 0.99, "top edge inside the canvas: {}", at(25, 15));
+        assert!(at(15, 30) > 0.99, "left edge inside the canvas: {}", at(15, 30));
+        assert!(at(25, 44) < 0.01, "bottom edge on the canvas border: {}", at(25, 44));
     }
 
     #[test]
