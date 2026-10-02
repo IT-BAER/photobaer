@@ -4,8 +4,6 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 to `docs/M5.md` section 15.
 
 ## M5 Filters and retouch (remaining batches)
-- B5 Pixelate (Color Halftone, Crystallize, Facet, Fragment, Mezzotint, Mosaic, Pointillize) and the rest of
-  Stylize (Diffuse, Emboss, Extrude, Find Edges, Oil Paint, Tiles, Trace Contour, Wind).
 - B6 Render: Clouds, Difference Clouds, Fibers, Lens Flare, Lighting Effects, Flame, Picture Frame, Tree.
 - B7 Blur Gallery: Field, Iris, Tilt-Shift, Path, Spin.
 - B8 Filter Gallery with its effect stack (Artistic, Brush Strokes, Distort, Sketch, Stylize, Texture).

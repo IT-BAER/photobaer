@@ -776,3 +776,187 @@ fn content_aware_fill_without_a_source_or_on_a_locked_or_non_pixel_layer_changes
     assert_eq!(d.content_aware_fill(g, 4.0, 5.0, None, false).unwrap_err(), "Content-Aware Fill needs a pixel layer.");
     assert_eq!(lpx(&d, 1, 30, 30), gray(0));
 }
+
+// ---- B5: pixelate and stylize ----
+
+// An 8 x 1 doc with `vals` as opaque gray from doc x `x0`, transparent elsewhere.
+fn row_doc(x0: i32, vals: &[u8]) -> Document {
+    doc_with(8, 1, |x, _| if x >= x0 && ((x - x0) as usize) < vals.len() { gray(vals[(x - x0) as usize]) } else { [0; 4] })
+}
+
+fn row(d: &Document, from: i32, to: i32) -> Vec<u8> {
+    (from..to).map(|x| lpx(d, 1, x, 0)[0]).collect()
+}
+
+#[test]
+fn mosaic_cells_align_to_the_document_origin() {
+    let at0 = filtered(&row_doc(0, &[0, 100, 200, 250]), "pixelate.mosaic", json!({ "cellSize": 2 }));
+    assert_eq!(row(&at0, 0, 4), [50, 50, 225, 225]);
+    let at1 = filtered(&row_doc(1, &[0, 100, 200, 250]), "pixelate.mosaic", json!({ "cellSize": 2 }));
+    assert_eq!(row(&at1, 1, 5), [0, 150, 150, 250], "the cell edges moved by one");
+}
+
+#[test]
+fn find_edges_emboss_trace_contour_and_oil_paint_on_flat_and_step_layers() {
+    let flat = doc_with(12, 12, |_, _| gray(100));
+    assert_eq!(lpx(&filtered(&flat, "stylize.find_edges", json!({})), 1, 5, 5), gray(255));
+    assert!(lpx(&filtered(&flat, "stylize.emboss", json!({})), 1, 5, 5)[0].abs_diff(128) <= 1);
+    assert_eq!(lpx(&filtered(&flat, "stylize.trace_contour", json!({})), 1, 5, 5), gray(255));
+    for params in [json!({ "stylization": 0.1 }), json!({}), json!({ "stylization": 10, "scale": 10, "shine": 10, "cleanliness": 10 })] {
+        let o = filtered(&flat, "stylize.oil_paint", params.clone());
+        assert!(same(&flat, &o, 12, 12), "{params}");
+    }
+    let step = doc_with(12, 6, |x, _| gray(if x < 6 { 0 } else { 255 }));
+    for edge in ["lower", "upper"] {
+        let o = filtered(&step, "stylize.trace_contour", json!({ "edge": edge }));
+        for y in 0..6 {
+            let dark: Vec<i32> = (0..12).filter(|&x| lpx(&o, 1, x, y)[0] == 0).collect();
+            assert_eq!(dark, [if edge == "lower" { 5 } else { 6 }], "{edge} row {y}");
+        }
+    }
+    let e = filtered(&step, "stylize.find_edges", json!({}));
+    assert!(lpx(&e, 1, 5, 3)[0] < 128 && lpx(&e, 1, 1, 3) == gray(255), "an edge is dark on white");
+}
+
+#[test]
+fn flat_layers_survive_wind_blast_stagger_diffuse_facet_fragment_and_mosaic() {
+    let flat = doc_with(60, 40, |_, _| gray(100));
+    for (kind, params) in [
+        ("stylize.wind", json!({})),
+        ("stylize.wind", json!({ "method": "blast", "direction": "fromTheLeft" })),
+        ("stylize.wind", json!({ "method": "stagger" })),
+        ("stylize.diffuse", json!({ "mode": "darkenOnly" })),
+        ("stylize.diffuse", json!({ "mode": "anisotropic" })),
+        ("pixelate.facet", json!({})),
+        ("pixelate.fragment", json!({})),
+        ("pixelate.mosaic", json!({ "cellSize": 7 })),
+        ("pixelate.crystallize", json!({})),
+    ] {
+        assert!(same(&flat, &filtered(&flat, kind, params.clone()), 60, 40), "{kind} {params}");
+    }
+}
+
+#[test]
+fn mezzotint_writes_only_0_and_255_for_every_type() {
+    let d = ramp(40, 30);
+    for t in ["fineDots", "mediumDots", "grainyDots", "coarseDots", "shortLines", "mediumLines", "longLines", "shortStrokes", "mediumStrokes", "longStrokes"] {
+        let o = filtered(&d, "pixelate.mezzotint", json!({ "type": t, "seed": 3 }));
+        let mut dark = 0;
+        for (x, y) in (0..30).flat_map(|y| (0..40).map(move |x| (x, y))) {
+            let p = lpx(&o, 1, x, y);
+            assert!(p[..3].iter().all(|&v| v == 0 || v == 255) && p[3] == 255, "{t} {p:?}");
+            dark += (p[0] == 0) as usize;
+        }
+        assert!(dark > 0 && dark < 1200, "{t}: both values appear, {dark} dark");
+    }
+}
+
+#[test]
+fn random_filters_repeat_with_a_seed_and_differ_with_another() {
+    let d = ramp(60, 40);
+    for (kind, params) in [
+        ("pixelate.crystallize", json!({})),
+        ("pixelate.pointillize", json!({})),
+        ("pixelate.mezzotint", json!({ "type": "grainyDots" })),
+        ("stylize.diffuse", json!({})),
+        ("stylize.wind", json!({})),
+        ("stylize.wind", json!({ "method": "stagger" })),
+        ("stylize.extrude", json!({ "size": 10, "depth": 255 })),
+        ("stylize.tiles", json!({ "numberOfTiles": 4, "maxOffset": 40 })),
+    ] {
+        let with = |seed: u32| {
+            let mut p = params.clone();
+            p["seed"] = seed.into();
+            filtered(&d, kind, p)
+        };
+        assert!(same(&with(5), &with(5), 60, 40), "{kind}");
+        assert!(!same(&with(5), &with(6), 60, 40), "{kind} seeds differ");
+    }
+}
+
+#[test]
+fn tile_by_tile_equals_whole_layer_for_pixelate_and_stylize() {
+    for (kind, params, m) in [
+        ("pixelate.crystallize", json!({ "cellSize": 10, "seed": 3 }), 20),
+        ("pixelate.pointillize", json!({ "cellSize": 8, "seed": 3 }), 16),
+        ("pixelate.mosaic", json!({ "cellSize": 7 }), 7),
+        ("pixelate.facet", json!({}), 1),
+        ("pixelate.mezzotint", json!({ "type": "mediumStrokes", "seed": 2 }), 0),
+        ("pixelate.mezzotint", json!({ "type": "grainyDots", "seed": 2 }), 0),
+        ("pixelate.color_halftone", json!({ "maxRadius": 4 }), 12),
+        ("stylize.diffuse", json!({ "seed": 4 }), 1),
+        ("stylize.diffuse", json!({ "mode": "lightenOnly", "seed": 4 }), 1),
+        ("stylize.diffuse", json!({ "mode": "anisotropic" }), 1),
+        ("stylize.emboss", json!({ "angle": 30 }), 2),
+        ("stylize.find_edges", json!({}), 1),
+        ("stylize.trace_contour", json!({ "level": 100 }), 1),
+        ("stylize.oil_paint", json!({ "stylization": 2, "scale": 1, "shine": 4 }), 8),
+        ("stylize.wind", json!({ "seed": 4 }), 12),
+        ("stylize.wind", json!({ "method": "blast", "direction": "fromTheLeft", "seed": 4 }), 40),
+        ("stylize.wind", json!({ "method": "stagger", "seed": 4 }), 8),
+        ("stylize.extrude", json!({ "seed": 4 }), 0),
+        ("stylize.tiles", json!({ "numberOfTiles": 3, "maxOffset": 30, "seed": 4 }), 0),
+    ] {
+        assert_eq!(whole_layer_diff(kind, params.clone(), m), 0, "{kind} {params}");
+    }
+    // A mean of four 8-bit values lands on x.5 often, and the runner's `old + (new - old)` mix then rounds either way.
+    assert!(whole_layer_diff("pixelate.fragment", json!({}), 4) <= 1);
+}
+
+#[test]
+fn tiles_with_a_zero_offset_is_the_identity_and_gaps_follow_the_fill() {
+    let d = ramp(40, 40);
+    // The offset is trunc(hash x maxOffset % x tile size): 0 for one 40 px tile at 1 %.
+    assert!(same(&d, &filtered(&d, "stylize.tiles", json!({ "numberOfTiles": 1, "maxOffset": 1 })), 40, 40));
+    let shifted = |fill: &str| filtered(&d, "stylize.tiles", json!({ "numberOfTiles": 2, "maxOffset": 50, "fillEmptyAreaWith": fill, "seed": 1 }));
+    let bg = shifted("background");
+    assert!((0..40).any(|x| lpx(&bg, 1, x, 5) == gray(255)), "the background fills the gaps");
+    assert!(!same(&d, &bg, 40, 40));
+    let fg = shifted("foreground");
+    assert!((0..40).any(|x| lpx(&fg, 1, x, 5)[..3] == [0, 0, 0]), "the foreground fills the gaps");
+    let unaltered = shifted("unalteredImage");
+    assert!((0..40).all(|x| lpx(&unaltered, 1, x, 5)[3] == 255) && !same(&unaltered, &bg, 40, 40), "unaltered gaps show the source");
+}
+
+#[test]
+fn extrude_masks_incomplete_blocks_and_solid_fronts_are_cell_means() {
+    let d = ramp(25, 25);
+    let solid = |mask: bool| filtered(&d, "stylize.extrude", json!({ "size": 10, "depth": 1, "solidFrontFaces": true, "maskIncompleteBlocks": mask }));
+    assert_eq!(lpx(&solid(true), 1, 22, 22), lpx(&d, 1, 22, 22), "a cell cut by the layer bounds keeps its pixels");
+    assert_ne!(lpx(&solid(false), 1, 20, 20), lpx(&d, 1, 20, 20));
+    assert_ne!(lpx(&solid(true), 1, 2, 2), lpx(&d, 1, 2, 2));
+    assert_eq!(lpx(&solid(true), 1, 2, 2), lpx(&solid(true), 1, 7, 7), "one cell, one color");
+    let pyr = filtered(&d, "stylize.extrude", json!({ "type": "pyramids", "size": 10, "depth": 1 }));
+    assert_ne!(lpx(&pyr, 1, 5, 1), lpx(&pyr, 1, 5, 8), "pyramid faces are shaded differently");
+}
+
+#[test]
+fn color_halftone_pointillize_and_oil_paint_change_a_ramp() {
+    let d = ramp(48, 48);
+    for (kind, params) in [
+        ("pixelate.color_halftone", json!({})),
+        ("pixelate.pointillize", json!({})),
+        ("pixelate.fragment", json!({})),
+        ("stylize.oil_paint", json!({ "stylization": 8 })),
+        ("stylize.emboss", json!({})),
+        ("stylize.find_edges", json!({})),
+    ] {
+        assert!(!same(&d, &filtered(&d, kind, params.clone()), 48, 48), "{kind}");
+    }
+    let noisy = seam_doc();
+    assert!(!same(&noisy, &filtered(&noisy, "pixelate.facet", json!({})), 300, 20), "the median of a noisy 3x3 differs");
+    let h = filtered(&d, "pixelate.color_halftone", json!({ "maxRadius": 8 }));
+    assert!((0..48).any(|x| lpx(&h, 1, x, 20)[0] == 255) && (0..48).any(|x| lpx(&h, 1, x, 20)[0] < 100), "dots on white");
+}
+
+#[test]
+fn pixelate_and_stylize_menus_list_the_reference_order() {
+    let v: Value = serde_json::from_str(&filters::schema_json()).unwrap();
+    let ids = |g: &str| v.as_array().unwrap().iter().filter(|e| e["group"] == g).map(|e| e["id"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+    assert_eq!(ids("pixelate"), [
+        "pixelate.color_halftone", "pixelate.crystallize", "pixelate.facet", "pixelate.fragment", "pixelate.mezzotint", "pixelate.mosaic", "pixelate.pointillize",
+    ]);
+    assert_eq!(ids("stylize"), [
+        "stylize.diffuse", "stylize.emboss", "stylize.extrude", "stylize.find_edges", "stylize.oil_paint", "stylize.solarize", "stylize.tiles", "stylize.trace_contour", "stylize.wind",
+    ]);
+}

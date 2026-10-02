@@ -13,6 +13,7 @@ mod blur;
 mod distort;
 mod noise;
 mod other;
+mod pixelate;
 mod registry;
 mod sharpen;
 mod stylize;

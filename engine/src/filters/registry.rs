@@ -1,6 +1,6 @@
 //! The registry table in reference menu order within each group (docs/M5.md section 14).
 
-use super::{blur, distort, noise, other, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
+use super::{blur, distort, noise, other, pixelate, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
 use crate::adjust;
 
 const fn none(_: &Filter) -> i32 {
@@ -254,6 +254,37 @@ pub static ALL: &[Spec] = &[
         noise::reduce_reach,
         noise::reduce_noise,
     ),
+    kept(
+        "pixelate.color_halftone",
+        "Color Halftone",
+        "pixelate",
+        &[
+            px("maxRadius", "Max Radius", 4.0, 127.0, 1.0, 8.0),
+            Param { min: 0.0, ..angle("channel1", "Channel 1", 108.0) },
+            Param { min: 0.0, ..angle("channel2", "Channel 2", 162.0) },
+            Param { min: 0.0, ..angle("channel3", "Channel 3", 90.0) },
+            Param { min: 0.0, ..angle("channel4", "Channel 4", 45.0) },
+        ],
+        pixelate::halftone_reach,
+        pixelate::color_halftone,
+    ),
+    kept("pixelate.crystallize", "Crystallize", "pixelate", &[px("cellSize", "Cell Size", 3.0, 300.0, 1.0, 10.0), SEED], pixelate::voronoi_reach, pixelate::crystallize),
+    kept("pixelate.facet", "Facet", "pixelate", &[], pixelate::one, pixelate::facet),
+    kept("pixelate.fragment", "Fragment", "pixelate", &[], pixelate::four, pixelate::fragment),
+    Spec {
+        params: &[
+            select(
+                "type",
+                "Type",
+                &["fineDots", "mediumDots", "grainyDots", "coarseDots", "shortLines", "mediumLines", "longLines", "shortStrokes", "mediumStrokes", "longStrokes"],
+                "mediumDots",
+            ),
+            SEED,
+        ],
+        ..entry("pixelate.mezzotint", "Mezzotint", "pixelate", pixelate::mezzotint)
+    },
+    kept("pixelate.mosaic", "Mosaic", "pixelate", &[px("cellSize", "Cell Size", 1.0, 200.0, 1.0, 10.0)], pixelate::mosaic_reach, pixelate::mosaic),
+    kept("pixelate.pointillize", "Pointillize", "pixelate", &[px("cellSize", "Cell Size", 3.0, 300.0, 1.0, 5.0), SEED], pixelate::voronoi_reach, pixelate::pointillize),
     kept("sharpen.sharpen", "Sharpen", "sharpen", &[], sharpen::one, sharpen::sharpen),
     kept("sharpen.sharpen_edges", "Sharpen Edges", "sharpen", &[], sharpen::one, sharpen::sharpen_edges),
     kept("sharpen.sharpen_more", "Sharpen More", "sharpen", &[], sharpen::one, sharpen::sharpen_more),
@@ -285,7 +316,81 @@ pub static ALL: &[Spec] = &[
         sharpen::unsharp_reach,
         sharpen::unsharp,
     ),
+    kept(
+        "stylize.diffuse",
+        "Diffuse",
+        "stylize",
+        &[select("mode", "Mode", &["normal", "darkenOnly", "lightenOnly", "anisotropic"], "normal"), SEED],
+        pixelate::one,
+        stylize::diffuse,
+    ),
+    kept("stylize.emboss", "Emboss", "stylize", &[angle("angle", "Angle", 135.0), px("height", "Height", 1.0, 100.0, 1.0, 3.0), amount("amount", "Amount", 1.0, 500.0, 1.0, 100.0)], stylize::emboss_reach, stylize::emboss),
+    Spec {
+        keep_alpha: true,
+        ..global(
+            "stylize.extrude",
+            "Extrude",
+            "stylize",
+            &[
+                select("type", "Type", &["blocks", "pyramids"], "blocks"),
+                px("size", "Size", 2.0, 255.0, 1.0, 30.0),
+                int("depth", "Depth", 1.0, 255.0, 30.0),
+                select("depthMode", "Depth", &["random", "level"], "random"),
+                flag("solidFrontFaces", "Solid Front Faces"),
+                flag("maskIncompleteBlocks", "Mask Incomplete Blocks"),
+                SEED,
+            ],
+            stylize::extrude,
+        )
+    },
+    kept("stylize.find_edges", "Find Edges", "stylize", &[], pixelate::one, stylize::find_edges),
+    kept(
+        "stylize.oil_paint",
+        "Oil Paint",
+        "stylize",
+        &[
+            num("stylization", "Stylization", 0.1, 10.0, 0.1, "", 5.0),
+            num("cleanliness", "Cleanliness", 0.0, 10.0, 0.1, "", 5.0),
+            num("scale", "Scale", 0.1, 10.0, 0.1, "", 1.0),
+            num("bristleDetail", "Bristle Detail", 0.0, 10.0, 0.1, "", 5.0),
+            angle("angularDirection", "Angular Direction", 0.0),
+            num("shine", "Shine", 0.0, 10.0, 0.1, "", 1.0),
+        ],
+        stylize::oil_reach,
+        stylize::oil_paint,
+    ),
     entry("stylize.solarize", "Solarize", "stylize", stylize::solarize),
+    Spec {
+        keep_alpha: true,
+        ..global(
+            "stylize.tiles",
+            "Tiles",
+            "stylize",
+            &[
+                int("numberOfTiles", "Number of Tiles", 1.0, 99.0, 10.0),
+                amount("maxOffset", "Maximum Offset", 1.0, 99.0, 1.0, 10.0),
+                select("fillEmptyAreaWith", "Fill Empty Area With", &["background", "foreground", "inverseImage", "unalteredImage"], "background"),
+                SEED,
+            ],
+            stylize::tiles,
+        )
+    },
+    kept(
+        "stylize.trace_contour",
+        "Trace Contour",
+        "stylize",
+        &[int("level", "Level", 0.0, 255.0, 128.0), select("edge", "Edge", &["lower", "upper"], "lower")],
+        pixelate::one,
+        stylize::trace_contour,
+    ),
+    kept(
+        "stylize.wind",
+        "Wind",
+        "stylize",
+        &[select("method", "Method", &["wind", "blast", "stagger"], "wind"), select("direction", "Direction", &["fromTheLeft", "fromTheRight"], "fromTheRight"), SEED],
+        stylize::wind_reach,
+        stylize::wind,
+    ),
     global(
         "video.de_interlace",
         "De-Interlace",
