@@ -1376,3 +1376,23 @@ fn re_editing_a_liquify_smart_filter_previews_the_input_below_it() {
     flat.restore_all();
     assert_eq!(flat.render(), plain, "the source is the layer before this Liquify and the filters above it");
 }
+
+#[test]
+fn a_liquify_smart_filter_mesh_follows_canvas_size() {
+    let mut d = doc_with(16, 8, |x, y| [(x * 15) as u8, (y * 30) as u8, 90, 255]);
+    d.convert_for_smart_filters(1, &json!({ "link_id": "l", "source_blob": null }).to_string()).unwrap();
+    // Only the left half warps.
+    let mut m = crate::liquify::Mesh::new(16, 8, 4);
+    for k in 0..m.cols * m.rows {
+        if (k % m.cols) * 4 < 8 {
+            m.disp[k * 2] = 3.0;
+        }
+    }
+    let blob = d.blob_add(&m.to_bytes()).unwrap();
+    d.apply_filter(1, Target::Pixels, &filter("liquify", json!({ "mesh": blob, "reach": 3 })), None, 1.0).unwrap();
+    let before: Vec<[u8; 4]> = (1..12).map(|x| lpx(&d, 1, x, 3)).collect();
+    d.canvas_size(24, 8, (1, 0), None).unwrap();
+    d.render_smart(1).unwrap();
+    let after: Vec<[u8; 4]> = (9..20).map(|x| lpx(&d, 1, x, 3)).collect();
+    assert_eq!(after, before, "the warp moved 8 px right with the canvas");
+}

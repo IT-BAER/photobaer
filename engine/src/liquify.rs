@@ -282,6 +282,30 @@ impl Mesh {
         m
     }
 
+    /// The same warp in a new document frame of `width` x `height`: `back` maps a new document
+    /// point to the old one, `fwd` an old point to the new one. Nodes off the old mesh keep no offset.
+    pub fn remapped(&self, width: u32, height: u32, back: impl Fn(f32, f32) -> (f32, f32), fwd: impl Fn(f32, f32) -> (f32, f32)) -> Mesh {
+        let mut m = Mesh::new(width, height, self.spacing);
+        let (w0, h0) = (self.width as f32, self.height as f32);
+        for v in 0..m.rows {
+            for u in 0..m.cols {
+                let (x, y) = ((u as u32 * m.spacing) as f32, (v as u32 * m.spacing) as f32);
+                let (qx, qy) = back(x, y);
+                if !((0.0..=w0).contains(&qx) && (0.0..=h0).contains(&qy)) {
+                    continue;
+                }
+                let k = v * m.cols + u;
+                m.frozen[k] = self.frozen_at(qx, qy);
+                let d = self.offset(qx, qy);
+                if d != [0.0, 0.0] {
+                    let (tx, ty) = fwd(qx + d[0], qy + d[1]);
+                    (m.disp[k * 2], m.disp[k * 2 + 1]) = (tx - x, ty - y);
+                }
+            }
+        }
+        m
+    }
+
     /// Mask Options with `b` (selection or transparency, 0..1 per node): replace, add, subtract,
     /// intersect, invertSelection; or the presets none, all, invert.
     pub fn mask(&mut self, op: &str, b: &[f32]) -> Result<(), String> {

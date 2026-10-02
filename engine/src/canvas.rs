@@ -298,6 +298,7 @@ impl Document {
     // whose line stays horizontal or vertical (others keep their position).
     fn remap_vectors(&mut self, m: &[f64; 9]) {
         remap_nodes(&mut self.nodes, m);
+        self.remap_liquify(m);
         for p in &mut self.vector.paths {
             map_path(m, &mut p.path);
         }
@@ -312,6 +313,33 @@ impl Document {
                 (g.axis, g.pos) = (Axis::X, a.0);
             }
         }
+    }
+
+    // Liquify smart filter meshes follow the canvas: each is resampled into the new document frame
+    // (the canvas size is already the new one) as a new blob.
+    fn remap_liquify(&mut self, m: &[f64; 9]) {
+        fn walk(nodes: &mut [Node], f: &mut impl FnMut(&mut Filter)) {
+            for n in nodes {
+                match &mut n.kind {
+                    Kind::Group(ch) => walk(ch, f),
+                    Kind::Smart(s) => s.filters.iter_mut().for_each(|sf| f(&mut sf.filter)),
+                    _ => {}
+                }
+            }
+        }
+        let Some(inv) = invert3(m) else { return };
+        let (w, h) = (self.width, self.height);
+        let mut nodes = std::mem::take(&mut self.nodes);
+        walk(&mut nodes, &mut |f| {
+            let Some(mesh) = f.blob().filter(|_| f.kind == "liquify").and_then(|b| self.blobs.get(&b)).and_then(|b| crate::liquify::Mesh::from_bytes(b).ok()) else { return };
+            let pt = |t: [f64; 9]| move |x: f32, y: f32| { let (a, b) = map_pt(&t, x as f64, y as f64); (a as f32, b as f32) };
+            let out = mesh.remapped(w, h, pt(inv), pt(*m));
+            let id = self.alloc_tile_id();
+            self.blobs.insert(id, Arc::new(out.to_bytes()));
+            f.params.insert("mesh".into(), id.into());
+            f.params.insert("reach".into(), (out.max_shift().ceil() as u32).min(65535).min(w.max(h)).into());
+        });
+        self.nodes = nodes;
     }
 
     fn planes(&self) -> Vec<At> {
