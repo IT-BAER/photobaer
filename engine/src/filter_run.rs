@@ -5,6 +5,7 @@
 use super::transform::{all_default, intersect, tile_span};
 use super::*;
 use crate::filters::{Ctx, Exec, PKind, Plane};
+use crate::liquify::{Liquify, Mesh};
 
 const NOTHING: &str = "There is nothing to filter here.";
 const NO_MATCH: &str = "The previous state has no matching layer to fade toward.";
@@ -109,9 +110,9 @@ fn taps(r: i32, o: i32, len: i32, n: usize, s: f64) -> Vec<(usize, usize, f32)> 
         .collect()
 }
 
-// The preview proxy of `r`: premultiplied averages of a strided sample grid (about 2 samples per
-// proxy pixel per axis), filtered with px params scaled by `s`, sampled back over `out`.
-fn proxy(src: &Src, f: &Filter, r: [i32; 4], out: [i32; 4], doc: [i32; 4], s: f64, ctx: &Ctx) -> Result<Res, String> {
+// A straight RGBA proxy of `r` at `s` px per document px: premultiplied averages of a strided
+// sample grid (about 2 samples per proxy pixel per axis).
+fn downsample(src: &Src, r: [i32; 4], doc: [i32; 4], s: f64) -> Plane {
     let (pw, ph) = (((r[2] as f64 * s).ceil() as usize).max(1), ((r[3] as f64 * s).ceil() as usize).max(1));
     let step = ((0.5 / s) as usize).max(1);
     let mut acc = vec![0f64; pw * ph * 5];
@@ -143,6 +144,13 @@ fn proxy(src: &Src, f: &Filter, r: [i32; 4], out: [i32; 4], doc: [i32; 4], s: f6
         }
         small.data[k * 4 + 3] = alpha as f32;
     }
+    small
+}
+
+// The preview proxy of `r`, filtered with px params scaled by `s`, sampled back over `out`.
+fn proxy(src: &Src, f: &Filter, r: [i32; 4], out: [i32; 4], doc: [i32; 4], s: f64, ctx: &Ctx) -> Result<Res, String> {
+    let mut small = downsample(src, r, doc, s);
+    let (pw, ph) = (small.w, small.h);
     filters::apply(&f.scaled(s), &mut small, &Ctx { scale: s, ..*ctx })?;
     Ok(Res::Proxy { cols: taps(r[0], out[0], out[2], pw, s), rows: taps(r[1], out[1], out[3], ph, s), small, out })
 }
@@ -215,7 +223,8 @@ impl Document {
                 let tiles = self.node(id)?.pixel_tiles()?.clone();
                 // Point, pin and path params are fractions of the tight bounds, so only they pay for them in a preview.
                 let exact = spec.params.iter().any(|p| matches!(p.kind, PKind::Point | PKind::Pins | PKind::Paths));
-                let b = if spec.group == "render" {
+                // Render filters fill empty layers; Liquify moves pixels into empty areas.
+                let b = if spec.group == "render" || spec.id == "liquify" {
                     Some(doc)
                 } else if scale < 1.0 && !exact {
                     tile_bounds(&tiles)
@@ -375,6 +384,57 @@ impl Document {
             }
         }
         Ok(())
+    }
+
+    /// A Liquify session on layer `id`: its pixels over the document rect as a proxy of at most
+    /// `max_side` px, and an empty mesh; or, re-editing Liquify smart filter `filter_id`, its mesh
+    /// over the smart object rendered through the filters below it.
+    pub fn liquify_begin(&mut self, id: u32, max_side: u32, spacing: u32, filter_id: Option<u32>) -> Result<Liquify, String> {
+        self.check_pixel_edit(id)?;
+        let (mesh, tiles) = match filter_id {
+            None => (Mesh::new(self.width, self.height, spacing), self.node(id)?.pixel_tiles()?.clone()),
+            Some(fid) => {
+                let s = self.smart(id)?;
+                let i = s.filters.iter().position(|f| f.id == fid).ok_or_else(|| format!("smart object {id} has no filter {fid}"))?;
+                let f = &s.filters[i].filter;
+                if f.kind != "liquify" {
+                    return Err("That smart filter is not Liquify.".into());
+                }
+                let b = f.blob().ok_or("Liquify needs a mesh")?;
+                let mesh = Mesh::from_bytes(self.blobs.get(&b).ok_or_else(|| format!("unknown blob {b}"))?)?;
+                let (t, warp, below, stack) = (s.transform, s.warp.clone(), s.filters[..i].to_vec(), s.stack_mask.clone());
+                let (src, size) = self.placement_source(id)?;
+                let base = self.smart_render(&src, size, &t, warp.as_ref())?;
+                let layer = self.node(id)?.mask.clone();
+                (mesh, self.filtered(base, &below, stack.as_ref(), layer.as_ref())?)
+            }
+        };
+        let doc = [0, 0, self.width as i32, self.height as i32];
+        let s = (max_side.max(1) as f64 / self.width.max(self.height) as f64).min(1.0);
+        let mut p = downsample(&Src::Pixels(tiles), doc, doc, s);
+        p.premultiply();
+        Ok(Liquify::new(mesh, p.data, p.w, p.h, s as f32))
+    }
+
+    /// Mask Options from the selection (`source` "selection") or layer `id`'s transparency, read
+    /// at the mesh nodes and combined by `op` (replace, add, subtract, intersect, invertSelection).
+    pub fn liquify_mask(&self, l: &mut Liquify, id: u32, source: &str, op: &str) -> Result<(), String> {
+        let m = l.mesh();
+        let (cols, rows, sp) = (m.cols, m.rows, m.spacing as i32);
+        let (w, h) = (self.width as i32 - 1, self.height as i32 - 1);
+        let at = |u: usize, v: usize| ((u as i32 * sp).clamp(0, w), (v as i32 * sp).clamp(0, h));
+        let vals: Vec<f32> = match source {
+            "selection" => match &self.selection {
+                Some(sel) => (0..cols * rows).map(|k| { let (x, y) = at(k % cols, k / cols); self.sel_at(sel, x, y) }).collect(),
+                None => vec![0.0; cols * rows],
+            },
+            "transparency" => {
+                let src = Src::Pixels(self.node(id)?.pixel_tiles()?.clone());
+                (0..cols * rows).map(|k| { let (x, y) = at(k % cols, k / cols); src.read(x, y)[3] }).collect()
+            }
+            _ => return Err(format!("unknown mask source \"{source}\"")),
+        };
+        l.mesh_mut().mask(op, &vals)
     }
 
     /// Edit > Fade: blends layer `id` toward its pixels in `prev` (the state before the last step)

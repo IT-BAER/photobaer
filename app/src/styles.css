@@ -609,3 +609,22 @@ dialog.filter-dialog.wide { width: min(860px, calc(100vw - 32px)); }
 .gallery-layers li button { flex: 1; }
 .gallery-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 8px; }
 @media (max-width: 720px) { .gallery-stack { grid-template-columns: 1fr; } }
+dialog.liquify-dialog { width: min(1180px, calc(100vw - 32px)); height: min(820px, calc(100vh - 32px)); padding: 12px 16px; }
+dialog.liquify-dialog form { display: flex; flex-direction: column; height: 100%; }
+dialog.liquify-dialog h2 { margin-bottom: 8px; }
+dialog.liquify-dialog h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); }
+dialog.liquify-dialog .actions { margin-top: 8px; }
+.liquify-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 40px 1fr 250px; gap: 8px; }
+.liquify-tools { display: flex; flex-direction: column; gap: 2px; }
+.liquify-tools button { width: 36px; height: 30px; padding: 0; font-size: 11px; }
+.liquify-tools button[aria-pressed="true"] { background: var(--accent, #2d6cdf); color: #fff; }
+.liquify-stage { position: relative; min-width: 0; min-height: 0; background: #1b1b1b; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.liquify-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: none; }
+.liquify-canvas[data-tool="hand"], .liquify-canvas[data-tool="face"] { cursor: grab; }
+.liquify-canvas[data-tool="zoom"] { cursor: zoom-in; }
+.liquify-zoom { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 4px; align-items: center; background: var(--panel); border-radius: 4px; padding: 2px 6px; }
+.liquify-zoom span { min-width: 44px; text-align: center; }
+.liquify-options { overflow: auto; padding-right: 4px; }
+.liquify-options label { margin: 4px 0; }
+.liquify-options input[type="number"], .liquify-options select { width: 90px; flex: none; margin-left: auto; }
+.liquify-row { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }

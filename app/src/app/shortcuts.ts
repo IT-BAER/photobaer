@@ -89,6 +89,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && !e.altKey && e.shiftKey && k === 'c') triggerBy(l => l === 'Copy Merged', e);
       else if (ctrl && !e.altKey && k === 'c') triggerBy(l => l === 'Copy', e);
       else if (ctrl && !e.altKey && !e.shiftKey && k === 'x') triggerBy(l => l === 'Cut', e);
+      else if (ctrl && e.shiftKey && !e.altKey && k === 'x') trigger('Liquify', e);
       else if (ctrl && e.altKey && e.shiftKey && k === 'v') triggerBy(l => l === 'Paste Into', e);
       else if (ctrl && !e.altKey && e.shiftKey && k === 'v') triggerBy(l => l === 'Paste in Place', e);
       else if (ctrl && k === 'i') adjustment('Invert', e);

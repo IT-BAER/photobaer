@@ -1,4 +1,4 @@
-import init, { Engine, Fonts, filter_schema, fit_path, live_path } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts, filter_schema, fit_path, live_path, type Liquify } from './engine-pkg/photobaer_engine.js';
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
@@ -15,7 +15,7 @@ import { layerName } from './shell/typesession.ts';
 import { locate, nodeById } from './layers.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
-import type { AlignMode, Adjustment, FaceInfo, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
+import type { AlignMode, Adjustment, FaceInfo, LiquifyOp, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { boxScale, thumbSize } from './app/navigator.ts';
 import { TILE } from './view.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
@@ -42,6 +42,8 @@ let booted = false;
 let lastState: AutosaveState = 'off';
 let selGen = 0;
 let strokeOpen = false;
+// The open Liquify dialog's mesh and layer proxy (docs/M5.md section 6).
+let liquify: Liquify | null = null;
 // Move tool live session: a snapshot taken right after any duplicate, restored and replayed
 // from on every step so the previewed offset never compounds.
 // `pixels`: a selected-pixels session; `floating`: the live document hides the moved pixels (moveFloat).
@@ -2237,6 +2239,63 @@ const api = {
     return edit(label, preview, () => e.apply_filter(id, target, JSON.stringify(filter), Int32Array.from(view), scale));
   },
 
+  // Filter > Liquify: a session on layer `id`'s pixels, or on its Liquify smart filter `filterId`'s mesh.
+  liquifyBegin(id: number, maxSide: number, spacing: number, filterId: number | null) {
+    const e = need();
+    liquify?.free();
+    liquify = null;
+    liquify = e.liquify_begin(id, maxSide, spacing, filterId ?? undefined);
+    return liquifyView(true);
+  },
+
+  // Applies dialog edits in order and returns the new view; `overlays` adds the mesh and the frozen mask.
+  liquifyEdit(id: number, ops: LiquifyOp[], overlays: boolean) {
+    const e = need(), l = liquify;
+    if (!l) throw new Error('No Liquify session is open.');
+    for (const o of ops) {
+      if (o.op === 'begin') l.stroke_begin(JSON.stringify(o.brush), o.x, o.y);
+      else if (o.op === 'to') l.stroke_to(o.x, o.y);
+      else if (o.op === 'hold') l.stroke_hold();
+      else if (o.op === 'end') l.stroke_end();
+      else if (o.op === 'mask') { if (o.source) e.liquify_mask(l, id, o.source, o.mode); else l.mask_preset(o.mode); }
+      else if (o.op === 'reconstruct') l.reconstruct(o.amount);
+      else if (o.op === 'restore') l.restore_all();
+      else if (o.op === 'spacing') l.set_spacing(o.spacing);
+      else l.set_pin_edges(o.on);
+    }
+    return liquifyView(overlays);
+  },
+
+  // OK: the mesh becomes a document blob and one "Liquify" step (a smart filter on a smart object).
+  liquifyCommit(id: number, filterId: number | null) {
+    const e = need(), l = liquify;
+    if (!l) throw new Error('No Liquify session is open.');
+    liquify = null;
+    try {
+      if (filterId === null && l.identity()) return info()!;
+      const filter = { kind: 'liquify', params: { mesh: Number(e.blob_add(l.bytes())), reach: Math.min(65535, e.width(), e.height(), Math.ceil(l.max_shift())) } };
+      return filterId === null ? api.applyFilter(id, 'pixels', filter, 'Liquify') : api.setSmartFilter(id, filterId, { filter }, 'Liquify');
+    } finally {
+      l.free();
+    }
+  },
+
+  // The Show Backdrop image over the document rect: the composite (`id` null) or one layer's pixels.
+  liquifyBackdrop(id: number | null, maxSide: number) {
+    if (id === null) return api.navigatorThumb(maxSide);
+    const l = need().liquify_begin(id, maxSide, 16, undefined);
+    try {
+      return { data: l.render().buffer as ArrayBuffer, w: l.proxy_width(), h: l.proxy_height() };
+    } finally {
+      l.free();
+    }
+  },
+
+  liquifyEnd() {
+    liquify?.free();
+    liquify = null;
+  },
+
   // Edit > Fade: mixes layer `id` back toward the state before the last step.
   fade(id: number, params: { opacity: number; mode: string }, preview = false) {
     const e = need();
@@ -2590,6 +2649,15 @@ const api = {
 };
 
 export type Api = typeof api;
+
+// The Liquify proxy as RGBA8 (transferred) with its mesh layout; mesh offsets are document px.
+function liquifyView(overlays: boolean) {
+  const l = liquify!;
+  return {
+    data: l.render().buffer as ArrayBuffer, w: l.proxy_width(), h: l.proxy_height(), scale: l.scale(), cols: l.cols(), rows: l.rows(), spacing: l.spacing(),
+    disp: overlays ? l.displacement() : null, frozen: overlays ? l.frozen() : null,
+  };
+}
 
 async function handle(id: number, op: keyof Api, args: unknown[]) {
   try {

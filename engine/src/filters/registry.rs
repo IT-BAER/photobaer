@@ -699,7 +699,26 @@ pub static ALL: &[Spec] = &[
     fx!("patchwork", "Patchwork", "texture", [r("squareSize", "Square Size", 0.0, 10.0, 4.0), r("relief", "Relief", 0.0, 25.0, 8.0)]),
     fx!("stained_glass", "Stained Glass", "texture", [r("cellSize", "Cell Size", 2.0, 50.0, 8.0), r("borderThickness", "Border Thickness", 1.0, 20.0, 4.0), r("lightIntensity", "Light Intensity", 0.0, 10.0, 3.0)]),
     fx!("texturizer", "Texturizer", "texture", [TEX, SCALING, RELIEF, LIGHT, flag("invertTexture", "Invert")]),
+    // Its own dialog (Filter > Liquify...); `reach` is the longest mesh offset, so a smart filter reads far enough.
+    Spec {
+        reach: liquify_reach,
+        preview: false,
+        ..global(
+        "liquify",
+        "Liquify",
+        "liquify",
+        &[
+            Param { kind: PKind::Blob, ..num("mesh", "Mesh", 0.0, 0.0, 0.0, "", 0.0) },
+            int("reach", "Reach", 0.0, 65535.0, 0.0),
+        ],
+        crate::liquify::apply,
+    )
+    },
 ];
+
+fn liquify_reach(f: &Filter) -> i32 {
+    f.num("reach").ceil() as i32
+}
 
 pub fn lookup(id: &str) -> Option<&'static Spec> {
     ALL.iter().find(|s| s.id == id)

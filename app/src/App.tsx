@@ -76,6 +76,7 @@ import { CloneSourcePanel } from './CloneSourcePanel.tsx';
 import { NavigatorPanel } from './NavigatorPanel.tsx';
 import { useShortcuts } from './app/shortcuts.ts';
 import { FilterDialog, runFilter, type FilterDialogHandle } from './filters/FilterDialog.tsx';
+import { LiquifyDialog, type LiquifyDialogHandle } from './filters/LiquifyDialog.tsx';
 import { applyFilter, repeatLastFilter, type ParamValue } from './filters/lastFilter.ts';
 import { connectBridge, pairing, toBase64, type Format } from './app/agentBridge.ts';
 import { schema, setColorSource, setSchema, type FilterSpec } from './filters/schema.ts';
@@ -286,6 +287,7 @@ export function App() {
   const scaleEffectsDialog = useRef<HTMLDialogElement>(null);
   // The Filter menu's generic dialog (also Edit > Fade) and Layer > Smart Filter > Blending Options.
   const filterDialog = useRef<FilterDialogHandle>(null);
+  const liquifyDialog = useRef<LiquifyDialogHandle>(null);
   const [filterSpecs, setFilterSpecs] = useState<FilterSpec[]>(schema);
   const filterBlendDialog = useRef<HTMLDialogElement>(null);
   const [filterBlend, setFilterBlend] = useState<{ id: number; fid: number; blend: string; opacity: number } | null>(null);
@@ -820,6 +822,16 @@ export function App() {
     runFilter(spec, active.id, editTarget(active), filterDialog.current, d => show(d)).catch(e => setError((e as Error).message));
   }
 
+  // Filter > Liquify (Ctrl+Shift+X) on the active layer's pixels; `filterId` re-edits a Liquify smart filter.
+  function openLiquify(filterId: number | null = null) {
+    setMenu(null);
+    if (!active || !doc) return;
+    if (transformRef.current) endTransform(false);
+    if (editTarget(active) !== 'pixels') { setError('Liquify works on layer pixels, not on a mask.'); return; }
+    const layers = flatNodes(doc.layers).filter(n => n.kind === 'pixel' || n.kind === 'smart').map(n => ({ id: n.id, name: n.name }));
+    liquifyDialog.current?.open({ id: active.id, filterId, width: doc.width, height: doc.height, guides: doc.guides, layers });
+  }
+
   function lastFilter() {
     setMenu(null);
     if (!active) return;
@@ -1115,7 +1127,7 @@ export function App() {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, lastFilter, openFade, openSearch: () => setSearchOpen(true),
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems: typeMenuItems(typeCtx),
   });
@@ -1850,7 +1862,7 @@ export function App() {
           {doc && showProperties && node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} selected={selectedNodes} />}
           {doc && showProperties && node?.vector_mask && <VectorMaskPanel key={`vm${node.id}`} node={node} run={run} />}
           {doc && showProperties && node?.kind === 'smart' && node.smart && (
-            <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
+            <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} openLiquify={openLiquify} />
           )}
           {doc && active && (
             <>
@@ -1946,6 +1958,7 @@ export function App() {
       )}
       <GlobalLightDialog globalLightDialog={globalLightDialog} doc={doc} run={run} />
       <FilterDialog ref={filterDialog} viewer={viewer} show={d => show(d)} setError={m => setError(m)} />
+      <LiquifyDialog ref={liquifyDialog} show={d => show(d)} setError={m => setError(m)} />
       <FilterBlendDialog
         filterBlendDialog={filterBlendDialog} setFilterBlend={setFilterBlend} filterBlend={filterBlend} run={run} filters={filters}
       />

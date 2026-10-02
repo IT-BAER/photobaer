@@ -8,6 +8,7 @@ mod glyph_cells;
 mod heal;
 mod gradient;
 mod livewire;
+mod liquify;
 mod geom;
 mod path;
 mod pattern;
@@ -238,6 +239,17 @@ impl Engine {
     /// Destructive apply of a destructive-only kind (shadows/highlights .. auto color).
     pub fn apply_destructive(&mut self, id: u32, json: &str) -> Result<(), JsError> {
         self.0.doc.apply_destructive(id, json).map_err(err)
+    }
+
+    /// Opens a Liquify session on layer `id` (docs/M5.md section 6): a proxy of at most
+    /// `max_side` px and a mesh of `spacing` px, or re-editing Liquify smart filter `filter_id`.
+    pub fn liquify_begin(&mut self, id: u32, max_side: u32, spacing: u32, filter_id: Option<u32>) -> Result<liquify::Liquify, JsError> {
+        self.0.doc.liquify_begin(id, max_side, spacing, filter_id).map_err(err)
+    }
+
+    /// Liquify Mask Options from "selection" or "transparency" (layer `id`) by `op`.
+    pub fn liquify_mask(&self, session: &mut liquify::Liquify, id: u32, source: &str, op: &str) -> Result<(), JsError> {
+        self.0.doc.liquify_mask(session, id, source, op).map_err(err)
     }
 
     /// Destructive filter `{ kind, params }` (docs/M5.md section 1) on `target` of layer `id`;

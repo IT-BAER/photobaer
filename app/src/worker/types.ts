@@ -58,6 +58,12 @@ export interface SmartWarp { cols: number; rows: number; points: [number, number
 // A registry filter (docs/M5.md section 1); the M3 adjustment kinds keep their typed params.
 export interface RegistryFilter { kind: string; params: Record<string, ParamValue> }
 export type SmartFilterKind = Adjustment | RegistryFilter;
+// One Liquify dialog edit (docs/M5.md section 6); points and sizes in document px.
+export interface LiquifyBrush { tool: string; size: number; density: number; pressure: number; rate: number; mode: string }
+export type LiquifyOp =
+  | { op: 'begin'; brush: LiquifyBrush; x: number; y: number } | { op: 'to'; x: number; y: number } | { op: 'hold' } | { op: 'end' }
+  | { op: 'mask'; source: 'selection' | 'transparency' | null; mode: string } | { op: 'reconstruct'; amount: number } | { op: 'restore' }
+  | { op: 'spacing'; spacing: number } | { op: 'pin'; on: boolean };
 export interface SmartFilterInfo {
   id: number; filter: SmartFilterKind; enabled: boolean; opacity: number; blend: string; mask: { enabled: boolean; default: number } | null;
 }

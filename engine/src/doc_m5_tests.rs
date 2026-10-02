@@ -1314,3 +1314,65 @@ fn gallery_stack_entries_validate_and_store_only_their_own_params() {
     }
 }
 
+
+// A mesh over `d` that shifts every node by (dx, 0): output x shows source x + dx.
+fn shift_mesh(d: &mut Document, dx: f32) -> u64 {
+    let mut m = crate::liquify::Mesh::new(d.width, d.height, 4);
+    m.disp.chunks_exact_mut(2).for_each(|v| v[0] = dx);
+    d.blob_add(&m.to_bytes()).unwrap()
+}
+
+#[test]
+fn liquify_moves_pixels_into_empty_areas_and_needs_its_mesh() {
+    let mut d = doc_with(16, 8, |x, _| if x < 8 { gray(200) } else { [0; 4] });
+    let blob = shift_mesh(&mut d, -4.0);
+    d.apply_filter(1, Target::Pixels, &filter("liquify", json!({ "mesh": blob, "reach": 4 })), None, 1.0).unwrap();
+    assert_eq!(lpx(&d, 1, 11, 3), gray(200), "the layer content moved right past its bounds");
+    assert_eq!(lpx(&d, 1, 12, 3), [0; 4]);
+    assert!(d.apply_filter(1, Target::Pixels, &filter("liquify", json!({ "mesh": 999 })), None, 1.0).unwrap_err().contains("unknown blob"));
+}
+
+#[test]
+fn a_liquify_smart_filter_renders_like_the_destructive_liquify() {
+    let mut d = doc_with(16, 8, |x, y| [(x * 15) as u8, (y * 30) as u8, 90, 255]);
+    let blob = shift_mesh(&mut d, 2.5);
+    let mut flat = d.clone();
+    let f = filter("liquify", json!({ "mesh": blob, "reach": 3 }));
+    d.convert_for_smart_filters(1, &json!({ "link_id": "l", "source_blob": null }).to_string()).unwrap();
+    d.apply_filter(1, Target::Pixels, &f, None, 1.0).unwrap();
+    flat.apply_filter(1, Target::Pixels, &f, None, 1.0).unwrap();
+    // Interior only: past the document edge a smart object reads transparency, a layer its edge pixels.
+    for (x, y) in [(0, 0), (5, 3), (12, 7), (9, 4)] {
+        assert_eq!(lpx(&d, 1, x, y), lpx(&flat, 1, x, y), "{x},{y}");
+    }
+}
+
+#[test]
+fn liquify_sessions_read_the_layer_proxy_and_the_selection_mask() {
+    let mut d = doc_with(32, 16, |x, _| if x < 16 { gray(255) } else { [0; 4] });
+    let mut s = d.liquify_begin(1, 16, 8, None).unwrap();
+    assert_eq!((s.proxy_width(), s.proxy_height(), s.scale()), (16, 8, 0.5));
+    let px = s.render();
+    assert_eq!((px[3], px[(8 * 4 + 15) * 4 + 3]), (255, 0), "the proxy covers the document rect");
+    d.liquify_mask(&mut s, 1, "transparency", "replace").unwrap();
+    assert_eq!(s.frozen()[..5], [1.0, 1.0, 0.0, 0.0, 0.0], "nodes at x 0 and 8 lie on opaque pixels");
+    d.select_rect(20.0, 0.0, 12.0, 16.0, Mode::New).unwrap();
+    d.liquify_mask(&mut s, 1, "selection", "add").unwrap();
+    assert_eq!(s.frozen()[..5], [1.0, 1.0, 0.0, 1.0, 1.0], "add keeps the opaque nodes and adds the selected ones");
+}
+
+#[test]
+fn re_editing_a_liquify_smart_filter_previews_the_input_below_it() {
+    let mut d = doc_with(16, 8, |x, y| [(x * 15) as u8, (y * 30) as u8, 90, 255]);
+    let plain = d.liquify_begin(1, 16, 4, None).unwrap().render();
+    d.convert_for_smart_filters(1, &json!({ "link_id": "l", "source_blob": null }).to_string()).unwrap();
+    let blob = shift_mesh(&mut d, 2.5);
+    d.apply_filter(1, Target::Pixels, &filter("liquify", json!({ "mesh": blob, "reach": 3 })), None, 1.0).unwrap();
+    run(&mut d, "stylize.solarize");
+    let fid = d.smart(1).unwrap().filters[0].id;
+    let again = d.liquify_begin(1, 16, 8, Some(fid)).unwrap();
+    assert_eq!(again.bytes(), d.blobs[&blob].as_slice(), "re-editing reads the stored mesh");
+    let mut flat = again;
+    flat.restore_all();
+    assert_eq!(flat.render(), plain, "the source is the layer before this Liquify and the filters above it");
+}

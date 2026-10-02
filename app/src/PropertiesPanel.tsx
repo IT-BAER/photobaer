@@ -174,8 +174,9 @@ export function filterLabel(f: SmartFilterKind): string {
 
 // Properties for a smart object (B11-4): each filter's enable checkbox and opacity slider, and the params of
 // the selected filter (top one by default) through the adjustment bodies. Every edit is a "Smart Filter" step.
-export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFile, sampleCanvas }: {
+export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFile, sampleCanvas, openLiquify }: {
   node: LayerNode; run: Run; openGradientEditor: OpenGradientEditor; pickLookupFile: PickLookupFile; sampleCanvas: SampleCanvas;
+  openLiquify: (filterId: number) => void;
 }) {
   const filters = node.smart!.filters;
   const [picked, setPicked] = useState<number | null>(null);
@@ -203,7 +204,9 @@ export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFil
       {current && (
         <>
           <h3>{filterLabel(current.filter)}</h3>
-          {spec && spec.params.some(p => p.kind === 'stack')
+          {spec?.id === 'liquify'
+            ? <button type="button" onClick={() => openLiquify(current.id)}>Edit in Liquify…</button>
+            : spec && spec.params.some(p => p.kind === 'stack')
             ? <GalleryStack key={current.id} value={(current.filter.params as Record<string, ParamValue>).stack as GalleryLayer[]}
                 onChange={v => set(current.id, { filter: { kind: spec.id, params: { ...current.filter.params, stack: v } } as SmartFilterKind }, false)} />
             : spec && spec.editor !== 'adjustment'

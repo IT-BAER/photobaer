@@ -2757,3 +2757,44 @@ test('a Filter Gallery smart filter keeps its stack and pixels through an autosa
   assert.deepEqual([[3, 4], [17, 9], [20, 20]].map(at), before, 'the restored smart filter renders the same pixels');
   e.free();
 });
+
+test('Liquify commits one step, then a smart filter that re-edits and survives an autosave restore', async () => {
+  await call('init');
+  await call('newDoc', 32, 32, 8, [255, 255, 255, 255]);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 16, h: 32 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  await call('selectCommand', 'deselect');
+  const brush = { tool: 'forwardWarp', size: 24, density: 50, pressure: 100, rate: 80, mode: 'revert' };
+  const warp = [{ op: 'begin', brush, x: 10, y: 16 }, { op: 'to', x: 16, y: 16 }, { op: 'to', x: 22, y: 16 }, { op: 'end' }];
+  const v = (await call('liquifyBegin', 1, 64, 4, null)).result as { w: number; h: number; scale: number; cols: number; disp: Float32Array };
+  assert.deepEqual([v.w, v.h, v.scale, v.cols], [32, 32, 1, 9]);
+  assert.ok(v.disp.every(n => n === 0));
+  const after = (await call('liquifyEdit', 1, warp, true)).result as { data: ArrayBuffer; disp: Float32Array };
+  assert.deepEqual([...new Uint8Array(after.data, (16 * 32 + 18) * 4, 4)], [255, 0, 0, 255], 'the preview shows red pushed right');
+  const d = (await call('liquifyCommit', 1, null)).result as FilterDoc;
+  assert.equal(d.undoLabel, 'Liquify');
+  assert.deepEqual(await pixelAt(18, 16), [255, 0, 0, 255]);
+  await call('undo');
+  assert.deepEqual(await pixelAt(18, 16), [255, 255, 255, 255]);
+
+  await call('convertForSmartFilters', 1);
+  await call('liquifyBegin', 1, 64, 4, null);
+  await call('liquifyEdit', 1, warp, false);
+  const s = (await call('liquifyCommit', 1, null)).result as FilterDoc;
+  const [f] = filtersOf(s, 1);
+  assert.equal(f.filter.kind, 'liquify');
+  await call('liquifyBegin', 1, 64, 8, f.id);
+  await call('liquifyEdit', 1, [{ op: 'begin', brush: { ...brush, tool: 'bloat' }, x: 8, y: 8 }, { op: 'end' }], false);
+  const s2 = (await call('liquifyCommit', 1, f.id)).result as FilterDoc;
+  assert.deepEqual(filtersOf(s2, 1).map(f => f.filter.kind), ['liquify'], 're-editing replaces the mesh in place');
+  const pts = [[18, 16], [8, 8], [25, 3]];
+  const before = await Promise.all(pts.map(([x, y]) => pixelAt(x, y)));
+  assert.deepEqual(before[0], [255, 0, 0, 255]);
+  const { manifest, e } = await restored();
+  const mesh = manifest.layers.find((l: { id: number }) => l.id === 1).smart.filters[0].filter.params.mesh;
+  assert.ok(manifest.blobs.includes(mesh), 'the mesh blob is saved');
+  const t = e.flatten_tile_rgba8(0, 0)!;
+  const at = ([x, y]: number[]) => [...t.subarray((y * 256 + x) * 4, (y * 256 + x) * 4 + 4)];
+  assert.deepEqual(pts.map(at), before, 'the restored smart filter renders the same pixels');
+  e.free();
+});

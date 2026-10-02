@@ -4,7 +4,6 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 to `docs/M5.md` section 15.
 
 ## M5 Filters and retouch (remaining batches)
-- B12 Liquify (Face-Aware part in M7).
 - B13 Puppet Warp and Perspective Warp.
 - B14 Content-Aware Scale.
 - B15 Vanishing Point.
