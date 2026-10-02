@@ -1,6 +1,6 @@
 //! The registry table in reference menu order within each group (docs/M5.md section 14).
 
-use super::{blur, distort, noise, other, pixelate, render, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
+use super::{blur, blur_gallery, distort, noise, other, pixelate, render, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
 use crate::adjust;
 
 const fn none(_: &Filter) -> i32 {
@@ -111,6 +111,39 @@ const fn ranged(key: &'static str, label: &'static str, min: f64, max: f64, defa
 const UNDEFINED: Param = select("undefinedAreas", "Undefined Areas", &["wrapAround", "repeatEdgePixels"], "repeatEdgePixels");
 const PRESERVE: Param = select("preserve", "Preserve", &["squareness", "roundness"], "squareness");
 
+// A blur gallery filter's own params, then the shared bokeh, grain and strobe settings and the seed.
+macro_rules! gallery_params {
+    ($($p:expr),* $(,)?) => {
+        &[
+            $($p,)*
+            pct("lightBokeh", "Light Bokeh", 0.0),
+            pct("bokehColor", "Bokeh Color", 0.0),
+            int("lightRangeMin", "Light Range Min", 0.0, 255.0, 0.0),
+            int("lightRangeMax", "Light Range Max", 0.0, 255.0, 255.0),
+            pct("noiseAmount", "Noise Amount", 0.0),
+            select("noiseDistribution", "Distribution", &["uniform", "gaussian"], "gaussian"),
+            pct("noiseSize", "Grain Size", 50.0),
+            pct("noiseColor", "Grain Color", 0.0),
+            pct("noiseHighlights", "Grain Highlights", 100.0),
+            pct("strobeStrength", "Strobe Strength", 50.0),
+            int("strobeFlashes", "Strobe Flashes", 1.0, 100.0, 1.0),
+            SEED,
+        ]
+    };
+}
+
+const fn gallery(id: &'static str, label: &'static str, params: &'static [Param], reach: fn(&Filter) -> i32, apply: fn(&mut Plane, &Filter, &Ctx) -> Result<(), String>) -> Spec {
+    Spec { group: "blurGallery", ..local(id, label, params, reach, apply) }
+}
+
+const fn frac(key: &'static str, label: &'static str, min: f64, max: f64, default: f64) -> Param {
+    num(key, label, min, max, 0.01, "", default)
+}
+
+const GALLERY_BLUR: Param = px("blur", "Blur", 0.0, 500.0, 1.0, 15.0);
+const SIZE: Param = frac("radius", "Size", 0.01, 2.0, 0.4);
+const ASPECT: Param = frac("aspect", "Aspect", 0.1, 10.0, 1.0);
+
 pub static ALL: &[Spec] = &[
     Spec { exec: Exec::Global, ..entry("blur.average", "Average", "blur", blur::average) },
     Spec { exec: Exec::Local, keep_alpha: false, reach: blur::blur_reach, ..entry("blur.blur", "Blur", "blur", blur::blur) },
@@ -183,6 +216,71 @@ pub static ALL: &[Spec] = &[
         blur::surface_reach,
         blur::surface_blur,
     ),
+    gallery(
+        "blur_gallery.field_blur",
+        "Field Blur",
+        gallery_params![Param { kind: PKind::Pins, default: Def::Pins(&[(0.5, 0.5, 15.0)]), ..num("pins", "Pins", 0.0, 1000.0, 1.0, "px", 0.0) }],
+        blur_gallery::field_reach,
+        blur_gallery::field,
+    ),
+    gallery(
+        "blur_gallery.iris_blur",
+        "Iris Blur",
+        gallery_params![
+            point("center", "Center"),
+            GALLERY_BLUR,
+            frac("feather", "Feather", 0.0, 1.0, 0.5),
+            frac("roundness", "Roundness", 0.0, 1.0, 0.0),
+            ASPECT,
+            angle("rotation", "Rotation", 0.0),
+            SIZE,
+        ],
+        blur_gallery::blur_reach,
+        blur_gallery::iris_blur,
+    ),
+    gallery(
+        "blur_gallery.tilt_shift",
+        "Tilt-Shift",
+        gallery_params![
+            point("center", "Center"),
+            GALLERY_BLUR,
+            angle("rotation", "Rotation", 0.0),
+            frac("focusWidth", "Focus", 0.0, 1.0, 0.15),
+            frac("featherWidth", "Feather", 0.0, 2.0, 0.25),
+            frac("distortion", "Distortion", -1.0, 1.0, 0.0),
+            flag("symmetricDistortion", "Symmetric Distortion"),
+        ],
+        blur_gallery::tilt_reach,
+        blur_gallery::tilt_shift,
+    ),
+    Spec {
+        exec: Exec::Global,
+        ..gallery(
+            "blur_gallery.path_blur",
+            "Path Blur",
+            gallery_params![
+                Param { kind: PKind::Paths, default: Def::Paths(&[&[(0.2, 0.5), (0.8, 0.5)]]), ..num("paths", "Paths", 0.0, 1.0, 0.01, "", 0.0) },
+                amount("speed", "Speed", 0.0, 500.0, 1.0, 50.0),
+                pct("taper", "Taper", 0.0),
+                amount("endPointSpeedStart", "End Point Speed (start)", 0.0, 500.0, 1.0, 100.0),
+                amount("endPointSpeedEnd", "End Point Speed (end)", 0.0, 500.0, 1.0, 100.0),
+                Param { default: Def::Bool(true), ..flag("centeredBlur", "Centered Blur") },
+                select("blurShape", "Blur Shape", &["basic", "rearSync"], "basic"),
+            ],
+            none,
+            blur_gallery::path_blur,
+        )
+    },
+    Spec {
+        exec: Exec::Global,
+        ..gallery(
+            "blur_gallery.spin_blur",
+            "Spin Blur",
+            gallery_params![point("center", "Center"), angle("blurAngle", "Blur Angle", 15.0), SIZE, ASPECT, frac("feather", "Feather", 0.0, 1.0, 0.4)],
+            none,
+            blur_gallery::spin_blur,
+        )
+    },
     global(
         "distort.displace",
         "Displace",

@@ -601,6 +601,23 @@ test('an autosave never stores the hidden source of an open transform session', 
   assert.ok(JSON.parse(r.docs.find(d => d.key === r.active)!.manifest).layers[0].tiles.length > 0, 'the saved layer keeps its pixels');
 });
 
+test('an autosave due during an open filter preview never stores the preview pixels', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, [255, 0, 0, 255]);
+  await new Promise(r => setTimeout(r, 1300));
+  const tiles = async () => {
+    const r = await (await Autosave.fromRoot(root as unknown as FileSystemDirectoryHandle)).load();
+    return JSON.stringify(JSON.parse(r!.docs.find(d => d.key === r!.active)!.manifest).layers[0].tiles);
+  };
+  await call('setProps', 1, { name: 'Renamed' });
+  await call('adjust', 1, invertAdj, 'Invert', true);
+  await new Promise(r => setTimeout(r, 1300));
+  const during = await tiles();
+  await call('previewEnd', false);
+  await new Promise(r => setTimeout(r, 1300));
+  assert.equal(during, await tiles());
+});
+
 test('transformCommit without an open session fails instead of reporting success', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, [255, 0, 0, 255]);

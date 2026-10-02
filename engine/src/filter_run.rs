@@ -213,8 +213,8 @@ impl Document {
                 }
                 let grown = |b: [i32; 4]| if spec.keep_alpha || spec.exec == Exec::Global { b } else { grow(b, f.reach()) };
                 let tiles = self.node(id)?.pixel_tiles()?.clone();
-                // Point params are fractions of the tight bounds, so only they pay for them in a preview.
-                let exact = spec.params.iter().any(|p| matches!(p.kind, PKind::Point));
+                // Point, pin and path params are fractions of the tight bounds, so only they pay for them in a preview.
+                let exact = spec.params.iter().any(|p| matches!(p.kind, PKind::Point | PKind::Pins | PKind::Paths));
                 let b = if spec.group == "render" {
                     Some(doc)
                 } else if scale < 1.0 && !exact {

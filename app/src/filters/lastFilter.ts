@@ -2,11 +2,12 @@
 
 export type CurvePoint = { y: number; offset: number };
 export type PathPoint = { x: number; y: number };
+export type Pin = { x: number; y: number; blur: number };
 export interface Light {
   type: 'point' | 'spot' | 'infinite'; intensity: number; hotspot: number; x: number; y: number; z: number;
   targetX: number; targetY: number; color: string; enabled: boolean;
 }
-export type ParamValue = number | string | boolean | PathPoint | number[] | CurvePoint[] | PathPoint[] | Light[];
+export type ParamValue = number | string | boolean | PathPoint | number[] | CurvePoint[] | PathPoint[] | Light[] | Pin[] | PathPoint[][];
 export interface AppliedFilter { kind: string; params: Record<string, ParamValue>; label: string }
 
 let last: AppliedFilter | null = null;

@@ -1111,3 +1111,124 @@ fn render_menu_lists_the_reference_order_and_colors_are_hidden_params() {
     let e = Document::new(8, 8, 8).unwrap().apply_filter(1, Target::Pixels, &filter("render.flame", json!({ "path": [{ "x": 0.5, "y": 0.5 }] })), None, 1.0).unwrap_err();
     assert!(e.contains("Flame") && e.contains("path"), "{e}");
 }
+
+// ---- B7: blur gallery ----
+
+// A seeded texture, so every blur changes pixels.
+fn texture(w: u32, h: u32) -> Document {
+    doc_with(w, h, |x, y| {
+        let h = (x as u32).wrapping_mul(2654435761) ^ (y as u32).wrapping_mul(40503);
+        [(h >> 3) as u8, (h >> 11) as u8, (h >> 19) as u8, 255]
+    })
+}
+
+#[test]
+fn neutral_blur_gallery_settings_change_nothing() {
+    let d = texture(40, 30);
+    for (kind, params) in [
+        ("blur_gallery.field_blur", json!({ "pins": [{ "x": 0.5, "y": 0.5, "blur": 0 }] })),
+        ("blur_gallery.iris_blur", json!({ "blur": 0 })),
+        ("blur_gallery.tilt_shift", json!({ "blur": 0 })),
+        ("blur_gallery.path_blur", json!({ "speed": 0 })),
+        ("blur_gallery.spin_blur", json!({ "blurAngle": 0 })),
+    ] {
+        assert!(same(&d, &filtered(&d, kind, params), 40, 30), "{kind}");
+    }
+}
+
+#[test]
+fn iris_keeps_its_center_sharp_and_blurs_outside() {
+    let d = texture(40, 40);
+    let o = filtered(&d, "blur_gallery.iris_blur", json!({ "blur": 4, "radius": 0.3 }));
+    assert_eq!(lpx(&o, 1, 20, 20), lpx(&d, 1, 20, 20));
+    assert_ne!(lpx(&o, 1, 2, 2), lpx(&d, 1, 2, 2));
+}
+
+#[test]
+fn tilt_shift_keeps_the_focus_band_and_blurs_past_the_feather_like_a_flat_disc() {
+    let d = texture(40, 60);
+    // Short side 40: focus 6 px and feather 10 px around row 30.
+    let o = filtered(&d, "blur_gallery.tilt_shift", json!({ "blur": 4 }));
+    let flat = filtered(&d, "blur_gallery.field_blur", json!({ "pins": [{ "x": 0.5, "y": 0.5, "blur": 4 }] }));
+    for x in 0..40 {
+        for y in 25..=35 {
+            assert_eq!(lpx(&o, 1, x, y), lpx(&d, 1, x, y), "focus row {y}");
+        }
+        for y in (0..=13).chain(47..60) {
+            let (a, b) = (lpx(&o, 1, x, y), lpx(&flat, 1, x, y));
+            assert!((0..4).all(|c| a[c].abs_diff(b[c]) <= 2), "row {y}: {a:?} vs {b:?}");
+        }
+    }
+    assert!((0..40).any(|x| lpx(&o, 1, x, 5) != lpx(&d, 1, x, 5)), "blurred");
+}
+
+#[test]
+fn field_pins_weight_by_inverse_distance() {
+    let d = texture(60, 20);
+    let pins = json!([{ "x": 0.0, "y": 0.5, "blur": 0 }, { "x": 1.0, "y": 0.5, "blur": 6 }]);
+    let o = filtered(&d, "blur_gallery.field_blur", json!({ "pins": pins }));
+    assert_eq!(lpx(&o, 1, 0, 10), lpx(&d, 1, 0, 10), "a 0 px pin keeps its spot sharp");
+    assert_ne!(lpx(&o, 1, 58, 10), lpx(&d, 1, 58, 10));
+}
+
+#[test]
+fn blur_gallery_noise_repeats_with_a_seed_and_differs_with_another() {
+    let d = texture(40, 30);
+    for kind in ["blur_gallery.iris_blur", "blur_gallery.path_blur", "blur_gallery.spin_blur"] {
+        let with = |seed: u32| filtered(&d, kind, json!({ "noiseAmount": 60, "seed": seed }));
+        assert!(same(&with(5), &with(5), 40, 30), "{kind}");
+        assert!(!same(&with(5), &with(6), 40, 30), "{kind} seeds differ");
+    }
+}
+
+#[test]
+fn path_and_spin_blur_and_light_bokeh_change_pixels() {
+    let d = texture(40, 30);
+    for (kind, params) in [
+        ("blur_gallery.path_blur", json!({})),
+        ("blur_gallery.path_blur", json!({ "centeredBlur": false, "taper": 50, "strobeFlashes": 4, "strobeStrength": 100 })),
+        ("blur_gallery.path_blur", json!({ "blurShape": "rearSync", "paths": [[{ "x": 0.1, "y": 0.1 }, { "x": 0.9, "y": 0.9 }], [{ "x": 0.1, "y": 0.9 }, { "x": 0.5, "y": 0.5 }, { "x": 0.9, "y": 0.1 }]] })),
+        ("blur_gallery.spin_blur", json!({ "strobeFlashes": 3 })),
+    ] {
+        assert!(!same(&d, &filtered(&d, kind, params.clone()), 40, 30), "{kind} {params}");
+    }
+    let iris = |extra: Value| filtered(&d, "blur_gallery.iris_blur", json!({ "blur": 3, "lightBokeh": extra }));
+    assert!(!same(&iris(json!(0)), &iris(json!(100)), 40, 30), "light bokeh brightens");
+}
+
+#[test]
+fn tile_by_tile_equals_whole_layer_for_the_blur_gallery() {
+    for (kind, params, m) in [
+        ("blur_gallery.field_blur", json!({ "pins": [{ "x": 0.2, "y": 0.5, "blur": 0 }, { "x": 0.9, "y": 0.2, "blur": 5 }], "noiseAmount": 40, "seed": 3 }), 5),
+        ("blur_gallery.iris_blur", json!({ "blur": 5, "radius": 0.2, "roundness": 0.5, "rotation": 30 }), 5),
+        ("blur_gallery.tilt_shift", json!({ "blur": 4, "rotation": 80, "distortion": 0.5, "lightBokeh": 50 }), 10),
+    ] {
+        assert_eq!(whole_layer_diff(kind, params, m), 0, "{kind}");
+    }
+}
+
+#[test]
+fn blur_gallery_menu_lists_the_reference_order_and_pins_and_paths_validate() {
+    let v: Value = serde_json::from_str(&filters::schema_json()).unwrap();
+    let bg: Vec<&Value> = v.as_array().unwrap().iter().filter(|e| e["group"] == "blurGallery").collect();
+    let ids: Vec<&str> = bg.iter().map(|e| e["id"].as_str().unwrap()).collect();
+    assert_eq!(ids, ["blur_gallery.field_blur", "blur_gallery.iris_blur", "blur_gallery.tilt_shift", "blur_gallery.path_blur", "blur_gallery.spin_blur"]);
+    assert_eq!(bg[0]["params"][0]["kind"], "pins");
+    assert_eq!(bg[3]["params"][0]["kind"], "paths");
+    let mut d = Document::new(8, 8, 8).unwrap();
+    let e = d.apply_filter(1, Target::Pixels, &filter("blur_gallery.field_blur", json!({ "pins": [{ "x": 2, "y": 0.5, "blur": 1 }] })), None, 1.0).unwrap_err();
+    assert!(e.contains("Field Blur") && e.contains("pins"), "{e}");
+    let e = d.apply_filter(1, Target::Pixels, &filter("blur_gallery.field_blur", json!({ "pins": [] })), None, 1.0).unwrap_err();
+    assert!(e.contains("pins"), "{e}");
+    let e = d.apply_filter(1, Target::Pixels, &filter("blur_gallery.path_blur", json!({ "paths": [[{ "x": 0.5, "y": 0.5 }]] })), None, 1.0).unwrap_err();
+    assert!(e.contains("Path Blur") && e.contains("paths"), "{e}");
+}
+
+#[test]
+fn a_proxy_preview_places_pins_and_paths_on_the_tight_layer_bounds() {
+    // Content x 0..40 of a 300 px doc: black left of 20, white right; tile bounds would be far wider.
+    let mut d = doc_with(300, 40, |x, _| if x < 40 { gray(if x < 20 { 0 } else { 255 }) } else { [0; 4] });
+    let pins = json!([{ "x": 0.0, "y": 0.5, "blur": 0 }, { "x": 1.0, "y": 0.5, "blur": 16 }]);
+    d.apply_filter(1, Target::Pixels, &filter("blur_gallery.field_blur", json!({ "pins": pins })), Some([0, 0, 300, 40]), 0.5).unwrap();
+    assert!(lpx(&d, 1, 18, 20)[0] > 30, "the 16 px pin sits on the layer's right edge and blurs the edge at x 20");
+}

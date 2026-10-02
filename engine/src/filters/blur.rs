@@ -141,7 +141,7 @@ pub fn boxed(p: &mut Plane, f: &Filter, _: &Ctx) -> Result<(), String> {
 }
 
 // Clamped bilinear read of channel `c` at integer (x, y) plus fractions (fx, fy).
-fn bilinear(d: &[f32], w: usize, h: usize, x: isize, y: isize, fx: f32, fy: f32, c: usize) -> f32 {
+pub(super) fn bilinear(d: &[f32], w: usize, h: usize, x: isize, y: isize, fx: f32, fy: f32, c: usize) -> f32 {
     let at = |xx: isize, yy: isize| d[(yy.clamp(0, h as isize - 1) as usize * w + xx.clamp(0, w as isize - 1) as usize) * 4 + c];
     let top = at(x, y) + (at(x + 1, y) - at(x, y)) * fx;
     let bot = at(x, y + 1) + (at(x + 1, y + 1) - at(x, y + 1)) * fx;
@@ -149,7 +149,7 @@ fn bilinear(d: &[f32], w: usize, h: usize, x: isize, y: isize, fx: f32, fy: f32,
 }
 
 // Split a position into its floor and fraction.
-fn split(v: f64) -> (isize, f32) {
+pub(super) fn split(v: f64) -> (isize, f32) {
     let f = v.floor();
     (f as isize, (v - f) as f32)
 }

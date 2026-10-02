@@ -9,6 +9,8 @@ import { Field } from '../PropertiesPanel.tsx';
 import type { Viewer } from '../viewer.ts';
 import type { DocInfo } from '../worker/types.ts';
 import { applyFilter, type CurvePoint, type Light, type ParamValue, type PathPoint } from './lastFilter.ts';
+import { BlurGalleryOverlay } from './BlurGalleryOverlay.tsx';
+import { snap, type Box } from './gallery.ts';
 import { FlamePath, LightsEditor } from './RenderEditors.tsx';
 import { ShearCurve } from './ShearCurve.tsx';
 import { defaults, fieldSpecs, previewScale, type FilterSpec } from './schema.ts';
@@ -34,6 +36,8 @@ export function FilterDialog({ ref, viewer, show, setError }: {
   const [params, setParams] = useState<Params>({});
   const [previewOn, setPreviewOn] = useState(true);
   const [alt, setAlt] = useState(false);
+  // Blur Gallery dialogs stay non-modal so the canvas overlay takes the pointer; handles map onto the layer bounds.
+  const [box, setBox] = useState<Box | null>(null);
   // `gen` drops scheduled renders once params change or the dialog closes; `session`: a worker preview is open.
   const st = useRef({ gen: 0, session: false, closing: false, chain: Promise.resolve() as Promise<unknown>, timers: [] as ReturnType<typeof setTimeout>[] });
 
@@ -61,7 +65,11 @@ export function FilterDialog({ ref, viewer, show, setError }: {
       setReq(r);
       reset(r);
       setAlt(false);
-      dialog.current?.showModal();
+      setBox(null);
+      if (r.type === 'filter' && r.spec.group === 'blurGallery') {
+        dialog.current?.show();
+        client.call('movingBounds', r.id).then(b => setBox(b as Box | null)).catch(e => setError((e as Error).message));
+      } else dialog.current?.showModal();
     },
   }), []);
 
@@ -106,7 +114,7 @@ export function FilterDialog({ ref, viewer, show, setError }: {
         await endSession(false);
         throw e;
       } finally {
-        setReq(null);
+        setReq(q => (q === r ? null : q));
       }
     });
   }
@@ -115,13 +123,21 @@ export function FilterDialog({ ref, viewer, show, setError }: {
     stop();
     if (st.current.closing) return;
     st.current.closing = true;
-    enqueue(() => endSession(false).finally(() => setReq(null)));
+    // A filter opened while this cancel waits in the queue keeps its request.
+    const r = req;
+    enqueue(() => endSession(false).finally(() => setReq(q => (q === r ? null : q))));
   }
 
   const title = req ? (req.type === 'fade' ? `Fade ${req.step}` : req.spec.label) : 'Filter';
   const fields = req?.type === 'filter' ? fieldSpecs(req.spec) : FADE_FIELDS;
+  const gallery = req?.type === 'filter' && req.spec.group === 'blurGallery' ? req.spec.id.replace('blur_gallery.', '') : null;
   return (
-    <dialog ref={dialog} className="filter-dialog" aria-label={title} onClose={cancel} onKeyDown={e => setAlt(e.altKey)} onKeyUp={e => setAlt(e.altKey)}>
+    <dialog ref={dialog} className={gallery ? 'filter-dialog docked' : 'filter-dialog'} aria-label={title} onClose={cancel}
+      onKeyDown={e => { setAlt(e.altKey); if (gallery && e.key === 'Escape') dialog.current?.close(); }} onKeyUp={e => setAlt(e.altKey)}>
+      {gallery && box && (
+        <BlurGalleryOverlay kind={gallery} params={params} box={box} viewer={viewer}
+          onChange={patch => setParams(q => ({ ...q, ...snap(req?.type === 'filter' ? req.spec.params : [], patch) }))} onCancel={() => dialog.current?.close()} />
+      )}
       <form onSubmit={e => { e.preventDefault(); ok(); }}>
         <h2>{title}</h2>
         {req?.type === 'filter' && req.spec.params.filter(p => p.kind === 'curve').map(p => (

@@ -52,3 +52,10 @@ test('color params stay hidden and take the current colors; lights and path draw
   setColorSource(() => ({ foreground: '#102030', background: '#a0b0c0' }));
   assert.deepEqual(defaults(s), { foreground: '#102030', background: '#a0b0c0', lights: [], path: [] });
 });
+
+test('blur gallery pins and paths take no fields: the canvas overlay edits them', () => {
+  const pins = [{ x: 0.5, y: 0.5, blur: 15 }], paths = [[{ x: 0.2, y: 0.5 }, { x: 0.8, y: 0.5 }]];
+  const s = spec([p('pins', 'pins', { default: pins }), p('paths', 'paths', { default: paths })]);
+  assert.deepEqual(fieldSpecs(s), []);
+  assert.deepEqual(defaults(s), { pins, paths });
+});

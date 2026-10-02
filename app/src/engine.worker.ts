@@ -323,9 +323,9 @@ function scheduleSave(ms: number) {
   if (!autosave) return;
   clearTimeout(timer);
   timer = setTimeout(() => {
-    // Transform and move sessions show unfinished pixels; commit and cancel schedule the next save. An
-    // Edit Contents session never autosaves: the autosave keeps the outermost document.
-    if (transformSession || moveSession || parents.length) return;
+    // Transform, move and preview sessions show unfinished pixels; commit and cancel schedule the next save.
+    // An Edit Contents session never autosaves: the autosave keeps the outermost document.
+    if (transformSession || moveSession || previewOpen || parents.length) return;
     if (saving) { again = true; return; }
     saving = runSave().finally(() => {
       saving = null;

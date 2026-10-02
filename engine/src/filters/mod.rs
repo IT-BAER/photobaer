@@ -10,6 +10,7 @@ use serde_json::{json, Map, Value};
 use crate::adjust::Adjustment;
 
 mod blur;
+mod blur_gallery;
 mod distort;
 mod noise;
 mod other;
@@ -54,6 +55,10 @@ pub enum PKind {
     Lights,
     /// 2..256 `{ x, y }` points as fractions of the layer bounds.
     Path,
+    /// 1..1000 Field Blur pins `{ x, y, blur }`: x, y fractions of the layer bounds, blur 0..1000 px.
+    Pins,
+    /// 1..1000 paths of 2..256 `{ x, y }` points as fractions of the layer bounds.
+    Paths,
 }
 
 #[derive(Clone, Copy)]
@@ -70,6 +75,8 @@ pub enum Def {
     /// One default spot light.
     Lights,
     Path(&'static [(f64, f64)]),
+    Pins(&'static [(f64, f64, f64)]),
+    Paths(&'static [&'static [(f64, f64)]]),
 }
 
 pub struct Param {
@@ -235,6 +242,12 @@ impl Filter {
         self.params.get(key).and_then(Value::as_array).map_or_else(Vec::new, |a| a.iter().map(|o| (at(o, "y"), at(o, "offset"))).collect())
     }
 
+    /// The `{ x, y }` points of a `Path` param, or of one path of a `Paths` param.
+    pub fn points(v: &Value) -> Vec<(f64, f64)> {
+        let c = |q: &Value, k: &str| q.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+        v.as_array().map_or_else(Vec::new, |a| a.iter().map(|q| (c(q, "x"), c(q, "y"))).collect())
+    }
+
     /// A `Color` param as 0..1 RGB.
     pub fn color(&self, key: &str) -> [f32; 3] {
         parse_hex(self.text(key)).unwrap_or([0.0; 3])
@@ -270,8 +283,24 @@ fn default_value(p: &Param) -> Value {
         Def::Curve => json!([{ "y": 0.0, "offset": 0.0 }, { "y": 1.0, "offset": 0.0 }]),
         Def::Color(c) => json!(c),
         Def::Lights => json!([render::default_light()]),
-        Def::Path(pts) => Value::Array(pts.iter().map(|&(x, y)| json!({ "x": x, "y": y })).collect()),
+        Def::Path(pts) => points_json(pts),
+        Def::Pins(pins) => Value::Array(pins.iter().map(|&(x, y, blur)| json!({ "x": x, "y": y, "blur": blur })).collect()),
+        Def::Paths(paths) => Value::Array(paths.iter().map(|pts| points_json(pts)).collect()),
     }
+}
+
+fn points_json(pts: &[(f64, f64)]) -> Value {
+    Value::Array(pts.iter().map(|&(x, y)| json!({ "x": x, "y": y })).collect())
+}
+
+// `{ x, y }` with both in 0..=1 and no other key.
+fn unit_point(o: &Value) -> Option<Value> {
+    let c = |k: &str| o.get(k)?.as_f64().filter(|n| (0.0..=1.0).contains(n));
+    Some(json!({ "x": c("x")?, "y": c("y")? })).filter(|_| o.as_object().is_some_and(|o| o.len() == 2))
+}
+
+fn path_points(v: &Value) -> Option<Value> {
+    v.as_array().filter(|a| (2..=256).contains(&a.len()))?.iter().map(unit_point).collect::<Option<Vec<_>>>().map(Value::Array)
 }
 
 fn check(spec: &Spec, p: &Param, v: &Value) -> Result<Value, String> {
@@ -325,13 +354,18 @@ fn check(spec: &Spec, p: &Param, v: &Value) -> Result<Value, String> {
             let each = a.iter().enumerate().map(|(i, l)| render::check_light(l).map_err(|e| format!("{}: {} entry {} {e}", spec.label, p.key, i + 1)));
             Ok(Value::Array(each.collect::<Result<_, _>>()?))
         }
-        PKind::Path => {
-            let pt = |o: &Value| {
-                let c = |k: &str| o.get(k)?.as_f64().filter(|n| (0.0..=1.0).contains(n));
-                Some(json!({ "x": c("x")?, "y": c("y")? })).filter(|_| o.as_object().is_some_and(|o| o.len() == 2))
+        PKind::Path => path_points(v).ok_or_else(|| bad("2 to 256 points { x, y } in 0..=1")),
+        PKind::Pins => {
+            let pin = |o: &Value| {
+                let c = |k: &str, max: f64| o.get(k)?.as_f64().filter(|n| (0.0..=max).contains(n));
+                Some(json!({ "x": c("x", 1.0)?, "y": c("y", 1.0)?, "blur": c("blur", 1000.0)? })).filter(|_| o.as_object().is_some_and(|o| o.len() == 3))
             };
-            let pts: Option<Vec<Value>> = v.as_array().filter(|a| (2..=256).contains(&a.len())).and_then(|a| a.iter().map(pt).collect());
-            pts.map(Value::Array).ok_or_else(|| bad("2 to 256 points { x, y } in 0..=1"))
+            let pins: Option<Vec<Value>> = v.as_array().filter(|a| (1..=1000).contains(&a.len())).and_then(|a| a.iter().map(pin).collect());
+            pins.map(Value::Array).ok_or_else(|| bad("1 to 1000 pins { x, y, blur } with x, y in 0..=1 and blur in 0..=1000"))
+        }
+        PKind::Paths => {
+            let paths: Option<Vec<Value>> = v.as_array().filter(|a| (1..=1000).contains(&a.len())).and_then(|a| a.iter().map(path_points).collect());
+            paths.map(Value::Array).ok_or_else(|| bad("1 to 1000 paths of 2 to 256 points { x, y } in 0..=1"))
         }
     }
 }
@@ -410,6 +444,8 @@ pub fn schema_json() -> String {
                         PKind::Color => ("color", None),
                         PKind::Lights => ("lights", None),
                         PKind::Path => ("path", None),
+                        PKind::Pins => ("pins", None),
+                        PKind::Paths => ("paths", None),
                     };
                     let mut o = json!({ "key": p.key, "label": p.label, "kind": kind, "min": p.min, "max": p.max, "step": p.step,
                         "unit": p.unit, "default": default_value(p) });

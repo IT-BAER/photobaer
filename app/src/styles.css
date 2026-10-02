@@ -594,3 +594,5 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .navigator-zoom { display: flex; align-items: center; gap: 4px; }
 .navigator-zoom input[type="range"] { flex: 1; min-width: 0; }
 .navigator-pct { width: 48px; text-align: right; }
+.stage canvas.gallery-overlay { pointer-events: auto; outline: none; }
+dialog.filter-dialog.docked { position: fixed; inset: 64px 16px auto auto; margin: 0; max-height: calc(100vh - 96px); overflow: auto; }

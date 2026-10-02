@@ -12,26 +12,26 @@ use super::{hash, parse_hex, Ctx, Filter, Plane, Rng};
 use crate::selection::{Polygon, Shape};
 
 // The document rect in plane px and the plane px per document px.
-struct Frame {
-    x: f64,
-    y: f64,
-    w: f64,
-    h: f64,
-    s: f64,
+pub(super) struct Frame {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    pub s: f64,
 }
 
 impl Frame {
-    fn of(ctx: &Ctx) -> Frame {
+    pub fn of(ctx: &Ctx) -> Frame {
         let (b, s) = (ctx.bounds, ctx.scale);
         Frame { x: f64::from(b[0]) * s, y: f64::from(b[1]) * s, w: f64::from(b[2]) * s, h: f64::from(b[3]) * s, s }
     }
 
-    fn short(&self) -> f64 {
+    pub fn short(&self) -> f64 {
         self.w.min(self.h).max(1.0)
     }
 
     // A point given as fractions of the rect, in plane px.
-    fn at(&self, fx: f64, fy: f64) -> (f64, f64) {
+    pub fn at(&self, fx: f64, fy: f64) -> (f64, f64) {
         (self.x + fx * self.w, self.y + fy * self.h)
     }
 }

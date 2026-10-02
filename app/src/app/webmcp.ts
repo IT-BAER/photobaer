@@ -76,6 +76,8 @@ function checkParam(p: FilterParam, v: unknown): ParamValue {
     case 'kernel': return ok(Array.isArray(v) && v.length === 25 && v.every(isNum), 'an array of 25 numbers');
     case 'curve': return ok(Array.isArray(v) && v.every(c => isNum(c?.y) && isNum(c?.offset)), 'an array of {y, offset} numbers');
     case 'path': return ok(Array.isArray(v) && v.every(c => isNum(c?.x) && isNum(c?.y)), 'an array of {x, y} numbers from 0 to 1');
+    case 'paths': return ok(Array.isArray(v) && v.length > 0 && v.every(q => Array.isArray(q) && q.length >= 2 && q.every(c => isNum(c?.x) && isNum(c?.y))), 'an array of paths, each an array of 2 or more {x, y} numbers from 0 to 1');
+    case 'pins': return ok(Array.isArray(v) && v.length > 0 && v.every(c => isNum(c?.x) && isNum(c?.y) && isNum(c?.blur)), 'an array of {x, y, blur} numbers (x, y from 0 to 1, blur in px)');
     case 'lights': return ok(Array.isArray(v) && v.every(l => !!l && typeof l === 'object'), 'an array of light objects');
     default: return ok(isNum(v) && v >= p.min && v <= p.max, `a number from ${p.min} to ${p.max}`);
   }
