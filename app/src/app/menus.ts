@@ -1,5 +1,6 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { client } from '../client.ts';
+import { flatNodes } from '../layers.ts';
 import type { Active } from '../LayersPanel.tsx';
 import type { StylePage } from '../LayerStyleDialog.tsx';
 import { EFFECT_KINDS, EFFECT_LABEL } from '../layerStyle.ts';
@@ -154,6 +155,12 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Delete Layer', run: deleteLayer, off: deleteDisabled },
       { label: 'Group Layers', keys: 'Ctrl+G', run: groupLayers, off: !has },
       { label: 'Ungroup Layers', keys: 'Shift+Ctrl+G', run: ungroupLayers, off: !has || node?.kind !== 'group' },
+      { label: 'Lock All Layers in Group', run: () => node && run(null, () => client.call('setLocks', flatNodes(node.children ?? []).map(n => n.id), { transparency: true, pixels: true, position: true })), off: !has || node?.kind !== 'group' },
+      {
+        label: 'Arrange', keys: '›', sep: true, run: () => {}, off: !has || !selectedNodes.length, sub: ([
+          ['front', 'Bring to Front', 'Shift+Ctrl+]'], ['forward', 'Bring Forward', 'Ctrl+]'], ['backward', 'Send Backward', 'Ctrl+['], ['back', 'Send to Back', 'Shift+Ctrl+['],
+        ] as const).map(([mode, label, keys]) => ({ label, keys, run: () => run(null, () => client.call('arrangeNodes', selectedNodes.map(n => n.id), mode)) })),
+      },
       { label: node?.clipping ? 'Release Clipping Mask' : 'Create Clipping Mask', keys: 'Alt+Ctrl+G', run: toggleClipping, off: !has },
       { label: 'Add Layer Mask', run: addMask, off: !has || !!node?.mask },
       { label: 'Delete Layer Mask', run: deleteMask, off: !has || !node?.mask },

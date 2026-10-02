@@ -12,6 +12,7 @@ import { DESTRUCTIVE_KINDS } from './adjustments.ts';
 import { layerCss, pngSvg, shapeSvg } from './app/svgcss.ts';
 import { BOOL_LABEL } from './shell/shapetools.ts';
 import { layerName } from './shell/typesession.ts';
+import { locate, nodeById } from './layers.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
 import type { Adjustment, FaceInfo, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
@@ -732,6 +733,40 @@ const api = {
   moveNode(id: number, parent: number, index: number) {
     const e = need();
     history.run('Layer Order', () => e.move_node(id, parent, index));
+    return changed();
+  },
+
+  // Layer > Arrange: the selected siblings of each parent move as a block, one history step; none if nothing moves.
+  arrangeNodes(ids: number[], mode: 'front' | 'forward' | 'backward' | 'back') {
+    const e = need();
+    const tree = JSON.parse(e.layers_json()) as LayerNode[];
+    const moves: [number, number, number][] = [];
+    for (const parent of new Set(ids.map(id => locate(tree, id)?.parent))) {
+      if (parent === undefined) continue;
+      const cur = (parent ? nodeById(tree, parent)!.children! : tree).map(n => n.id);
+      const sel = cur.map(id => ids.includes(id));
+      const next = cur.slice();
+      if (mode === 'front' || mode === 'back') {
+        const picked = cur.filter((_, i) => sel[i]), rest = cur.filter((_, i) => !sel[i]);
+        next.splice(0, next.length, ...(mode === 'front' ? [...rest, ...picked] : [...picked, ...rest]));
+      } else {
+        const up = mode === 'forward', flags = sel.slice();
+        for (let n = 0; n < cur.length - 1; n++) {
+          const i = up ? cur.length - 2 - n : n + 1, j = up ? i + 1 : i - 1;
+          if (flags[i] && !flags[j]) { [next[i], next[j]] = [next[j], next[i]]; [flags[i], flags[j]] = [flags[j], flags[i]]; }
+        }
+      }
+      next.forEach((id, i) => { if (cur[i] !== id) { moves.push([id, parent!, i]); cur.splice(cur.indexOf(id), 1); cur.splice(i, 0, id); } });
+    }
+    if (!moves.length) return changed();
+    const label = { front: 'Bring to Front', forward: 'Bring Forward', backward: 'Send Backward', back: 'Send to Back' }[mode];
+    history.run(label, () => { for (const [id, parent, index] of moves) e.move_node(id, parent, index); });
+    return changed();
+  },
+
+  setLocks(ids: number[], locks: { transparency: boolean; pixels: boolean; position: boolean }) {
+    const e = need();
+    history.run('Lock All Layers in Group', () => { for (const id of ids) e.set_props(id, JSON.stringify({ locks })); });
     return changed();
   },
 

@@ -330,6 +330,50 @@ test('moveNode moves a layer into a group', async () => {
   assert.deepEqual(group.children!.map(c => c.id), [id]);
 });
 
+type ArrDoc = { layers: { id: number; locks: { transparency: boolean; pixels: boolean; position: boolean }; children?: ArrDoc['layers'] }[]; undoLabel: string | null };
+async function fourLayers() {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  const ids = [1];
+  for (let i = 0; i < 3; i++) ids.push(((await call('addLayer', ids[i])).result as { created: number }).created);
+  return ids; // A,B,C,D bottom to top
+}
+
+test('arrangeNodes moves one layer and one history step per command', async () => {
+  const [a, b, c, d] = await fourLayers();
+  const r = (await call('arrangeNodes', [b], 'forward')).result as ArrDoc;
+  assert.deepEqual(r.layers.map(n => n.id), [a, c, b, d]);
+  assert.equal(r.undoLabel, 'Bring Forward');
+  assert.deepEqual(((await call('undo')).result as ArrDoc).layers.map(n => n.id), [a, b, c, d]);
+  assert.deepEqual(((await call('arrangeNodes', [d], 'back')).result as ArrDoc).layers.map(n => n.id), [d, a, b, c]);
+  assert.deepEqual(((await call('undo')).result as ArrDoc).layers.map(n => n.id), [a, b, c, d]);
+});
+
+test('arrangeNodes at the bounds is a no-op without a history step', async () => {
+  const [a, , , d] = await fourLayers();
+  for (const [id, mode] of [[d, 'front'], [d, 'forward'], [a, 'back'], [a, 'backward']] as const) {
+    const r = (await call('arrangeNodes', [id], mode)).result as ArrDoc;
+    assert.equal(r.undoLabel, 'New Layer');
+  }
+});
+
+test('arrangeNodes moves a selection as a block keeping its order', async () => {
+  const [a, b, c, d] = await fourLayers();
+  assert.deepEqual(((await call('arrangeNodes', [b, a], 'front')).result as ArrDoc).layers.map(n => n.id), [c, d, a, b]);
+  assert.deepEqual(((await call('arrangeNodes', [a, b], 'back')).result as ArrDoc).layers.map(n => n.id), [a, b, c, d]);
+  assert.deepEqual(((await call('arrangeNodes', [a, c], 'forward')).result as ArrDoc).layers.map(n => n.id), [b, a, d, c]);
+});
+
+test('setLocks locks every listed layer in one history step', async () => {
+  const [, b, c, d] = await fourLayers();
+  const all = { transparency: true, pixels: true, position: true };
+  const r = (await call('setLocks', [b, c, d], all)).result as ArrDoc;
+  assert.deepEqual(r.layers.filter(n => n.id !== 1).map(n => n.locks), [all, all, all]);
+  assert.equal(r.undoLabel, 'Lock All Layers in Group');
+  const u = (await call('undo')).result as ArrDoc;
+  assert.ok(u.layers.every(n => !n.locks.pixels && !n.locks.position && !n.locks.transparency));
+});
+
 test('closing a document and creating the next one right away keeps the new autosave', async () => {
   await call('init');
   await call('newDoc', 256, 256, 8, null);
