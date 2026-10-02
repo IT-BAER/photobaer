@@ -46,7 +46,7 @@ export interface MenuCtx {
   rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
   loadSelDialog: DialogRef; saveSelDialog: DialogRef; viewer: RefObject<Viewer | null>;
-  filterSpecs: FilterSpec[]; openFilter: (spec: FilterSpec) => void; lastFilter: () => void; openFade: () => void;
+  filterSpecs: FilterSpec[]; openFilter: (spec: FilterSpec) => void; lastFilter: () => void; openFade: () => void; openSearch: () => void;
   showAnts: boolean; setShowAnts: SetState<boolean>; showAdjustments: boolean; setShowAdjustments: SetState<boolean>;
   showLayerComps: boolean; setShowLayerComps: SetState<boolean>; showPaths: boolean; setShowPaths: SetState<boolean>; showProperties: boolean; setShowProperties: SetState<boolean>;
   showStyles: boolean; setShowStyles: SetState<boolean>; showPatterns: boolean; setShowPatterns: SetState<boolean>;
@@ -76,7 +76,7 @@ export function buildMenus(c: MenuCtx) {
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
-    selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, typeItems, filterSpecs, openFilter, lastFilter, openFade, aboutDialog, agentDialog,
+    selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, typeItems, filterSpecs, openFilter, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
   } = c;
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
@@ -167,6 +167,7 @@ export function buildMenus(c: MenuCtx) {
             .map(([c, label]) => ({ label, run: () => transformRemap(c, label), off: warping })),
         ],
       },
+      { label: 'Search…', keys: 'Ctrl+F', sep: true, run: () => { setMenu(null); openSearch(); } },
     ],
     Layer: [
       { label: 'New Layer', run: newLayer, off: !has },

@@ -71,6 +71,7 @@ export function useShortcuts(c: ShortcutCtx) {
       if (ctrl && e.altKey && k === 'n') trigger('New', e);
       else if (ctrl && e.altKey && !e.shiftKey && k === 'f') trigger('Last Filter', e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 'f') trigger('Fade', e);
+      else if (ctrl && !e.altKey && !e.shiftKey && k === 'f') { if (!t?.closest('textarea, [contenteditable]')) triggerBy(l => l === 'Search…', e); }
       else if (ctrl && k === 'tab') triggerBy(l => l === (e.shiftKey ? 'Previous Document' : 'Next Document'), e);
       else if (ctrl && !e.altKey && !e.shiftKey && k === 'w') triggerBy(l => l === 'Close', e);
       else if (ctrl && k === 'o') trigger('Open', e);

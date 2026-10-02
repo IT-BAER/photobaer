@@ -80,7 +80,7 @@ import { connectBridge, pairing, toBase64, type Format } from './app/agentBridge
 import { schema, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, AboutDialog, AgentDialog, DonateDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
+  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
   ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
 } from './app/Dialogs.tsx';
 
@@ -143,6 +143,7 @@ export function App() {
   const [closeName, setCloseName] = useState('');
   const closeAnswer = useRef<((c: CloseChoice) => void) | null>(null);
   const aboutDialog = useRef<HTMLDialogElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const donateDialog = useRef<HTMLDialogElement>(null);
   const agentDialog = useRef<HTMLDialogElement>(null);
   const featherDialog = useRef<HTMLDialogElement>(null);
@@ -1111,7 +1112,7 @@ export function App() {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, lastFilter, openFade,
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, typeItems: typeMenuItems(typeCtx),
   });
@@ -1912,6 +1913,7 @@ export function App() {
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <CloseDialog closeDialog={closeDialog} name={closeName} choose={chooseClose} />
       <AboutDialog aboutDialog={aboutDialog} />
+      {searchOpen && <SearchDialog menus={menus} close={() => setSearchOpen(false)} />}
       <DonateDialog donateDialog={donateDialog} />
       <AgentDialog agentDialog={agentDialog} />
       <FeatherDialog featherDialog={featherDialog} run={run} />

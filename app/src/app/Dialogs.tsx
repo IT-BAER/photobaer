@@ -1,5 +1,5 @@
 import { ArrowUpRight } from 'lucide-react';
-import { useState, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
 import { client } from '../client.ts';
 import type { Active } from '../LayersPanel.tsx';
 import { BLEND_MODES } from '../layers.ts';
@@ -16,8 +16,9 @@ import { RULER_UNITS, unitToPx, type RulerUnit } from '../shell/units.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo } from '../worker/types.ts';
 import {
   COLOR_RANGE_PRESETS, FILL_CONTENTS, FILL_LAYERS, MODIFY_OPS, selectCreated,
-  type FillContentForm, type FillContents, type FillForm, type Run, type Show, type StrokeForm, type TrimBase,
+  type FillContentForm, type FillContents, type FillForm, type Item, type Run, type Show, type StrokeForm, type TrimBase,
 } from './helpers.ts';
+import { flattenMenus, searchCommands } from './commandSearch.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type DialogRef = RefObject<HTMLDialogElement | null>;
@@ -216,6 +217,46 @@ export function CloseDialog({ closeDialog, name, choose }: { closeDialog: Dialog
           <button type="submit" className="primary">Save</button>
         </div>
       </form>
+    </dialog>
+  );
+}
+
+export function SearchDialog({ menus, close }: { menus: Record<string, Item[]>; close: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [query, setQuery] = useState('');
+  const [index, setIndex] = useState(0);
+  const commands = useMemo(() => flattenMenus(menus), [menus]);
+  const results = useMemo(() => searchCommands(commands, query), [commands, query]);
+  useEffect(() => { dialog.current?.showModal(); }, []);
+  useEffect(() => { document.getElementById(`search-option-${index}`)?.scrollIntoView({ block: 'nearest' }); }, [index]);
+  const pick = (i: number) => {
+    const c = results[i];
+    if (!c || c.off) return;
+    dialog.current?.close();
+    close();
+    c.run();
+  };
+  return (
+    <dialog ref={dialog} className="search-dialog" aria-label="Search" onClose={close}>
+      <input autoFocus value={query} aria-label="Search commands" role="combobox" aria-expanded aria-controls="search-results"
+        aria-activedescendant={results.length ? `search-option-${index}` : undefined}
+        onChange={e => { setQuery(e.target.value); setIndex(0); }}
+        onKeyDown={e => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (results.length) setIndex((index + (e.key === 'ArrowDown' ? 1 : results.length - 1)) % results.length);
+          } else if (e.key === 'Enter') { e.preventDefault(); pick(index); }
+        }} />
+      <ul id="search-results" role="listbox" aria-label="Commands">
+        {results.map((c, i) => (
+          <li key={i} id={`search-option-${i}`} role="option" aria-selected={i === index} aria-disabled={c.off || undefined}
+            className={c.off ? 'off' : undefined} onMouseMove={() => setIndex(i)} onClick={() => pick(i)}>
+            <span>{c.label}<small>{c.path}</small></span>
+            {c.keys && c.keys !== '›' && <kbd>{c.keys}</kbd>}
+          </li>
+        ))}
+        {!results.length && <li className="empty">No matching commands</li>}
+      </ul>
     </dialog>
   );
 }

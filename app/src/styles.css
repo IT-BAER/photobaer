@@ -308,6 +308,17 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .about-dialog p { margin: 6px 0; }
 .about-dialog .dim { color: var(--dim); font-size: 12px; }
 .about-dialog a { color: var(--accent-hover); }
+.search-dialog { width: min(560px, calc(100vw - 32px)); margin-top: 12vh; padding: 12px; }
+.search-dialog::backdrop { background: none; }
+.search-dialog input { width: 100%; box-sizing: border-box; }
+.search-dialog ul { margin: 8px 0 0; padding: 0; list-style: none; max-height: 50vh; overflow-y: auto; }
+.search-dialog li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
+.search-dialog li[aria-selected=true] { background: var(--panel-hi); }
+.search-dialog li.off { color: var(--disabled); cursor: default; }
+.search-dialog li.empty { color: var(--dim); cursor: default; }
+.search-dialog small { margin-left: 8px; color: var(--dim); font-size: 11px; }
+.search-dialog li.off small { color: var(--disabled); }
+.search-dialog kbd { flex: none; font: 11px ui-monospace, monospace; color: var(--dim); }
 .agent-dialog { width: min(600px, calc(100vw - 32px)); }
 .agent-dialog p { margin: 6px 0; line-height: 1.4; }
 .agent-dialog .dim { color: var(--dim); font-size: 12px; }

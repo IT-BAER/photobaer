@@ -5,9 +5,6 @@ to `docs/M5.md` section 15.
 
 ## Quick wins (next)
 
-### Q3 Command search
-- Edit > Search (Ctrl+F): search every menu command by name, show its menu path and shortcut, run with Enter.
-
 ### Q4 Navigator panel
 - Window > Navigator: document thumbnail with the view rectangle, drag to pan, click to center, zoom slider.
 
