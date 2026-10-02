@@ -244,6 +244,9 @@ struct StrokeIn {
     source: Option<SourceIn>,
     #[serde(default)]
     heal: Option<String>,
+    /// Healing Brush Diffusion 1..=7 (7 = the full Poisson correction).
+    #[serde(default)]
+    diffusion: Option<f32>,
     #[serde(default)]
     effect: Option<EffectIn>,
     #[serde(default)]
@@ -555,6 +558,10 @@ fn parse_stroke(
     };
 
     let heal = p.heal.as_deref().map(Heal::parse).transpose()?;
+    let diffusion = p.diffusion.unwrap_or(7.0);
+    if !(1.0..=7.0).contains(&diffusion) {
+        return Err("diffusion must be 1 to 7".into());
+    }
     if (p.source.is_some() || heal.is_some()) && target != Target::Pixels {
         return Err("a clone, pattern or heal stroke needs the pixels target".into());
     }
@@ -562,7 +569,7 @@ fn parse_stroke(
         return Err("erase to history can't use a source".into());
     }
     match (heal, &p.source) {
-        (Some(Heal::Healing), Some(SourceIn::Clone { .. })) => {}
+        (Some(Heal::Healing), Some(SourceIn::Clone { .. } | SourceIn::Pattern { .. })) => {}
         (Some(Heal::Healing), _) => return Err("the healing brush needs a clone source".into()),
         (Some(_), Some(_)) => return Err("a spot heal takes no source".into()),
         _ => {}
@@ -624,6 +631,7 @@ fn parse_stroke(
         dual_brush,
         source,
         heal,
+        diffusion,
         effect,
         art,
         smudge_prev: None,
@@ -689,6 +697,7 @@ pub struct Stroke {
     pub(super) dual_brush: DualBrush,
     pub(super) source: Option<StrokeSource>,
     pub(super) heal: Option<Heal>,
+    pub(super) diffusion: f32,
     pub(super) effect: Option<Effect>,
     pub(super) art: Option<Art>,
     // The previous smudge dab center.

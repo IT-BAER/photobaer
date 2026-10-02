@@ -5,7 +5,8 @@ import { client } from '../client.ts';
 import type { Active } from '../LayersPanel.tsx';
 import { cloneOverlaySource, cloneSources, redEyeRect, tintOverlay } from '../shell/retouch.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
-import type { SelectionOverlay } from '../shell/SelectionOverlay.ts';
+import type { BoxRect, SelectionOverlay } from '../shell/SelectionOverlay.ts';
+import { hitCrop, resizeCrop, type CropHit } from '../crop/geometry.ts';
 import type { Viewer } from '../viewer.ts';
 import type { DocInfo } from '../worker/types.ts';
 import type { Run } from './helpers.ts';
@@ -21,16 +22,52 @@ export interface RetouchCtx {
 export function useRetouchTools(c: RetouchCtx) {
   const { viewer, overlayRef, redrawOverlay, tool, active, docRef, toolOptionsRef, run, setError } = c;
   // Patch and Content-Aware Move drag the selection's bounds (dashed box) and apply on release;
-  // Red Eye takes a click box or a dragged box.
+  // Red Eye takes a click box or a dragged box. Content-Aware Move with Transform On Drop keeps the
+  // dropped box with 8 handles: Enter or a click outside applies the scaled move, Escape cancels,
+  // a tool change applies.
   useEffect(() => {
     const v = viewer.current;
     if (!v || !(tool === 'patch' || tool === 'contentAwareMove' || tool === 'redEye')) return;
     let start: [number, number] | null = null;
+    let drop: { id: number; base: BoxRect; box: BoxRect; hit: CropHit | null; from: [number, number]; startBox: BoxRect } | null = null;
     const preview = (r: Rect | null) => {
       overlayRef.current?.setPreview(r && { kind: 'rect', x: r[0], y: r[1], w: r[2], h: r[3] });
       redrawOverlay();
     };
+    const showDrop = () => { overlayRef.current?.setBox(drop?.box ?? null); redrawOverlay(); };
+    const endDrop = (apply: boolean) => {
+      const d = drop;
+      drop = null;
+      showDrop();
+      if (!apply || !d || d.box.w < 1 || d.box.h < 1) return;
+      const o = toolOptionsRef.current;
+      const dx = Math.round(d.box.x + d.box.w / 2 - (d.base.x + d.base.w / 2)), dy = Math.round(d.box.y + d.box.h / 2 - (d.base.y + d.base.h / 2));
+      const scale = [d.box.w / d.base.w, d.box.h / d.base.h];
+      run('Moving…', () => client.call('contentAwareMove', d.id, dx, dy, { extend: o.mode === 'extend', structure: Number(o.structure), color: Number(o.color), scale }));
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (!drop || (e.key !== 'Enter' && e.key !== 'Escape')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      endDrop(e.key === 'Enter');
+    };
+    window.addEventListener('keydown', onKey, true);
     v.onPointer = e => {
+      if (drop) {
+        const d = drop;
+        if (e.type === 'down') {
+          d.hit = hitCrop(d.box, [e.x, e.y], 8 / v.view.zoom);
+          if (!d.hit) { endDrop(true); return; }
+          d.from = [e.x, e.y];
+          d.startBox = d.box;
+        } else if (d.hit) {
+          // Shift keeps the dropped box's aspect.
+          d.box = resizeCrop(d.startBox, d.hit, e.x - d.from[0], e.y - d.from[1], e.shiftKey ? d.base.w / d.base.h : null);
+          if (e.type !== 'move') d.hit = null;
+          showDrop();
+        }
+        return;
+      }
       if (e.type === 'down') {
         if (!active) return;
         if (tool !== 'redEye' && !docRef.current?.selection?.bounds) { setError('Make a selection first.'); return; }
@@ -58,12 +95,16 @@ export function useRetouchTools(c: RetouchCtx) {
       const base = { structure: Number(o.structure), color: Number(o.color) };
       if (tool === 'patch') {
         const mode = o.mode === 'destination' ? 'destination' : 'source';
-        run('Patching…', () => client.call('patch', id, dx, dy, { mode, contentAware: o.patchMode === 'contentAware', ...base }));
+        run('Patching…', () => client.call('patch', id, dx, dy, { mode, contentAware: o.patchMode === 'contentAware', transparent: !!o.transparent, ...base }));
+      } else if (o.transformOnDrop && b) {
+        const base = { x: b[0], y: b[1], w: b[2], h: b[3] }, box = { ...base, x: b[0] + dx, y: b[1] + dy };
+        drop = { id, base, box, hit: null, from: [0, 0], startBox: box };
+        showDrop();
       } else {
         run('Moving…', () => client.call('contentAwareMove', id, dx, dy, { extend: o.mode === 'extend', ...base }));
       }
     };
-    return () => { v.onPointer = () => {}; preview(null); };
+    return () => { window.removeEventListener('keydown', onKey, true); endDrop(true); v.onPointer = () => {}; preview(null); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, active]);
 }
@@ -81,7 +122,8 @@ export function useCloneOverlay(c: RetouchCtx) {
     const update = async () => {
       if (busy) { again = true; return; }
       const doc = docRef.current, o = toolOptionsRef.current;
-      const found = pointer && doc && !alt ? cloneOverlaySource(cloneSources, pointer, doc.key, !!o.aligned || painting) : null;
+      const sampled = !(tool === 'healingBrush' && o.source === 'pattern');
+      const found = pointer && doc && !alt && sampled ? cloneOverlaySource(cloneSources, pointer, doc.key, !!o.aligned || painting) : null;
       if (!found || !pointer || !doc) { clear(); return; }
       const slot = cloneSources.slot();
       const size = Math.max(1, Number(o.size)), zoom = v.view.zoom;

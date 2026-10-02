@@ -739,7 +739,7 @@ impl Engine {
     }
 
     /// Patch: repairs the selection by the drag (`dx`, `dy`); `params_json` is `{mode: "source" |
-    /// "destination", contentAware, structure, color}`. Needs a selection; true when a pixel changed.
+    /// "destination", contentAware, structure, color, transparent}`. Needs a selection; true when a pixel changed.
     pub fn patch(&mut self, id: u32, dx: i32, dy: i32, params_json: &str) -> Result<bool, JsError> {
         self.0.doc.patch(id, dx, dy, params_json).map_err(err)
     }

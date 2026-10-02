@@ -190,12 +190,7 @@ pub fn render(st: &State, p: &mut Plane, s: f64) {
     let src = p.data.clone();
     let (w, h) = (p.w, p.h);
     for d in &st.stamps {
-        // A dab without a plane id takes the first plane holding `to` (every plane holds UV in 0..1).
-        let k = match &d.plane_id {
-            Some(id) => st.planes.iter().position(|q| &q.id == id),
-            None => (d.to.iter().all(|v| (0.0..=1.0).contains(v)) && !st.planes.is_empty()).then_some(0),
-        };
-        let Some((fwd, inv)) = k.and_then(|k| maps[k]) else { continue };
+        let Some((fwd, inv)) = plane_of(st, d).and_then(|k| maps[k]) else { continue };
         let (u0, v0, u1, v1) = ((d.to[0] - d.radius).max(0.0), (d.to[1] - d.radius).max(0.0), (d.to[0] + d.radius).min(1.0), (d.to[1] + d.radius).min(1.0));
         if u0 > u1 || v0 > v1 {
             continue;
@@ -244,7 +239,17 @@ pub fn apply(p: &mut Plane, f: &Filter, ctx: &Ctx) -> Result<(), String> {
     Ok(())
 }
 
-/// Dabs paint only inside planes: `r` grown by every plane's bounding box, kept inside i32.
+// The plane a dab paints in: its own, else the first (every plane holds UV in 0..1).
+fn plane_of(st: &State, d: &Dab) -> Option<usize> {
+    match &d.plane_id {
+        Some(id) => st.planes.iter().position(|q| &q.id == id),
+        None => (d.to.iter().all(|v| (0.0..=1.0).contains(v)) && !st.planes.is_empty()).then_some(0),
+    }
+}
+
+/// Dabs paint only inside planes: `r` grown by every plane's bounding box, kept inside i32. Each
+/// dab's source box also counts, clamped into `r` grown by 1 px: outside `r` the content is empty, so
+/// an edge-clamped read there must land on that empty border.
 pub fn extent(f: &Filter, r: [i32; 4]) -> Result<[i32; 4], String> {
     let s = State::parse(f.params.get("state").unwrap_or(&Value::Null))?;
     let lim = (1i64 << 29) as f64;
@@ -252,6 +257,20 @@ pub fn extent(f: &Filter, r: [i32; 4]) -> Result<[i32; 4], String> {
     for c in s.planes.iter().filter(|_| !s.stamps.is_empty()).flat_map(|p| p.corners) {
         let (x, y) = (c[0].clamp(-lim, lim), c[1].clamp(-lim, lim));
         (x0, y0, x1, y1) = (x0.min(x.floor() as i32), y0.min(y.floor() as i32), x1.max(x.ceil() as i32), y1.max(y.ceil() as i32));
+    }
+    let maps = maps(&s.planes, 1.0);
+    let border = [r[0] as f64 - 1.0, r[1] as f64 - 1.0, (r[0] + r[2]) as f64 + 1.0, (r[1] + r[3]) as f64 + 1.0];
+    for d in &s.stamps {
+        let Some((fwd, _)) = plane_of(&s, d).and_then(|k| maps[k]) else { continue };
+        let (u, v, q) = (d.from[0], d.from[1], d.radius);
+        let pts = [(u - q, v - q), (u + q, v - q), (u + q, v + q), (u - q, v + q)].map(|(a, b)| map(&fwd, a, b));
+        if !pts.iter().all(|(x, y)| x.is_finite() && y.is_finite()) {
+            continue;
+        }
+        let fold = |f: fn(f64, f64) -> f64, k: usize| pts.iter().map(|p| if k == 0 { p.0 } else { p.1 }).reduce(f).expect("4 points");
+        let (cx, cy) = (|v: f64| v.clamp(border[0], border[2]), |v: f64| v.clamp(border[1], border[3]));
+        let b = [cx(fold(f64::min, 0)), cy(fold(f64::min, 1)), cx(fold(f64::max, 0)), cy(fold(f64::max, 1))];
+        (x0, y0, x1, y1) = (x0.min(b[0].floor() as i32), y0.min(b[1].floor() as i32), x1.max(b[2].ceil() as i32), y1.max(b[3].ceil() as i32));
     }
     Ok([x0, y0, x1 - x0, y1 - y0])
 }

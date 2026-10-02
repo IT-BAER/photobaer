@@ -425,3 +425,19 @@ test('A8 PSD puppet warp: undeformed is identity, deformed moves pixels, the sha
   assert.throws(() => exportPsd(e), /Cannot export Puppet Warp as an editable Photoshop filter\./);
   rest.engine.free(); rest.again.free(); moved.free();
 });
+
+test('A9 Oil Paint from Photoshop exports with lightingOn as a boolean; HSB/HSL refuses export naming it', () => {
+  for (const lightingOn of [true, false]) {
+    const oil = item('oil paint', { lightingOn, stylization: 5, cleanliness: 4, brushScale: 1, microBrush: 2, lightDirection: 90, specularity: 1 });
+    const { orig, out, engine, again, warnings } = roundTrip([oil]);
+    assert.deepEqual(warnings, []);
+    assert.equal(strip(engine)[0].kind, 'stylize.oil_paint');
+    assert.deepEqual(listOf(out), listOf(orig));
+    assert.equal((listOf(out)[0] as any).filter.lightingOn, lightingOn);
+    engine.free(); again.free();
+  }
+  const { engine } = importPsd(psdOf([item('blur')]));
+  engine.add_smart_filter(nodeOf(engine).id, JSON.stringify(filterIn(item('hsb/hsl', { inputMode: 'rgb', rowOrder: 'hsb' }), () => {})));
+  assert.throws(() => exportPsd(engine), /Cannot export HSB\/HSL as an editable Photoshop filter\./);
+  engine.free();
+});

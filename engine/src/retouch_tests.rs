@@ -137,6 +137,46 @@ fn healing_brush_keeps_the_target_level_while_taking_the_source_texture() {
 }
 
 #[test]
+fn healing_diffusion_limits_how_far_the_target_tone_reaches_into_the_stroke() {
+    // Source gray 60 on the left half, target gray 200 on the right; a 41 px stroke at (96, 32).
+    let heal = |diffusion: Option<f32>| {
+        let mut e = EngineCore::new(doc_with(128, 64, |x, _| if x < 64 { gray(60) } else { gray(200) }));
+        let mut p = json!({ "heal": "healing", "source": clone_src([32, 32], [96, 32], [1, 0, 0, 1]) });
+        if let Some(d) = diffusion {
+            p["diffusion"] = json!(d);
+        }
+        dab(&mut e, 41.0, 96, 32, p).unwrap();
+        (at(&e.doc, 96, 32)[0], at(&e.doc, 76, 32)[0])
+    };
+    let (full, _) = heal(Some(7.0));
+    assert!(full.abs_diff(200) <= 2, "diffusion 7 adapts fully: {full}");
+    assert_eq!(heal(None).0, full, "no diffusion param = 7");
+    let (low, low_edge) = heal(Some(1.0));
+    assert!(low.abs_diff(60) <= 10, "diffusion 1 keeps the source tone inside: {low}");
+    assert!(low_edge >= 120, "diffusion 1 still adapts at the edge: {low_edge}");
+    let mid = heal(Some(3.0)).0;
+    let def = heal(Some(5.0)).0;
+    assert!(low <= mid && mid <= def && def <= full && low < full, "monotonic: {low} {mid} {def} {full}");
+    let mut e = ramp();
+    for bad in [0.0, 8.0, -3.0] {
+        let err = dab(&mut e, 5.0, 10, 10, json!({ "heal": "healing", "diffusion": bad, "source": clone_src([1, 1], [2, 2], [1, 0, 0, 1]) })).unwrap_err();
+        assert_eq!(err, "diffusion must be 1 to 7");
+    }
+}
+
+#[test]
+fn healing_brush_with_a_pattern_source_takes_the_pattern_texture_at_the_target_level() {
+    let mut e = EngineCore::new(doc_with(64, 64, |_, _| gray(150)));
+    let data: Vec<u8> = (0..16).flat_map(|i| if i % 4 < 2 { gray(100) } else { gray(200) }).collect();
+    let id = e.pattern_add(4, 4, &data, 4).unwrap();
+    let src = json!({ "kind": "pattern", "patternId": id, "origin": [0, 0], "impressionist": false });
+    dab(&mut e, 15.0, 32, 32, json!({ "heal": "healing", "source": src })).unwrap();
+    let row: Vec<i32> = (32..36).map(|x| at(&e.doc, x, 32)[0] as i32).collect();
+    assert!(row[2] - row[0] >= 60 && row[3] - row[1] >= 60, "the stripes arrive: {row:?}");
+    assert!((row.iter().sum::<i32>() / 4 - 150).abs() <= 25, "the level stays: {row:?}");
+}
+
+#[test]
 fn pattern_stamp_tiles_the_pattern_from_its_origin() {
     let mut e = EngineCore::new(doc_with(32, 32, |_, _| gray(255)));
     let data: Vec<u8> = (0..16).flat_map(|i| [(i % 4) as u8 * 40 + 10, (i / 4) as u8 * 40 + 10, 5, 255]).collect();
@@ -171,6 +211,31 @@ fn patch_source_replaces_the_selection_with_the_dragged_to_area() {
 }
 
 #[test]
+fn patch_transparent_keeps_the_target_detail_under_the_source_texture() {
+    // Gray 100 with a dark row at y 15 over x hx..hx+10 and a dark column at x vx over y 10..20;
+    // the 10 x 10 selection at (10, 10) is dragged by +30.
+    let lines = |hx: i32, vx: i32| {
+        let mut d = doc_with(100, 100, |x, y| {
+            if (y == 15 && (hx..hx + 10).contains(&x)) || (x == vx && (10..20).contains(&y)) { gray(30) } else { gray(100) }
+        });
+        d.select_rect(10.0, 10.0, 10.0, 10.0, Mode::New).unwrap();
+        d
+    };
+    let p = |mode: &str, t: bool| format!(r#"{{"mode":"{mode}","contentAware":false,"structure":4,"color":2,"transparent":{t}}}"#);
+    // Source: the row is target detail, the column comes from the source; destination: the
+    // column is carried onto the row.
+    for (mode, hx, vx, kept, arrives) in [("source", 10, 45, (12, 15), (15, 12)), ("destination", 40, 15, (42, 15), (45, 12))] {
+        let (mut opaque, mut clear) = (lines(hx, vx), lines(hx, vx));
+        assert!(opaque.patch(1, 30, 0, &p(mode, false)).unwrap());
+        assert!(clear.patch(1, 30, 0, &p(mode, true)).unwrap());
+        let v = |d: &Document, (x, y): (i32, i32)| at(d, x, y)[0];
+        assert!(v(&opaque, arrives) <= 60 && v(&clear, arrives) <= 60, "{mode}: the source column arrives: {} {}", v(&opaque, arrives), v(&clear, arrives));
+        assert!(v(&opaque, kept).abs_diff(100) <= 2, "{mode}: an opaque patch covers the row: {}", v(&opaque, kept));
+        assert!(v(&clear, kept) <= 60, "{mode}: a transparent patch keeps the row: {}", v(&clear, kept));
+    }
+}
+
+#[test]
 fn patch_needs_a_selection() {
     let mut d = doc_with(20, 20, |_, _| gray(100));
     assert_eq!(d.patch(1, 5, 0, PATCH).unwrap_err(), "Make a selection first.");
@@ -191,6 +256,32 @@ fn patch_destination_and_content_aware_move_carry_the_object_and_heal_the_hole()
         for x in 10..20 {
             assert!(at(&d, x, y)[0] <= 105, "the vacated ({x}, {y}) is {:?}", at(&d, x, y));
         }
+    }
+}
+
+#[test]
+fn content_aware_move_scales_the_dropped_selection_about_its_center() {
+    let (mut a, mut b) = (blob(), blob());
+    assert!(a.content_aware_move(1, 30, 5, r#"{"extend":false,"structure":4,"color":2}"#).unwrap());
+    assert!(b.content_aware_move(1, 30, 5, r#"{"extend":false,"structure":4,"color":2,"scale":[1,1]}"#).unwrap());
+    for y in 0..100 {
+        for x in 0..100 {
+            assert_eq!(at(&a, x, y), at(&b, x, y), "scale 1 is a plain move at ({x}, {y})");
+        }
+    }
+    // The 10 x 10 blob centered at (15, 15) lands centered at (55, 15) as 20 x 20.
+    let mut d = blob();
+    assert!(d.content_aware_move(1, 40, 0, r#"{"extend":true,"structure":4,"color":2,"scale":[2,2]}"#).unwrap());
+    for (x, y) in [(50, 10), (60, 20), (55, 15), (47, 7), (62, 22)] {
+        assert!(at(&d, x, y)[0] >= 190, "inside the scaled blob ({x}, {y}) is {:?}", at(&d, x, y));
+    }
+    for (x, y) in [(42, 15), (68, 15), (55, 2), (55, 28)] {
+        assert!(at(&d, x, y)[0].abs_diff(100) <= 2, "outside ({x}, {y}) is {:?}", at(&d, x, y));
+    }
+    assert_eq!(at(&d, 15, 15)[0], 200, "extend keeps the original");
+    for bad in ["[0,1]", "[1,21]", "[0.01,0.01]"] {
+        let err = blob().content_aware_move(1, 30, 0, &format!(r#"{{"extend":true,"scale":{bad}}}"#)).unwrap_err();
+        assert_eq!(err, "scale must be 0.05 to 20");
     }
 }
 

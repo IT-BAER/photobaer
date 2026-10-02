@@ -209,6 +209,8 @@ export function OptionsBar({ tool, values, setValues, custom = {}, fg = [0, 0, 0
       <span className="options-tool" title={tool.label}>{ToolIcon && <ToolIcon size={16} />}</span>
       {tool.options.map(o => {
         if (tip && o.id === 'hardness') return null;
+        // The Healing Brush shows its pattern picker only with Source: Pattern.
+        if (o.id === 'pattern' && values.source === 'sampled') return null;
         const control = tip && o.id === 'size'
           ? <BrushTip size={values.size as number} hardness={values.hardness as number | undefined} setSize={v => commit('size', v)} setHardness={v => commit('hardness', v)} />
           : o.kind === 'custom' ? <span>{custom[o.id]}</span> : <Control option={o} value={values[o.id]} commit={commit} fg={fg} />;

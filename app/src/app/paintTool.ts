@@ -121,13 +121,17 @@ export function usePaintTool(c: PaintToolCtx) {
       }
       if (tool === 'historyBrush') return { historySource: true };
       if (tool === 'artHistoryBrush') return { historySource: true, art: { style: o.style, area: o.area, tolerance: pct(o.tolerance, 0) } };
-      if (tool === 'patternStamp') {
+      // Pattern Stamp and the Healing Brush with Source Pattern; Aligned tiles from the document origin.
+      const patternSource = async () => {
         const lib = brushLib.current;
         const ref = (o.pattern as string) || lib?.library.patterns()[0]?.id;
         const patternId = ref && lib ? await lib.assets.pattern(ref) : undefined;
         if (patternId === undefined) throw new Error('Choose a pattern first.');
-        return { source: { kind: 'pattern', patternId, origin: o.aligned ? [0, 0] : [x, y], impressionist: !!o.impressionist } };
-      }
+        return { kind: 'pattern', patternId, origin: o.aligned ? [0, 0] : [x, y], impressionist: !!o.impressionist };
+      };
+      if (tool === 'patternStamp') return { source: await patternSource() };
+      const diffusion = Number(o.diffusion);
+      if (tool === 'healingBrush' && o.source === 'pattern') return { source: await patternSource(), heal: 'healing', diffusion };
       if (tool !== 'cloneStamp' && tool !== 'healingBrush') return {};
       const slot = cloneSources.slot(), key = docRef.current?.key ?? '';
       if (!slot.anchor) throw new Error(tool === 'cloneStamp' ? 'Alt-click to set a clone source first.' : 'Alt-click to set a source for the Healing Brush.');
@@ -135,7 +139,7 @@ export function usePaintTool(c: PaintToolCtx) {
       const map = cloneSources.beginStroke({ x, y }, key, !!o.aligned)!;
       const sample = tool === 'cloneStamp' ? o.sample : o.allLayers ? 'allLayers' : 'currentLayer';
       const source = { kind: 'clone', ...map, sample, ignoreAdjustments: !!o.ignoreAdjustments, ...(slot.layerId !== null ? { layerId: slot.layerId } : {}) };
-      return tool === 'healingBrush' ? { source, heal: 'healing' } : { source };
+      return tool === 'healingBrush' ? { source, heal: 'healing', diffusion } : { source };
     }
 
     // One animation-frame loop per stroke while build-up or smoothing catch-up needs time-driven samples.

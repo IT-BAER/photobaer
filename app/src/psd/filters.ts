@@ -460,7 +460,8 @@ export function filterOut(f: SmartFilterOut, cx: Ctx): Filter {
   if (kind === 'curves') return { ...wrap, hasOptions: true, ...colors, ...curvesOut(p) } as Filter;
   const s = specOf(kind);
   const label = s?.label ?? kind;
-  if (kind === 'puppet_warp') throw refuse(label);
+  // ag-psd has no writer for HSB/HSL.
+  if (kind === 'puppet_warp' || kind === 'other.hsb_hsl') throw refuse(label);
   const rec = f.psd?.filter ? (hydrate(f.psd.filter, cx.e) as Filter) : undefined;
   if (kind === 'psd_filter') {
     if (!rec) throw refuse(p.name || label);
@@ -531,9 +532,10 @@ export function readPsdRaw(bytes: Uint8Array, opts: ReadOptions): { psd: Psd; ra
   }
 }
 
-// ag-psd cannot write the keys of a perspective warp filter (no descriptor type for them). Its item is
-// serialized under typed stand-in keys, which the SoLd write hook then renames in the written bytes.
-const STAND_IN: [string, string][] = [['Pts ', 'vertices'], ['SbpL', 'warpedVertices'], ['pathComponents', 'quads'], ['Mtrx', 'indices']];
+// ag-psd cannot write the keys of a perspective warp filter or Oil Paint's lightingOn (no descriptor type,
+// or a wrong one). Those items are serialized under typed stand-in keys, which the SoLd write hook then
+// renames in the written bytes.
+const STAND_IN: [string, string][] = [['Pts ', 'vertices'], ['SbpL', 'warpedVertices'], ['pathComponents', 'quads'], ['Mtrx', 'indices'], ['printSixteenBit', 'lightingOn']];
 let pending: Obj[] = [];
 
 const keyBytes = (k: string) => {
@@ -559,9 +561,9 @@ function replaceAll(b: Uint8Array, from: Uint8Array, to: Uint8Array): Uint8Array
   return Uint8Array.from([...out, ...b.subarray(at)]);
 }
 
-/** Prepares a placed layer's filter list for ag-psd's writer: Photoshop's puppet class name and perspective warp items. */
+/** Prepares a placed layer's filter list for ag-psd's writer: Photoshop's puppet class name, perspective warp and Oil Paint items. */
 export function prepareList(list: Filter[]) {
-  if (!list.some(f => f.type === 'puppet' || f.type === 'perspective warp')) return;
+  if (!list.some(f => f.type === 'puppet' || f.type === 'perspective warp' || f.type === 'oil paint')) return;
   Object.defineProperty(list, 'map', {
     value(fn: (f: Filter, i: number) => any) {
       const out = Array.prototype.map.call(this, fn) as Obj[];
@@ -571,6 +573,10 @@ export function prepareList(list: Filter[]) {
           const q = d.Fltr;
           [q['Pts '], q.SbpL, q.pathComponents] = [q.vertices, q.warpedVertices, q.quads.map((x: Obj) => ({ _name: '', _classID: 'null', Mtrx: x.indices }))];
           delete q.vertices; delete q.warpedVertices; delete q.quads;
+          pending.push(d);
+        }
+        if (d.Fltr?._classID === 'oilPaint' && 'lightingOn' in d.Fltr) {
+          d.Fltr = Object.fromEntries(Object.entries(d.Fltr).map(([k, v]) => [k === 'lightingOn' ? 'printSixteenBit' : k, v]));
           pending.push(d);
         }
       }

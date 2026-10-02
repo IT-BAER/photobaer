@@ -1554,6 +1554,26 @@ fn warp_smart_filters_follow_canvas_size() {
     }
 }
 
+#[test]
+fn a_psd_puppet_smart_filter_follows_canvas_size() {
+    use crate::puppet::PsdPuppet;
+    let mut d = puppet_doc();
+    d.convert_for_smart_filters(1, &json!({ "link_id": "l", "source_blob": null }).to_string()).unwrap();
+    let source = vec![[16.0, 12.0], [48.0, 12.0], [48.0, 36.0], [16.0, 36.0]];
+    let target = source.iter().map(|p| [p[0] + 4.0, p[1] + 2.0]).collect();
+    let rig = PsdPuppet { source, target, tris: vec![([0, 1, 2], 0), ([0, 2, 3], 0)] };
+    let blob = d.blob_add(&rig.to_bytes()).unwrap();
+    d.add_smart_filter(1, &filter("psd_filter", json!({ "name": "Puppet Warp", "puppet": blob, "reach": 0 }))).unwrap();
+    let before = layer_px(&d);
+    d.canvas_size(72, 48, (1, 0), None).unwrap();
+    d.render_smart(1).unwrap();
+    for y in 0..48 {
+        for x in 0..64 {
+            assert_eq!(lpx(&d, 1, x + 8, y), before[(y * 64 + x) as usize], "{x},{y}");
+        }
+    }
+}
+
 // A 100 x 10 gray layer (in a 160 px wide doc) with a red bar over x 40..50; its green cycles over three columns so the bar is not flat (flat runs carry no energy).
 fn bar_doc() -> Document {
     doc_with(160, 10, |x, _| if x >= 100 {
@@ -1625,6 +1645,34 @@ fn vanishing_point_on_a_square_plane_is_a_plain_offset_copy() {
             let want = if dx.hypot(dy) <= 6.0 { lpx(&before, 1, x - 16, y) } else { lpx(&before, 1, x, y) };
             assert_eq!(lpx(&d, 1, x, y), want, "{x},{y}");
         }
+    }
+}
+
+#[test]
+fn vanishing_point_dabs_copy_from_outside_their_plane() {
+    let before = vp_doc();
+    let mut d = before.clone();
+    // A 16 px wide plane; the disc around (32, 24) copies from (16, 24), outside the plane's box.
+    let st = vp_state(&[("p1", [[24.0, 8.0], [40.0, 8.0], [40.0, 40.0], [24.0, 40.0]])], &[("p1", [-0.5, 0.5], [0.5, 0.5], 6.0 / 16.0)]);
+    d.apply_filter(1, Target::Pixels, &filter("vanishing_point", json!({ "state": st })), None, 1.0).unwrap();
+    for y in 0..48 {
+        for x in 24..40 {
+            let (dx, dy) = ((x as f64 + 0.5 - 32.0) / 16.0, (y as f64 + 0.5 - 24.0) / 32.0);
+            let want = if dx.hypot(dy) <= 6.0 / 16.0 && (8..40).contains(&y) { lpx(&before, 1, x - 16, y) } else { lpx(&before, 1, x, y) };
+            assert_eq!(lpx(&d, 1, x, y), want, "{x},{y}");
+        }
+    }
+}
+
+#[test]
+fn a_smart_vanishing_point_reads_empty_sources_outside_the_content() {
+    // Content x 256..316 (the second tile); the dab at (298, 24) copies from (200, 24), which is empty.
+    let d = doc_with(600, 48, |x, _| if (256..316).contains(&x) { [200, (x % 50) as u8, 90, 255] } else { [0; 4] });
+    let plane = [[280.0, 8.0], [316.0, 8.0], [316.0, 40.0], [280.0, 40.0]];
+    let st = vp_state(&[("p", plane)], &[("p", [0.5 - 98.0 / 36.0, 0.5], [0.5, 0.5], 4.0 / 36.0)]);
+    let (smart, flat) = smart_and_flat(d, "vanishing_point", json!({ "state": st }), None);
+    for x in 280..316 {
+        assert_eq!(lpx(&smart, 1, x, 24), lpx(&flat, 1, x, 24), "{x}");
     }
 }
 

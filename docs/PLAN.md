@@ -114,6 +114,7 @@ All 86 filter commands in priority order (blur, sharpen, noise, distort first), 
 healing tools (PatchMatch-based), clone/pattern stamp with clone source panel, content-aware
 fill/move/scale, liquify, puppet warp, perspective warp, vanishing point, dodge/burn/sponge/smudge,
 history and art history brush.
+Status: done 2 October 2026, see docs/M5.md section 16 (PSD puppet warp import from a Photoshop file still unverified).
 
 **M6 Color and photo**
 Color settings, assign/convert profile, modes (CMYK, Lab, grayscale, duotone, indexed, bitmap,

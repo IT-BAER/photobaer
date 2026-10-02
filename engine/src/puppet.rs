@@ -11,7 +11,7 @@ use crate::filters::{Ctx, Filter, Plane};
 use crate::resample::{Interp, Plane as RPlane, Resampler};
 
 pub const EMPTY: &str = "Puppet Warp needs an unlocked pixel layer with content.";
-const MAX_CELLS: u64 = 1 << 20;
+const MAX_CELLS: u64 = 1 << 14;
 const MAX_PINS: usize = 1000;
 
 /// The mesh: grid cells over (x, y) .. (x + w, y + h) at `step` document px, `cells` the run
@@ -724,6 +724,23 @@ impl PsdPuppet {
         Ok(PsdPuppet { source, target, tris })
     }
 
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut b = PSD_MAGIC.to_vec();
+        for v in [1, self.source.len() as u32, self.tris.len() as u32] {
+            b.extend_from_slice(&v.to_le_bytes());
+        }
+        for p in self.source.iter().chain(&self.target).flatten() {
+            b.extend_from_slice(&p.to_le_bytes());
+        }
+        for (t, _) in &self.tris {
+            t.iter().for_each(|i| b.extend_from_slice(&(*i as u32).to_le_bytes()));
+        }
+        for (_, d) in &self.tris {
+            b.extend_from_slice(&d.to_le_bytes());
+        }
+        b
+    }
+
     fn identity(&self) -> bool {
         self.source == self.target
     }
@@ -826,6 +843,20 @@ mod tests {
         (bad["mesh"]["cols"], bad["mesh"]["rows"], bad["mesh"]["cells"]) = (serde_json::json!(1u64 << 32), serde_json::json!(1u64 << 32), serde_json::json!([]));
         assert!(check(&bad).is_err(), "cols x rows that wraps");
     }
+
+    #[test]
+    fn rigs_are_bounded_near_the_largest_mesh_build_makes() {
+        // More Points on a 768 px square: the step floor (8) meets longest side / 96.
+        let g = build(&vec![1.0; 768 * 768], 768, 768, (0.0, 0.0), 1.0, "morePoints", 0.0).unwrap();
+        assert!(g.cols * g.rows <= MAX_CELLS, "{} x {}", g.cols, g.rows);
+        let at = |cols: u64, rows: u64| {
+            let mut v = serde_json::to_value(rig(vec![pin(0.0, 0.0, 1.0, 1.0)], "rigid")).unwrap();
+            (v["mesh"]["cols"], v["mesh"]["rows"], v["mesh"]["cells"]) = (cols.into(), rows.into(), serde_json::json!([0, cols * rows]));
+            check(&v)
+        };
+        assert!(at(128, 128).is_ok());
+        assert!(at(129, 128).is_err(), "a hand-built rig past the limit");
+    }
 }
 
 #[cfg(test)]
@@ -835,20 +866,8 @@ mod psd_tests {
     use std::collections::HashMap;
 
     fn bytes(source: &[[f64; 2]], target: &[[f64; 2]], tris: &[([u32; 3], i32)]) -> Vec<u8> {
-        let mut b = PSD_MAGIC.to_vec();
-        for v in [1u32, source.len() as u32, tris.len() as u32] {
-            b.extend_from_slice(&v.to_le_bytes());
-        }
-        for p in source.iter().chain(target).flatten() {
-            b.extend_from_slice(&p.to_le_bytes());
-        }
-        for (t, _) in tris {
-            t.iter().for_each(|i| b.extend_from_slice(&i.to_le_bytes()));
-        }
-        for (_, d) in tris {
-            b.extend_from_slice(&d.to_le_bytes());
-        }
-        b
+        let tris = tris.iter().map(|(t, d)| (t.map(|i| i as usize), *d)).collect();
+        PsdPuppet { source: source.to_vec(), target: target.to_vec(), tris }.to_bytes()
     }
 
     const SQUARE: [[f64; 2]; 4] = [[0.0, 0.0], [8.0, 0.0], [8.0, 8.0], [0.0, 8.0]];

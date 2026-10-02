@@ -342,9 +342,8 @@ export function VanishingPointDialog({ ref, show, setError }: { ref: Ref<Vanishi
           <span>{hint ?? HINTS[tool]}</span>
           <span className="vp-zoom">
             <button type="button" aria-label="Zoom out" onClick={() => zoomBy(0.8)}>−</button>
-            <button type="button" onClick={() => setZoom(1)}>100%</button>
+            <button type="button" title="Zoom to 100%" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
             <button type="button" aria-label="Zoom in" onClick={() => zoomBy(1.25)}>+</button>
-            <span>{Math.round(zoom * 100)}%</span>
           </span>
         </div>
         <div className="actions">

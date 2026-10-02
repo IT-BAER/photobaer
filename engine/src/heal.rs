@@ -532,11 +532,14 @@ pub struct PoissonOpts {
     pub omega: f32,
     /// Mixed gradients: per edge the larger of the source and destination gradient.
     pub mixed: bool,
+    /// Healing Diffusion: the correction (solution - source) fades as exp(-d / fade) with the
+    /// distance d (px) from the region edge; None keeps it whole.
+    pub fade: Option<f32>,
 }
 
 impl Default for PoissonOpts {
     fn default() -> Self {
-        PoissonOpts { max_iter: 300, tol: 5e-4, omega: 1.8, mixed: false }
+        PoissonOpts { max_iter: 300, tol: 5e-4, omega: 1.8, mixed: false, fade: None }
     }
 }
 
@@ -593,6 +596,16 @@ pub fn poisson(dest: &mut Plane, src: &Plane, cov: &[f32], o: &PoissonOpts) -> (
         resid = resid.max(last);
         converged &= ok;
     }
+    if let Some(l) = o.fade {
+        let d = edge_distance(&cov.iter().map(|&m| m > 0.5).collect::<Vec<_>>(), dest.w, dest.h);
+        for &p in &interior {
+            let k = (-d[p] / l.max(1e-3)).exp();
+            for c in 0..3 {
+                let i = p * 4 + c;
+                solved.data[i] = src.data[i] + (solved.data[i] - src.data[i]) * k;
+            }
+        }
+    }
     for (i, &m) in cov.iter().enumerate() {
         let m = m.clamp(0.0, 1.0);
         for c in 0..3 {
@@ -601,6 +614,33 @@ pub fn poisson(dest: &mut Plane, src: &Plane, cov: &[f32], o: &PoissonOpts) -> (
         }
     }
     (iters, resid, converged)
+}
+
+// Chamfer distance (1, sqrt 2) of each `inside` pixel to the nearest outside one; 0 outside.
+fn edge_distance(inside: &[bool], w: usize, h: usize) -> Vec<f32> {
+    let mut d: Vec<f32> = inside.iter().map(|&i| if i { f32::INFINITY } else { 0.0 }).collect();
+    let (wi, hi) = (w as i32, h as i32);
+    let mut relax = |x: i32, y: i32, nb: &[(i32, i32, f32)]| {
+        let p = (y * wi + x) as usize;
+        for &(dx, dy, c) in nb {
+            let (qx, qy) = (x + dx, y + dy);
+            // Outside the plane counts as outside the region.
+            let q = if qx < 0 || qy < 0 || qx >= wi || qy >= hi { 0.0 } else { d[(qy * wi + qx) as usize] };
+            d[p] = d[p].min(q + c);
+        }
+    };
+    let s = std::f32::consts::SQRT_2;
+    for y in 0..hi {
+        for x in 0..wi {
+            relax(x, y, &[(-1, 0, 1.0), (0, -1, 1.0), (-1, -1, s), (1, -1, s)]);
+        }
+    }
+    for y in (0..hi).rev() {
+        for x in (0..wi).rev() {
+            relax(x, y, &[(1, 0, 1.0), (0, 1, 1.0), (1, 1, s), (-1, 1, s)]);
+        }
+    }
+    d
 }
 
 /// Proximity Match: the mask (coverage 0..1) takes the mean color of the known pixels bordering

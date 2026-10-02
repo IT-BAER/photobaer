@@ -192,7 +192,7 @@ fn gaussian(data: &mut [[f32; 4]], w: usize, h: usize, sigma: f32) {
     pass(&tmp, data, false);
 }
 
-fn bilinear(fetch: impl Fn(i32, i32) -> [f32; 4], x: f64, y: f64) -> [f32; 4] {
+pub(super) fn bilinear(fetch: impl Fn(i32, i32) -> [f32; 4], x: f64, y: f64) -> [f32; 4] {
     let (x0, y0) = (x.floor(), y.floor());
     let (fx, fy) = ((x - x0) as f32, (y - y0) as f32);
     let (x0, y0) = (x0 as i32, y0 as i32);

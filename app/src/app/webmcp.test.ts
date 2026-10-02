@@ -108,6 +108,11 @@ test('filters run by id with validated params merged over the defaults', async (
   assert.match(await err({ id: 'blur.gaussian', params: { on: 1 } }), /on must be true or false/);
   assert.match(await err({ id: 'blur.gaussian', params: { data: 1 } }), /Unknown param data/);
 
+  const psd: FilterSpec = { ...spec, id: 'psd_filter', label: 'Photoshop Filter', group: 'psd', params: [] };
+  const withPsd = Object.fromEntries(agentTools({ ...base, doc: () => ({ name: 'a', width: 1, height: 1, depth: 8, resolution: 72, layers: [] }) as never, active: () => 1, filters: () => [spec, psd] }).map(t => [t.name, t]));
+  assert.deepEqual(((await withPsd.list_filters.execute({})) as { id: string }[]).map(f => f.id), ['blur.gaussian']);
+  assert.match(((await withPsd.run_filter.execute({ id: 'psd_filter' })) as { error: string }).error, /Unknown filter/);
+
   const none = Object.fromEntries(agentTools({ ...base, filters: () => [spec] }).map(t => [t.name, t]));
   assert.match(((await none.run_filter.execute({ id: 'blur.gaussian' })) as { error: string }).error, /No document/);
 });

@@ -45,5 +45,9 @@ test('tool options persist through the store and fall back to defaults without o
   assert.deepEqual(loadToolOptions(tool), defaultOptions(tool));
   saveToolOptions(tool, { ...defaultOptions(tool), sampleSize: '5x5' });
   assert.equal(loadToolOptions(tool).sampleSize, '5x5');
+  // A stored value whose type no longer matches the option (Diffusion was a checkbox) reads as the default.
+  saveToolOptions(TOOLS.healingBrush, { ...defaultOptions(TOOLS.healingBrush), diffusion: true, aligned: true });
+  assert.equal(loadToolOptions(TOOLS.healingBrush).diffusion, 5);
+  assert.equal(loadToolOptions(TOOLS.healingBrush).aligned, true);
   delete (globalThis as { localStorage?: Storage }).localStorage;
 });

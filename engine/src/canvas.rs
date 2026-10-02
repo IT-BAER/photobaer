@@ -350,7 +350,7 @@ impl Document {
     }
 
     // Liquify smart filter meshes follow the canvas: each is resampled into the new document frame
-    // (the canvas size is already the new one) as a new blob.
+    // (the canvas size is already the new one) as a new blob. PSD puppet vertices map by `m`.
     fn remap_liquify(&mut self, m: &[f64; 9]) {
         fn walk(nodes: &mut [Node], f: &mut impl FnMut(&mut Filter)) {
             for n in nodes {
@@ -365,6 +365,18 @@ impl Document {
         let (w, h) = (self.width, self.height);
         let mut nodes = std::mem::take(&mut self.nodes);
         walk(&mut nodes, &mut |f| {
+            if let Some(mut rig) = f.blob().filter(|_| f.kind == "psd_filter").and_then(|b| self.blobs.get(&b)).and_then(|b| crate::puppet::PsdPuppet::from_bytes(b).ok()) {
+                for p in rig.source.iter_mut().chain(rig.target.iter_mut()) {
+                    let (x, y) = map_pt(m, p[0], p[1]);
+                    *p = [x, y];
+                }
+                let reach = rig.source.iter().zip(&rig.target).map(|(a, b)| (a[0] - b[0]).hypot(a[1] - b[1])).fold(0.0, f64::max);
+                let id = self.alloc_tile_id();
+                self.blobs.insert(id, Arc::new(rig.to_bytes()));
+                f.params.insert("puppet".into(), id.into());
+                f.params.insert("reach".into(), (reach.ceil() as u32).min(65535).into());
+                return;
+            }
             let Some(mesh) = f.blob().filter(|_| f.kind == "liquify").and_then(|b| self.blobs.get(&b)).and_then(|b| crate::liquify::Mesh::from_bytes(b).ok()) else { return };
             let pt = |t: [f64; 9]| move |x: f32, y: f32| { let (a, b) = map_pt(&t, x as f64, y as f64); (a as f32, b as f32) };
             let out = mesh.remapped(w, h, pt(inv), pt(*m));

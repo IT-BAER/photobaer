@@ -266,6 +266,9 @@ struct PatchIn {
     mode: String,
     #[serde(default)]
     content_aware: bool,
+    /// Normal mode: the patch takes the larger of the source and target gradients, so target detail shows.
+    #[serde(default)]
+    transparent: bool,
     #[serde(default = "four")]
     structure: f32,
     #[serde(default = "two")]
@@ -281,6 +284,13 @@ struct MoveIn {
     structure: f32,
     #[serde(default = "two")]
     color: f32,
+    /// Transform On Drop: the dropped selection scales by this about its center.
+    #[serde(default = "unit")]
+    scale: [f32; 2],
+}
+
+fn unit() -> [f32; 2] {
+    [1.0, 1.0]
 }
 
 fn four() -> f32 {
@@ -331,18 +341,41 @@ fn shift_mask(f: &[f32], w: i32, h: i32, dx: i32, dy: i32) -> Vec<f32> {
     out
 }
 
-// The selection dragged by `(dx, dy)` onto `e`: its pixels blend in over the new place (mixed
-// gradients); a move then fills the vacated part, an extend keeps it.
-fn move_blend(e: &Plane, f: &[f32], (dx, dy): (i32, i32), extend: bool, structure: f32, color: f32, seed: u32) -> Plane {
+// `e` and its mask `f` resampled so the content about plane point `c` scales by `k` and lands
+// about `c + d`: pixels bilinear (edge-clamped), the mask the largest of the 4 taps, so the Poisson
+// boundary samples only pixels free of the selection.
+fn scale_drop(e: &Plane, f: &[f32], c: (f64, f64), (dx, dy): (i32, i32), k: [f32; 2]) -> (Plane, Vec<f32>) {
     let (w, h) = (e.w as i32, e.h as i32);
-    let s = shift_plane(e, -dx, -dy);
-    let c = shift_mask(f, w, h, -dx, -dy);
+    let (mut s, mut m) = (e.clone(), vec![0f32; f.len()]);
+    let px = |x: i32, y: i32| {
+        let i = (y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize * 4;
+        [e.data[i], e.data[i + 1], e.data[i + 2], e.data[i + 3]]
+    };
+    let mk = |x: i32, y: i32| if x < 0 || y < 0 || x >= w || y >= h { 0.0 } else { f[(y * w + x) as usize] };
+    for j in 0..h {
+        for i in 0..w {
+            let qx = c.0 + (i as f64 + 0.5 - c.0 - dx as f64) / k[0] as f64 - 0.5;
+            let qy = c.1 + (j as f64 + 0.5 - c.1 - dy as f64) / k[1] as f64 - 0.5;
+            let o = (j * w + i) as usize;
+            s.data[o * 4..o * 4 + 4].copy_from_slice(&bilinear(px, qx, qy));
+            let (x0, y0) = (qx.floor() as i32, qy.floor() as i32);
+            m[o] = mk(x0, y0).max(mk(x0 + 1, y0)).max(mk(x0, y0 + 1)).max(mk(x0 + 1, y0 + 1));
+        }
+    }
+    (s, m)
+}
+
+// The dragged selection `s` (its mask `c`) onto `e` (the selection mask `f`): its pixels blend in
+// over the new place (`mixed`: the larger of both gradients); a move then fills the vacated part,
+// an extend keeps it.
+#[allow(clippy::too_many_arguments)]
+fn move_blend(e: &Plane, f: &[f32], s: &Plane, c: &[f32], extend: bool, mixed: bool, structure: f32, color: f32, seed: u32) -> Plane {
     let mut g = e.clone();
-    heal::poisson(&mut g, &s, &c, &PoissonOpts { mixed: true, ..PoissonOpts::default() });
+    heal::poisson(&mut g, s, c, &PoissonOpts { mixed, ..PoissonOpts::default() });
     if extend {
         return g;
     }
-    let hole: Vec<f32> = f.iter().zip(&c).map(|(&f, &c)| if f > 0.5 && c <= 0.5 { 1.0 } else { 0.0 }).collect();
+    let hole: Vec<f32> = f.iter().zip(c).map(|(&f, &c)| if f > 0.5 && c <= 0.5 { 1.0 } else { 0.0 }).collect();
     heal::content_aware_fill(&g, &hole, structure, color, seed, None)
 }
 
@@ -471,7 +504,8 @@ impl Document {
                     }
                 }
                 let mut out = c.clone();
-                heal::poisson(&mut out, &a, &k, &PoissonOpts::default());
+                let fade = (st.diffusion < 7.0).then(|| 2f32.powf(st.diffusion));
+                heal::poisson(&mut out, &a, &k, &PoissonOpts { fade, ..PoissonOpts::default() });
                 out
             }
         };
@@ -509,7 +543,7 @@ impl Document {
     }
 
     /// Patch: the selection is repaired from the area dragged to (`mode` "source") or carried
-    /// there (`"destination"`); `params_json` is `{mode, contentAware, structure, color}`.
+    /// there (`"destination"`); `params_json` is `{mode, contentAware, structure, color, transparent}`.
     pub fn patch(&mut self, id: u32, dx: i32, dy: i32, params_json: &str) -> Result<bool, String> {
         self.check_idle()?;
         self.check_pixel_paint(id)?;
@@ -529,10 +563,13 @@ impl Document {
         let f = self.selection_plane(b);
         let (w, h, seed) = (e.w as i32, e.h as i32, drag_seed(dx, dy));
         let out = match (destination, p.content_aware) {
-            (true, ca) => move_blend(&e, &f, (dx, dy), !ca, p.structure, p.color, seed),
+            (true, ca) => {
+                let (s, c) = (shift_plane(&e, -dx, -dy), shift_mask(&f, w, h, -dx, -dy));
+                move_blend(&e, &f, &s, &c, !ca, ca || p.transparent, p.structure, p.color, seed)
+            }
             (false, false) => {
                 let mut out = e.clone();
-                heal::poisson(&mut out, &shift_plane(&e, dx, dy), &f, &PoissonOpts::default());
+                heal::poisson(&mut out, &shift_plane(&e, dx, dy), &f, &PoissonOpts { mixed: p.transparent, ..PoissonOpts::default() });
                 out
             }
             (false, true) => {
@@ -557,14 +594,30 @@ impl Document {
         self.check_idle()?;
         self.check_pixel_paint(id)?;
         let p: MoveIn = serde_json::from_str(params_json).map_err(|e| format!("bad content-aware move params: {e}"))?;
+        if !p.scale.iter().all(|k| (0.05..=20.0).contains(k)) {
+            return Err("scale must be 0.05 to 20".into());
+        }
         let hb = self.selection_bounds().ok_or("Make a selection first.")?;
-        if (dx, dy) == (0, 0) {
+        let plain = p.scale == [1.0, 1.0];
+        if (dx, dy) == (0, 0) && plain {
             return Ok(false);
         }
-        let Some(b) = self.drag_region(hb, (dx, dy), 24.max((hb[2].max(hb[3]) + 1) / 2)) else { return Ok(false) };
+        // The dropped box: the selection bounds scaled about their center, moved by the drag.
+        let (cx, cy) = (hb[0] as f64 + hb[2] as f64 / 2.0, hb[1] as f64 + hb[3] as f64 / 2.0);
+        let (hw, hh) = (hb[2] as f64 * p.scale[0] as f64 / 2.0, hb[3] as f64 * p.scale[1] as f64 / 2.0);
+        let (x0, y0) = ((cx - hw).floor() as i32 + dx, (cy - hh).floor() as i32 + dy);
+        let (x1, y1) = ((cx + hw).ceil() as i32 + dx, (cy + hh).ceil() as i32 + dy);
+        let u = [hb[0].min(x0), hb[1].min(y0), (hb[0] + hb[2]).max(x1), (hb[1] + hb[3]).max(y1)];
+        let pad = 24.max(((x1 - x0).max(y1 - y0).max(hb[2]).max(hb[3]) + 1) / 2);
+        let Some(b) = grow(u, pad, self.width as i32, self.height as i32) else { return Ok(false) };
         let e = self.layer_plane(id, b)?;
         let f = self.selection_plane(b);
-        let out = move_blend(&e, &f, (dx, dy), p.extend, p.structure, p.color, drag_seed(dx, dy));
+        let (s, c) = if plain {
+            (shift_plane(&e, -dx, -dy), shift_mask(&f, e.w as i32, e.h as i32, -dx, -dy))
+        } else {
+            scale_drop(&e, &f, (cx - b[0] as f64, cy - b[1] as f64), (dx, dy), p.scale)
+        };
+        let out = move_blend(&e, &f, &s, &c, p.extend, true, p.structure, p.color, drag_seed(dx, dy));
         self.put_plane(id, &out, None)
     }
 

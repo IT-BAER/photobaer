@@ -54,6 +54,9 @@ function side(v: unknown, name: string, min = 1, max = MAX_SIDE) {
   return v as number;
 }
 
+// Imported PSD filters (group `psd`) are not in the Filter menu, so agents do not see them either.
+const agentFilters = (ctx: { filters: () => FilterSpec[] }) => ctx.filters().filter(s => s.group !== 'psd');
+
 // Agents set the visible params; seeds and blobs keep their defaults.
 function filterInfo(s: FilterSpec) {
   return {
@@ -168,7 +171,7 @@ export function agentTools(ctx: WebMcpCtx): ToolDef[] {
       inputSchema: { type: 'object', properties: { query: { type: 'string' } } }, annotations: { readOnlyHint: true },
       execute: async ({ query }) => {
         const q = typeof query === 'string' ? query.toLowerCase() : '';
-        return ctx.filters().filter(s => `${s.id} ${s.label} ${s.group}`.toLowerCase().includes(q)).map(filterInfo);
+        return agentFilters(ctx).filter(s => `${s.id} ${s.label} ${s.group}`.toLowerCase().includes(q)).map(filterInfo);
       },
     },
     {
@@ -177,7 +180,7 @@ export function agentTools(ctx: WebMcpCtx): ToolDef[] {
       inputSchema: { type: 'object', properties: { id: { type: 'string' }, params: { type: 'object' } }, required: ['id'] },
       annotations: { consequentialHint: true },
       execute: async ({ id, params }) => {
-        const s = ctx.filters().find(s => s.id === id);
+        const s = agentFilters(ctx).find(s => s.id === id);
         if (!s) throw new Error(`Unknown filter: ${String(id)}. Use list_filters to find the id.`);
         const p = filterParams(s, params);
         needDoc(ctx);

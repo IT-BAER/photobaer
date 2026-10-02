@@ -26,7 +26,9 @@ pub fn convex(q: [[f64; 2]; 4]) -> bool {
     for e in 0..4 {
         let (n, i, o) = (q[e], q[(e + 1) % 4], q[(e + 2) % 4]);
         let s = (i[0] - n[0]) * (o[1] - i[1]) - (i[1] - n[1]) * (o[0] - i[0]);
-        if !s.is_finite() || s.abs() < 1e-6 || (sign != 0.0 && s.signum() != sign) {
+        // Degenerate by angle (relative to the edge lengths), so a uniform scale keeps the verdict.
+        let len = (i[0] - n[0]).hypot(i[1] - n[1]) * (o[0] - i[0]).hypot(o[1] - i[1]);
+        if !s.is_finite() || s.abs() <= 1e-9 * len || (sign != 0.0 && s.signum() != sign) {
             return false;
         }
         sign = s.signum();
@@ -282,6 +284,19 @@ mod tests {
         assert!(convex([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]));
         assert!(!convex([[0.0, 0.0], [10.0, 10.0], [10.0, 0.0], [0.0, 10.0]]));
         assert!(!convex([[0.0, 0.0], [10.0, 0.0], [2.0, 2.0], [0.0, 10.0]]));
+        assert!(!convex([[0.0, 0.0], [5.0, 0.0], [10.0, 0.0], [0.0, 10.0]]), "3 collinear corners");
+    }
+
+    #[test]
+    fn a_strong_downscale_still_maps_the_quads() {
+        let q = [[0.0, 0.0], [5.0, 0.0], [5.0, 5.0], [0.0, 5.0]];
+        let v = serde_json::json!({ "layout": q, "current": q, "quads": [[0, 1, 2, 3]] });
+        let out = remapped(&v, &[1e-4, 0.0, 0.0, 0.0, 1e-4, 0.0, 0.0, 0.0, 1.0]).unwrap();
+        assert_eq!(out["layout"][2], serde_json::json!([5e-4, 5e-4]));
+        assert!(State::parse(&out).is_ok(), "the mapped state renders");
+        let mut planes = vec![crate::vanishing::VPlane { id: "p".into(), corners: q, parent_id: None, hinge_edge: None, angle_degrees: None }];
+        crate::vanishing::remap_planes(&mut planes, &[1e-4, 0.0, 0.0, 0.0, 1e-4, 0.0, 0.0, 0.0, 1.0]);
+        assert_eq!(planes[0].corners[2], [5e-4, 5e-4], "vanishing planes follow too");
     }
 
     #[test]

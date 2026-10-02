@@ -236,8 +236,10 @@ export const TOOLS: Record<string, Tool> = {
   healingBrush: healing('healingBrush', 'Healing Brush', 'Syringe', 'none', [
     ...HEAL_BRUSH,
     { id: 'source', kind: 'select', label: 'Source', default: 'sampled', choices: ['sampled', 'pattern'] },
+    // '' = the first library pattern; the picker is drawn by the host.
+    { id: 'pattern', kind: 'custom', label: 'Pattern', default: '' },
     { id: 'aligned', kind: 'boolean', label: 'Aligned', default: false },
-    { id: 'diffusion', kind: 'boolean', label: 'Diffusion', default: false },
+    { id: 'diffusion', kind: 'number', label: 'Diffusion', default: 5, min: 1, max: 7 },
     SAMPLE_ALL,
   ]),
   patch: healing('patch', 'Patch', 'SquareDashed', 'move', [
@@ -431,7 +433,8 @@ export function loadToolOptions(tool: Tool): Record<string, number | string | bo
   const defaults = defaultOptions(tool);
   try {
     const raw = globalThis.localStorage?.getItem(STORE_KEY(tool.id));
-    if (raw) return { ...defaults, ...JSON.parse(raw) };
+    // A stored value of another type than the default (the option changed kind) is dropped.
+    if (raw) return { ...defaults, ...Object.fromEntries(Object.entries(JSON.parse(raw) as Record<string, number | string | boolean>).filter(([k, v]) => !(k in defaults) || typeof v === typeof defaults[k])) };
   } catch { /* storage unavailable or corrupt: fall back to defaults */ }
   return defaults;
 }

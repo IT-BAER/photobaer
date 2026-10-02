@@ -544,11 +544,11 @@ const api = {
   },
 
   // Patch / Content-Aware Move: the selection moved by (dx, dy); the selection itself stays.
-  patch(id: number, dx: number, dy: number, params: { mode: 'source' | 'destination'; contentAware: boolean; structure: number; color: number }) {
+  patch(id: number, dx: number, dy: number, params: { mode: 'source' | 'destination'; contentAware: boolean; transparent: boolean; structure: number; color: number }) {
     const e = need();
     return stepIfChanged('Patch', () => e.patch(id, dx, dy, JSON.stringify(params)));
   },
-  contentAwareMove(id: number, dx: number, dy: number, params: { extend: boolean; structure: number; color: number }) {
+  contentAwareMove(id: number, dx: number, dy: number, params: { extend: boolean; structure: number; color: number; scale?: number[] }) {
     const e = need();
     return stepIfChanged('Content-Aware Move', () => e.content_aware_move(id, dx, dy, JSON.stringify(params)));
   },
