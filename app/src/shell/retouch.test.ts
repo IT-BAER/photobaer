@@ -4,12 +4,12 @@ import { CloneSources, cloneOverlaySource, emptySlot, mapPoint, redEyeRect, sour
 
 test('aligned strokes keep the first stroke origin, non-aligned strokes restart at the anchor', () => {
   const c = new CloneSources();
-  c.setAnchor({ x: 10, y: 10 }, 1, 7);
-  const m1 = c.beginStroke({ x: 50, y: 50 }, 1, true)!;
+  c.setAnchor({ x: 10, y: 10 }, 'a', 7);
+  const m1 = c.beginStroke({ x: 50, y: 50 }, 'a', true)!;
   assert.deepEqual(mapPoint(m1, 50, 50), [10, 10]);
-  const m2 = c.beginStroke({ x: 60, y: 50 }, 1, true)!;
+  const m2 = c.beginStroke({ x: 60, y: 50 }, 'a', true)!;
   assert.deepEqual(mapPoint(m2, 60, 50), [20, 10]);
-  const m3 = c.beginStroke({ x: 60, y: 50 }, 1, false)!;
+  const m3 = c.beginStroke({ x: 60, y: 50 }, 'a', false)!;
   assert.deepEqual(mapPoint(m3, 60, 50), [10, 10]);
 });
 
@@ -26,11 +26,11 @@ test('rotation and flip enter the map; a new anchor keeps a locked offset', () =
   const [x, y] = mapPoint(r, 1, 0);
   assert.ok(Math.abs(x) < 1e-9 && Math.abs(y + 1) < 1e-9);
   const c = new CloneSources();
-  c.setAnchor({ x: 10, y: 10 }, 1, null);
+  c.setAnchor({ x: 10, y: 10 }, 'a', null);
   c.update(c.active, { lockOffset: true });
-  c.setOffset('x', 40, 1);
-  c.setOffset('y', 0, 1);
-  c.setAnchor({ x: 20, y: 20 }, 1, null);
+  c.setOffset('x', 40, 'a');
+  c.setOffset('y', 0, 'a');
+  c.setAnchor({ x: 20, y: 20 }, 'a', null);
   assert.deepEqual(c.offset(), { x: 40, y: 0 });
 });
 
@@ -38,14 +38,14 @@ test('slots are independent and the active slot switches', () => {
   const c = new CloneSources();
   let n = 0;
   c.subscribe(() => n++);
-  c.setAnchor({ x: 1, y: 2 }, 1, null);
+  c.setAnchor({ x: 1, y: 2 }, 'a', null);
   c.setActive(3);
   assert.equal(c.slot().anchor, null);
   assert.deepEqual(c.slot(0).anchor, { x: 1, y: 2 });
   c.setActive(9);
   assert.equal(c.active, 3);
   assert.equal(n, 2);
-  assert.equal(c.beginStroke({ x: 0, y: 0 }, 1, true), null);
+  assert.equal(c.beginStroke({ x: 0, y: 0 }, 'a', true), null);
 });
 
 test('a red eye click takes a 40 px box, a drag its own box', () => {
@@ -55,12 +55,12 @@ test('a red eye click takes a 40 px box, a drag its own box', () => {
 
 test('the overlay source point follows the pointer when aligned and stays on the anchor otherwise', () => {
   const c = new CloneSources();
-  assert.equal(cloneOverlaySource(c, [5, 5], 1, true), null);
-  c.setAnchor({ x: 10, y: 10 }, 1, null);
-  assert.deepEqual(cloneOverlaySource(c, [70, 50], 1, true)!.src, [10, 10]);
-  c.beginStroke({ x: 50, y: 50 }, 1, true);
-  assert.deepEqual(cloneOverlaySource(c, [70, 50], 1, true)!.src, [30, 10]);
-  assert.deepEqual(cloneOverlaySource(c, [70, 50], 1, false)!.src, [10, 10]);
+  assert.equal(cloneOverlaySource(c, [5, 5], 'a', true), null);
+  c.setAnchor({ x: 10, y: 10 }, 'a', null);
+  assert.deepEqual(cloneOverlaySource(c, [70, 50], 'a', true)!.src, [10, 10]);
+  c.beginStroke({ x: 50, y: 50 }, 'a', true);
+  assert.deepEqual(cloneOverlaySource(c, [70, 50], 'a', true)!.src, [30, 10]);
+  assert.deepEqual(cloneOverlaySource(c, [70, 50], 'a', false)!.src, [10, 10]);
 });
 
 test('tintOverlay clips to the round tip and applies opacity and invert', () => {
@@ -78,4 +78,11 @@ test('tintOverlay blends with the destination by the overlay mode', () => {
   const q = new Uint8ClampedArray([100, 200, 50, 255]);
   tintOverlay(q, 1, 1, { clipped: false, opacity: 1, inverted: false, mode: 'darken', dest });
   assert.deepEqual([...q], [100, 150, 50, 255]);
+});
+
+test('a clone source belongs to its document key and is not used from another tab', () => {
+  const c = new CloneSources();
+  c.setAnchor({ x: 10, y: 10 }, 'a', null);
+  assert.equal(cloneOverlaySource(c, [5, 5], 'b', true), null);
+  assert.ok(cloneOverlaySource(c, [5, 5], 'a', true));
 });

@@ -81,7 +81,7 @@ export function useCloneOverlay(c: RetouchCtx) {
     const update = async () => {
       if (busy) { again = true; return; }
       const doc = docRef.current, o = toolOptionsRef.current;
-      const found = pointer && doc && !alt ? cloneOverlaySource(cloneSources, pointer, doc.docId, !!o.aligned || painting) : null;
+      const found = pointer && doc && !alt ? cloneOverlaySource(cloneSources, pointer, doc.key, !!o.aligned || painting) : null;
       if (!found || !pointer || !doc) { clear(); return; }
       const slot = cloneSources.slot();
       const size = Math.max(1, Number(o.size)), zoom = v.view.zoom;

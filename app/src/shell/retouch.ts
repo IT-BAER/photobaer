@@ -4,9 +4,9 @@
 export interface Point { x: number; y: number }
 export type OverlayMode = 'normal' | 'darken' | 'lighten' | 'difference';
 export interface CloneSlot {
-  anchor: Point | null; docId: number | null; layerId: number | null;
+  anchor: Point | null; key: string | null; layerId: number | null;
   // The destination origin of the aligned strokes; offset = alignedOrigin - anchor.
-  alignedOrigin: (Point & { docId: number }) | null;
+  alignedOrigin: (Point & { key: string }) | null;
   rotation: number; scaleX: number; scaleY: number; flipX: boolean; flipY: boolean; scaleLinked: boolean; lockOffset: boolean;
   showOverlay: boolean; overlayOpacity: number; overlayMode: OverlayMode; overlayClipped: boolean; overlayAutoHide: boolean; overlayInverted: boolean;
 }
@@ -14,7 +14,7 @@ export interface SourceMap { anchor: [number, number]; origin: [number, number];
 
 export const SLOT_COUNT = 5;
 export const emptySlot = (): CloneSlot => ({
-  anchor: null, docId: null, layerId: null, alignedOrigin: null, rotation: 0, scaleX: 1, scaleY: 1, flipX: false, flipY: false,
+  anchor: null, key: null, layerId: null, alignedOrigin: null, rotation: 0, scaleX: 1, scaleY: 1, flipX: false, flipY: false,
   scaleLinked: true, lockOffset: false, showOverlay: true, overlayOpacity: 1, overlayMode: 'normal', overlayClipped: true,
   overlayAutoHide: true, overlayInverted: false,
 });
@@ -52,28 +52,28 @@ export class CloneSources {
     return s.anchor && s.alignedOrigin ? { x: s.alignedOrigin.x - s.anchor.x, y: s.alignedOrigin.y - s.anchor.y } : { x: 0, y: 0 };
   }
   // Alt-click: a locked offset carries over to the new anchor, otherwise the next stroke sets it.
-  setAnchor(p: Point, docId: number, layerId: number | null) {
+  setAnchor(p: Point, key: string, layerId: number | null) {
     const s = this.slot(), o = this.offset(s);
     const alignedOrigin = s.lockOffset && s.alignedOrigin ? { ...s.alignedOrigin, x: p.x + o.x, y: p.y + o.y } : null;
-    this.update(this.active, { anchor: { ...p }, docId, layerId, alignedOrigin });
+    this.update(this.active, { anchor: { ...p }, key, layerId, alignedOrigin });
   }
-  setOffset(axis: 'x' | 'y', v: number, docId: number) {
+  setOffset(axis: 'x' | 'y', v: number, key: string) {
     const s = this.slot();
     if (!s.anchor || !Number.isFinite(v)) return;
     const o = { ...this.offset(s), [axis]: v };
-    this.update(this.active, { alignedOrigin: { x: s.anchor.x + o.x, y: s.anchor.y + o.y, docId } });
+    this.update(this.active, { alignedOrigin: { x: s.anchor.x + o.x, y: s.anchor.y + o.y, key } });
   }
   resetTransform() { this.update(this.active, { rotation: 0, scaleX: 1, scaleY: 1, flipX: false, flipY: false }); }
 
   // Aligned (or a locked offset) keeps this document's aligned origin, else the stroke starts at the anchor.
-  strokeOrigin(sample: Point, docId: number, aligned: boolean, s = this.slot()): Point {
-    return (aligned || s.lockOffset) && s.alignedOrigin?.docId === docId ? s.alignedOrigin : sample;
+  strokeOrigin(sample: Point, key: string, aligned: boolean, s = this.slot()): Point {
+    return (aligned || s.lockOffset) && s.alignedOrigin?.key === key ? s.alignedOrigin : sample;
   }
-  beginStroke(sample: Point, docId: number, aligned: boolean): SourceMap | null {
+  beginStroke(sample: Point, key: string, aligned: boolean): SourceMap | null {
     const s = this.slot();
     if (!s.anchor) return null;
-    const o = this.strokeOrigin(sample, docId, aligned, s);
-    this.update(this.active, { alignedOrigin: { x: o.x, y: o.y, docId } });
+    const o = this.strokeOrigin(sample, key, aligned, s);
+    this.update(this.active, { alignedOrigin: { x: o.x, y: o.y, key } });
     return sourceMap(this.slot(), o);
   }
 }
@@ -89,10 +89,10 @@ export function redEyeRect(a: [number, number], b: [number, number]): [number, n
 
 // The source point under `pointer` and the map that reads it: aligned strokes keep the aligned
 // origin of this document, otherwise the next stroke starts at the anchor.
-export function cloneOverlaySource(c: CloneSources, pointer: [number, number], docId: number, aligned: boolean) {
+export function cloneOverlaySource(c: CloneSources, pointer: [number, number], key: string, aligned: boolean) {
   const s = c.slot();
-  if (!s.anchor || s.docId !== docId) return null;
-  const map = sourceMap(s, c.strokeOrigin({ x: pointer[0], y: pointer[1] }, docId, aligned))!;
+  if (!s.anchor || s.key !== key) return null;
+  const map = sourceMap(s, c.strokeOrigin({ x: pointer[0], y: pointer[1] }, key, aligned))!;
   return { map, src: mapPoint(map, pointer[0], pointer[1]) };
 }
 

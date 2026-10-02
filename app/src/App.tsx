@@ -36,7 +36,8 @@ import type { Mat3 } from './transform/matrix.ts';
 import { setNumeric, setReferenceNormalized } from './transform/session.ts';
 import { pickStyle, presetMesh, setGrid } from './transform/warp.ts';
 import { antsLevel, contour, MagneticLasso, PolygonLasso, type SelectMode } from './shell/selecttools.ts';
-import { levelFor } from './view.ts';
+import { TabBar } from './TabBar.tsx';
+import { levelFor, type View } from './view.ts';
 import { BrushLibrary } from './brushes/store.ts';
 import { EngineAssets } from './brushes/engineAssets.ts';
 import { presetOptions, presetStrokeParams, pushRecent, type PaintTool } from './brushes/brushParams.ts';
@@ -118,7 +119,7 @@ export function App() {
   const [fontDialog, setFontDialog] = useState<FontDialog | null>(null);
   const fontInput = useRef<HTMLInputElement>(null);
   // Documents already checked for missing fonts (the Resolve dialog opens once per document).
-  const fontChecked = useRef(new Set<number>());
+  const fontChecked = useRef(new Set<string>());
   const rulerTop = useRef<HTMLCanvasElement>(null);
   const rulerLeft = useRef<HTMLCanvasElement>(null);
   const pixelGridCanvas = useRef<HTMLCanvasElement>(null);
@@ -212,6 +213,9 @@ export function App() {
   const [active, setActive] = useState<Active | null>(null);
   // Layers picked with Ctrl/Shift+click; the pick counts only while it includes the active layer.
   const [picked, setPicked] = useState<number[]>([]);
+  const pickedRef = useRef(picked);
+  pickedRef.current = picked;
+  const tabState = useRef(new Map<string, { view: View; active: Active | null; picked: number[] }>());
   const docRef = useRef(doc);
   docRef.current = doc;
   const toolOptionsRef = useRef(toolOptions);
@@ -380,14 +384,24 @@ export function App() {
   }
 
   function show(d: DocInfo | null, selectAfter?: SelectAfter) {
+    const prev = docRef.current, v = viewer.current;
+    // Switching tabs: the view, active layer and picks of the tab left behind are kept under its key.
+    const switched = !!prev && !!d && prev.key !== d.key;
+    if (prev && v && switched) {
+      tabState.current.set(prev.key, { view: { ...v.view }, active: activeRef.current, picked: pickedRef.current });
+    }
+    for (const k of tabState.current.keys()) if (!d?.docs.some(t => t.key === k)) tabState.current.delete(k);
+    const saved = switched ? tabState.current.get(d.key) : undefined;
     setDoc(d);
-    viewer.current?.setDoc(d);
+    v?.setDoc(d, saved?.view);
     document.title = d ? `${d.name} - photobaer` : PAGE_TITLE;
     if (!d) { setActive(null); return; }
+    if (switched) { setQuickMask(false); setPicked(saved ? saved.picked.filter(id => nodeById(d.layers, id)) : []); }
     // Node ids restart per document: a previous document's active layer never carries over.
-    const sameDoc = d.docId === docRef.current?.docId;
+    const sameDoc = d.docId === prev?.docId;
     docRef.current = d;
-    setActive(prev => selectAfter ? selectAfter(d) : sameDoc && prev && nodeById(d.layers, prev.id) ? prev : fallbackActive(d));
+    const restored = saved?.active && nodeById(d.layers, saved.active.id) ? saved.active : null;
+    setActive(cur => selectAfter ? selectAfter(d) : restored ?? (sameDoc && cur && nodeById(d.layers, cur.id) ? cur : fallbackActive(d)));
   }
 
   async function run(label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) {
@@ -433,6 +447,11 @@ export function App() {
       const d = await client.call('smartEditSave');
       return d.written || !confirm(`${lost(d.warnings)}\n\nWrite the contents back anyway?`) ? d : client.call('smartEditSave', true);
     });
+  }
+  // The active tab closes like File > Close (Edit Contents first); another tab closes by key.
+  function closeTab(key?: string) {
+    if (key === undefined || key === docRef.current?.key) return docRef.current?.parents.length ? closeContents() : run(null, () => client.call('closeDoc'));
+    return run(null, () => client.call('closeDoc', key));
   }
   async function closeContents() {
     await run('Closing contents…', async () => {
@@ -1044,7 +1063,7 @@ export function App() {
         setBusy(null);
       }
       const lq = (window as unknown as { launchQueue?: { setConsumer(f: (p: { files: FileSystemFileHandle[] }) => void): void } }).launchQueue;
-      lq?.setConsumer(async p => { if (p.files.length) open(await p.files[0].getFile()); });
+      lq?.setConsumer(async p => { for (const h of p.files) await open(await h.getFile()); });
     })();
     return () => { alive = false; };
   }, []);
@@ -1208,8 +1227,8 @@ export function App() {
 
   // A document with missing fonts opens Resolve Missing Fonts once, after the fonts are registered.
   useEffect(() => {
-    if (!doc || !faces.length || fontChecked.current.has(doc.docId)) return;
-    fontChecked.current.add(doc.docId);
+    if (!doc || !faces.length || fontChecked.current.has(doc.key)) return;
+    fontChecked.current.add(doc.key);
     const id = doc.docId;
     missingFonts().then(rows => { if (rows.length && docRef.current?.docId === id) setFontDialog(f => f ?? { kind: 'resolve', rows }); }, () => {});
   }, [doc?.docId, faces.length]);
@@ -1567,6 +1586,7 @@ export function App() {
               })}
             />
           ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions }} fg={fg} />}
+          {doc && <TabBar doc={doc} switchTo={key => run(null, () => client.call('switchDoc', key))} close={closeTab} />}
           <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} onContextMenu={e => {
               e.preventDefault();
@@ -1642,7 +1662,7 @@ export function App() {
               fill={id => panelFillLayer({ type: 'pattern', pattern_id: id, scale: 1, angle: 0, linked: true, offset: [0, 0] })} />
           )}
           {doc && active && showGradients && <GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} />}
-          {doc && showCloneSource && <CloneSourcePanel docId={doc.docId} />}
+          {doc && showCloneSource && <CloneSourcePanel docKey={doc.key} />}
           {doc && showShapes && (
             <ShapesPanel selected={String((optionsByTool.customShape ?? loadToolOptions(TOOLS.customShape)).customShape ?? '')} arm={armShape} />
           )}
@@ -1725,8 +1745,8 @@ export function App() {
         if (!f) return;
         try { await uploadFont(client, f); setFaces(await client.call('fontFaces')); } catch (err) { setError((err as Error).message); }
       }} />
-      <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.pbaer,.psd"
-        onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) open(f); }} />
+      <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.pbaer,.psd"
+        onChange={async e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; for (const f of fs) await open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <AboutDialog aboutDialog={aboutDialog} />
       <DonateDialog donateDialog={donateDialog} />

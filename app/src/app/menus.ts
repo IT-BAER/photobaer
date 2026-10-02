@@ -16,6 +16,7 @@ import type { ArtboardMode } from './Dialogs.tsx';
 import { ALIGN_ITEMS, STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
 import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.ts';
 import { copy, paste } from './clipboard.ts';
+import { stepTab } from './tabs.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type DialogRef = RefObject<HTMLDialogElement | null>;
@@ -57,6 +58,11 @@ export interface MenuCtx {
 }
 
 export function buildMenus(c: MenuCtx) {
+  const switchStep = (step: 1 | -1) => {
+    setMenu(null);
+    const key = stepTab(c.doc?.docs ?? [], step);
+    if (key) void c.run(null, () => client.call('switchDoc', key));
+  };
   const {
     setMenu, newDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeContents, run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
@@ -328,6 +334,11 @@ export function buildMenus(c: MenuCtx) {
       { label: showPatterns ? 'Hide Patterns' : 'Show Patterns', run: () => { setMenu(null); setShowPatterns(v => !v); } },
       { label: showGradients ? 'Hide Gradients' : 'Show Gradients', run: () => { setMenu(null); setShowGradients(v => !v); } },
       { label: showShapes ? 'Hide Shapes' : 'Show Shapes', run: () => { setMenu(null); setShowShapes(v => !v); } },
+      { label: 'Next Document', keys: 'Ctrl+Tab', sep: true, run: () => switchStep(1), off: (doc?.docs.length ?? 0) < 2 },
+      { label: 'Previous Document', keys: 'Shift+Ctrl+Tab', run: () => switchStep(-1), off: (doc?.docs.length ?? 0) < 2 },
+      ...(doc?.docs ?? []).map((t, i) => ({
+        label: `${t.active ? '✓ ' : ''}${i + 1} ${t.name}`, sep: i === 0, run: () => { setMenu(null); if (!t.active) void run(null, () => client.call('switchDoc', t.key)); },
+      })),
     ],
     Help: [
       { label: 'Use with AI Agents…', run: () => { setMenu(null); agentDialog.current?.showModal(); agentDialog.current?.querySelector<HTMLButtonElement>('.actions button')?.focus(); } },

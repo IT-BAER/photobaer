@@ -91,14 +91,15 @@ export class Viewer {
     });
   }
 
-  setDoc(d: ViewDoc | null) {
+  // `view` restores a tab's saved view instead of the refit when the document is new to the viewer.
+  setDoc(d: ViewDoc | null, view?: View) {
     // A canvas size change (crop, trim, rotation, their undo) refits like a new document.
     const fresh = !d || !this.#doc || d.docId !== this.#doc.docId || d.width !== this.#doc.width || d.height !== this.#doc.height;
     this.#doc = d;
     if (fresh) {
       this.#resetCache();
       for (const w of this.#waiters.splice(0)) w.done();
-      if (d) this.setView(fit(d.width, d.height, this.#w, this.#h));
+      if (d) this.setView(view ?? fit(d.width, d.height, this.#w, this.#h));
     }
     this.redraw();
   }

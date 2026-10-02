@@ -129,10 +129,10 @@ export function usePaintTool(c: PaintToolCtx) {
         return { source: { kind: 'pattern', patternId, origin: o.aligned ? [0, 0] : [x, y], impressionist: !!o.impressionist } };
       }
       if (tool !== 'cloneStamp' && tool !== 'healingBrush') return {};
-      const slot = cloneSources.slot(), docId = docRef.current?.docId ?? -1;
+      const slot = cloneSources.slot(), key = docRef.current?.key ?? '';
       if (!slot.anchor) throw new Error(tool === 'cloneStamp' ? 'Alt-click to set a clone source first.' : 'Alt-click to set a source for the Healing Brush.');
-      if (slot.docId !== docId) throw new Error('The clone source document is closed. Alt-click to set a new source.');
-      const map = cloneSources.beginStroke({ x, y }, docId, !!o.aligned)!;
+      if (slot.key !== key) throw new Error('The clone source is in another document. Alt-click to set a new source.');
+      const map = cloneSources.beginStroke({ x, y }, key, !!o.aligned)!;
       const sample = tool === 'cloneStamp' ? o.sample : o.allLayers ? 'allLayers' : 'currentLayer';
       const source = { kind: 'clone', ...map, sample, ignoreAdjustments: !!o.ignoreAdjustments, ...(slot.layerId !== null ? { layerId: slot.layerId } : {}) };
       return tool === 'healingBrush' ? { source, heal: 'healing' } : { source };
@@ -211,7 +211,7 @@ export function usePaintTool(c: PaintToolCtx) {
       if (e.type === 'down') {
         // Alt-click sets the clone source of the active slot and paints nothing.
         if (e.altKey && (tool === 'cloneStamp' || tool === 'healingBrush')) {
-          cloneSources.setAnchor({ x: e.x, y: e.y }, docRef.current?.docId ?? -1, active.id);
+          cloneSources.setAnchor({ x: e.x, y: e.y }, docRef.current?.key ?? '', active.id);
           return;
         }
         if (e.shiftKey && lastStrokePoint.current[active.id]) { void shiftLine(e); return; }

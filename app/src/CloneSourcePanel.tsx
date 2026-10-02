@@ -20,7 +20,7 @@ function Num({ label, value, unit, min, max, step = 1, disabled, set }: {
   );
 }
 
-export function CloneSourcePanel({ docId }: { docId: number }) {
+export function CloneSourcePanel({ docKey }: { docKey: string }) {
   useSyncExternalStore(cloneSources.subscribe, cloneSources.version);
   const active = cloneSources.active, s = cloneSources.slot(), o = cloneSources.offset(s);
   const set = (patch: Partial<CloneSlot>) => cloneSources.update(active, patch);
@@ -49,8 +49,8 @@ export function CloneSourcePanel({ docId }: { docId: number }) {
         <span>Offset</span>{check('Lock Offset', 'lockOffset')}
       </div>
       <div className="clone-row">
-        <Num label="X" value={o.x} unit="px" min={-300000} max={300000} disabled={!s.anchor} set={v => cloneSources.setOffset('x', v, docId)} />
-        <Num label="Y" value={o.y} unit="px" min={-300000} max={300000} disabled={!s.anchor} set={v => cloneSources.setOffset('y', v, docId)} />
+        <Num label="X" value={o.x} unit="px" min={-300000} max={300000} disabled={!s.anchor} set={v => cloneSources.setOffset('x', v, docKey)} />
+        <Num label="Y" value={o.y} unit="px" min={-300000} max={300000} disabled={!s.anchor} set={v => cloneSources.setOffset('y', v, docKey)} />
       </div>
       <div className="clone-row">
         <Num label="W" value={s.scaleX * 100} unit="%" min={1} max={1000} set={v => scale('scaleX', v)} />
