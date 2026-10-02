@@ -8,7 +8,8 @@ import { ValueInput } from '../LevelsCurvesBody.tsx';
 import { Field } from '../PropertiesPanel.tsx';
 import type { Viewer } from '../viewer.ts';
 import type { DocInfo } from '../worker/types.ts';
-import { applyFilter, type CurvePoint, type ParamValue } from './lastFilter.ts';
+import { applyFilter, type CurvePoint, type Light, type ParamValue, type PathPoint } from './lastFilter.ts';
+import { FlamePath, LightsEditor } from './RenderEditors.tsx';
 import { ShearCurve } from './ShearCurve.tsx';
 import { defaults, fieldSpecs, previewScale, type FilterSpec } from './schema.ts';
 
@@ -126,6 +127,9 @@ export function FilterDialog({ ref, viewer, show, setError }: {
         {req?.type === 'filter' && req.spec.params.filter(p => p.kind === 'curve').map(p => (
           <ShearCurve key={p.key} value={params[p.key] as CurvePoint[]} onChange={v => setParams(q => ({ ...q, [p.key]: v }))} />
         ))}
+        {req?.type === 'filter' && req.spec.params.filter(p => p.kind === 'lights' || p.kind === 'path').map(p => p.kind === 'lights'
+          ? <LightsEditor key={p.key} value={params[p.key] as Light[]} onChange={v => setParams(q => ({ ...q, [p.key]: v }))} />
+          : <FlamePath key={p.key} value={params[p.key] as PathPoint[]} onChange={v => setParams(q => ({ ...q, [p.key]: v }))} />)}
         {req && fields.filter(f => !f.path.startsWith('kernel.')).map(f => <Field key={f.path} spec={f} params={params} onChange={(path, v) => setParams(q => setIn(q, path, v as ParamValue))} />)}
         {req?.type === 'filter' && req.spec.params.some(p => p.kind === 'kernel') && (
           <div className="kernel-grid">

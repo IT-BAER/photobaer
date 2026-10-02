@@ -215,7 +215,13 @@ impl Document {
                 let tiles = self.node(id)?.pixel_tiles()?.clone();
                 // Point params are fractions of the tight bounds, so only they pay for them in a preview.
                 let exact = spec.params.iter().any(|p| matches!(p.kind, PKind::Point));
-                let b = if scale < 1.0 && !exact { tile_bounds(&tiles) } else { self.layer_bounds(id)? };
+                let b = if spec.group == "render" {
+                    Some(doc)
+                } else if scale < 1.0 && !exact {
+                    tile_bounds(&tiles)
+                } else {
+                    self.layer_bounds(id)?
+                };
                 (Src::Pixels(tiles), b.map(grown), b.unwrap_or(doc))
             }
             Target::Mask => {

@@ -960,3 +960,154 @@ fn pixelate_and_stylize_menus_list_the_reference_order() {
         "stylize.diffuse", "stylize.emboss", "stylize.extrude", "stylize.find_edges", "stylize.oil_paint", "stylize.solarize", "stylize.tiles", "stylize.trace_contour", "stylize.wind",
     ]);
 }
+
+// `kind` run straight on a transparent plane over `r` of a `w` x `h` document.
+fn render_plane(kind: &str, params: Value, r: [i32; 4], w: i32, h: i32) -> filters::Plane {
+    let mut p = filters::Plane { x: r[0], y: r[1], w: r[2] as usize, h: r[3] as usize, data: vec![0.0; (r[2] * r[3] * 4) as usize] };
+    let f = filters::Filter::parse(&filter(kind, params)).unwrap();
+    let blobs = HashMap::new();
+    filters::apply(&f, &mut p, &Ctx { blobs: &blobs, cov: None, bounds: [0, 0, w, h], scale: 1.0, mask: None }).unwrap();
+    p
+}
+
+fn pixels(w: i32, h: i32) -> impl Iterator<Item = (i32, i32)> {
+    (0..h).flat_map(move |y| (0..w).map(move |x| (x, y)))
+}
+
+#[test]
+fn render_filters_draw_at_document_size_on_an_empty_layer() {
+    let d = Document::new(40, 30, 8).unwrap();
+    for (kind, params) in [
+        ("render.clouds", json!({ "seed": 1 })),
+        ("render.difference_clouds", json!({ "seed": 1 })),
+        ("render.fibers", json!({ "seed": 1 })),
+        ("render.picture_frame", json!({})),
+    ] {
+        let o = filtered(&d, kind, params);
+        assert!(lpx(&o, 1, 0, 0)[3] > 0 && lpx(&o, 1, 39, 29)[3] > 0, "{kind} reaches the document corners");
+    }
+    let flare = filtered(&d, "render.lens_flare", json!({}));
+    assert!(lpx(&flare, 1, 20, 15)[3] > 200, "the flare center is drawn on transparency");
+    let big = Document::new(120, 120, 8).unwrap();
+    let tree = filtered(&big, "render.tree", json!({}));
+    assert!((0..120).any(|y| lpx(&tree, 1, 60, y)[3] == 255), "the trunk is opaque");
+    let flame = filtered(&big, "render.flame", json!({ "seed": 2 }));
+    assert!(pixels(120, 120).any(|(x, y)| lpx(&flame, 1, x, y)[3] > 0));
+}
+
+#[test]
+fn clouds_stay_between_the_colors_repeat_with_a_seed_and_render_tile_exact() {
+    let d = Document::new(64, 48, 8).unwrap();
+    let c = |seed: u32| filtered(&d, "render.clouds", json!({ "foreground": "#204080", "background": "#c0a010", "seed": seed }));
+    let a = c(7);
+    let (mut lo, mut hi) = ([255u8; 3], [0u8; 3]);
+    for (x, y) in pixels(64, 48) {
+        let p = lpx(&a, 1, x, y);
+        assert_eq!(p[3], 255);
+        for k in 0..3 {
+            let (f, b) = ([0x20u8, 0x40, 0x80][k], [0xc0u8, 0xa0, 0x10][k]);
+            assert!(p[k] >= f.min(b) && p[k] <= f.max(b), "channel {k} = {} at {x},{y}", p[k]);
+            lo[k] = lo[k].min(p[k]);
+            hi[k] = hi[k].max(p[k]);
+        }
+    }
+    assert!(hi[0] - lo[0] > 60, "clouds vary: {lo:?}..{hi:?}");
+    assert!(same(&a, &c(7), 64, 48));
+    assert!(!same(&a, &c(8), 64, 48));
+    for kind in ["render.clouds", "render.difference_clouds", "render.fibers"] {
+        let whole = render_plane(kind, json!({ "seed": 3 }), [0, 0, 300, 40], 300, 40);
+        let part = render_plane(kind, json!({ "seed": 3 }), [130, 10, 70, 20], 300, 40);
+        for (i, j) in pixels(70, 20) {
+            let (w, p) = (&whole.data[(((10 + j) * 300 + 130 + i) * 4) as usize..][..4], &part.data[((j * 70 + i) * 4) as usize..][..4]);
+            assert_eq!(w, p, "{kind} at {i},{j}");
+        }
+    }
+}
+
+#[test]
+fn difference_clouds_twice_with_one_seed_on_black_is_black() {
+    let mut d = doc_with(50, 40, |_, _| gray(0));
+    for _ in 0..2 {
+        d.apply_filter(1, Target::Pixels, &filter("render.difference_clouds", json!({ "seed": 11 })), None, 1.0).unwrap();
+    }
+    for (x, y) in pixels(50, 40) {
+        let p = lpx(&d, 1, x, y);
+        assert!(p[..3].iter().all(|&v| v <= 1) && p[3] == 255, "{p:?} at {x},{y}");
+    }
+}
+
+#[test]
+fn lens_flare_brightness_raises_the_center_peak() {
+    let d = doc_with(80, 60, |_, _| gray(40));
+    let peak = |b: f64| lpx(&filtered(&d, "render.lens_flare", json!({ "brightness": b, "center": { "x": 0.5, "y": 0.5 } })), 1, 40, 30)[0];
+    let (p10, p20, p40, p100, p300) = (peak(10.0), peak(20.0), peak(40.0), peak(100.0), peak(300.0));
+    assert!(40 < p10 && p10 < p20 && p20 < p40 && p40 <= p100 && p100 <= p300, "{p10} {p20} {p40} {p100} {p300}");
+    let looks: Vec<Document> = ["zoom50to300", "prime35", "prime105", "moviePrime"].iter().map(|t| filtered(&d, "render.lens_flare", json!({ "lensType": t }))).collect();
+    for i in 0..4 {
+        assert!(!same(&d, &looks[i], 80, 60) && !same(&looks[i], &looks[(i + 1) % 4], 80, 60), "lens type {i}");
+    }
+}
+
+#[test]
+fn lighting_effects_without_lights_at_full_ambience_is_the_identity() {
+    let d = ramp(40, 30);
+    let o = filtered(&d, "render.lighting_effects", json!({ "lights": [], "ambience": 100 }));
+    for (x, y) in pixels(40, 30) {
+        let (a, b) = (lpx(&d, 1, x, y), lpx(&o, 1, x, y));
+        assert!((0..4).all(|c| a[c].abs_diff(b[c]) <= 1), "{a:?} -> {b:?} at {x},{y}");
+    }
+    let lit = filtered(&d, "render.lighting_effects", json!({}));
+    assert!(!same(&d, &lit, 40, 30), "the default spot light changes the layer");
+    let point = |x: f64| json!({ "lights": [{ "type": "point", "x": x, "y": 0.5, "z": 0.3 }], "ambience": 0 });
+    let left = filtered(&d, "render.lighting_effects", point(0.1));
+    assert!(lpx(&left, 1, 4, 15)[2] > lpx(&left, 1, 36, 15)[2], "a point light is brighter near it");
+    let infinite = filtered(&d, "render.lighting_effects", json!({ "lights": [{ "type": "infinite", "color": "#ff0000" }], "ambience": 0 }));
+    assert_eq!(lpx(&infinite, 1, 30, 10)[1], 0, "a red light leaves green dark");
+    let bump = filtered(&d, "render.lighting_effects", json!({ "textureChannel": "red", "textureHeight": 100 }));
+    assert!(!same(&lit, &bump, 40, 30), "a texture channel adds relief");
+    for bad in [json!([{ "type": "laser" }]), json!([{ "x": 2 }]), json!([{ "glow": 1 }])] {
+        let e = d.clone().apply_filter(1, Target::Pixels, &filter("render.lighting_effects", json!({ "lights": bad })), None, 1.0).unwrap_err();
+        assert!(e.contains("Lighting Effects") && e.contains("lights"), "{e}");
+    }
+}
+
+#[test]
+fn tree_flame_and_picture_frame_repeat_per_seed() {
+    let d = Document::new(100, 100, 8).unwrap();
+    for (kind, a, b) in [
+        ("render.tree", json!({ "arrangement": 4 }), json!({ "arrangement": 5 })),
+        ("render.tree", json!({ "treeType": "willow", "randomizeShapes": true, "arrangement": 1 }), json!({ "treeType": "willow", "randomizeShapes": true, "arrangement": 2 })),
+        ("render.flame", json!({ "seed": 4 }), json!({ "seed": 5 })),
+        ("render.flame", json!({ "flameType": "multipleFlamesVarious", "seed": 4 }), json!({ "flameType": "multipleFlamesVarious", "seed": 5 })),
+        ("render.picture_frame", json!({ "frameType": "beads" }), json!({ "frameType": "ivy" })),
+    ] {
+        assert!(same(&filtered(&d, kind, a.clone()), &filtered(&d, kind, a.clone()), 100, 100), "{kind} {a}");
+        assert!(!same(&filtered(&d, kind, a.clone()), &filtered(&d, kind, b.clone()), 100, 100), "{kind} {a} vs {b}");
+    }
+    for t in ["simple", "doubleLine", "beads", "ivy", "ribbon", "scallop"] {
+        let o = filtered(&d, "render.picture_frame", json!({ "frameType": t, "margin": 10, "frameWidth": 10 }));
+        assert_eq!(lpx(&o, 1, 50, 50)[3], 0, "{t}: the inside stays untouched");
+        assert_eq!(lpx(&o, 1, 50, 15)[3], 255, "{t}: the matte band");
+        assert_eq!(lpx(&o, 1, 2, 50)[3], 255, "{t}: the frame band");
+    }
+    let flame = filtered(&d, "render.flame", json!({ "path": [{ "x": 0.2, "y": 0.9 }, { "x": 0.4, "y": 0.9 }], "seed": 1 }));
+    assert!(pixels(100, 100).all(|(x, y)| x < 60 || lpx(&flame, 1, x, y)[3] == 0), "flames stay near their path");
+}
+
+#[test]
+fn render_menu_lists_the_reference_order_and_colors_are_hidden_params() {
+    let v: Value = serde_json::from_str(&filters::schema_json()).unwrap();
+    let render: Vec<&Value> = v.as_array().unwrap().iter().filter(|e| e["group"] == "render").collect();
+    let ids: Vec<&str> = render.iter().map(|e| e["id"].as_str().unwrap()).collect();
+    assert_eq!(ids, [
+        "render.clouds", "render.difference_clouds", "render.fibers", "render.lens_flare", "render.lighting_effects", "render.flame", "render.picture_frame", "render.tree",
+    ]);
+    assert_eq!(render[0]["preview"], false);
+    assert_eq!(render[0]["params"][0]["kind"], "color");
+    assert_eq!(render[4]["params"][0]["kind"], "lights");
+    assert_eq!(render[5]["params"][1]["kind"], "path");
+    let e = Document::new(8, 8, 8).unwrap().apply_filter(1, Target::Pixels, &filter("render.clouds", json!({ "foreground": "red" })), None, 1.0).unwrap_err();
+    assert!(e.contains("Clouds") && e.contains("foreground"), "{e}");
+    let e = Document::new(8, 8, 8).unwrap().apply_filter(1, Target::Pixels, &filter("render.flame", json!({ "path": [{ "x": 0.5, "y": 0.5 }] })), None, 1.0).unwrap_err();
+    assert!(e.contains("Flame") && e.contains("path"), "{e}");
+}

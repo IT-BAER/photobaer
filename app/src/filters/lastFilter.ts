@@ -1,7 +1,12 @@
 // Filter > Last Filter (docs/M5.md section 2): the last filter applied successfully in this session.
 
 export type CurvePoint = { y: number; offset: number };
-export type ParamValue = number | string | boolean | { x: number; y: number } | number[] | CurvePoint[];
+export type PathPoint = { x: number; y: number };
+export interface Light {
+  type: 'point' | 'spot' | 'infinite'; intensity: number; hotspot: number; x: number; y: number; z: number;
+  targetX: number; targetY: number; color: string; enabled: boolean;
+}
+export type ParamValue = number | string | boolean | PathPoint | number[] | CurvePoint[] | PathPoint[] | Light[];
 export interface AppliedFilter { kind: string; params: Record<string, ParamValue>; label: string }
 
 let last: AppliedFilter | null = null;

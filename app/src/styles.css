@@ -264,6 +264,10 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .kernel-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
 .kernel-grid input { min-width: 0; font: 12px ui-monospace, Consolas, monospace; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; text-align: right; }
 .shear-curve { border: 1px solid var(--line); background: var(--bg); touch-action: none; cursor: crosshair; justify-self: center; }
+.lights-editor { display: grid; gap: 6px; }
+.lights-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lights-row input[type=number] { width: 52px; }
+.lights-row input[type=color] { width: 28px; height: 22px; padding: 0; border: 1px solid var(--line); background: none; }
 .adjustment-check { display: flex; align-items: center; gap: 6px; margin: 0; }
 .type-panel label:not(.adjustment-check) { display: grid; grid-template-columns: 1fr 120px; align-items: center; gap: 6px; margin: 2px 0; }
 .type-panel label:not(.adjustment-check) > :is(input, select) { min-width: 0; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }

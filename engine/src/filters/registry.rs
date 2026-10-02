@@ -1,6 +1,6 @@
 //! The registry table in reference menu order within each group (docs/M5.md section 14).
 
-use super::{blur, distort, noise, other, pixelate, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
+use super::{blur, distort, noise, other, pixelate, render, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
 use crate::adjust;
 
 const fn none(_: &Filter) -> i32 {
@@ -86,6 +86,26 @@ const fn kernel(key: &'static str, label: &'static str) -> Param {
 
 const fn curve(key: &'static str, label: &'static str) -> Param {
     Param { kind: PKind::Curve, default: Def::Curve, ..num(key, label, -1.0, 1.0, 0.01, "", 0.0) }
+}
+
+const fn color(key: &'static str, label: &'static str, default: &'static str) -> Param {
+    Param { kind: PKind::Color, default: Def::Color(default), ..num(key, label, 0.0, 0.0, 0.0, "", 0.0) }
+}
+
+const FG: Param = color("foreground", "Foreground", "#000000");
+const BG: Param = color("background", "Background", "#ffffff");
+
+// Draws over the document rect (filter_run), so it also works on an empty layer.
+const fn render(id: &'static str, label: &'static str, params: &'static [Param], apply: fn(&mut Plane, &Filter, &Ctx) -> Result<(), String>) -> Spec {
+    Spec { rgb_only: true, ..global(id, label, "render", params, apply) }
+}
+
+const fn noise_render(id: &'static str, label: &'static str, params: &'static [Param], apply: fn(&mut Plane, &Filter, &Ctx) -> Result<(), String>) -> Spec {
+    Spec { preview: false, rgb_only: false, ..render(id, label, params, apply) }
+}
+
+const fn ranged(key: &'static str, label: &'static str, min: f64, max: f64, default: f64) -> Param {
+    Param { kind: PKind::Int, ..num(key, label, min, max, 1.0, "", default) }
 }
 
 const UNDEFINED: Param = select("undefinedAreas", "Undefined Areas", &["wrapAround", "repeatEdgePixels"], "repeatEdgePixels");
@@ -285,6 +305,83 @@ pub static ALL: &[Spec] = &[
     },
     kept("pixelate.mosaic", "Mosaic", "pixelate", &[px("cellSize", "Cell Size", 1.0, 200.0, 1.0, 10.0)], pixelate::mosaic_reach, pixelate::mosaic),
     kept("pixelate.pointillize", "Pointillize", "pixelate", &[px("cellSize", "Cell Size", 3.0, 300.0, 1.0, 5.0), SEED], pixelate::voronoi_reach, pixelate::pointillize),
+    noise_render("render.clouds", "Clouds", &[FG, BG, SEED], render::clouds),
+    noise_render("render.difference_clouds", "Difference Clouds", &[FG, BG, SEED], render::difference_clouds),
+    noise_render("render.fibers", "Fibers", &[FG, BG, int("variance", "Variance", 1.0, 64.0, 16.0), int("strength", "Strength", 1.0, 64.0, 4.0), SEED], render::fibers),
+    render(
+        "render.lens_flare",
+        "Lens Flare",
+        &[amount("brightness", "Brightness", 10.0, 300.0, 1.0, 100.0), select("lensType", "Lens Type", &["zoom50to300", "prime35", "prime105", "moviePrime"], "zoom50to300"), point("center", "Flare Center")],
+        render::lens_flare,
+    ),
+    Spec {
+        keep_alpha: true,
+        ..render(
+            "render.lighting_effects",
+            "Lighting Effects",
+            &[
+                Param { kind: PKind::Lights, default: Def::Lights, ..num("lights", "Lights", 0.0, 0.0, 0.0, "", 0.0) },
+                select("textureChannel", "Texture", &["none", "red", "green", "blue", "luminance"], "none"),
+                ranged("textureHeight", "Height", 1.0, 100.0, 50.0),
+                flag("invertTexture", "Invert Texture"),
+                ranged("gloss", "Gloss", -100.0, 100.0, 0.0),
+                ranged("material", "Material", -100.0, 100.0, 0.0),
+                ranged("exposure", "Exposure", -100.0, 100.0, 0.0),
+                ranged("ambience", "Ambience", -100.0, 100.0, 20.0),
+            ],
+            render::lighting_effects,
+        )
+    },
+    render(
+        "render.flame",
+        "Flame",
+        &[
+            select("flameType", "Flame Type", &["oneFlameAlongPath", "multipleFlamesOnePath", "multipleFlamesPathDirection", "multipleFlamesVarious", "candle", "arc"], "multipleFlamesOnePath"),
+            Param { kind: PKind::Path, default: Def::Path(&[(0.15, 0.8), (0.85, 0.8)]), ..num("path", "Path", 0.0, 1.0, 0.01, "", 0.0) },
+            ranged("length", "Length", 1.0, 1000.0, 100.0),
+            ranged("width", "Width", 1.0, 1000.0, 100.0),
+            angle("angle", "Angle", 0.0),
+            ranged("interval", "Interval", 1.0, 100.0, 30.0),
+            amount("opacity", "Opacity", 1.0, 100.0, 1.0, 100.0),
+            ranged("flameLines", "Flame Lines (Complexity)", 1.0, 100.0, 20.0),
+            ranged("turbulentAmount", "Turbulent", 1.0, 10.0, 5.0),
+            ranged("jagAmount", "Jag", 1.0, 10.0, 3.0),
+            flag("useCustomColor", "Use Custom Color For Flames"),
+            FG,
+            SEED,
+        ],
+        render::flame,
+    ),
+    render(
+        "render.picture_frame",
+        "Picture Frame",
+        &[
+            select("frameType", "Frame", &["simple", "doubleLine", "beads", "ivy", "ribbon", "scallop"], "simple"),
+            amount("margin", "Margin", 0.0, 40.0, 1.0, 8.0),
+            amount("frameWidth", "Frame Width", 1.0, 40.0, 1.0, 6.0),
+            select("frameColor", "Frame Color", &["walnut", "gilt", "black", "white"], "walnut"),
+            select("matteColor", "Matte Color", &["cream", "white", "charcoal"], "cream"),
+            pct("ornamentDensity", "Ornament Density", 40.0),
+            select("arrangement", "Arrangement", &["all", "horizontal", "vertical"], "all"),
+        ],
+        render::picture_frame,
+    ),
+    render(
+        "render.tree",
+        "Tree",
+        &[
+            select("treeType", "Base Tree Type", &["maple", "birch", "poplar", "oak", "willow", "pine"], "maple"),
+            Param { min: 0.0, ..angle("lightDirection", "Light Direction", 135.0) },
+            pct("leavesAmount", "Leaves Amount", 60.0),
+            pct("leavesSize", "Leaves Size", 50.0),
+            pct("branchesHeight", "Branches Height", 60.0),
+            pct("branchesThickness", "Branches Thickness", 40.0),
+            flag("defoliate", "Defoliate"),
+            flag("randomizeShapes", "Randomize Shapes"),
+            int("arrangement", "Arrangement", 0.0, 999.0, 0.0),
+        ],
+        render::tree,
+    ),
     kept("sharpen.sharpen", "Sharpen", "sharpen", &[], sharpen::one, sharpen::sharpen),
     kept("sharpen.sharpen_edges", "Sharpen Edges", "sharpen", &[], sharpen::one, sharpen::sharpen_edges),
     kept("sharpen.sharpen_more", "Sharpen More", "sharpen", &[], sharpen::one, sharpen::sharpen_more),

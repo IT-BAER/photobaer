@@ -75,6 +75,8 @@ function checkParam(p: FilterParam, v: unknown): ParamValue {
     case 'point': return ok(!!v && isNum((v as { x: unknown }).x) && isNum((v as { y: unknown }).y), 'an object {x, y} of numbers');
     case 'kernel': return ok(Array.isArray(v) && v.length === 25 && v.every(isNum), 'an array of 25 numbers');
     case 'curve': return ok(Array.isArray(v) && v.every(c => isNum(c?.y) && isNum(c?.offset)), 'an array of {y, offset} numbers');
+    case 'path': return ok(Array.isArray(v) && v.every(c => isNum(c?.x) && isNum(c?.y)), 'an array of {x, y} numbers from 0 to 1');
+    case 'lights': return ok(Array.isArray(v) && v.every(l => !!l && typeof l === 'object'), 'an array of light objects');
     default: return ok(isNum(v) && v >= p.min && v <= p.max, `a number from ${p.min} to ${p.max}`);
   }
 }

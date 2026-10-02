@@ -15,6 +15,7 @@ mod noise;
 mod other;
 mod pixelate;
 mod registry;
+mod render;
 mod sharpen;
 mod stylize;
 
@@ -47,6 +48,12 @@ pub enum PKind {
     Kernel,
     /// 2..16 `{ y, offset }` points, y in 0..1 and offset in -1..1, sorted by y.
     Curve,
+    /// `#rrggbb`; the app fills `foreground` and `background` from the current colors.
+    Color,
+    /// 0..16 Lighting Effects lights (`render::LIGHT_KEYS`).
+    Lights,
+    /// 2..256 `{ x, y }` points as fractions of the layer bounds.
+    Path,
 }
 
 #[derive(Clone, Copy)]
@@ -59,6 +66,10 @@ pub enum Def {
     Kernel,
     /// The flat curve.
     Curve,
+    Color(&'static str),
+    /// One default spot light.
+    Lights,
+    Path(&'static [(f64, f64)]),
 }
 
 pub struct Param {
@@ -224,6 +235,11 @@ impl Filter {
         self.params.get(key).and_then(Value::as_array).map_or_else(Vec::new, |a| a.iter().map(|o| (at(o, "y"), at(o, "offset"))).collect())
     }
 
+    /// A `Color` param as 0..1 RGB.
+    pub fn color(&self, key: &str) -> [f32; 3] {
+        parse_hex(self.text(key)).unwrap_or([0.0; 3])
+    }
+
     /// Reads the target layer's mask (`Ctx::mask`), so a smart cache depends on it.
     pub fn reads_mask(&self) -> bool {
         self.kind == "blur.lens_blur" && self.text("depthMapSource") == "layerMask"
@@ -252,6 +268,9 @@ fn default_value(p: &Param) -> Value {
         Def::Point(x, y) => json!({ "x": x, "y": y }),
         Def::Kernel => json!((0..25).map(|i| f64::from(i == 12)).collect::<Vec<_>>()),
         Def::Curve => json!([{ "y": 0.0, "offset": 0.0 }, { "y": 1.0, "offset": 0.0 }]),
+        Def::Color(c) => json!(c),
+        Def::Lights => json!([render::default_light()]),
+        Def::Path(pts) => Value::Array(pts.iter().map(|&(x, y)| json!({ "x": x, "y": y })).collect()),
     }
 }
 
@@ -300,7 +319,27 @@ fn check(spec: &Spec, p: &Param, v: &Value) -> Result<Value, String> {
             pts.sort_by(|a, b| a.0.total_cmp(&b.0));
             Ok(Value::Array(pts.into_iter().map(|(y, offset)| json!({ "y": y, "offset": offset })).collect()))
         }
+        PKind::Color => v.as_str().filter(|s| parse_hex(s).is_some()).map(|s| json!(s.to_ascii_lowercase())).ok_or_else(|| bad("a color #rrggbb")),
+        PKind::Lights => {
+            let a = v.as_array().filter(|a| a.len() <= 16).ok_or_else(|| bad("an array of at most 16 lights"))?;
+            let each = a.iter().enumerate().map(|(i, l)| render::check_light(l).map_err(|e| format!("{}: {} entry {} {e}", spec.label, p.key, i + 1)));
+            Ok(Value::Array(each.collect::<Result<_, _>>()?))
+        }
+        PKind::Path => {
+            let pt = |o: &Value| {
+                let c = |k: &str| o.get(k)?.as_f64().filter(|n| (0.0..=1.0).contains(n));
+                Some(json!({ "x": c("x")?, "y": c("y")? })).filter(|_| o.as_object().is_some_and(|o| o.len() == 2))
+            };
+            let pts: Option<Vec<Value>> = v.as_array().filter(|a| (2..=256).contains(&a.len())).and_then(|a| a.iter().map(pt).collect());
+            pts.map(Value::Array).ok_or_else(|| bad("2 to 256 points { x, y } in 0..=1"))
+        }
     }
+}
+
+/// `#rrggbb` as 0..1 RGB.
+pub(crate) fn parse_hex(s: &str) -> Option<[f32; 3]> {
+    let h = s.strip_prefix('#').filter(|h| h.len() == 6 && h.bytes().all(|b| b.is_ascii_hexdigit()))?;
+    Some(std::array::from_fn(|i| u8::from_str_radix(&h[i * 2..i * 2 + 2], 16).map_or(0.0, |v| f32::from(v) / 255.0)))
 }
 
 /// Runs `f` over `plane` (straight RGBA); the plane is the output rect grown by the reach.
@@ -368,6 +407,9 @@ pub fn schema_json() -> String {
                         PKind::Point => ("point", None),
                         PKind::Kernel => ("kernel", None),
                         PKind::Curve => ("curve", None),
+                        PKind::Color => ("color", None),
+                        PKind::Lights => ("lights", None),
+                        PKind::Path => ("path", None),
                     };
                     let mut o = json!({ "key": p.key, "label": p.label, "kind": kind, "min": p.min, "max": p.max, "step": p.step,
                         "unit": p.unit, "default": default_value(p) });

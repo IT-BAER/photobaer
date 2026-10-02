@@ -25,7 +25,7 @@ import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
 import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
 import { TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
 import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
-import { hexToRgb, type Rgb } from './shell/color.ts';
+import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
 import type { DigitState } from './shell/brushKeys.ts';
 import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
 import { Rulers, hitGuide, rulerDragToDoc, type DragGuide } from './shell/rulers.ts';
@@ -78,7 +78,7 @@ import { useShortcuts } from './app/shortcuts.ts';
 import { FilterDialog, runFilter, type FilterDialogHandle } from './filters/FilterDialog.tsx';
 import { applyFilter, repeatLastFilter, type ParamValue } from './filters/lastFilter.ts';
 import { connectBridge, pairing, toBase64, type Format } from './app/agentBridge.ts';
-import { schema, setSchema, type FilterSpec } from './filters/schema.ts';
+import { schema, setColorSource, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
   LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
@@ -1367,6 +1367,7 @@ export function App() {
   fgRef.current = fg;
   const bgRef = useRef(bg);
   bgRef.current = bg;
+  setColorSource(() => ({ foreground: rgbToHex(fgRef.current), background: rgbToHex(bgRef.current) }));
 
   useGradientTool({
     viewer, tool, active, overlayRef, toolOptionsRef, gradLib, fgRef, bgRef, run, editTarget, quickMask,

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { defaults, fieldSpecs, menuLabel, previewScale, type FilterSpec } from './schema.ts';
+import { defaults, fieldSpecs, menuLabel, previewScale, setColorSource, type FilterSpec } from './schema.ts';
 
 const spec = (params: FilterSpec['params']): FilterSpec => ({ id: 'x.y', label: 'Thing', group: 'noise', params, exec: 'local', alpha: 'kept', preview: true, rgb_only: false });
 const p = (key: string, kind: FilterSpec['params'][number]['kind'], extra: Partial<FilterSpec['params'][number]> = {}) =>
@@ -42,4 +42,13 @@ test('a kernel param shows as 25 fields row by row and a curve as none', () => {
   assert.equal(menuLabel(k), 'Thing…');
   assert.deepEqual((defaults(k).kernel as number[])[12], 1);
   assert.deepEqual(fieldSpecs(spec([p('shearCurve', 'curve', { default: [{ y: 0, offset: 0 }, { y: 1, offset: 0 }] })])), []);
+});
+
+test('color params stay hidden and take the current colors; lights and path draw their own editors', () => {
+  const s = spec([p('foreground', 'color', { default: '#000000' }), p('background', 'color', { default: '#ffffff' }), p('lights', 'lights', { default: [] }), p('path', 'path', { default: [] })]);
+  assert.deepEqual(fieldSpecs(s), []);
+  assert.equal(menuLabel(s), 'Thing…', 'lights and path open the dialog');
+  assert.equal(menuLabel(spec([p('foreground', 'color', { default: '#000000' })])), 'Thing', 'colors alone take no dialog');
+  setColorSource(() => ({ foreground: '#102030', background: '#a0b0c0' }));
+  assert.deepEqual(defaults(s), { foreground: '#102030', background: '#a0b0c0', lights: [], path: [] });
 });
