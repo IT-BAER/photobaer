@@ -5,7 +5,7 @@ import type { Item } from './helpers.ts';
 
 const it = (label: string, off = false, sub?: Item[]): Item => ({ label, run: () => {}, off, sub });
 const menus = {
-  Layer: [it('Duplicate Layer'), it('Merge Layers'), it('Add Layer Mask', true), it('Rasterize', false, [it('Type', true), it('Shape')]), it('Layer Style', false, [it('Blending Options…')])],
+  Layer: [it('Layer via Copy'), it('Duplicate Layer'), it('Merge Layers'), it('Add Layer Mask', true), it('Rasterize', false, [it('Type', true), it('Shape')]), it('Layer Style', false, [it('Blending Options…')])],
   Select: [it('All'), it('Deselect'), it('Inverse'), it('Feather…'), it('Reselect', true)],
   Edit: [it('Free Transform'), it('Fill…'), it('Stroke…')],
 };
@@ -22,7 +22,6 @@ test('layerRowItems keeps disabled state and appends the row items after a separ
 });
 
 test('canvasItems switches on the selection', () => {
-  const via = [it('Layer via Copy')];
-  assert.deepEqual(canvasItems(menus, true, via).map(i => i.label), ['Deselect', 'Select Inverse', 'Feather…', 'Layer via Copy', 'Free Transform', 'Fill…', 'Stroke…']);
-  assert.deepEqual(canvasItems(menus, false, via).map(i => i.label), ['Select All', 'Reselect', 'Free Transform']);
+  assert.deepEqual(canvasItems(menus, true).map(i => i.label), ['Deselect', 'Select Inverse', 'Feather…', 'Layer via Copy', 'Free Transform', 'Fill…', 'Stroke…']);
+  assert.deepEqual(canvasItems(menus, false).map(i => i.label), ['Select All', 'Reselect', 'Free Transform']);
 });

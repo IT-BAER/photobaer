@@ -151,7 +151,9 @@ export function buildMenus(c: MenuCtx) {
     Layer: [
       { label: 'New Layer', run: newLayer, off: !has },
       { label: 'New Group', run: newGroup, off: !has },
-      { label: 'Duplicate Layer', keys: 'Ctrl+J', run: duplicateLayer, off: !has },
+      // Ctrl+J: the selected pixels as a new layer, or the whole layer when there is no pixel selection (Photoshop).
+      { label: 'Layer via Copy', keys: 'Ctrl+J', run: () => doc?.selection && node?.kind === 'pixel' && active ? run(null, () => client.call('layerViaCopy', active.id), selectCreated) : duplicateLayer(), off: !has || !active },
+      { label: 'Duplicate Layer', run: duplicateLayer, off: !has },
       { label: 'Delete Layer', run: deleteLayer, off: deleteDisabled },
       { label: 'Group Layers', keys: 'Ctrl+G', run: groupLayers, off: !has },
       { label: 'Ungroup Layers', keys: 'Shift+Ctrl+G', run: ungroupLayers, off: !has || node?.kind !== 'group' },

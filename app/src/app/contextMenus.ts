@@ -41,10 +41,10 @@ export function layerRowItems(menus: Menus, extra: Item[]): Item[] {
   return [...picked, ...extra.map((i, k) => (k === 0 && picked.length ? { ...i, sep: true } : i))];
 }
 
-const SELECTION: string[][] = [['Select/Deselect', 'Select/Inverse=Select Inverse', 'Select/Feather…'], ['Canvas/Layer via Copy', 'Edit/Free Transform', 'Edit/Fill…', 'Edit/Stroke…']];
+const SELECTION: string[][] = [['Select/Deselect', 'Select/Inverse=Select Inverse', 'Select/Feather…'], ['Layer/Layer via Copy', 'Edit/Free Transform', 'Edit/Fill…', 'Edit/Stroke…']];
 const NO_SELECTION: string[][] = [['Select/All=Select All', 'Select/Reselect'], ['Edit/Free Transform']];
 
 /** The canvas menu: selection commands when a pixel selection exists, else Select All / Reselect. */
-export function canvasItems(menus: Menus, selection: boolean, viaCopy: Item[]): Item[] {
-  return pickItems({ ...menus, Canvas: viaCopy }, selection ? SELECTION : NO_SELECTION);
+export function canvasItems(menus: Menus, selection: boolean): Item[] {
+  return pickItems(menus, selection ? SELECTION : NO_SELECTION);
 }

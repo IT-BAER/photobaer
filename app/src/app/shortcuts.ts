@@ -107,7 +107,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && e.altKey && k === ';') triggerBy(l => l === 'Lock Guides' || l === 'Unlock Guides', e);
       else if (ctrl && !e.altKey && k === ';') triggerBy(l => l === 'Show Guides' || l === 'Hide Guides', e);
       else if (ctrl && k === "'") triggerBy(l => l === 'Show Grid' || l === 'Hide Grid', e);
-      else if (ctrl && k === 'j') trigger('Duplicate Layer', e);
+      else if (ctrl && k === 'j') trigger('Layer via Copy', e);
       else if (ctrl && e.altKey && k === 'g') triggerBy(l => l.endsWith('Clipping Mask'), e);
       else if (ctrl && e.shiftKey && k === 'g') trigger('Ungroup Layers', e);
       else if (ctrl && e.altKey && e.shiftKey && e.code === 'KeyE') trigger('Stamp Visible', e);

@@ -1510,7 +1510,7 @@ export function App() {
         </>
       )}
       {canvasMenu && (() => {
-        const items = canvasItems(menus, !!doc?.selection, active ? [{ label: 'Layer via Copy', run: () => run(null, () => client.call('layerViaCopy', active.id), selectCreated) }] : []);
+        const items = canvasItems(menus, !!doc?.selection);
         return (
           <>
             <div className="scrim" onClick={() => setCanvasMenu(null)} onContextMenu={e => { e.preventDefault(); setCanvasMenu(null); }} />
