@@ -79,6 +79,13 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && e.shiftKey && k === 'd') trigger('Reselect', e);
       else if (ctrl && k === 'd') trigger('Deselect', e);
       else if (ctrl && e.shiftKey && k === 'i') trigger('Inverse', e);
+      else if (ctrl && e.altKey && !e.shiftKey && k === 'i') trigger('Image Size', e);
+      else if (ctrl && e.altKey && !e.shiftKey && k === 'c') trigger('Canvas Size', e);
+      else if (ctrl && !e.altKey && e.shiftKey && k === 'c') triggerBy(l => l === 'Copy Merged', e);
+      else if (ctrl && !e.altKey && k === 'c') triggerBy(l => l === 'Copy', e);
+      else if (ctrl && !e.altKey && !e.shiftKey && k === 'x') triggerBy(l => l === 'Cut', e);
+      else if (ctrl && e.altKey && e.shiftKey && k === 'v') triggerBy(l => l === 'Paste Into', e);
+      else if (ctrl && !e.altKey && e.shiftKey && k === 'v') triggerBy(l => l === 'Paste in Place', e);
       else if (ctrl && k === 'i') adjustment('Invert', e);
       else if (ctrl && e.altKey && e.shiftKey && k === 'l') trigger('Auto Contrast', e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 'l') trigger('Auto Tone', e);
@@ -154,6 +161,17 @@ export function useShortcuts(c: ShortcutCtx) {
       capsLockRef.current = e.getModifierState('CapsLock');
       if (e.key === ' ') viewer.current?.setSpring(null);
     };
+    // Ctrl+V is left to the browser so this event carries the system clipboard; fields, dialogs and a type session keep it.
+    const paste = (e: ClipboardEvent) => {
+      const t = e.target instanceof Element ? e.target : null;
+      if (t?.closest('dialog[open], input, textarea, select, [contenteditable]')) return;
+      const it = find(l => l === 'Paste') as { run: (bytes: Uint8Array | null) => void; off?: boolean } | undefined;
+      if (!it || it.off) return;
+      e.preventDefault();
+      const f = [...(e.clipboardData?.files ?? [])].find(f => f.type.startsWith('image/'));
+      if (f) void f.arrayBuffer().then(b => it.run(new Uint8Array(b)));
+      else it.run(null);
+    };
     const over = (e: DragEvent) => e.preventDefault();
     const drop = (e: DragEvent) => {
       e.preventDefault();
@@ -162,11 +180,13 @@ export function useShortcuts(c: ShortcutCtx) {
     };
     addEventListener('keydown', down);
     addEventListener('keyup', up);
+    addEventListener('paste', paste);
     addEventListener('dragover', over);
     addEventListener('drop', drop);
     return () => {
       removeEventListener('keydown', down);
       removeEventListener('keyup', up);
+      removeEventListener('paste', paste);
       removeEventListener('dragover', over);
       removeEventListener('drop', drop);
     };

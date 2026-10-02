@@ -17,6 +17,7 @@ export function LayerCompsPanel({ doc, run }: Props) {
 
   return (
     <div className="layers-panel">
+      <div className="panel-tabs"><span className="panel-tab">Layer Comps</span></div>
       <div className="layers-tree" role="listbox" aria-label="Layer Comps">
         {doc.layerComps.map(c => (
           <div

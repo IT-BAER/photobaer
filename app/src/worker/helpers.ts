@@ -149,6 +149,26 @@ function layerTile(e: Engine, ids: Sparse | undefined, tx: number, ty: number): 
   return id ? e.tile_bytes(BigInt(id)) : null;
 }
 
+// Straight RGBA8 (w x h) of a layer's stored tiles over the canvas (W x H), by alpha-weighted box sampling;
+// for layers (type) that transform_preview refuses.
+function tileThumb(e: Engine, ids: Sparse | undefined, W: number, H: number, w: number, h: number): ArrayBuffer {
+  const out = new Uint8Array(w * h * 4), n = Math.min(4, Math.ceil(W / w)), seen = new Map<number, Uint8Array | null>();
+  const tile = (tx: number, ty: number) => { const k = ty * 65536 + tx; if (!seen.has(k)) seen.set(k, layerTile(e, ids, tx, ty)); return seen.get(k)!; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let r = 0, g = 0, b = 0, a = 0;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const px = Math.min(W - 1, Math.floor((x + (i + 0.5) / n) * W / w)), py = Math.min(H - 1, Math.floor((y + (j + 0.5) / n) * H / h));
+      const tx = px >> 8, ty = py >> 8, t = tile(tx, ty);
+      if (!t) continue;
+      const o = ((py - ty * 256) * 256 + (px - tx * 256)) * 4, al = t[o + 3];
+      r += t[o] * al; g += t[o + 1] * al; b += t[o + 2] * al; a += al;
+    }
+    const o = (y * w + x) * 4;
+    if (a) { out[o] = Math.round(r / a); out[o + 1] = Math.round(g / a); out[o + 2] = Math.round(b / a); out[o + 3] = Math.round(a / (n * n)); }
+  }
+  return out.buffer;
+}
+
 // Every node, topmost first (reading order): each root sibling before its children, siblings in
 // top-to-bottom (reverse array) order; skips a node, and its whole subtree, once hidden or under
 // a hidden ancestor.
@@ -265,6 +285,21 @@ function putRgba(e: Engine, id: number, w: number, h: number, rgba: Uint8Array) 
   });
 }
 
+// Document rect `b` (inside the canvas) read out of 256 px tiles of `bpp` bytes per pixel; a null tile reads as `fill`.
+function gather(b: Box, bpp: number, tile: (tx: number, ty: number) => Uint8Array | null, fill = 0) {
+  const [x, y, w, h] = b, out = new Uint8Array(w * h * bpp).fill(fill);
+  for (let ty = y >> 8; ty <= (y + h - 1) >> 8; ty++) for (let tx = x >> 8; tx <= (x + w - 1) >> 8; tx++) {
+    const t = tile(tx, ty);
+    if (!t) continue;
+    const x0 = Math.max(x, tx * 256), x1 = Math.min(x + w, tx * 256 + 256);
+    for (let py = Math.max(y, ty * 256); py < Math.min(y + h, ty * 256 + 256); py++) {
+      const s = ((py - ty * 256) * 256 + x0 - tx * 256) * bpp;
+      out.set(t.subarray(s, s + (x1 - x0) * bpp), ((py - y) * w + x0 - x) * bpp);
+    }
+  }
+  return out;
+}
+
 const unavailable = (name: string) => new Error(`The linked source is unavailable: ${name}. Relink the Smart Object to an existing file.`);
 
 async function readLinked(link: SmartLink & { type: 'linked' }): Promise<Uint8Array> {
@@ -324,4 +359,4 @@ function smartWarpStart(e: Engine, id: number, maxSide: number) {
   return { bounds, ...lifted, mesh };
 }
 
-export { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };
+export { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };

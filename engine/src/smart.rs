@@ -1074,6 +1074,17 @@ mod tests {
     }
 
     #[test]
+    fn image_size_re_renders_a_smart_object_from_its_source() {
+        let mut d = Document::new(64, 64, 8).unwrap();
+        let id = place(&mut d, 6, 4, translate(10.0, 20.0), "a");
+        assert!(d.image_size(128, 128, Interp::Nearest, false).unwrap());
+        assert_eq!(smart_of(&d, id).transform, [2.0, 0.0, 20.0, 0.0, 2.0, 40.0, 0.0, 0.0, 1.0]);
+        let after = grid(&d, id, [16, 36, 16, 12]);
+        d.render_smart(id).unwrap();
+        assert_eq!(grid(&d, id, [16, 36, 16, 12]), after, "the cache is the source rendered through the new placement");
+    }
+
+    #[test]
     fn a_smart_op_is_one_snapshot_step_and_loads_back() {
         let mut d = Document::new(64, 64, 8).unwrap();
         let id = place(&mut d, 8, 8, translate(3.0, 3.0), "a");

@@ -2077,6 +2077,50 @@ impl Document {
         m.tiles.put(tx as i32, ty as i32, tile);
         Ok(())
     }
+
+    /// Writes straight RGBA8 (w x h) into a pixel layer at (x, y), which may lie past the canvas;
+    /// pixels outside the rect are kept.
+    pub fn put_rgba8(&mut self, id: u32, x: i32, y: i32, w: u32, h: u32, data: &[u8]) -> Result<(), String> {
+        self.check_idle()?;
+        self.check_pixel_edit(id)?;
+        if data.len() as u64 != w as u64 * h as u64 * 4 {
+            return Err(format!("expected {} bytes, got {}", w as u64 * h as u64 * 4, data.len()));
+        }
+        if w == 0 || h == 0 {
+            return Ok(());
+        }
+        let ti = TILE as i64;
+        let (x1, y1) = (x as i64 + w as i64, y as i64 + h as i64);
+        let lim = MAX_TILE_COORD as i64;
+        if (x as i64).div_euclid(ti) < -lim || (y as i64).div_euclid(ti) < -lim || (x1 - 1).div_euclid(ti) >= lim || (y1 - 1).div_euclid(ti) >= lim {
+            return Err("pixels lie too far from the canvas".into());
+        }
+        let depth = self.depth;
+        for ty in (y as i64).div_euclid(ti)..=(y1 - 1).div_euclid(ti) {
+            for tx in (x as i64).div_euclid(ti)..=(x1 - 1).div_euclid(ti) {
+                let (ox, oy) = (tx * ti, ty * ti);
+                let (cx0, cx1) = ((x as i64).max(ox), x1.min(ox + ti));
+                let (cy0, cy1) = ((y as i64).max(oy), y1.min(oy + ti));
+                let mut buf = vec![0u8; TILE_BYTES_U8];
+                for sy in cy0..cy1 {
+                    let s = (((sy - y as i64) * w as i64 + (cx0 - x as i64)) * 4) as usize;
+                    let d = (((sy - oy) * ti + (cx0 - ox)) * 4) as usize;
+                    let n = ((cx1 - cx0) * 4) as usize;
+                    buf[d..d + n].copy_from_slice(&data[s..s + n]);
+                }
+                let src = Pixels::from_rgba8(depth, &buf);
+                let tiles = self.node(id)?.pixel_tiles()?;
+                let mut px = tiles.get(tx as i32, ty as i32).map_or_else(|| Pixels::transparent(depth), |t| (*t.px).clone());
+                for sy in cy0..cy1 {
+                    let at = ((sy - oy) * ti + (cx0 - ox)) as usize;
+                    px.copy_run(at, &src, at, (cx1 - cx0) as usize);
+                }
+                let tile = px.any_alpha().then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) });
+                self.node_mut(id)?.pixel_tiles_mut()?.put(tx as i32, ty as i32, tile);
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Document {

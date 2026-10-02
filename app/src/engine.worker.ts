@@ -15,7 +15,7 @@ import { layerName } from './shell/typesession.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
 import type { Adjustment, FaceInfo, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
-import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
+import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
@@ -28,6 +28,9 @@ let eng: Engine | null = null;
 let name = 'Untitled';
 let docId = 0;
 let version = 0;
+// Layers panel thumbnail cache (layerThumbs), valid for one document id.
+const thumbs = new Map<number, { key: string; thumb: { id: number; key: string; w: number; h: number; data: ArrayBuffer } }>();
+let thumbDoc = -1;
 let autosave: Autosave | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let saving: Promise<void> | null = null;
@@ -50,6 +53,8 @@ let typeSession: { id: number; isNew: boolean; mask: boolean; changed: boolean; 
 let transformSession: { id: number; kind: TransformKind; hidden: number; refined: TransformOp | null; base: number | null; label: string | null } | null = null;
 // Copy Layer Style's clipboard: the style JSON only (never blending options), kept across documents.
 let styleClipboard: string | null = null;
+// Edit > Copy / Cut / Copy Merged clipboard: straight RGBA8 with its document origin, kept across documents.
+let clipboard: { x: number; y: number; w: number; h: number; rgba: Uint8Array } | null = null;
 // Font registry and upload store: app scope, kept across documents; created on first use (after WASM init).
 let fonts: Fonts | null = null;
 const fontReg = () => fonts ??= new Fonts();
@@ -119,6 +124,22 @@ function nextName(prefix: string): string {
   const walk = (nodes: LayerNode[]) => { for (const n of nodes) { used.add(n.name); if (n.children) walk(n.children); } };
   walk(JSON.parse(need().layers_json()));
   for (let i = 1; ; i++) if (!used.has(`${prefix} ${i}`)) return `${prefix} ${i}`;
+}
+
+// Layer `id`'s pixels (null: the visible composite) in the selection times its coverage, cropped to
+// the selection bounds and the layer content, both inside the canvas.
+function copyPixels(e: Engine, id: number | null) {
+  if (id !== null && findNode(e, id)?.kind !== 'pixel') throw new Error('Could not copy: the layer is not a pixel layer.');
+  const sel = JSON.parse(e.channels_json()).selection as { default: number } | null;
+  const canvas: Box = [0, 0, e.width(), e.height()], box = (v: unknown) => v ? Array.from(v as ArrayLike<number>) as Box : null;
+  const b = intersect(sel ? intersect(canvas, box(e.selection_bounds())) : canvas, id === null ? canvas : box(e.layer_bounds(id)));
+  const rgba = b && (id === null ? gather(b, 4, (tx, ty) => e.flatten_tile_rgba8(tx, ty)) : e.transform_preview(id, Float64Array.of(1, 0, 0, 0, 1, 0, 0, 0, 1), 1, false, ...b));
+  if (b && rgba && sel) {
+    const cov = gather(b, 1, (tx, ty) => e.selection_tile(0, tx, ty) as Uint8Array | null, sel.default > 0 ? 255 : 0);
+    for (let i = 0; i < cov.length; i++) rgba[i * 4 + 3] = Math.round(rgba[i * 4 + 3] * cov[i] / 255);
+  }
+  if (!b || !rgba || !rgba.some((v, i) => i % 4 === 3 && v > 0)) throw new Error('Could not copy: the selected area is empty.');
+  return { x: b[0], y: b[1], w: b[2], h: b[3], rgba };
 }
 
 function need() {
@@ -212,6 +233,20 @@ function endPreview(commit: boolean) {
   history.restoreOpen();
   history.abort();
   if (commit) { const e = previewError; previewError = null; throw new Error(e!); }
+}
+
+// Every point-valued length in a text model (run size, leading, baseline shift; paragraph indents and spacing) times k.
+function scaleTextPt(t: TextJson, k: number): TextJson {
+  const f = (o: Record<string, any>, keys: string[]) => {
+    const r = { ...o };
+    for (const key of keys) if (typeof r[key] === 'number') r[key] *= k;
+    return r;
+  };
+  return {
+    ...t,
+    runs: t.runs.map((r: Record<string, any>) => f(r, ['size', 'leading', 'baseline_shift'])),
+    paragraphs: t.paragraphs.map((p: Record<string, any>) => f(p, ['indent_left', 'indent_right', 'indent_first', 'space_before', 'space_after'])),
+  };
 }
 
 const CANVAS_REMAPS = { '180': '180°', cw: '90° Clockwise', ccw: '90° Counter Clockwise', flipH: 'Flip Canvas Horizontal', flipV: 'Flip Canvas Vertical' };
@@ -495,6 +530,50 @@ const api = {
     if (!e.has_selection()) return info();
     history.run('Clear', () => e.clear(id, target));
     return changed();
+  },
+
+  // Edit > Copy / Copy Merged (`merged`) / Cut (`cut`, one 'Cut' step clearing the selected pixels).
+  // `clip` is the copied RGBA8 for the system clipboard.
+  copy(id: number, merged: boolean, cut: boolean) {
+    const e = need();
+    if (cut && !e.has_selection()) return info();
+    const c = copyPixels(e, merged ? null : id);
+    if (cut) history.run('Cut', () => e.clear(id, 'pixels'));
+    clipboard = c;
+    return { ...(cut ? changed() : info())!, clip: { w: c.w, h: c.h, data: c.rgba.slice().buffer } };
+  },
+
+  // Edit > Paste / Paste in Place / Paste Into: a new layer above `above`. `bytes` is a system clipboard
+  // image; one sized like the internal clipboard is taken as that (it keeps the origin). `pasted`: false = nothing to paste.
+  async paste(above: number, mode: 'paste' | 'inPlace' | 'into', bytes: Uint8Array | null) {
+    const e = need();
+    let src: { x: number; y: number; w: number; h: number; rgba: Uint8Array } | null = clipboard;
+    if (bytes) {
+      const d = await decodeSource(bytes);
+      if (!src || src.w !== d.w || src.h !== d.h) src = { x: NaN, y: NaN, ...d };
+    }
+    if (!src) return { ...info()!, created: 0, pasted: false };
+    const c = src;
+    if (mode === 'into' && !e.has_selection()) throw new Error('Paste Into needs a selection.');
+    const sb = e.selection_bounds() as Int32Array | null;
+    const at = mode === 'into' && sb ? Array.from(sb) : [0, 0, e.width(), e.height()];
+    const inPlace = mode === 'inPlace' && Number.isFinite(c.x);
+    const x = inPlace ? c.x : at[0] + Math.floor((at[2] - c.w) / 2), y = inPlace ? c.y : at[1] + Math.floor((at[3] - c.h) / 2);
+    let created = 0;
+    history.run(mode === 'into' ? 'Paste Into' : 'Paste', () => {
+      created = e.add_layer(nextName('Layer'), above);
+      e.put_rgba8(created, x, y, c.w, c.h, c.rgba);
+      if (mode !== 'into') return;
+      const sel = JSON.parse(e.channels_json()).selection as { default: number };
+      e.add_mask(created, sel.default > 0);
+      tileLoop(e.width(), e.height(), (tx, ty) => {
+        const t = e.selection_tile(0, tx, ty) as Uint8Array | null;
+        if (t) e.set_mask_tile8(created, tx, ty, t);
+      });
+      e.deselect();
+    });
+    if (mode === 'into') selGen++;
+    return { ...changed(), created, pasted: true };
   },
 
   magicWand(id: number, x: number, y: number, tolerance: number, antialias: boolean, contiguous: boolean, sampleAll: boolean, mode: string) {
@@ -1456,6 +1535,36 @@ const api = {
     return canvasEdit('Reveal All', () => e.reveal_all());
   },
 
+  canvasSize(w: number, h: number, ax: number, ay: number, fill: [number, number, number, number] | null) {
+    const e = need();
+    return canvasEdit('Canvas Size', () => e.canvas_size(w, h, ax, ay, fill && Float32Array.from(fill)));
+  },
+
+  // The engine only resamples text caches; they are re-rendered here (a layer whose font is missing
+  // keeps the resampled cache). A ppi change rescales the pt lengths so pixel sizes follow the resample only.
+  imageSize(w: number, h: number, interp: string, scaleStyles: boolean, res: number | null) {
+    const e = need();
+    return canvasEdit('Image Size', () => {
+      let done = e.image_size(w, h, interp, scaleStyles);
+      const old = resolution(e), k = res != null && res !== old ? old / res : 1;
+      if (k !== 1) {
+        e.set_document_vector(JSON.stringify({ ...JSON.parse(e.vector_json()), resolution: res }));
+        done = true;
+      }
+      if (!done) return false;
+      const texts: LayerNode[] = [];
+      const walk = (ns: LayerNode[]) => { for (const n of ns) { if (n.kind === 'text') texts.push(n); if (n.children) walk(n.children); } };
+      walk(JSON.parse(e.layers_json()) as LayerNode[]);
+      for (const n of texts) {
+        try {
+          if (k !== 1 && n.text) e.set_text(n.id, JSON.stringify(scaleTextPt(n.text, k)));
+          e.render_text(n.id, fontReg(), resolution(e));
+        } catch { /* keep the resampled cache */ }
+      }
+      return true;
+    });
+  },
+
   rotateCanvas(kind: '180' | 'cw' | 'ccw' | 'flipH' | 'flipV') {
     const e = need();
     return canvasEdit(CANVAS_REMAPS[kind], () => { e.rotate_canvas_exact(kind); return true; });
@@ -1676,6 +1785,34 @@ const api = {
   // 4 x 256 counts (luminosity, R, G, B) of a layer's pixels, or of the composite for id 0.
   histogram(id: number): Uint32Array {
     return need().histogram(id);
+  },
+
+  // Layers panel thumbnails: each layer over the whole canvas, longest side `size` px (never upscaled).
+  // `key` is the layer's manifest node (tile ids, text, smart placement) plus canvas size; an unchanged key reuses the render.
+  layerThumbs(ids: number[], size: number) {
+    const e = need();
+    if (thumbDoc !== docId) { thumbs.clear(); thumbDoc = docId; }
+    const W = e.width(), H = e.height(), f = Math.min(1, size / Math.max(W, H));
+    const w = Math.max(1, Math.floor(W * f)), h = Math.max(1, Math.floor(H * f));
+    type MNode = { id: number; children?: MNode[] };
+    const nodes = new Map<number, string>();
+    const walk = (ns: MNode[]) => { for (const { children, ...n } of ns) { nodes.set(n.id, JSON.stringify(n)); if (children) walk(children); } };
+    walk((JSON.parse(e.manifest()) as { layers: MNode[] }).layers);
+    const out: { id: number; key: string; w: number; h: number; data: ArrayBuffer }[] = [];
+    for (const id of ids) {
+      const node = nodes.get(id);
+      if (node === undefined) continue;
+      const key = `${W}x${H}@${w}x${h}|${node}`, hit = thumbs.get(id);
+      if (hit?.key === key) { out.push(hit.thumb); continue; }
+      let data = new ArrayBuffer(0);
+      if (e.layer_bounds(id)) {
+        try { data = e.transform_preview(id, Float64Array.of(1, 0, 0, 0, 1, 0, 0, 0, 1), f, false, 0, 0, w, h).buffer as ArrayBuffer; } catch { data = tileThumb(e, nodeTiles(e, id), W, H, w, h); }
+      }
+      const thumb = { id, key, w, h, data };
+      thumbs.set(id, { key, thumb });
+      out.push(thumb);
+    }
+    return out;
   },
 
   // Mean RGBA over an odd-sized box centered on (x, y), clamped to the canvas; layerId null

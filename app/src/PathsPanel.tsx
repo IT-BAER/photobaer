@@ -40,6 +40,7 @@ export function PathsPanel({ doc, node, fg, run, selected, setSelected }: Props)
 
   return (
     <div className="layers-panel">
+      <div className="panel-tabs"><span className="panel-tab">Paths</span></div>
       <div className="layers-tree" role="listbox" aria-label="Paths" onClick={e => { if (e.target === e.currentTarget) setSelected(null, true); }}>
         {doc.paths.length === 0 && <div className="panel-empty">No paths</div>}
         {doc.paths.map(p => (

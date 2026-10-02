@@ -955,7 +955,7 @@ test('warp refuses the selection outline and selected pixels, and the session st
   assert.equal((await call('transformWarp', null)).error, 'The transform was cancelled.');
 });
 
-type Doc = { width: number; height: number; undoLabel: string | null; history: { labels: string[] }; selection: { bounds: number[] | null } | null };
+type Doc = { width: number; height: number; resolution: number; undoLabel: string | null; history: { labels: string[] }; selection: { bounds: number[] | null } | null };
 const docOf = (r: { result?: unknown }) => r.result as Doc;
 const count = (d: Doc, label: string) => d.history.labels.filter(l => l === label).length;
 
@@ -1040,6 +1040,50 @@ test('rotating the canvas 90 CW then CCW restores identical pixels', async () =>
   const ccw = docOf(await call('rotateCanvas', 'ccw'));
   assert.deepEqual([ccw.width, ccw.height], [8, 4]);
   assert.deepEqual(await pixels(8, 4), before);
+});
+
+test('Canvas Size anchors the old pixels, fills the new area on the bottom layer, and undoes', async () => {
+  await call('init');
+  await call('newDoc', 100, 50, 8, null);
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  const d = docOf(await call('canvasSize', 120, 50, -1, 0, [1, 1, 1, 1]));
+  assert.deepEqual([d.width, d.height, d.undoLabel, count(d, 'Canvas Size')], [120, 50, 'Canvas Size', 1]);
+  assert.deepEqual([await px(0, 0), await px(110, 10)], [RED, [255, 255, 255, 255]]);
+  assert.equal(count(docOf(await call('canvasSize', 120, 50, 0, 0, null)), 'Canvas Size'), 1, 'unchanged makes no step');
+  const u = docOf(await call('undo'));
+  assert.deepEqual([u.width, u.height], [100, 50]);
+});
+
+test('Image Size resamples in one step, re-renders text layers, sets resolution, and undoes', async () => {
+  await call('init');
+  await call('newDoc', 200, 100, 8, null);
+  await call('fontAdd', readFileSync(new URL('../public/fonts/NotoSans-Regular.ttf', import.meta.url)), 'bundled');
+  const { newText } = await import('./shell/typesession.ts');
+  const opts = { family: 'Noto Sans', style: 'Regular', size: 28, color: [0, 0, 0] as [number, number, number], alignment: 'left' as const, orientation: 'horizontal' as const };
+  const t0 = newText(opts, { type: 'point' }, [10, 60]);
+  const id = ((await call('typeBegin', { text: t0, above: 0 })).result as { id: number }).id;
+  await call('typeUpdate', { ...t0, text: 'Hi', runs: [{ ...t0.runs[0], length: 2 }], paragraphs: [{ ...t0.paragraphs[0], length: 2 }] }, 'Hi');
+  await call('typeCommit');
+  // Rightmost x with ink on a few rows through the glyphs (y scales with the canvas).
+  const extent = async (w: number, k: number) => {
+    let right = 0;
+    for (let x = 0; x < w; x++) for (const y of [45, 50, 55]) if (((await call('sample', x, y * k, 1, null)).result as number[])[3] > 0) right = x;
+    return right;
+  };
+  const before = await extent(200, 1);
+  assert.ok(before > 10);
+  const d = docOf(await call('imageSize', 400, 200, 'bicubic', true, 144));
+  assert.deepEqual([d.width, d.height, d.undoLabel, count(d, 'Image Size')], [400, 200, 'Image Size', 1]);
+  assert.equal(d.resolution, 144);
+  const after = await extent(400, 2);
+  assert.ok(after > before * 1.8 && after < before * 2.2, `${before} -> ${after}`);
+  const u = docOf(await call('undo'));
+  assert.deepEqual([u.width, u.height, u.resolution], [200, 100, 72]);
+  // Resolution alone keeps the pixel size of text (the point size drops).
+  const r = docOf(await call('imageSize', 200, 100, 'bicubic', true, 144));
+  assert.deepEqual([r.width, r.resolution, r.undoLabel, count(r, 'Image Size')], [200, 144, 'Image Size', 1]);
+  assert.ok(Math.abs(await extent(200, 1) - before) <= 2, `${before} -> ${await extent(200, 1)}`);
+  assert.equal(docOf(await call('undo')).resolution, 72);
 });
 
 test('arbitrary canvas rotation is one Rotate Canvas step, a full turn makes none, a bad angle is reported', async () => {
@@ -1886,4 +1930,159 @@ test('moving a large layer stays fast while undo snapshots grow the wasm heap', 
   }
   e.free();
   assert.ok(ms < 200, `4th move took ${Math.round(ms)} ms`);
+});
+
+type Thumb = { id: number; key: string; w: number; h: number; data: ArrayBuffer };
+const thumbs = async (ids: number[], size: number) => (await call('layerThumbs', ids, size)).result as Thumb[];
+
+test('layerThumbs renders the layer over the whole canvas; the key changes only with the layer', async () => {
+  await call('init');
+  await call('newDoc', 200, 100, 8, null);
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  const [a] = await thumbs([1], 26);
+  assert.deepEqual([a.w, a.h, a.data.byteLength], [26, 13, 26 * 13 * 4]);
+  assert.deepEqual([...new Uint8Array(a.data, (6 * 26 + 13) * 4, 4)], [255, 0, 0, 255]);
+  assert.equal((await thumbs([1], 26))[0].key, a.key);
+  await call('fillEx', 1, 'pixels', solid([0, 0, 255, 255]), 'Fill');
+  assert.notEqual((await thumbs([1], 26))[0].key, a.key);
+});
+
+test('layerThumbs keys change when a smart object is moved or a type layer is edited', async () => {
+  await call('init');
+  await call('newDoc', 200, 100, 8, [255, 255, 255, 255]);
+  await call('fontAdd', readFileSync(new URL('../public/fonts/NotoSans-Regular.ttf', import.meta.url)), 'bundled');
+  const s = ((await call('placeSmart', 1, png(), false)).result as { created: number }).created;
+  const k1 = (await thumbs([s], 26))[0].key;
+  await call('moveLayerBegin', s, false, 'Move');
+  await call('moveLayerStep', 5, 0);
+  await call('moveLayerCommit');
+  assert.notEqual((await thumbs([s], 26))[0].key, k1);
+
+  const { newText } = await import('./shell/typesession.ts');
+  const opts = { family: 'Noto Sans', style: 'Regular', size: 28, color: [0, 0, 0] as [number, number, number], alignment: 'left' as const, orientation: 'horizontal' as const };
+  const t0 = newText(opts, { type: 'point' }, [10, 60]);
+  const id = ((await call('typeBegin', { text: t0, above: 0 })).result as { id: number }).id;
+  const t1 = { ...t0, text: 'Hi', runs: [{ ...t0.runs[0], length: 2 }], paragraphs: [{ ...t0.paragraphs[0], length: 2 }] };
+  await call('typeUpdate', t1, 'Hi');
+  await call('typeCommit');
+  const k2 = (await thumbs([id], 26))[0];
+  assert.ok(new Uint8Array(k2.data).some(v => v), 'the text layer renders pixels');
+  await call('typeBegin', { id });
+  await call('typeUpdate', { ...t1, text: 'Ho' }, 'Ho');
+  await call('typeCommit');
+  assert.notEqual((await thumbs([id], 26))[0].key, k2.key);
+});
+
+test('layerThumbs timing: one 8000x6000 layer at size 52', async () => {
+  await call('init');
+  await call('newDoc', 8000, 6000, 8, null);
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  const t = performance.now();
+  const [a] = await thumbs([1], 52);
+  console.log(`layerThumbs 8000x6000 size 52: ${(performance.now() - t).toFixed(1)} ms`);
+  assert.deepEqual([a.w, a.h], [52, 39]);
+});
+
+type Clip = { w: number; h: number; data: ArrayBuffer };
+type Pasted = { created: number; undoLabel: string; selection: unknown; layers: { id: number; name: string; mask: unknown }[] };
+const at1 = async (x: number, y: number, id: number | null) => (await call('sample', x, y, 1, id)).result as number[];
+
+test('Copy then Paste adds a layer above with the pixels centred; Paste in Place keeps the origin', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  const c = (await call('copy', 1, false, false)).result as { clip: Clip; undoLabel: string };
+  assert.deepEqual([c.clip.w, c.clip.h, c.undoLabel], [8, 8, 'Rectangular Marquee']);
+  const p = (await call('paste', 1, 'paste', null)).result as Pasted;
+  assert.deepEqual([p.undoLabel, p.layers.length, p.layers.at(-1)!.id, p.layers.at(-1)!.name], ['Paste', 2, p.created, 'Layer 1']);
+  assert.deepEqual((await call('movingBounds', p.created)).result, [28, 28, 8, 8]);
+  assert.deepEqual(await at1(28, 28, p.created), RED);
+  assert.deepEqual(await at1(27, 28, p.created), [0, 0, 0, 0]);
+  const q = (await call('paste', p.created, 'inPlace', null)).result as Pasted;
+  assert.deepEqual((await call('movingBounds', q.created)).result, [4, 4, 8, 8]);
+  assert.equal(q.layers.at(-1)!.id, q.created);
+});
+
+test('Cut clears the selected pixels in one Cut step that undo restores', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  const r = (await call('copy', 1, false, true)).result as { clip: Clip; history: { labels: string[] } };
+  assert.deepEqual(r.history.labels, ['Fill', 'Rectangular Marquee', 'Cut']);
+  assert.deepEqual([r.clip.w, r.clip.h, new Uint8Array(r.clip.data).slice(0, 4).join()], [8, 8, RED.join()]);
+  assert.equal((await at1(5, 5, 1))[3], 0);
+  assert.deepEqual(await at1(20, 20, 1), RED);
+  await call('undo');
+  assert.deepEqual(await at1(5, 5, 1), RED);
+});
+
+test('Copy multiplies by a feathered selection and refuses non-pixel layers and empty areas', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 10, y: 10, w: 20, h: 20 }, 'new', false, 5, 'Rectangular Marquee');
+  const c = (await call('copy', 1, false, false)).result as { clip: Clip };
+  const a = new Uint8Array(c.clip.data).filter((_, i) => i % 4 === 3);
+  assert.ok(a.some(v => v > 0 && v < 255), 'partial alpha at the feathered edge');
+  assert.equal(a[Math.floor(c.clip.h / 2) * c.clip.w + Math.floor(c.clip.w / 2)], 255);
+  const grp = (await call('addGroup', 1)).result as { created: number };
+  assert.match((await call('copy', grp.created, false, false)).error ?? '', /pixel layer/);
+  const l = (await call('addLayer', 1)).result as { created: number };
+  assert.match((await call('copy', l.created, false, false)).error ?? '', /empty/);
+});
+
+test('Copy Merged takes the visible composite; Copy without a selection takes the layer content', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', RED);
+  const l = (await call('addLayer', 1)).result as { created: number };
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 32, h: 64 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', l.created, 'pixels', [0, 0, 255, 255]);
+  await call('selectCommand', 'deselect');
+  const m = ((await call('copy', l.created, true, false)).result as { clip: Clip }).clip;
+  const d = new Uint8Array(m.data);
+  assert.deepEqual([m.w, m.h, d.slice(0, 4).join(), d.slice(40 * 4, 40 * 4 + 4).join()], [64, 64, '0,0,255,255', RED.join()]);
+  const own = ((await call('copy', l.created, false, false)).result as { clip: Clip }).clip;
+  assert.deepEqual([own.w, own.h], [32, 64]);
+});
+
+test('Paste Into masks the new layer to the selection and deselects', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('copy', 1, false, false);
+  await call('select', { kind: 'rect', x: 22, y: 22, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  const p = (await call('paste', 1, 'into', null)).result as Pasted;
+  assert.deepEqual([p.undoLabel, p.selection, !!p.layers.at(-1)!.mask], ['Paste Into', null, true]);
+  assert.deepEqual((await call('movingBounds', p.created)).result, [20, 20, 8, 8]);
+  await call('setProps', 1, { visible: false });
+  assert.equal((await at1(21, 21, null))[3], 0, 'masked outside the selection');
+  assert.deepEqual(await at1(23, 23, null), RED);
+  assert.deepEqual(await at1(21, 21, p.created), RED);
+});
+
+test('Paste of an external image keeps its full size; one sized like the internal clipboard pastes the internal one', async () => {
+  const psd = (w: number, h: number, rgba: number[]) => {
+    const src = new Engine(w, h, 8);
+    for (let tx = 0; tx < Math.ceil(w / 256); tx++) for (let ty = 0; ty < Math.ceil(h / 256); ty++) {
+      const t = new Uint8Array(256 * 256 * 4);
+      for (let i = 0; i < t.length; i += 4) t.set(rgba, i);
+      src.set_tile_rgba8(1, tx, ty, t);
+    }
+    try { return exportPsd(src).bytes; } finally { src.free(); }
+  };
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  const big = (await call('paste', 1, 'paste', psd(300, 200, [0, 255, 0, 255]))).result as Pasted;
+  assert.deepEqual((await call('movingBounds', big.created)).result, [-118, -68, 300, 200]);
+  assert.deepEqual(await at1(0, 0, big.created), [0, 255, 0, 255]);
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('copy', 1, false, false);
+  const same = (await call('paste', 1, 'inPlace', psd(8, 8, [0, 0, 255, 255]))).result as Pasted;
+  assert.deepEqual((await call('movingBounds', same.created)).result, [4, 4, 8, 8]);
+  assert.deepEqual(await at1(4, 4, same.created), RED);
 });

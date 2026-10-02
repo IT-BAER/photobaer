@@ -837,6 +837,11 @@ impl Engine {
         self.0.doc.set_tile_rgba8(id, tx, ty, data).map_err(err)
     }
 
+    /// Straight RGBA8 (w x h) written into a pixel layer at (x, y), past the canvas too.
+    pub fn put_rgba8(&mut self, id: u32, x: i32, y: i32, w: u32, h: u32, data: &[u8]) -> Result<(), JsError> {
+        self.0.doc.put_rgba8(id, x, y, w, h, data).map_err(err)
+    }
+
     pub fn set_mask_tile8(&mut self, id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), JsError> {
         self.0.doc.set_mask_tile8(id, tx, ty, data).map_err(err)
     }
@@ -996,6 +1001,19 @@ impl Engine {
     /// `quad` is flat x0, y0 .. x3, y3 for the corners that map to (0,0), (W,0), (W,H), (0,H).
     pub fn perspective_crop(&mut self, quad: Vec<f64>, out_w: u32, out_h: u32, interp: &str) -> Result<(), JsError> {
         self.0.doc.perspective_crop(&quad, out_w, out_h, Interp::parse(interp).map_err(err)?).map_err(err)
+    }
+
+    /// Image > Canvas Size; anchors are -1|0|1, `fill` straight RGBA 0..1 for the added area of a
+    /// bottom pixel layer (else transparent). False when w x h is the current size.
+    pub fn canvas_size(&mut self, w: u32, h: u32, anchor_x: i32, anchor_y: i32, fill: Option<Vec<f32>>) -> Result<bool, JsError> {
+        let a = |v: i32| i8::try_from(v).ok().filter(|v| (-1..=1).contains(v)).ok_or_else(|| JsError::new("anchor must be -1, 0 or 1"));
+        let fill = fill.map(|f| <[f32; 4]>::try_from(f).map_err(|_| JsError::new("fill must be 4 values"))).transpose()?;
+        self.0.doc.canvas_size(w, h, (a(anchor_x)?, a(anchor_y)?), fill).map_err(err)
+    }
+
+    /// Image > Image Size (resample); type layers need `render_text` afterwards for crisp text.
+    pub fn image_size(&mut self, w: u32, h: u32, interp: &str, scale_styles: bool) -> Result<bool, JsError> {
+        self.0.doc.image_size(w, h, Interp::parse(interp).map_err(err)?, scale_styles).map_err(err)
     }
 
     // ---------- guides and grid (docs/M4.md section 12) ----------

@@ -225,6 +225,27 @@ fn cache_color_is_the_run_color_and_layer_composites() {
 }
 
 #[test]
+fn image_size_scales_the_text_transform_so_a_re_render_is_crisp() {
+    let t = data("Ag", AntiAlias::Sharp);
+    let (mut d, id) = text_doc(&t);
+    d.render_text(id, &reg(), 72.0).unwrap();
+    assert!(d.image_size(600, 240, crate::resample::Interp::Bicubic, false).unwrap());
+    let [a, b, c, dd, e, f] = t.transform;
+    let mut want = t.clone();
+    want.transform = [2.0 * a, 2.0 * b, 2.0 * c, 2.0 * dd, 2.0 * e, 2.0 * f];
+    let Kind::Text(n) = &d.node(id).unwrap().kind else { panic!("text node") };
+    assert_eq!(n.data, want);
+    let resampled = alphas(&d, id);
+    d.render_text(id, &reg(), 72.0).unwrap();
+    let crisp = alphas(&d, id);
+    let mut fresh = Document::new(600, 240, 8).unwrap();
+    let fid = fresh.add_node("Hello", 0, Kind::Text(Box::new(Text { data: want, cache: None }))).unwrap();
+    fresh.render_text(fid, &reg(), 72.0).unwrap();
+    assert_eq!(crisp, alphas(&fresh, fid), "a re-render equals text set at twice the scale");
+    assert_ne!(crisp, resampled);
+}
+
+#[test]
 fn set_text_drops_the_cache() {
     let t = data("Hi", AntiAlias::Sharp);
     let (mut d, id) = text_doc(&t);

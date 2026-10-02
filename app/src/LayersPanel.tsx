@@ -1,4 +1,4 @@
-import { Fragment, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import {
   Brush, ChevronDown, ChevronRight, CornerLeftDown, Eye, Folder, FolderPlus, Frame, Grid2x2, Link2, Lock, Move,
   PaintBucket, SquareDashed, SquarePlus, Trash2,
@@ -71,6 +71,23 @@ function PercentField({ label, value, commit }: { label: string; value: number; 
   );
 }
 
+type Thumb = { id: number; key: string; w: number; h: number; data: ArrayBuffer };
+const THUMB_KINDS = new Set(['pixel', 'text', 'smart', 'shape']);
+let thumbWarned = false;
+
+function thumbIds(nodes: LayerNode[], collapsed: Set<number>): number[] {
+  return nodes.flatMap(n => THUMB_KINDS.has(n.kind) ? [n.id] : n.children && !collapsed.has(n.id) ? thumbIds(n.children, collapsed) : []);
+}
+
+function LayerThumb({ thumb }: { thumb: Thumb }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const ctx = ref.current?.getContext('2d');
+    if (ctx && thumb.data.byteLength) ctx.putImageData(new ImageData(new Uint8ClampedArray(thumb.data), thumb.w, thumb.h), 0, 0);
+  }, [thumb.key]);
+  return thumb.data.byteLength ? <canvas ref={ref} width={thumb.w} height={thumb.h} /> : null;
+}
+
 export function LayersPanel(props: Props) {
   const { doc, active, setActive, run } = props;
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
@@ -81,6 +98,28 @@ export function LayersPanel(props: Props) {
   const [fxFolded, setFxFolded] = useState<Set<number>>(new Set());
   const [fxDrag, setFxDrag] = useState<number | null>(null);
   const [context, setContext] = useState<{ x: number; y: number; items: Item[] } | null>(null);
+
+  const [thumbs, setThumbs] = useState<Map<number, Thumb>>(new Map());
+  const thumbDoc = useRef(doc.docId);
+
+  // Best-effort, debounced so a brush stroke does not request a thumbnail per dab.
+  useEffect(() => {
+    if (thumbDoc.current !== doc.docId) { thumbDoc.current = doc.docId; setThumbs(new Map()); }
+    const t = setTimeout(() => {
+      const ids = thumbIds(doc.layers, collapsed);
+      if (!ids.length) return;
+      client.call('layerThumbs', ids, Math.round(26 * window.devicePixelRatio)).then(list => {
+        if (thumbDoc.current !== doc.docId) return;
+        setThumbs(prev => {
+          const next = new Map(prev);
+          let changed = false;
+          for (const th of list) if (prev.get(th.id)?.key !== th.key) { next.set(th.id, th); changed = true; }
+          return changed ? next : prev;
+        });
+      }).catch(err => { if (!thumbWarned) { thumbWarned = true; console.warn('layer thumbnails unavailable', err); } });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [doc.docId, doc.version, collapsed]);
 
   const node = nodeById(doc.layers, active.id);
 
@@ -258,7 +297,7 @@ export function LayersPanel(props: Props) {
             <span
               className={`thumb${isActive && active.target === 'pixels' && n.mask ? ' target' : ''}`}
               onDoubleClick={n.kind === 'adjustment' ? e => { e.stopPropagation(); select(n.id, 'pixels'); props.openProperties(); } : undefined}
-            />
+            >{thumbs.get(n.id) && THUMB_KINDS.has(n.kind) && <LayerThumb thumb={thumbs.get(n.id)!} />}</span>
           )}
           {n.mask && (
             <>

@@ -1807,3 +1807,20 @@ fn move_selected_pixels_reuses_its_lift_only_for_the_same_content() {
     e.move_selected_pixels(1, 40, 7, false).unwrap();
     assert!(got(&e) == expect(&|d| d.fill(1, Target::Pixels, 10, 20, 30, 255).unwrap(), 40.0, 7.0), "changed pixels lift again");
 }
+
+#[test]
+fn put_rgba8_writes_at_any_offset_past_the_canvas() {
+    let mut d = Document::new(256, 256, 8).unwrap();
+    d.set_tile_rgba8(1, 0, 0, &opaque(9, 9, 9)).unwrap();
+    // 300 x 2 at (-10, 5): spans tiles -1..=1, keeps the existing pixels around the rect.
+    let mut data = vec![0u8; 300 * 2 * 4];
+    for (i, px) in data.chunks_exact_mut(4).enumerate() {
+        px.copy_from_slice(&[(i % 300) as u8, 1, 2, 255]);
+    }
+    d.put_rgba8(1, -10, 5, 300, 2, &data).unwrap();
+    assert_eq!(at(&d, 0, 5), [10, 1, 2, 255]);
+    assert_eq!(at(&d, 255, 6), [(265 % 300) as u8, 1, 2, 255]);
+    assert_eq!(at(&d, 0, 4), [9, 9, 9, 255]);
+    assert_eq!(d.layer_bounds(1).unwrap(), Some([-10, 0, 300, 256]));
+    assert!(d.put_rgba8(1, 0, 0, 2, 2, &[0u8; 4]).is_err());
+}

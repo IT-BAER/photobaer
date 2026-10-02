@@ -14,6 +14,7 @@ import type { SnapSettings } from '../shell/snapping.ts';
 import type { ArtboardMode } from './Dialogs.tsx';
 import { STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
 import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.ts';
+import { copy, paste } from './clipboard.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type DialogRef = RefObject<HTMLDialogElement | null>;
@@ -38,7 +39,7 @@ export interface MenuCtx {
   filterMasks: boolean; maskLabel: string; openFilterBlend: () => void; openLayerStyle: (page: StylePage, id?: number) => void;
   globalLightDialog: DialogRef; allEffectsHidden: boolean; anyStyled: boolean; scaleEffectsDialog: DialogRef;
   openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; applyDestructive: (kind: DestructiveKind) => void;
-  rotateDialog: DialogRef; trimDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
+  rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
   loadSelDialog: DialogRef; saveSelDialog: DialogRef; viewer: RefObject<Viewer | null>;
   filterSpecs: FilterSpec[]; openFilter: (spec: FilterSpec) => void; lastFilter: () => void; openFade: () => void;
@@ -61,7 +62,7 @@ export function buildMenus(c: MenuCtx) {
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog,
+    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
@@ -117,7 +118,17 @@ export function buildMenus(c: MenuCtx) {
       { label: doc?.undoLabel ? `Undo ${doc.undoLabel}` : 'Undo', keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
       { label: doc?.redoLabel ? `Redo ${doc.redoLabel}` : 'Redo', keys: 'Shift+Ctrl+Z', run: () => run(null, () => client.call('redo')), off: !doc?.redoLabel },
       { label: 'Fade…', keys: 'Shift+Ctrl+F', run: openFade, off: !doc?.undoLabel || !active || node?.kind !== 'pixel' },
-      { label: 'Fill…', keys: 'Shift+F5', run: () => openPreviewDialog('fill'), off: !has || !active },
+      { label: 'Cut', keys: 'Ctrl+X', sep: true, run: () => active && copy(run, active, false, true), off: !doc?.selection || node?.kind !== 'pixel' },
+      { label: 'Copy', keys: 'Ctrl+C', run: () => active && copy(run, active, false, false), off: !has || !active },
+      { label: 'Copy Merged', keys: 'Shift+Ctrl+C', run: () => active && copy(run, active, true, false), off: !has || !active },
+      { label: 'Paste', keys: 'Ctrl+V', run: (bytes?: Uint8Array | null) => active && paste(run, active, 'paste', bytes), off: !has || !active },
+      {
+        label: 'Paste Special', keys: '›', run: () => {}, off: !has || !active, sub: [
+          { label: 'Paste in Place', keys: 'Shift+Ctrl+V', run: () => active && paste(run, active, 'inPlace') },
+          { label: 'Paste Into', keys: 'Alt+Shift+Ctrl+V', run: () => active && paste(run, active, 'into'), off: !doc?.selection },
+        ],
+      },
+      { label: 'Fill…', keys: 'Shift+F5', sep: true, run: () => openPreviewDialog('fill'), off: !has || !active },
       { label: 'Fill with Foreground Color', keys: 'Alt+Backspace', run: () => quickFill(fg, 'Fill with Foreground Color'), off: !has || !active },
       { label: 'Fill with Background Color', keys: 'Ctrl+Backspace', run: () => quickFill(bg, 'Fill with Background Color'), off: !has || !active },
       { label: 'Stroke…', run: () => openPreviewDialog('stroke'), off: !doc?.selection || !active },
@@ -210,8 +221,10 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Auto Tone', keys: 'Ctrl+Shift+L', run: () => applyDestructive('auto_tone'), off: !has || !active || pixelsOff },
       { label: 'Auto Contrast', keys: 'Ctrl+Alt+Shift+L', run: () => applyDestructive('auto_contrast'), off: !has || !active || pixelsOff },
       { label: 'Auto Color', keys: 'Ctrl+Shift+B', run: () => applyDestructive('auto_color'), off: !has || !active || pixelsOff },
+      { label: 'Image Size…', keys: 'Alt+Ctrl+I', sep: true, run: () => { setMenu(null); imageSizeDialog.current?.showModal(); }, off: !has },
+      { label: 'Canvas Size…', keys: 'Alt+Ctrl+C', run: () => { setMenu(null); canvasSizeDialog.current?.showModal(); }, off: !has },
       {
-        label: 'Image Rotation', keys: '›', run: () => {}, off: !has, sep: true, sub: [
+        label: 'Image Rotation', keys: '›', run: () => {}, off: !has, sub: [
           ...([['180', '180°'], ['cw', '90° Clockwise'], ['ccw', '90° Counter Clockwise']] as [Command, string][])
             .map(([c, label]) => ({ label, run: () => run('Rotating…', () => client.call('rotateCanvas', c)) })),
           { label: 'Arbitrary…', run: () => { setMenu(null); rotateDialog.current?.showModal(); } },

@@ -10,7 +10,7 @@ import type { BrushLibrary } from '../brushes/store.ts';
 import type { EngineAssets } from '../brushes/engineAssets.ts';
 import type { ColorPickerHandle } from '../shell/ColorPicker.tsx';
 import type { GradientEditorHandle } from '../shell/GradientEditor.tsx';
-import { rgbToHex } from '../shell/color.ts';
+import { rgbToHex, type Rgb } from '../shell/color.ts';
 import { PAINT_MODES } from '../shell/tools.ts';
 import { RULER_UNITS, unitToPx, type RulerUnit } from '../shell/units.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo } from '../worker/types.ts';
@@ -424,6 +424,122 @@ export function TrimDialog({ trimDialog, run }: { trimDialog: DialogRef; run: Ru
         </div>
       </form>
     </dialog>
+  );
+}
+
+const num = (s: string) => (s.trim() === '' ? NaN : Number(s));
+
+// The form remounts after every close and on doc size changes, so each open starts from the document.
+export function CanvasSizeDialog({ canvasSizeDialog, doc, run, fg, bg }: { canvasSizeDialog: DialogRef; doc: DocInfo | null; run: Run; fg: Rgb; bg: Rgb }) {
+  const [opens, setOpens] = useState(0);
+  return (
+    <dialog ref={canvasSizeDialog} aria-label="Canvas Size" onClose={() => setOpens(n => n + 1)}>
+      {doc && <CanvasSizeForm key={`${opens}/${doc.width}x${doc.height}`} dialog={canvasSizeDialog} doc={doc} run={run} fg={fg} bg={bg} />}
+    </dialog>
+  );
+}
+
+function CanvasSizeForm({ dialog, doc, run, fg, bg }: { dialog: DialogRef; doc: DocInfo; run: Run; fg: Rgb; bg: Rgb }) {
+  const [w, setW] = useState(String(doc.width)), [h, setH] = useState(String(doc.height));
+  const [unit, setUnit] = useState<'px' | 'pct'>('px'), [relative, setRelative] = useState(false);
+  const [anchor, setAnchor] = useState<[number, number]>([0, 0]), [color, setColor] = useState('background');
+  const reset = (u: 'px' | 'pct', rel: boolean) => {
+    setUnit(u); setRelative(rel);
+    setW(rel ? '0' : u === 'px' ? String(doc.width) : '100'); setH(rel ? '0' : u === 'px' ? String(doc.height) : '100');
+  };
+  const target = (v: string, cur: number) => {
+    const n = num(v);
+    return Math.round(unit === 'px' ? (relative ? cur + n : n) : relative ? cur * (1 + n / 100) : (cur * n) / 100);
+  };
+  const tw = target(w, doc.width), th = target(h, doc.height);
+  const valid = tw >= 1 && th >= 1 && (tw !== doc.width || th !== doc.height);
+  const fills: Record<string, [number, number, number, number] | null> = {
+    background: [...bg.map(v => v / 255), 1] as [number, number, number, number],
+    foreground: [...fg.map(v => v / 255), 1] as [number, number, number, number],
+    white: [1, 1, 1, 1], black: [0, 0, 0, 1], transparent: null,
+  };
+  return (
+    <form onSubmit={e => {
+      e.preventDefault();
+      if (!valid) return;
+      dialog.current?.close();
+      run('Resizing…', () => client.call('canvasSize', tw, th, anchor[0], anchor[1], fills[color]));
+    }}>
+      <h2>Canvas Size</h2>
+      <div>Current size: {doc.width} × {doc.height} px</div>
+      <label>Width <input type="number" step="any" value={w} onChange={e => setW(e.currentTarget.value)} required /></label>
+      <label>Height <input type="number" step="any" value={h} onChange={e => setH(e.currentTarget.value)} required /></label>
+      <label>Unit <select value={unit} onChange={e => reset(e.currentTarget.value as 'px' | 'pct', relative)}>
+        <option value="px">Pixels</option><option value="pct">Percent</option>
+      </select></label>
+      <label><input type="checkbox" checked={relative} onChange={e => reset(unit, e.currentTarget.checked)} /> Relative</label>
+      <div>New size: {Number.isFinite(tw) && Number.isFinite(th) ? `${tw} × ${th} px` : '-'}</div>
+      <div className="anchor-grid" role="group" aria-label="Anchor">
+        {[-1, 0, 1].flatMap(y => [-1, 0, 1].map(x => (
+          <button
+            key={`${x}/${y}`} type="button" aria-pressed={anchor[0] === x && anchor[1] === y}
+            aria-label={`Anchor ${['top', 'middle', 'bottom'][y + 1]} ${['left', 'center', 'right'][x + 1]}`} onClick={() => setAnchor([x, y])}
+          />
+        )))}
+      </div>
+      <label>Canvas extension color <select value={color} onChange={e => setColor(e.currentTarget.value)}>
+        <option value="background">Background</option><option value="foreground">Foreground</option><option value="white">White</option>
+        <option value="black">Black</option><option value="transparent">Transparent</option>
+      </select></label>
+      <div className="actions">
+        <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
+        <button type="submit" className="primary" disabled={!valid}>OK</button>
+      </div>
+    </form>
+  );
+}
+
+export function ImageSizeDialog({ imageSizeDialog, doc, run }: { imageSizeDialog: DialogRef; doc: DocInfo | null; run: Run }) {
+  const [opens, setOpens] = useState(0);
+  return (
+    <dialog ref={imageSizeDialog} aria-label="Image Size" onClose={() => setOpens(n => n + 1)}>
+      {doc && <ImageSizeForm key={`${opens}/${doc.width}x${doc.height}/${doc.resolution}`} dialog={imageSizeDialog} doc={doc} run={run} />}
+    </dialog>
+  );
+}
+
+function ImageSizeForm({ dialog, doc, run }: { dialog: DialogRef; doc: DocInfo; run: Run }) {
+  const [w, setW] = useState(String(doc.width)), [h, setH] = useState(String(doc.height)), [res, setRes] = useState(String(doc.resolution));
+  const [constrain, setConstrain] = useState(true), [resample, setResample] = useState(true);
+  const [method, setMethod] = useState('auto'), [scaleStyles, setScaleStyles] = useState(true);
+  const tw = resample ? Math.round(num(w)) : doc.width, th = resample ? Math.round(num(h)) : doc.height, r = num(res);
+  const valid = tw >= 1 && th >= 1 && r > 0 && (tw !== doc.width || th !== doc.height || r !== doc.resolution);
+  const shrink = tw <= doc.width && th <= doc.height, grow = tw >= doc.width && th >= doc.height;
+  const interp = method !== 'auto' ? method : shrink && !grow ? 'bicubicSharper' : grow && !shrink ? 'bicubicSmoother' : 'bicubic';
+  const link = (v: string, axis: 'w' | 'h') => {
+    const n = num(v);
+    (axis === 'w' ? setW : setH)(v);
+    if (constrain && Number.isFinite(n)) (axis === 'w' ? setH : setW)(String(Math.max(1, Math.round(axis === 'w' ? (n * doc.height) / doc.width : (n * doc.width) / doc.height))));
+  };
+  return (
+    <form onSubmit={e => {
+      e.preventDefault();
+      if (!valid) return;
+      dialog.current?.close();
+      run('Resizing…', () => client.call('imageSize', tw, th, interp, scaleStyles, r));
+    }}>
+      <h2>Image Size</h2>
+      <label>Width <input type="number" min={1} step={1} value={resample ? w : doc.width} disabled={!resample} onChange={e => link(e.currentTarget.value, 'w')} required /> px</label>
+      <label>Height <input type="number" min={1} step={1} value={resample ? h : doc.height} disabled={!resample} onChange={e => link(e.currentTarget.value, 'h')} required /> px</label>
+      <label>Resolution <input type="number" min={1} step="any" value={res} onChange={e => setRes(e.currentTarget.value)} required /> ppi</label>
+      <label><input type="checkbox" checked={constrain} onChange={e => setConstrain(e.currentTarget.checked)} /> Constrain proportions</label>
+      <label><input type="checkbox" checked={resample} onChange={e => { setResample(e.currentTarget.checked); setW(String(doc.width)); setH(String(doc.height)); }} /> Resample</label>
+      <label>Method <select value={method} disabled={!resample} onChange={e => setMethod(e.currentTarget.value)}>
+        <option value="auto">Automatic</option><option value="bicubicSmoother">Bicubic Smoother</option><option value="bicubicSharper">Bicubic Sharper</option>
+        <option value="bicubic">Bicubic</option><option value="bilinear">Bilinear</option><option value="nearest">Nearest Neighbor</option><option value="lanczos3">Lanczos 3</option>
+      </select></label>
+      <label><input type="checkbox" checked={scaleStyles} onChange={e => setScaleStyles(e.currentTarget.checked)} /> Scale Styles</label>
+      <div>Image size: {tw >= 1 && th >= 1 ? `${tw} × ${th} px` : '-'}</div>
+      <div className="actions">
+        <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
+        <button type="submit" className="primary" disabled={!valid}>OK</button>
+      </div>
+    </form>
   );
 }
 

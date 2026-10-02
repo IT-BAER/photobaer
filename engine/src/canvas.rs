@@ -1,10 +1,10 @@
 //! Canvas operations: crop, trim, reveal all, canvas rotation and perspective crop.
 //! A child module of `doc`, so it reaches the document's private tile storage.
 
-use super::transform::{check_area, tile_rect};
+use super::transform::{check_area, intersect, tile_rect, tile_span};
 use super::*;
 use crate::path::{Axis, Bounds, Live, VectorPath};
-use crate::resample::{Interp, Resampler};
+use crate::resample::{Interp, Plane, Resampler};
 
 const DEGENERATE: &str = "Those four corners are degenerate; move one and try again.";
 const TOO_FAR: &str = "the canvas change moves a layer too far";
@@ -220,6 +220,43 @@ fn homography(src: &[(f64, f64); 4], dst: &[(f64, f64); 4]) -> Option<[f64; 9]> 
     }
     h[8] = 1.0;
     Some(h)
+}
+
+// `p` grown by `pad` [left, top, right, bottom] plane px of replicated edge pixels.
+fn clamp_pad(p: Plane, pad: [usize; 4]) -> Plane {
+    let (w, h) = (p.w + pad[0] + pad[2], p.h + pad[1] + pad[3]);
+    let mut data = Vec::with_capacity(w * h * p.ch);
+    for y in 0..h {
+        let sy = y.saturating_sub(pad[1]).min(p.h - 1);
+        for x in 0..w {
+            let sx = x.saturating_sub(pad[0]).min(p.w - 1);
+            data.extend_from_slice(&p.data[(sy * p.w + sx) * p.ch..][..p.ch]);
+        }
+    }
+    Plane { x: p.x - pad[0] as i32, y: p.y - pad[1] as i32, w, h, data, ..p }
+}
+
+// Straight `s` over straight `c`.
+fn over(s: [f32; 4], c: [f32; 4]) -> [f32; 4] {
+    let k = c[3] * (1.0 - s[3]);
+    let a = s[3] + k;
+    if a <= 0.0 {
+        return [0.0; 4];
+    }
+    let mix = |i: usize| (s[i] * s[3] + c[i] * k) / a;
+    [mix(0), mix(1), mix(2), a]
+}
+
+// Multiplies every layer style's scale by `k`, kept in the Scale Effects range.
+fn scale_styles(nodes: &mut [Node], k: f32) {
+    for n in nodes {
+        if let Some(s) = &mut n.style {
+            s.scale = (s.scale * k).clamp(0.01, 10.0);
+        }
+        if let Kind::Group(ch) = &mut n.kind {
+            scale_styles(ch, k);
+        }
+    }
 }
 
 fn invert3(m: &[f64; 9]) -> Option<[f64; 9]> {
@@ -747,7 +784,123 @@ impl Document {
         self.remap_vectors(&fwd);
         Ok(())
     }
+    /// Image > Canvas Size: the old canvas sits at `anchor` (-1|0|1 per axis: left/top, centre,
+    /// right/bottom; an odd centred difference grows left/top, shrinks right/bottom). Pixels past
+    /// the new canvas are deleted; `fill` (straight 0..1) goes under a bottom pixel layer's added area.
+    pub fn canvas_size(&mut self, w: u32, h: u32, anchor: (i8, i8), fill: Option<[f32; 4]>) -> Result<bool, String> {
+        self.check_idle()?;
+        if ![anchor.0, anchor.1].iter().all(|a| (-1..=1).contains(a)) {
+            return Err("anchor must be -1, 0 or 1 on each axis".into());
+        }
+        if fill.is_some_and(|c| !c.iter().all(|v| (0.0..=1.0).contains(v))) {
+            return Err("fill must be 4 values in 0..1".into());
+        }
+        validate_dims(w, h, self.depth)?;
+        if (w, h) == (self.width, self.height) {
+            return Ok(false);
+        }
+        let (ow, oh) = (self.width as i32, self.height as i32);
+        let off = |a: i8, o: i32, n: i32| match a {
+            -1 => 0,
+            0 => (o - n).div_euclid(2),
+            _ => o - n,
+        };
+        let r = [off(anchor.0, ow, w as i32), off(anchor.1, oh, h as i32), w as i32, h as i32];
+        let mut d = self.clone();
+        d.crop_to(r, true)?;
+        if let (Some(c), Some(n)) = (fill, d.nodes.first()) {
+            if matches!(n.kind, Kind::Pixel(_)) {
+                d.fill_added(n.id, [-r[0], -r[1], ow, oh], c)?;
+            }
+        }
+        *self = d;
+        Ok(true)
+    }
+
+    // Puts `c` under pixel layer `id` on the canvas outside rect `old`.
+    fn fill_added(&mut self, id: u32, old: [i32; 4], c: [f32; 4]) -> Result<(), String> {
+        let mut tiles = self.node(id)?.pixel_tiles()?.clone();
+        let (w, h) = (self.width as i32, self.height as i32);
+        let inside_old = |x: i32, y: i32| x >= old[0] && y >= old[1] && x < old[0] + old[2] && y < old[1] + old[3];
+        let mut buf = vec![0f32; TILE_PIXELS * 4];
+        for (tx, ty) in tile_span([0, 0, w, h]) {
+            let (ox, oy) = (tx * TI, ty * TI);
+            if inside_old(ox, oy) && inside_old(ox + TI - 1, oy + TI - 1) {
+                continue;
+            }
+            let t = tiles.get(tx, ty);
+            for p in 0..TILE_PIXELS {
+                let (x, y) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
+                let s = t.map_or([0.0; 4], |t| t.px.rgba_f32(p));
+                let added = x < w && y < h && !inside_old(x, y);
+                buf[p * 4..p * 4 + 4].copy_from_slice(&if added { over(s, c) } else { s });
+            }
+            let px = Pixels::from_straight(self.depth, &buf);
+            let tile = px.any_alpha().then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) });
+            tiles.put(tx, ty, tile);
+        }
+        *self.node_mut(id)?.pixel_tiles_mut()? = tiles;
+        Ok(())
+    }
+
+    /// Image > Image Size (resample): scales every plane to w x h, off-canvas pixels included,
+    /// clamped at the canvas edges. Smart objects re-render from source; type layers keep a
+    /// resampled cache under their scaled transform until `render_text`.
+    pub fn image_size(&mut self, w: u32, h: u32, interp: Interp, scale_styles: bool) -> Result<bool, String> {
+        self.check_idle()?;
+        validate_dims(w, h, self.depth)?;
+        if (w, h) == (self.width, self.height) {
+            return Ok(false);
+        }
+        let canvas = [0, 0, self.width as i32, self.height as i32];
+        let (sx, sy) = (w as f64 / canvas[2] as f64, h as f64 / canvas[3] as f64);
+        let m = [sx, 0.0, 0.0, 0.0, sy, 0.0, 0.0, 0.0, 1.0];
+        let size = [0, 0, w as i32, h as i32];
+        // Edge padding covers the filter support (3 dest px) in source px.
+        let (px, py) = ((3.0 / sx).max(3.0).ceil() as i32, (3.0 / sy).max(3.0).ceil() as i32);
+        let mut d = self.clone();
+        let (mut out, mut smart) = (Vec::new(), Vec::new());
+        for at in d.planes() {
+            let (tiles, def) = d.plane(at);
+            let bounds = match at {
+                At::Pixels(id) if d.placement_source(id).is_ok() => {
+                    smart.push(id);
+                    continue;
+                }
+                At::Pixels(id) | At::TextCache(id) => d.layer_bounds(id)?,
+                At::Mask(_) | At::FilterMask(..) | At::StackMask(_) => d.mask_bounds(at),
+                _ => tile_rect(&tiles).map(|r| intersect(r, canvas)).filter(|r| r[2] > 0 && r[3] > 0),
+            };
+            let Some(b) = bounds else {
+                out.push((at, Tiles::default()));
+                continue;
+            };
+            let touch = [b[0] == 0, b[1] == 0, b[0] + b[2] == canvas[2], b[1] + b[3] == canvas[3]];
+            let along = [px.min(b[2]), py.min(b[3]), px.min(b[2]), py.min(b[3])];
+            let pad: [usize; 4] = std::array::from_fn(|i| if touch[i] { along[i] as usize } else { 0 });
+            check_area([0, 0, b[2] + (pad[0] + pad[2]) as i32, b[3] + (pad[1] + pad[3]) as i32])?;
+            let (plane, edge) = match def {
+                Some(v) => (d.mask_plane(&tiles, v, b), v as f32 / d.max()),
+                None => (d.rgba_plane(&tiles, b, None), 0.0),
+            };
+            let rs = Resampler::new(clamp_pad(plane, pad), &m, interp, edge)?;
+            let clip = bbox(&m, b.map(|v| v as f64));
+            let clip = if at.canvas_bound() { intersect(clip, size) } else { clip };
+            out.push((at, d.render_tiles(&rs, def, Some(clip))?));
+        }
+        d.replace_planes(out, w, h);
+        d.remap_vectors(&m);
+        for id in smart {
+            d.render_smart(id)?;
+        }
+        if scale_styles {
+            self::scale_styles(&mut d.nodes, (sx * sy).sqrt() as f32);
+        }
+        *self = d;
+        Ok(true)
+    }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -1123,6 +1276,140 @@ mod tests {
             d.perspective_crop(&[0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0], 0, 8, Interp::Bicubic).unwrap_err(),
             "width and height must be in 1..=65536"
         );
+    }
+
+    fn coord_px(x: i32, y: i32) -> [u8; 4] {
+        [(10 * x + 1) as u8, (10 * y + 1) as u8, 7, 255]
+    }
+
+    #[test]
+    fn canvas_size_places_the_old_canvas_by_the_anchor() {
+        let base = pattern_doc(10, 10, coord_px);
+        for ay in -1i8..=1 {
+            for ax in -1i8..=1 {
+                let mut d = base.clone();
+                assert!(d.canvas_size(14, 12, (ax, ay), None).unwrap());
+                assert_eq!((d.width, d.height), (14, 12));
+                let (ox, oy) = ([0, 2, 4][(ax + 1) as usize], [0, 1, 2][(ay + 1) as usize]);
+                assert_eq!(grid(&d, 1, [ox, oy, 10, 10]), grid(&base, 1, [0, 0, 10, 10]), "{ax} {ay}");
+                assert_eq!(d.layer_bounds(1).unwrap(), Some([ox, oy, 10, 10]), "{ax} {ay}");
+            }
+        }
+        // An odd difference puts the extra pixel left/top when growing, right/bottom when shrinking.
+        let mut g = base.clone();
+        assert!(g.canvas_size(13, 13, (0, 0), None).unwrap());
+        assert_eq!(get_px(&g, 1, 2, 2), coord_px(0, 0));
+        let mut s = base.clone();
+        assert!(s.canvas_size(7, 7, (0, 0), None).unwrap());
+        assert_eq!(grid(&s, 1, [0, 0, 7, 7]), grid(&base, 1, [1, 1, 7, 7]));
+    }
+
+    #[test]
+    fn canvas_size_shrink_deletes_pixels_outside_the_new_canvas() {
+        let mut base = pattern_doc(10, 10, coord_px);
+        put_px(&mut base, 1, -3, 0, [1, 2, 3, 255]);
+        let mut d = base.clone();
+        assert!(d.canvas_size(6, 6, (0, 0), None).unwrap());
+        assert_eq!((d.width, d.height), (6, 6));
+        assert_eq!(grid(&d, 1, [0, 0, 6, 6]), grid(&base, 1, [2, 2, 6, 6]));
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([0, 0, 6, 6]));
+        assert!(!d.canvas_size(6, 6, (1, 1), Some([1.0, 0.0, 0.0, 1.0])).unwrap());
+        assert_eq!(d.canvas_size(0, 6, (0, 0), None).unwrap_err(), "width and height must be in 1..=65536");
+        assert!(d.canvas_size(8, 8, (2, 0), None).is_err());
+        assert!(d.canvas_size(8, 8, (0, 0), Some([f32::NAN, 0.0, 0.0, 1.0])).is_err());
+        assert_eq!((d.width, d.height), (6, 6));
+    }
+
+    #[test]
+    fn canvas_size_fill_paints_only_the_added_area_of_the_bottom_pixel_layer() {
+        let base = pattern_doc(4, 4, |_, _| [10, 20, 30, 255]);
+        let mut d = base.clone();
+        let top = d.add_layer("top", 1).unwrap();
+        put_px(&mut d, top, 0, 0, [5, 5, 5, 255]);
+        assert!(d.canvas_size(6, 5, (-1, -1), Some([1.0, 0.0, 0.0, 1.0])).unwrap());
+        assert_eq!(grid(&d, 1, [0, 0, 4, 4]), grid(&base, 1, [0, 0, 4, 4]));
+        for (x, y) in [(4, 0), (5, 4), (0, 4), (3, 4)] {
+            assert_eq!(get_px(&d, 1, x, y), [255, 0, 0, 255], "({x}, {y})");
+            assert_eq!(get_px(&d, top, x, y), [0; 4]);
+        }
+        assert_eq!(get_px(&d, top, 0, 0), [5, 5, 5, 255]);
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([0, 0, 6, 5]));
+    }
+
+    fn one_point_path(x: f64, y: f64) -> crate::path::SavedPath {
+        let pt = [x, y, x, y, x, y];
+        let sub = crate::path::Subpath { closed: false, op: crate::path::PathOp::Combine, points: vec![pt] };
+        crate::path::SavedPath { id: 1, name: "p".into(), path: VectorPath { fill_rule: crate::path::FillRule::Nonzero, subpaths: vec![sub] }, work: false }
+    }
+
+    #[test]
+    fn canvas_size_shifts_guides_and_saved_paths_by_the_anchor_offset() {
+        let mut d = pattern_doc(10, 10, coord_px);
+        d.add_guide("x", 3.0, 0).unwrap();
+        d.add_guide("y", 5.0, 0).unwrap();
+        d.vector.paths.push(one_point_path(2.0, 3.0));
+        assert!(d.canvas_size(14, 12, (1, 1), None).unwrap());
+        assert_eq!(d.vector.guides.iter().map(|g| g.pos).collect::<Vec<_>>(), vec![7.0, 7.0]);
+        assert_eq!(d.vector.paths[0].path.subpaths[0].points[0], [6.0, 5.0, 6.0, 5.0, 6.0, 5.0]);
+    }
+
+    #[test]
+    fn image_size_upscales_a_solid_layer_to_a_solid_canvas() {
+        let mut d = pattern_doc(10, 6, |_, _| [200, 100, 50, 255]);
+        assert!(!d.image_size(10, 6, Interp::Bicubic, false).unwrap());
+        assert!(d.image_size(20, 12, Interp::Bicubic, false).unwrap());
+        assert_eq!((d.width, d.height), (20, 12));
+        assert!(grid(&d, 1, [0, 0, 20, 12]).iter().all(|p| *p == [200, 100, 50, 255]));
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([0, 0, 20, 12]));
+        assert_eq!(d.image_size(0, 12, Interp::Bicubic, false).unwrap_err(), "width and height must be in 1..=65536");
+        assert_eq!(d.image_size(20_000, 20_000, Interp::Bicubic, false).unwrap_err(), "transform result is too large");
+        assert_eq!((d.width, d.height), (20, 12));
+    }
+
+    #[test]
+    fn image_size_downscale_of_a_checker_averages_to_mid_grey() {
+        let mut d = pattern_doc(2, 2, |x, y| if (x + y) % 2 == 0 { [0, 0, 0, 255] } else { [255, 255, 255, 255] });
+        assert!(d.image_size(1, 1, Interp::Bilinear, false).unwrap());
+        let p = get_px(&d, 1, 0, 0);
+        assert!(p[..3].iter().all(|v| v.abs_diff(128) <= 1) && p[3] == 255, "{p:?}");
+    }
+
+    #[test]
+    fn image_size_scales_masks_offcanvas_pixels_paths_and_guides() {
+        let mut d = pattern_doc(10, 10, |_, _| [9, 9, 9, 255]);
+        put_px(&mut d, 1, -2, 0, [1, 2, 3, 255]);
+        d.add_mask(1, true).unwrap();
+        put_mask(&mut d, 1, 4, 4, 0);
+        d.add_guide("x", 3.0, 0).unwrap();
+        d.add_guide("y", 5.0, 0).unwrap();
+        d.vector.paths.push(one_point_path(2.0, 3.0));
+        assert!(d.image_size(20, 30, Interp::Nearest, false).unwrap());
+        assert_eq!(mask_grid(&d, 1, [8, 12, 2, 3]), vec![0; 6]);
+        assert_eq!(get_mask(&d, 1, 7, 12), 255);
+        assert_eq!(get_mask(&d, 1, 10, 15), 255);
+        assert_eq!(get_px(&d, 1, -4, 0), [1, 2, 3, 255]);
+        assert_eq!(get_px(&d, 1, -3, 2), [1, 2, 3, 255]);
+        assert_eq!(d.vector.guides.iter().map(|g| g.pos).collect::<Vec<_>>(), vec![6.0, 15.0]);
+        assert_eq!(d.vector.paths[0].path.subpaths[0].points[0], [4.0, 9.0, 4.0, 9.0, 4.0, 9.0]);
+    }
+
+    #[test]
+    fn image_size_scale_styles_scales_the_effects() {
+        let style = r#"{"enabled":true,"scale":1.5,"drop_shadows":[],"inner_shadows":[],"color_overlays":[],
+            "gradient_overlays":[],"pattern_overlays":[],"strokes":[]}"#;
+        let mut d = pattern_doc(10, 10, |_, _| [9, 9, 9, 255]);
+        d.set_style(1, style).unwrap();
+        let scale = |d: &Document| d.node(1).unwrap().style.as_ref().unwrap().scale;
+        let mut off = d.clone();
+        assert!(off.image_size(20, 20, Interp::Bilinear, false).unwrap());
+        assert_eq!(scale(&off), 1.5);
+        assert!(d.image_size(20, 20, Interp::Bilinear, true).unwrap());
+        assert_eq!(scale(&d), 3.0);
+        // sqrt(sx * sy), clamped to the Scale Effects range.
+        assert!(d.image_size(80, 20, Interp::Bilinear, true).unwrap());
+        assert_eq!(scale(&d), 6.0);
+        assert!(d.image_size(800, 200, Interp::Nearest, true).unwrap());
+        assert_eq!(scale(&d), 10.0);
     }
 
     #[test]

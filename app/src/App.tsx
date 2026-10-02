@@ -78,7 +78,7 @@ import { schema, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
   LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, AboutDialog, AgentDialog, DonateDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
-  ScaleEffectsDialog, StrokeDialog, TrimDialog,
+  ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
 } from './app/Dialogs.tsx';
 
 // Set by vite.config.ts from CHANGELOG.md.
@@ -139,6 +139,8 @@ export function App() {
   const saveSelDialog = useRef<HTMLDialogElement>(null);
   const loadSelDialog = useRef<HTMLDialogElement>(null);
   const trimDialog = useRef<HTMLDialogElement>(null);
+  const imageSizeDialog = useRef<HTMLDialogElement>(null);
+  const canvasSizeDialog = useRef<HTMLDialogElement>(null);
   const rotateDialog = useRef<HTMLDialogElement>(null);
   const colorRangeCanvas = useRef<HTMLCanvasElement>(null);
   const picker = useRef<ColorPickerHandle>(null);
@@ -923,7 +925,7 @@ export function App() {
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog,
+    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
@@ -1707,6 +1709,8 @@ export function App() {
       <SaveSelectionDialog saveSelDialog={saveSelDialog} run={run} doc={doc} />
       <LoadSelectionDialog loadSelDialog={loadSelDialog} run={run} doc={doc} />
       <TrimDialog trimDialog={trimDialog} run={run} />
+      <ImageSizeDialog imageSizeDialog={imageSizeDialog} doc={doc} run={run} />
+      <CanvasSizeDialog canvasSizeDialog={canvasSizeDialog} doc={doc} run={run} fg={fg} bg={bg} />
       <NewGuideDialog newGuideDialog={newGuideDialog} run={run} doc={doc} rulerUnit={prefs.current.rulerUnit} />
       <NewGuideLayoutDialog newGuideLayoutDialog={newGuideLayoutDialog} run={run} doc={doc} />
       <ArtboardDialog artboardDialog={artboardDialog} mode={artboardMode} run={run} doc={doc} selected={activeArtboard} layer={node?.id ?? null} />
