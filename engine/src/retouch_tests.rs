@@ -137,26 +137,25 @@ fn healing_brush_keeps_the_target_level_while_taking_the_source_texture() {
 }
 
 #[test]
-fn healing_diffusion_limits_how_far_the_target_tone_reaches_into_the_stroke() {
-    // Source gray 60 on the left half, target gray 200 on the right; a 41 px stroke at (96, 32).
+fn healing_diffusion_keeps_the_tone_match_and_limits_how_far_edge_detail_spreads() {
+    // Source gray 60 on the left; the target is 100 left of x = 96 and 220 right of it; a 41 px stroke at (96, 32).
     let heal = |diffusion: Option<f32>| {
-        let mut e = EngineCore::new(doc_with(128, 64, |x, _| if x < 64 { gray(60) } else { gray(200) }));
+        let mut e = EngineCore::new(doc_with(128, 64, |x, _| gray(if x < 64 { 60 } else if x < 96 { 100 } else { 220 })));
         let mut p = json!({ "heal": "healing", "source": clone_src([32, 32], [96, 32], [1, 0, 0, 1]) });
         if let Some(d) = diffusion {
             p["diffusion"] = json!(d);
         }
         dab(&mut e, 41.0, 96, 32, p).unwrap();
-        (at(&e.doc, 96, 32)[0], at(&e.doc, 76, 32)[0])
+        [86, 96, 106].map(|x| at(&e.doc, x, 32)[0] as i32)
     };
-    let (full, _) = heal(Some(7.0));
-    assert!(full.abs_diff(200) <= 2, "diffusion 7 adapts fully: {full}");
-    assert_eq!(heal(None).0, full, "no diffusion param = 7");
-    let (low, low_edge) = heal(Some(1.0));
-    assert!(low.abs_diff(60) <= 10, "diffusion 1 keeps the source tone inside: {low}");
-    assert!(low_edge >= 120, "diffusion 1 still adapts at the edge: {low_edge}");
-    let mid = heal(Some(3.0)).0;
-    let def = heal(Some(5.0)).0;
-    assert!(low <= mid && mid <= def && def <= full && low < full, "monotonic: {low} {mid} {def} {full}");
+    let full = heal(Some(7.0));
+    assert_eq!(heal(None), full, "no diffusion param = 7");
+    assert!(full[0] < full[1] && full[1] < full[2], "diffusion 7 follows both edges: {full:?}");
+    let low = heal(Some(1.0));
+    assert!((low[1] - full[1]).abs() <= 20, "diffusion 1 still takes the surrounding tone: {low:?} vs {full:?}");
+    let spread = |v: [i32; 3]| v[2] - v[0];
+    let mid = heal(Some(4.0));
+    assert!(spread(low) < spread(mid) && spread(mid) <= spread(full), "edge detail spreads further with more diffusion: {low:?} {mid:?} {full:?}");
     let mut e = ramp();
     for bad in [0.0, 8.0, -3.0] {
         let err = dab(&mut e, 5.0, 10, 10, json!({ "heal": "healing", "diffusion": bad, "source": clone_src([1, 1], [2, 2], [1, 0, 0, 1]) })).unwrap_err();
@@ -496,4 +495,110 @@ fn effect_and_art_params_are_validated() {
     assert!(e.stroke_begin(1, "selection", &q.to_string()).unwrap_err().contains("effect"));
     let q = json!({ "rgba": [0, 0, 0, 255], "mode": "normal", "size": 5, "art": { "style": "dab", "area": 50, "tolerance": 0 } });
     assert_eq!(e.stroke_begin(1, "pixels", &q.to_string()).unwrap_err(), "the art history brush needs a history source");
+}
+
+fn replace(mode: &str, color: [u8; 3], limits: &str) -> serde_json::Value {
+    json!({ "kind": "colorReplace", "mode": mode, "color": color, "tolerance": 32, "sampling": "continuous", "limits": limits })
+}
+
+fn bg_erase(limits: &str, protect: Option<[u8; 3]>) -> serde_json::Value {
+    let mut v = json!({ "kind": "backgroundErase", "tolerance": 32, "sampling": "continuous", "limits": limits });
+    if let Some(c) = protect {
+        v["protect"] = json!(c);
+    }
+    v
+}
+
+// Red everywhere except a green bar at x 18..=20.
+fn red_bar() -> EngineCore {
+    EngineCore::new(doc_with(40, 40, |x, _| if (18..=20).contains(&x) { [0, 200, 0, 255] } else { [200, 0, 0, 255] }))
+}
+
+#[test]
+fn color_replace_modes_take_the_named_hsb_parts_of_the_color() {
+    let mut e = flat([200, 0, 0, 255]);
+    fx(&mut e, 9.0, 20, 20, replace("color", [0, 0, 255], "discontiguous")).unwrap();
+    assert_eq!(at(&e.doc, 20, 20), [0, 0, 200, 255], "hue and saturation from the color, brightness kept");
+    let mut e = flat([200, 0, 0, 255]);
+    fx(&mut e, 9.0, 20, 20, replace("luminosity", [0, 0, 100], "discontiguous")).unwrap();
+    assert_eq!(at(&e.doc, 20, 20), [100, 0, 0, 255]);
+    let mut e = flat([200, 100, 100, 255]);
+    fx(&mut e, 9.0, 20, 20, replace("saturation", [0, 255, 0], "discontiguous")).unwrap();
+    assert_eq!(at(&e.doc, 20, 20), [200, 0, 0, 255]);
+}
+
+#[test]
+fn color_replace_limits_stop_at_pixels_outside_the_tolerance() {
+    let mut e = red_bar();
+    fx(&mut e, 15.0, 15, 20, replace("color", [0, 0, 255], "contiguous")).unwrap();
+    assert_eq!(at(&e.doc, 15, 20), [0, 0, 200, 255]);
+    assert_eq!(at(&e.doc, 19, 20), [0, 200, 0, 255], "green is outside the tolerance");
+    assert_eq!(at(&e.doc, 21, 20), [200, 0, 0, 255], "contiguous stops at the bar");
+    let mut e = red_bar();
+    fx(&mut e, 15.0, 15, 20, replace("color", [0, 0, 255], "discontiguous")).unwrap();
+    assert_eq!(at(&e.doc, 21, 20), [0, 0, 200, 255]);
+}
+
+#[test]
+fn background_eraser_erases_the_sampled_color_and_keeps_the_rest() {
+    let mut e = red_bar();
+    fx(&mut e, 15.0, 15, 20, bg_erase("contiguous", None)).unwrap();
+    assert_eq!(at(&e.doc, 15, 20)[3], 0);
+    assert_eq!(at(&e.doc, 19, 20), [0, 200, 0, 255]);
+    assert_eq!(at(&e.doc, 21, 20), [200, 0, 0, 255]);
+    let mut e = red_bar();
+    fx(&mut e, 15.0, 15, 20, bg_erase("discontiguous", None)).unwrap();
+    assert_eq!(at(&e.doc, 21, 20)[3], 0);
+    let mut e = red_bar();
+    fx(&mut e, 15.0, 15, 20, bg_erase("discontiguous", Some([200, 0, 0]))).unwrap();
+    assert_eq!(at(&e.doc, 15, 20), [200, 0, 0, 255], "the protected color stays");
+}
+
+#[test]
+fn background_eraser_find_edges_keeps_edge_pixels_more_than_contiguous() {
+    let soft = |x: i32| if x < 20 { 200u8 } else { 180 };
+    let mk = || EngineCore::new(doc_with(40, 40, move |x, _| [soft(x), 0, 0, 255]));
+    let (mut a, mut b) = (mk(), mk());
+    fx(&mut a, 15.0, 17, 20, bg_erase("contiguous", None)).unwrap();
+    fx(&mut b, 15.0, 17, 20, bg_erase("findEdges", None)).unwrap();
+    assert_eq!(at(&a.doc, 19, 20)[3], 0);
+    assert!(at(&b.doc, 19, 20)[3] > 0, "the step at x 20 damps the erase");
+    assert_eq!(at(&b.doc, 15, 20)[3], 0, "flat areas still erase");
+}
+
+fn mixer(wet: f32, load: f32, mix: f32) -> serde_json::Value {
+    json!({ "kind": "mixer", "wet": wet, "load": load, "mix": mix, "allLayers": false, "blend": "normal", "color": [255, 0, 0] })
+}
+
+#[test]
+fn mixer_brush_paints_the_loaded_color_mixed_with_the_canvas() {
+    let mut e = flat(gray(255));
+    fx(&mut e, 9.0, 20, 20, mixer(0.0, 0.0, 0.0)).unwrap();
+    assert_eq!(at(&e.doc, 20, 20), [255, 0, 0, 255], "dry, unloaded with canvas, no mix: the pure color");
+    let mut e = flat(gray(255));
+    fx(&mut e, 9.0, 20, 20, mixer(0.0, 0.0, 1.0)).unwrap();
+    assert_eq!(at(&e.doc, 20, 20), gray(255), "full mix paints the canvas itself");
+    let mut e = flat(gray(255));
+    fx(&mut e, 9.0, 20, 20, mixer(1.0, 0.0, 0.0)).unwrap();
+    let c = at(&e.doc, 20, 20);
+    assert!(c[0] == 255 && c[1] > 150 && c[1] < 255, "wet paint lays down thinner: {c:?}");
+    let mut e = flat(gray(255));
+    fx(&mut e, 9.0, 20, 20, mixer(0.0, 1.0, 0.0)).unwrap();
+    assert_eq!(at(&e.doc, 20, 20), gray(255), "a full load takes the canvas color into the reservoir");
+}
+
+#[test]
+fn mixer_brush_without_reload_keeps_the_dirty_reservoir_unless_cleaned() {
+    let mut e = flat(gray(255));
+    fx(&mut e, 9.0, 20, 20, mixer(0.0, 0.0, 0.0)).unwrap();
+    let mut keep = mixer(0.0, 0.0, 0.0);
+    keep["color"] = json!(null);
+    fx(&mut e, 9.0, 30, 30, keep.clone()).unwrap();
+    assert_eq!(at(&e.doc, 30, 30), [255, 0, 0, 255], "the unloaded stroke reuses the last reservoir");
+    let mut clean = mixer(0.0, 0.0, 0.0);
+    clean["clean"] = json!(true);
+    let mut e = flat(gray(255));
+    fx(&mut e, 9.0, 20, 20, clean).unwrap();
+    fx(&mut e, 9.0, 30, 30, keep).unwrap();
+    assert_eq!(at(&e.doc, 30, 30), gray(255), "a cleaned brush paints only the canvas");
 }

@@ -2,6 +2,7 @@ import { Engine } from '../engine-pkg/photobaer_engine.js';
 import { tileIds } from '../project.ts';
 import { importPsd, compositeRgba, isPsdBytes, type PendingSource } from '../psd.ts';
 import { getHandle } from '../links.ts';
+import { embedIcc } from '../app/iccFiles.ts';
 import type { Box, GlobalLight, LayerNode, SmartInfo, SmartLink, TransformKind, TransformOp } from './types.ts';
 
 // Global Light: angle mod 360, altitude clamped to 0..90.
@@ -86,7 +87,8 @@ async function encodeFlattened(e: Engine, type: 'image/png' | 'image/jpeg' | 'im
   }
   const blob = await out.convertToBlob({ type, quality });
   if (blob.type !== type) throw new Error(`${type} export is not supported by this browser`);
-  return blob;
+  const icc = type === 'image/webp' ? new Uint8Array() : e.profile_icc();
+  return icc.length ? new Blob([await embedIcc(new Uint8Array(await blob.arrayBuffer()), type, icc) as Uint8Array<ArrayBuffer>], { type }) : blob;
 }
 
 // The layer alone (its ancestors kept, every other branch hidden in a clone) rendered and trimmed

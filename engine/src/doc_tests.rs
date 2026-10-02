@@ -1501,6 +1501,27 @@ fn channels_save_load_and_delete() {
 }
 
 #[test]
+fn channels_new_rename_duplicate_and_tile() {
+    let mut d = Document::new(300, 300, 8).unwrap();
+    let empty = d.new_channel("Alpha 1").unwrap();
+    assert_eq!(d.channel_tile(empty, 0, 0, 0).unwrap(), None, "an empty channel is all default");
+    d.select_rect(0.0, 0.0, 100.0, 100.0, Mode::New).unwrap();
+    let ch = d.save_selection("left").unwrap();
+    d.rename_channel(ch, "box").unwrap();
+    assert!(d.rename_channel(999, "x").is_err());
+    let dup = d.duplicate_channel(ch, "box copy").unwrap();
+    assert!(dup != ch && dup != empty);
+    let v: Value = serde_json::from_str(&d.channels_json()).unwrap();
+    let names: Vec<&str> = v["channels"].as_array().unwrap().iter().map(|c| c["name"].as_str().unwrap()).collect();
+    assert_eq!(names, ["Alpha 1", "box", "box copy"]);
+    let t = d.channel_tile(dup, 0, 0, 0).unwrap().unwrap();
+    assert_eq!((t[0], t[200]), (255, 0));
+    assert!(d.channel_tile(999, 0, 0, 0).is_err());
+    d.load_selection(empty, false, Mode::New).unwrap();
+    assert_eq!(d.selection_bounds(), None);
+}
+
+#[test]
 fn combine_into_channel_unions_the_selection_into_a_saved_channel() {
     let mut d = Document::new(256, 256, 8).unwrap();
     d.select_rect(0.0, 0.0, 50.0, 50.0, Mode::New).unwrap();

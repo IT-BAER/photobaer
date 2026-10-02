@@ -532,8 +532,8 @@ pub struct PoissonOpts {
     pub omega: f32,
     /// Mixed gradients: per edge the larger of the source and destination gradient.
     pub mixed: bool,
-    /// Healing Diffusion: the correction (solution - source) fades as exp(-d / fade) with the
-    /// distance d (px) from the region edge; None keeps it whole.
+    /// Healing Diffusion: the correction (solution - source) keeps its mean; its variation fades as
+    /// exp(-d / fade) with the distance d (px) from the region edge; None keeps it whole.
     pub fade: Option<f32>,
 }
 
@@ -598,11 +598,13 @@ pub fn poisson(dest: &mut Plane, src: &Plane, cov: &[f32], o: &PoissonOpts) -> (
     }
     if let Some(l) = o.fade {
         let d = edge_distance(&cov.iter().map(|&m| m > 0.5).collect::<Vec<_>>(), dest.w, dest.h);
+        let n = interior.len().max(1) as f32;
+        let mean: [f32; 3] = std::array::from_fn(|c| interior.iter().map(|&p| solved.data[p * 4 + c] - src.data[p * 4 + c]).sum::<f32>() / n);
         for &p in &interior {
             let k = (-d[p] / l.max(1e-3)).exp();
-            for c in 0..3 {
+            for (c, m) in mean.iter().enumerate() {
                 let i = p * 4 + c;
-                solved.data[i] = src.data[i] + (solved.data[i] - src.data[i]) * k;
+                solved.data[i] = src.data[i] + m + (solved.data[i] - src.data[i] - m) * k;
             }
         }
     }

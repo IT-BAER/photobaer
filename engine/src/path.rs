@@ -311,6 +311,15 @@ pub struct DocVector {
     /// Vanishing Point planes (manifest v7).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub vanishing_planes: Vec<crate::vanishing::VPlane>,
+    /// Image > Mode > Grayscale.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub gray: bool,
+    /// Image > Mode beyond RGB and Grayscale; Bitmap and Duotone also set `gray`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<crate::doc::color_mode::ColorMode>,
+    /// Edit > Assign Profile; none = untagged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<crate::doc::profile::DocProfile>,
 }
 
 impl Default for DocVector {
@@ -323,6 +332,9 @@ impl Default for DocVector {
             guides_locked: false,
             artboards_locked: false,
             vanishing_planes: Vec::new(),
+            gray: false,
+            mode: None,
+            profile: None,
         }
     }
 }
@@ -333,6 +345,9 @@ impl DocVector {
         range(self.grid.spacing_x, f64::MIN_POSITIVE, f64::MAX, "grid spacing_x")?;
         range(self.grid.spacing_y, f64::MIN_POSITIVE, f64::MAX, "grid spacing_y")?;
         crate::vanishing::check_planes(&self.vanishing_planes)?;
+        if let Some(p) = &self.profile {
+            p.resolve()?;
+        }
         let mut ids = std::collections::HashSet::new();
         for p in &self.paths {
             if !ids.insert(p.id) {

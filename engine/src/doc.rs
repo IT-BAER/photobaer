@@ -36,6 +36,15 @@ mod m3_tests;
 mod m4_tests;
 #[path = "filter_run.rs"]
 mod filter_run;
+#[path = "apply_image.rs"]
+mod apply_image;
+#[path = "color_mode.rs"]
+pub mod color_mode;
+#[path = "profile.rs"]
+pub mod profile;
+#[path = "proof.rs"]
+pub mod proof;
+pub use apply_image::ImageSource;
 #[cfg(test)]
 #[path = "doc_m5_tests.rs"]
 mod m5_tests;
@@ -79,6 +88,7 @@ const TILE_BYTES_U8: usize = TILE_PIXELS * 4;
 const TILE_BYTES_U16: usize = TILE_PIXELS * 4 * 2;
 const MASK_BYTES_U8: usize = TILE_PIXELS;
 const MASK_BYTES_U16: usize = TILE_PIXELS * 2;
+const TILE_BYTES_F32: usize = TILE_PIXELS * 4 * 4;
 const MANIFEST_FORMAT: &str = "photobaer-manifest";
 const MANIFEST_VERSION: u32 = 7;
 // A tile coordinate far outside the largest canvas is a broken file, not a moved layer.
@@ -91,6 +101,17 @@ fn max_value(depth: u8) -> u32 {
         255
     } else {
         65535
+    }
+}
+
+// A stored 32-bit value: finite and not negative; alpha also at most 1.
+#[inline(always)]
+fn float(v: f32, alpha: bool) -> f32 {
+    let v = if v.is_finite() { v.max(0.0) } else if v > 0.0 { f32::MAX } else { 0.0 };
+    if alpha {
+        v.min(1.0)
+    } else {
+        v
     }
 }
 
@@ -110,6 +131,8 @@ fn quantize(x: f32, max: f32) -> u32 {
 pub enum Pixels {
     U8(Box<[u8]>),
     U16(Box<[u16]>),
+    /// 32 bits per channel: straight RGBA floats, color above 1 kept.
+    F32(Box<[f32]>),
     Mask8(Box<[u8]>),
     Mask16(Box<[u16]>),
 }
@@ -131,6 +154,7 @@ impl Pixels {
                 d[o + 2] as f32 / 65535.0,
                 d[o + 3] as f32 / 65535.0,
             ],
+            Pixels::F32(d) => [d[o], d[o + 1], d[o + 2], d[o + 3]],
             _ => [0.0; 4],
         }
     }
@@ -158,6 +182,11 @@ impl Pixels {
                     d[o + i] = (v[i] * 65535.0).round().clamp(0.0, 65535.0) as u16;
                 }
             }
+            Pixels::F32(d) => {
+                for i in 0..4 {
+                    d[o + i] = float(v[i], i == 3);
+                }
+            }
             _ => {}
         }
     }
@@ -165,6 +194,8 @@ impl Pixels {
     fn transparent(depth: u8) -> Pixels {
         if depth == 8 {
             Pixels::U8(vec![0u8; TILE_PIXELS * 4].into_boxed_slice())
+        } else if depth == 32 {
+            Pixels::F32(vec![0f32; TILE_PIXELS * 4].into_boxed_slice())
         } else {
             Pixels::U16(vec![0u16; TILE_PIXELS * 4].into_boxed_slice())
         }
@@ -175,6 +206,7 @@ impl Pixels {
         match (self, src) {
             (Pixels::U8(d), Pixels::U8(s)) => d[at * 4..(at + n) * 4].copy_from_slice(&s[from * 4..(from + n) * 4]),
             (Pixels::U16(d), Pixels::U16(s)) => d[at * 4..(at + n) * 4].copy_from_slice(&s[from * 4..(from + n) * 4]),
+            (Pixels::F32(d), Pixels::F32(s)) => d[at * 4..(at + n) * 4].copy_from_slice(&s[from * 4..(from + n) * 4]),
             (Pixels::Mask8(d), Pixels::Mask8(s)) => d[at..at + n].copy_from_slice(&s[from..from + n]),
             (Pixels::Mask16(d), Pixels::Mask16(s)) => d[at..at + n].copy_from_slice(&s[from..from + n]),
             _ => unreachable!("tile depth differs from the document depth"),
@@ -193,6 +225,7 @@ impl Pixels {
         match self {
             Pixels::U8(d) => d.chunks_exact(4).any(|p| p[3] > 0),
             Pixels::U16(d) => d.chunks_exact(4).any(|p| p[3] > 0),
+            Pixels::F32(d) => d.chunks_exact(4).any(|p| p[3] > 0.0),
             _ => true,
         }
     }
@@ -212,6 +245,7 @@ impl Pixels {
         match self {
             Pixels::U8(d) => scan(d),
             Pixels::U16(d) => scan(d),
+            Pixels::F32(d) => scan(d),
             _ => None,
         }
     }
@@ -221,6 +255,7 @@ impl Pixels {
             Pixels::U8(d) | Pixels::Mask8(d) => d.len(),
             Pixels::U16(d) => d.len() * 2,
             Pixels::Mask16(d) => d.len() * 2,
+            Pixels::F32(d) => d.len() * 4,
         }
     }
 
@@ -234,6 +269,7 @@ impl Pixels {
                 }
                 out
             }
+            Pixels::F32(d) => d.iter().flat_map(|v| v.to_le_bytes()).collect(),
         }
     }
 
@@ -241,6 +277,7 @@ impl Pixels {
         let want = match (depth, mask) {
             (8, false) => TILE_BYTES_U8,
             (8, true) => MASK_BYTES_U8,
+            (32, false) => TILE_BYTES_F32,
             (_, false) => TILE_BYTES_U16,
             (_, true) => MASK_BYTES_U16,
         };
@@ -250,6 +287,9 @@ impl Pixels {
         Ok(match (depth, mask) {
             (8, false) => Pixels::U8(bytes.to_vec().into_boxed_slice()),
             (8, true) => Pixels::Mask8(bytes.to_vec().into_boxed_slice()),
+            (32, false) => Pixels::F32(
+                bytes.chunks_exact(4).enumerate().map(|(i, c)| float(f32::from_le_bytes([c[0], c[1], c[2], c[3]]), i % 4 == 3)).collect(),
+            ),
             (_, m) => {
                 let mut out = Vec::with_capacity(bytes.len() / 2);
                 for chunk in bytes.chunks_exact(2) {
@@ -268,6 +308,8 @@ impl Pixels {
     fn from_rgba8(depth: u8, rgba8: &[u8]) -> Pixels {
         if depth == 8 {
             Pixels::U8(rgba8.to_vec().into_boxed_slice())
+        } else if depth == 32 {
+            Pixels::F32(rgba8.iter().map(|v| *v as f32 / 255.0).collect())
         } else {
             Pixels::U16(rgba8.iter().map(|v| *v as u16 * 257).collect::<Vec<_>>().into_boxed_slice())
         }
@@ -286,6 +328,8 @@ impl Pixels {
         let max = max_value(depth) as f32;
         if depth == 8 {
             Pixels::U8(v.iter().map(|x| quantize(*x, max) as u8).collect::<Vec<_>>().into_boxed_slice())
+        } else if depth == 32 {
+            Pixels::F32(v.iter().enumerate().map(|(i, x)| float(*x, i % 4 == 3)).collect())
         } else {
             Pixels::U16(v.iter().map(|x| quantize(*x, max) as u16).collect::<Vec<_>>().into_boxed_slice())
         }
@@ -322,6 +366,15 @@ impl Pixels {
                 }
                 Pixels::U16(out)
             }
+            Pixels::F32(d) => {
+                let mut out = d.clone();
+                for (i, v) in out.iter_mut().enumerate() {
+                    if i % 4 != 3 {
+                        *v = (1.0 - *v).max(0.0);
+                    }
+                }
+                Pixels::F32(out)
+            }
             Pixels::Mask8(d) => Pixels::Mask8(d.iter().map(|v| 255 - v).collect::<Vec<_>>().into_boxed_slice()),
             Pixels::Mask16(d) => Pixels::Mask16(d.iter().map(|v| 65535 - v).collect::<Vec<_>>().into_boxed_slice()),
         }
@@ -349,6 +402,13 @@ impl Pixels {
                     out[o + 2] = b as u16 * 257;
                 }
                 Pixels::U16(out)
+            }
+            Pixels::F32(d) => {
+                let mut out = d.clone();
+                for p in out.chunks_exact_mut(4) {
+                    p[..3].copy_from_slice(&[r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0]);
+                }
+                Pixels::F32(out)
             }
             other => other.clone(),
         }
@@ -421,7 +481,7 @@ fn edit_rgba(
     old: Option<&Pixels>,
     cov: &Cov,
     keep_alpha: bool,
-    f: &impl Fn([f32; 4]) -> [f32; 4],
+    f: &impl Fn(usize, [f32; 4]) -> [f32; 4],
 ) -> Option<Pixels> {
     let mut out = vec![0f32; TILE_PIXELS * 4];
     let mut any = false;
@@ -432,7 +492,7 @@ fn edit_rgba(
         let px = if c <= 0.0 {
             ob
         } else {
-            let nw = f(ob);
+            let nw = f(p, ob);
             if keep_alpha {
                 [ob[0] + (nw[0] - ob[0]) * c, ob[1] + (nw[1] - ob[1]) * c, ob[2] + (nw[2] - ob[2]) * c, ob[3]]
             } else {
@@ -780,8 +840,8 @@ fn validate_dims(width: u32, height: u32, depth: u8) -> Result<(), String> {
     if !(1..=65536).contains(&width) || !(1..=65536).contains(&height) {
         return Err("width and height must be in 1..=65536".into());
     }
-    if depth != 8 && depth != 16 {
-        return Err("depth must be 8 or 16".into());
+    if depth != 8 && depth != 16 && depth != 32 {
+        return Err("depth must be 8, 16 or 32".into());
     }
     Ok(())
 }
@@ -1178,13 +1238,24 @@ impl Document {
         keep_alpha: bool,
         f: impl Fn([f32; 4]) -> [f32; 4],
     ) -> Result<(), String> {
+        self.edit_pixel_tiles_at(id, area, keep_alpha, |_, _, c| f(c))
+    }
+
+    // `edit_pixel_tiles` with `f` also given the tile and the pixel index in it.
+    fn edit_pixel_tiles_at(
+        &mut self,
+        id: u32,
+        area: &[(i32, i32)],
+        keep_alpha: bool,
+        f: impl Fn((i32, i32), usize, [f32; 4]) -> [f32; 4],
+    ) -> Result<(), String> {
         let depth = self.depth;
         let selected = self.selection.is_some();
         let mut fresh: Vec<((i32, i32), Option<Pixels>)> = Vec::with_capacity(area.len());
         for &(tx, ty) in area {
             let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
             let old = self.node(id)?.pixel_tiles()?.get(tx, ty).map(|t| t.px.clone());
-            let px = edit_rgba(depth, old.as_deref(), &cov, keep_alpha, &f);
+            let px = edit_rgba(depth, old.as_deref(), &cov, keep_alpha, &|p, c| f((tx, ty), p, c));
             fresh.push(((tx, ty), px));
         }
         let mut out = Vec::with_capacity(fresh.len());

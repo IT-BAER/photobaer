@@ -1,5 +1,5 @@
-//! Per-dab effect tools (dodge, burn, sponge, blur, sharpen, smudge) and the art history brush
-//! dab expansion. A child module of `doc`.
+//! Per-dab effect tools (dodge, burn, sponge, blur, sharpen, smudge, color replacement, background
+//! eraser, mixer brush) and the art history brush dab expansion. A child module of `doc`.
 
 use super::*;
 
@@ -20,6 +20,45 @@ pub(super) enum EffectIn {
         #[serde(default)]
         finger_paint: Option<[f32; 3]>,
     },
+    #[serde(rename_all = "camelCase")]
+    ColorReplace { mode: String, color: [f32; 3], tolerance: f32, sampling: String, limits: String, #[serde(default)] sample: Option<[f32; 3]> },
+    #[serde(rename_all = "camelCase")]
+    BackgroundErase { tolerance: f32, sampling: String, limits: String, #[serde(default)] sample: Option<[f32; 3]>, #[serde(default)] protect: Option<[f32; 3]> },
+    /// `color` absent = no reload: the brush keeps the last stroke's reservoir.
+    #[serde(rename_all = "camelCase")]
+    Mixer { wet: f32, load: f32, mix: f32, all_layers: bool, blend: String, #[serde(default)] color: Option<[f32; 3]>, #[serde(default)] clean: bool },
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub(super) enum Limits {
+    Contiguous,
+    Discontiguous,
+    FindEdges,
+}
+
+/// Which pixels a color-matching dab touches: within `tol` (0..1, max channel) of the sample.
+/// `fixed` is the background swatch; otherwise the layer under the first (`once`) or each dab.
+#[derive(Clone, Copy)]
+pub(super) struct Match {
+    tol: f32,
+    once: bool,
+    fixed: Option<[f32; 3]>,
+    limits: Limits,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub(super) enum Replace {
+    Hue,
+    Saturation,
+    Color,
+    Luminosity,
+}
+
+/// The mixer brush paint well: `d` x `d` straight RGB centered on the dab.
+#[derive(Clone)]
+pub(super) struct Reservoir {
+    d: usize,
+    px: Vec<[f32; 3]>,
 }
 
 #[derive(Deserialize)]
@@ -44,12 +83,63 @@ pub(super) enum Effect {
     Sponge { saturate: bool, vibrance: bool, strength: f32 },
     Focus { sharpen: bool, all: bool },
     Smudge { strength: f32, all: bool, blend: Blend, finger: Option<[f32; 3]> },
+    ColorReplace { mode: Replace, color: [f32; 3], m: Match },
+    BgErase { m: Match, protect: Option<[f32; 3]> },
+    Mixer { wet: f32, load: f32, mix: f32, all: bool, blend: Blend, color: Option<[f32; 3]>, clean: bool },
+}
+
+fn rgb01(c: Option<[f32; 3]>) -> Result<Option<[f32; 3]>, String> {
+    if c.is_some_and(|c| c.iter().any(|v| !v.is_finite())) {
+        return Err("effect params must be finite".into());
+    }
+    Ok(c.map(|c| c.map(|v| v.clamp(0.0, 255.0) / 255.0)))
+}
+
+fn matcher(tolerance: f32, sampling: &str, limits: &str, sample: Option<[f32; 3]>) -> Result<Match, String> {
+    if !tolerance.is_finite() {
+        return Err("effect params must be finite".into());
+    }
+    let once = match sampling {
+        "continuous" => false,
+        "once" => true,
+        other => return Err(format!("unknown sampling {other}")),
+    };
+    let limits = match limits {
+        "contiguous" => Limits::Contiguous,
+        "discontiguous" => Limits::Discontiguous,
+        "findEdges" => Limits::FindEdges,
+        other => return Err(format!("unknown limits {other}")),
+    };
+    Ok(Match { tol: tolerance.clamp(0.0, 255.0) / 255.0, once, fixed: rgb01(sample)?, limits })
 }
 
 impl EffectIn {
     pub(super) fn build(self) -> Result<Effect, String> {
         let unit = |v: f32| if v.is_finite() { Ok(v.clamp(0.0, 1.0)) } else { Err("effect params must be finite".to_string()) };
         Ok(match self {
+            EffectIn::ColorReplace { mode, color, tolerance, sampling, limits, sample } => Effect::ColorReplace {
+                mode: match mode.as_str() {
+                    "hue" => Replace::Hue,
+                    "saturation" => Replace::Saturation,
+                    "color" => Replace::Color,
+                    "luminosity" => Replace::Luminosity,
+                    other => return Err(format!("unknown color replacement mode {other}")),
+                },
+                color: rgb01(Some(color))?.unwrap(),
+                m: matcher(tolerance, &sampling, &limits, sample)?,
+            },
+            EffectIn::BackgroundErase { tolerance, sampling, limits, sample, protect } => {
+                Effect::BgErase { m: matcher(tolerance, &sampling, &limits, sample)?, protect: rgb01(protect)? }
+            }
+            EffectIn::Mixer { wet, load, mix, all_layers, blend, color, clean } => Effect::Mixer {
+                wet: unit(wet)?,
+                load: unit(load)?,
+                mix: unit(mix)?,
+                all: all_layers,
+                blend: Blend::parse(&blend)?,
+                color: rgb01(color)?,
+                clean,
+            },
             EffectIn::Toning { tool, range, exposure, protect_tones } => Effect::Toning {
                 dodge: match tool.as_str() {
                     "dodge" => true,
@@ -167,6 +257,78 @@ fn sponge(back: [f32; 3], saturate: bool, vibrance: bool) -> [f32; 3] {
     back.map(|c| max - (max - c) * (s2 / s))
 }
 
+fn to_hsb(c: [f32; 3]) -> [f32; 3] {
+    let (max, min) = (c[0].max(c[1]).max(c[2]), c[0].min(c[1]).min(c[2]));
+    let d = max - min;
+    let h = if d <= 0.0 {
+        0.0
+    } else if max == c[0] {
+        ((c[1] - c[2]) / d).rem_euclid(6.0)
+    } else if max == c[1] {
+        (c[2] - c[0]) / d + 2.0
+    } else {
+        (c[0] - c[1]) / d + 4.0
+    };
+    [h / 6.0, if max > 0.0 { d / max } else { 0.0 }, max]
+}
+
+fn from_hsb([h, s, b]: [f32; 3]) -> [f32; 3] {
+    let f = |n: f32| {
+        let k = (n + h * 6.0).rem_euclid(6.0);
+        b - b * s * k.min(4.0 - k).clamp(0.0, 1.0)
+    };
+    [f(5.0), f(3.0), f(1.0)]
+}
+
+fn dist(a: [f32; 3], b: [f32; 3]) -> f32 {
+    (0..3).map(|i| (a[i] - b[i]).abs()).fold(0.0, f32::max)
+}
+
+// 1 where the pixel of `plane` (straight RGBA over `r`) is within the tolerance of `sample` and
+// not of `protect`; Contiguous keeps the run flood-filled from `c`, Find Edges also damps by the
+// local gradient.
+fn match_mask(plane: &[[f32; 4]], r: [i32; 4], c: (i32, i32), sample: [f32; 3], m: Match, protect: Option<[f32; 3]>) -> Vec<f32> {
+    let (w, h) = ((r[2] - r[0]) as usize, (r[3] - r[1]) as usize);
+    let rgb = |i: usize| [plane[i][0], plane[i][1], plane[i][2]];
+    let hit = |i: usize| dist(rgb(i), sample) <= m.tol && !protect.is_some_and(|p| dist(rgb(i), p) <= m.tol);
+    let mut out: Vec<f32> = (0..w * h).map(|i| if hit(i) { 1.0 } else { 0.0 }).collect();
+    let (cx, cy) = (c.0 - r[0], c.1 - r[1]);
+    if m.limits == Limits::Discontiguous || cx < 0 || cy < 0 || cx as usize >= w || cy as usize >= h {
+        return out;
+    }
+    let start = cy as usize * w + cx as usize;
+    let seed = rgb(start);
+    let mut seen = vec![false; w * h];
+    let mut stack = vec![start];
+    seen[start] = true;
+    while let Some(i) = stack.pop() {
+        let (x, y) = (i % w, i / w);
+        for (nx, ny) in [(x.wrapping_sub(1), y), (x + 1, y), (x, y.wrapping_sub(1)), (x, y + 1)] {
+            if nx < w && ny < h {
+                let j = ny * w + nx;
+                if !seen[j] && dist(rgb(j), seed) <= m.tol {
+                    seen[j] = true;
+                    stack.push(j);
+                }
+            }
+        }
+    }
+    out.iter_mut().zip(&seen).for_each(|(v, s)| if !*s { *v = 0.0 });
+    if m.limits == Limits::FindEdges {
+        let ch = |i: usize, k: usize| plane[i][k];
+        for y in 1..h.saturating_sub(1) {
+            for x in 1..w.saturating_sub(1) {
+                let i = y * w + x;
+                if out[i] > 0.0 {
+                    let g: f32 = (0..3).map(|k| (ch(i + 1, k) - ch(i - 1, k)).abs() + (ch(i + w, k) - ch(i - w, k)).abs()).sum();
+                    out[i] *= (1.0 - g * 2.0).clamp(0.0, 1.0);
+                }
+            }
+        }
+    }
+    out
+}
+
 // Separable Gaussian over `w` x `h` straight RGBA, edges clamped.
 fn gaussian(data: &mut [[f32; 4]], w: usize, h: usize, sigma: f32) {
     let r = ((3.0 * sigma).ceil() as usize).max(1);
@@ -277,6 +439,83 @@ impl Document {
                 }
                 Ok(Some(out))
             }
+            Effect::ColorReplace { m, .. } | Effect::BgErase { m, .. } => {
+                let protect = if let Effect::BgErase { protect, .. } = effect { protect } else { None };
+                let (cx, cy) = (d.x.floor() as i32, d.y.floor() as i32);
+                let sample = match (m.fixed, st.fx_sample) {
+                    (Some(c), _) => c,
+                    (None, Some(c)) if m.once => c,
+                    _ => {
+                        let p = self.layer_px(st.layer, cx, cy);
+                        [p[0], p[1], p[2]]
+                    }
+                };
+                st.fx_sample = Some(sample);
+                let plane = self.read_region(st.layer, false, r)?;
+                Ok(Some(match_mask(&plane, r, (cx, cy), sample, m, protect).into_iter().map(|v| [v, 0.0, 0.0, 0.0]).collect()))
+            }
+            Effect::Mixer { wet, load, mix, all, color, .. } => {
+                let dsz = (st.size.ceil() as usize).max(1);
+                let half = dsz as f64 / 2.0;
+                let (sx, sy) = ((d.x - half).floor() as i32, (d.y - half).floor() as i32);
+                let g = [
+                    r[0].min(sx).max(0),
+                    r[1].min(sy).max(0),
+                    r[2].max(sx + dsz as i32).min(self.width as i32),
+                    r[3].max(sy + dsz as i32).min(self.height as i32),
+                ];
+                let gw = (g[2] - g[0]) as usize;
+                let plane = self.read_region(st.layer, all, g)?;
+                let canvas = |x: i32, y: i32| -> Option<[f32; 3]> {
+                    if x < g[0] || y < g[1] || x >= g[2] || y >= g[3] {
+                        return None;
+                    }
+                    let p = plane[(y - g[1]) as usize * gw + (x - g[0]) as usize];
+                    (p[3] > 0.0).then_some([p[0], p[1], p[2]])
+                };
+                if st.reservoir.as_ref().is_none_or(|res| res.d != dsz) {
+                    let mut px = Vec::with_capacity(dsz * dsz);
+                    for y in 0..dsz as i32 {
+                        for x in 0..dsz as i32 {
+                            px.push(match (color, canvas(sx + x, sy + y)) {
+                                (Some(f), Some(c)) => std::array::from_fn(|i| f[i] * (1.0 - load) + c[i] * load),
+                                (Some(f), None) => f,
+                                (None, c) => c.unwrap_or([0.0; 3]),
+                            });
+                        }
+                    }
+                    st.reservoir = Some(Reservoir { d: dsz, px });
+                }
+                let res = st.reservoir.as_mut().expect("loaded above");
+                let mut out = Vec::with_capacity(n);
+                for y in r[1]..r[3] {
+                    for x in r[0]..r[2] {
+                        let (rx, ry) = (x - sx, y - sy);
+                        let inside = rx >= 0 && ry >= 0 && (rx as usize) < dsz && (ry as usize) < dsz;
+                        let well = inside.then(|| res.px[ry as usize * dsz + rx as usize]);
+                        let c = match (well, canvas(x, y)) {
+                            (Some(w), Some(c)) => std::array::from_fn(|i| w[i] * (1.0 - mix) + c[i] * mix),
+                            (Some(w), None) => w,
+                            (None, Some(c)) => c,
+                            (None, None) => [0.0; 3],
+                        };
+                        out.push([c[0], c[1], c[2], 1.0]);
+                    }
+                }
+                // The well picks up the wet canvas under it.
+                if wet > 0.0 {
+                    let k = wet * 0.35;
+                    for y in 0..dsz {
+                        for x in 0..dsz {
+                            if let Some(c) = canvas(sx + x as i32, sy + y as i32) {
+                                let w = &mut res.px[y * dsz + x];
+                                *w = std::array::from_fn(|i| w[i] * (1.0 - k) + c[i] * k);
+                            }
+                        }
+                    }
+                }
+                Ok(Some(out))
+            }
             _ => Ok(Some(Vec::new())),
         }
     }
@@ -315,6 +554,36 @@ impl Document {
                     } else {
                         straight(tip * flow, [b[0], b[1], b[2]], b[3])
                     }
+                }
+                Effect::ColorReplace { mode, color, .. } => {
+                    let f = tip * aux[i][0];
+                    if f <= 0.0 {
+                        return None;
+                    }
+                    let (mut h, c) = (to_hsb(rgb), to_hsb(color));
+                    if matches!(mode, Replace::Hue | Replace::Color) {
+                        h[0] = c[0];
+                    }
+                    if matches!(mode, Replace::Saturation | Replace::Color) {
+                        h[1] = c[1];
+                    }
+                    if mode == Replace::Luminosity {
+                        h[2] = c[2];
+                    }
+                    straight(f, from_hsb(h), a)
+                }
+                Effect::BgErase { .. } => {
+                    let f = tip * aux[i][0];
+                    if f <= 0.0 {
+                        return None;
+                    }
+                    straight(f, rgb, 0.0)
+                }
+                Effect::Mixer { wet, blend, .. } => {
+                    let c = [aux[i][0], aux[i][1], aux[i][2]];
+                    let m = blend_rgb(blend, rgb, c);
+                    let out: [f32; 3] = std::array::from_fn(|k| c[k] + (m[k] - c[k]) * a);
+                    straight(tip * flow * (1.0 - wet * 0.75).max(0.02), out, 1.0)
                 }
                 Effect::Smudge { strength, blend, .. } => {
                     let (s, f) = (aux[i], tip * strength * cap * flow);

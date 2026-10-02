@@ -16,7 +16,7 @@ import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo, StrokeParams } from '../worker/types.ts';
 import { PAINT_LABELS, PAINT_TOOLS, type Run } from './helpers.ts';
 
-const EFFECT_TOOLS = new Set(['dodge', 'burn', 'sponge', 'blur', 'sharpen', 'smudge']);
+const EFFECT_TOOLS = new Set(['dodge', 'burn', 'sponge', 'blur', 'sharpen', 'smudge', 'colorReplacement', 'mixerBrush', 'backgroundEraser']);
 
 export interface PaintToolCtx {
   viewer: RefObject<Viewer | null>; tool: string; toolOptionsRef: RefObject<ToolOptions>; currentPreset: (id: string | null) => BrushPreset | null;
@@ -118,6 +118,17 @@ export function usePaintTool(c: PaintToolCtx) {
         // Finger painting (the option, or Alt at stroke start, not both) starts with the foreground.
         const finger = !!o.fingerPainting !== alt;
         return { effect: { kind: 'smudge', strength: pct(o.strength, 50), allLayers: !!o.allLayers, blend: o.mode, ...(finger ? { fingerPaint: fgRef.current } : {}) } };
+      }
+      // Background Swatch compares against the background color instead of the pixels under the brush.
+      const sampling = o.sampling === 'once' ? 'once' : 'continuous';
+      const swatch = o.sampling === 'backgroundSwatch' ? { sample: bgRef.current } : {};
+      const match = { tolerance: Number(o.tolerance), sampling, limits: o.limits, ...swatch };
+      if (tool === 'colorReplacement') return { aliased: !o.antiAlias, effect: { kind: 'colorReplace', mode: o.mode, color: fgRef.current, ...match } };
+      if (tool === 'backgroundEraser') return { effect: { kind: 'backgroundErase', ...match, ...(o.protectForeground ? { protect: fgRef.current } : {}) } };
+      if (tool === 'mixerBrush') {
+        // Without Load Brush After Each Stroke the engine keeps the last stroke's paint well.
+        const load = o.loadAfterStroke !== false ? { color: fgRef.current } : {};
+        return { effect: { kind: 'mixer', wet: pct(o.wet, 50), load: pct(o.load, 50), mix: pct(o.mix, 50), allLayers: !!o.allLayers, blend: o.mode ?? 'normal', clean: !!o.cleanAfterStroke, ...load } };
       }
       if (tool === 'historyBrush') return { historySource: true };
       if (tool === 'artHistoryBrush') return { historySource: true, art: { style: o.style, area: o.area, tolerance: pct(o.tolerance, 0) } };

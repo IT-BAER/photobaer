@@ -18,6 +18,9 @@ import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.
 import { copy, paste } from './clipboard.ts';
 import { stepTab } from './tabs.ts';
 import type { Recent } from './files.ts';
+import type { ModeDialogKind } from '../ModeDialog.tsx';
+import type { ColorDialogKind } from '../ColorDialog.tsx';
+import { DEFAULT_VIEW, PROOF_PRESETS, presetSetup, type ViewState } from './proof.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type DialogRef = RefObject<HTMLDialogElement | null>;
@@ -42,13 +45,13 @@ export interface MenuCtx {
   filterCommand: (op: 'toggle' | 'clear' | 'deleteMasks' | 'toggleMasks', label: string) => () => void; filters: SmartFilterInfo[];
   filterMasks: boolean; maskLabel: string; openFilterBlend: () => void; openLayerStyle: (page: StylePage, id?: number) => void;
   globalLightDialog: DialogRef; allEffectsHidden: boolean; anyStyled: boolean; scaleEffectsDialog: DialogRef;
-  openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; applyDestructive: (kind: DestructiveKind) => void;
+  openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; openImageCalc: (calc: boolean) => void; openModeDialog: (kind: ModeDialogKind) => void; openColorDialog: (kind: ColorDialogKind) => void; applyDestructive: (kind: DestructiveKind) => void;
   rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
   loadSelDialog: DialogRef; saveSelDialog: DialogRef; viewer: RefObject<Viewer | null>;
   filterSpecs: FilterSpec[]; openFilter: (spec: FilterSpec) => void; openLiquify: () => void; openVanishingPoint: () => void; openContentAwareScale: () => void; startDeform: (kind: 'puppet' | 'perspective') => void; lastFilter: () => void; openFade: () => void; openSearch: () => void;
   showAnts: boolean; setShowAnts: SetState<boolean>; showAdjustments: boolean; setShowAdjustments: SetState<boolean>;
-  showLayerComps: boolean; setShowLayerComps: SetState<boolean>; showPaths: boolean; setShowPaths: SetState<boolean>; showProperties: boolean; setShowProperties: SetState<boolean>;
+  showLayerComps: boolean; setShowLayerComps: SetState<boolean>; showChannels: boolean; setShowChannels: SetState<boolean>; showPaths: boolean; setShowPaths: SetState<boolean>; showProperties: boolean; setShowProperties: SetState<boolean>;
   showStyles: boolean; setShowStyles: SetState<boolean>; showPatterns: boolean; setShowPatterns: SetState<boolean>;
   showGradients: boolean; setShowGradients: SetState<boolean>;
   showRulers: boolean; setShowRulers: SetState<boolean>; showPixelGrid: boolean; setShowPixelGrid: SetState<boolean>;
@@ -57,6 +60,45 @@ export interface MenuCtx {
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef;
   openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null; selectedNodes: LayerNode[];
   showShapes: boolean; setShowShapes: SetState<boolean>; showCloneSource: boolean; setShowCloneSource: SetState<boolean>; showNavigator: boolean; setShowNavigator: SetState<boolean>; typeItems: Item[]; aboutDialog: DialogRef; agentDialog: DialogRef;
+}
+
+// Image > Mode: the modes a conversion from the current one allows, the bit depths, and the Color Table.
+function modeItems(doc: DocInfo | null, run: Run, open: (kind: ModeDialogKind) => void): Item[] {
+  const cur = doc?.mode?.kind ?? (doc?.gray ? 'gray' : 'rgb');
+  const deep = doc?.depth === 32, mark = (on: boolean, label: string) => `${on ? '✓ ' : ''}${label}`;
+  const to = (mode: 'rgb' | 'gray' | 'cmyk' | 'lab' | 'multichannel') => () => run('Converting…', () => client.call('setColorMode', { mode }));
+  return [
+    { label: mark(cur === 'bitmap', 'Bitmap…'), run: () => open('bitmap'), off: cur !== 'gray' || deep },
+    { label: mark(cur === 'gray', 'Grayscale'), run: to('gray') },
+    { label: mark(cur === 'duotone', 'Duotone…'), run: () => open('duotone'), off: (cur !== 'gray' && cur !== 'duotone') || deep },
+    { label: mark(cur === 'indexed', 'Indexed Color…'), run: () => open('indexed'), off: (cur !== 'rgb' && cur !== 'gray') || doc?.depth !== 8 },
+    { label: mark(cur === 'rgb', 'RGB Color'), run: to('rgb'), off: cur === 'bitmap' },
+    { label: mark(cur === 'cmyk', 'CMYK Color'), run: to('cmyk'), off: cur === 'bitmap' || deep },
+    { label: mark(cur === 'lab', 'Lab Color'), run: to('lab'), off: cur === 'bitmap' || deep },
+    { label: mark(cur === 'multichannel', 'Multichannel'), run: to('multichannel'), off: cur === 'bitmap' || deep },
+    ...([8, 16, 32] as const).map((b, i) => ({
+      label: mark(doc?.depth === b, `${b} Bits/Channel`), sep: i === 0, run: () => run('Converting…', () => client.call('convertDepth', b)),
+      off: (b === 32 && cur !== 'rgb' && cur !== 'gray') || (b !== 8 && (cur === 'bitmap' || cur === 'indexed')),
+    })),
+    { label: 'Color Table…', sep: true, run: () => open('table'), off: cur !== 'indexed' },
+  ];
+}
+
+// View > Proof Setup, Proof Colors, Gamut Warning and 32-bit Preview Options.
+function viewProofItems(doc: DocInfo | null, run: Run, open: (kind: ColorDialogKind) => void): Item[] {
+  const v = doc?.view ?? DEFAULT_VIEW, mark = (on: boolean, label: string) => `${on ? '✓ ' : ''}${label}`;
+  const set = (patch: Partial<ViewState>) => () => run(null, () => client.call('setView', patch));
+  return [
+    {
+      label: 'Proof Setup', keys: '›', run: () => {}, off: !doc, sub: [
+        { label: mark(v.setup.id === 'custom', 'Custom…'), run: () => open('proof') },
+        ...PROOF_PRESETS.map(([id, label, sep]) => ({ label: mark(v.setup.id === id, label), sep, run: set({ setup: presetSetup(id), proofColors: true }) })),
+      ],
+    },
+    { label: mark(v.proofColors, 'Proof Colors'), keys: 'Ctrl+Y', run: set({ proofColors: !v.proofColors }), off: !doc },
+    { label: mark(v.gamutWarning, 'Gamut Warning'), keys: 'Shift+Ctrl+Y', run: set({ gamutWarning: !v.gamutWarning }), off: !doc },
+    { label: '32-bit Preview Options…', sep: true, run: () => open('hdr'), off: doc?.depth !== 32 },
+  ];
 }
 
 export function buildMenus(c: MenuCtx) {
@@ -71,9 +113,9 @@ export function buildMenus(c: MenuCtx) {
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
+    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
-    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
+    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
@@ -170,6 +212,9 @@ export function buildMenus(c: MenuCtx) {
             .map(([c, label]) => ({ label, run: () => transformRemap(c, label), off: warping })),
         ],
       },
+      { label: 'Color Settings…', keys: 'Shift+Ctrl+K', sep: true, run: () => openColorDialog('settings') },
+      { label: 'Assign Profile…', run: () => openColorDialog('assign'), off: !has || (!!doc?.mode && doc.mode.kind !== 'cmyk') },
+      { label: 'Convert to Profile…', run: () => openColorDialog('convert'), off: !has || (!!doc?.mode && doc.mode.kind !== 'cmyk') },
       { label: 'Search…', keys: 'Ctrl+F', sep: true, run: () => { setMenu(null); openSearch(); } },
     ],
     Layer: [
@@ -257,7 +302,10 @@ export function buildMenus(c: MenuCtx) {
     Type: typeItems,
     Image: [
       {
-        label: 'Adjustments', keys: '›', run: () => {}, off: !has || !active, sub: ADJUSTMENT_KINDS.map<Item>(kind => kind === 'invert'
+        label: 'Mode', keys: '›', run: () => {}, off: !has, sub: modeItems(doc, run, openModeDialog),
+      },
+      {
+        label: 'Adjustments', sep: true, keys: '›', run: () => {}, off: !has || !active, sub: ADJUSTMENT_KINDS.map<Item>(kind => kind === 'invert'
           ? { label: 'Invert', keys: 'Ctrl+I', sep: true, run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, quickMask ? 'selection' : active!.target)) }
           : { label: `${MENU_LABEL[kind]}…`, keys: SHORTCUT[kind], run: () => openAdjust(kind), off: hostOff }).concat([
           { label: 'Shadows/Highlights…', sep: true, run: () => openAdjust('shadows_highlights'), off: pixelsOff },
@@ -285,6 +333,8 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Crop', run: () => run('Cropping…', () => client.call('cropToSelection')), off: !doc?.selection },
       { label: 'Trim…', run: () => { setMenu(null); trimDialog.current?.showModal(); }, off: !has },
       { label: 'Reveal All', run: () => run('Revealing…', () => client.call('revealAll')), off: !has },
+      { label: 'Apply Image…', sep: true, run: () => openImageCalc(false), off: pixelsOff },
+      { label: 'Calculations…', run: () => openImageCalc(true), off: !has },
     ],
     Select: [
       { label: 'All', keys: 'Ctrl+A', run: () => run(null, () => client.call('selectCommand', 'all')), off: !has },
@@ -308,6 +358,9 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Last Filter', keys: 'Alt+Ctrl+F', run: lastFilter, off: !has || !active },
       { label: 'Convert for Smart Filters', sep: true, run: () => node && run('Converting…', () => client.call('convertForSmartFilters', node.id)), off: !has || node?.kind !== 'pixel' },
       { label: 'Filter Gallery…', sep: true, run: () => { const s = filterSpecs.find(s => s.id === 'gallery.filter_gallery'); if (s) openFilter(s); }, off: !has || !active },
+      { label: 'Adaptive Wide Angle…', keys: 'Alt+Shift+Ctrl+A', run: () => { const s = filterSpecs.find(s => s.id === 'tool.adaptive_wide_angle'); if (s) openFilter(s); }, off: !has || !active },
+      { label: 'Camera Raw Filter…', keys: 'Shift+Ctrl+A', run: () => { const s = filterSpecs.find(s => s.id === 'tool.camera_raw'); if (s) openFilter(s); }, off: !has || !active },
+      { label: 'Lens Correction…', keys: 'Shift+Ctrl+R', run: () => { const s = filterSpecs.find(s => s.id === 'tool.lens_correction'); if (s) openFilter(s); }, off: !has || !active },
       { label: 'Liquify…', keys: 'Shift+Ctrl+X', run: openLiquify, off: !has || !active },
       { label: 'Vanishing Point…', keys: 'Alt+Ctrl+V', run: openVanishingPoint, off: !has || !active },
       ...GROUPS.map(([g, name]) => ({ name, specs: filterSpecs.filter(s => s.group === g) })).filter(g => g.specs.length).map((g, i) => ({
@@ -316,7 +369,8 @@ export function buildMenus(c: MenuCtx) {
       })),
     ],
     View: [
-      { label: 'Zoom in', keys: 'Ctrl++', run: () => { setMenu(null); viewer.current?.zoomBy(2); }, off: !has },
+      ...viewProofItems(doc, run, openColorDialog),
+      { label: 'Zoom in', keys: 'Ctrl++', sep: true, run: () => { setMenu(null); viewer.current?.zoomBy(2); }, off: !has },
       { label: 'Zoom out', keys: 'Ctrl+-', run: () => { setMenu(null); viewer.current?.zoomBy(0.5); }, off: !has },
       { label: 'Fit on screen', keys: 'Ctrl+0', run: () => { setMenu(null); viewer.current?.fit(); }, off: !has },
       {
@@ -354,6 +408,7 @@ export function buildMenus(c: MenuCtx) {
     ],
     Window: [
       { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); } },
+      { label: showChannels ? 'Hide Channels' : 'Show Channels', run: () => { setMenu(null); setShowChannels(v => !v); } },
       { label: showCloneSource ? 'Hide Clone Source' : 'Show Clone Source', run: () => { setMenu(null); setShowCloneSource(v => !v); } },
       { label: showNavigator ? 'Hide Navigator' : 'Show Navigator', run: () => { setMenu(null); setShowNavigator(v => !v); } },
       { label: showLayerComps ? 'Hide Layer Comps' : 'Show Layer Comps', run: () => { setMenu(null); setShowLayerComps(v => !v); } },

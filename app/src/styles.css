@@ -241,6 +241,15 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .layer-comp-row:hover { background: var(--panel-hi); }
 .layer-comp-row.selected { background: var(--panel-hi); font-weight: 600; }
 .layer-comp-count { color: var(--dim); }
+.channel-row { display: flex; align-items: center; gap: 6px; padding: 2px 6px; border-radius: 6px; cursor: default; }
+.channel-row:hover { background: var(--panel-hi); }
+.channel-row.selected { background: var(--panel-hi); font-weight: 600; }
+.channel-eye { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; background: none; border: 0; border-radius: 6px; color: var(--dim); cursor: pointer; }
+.channel-eye[aria-pressed=true] { color: var(--text); }
+.channel-thumb { display: block; width: 48px; height: 40px; border-radius: 4px; background: var(--checker); }
+.channel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.channel-rename { flex: 1; min-width: 0; }
+.channel-keys { color: var(--dim); font-size: 11px; }
 .path-row { align-items: center; gap: 6px; }
 .path-thumb { width: 20px; height: 16px; flex: none; border: 1px solid var(--dim); border-radius: 3px; }
 .path-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -591,6 +600,10 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .doc-tab-mode { opacity: 0.6; }
 .doc-tab-close { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; color: inherit; background: none; border: 0; border-radius: 4px; cursor: pointer; }
 .doc-tab-close:hover { background: var(--panel); color: var(--text); }
+.doc-tab { position: relative; }
+.doc-tab.drag { z-index: 1; background: var(--panel-hi); box-shadow: 0 2px 8px rgb(0 0 0 / 0.35); cursor: grabbing; }
+.tab-bar.dragging { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) { .doc-tab { transition: none !important; } }
 .navigator-canvas { display: block; width: 100%; max-width: 100%; margin: 6px 0; cursor: crosshair; touch-action: none; background: repeating-conic-gradient(#3a3a3a 0 25%, #2a2a2a 0 50%) 0 0 / 12px 12px; }
 .navigator-zoom { display: flex; align-items: center; gap: 4px; }
 .navigator-zoom input[type="range"] { flex: 1; min-width: 0; }
@@ -610,6 +623,8 @@ dialog.filter-dialog.wide { width: min(860px, calc(100vw - 32px)); }
 .gallery-layers li button { flex: 1; }
 .gallery-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 8px; }
 @media (max-width: 720px) { .gallery-stack { grid-template-columns: 1fr; } }
+.properties-panel .gallery-stack { grid-template-columns: minmax(0, 1fr); }
+.properties-panel .gallery-effects { max-height: 200px; }
 dialog.liquify-dialog { width: min(1180px, calc(100vw - 32px)); height: min(820px, calc(100vh - 32px)); padding: 12px 16px; }
 dialog.liquify-dialog form { display: flex; flex-direction: column; height: 100%; }
 dialog.liquify-dialog h2 { margin-bottom: 8px; }
@@ -652,3 +667,14 @@ dialog.vp-dialog h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); }
 .vp-planes { list-style: none; margin: 0; padding: 0; }
 .vp-planes [aria-current="true"] { font-weight: 600; }
 .vp-zoom { display: flex; gap: 4px; align-items: center; }
+
+/* Image > Mode > Color Table: 16 swatches a row, each a color input. */
+.color-table { display: grid; grid-template-columns: repeat(16, 18px); gap: 2px; margin: 8px 0; }
+.color-table-cell { width: 18px; height: 18px; border: 1px solid var(--border, #555); position: relative; cursor: pointer; }
+.color-table-cell input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.color-dialog form { min-width: 420px; max-width: 520px; }
+.color-dialog fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 8px 0; padding: 4px 10px; }
+.color-dialog legend { padding: 0 4px; color: var(--dim); }
+.color-dialog .row { display: flex; align-items: center; gap: 8px; }
+.color-dialog .row select { flex: 1; min-width: 0; }
+.color-dialog .hint { font-size: 12px; opacity: 0.8; margin: 8px 0 0; }

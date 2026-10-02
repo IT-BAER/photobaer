@@ -4,6 +4,7 @@ import type { Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import type { Viewer } from '../viewer.ts';
 import { PAINT_TOOLS, type Item } from './helpers.ts';
+import { COMPOSITE, type ChannelView } from './channels.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type Session = { active: () => boolean; commit: () => void; cancel: () => void };
@@ -22,12 +23,13 @@ export interface ShortcutCtx {
   penKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>;
   // An open type edit session's keys; checked first (Esc commits instead of resetting the view rotation).
   typeKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>;
+  setChannelView: SetState<ChannelView>;
 }
 
 export function useShortcuts(c: ShortcutCtx) {
   const {
     menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setDockTab, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
-    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef,
+    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef, setChannelView,
   } = c;
   useEffect(() => {
     const find = (pred: (label: string) => boolean) => Object.values(menusRef.current).flat().flatMap(i => [i, ...(i.sub ?? [])]).find(i => pred(i.label));
@@ -78,8 +80,12 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && e.altKey && !e.shiftKey && k === 's') triggerBy(l => l === 'Save a Copy…', e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 's') triggerBy(l => l === 'Save As…', e);
       else if (ctrl && !e.altKey && k === 's') triggerBy(l => l === 'Save', e);
-      else if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) trigger('Redo', e);
+      else if (ctrl && e.shiftKey && !e.altKey && k === 'k') triggerBy(l => l === 'Color Settings…', e);
+      else if (ctrl && !e.altKey && k === 'y') triggerBy(l => l.endsWith(e.shiftKey ? 'Gamut Warning' : 'Proof Colors'), e);
+      else if (ctrl && k === 'z' && e.shiftKey) trigger('Redo', e);
       else if (ctrl && k === 'z') trigger('Undo', e);
+      else if (ctrl && e.shiftKey && e.altKey && k === 'a') trigger('Adaptive Wide Angle', e);
+      else if (ctrl && e.shiftKey && !e.altKey && k === 'a') trigger('Camera Raw Filter', e);
       else if (ctrl && k === 'a') trigger('All', e);
       else if (ctrl && e.shiftKey && k === 'd') trigger('Reselect', e);
       else if (ctrl && k === 'd') trigger('Deselect', e);
@@ -111,6 +117,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (k === 'f12' && !ctrl && !e.shiftKey && !e.altKey && find(l => l === 'Revert')?.off === false) triggerBy(l => l === 'Revert', e);
       else if (k === 'f5' && !ctrl) { e.preventDefault(); setDockTab(t => (t === 'brushSettings' ? 'color' : 'brushSettings')); }
       else if (ctrl && k === 'h') triggerBy(l => l.endsWith('selection edges'), e);
+      else if (ctrl && e.shiftKey && !e.altKey && k === 'r') trigger('Lens Correction', e);
       else if (ctrl && k === 'r') triggerBy(l => l.endsWith('Rulers'), e);
       else if (ctrl && e.shiftKey && (k === ';' || k === ':')) triggerBy(l => l.replace('✓ ', '') === 'Snap', e);
       else if (ctrl && e.altKey && k === ';') triggerBy(l => l === 'Lock Guides' || l === 'Unlock Guides', e);
@@ -131,6 +138,10 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && k === '-') trigger('Zoom out', e);
       else if (ctrl && k === '0') trigger('Fit', e);
       else if (ctrl && k === '1') trigger('100%', e);
+      else if (ctrl && !e.altKey && k >= '2' && k <= '5') {
+        e.preventDefault();
+        setChannelView(k === '2' ? COMPOSITE : { rgb: [0, 1, 2].map(i => i === +k - 3) as ChannelView['rgb'], alpha: [] });
+      }
       else if (e.altKey && !ctrl && (k === 'backspace' || k === 'delete')) triggerBy(l => l === 'Fill with Foreground Color', e);
       else if (ctrl && !e.altKey && (k === 'backspace' || k === 'delete')) triggerBy(l => l === 'Fill with Background Color', e);
       else if (e.shiftKey && k === 'backspace') triggerBy(l => l === 'Fill…', e);

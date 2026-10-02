@@ -48,6 +48,9 @@ const HEAL_BRUSH: OptionSchema[] = [
 const healing = (id: string, label: string, icon: string, cursor: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'healing', key: 'j', cursor, icon, options });
 const stamp = (id: string, label: string, icon: string, options: OptionSchema[]): Tool => ({ id, label, slot: 'stamp', key: 's', cursor: 'none', icon, options });
 const SIZE_HARD = BRUSH_COMMON.slice(0, 2);
+const TOLERANCE: OptionSchema = { id: 'tolerance', kind: 'number', label: 'Tolerance', default: 32, min: 0, max: 255 };
+const SAMPLING: OptionSchema = { id: 'sampling', kind: 'select', label: 'Sampling', default: 'continuous', choices: ['continuous', 'once', 'backgroundSwatch'] };
+const LIMITS: OptionSchema = { id: 'limits', kind: 'select', label: 'Limits', default: 'contiguous', choices: ['discontiguous', 'contiguous', 'findEdges'] };
 const SMOOTHING = BRUSH_COMMON.find(o => o.id === 'smoothing')!;
 const STRENGTH: OptionSchema = { id: 'strength', kind: 'percent', label: 'Strength', default: 50, min: 0, max: 100 };
 const toning = (id: string, label: string, icon: string): Tool => ({
@@ -215,6 +218,29 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'autoErase', kind: 'boolean', label: 'Auto erase', default: false },
     ],
   },
+  colorReplacement: {
+    id: 'colorReplacement', label: 'Color Replacement', slot: 'brush', key: 'b', cursor: 'none', icon: 'Replace',
+    options: [
+      ...SIZE_HARD,
+      { id: 'mode', kind: 'select', label: 'Mode', default: 'color', choices: ['hue', 'saturation', 'color', 'luminosity'], sep: true },
+      SAMPLING, LIMITS, TOLERANCE,
+      { id: 'antiAlias', kind: 'boolean', label: 'Anti-alias', default: true },
+    ],
+  },
+  mixerBrush: {
+    id: 'mixerBrush', label: 'Mixer Brush', slot: 'brush', key: 'b', cursor: 'none', icon: 'Palette',
+    options: [
+      ...SIZE_HARD,
+      { id: 'wet', kind: 'percent', label: 'Wet', default: 50, min: 0, max: 100, sep: true },
+      { id: 'load', kind: 'percent', label: 'Load', default: 50, min: 0, max: 100 },
+      { id: 'mix', kind: 'percent', label: 'Mix', default: 50, min: 0, max: 100 },
+      { id: 'flow', kind: 'percent', label: 'Flow', default: 100, min: 0, max: 100 },
+      { id: 'mode', kind: 'select', label: 'Mode', default: 'normal', choices: BLEND_MODES },
+      { id: 'loadAfterStroke', kind: 'boolean', label: 'Load Brush After Each Stroke', default: true, sep: true },
+      { id: 'cleanAfterStroke', kind: 'boolean', label: 'Clean Brush After Each Stroke', default: false },
+      SAMPLE_ALL, SMOOTHING,
+    ],
+  },
   eraser: {
     id: 'eraser', label: 'Eraser', slot: 'eraser', key: 'e', cursor: 'none', icon: 'Eraser',
     options: [
@@ -226,6 +252,23 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'airbrush', kind: 'boolean', label: 'Airbrush', default: false, icon: 'SprayCan', sep: true },
       { id: 'smoothing', kind: 'percent', label: 'Smoothing', default: 10, min: 0, max: 100 },
       { id: 'eraseToHistory', kind: 'boolean', label: 'Erase to history', default: false },
+    ],
+  },
+  backgroundEraser: {
+    id: 'backgroundEraser', label: 'Background Eraser', slot: 'eraser', key: 'e', cursor: 'none', icon: 'BrushCleaning',
+    options: [
+      ...SIZE_HARD, { ...LIMITS, sep: true }, TOLERANCE, SAMPLING,
+      { id: 'protectForeground', kind: 'boolean', label: 'Protect Foreground Color', default: false },
+    ],
+  },
+  magicEraser: {
+    id: 'magicEraser', label: 'Magic Eraser', slot: 'eraser', key: 'e', cursor: 'crosshair', icon: 'WandSparkles',
+    options: [
+      TOLERANCE,
+      { id: 'antiAlias', kind: 'boolean', label: 'Anti-alias', default: true },
+      { id: 'contiguous', kind: 'boolean', label: 'Contiguous', default: true },
+      SAMPLE_ALL,
+      { id: 'opacity', kind: 'percent', label: 'Opacity', default: 100, min: 0, max: 100 },
     ],
   },
   spotHealing: healing('spotHealing', 'Spot Healing Brush', 'Bandage', 'none', [
@@ -381,10 +424,10 @@ export const SLOTS: Slot[] = [
   { id: 'crop', key: 'c', tools: ['crop', 'perspectiveCrop'] },
   { id: 'eyedropper', key: 'i', tools: ['eyedropper'] },
   { id: 'healing', key: 'j', tools: ['spotHealing', 'healingBrush', 'patch', 'contentAwareMove', 'redEye'] },
-  { id: 'brush', key: 'b', tools: ['brush', 'pencil'] },
+  { id: 'brush', key: 'b', tools: ['brush', 'pencil', 'colorReplacement', 'mixerBrush'] },
   { id: 'stamp', key: 's', tools: ['cloneStamp', 'patternStamp'] },
   { id: 'historyBrush', key: 'y', tools: ['historyBrush', 'artHistoryBrush'] },
-  { id: 'eraser', key: 'e', tools: ['eraser'] },
+  { id: 'eraser', key: 'e', tools: ['eraser', 'backgroundEraser', 'magicEraser'] },
   { id: 'gradient', key: 'g', tools: ['gradient', 'bucket'] },
   { id: 'focus', key: '', tools: ['blur', 'sharpen', 'smudge'] },
   { id: 'toning', key: 'o', tools: ['dodge', 'burn', 'sponge'] },

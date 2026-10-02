@@ -58,6 +58,7 @@ export class SelectionOverlay {
   #preview: Preview = null;
   #hidden = false;
   #mask: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number } | null = null;
+  #channel: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number } | null = null;
   #cursor: CursorState | null = null;
   #clone: CloneOverlay | null = null;
   #guides: [number, number, number, number][] = [];
@@ -153,17 +154,12 @@ export class SelectionOverlay {
   // Quick mask: `coverage` is the selectionMask byte buffer (255 = selected); unselected pixels
   // are drawn as a 50% red tint. Pass null to go back to marching ants.
   setMaskOverlay(coverage: Uint8Array | null, w: number, h: number, scale: number) {
-    if (!coverage) { this.#mask = null; return; }
-    const canvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : document.createElement('canvas');
-    if (!(canvas instanceof OffscreenCanvas)) { canvas.width = w; canvas.height = h; }
-    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-    const img = ctx.createImageData(w, h);
-    for (let i = 0; i < w * h; i++) {
-      img.data[i * 4] = 255;
-      img.data[i * 4 + 3] = Math.round((255 - coverage[i]) * 0.5);
-    }
-    ctx.putImageData(img, 0, 0);
-    this.#mask = { canvas, w, h, scale };
+    this.#mask = coverage && maskImage(coverage, w, h, scale, 'tint');
+  }
+
+  // Channels panel: a saved channel drawn as opaque gray, or as the quick mask tint; null hides it.
+  setChannelOverlay(values: Uint8Array | null, w: number, h: number, scale: number, mode: 'gray' | 'tint') {
+    this.#channel = values && maskImage(values, w, h, scale, mode);
   }
 
   #syncTimer() {
@@ -197,6 +193,7 @@ export class SelectionOverlay {
     }
     if (this.#crop) this.#drawCrop(this.#crop, view, cssW, cssH, dpr);
     if (this.#corners) this.#drawCorners(this.#corners, view, cssW, cssH, dpr);
+    if (this.#channel) this.#drawMask(this.#channel, view, cssW, cssH, dpr);
     if (this.#hidden) return;
     if (this.#mask) this.#drawMask(this.#mask, view, cssW, cssH, dpr);
     else if (this.#ants && this.#antsMatrix) this.#strokeSegments(this.#mapSegments(this.#ants, this.#antsScale, this.#antsMatrix), view, cssW, cssH, dpr, 1);
@@ -645,4 +642,22 @@ export class SelectionOverlay {
     ctx.strokeStyle = '#000';
     ctx.stroke();
   }
+}
+
+function maskImage(values: Uint8Array, w: number, h: number, scale: number, mode: 'gray' | 'tint') {
+  const canvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : document.createElement('canvas');
+  if (!(canvas instanceof OffscreenCanvas)) { canvas.width = w; canvas.height = h; }
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+  const img = ctx.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) {
+    if (mode === 'gray') {
+      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = values[i];
+      img.data[i * 4 + 3] = 255;
+    } else {
+      img.data[i * 4] = 255;
+      img.data[i * 4 + 3] = Math.round((255 - values[i]) * 0.5);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return { canvas, w, h, scale };
 }

@@ -5,7 +5,8 @@ import { client } from '../client.ts';
 import type { Active } from '../LayersPanel.tsx';
 import { cloneOverlaySource, cloneSources, redEyeRect, tintOverlay } from '../shell/retouch.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
-import type { BoxRect, SelectionOverlay } from '../shell/SelectionOverlay.ts';
+import type { BoxRect, SelectionOverlay, TransformImage } from '../shell/SelectionOverlay.ts';
+import { sourceImage } from './transform.ts';
 import { hitCrop, resizeCrop, type CropHit } from '../crop/geometry.ts';
 import type { Viewer } from '../viewer.ts';
 import type { DocInfo } from '../worker/types.ts';
@@ -29,12 +30,22 @@ export function useRetouchTools(c: RetouchCtx) {
     const v = viewer.current;
     if (!v || !(tool === 'patch' || tool === 'contentAwareMove' || tool === 'redEye')) return;
     let start: [number, number] | null = null;
-    let drop: { id: number; base: BoxRect; box: BoxRect; hit: CropHit | null; from: [number, number]; startBox: BoxRect } | null = null;
+    let drop: { id: number; base: BoxRect; box: BoxRect; hit: CropHit | null; from: [number, number]; startBox: BoxRect; img?: TransformImage | null } | null = null;
     const preview = (r: Rect | null) => {
       overlayRef.current?.setPreview(r && { kind: 'rect', x: r[0], y: r[1], w: r[2], h: r[3] });
       redrawOverlay();
     };
-    const showDrop = () => { overlayRef.current?.setBox(drop?.box ?? null); redrawOverlay(); };
+    // The moved pixels drawn scaled from the selection bounds into the dropped box.
+    const showDrop = () => {
+      const o = overlayRef.current, d = drop;
+      o?.setBox(d?.box ?? null);
+      if (d?.img) {
+        const sx = d.box.w / d.base.w, sy = d.box.h / d.base.h;
+        const doc = docRef.current;
+        o?.setImage({ ...d.img, ...(doc ? { clip: [0, 0, doc.width, doc.height] } : {}), m: [sx, 0, d.box.x - d.base.x * sx, 0, sy, d.box.y - d.base.y * sy, 0, 0, 1] });
+      } else o?.setImage(null);
+      redrawOverlay();
+    };
     const endDrop = (apply: boolean) => {
       const d = drop;
       drop = null;
@@ -95,11 +106,22 @@ export function useRetouchTools(c: RetouchCtx) {
       const base = { structure: Number(o.structure), color: Number(o.color) };
       if (tool === 'patch') {
         const mode = o.mode === 'destination' ? 'destination' : 'source';
-        run('Patching…', () => client.call('patch', id, dx, dy, { mode, contentAware: o.patchMode === 'contentAware', transparent: !!o.transparent, ...base }));
+        const before = JSON.stringify(docRef.current?.history);
+        run('Patching…', async () => {
+          const d = await client.call('patch', id, dx, dy, { mode, contentAware: o.patchMode === 'contentAware', transparent: !!o.transparent, ...base });
+          // A patch that changes no pixel adds no history step; say why instead of doing nothing.
+          if (d && JSON.stringify(d.history) === before) {
+            setError(o.transparent && o.patchMode !== 'contentAware'
+              ? 'Patch changed nothing: with Transparent on, the target keeps its own detail where it is stronger than the source. Turn Transparent off to replace it.'
+              : 'Patch changed nothing.');
+          }
+          return d;
+        });
       } else if (o.transformOnDrop && b) {
         const base = { x: b[0], y: b[1], w: b[2], h: b[3] }, box = { ...base, x: b[0] + dx, y: b[1] + dy };
-        drop = { id, base, box, hit: null, from: [0, 0], startBox: box };
+        const d = drop = { id, base, box, hit: null, from: [0, 0] as [number, number], startBox: box, img: null as TransformImage | null };
         showDrop();
+        client.call('selectedPixels', id).then(r => { if (drop === d) { d.img = sourceImage(r); showDrop(); } }, () => {});
       } else {
         run('Moving…', () => client.call('contentAwareMove', id, dx, dy, { extend: o.mode === 'extend', ...base }));
       }

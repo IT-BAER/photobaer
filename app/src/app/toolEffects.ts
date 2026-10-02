@@ -544,7 +544,7 @@ export function useBucket(c: BucketCtx) {
   // Runs after the selection effect above so it is not left as a no-op by that effect's early return.
   useEffect(() => {
     const v = viewer.current;
-    if (!v || tool !== 'bucket') return;
+    if (!v || (tool !== 'bucket' && tool !== 'magicEraser')) return;
     v.onPointer = e => {
       if (e.type !== 'down' || !active) return;
       if (e.altKey) {
@@ -552,8 +552,11 @@ export function useBucket(c: BucketCtx) {
         return;
       }
       const o = toolOptionsRef.current;
+      // The Magic Eraser is the bucket fill in Clear mode.
+      const erase = tool === 'magicEraser';
       const rgb = o.source === 'background' ? bg : fg;
-      client.call('bucket', active.id, quickMask ? 'selection' : 'pixels', e.x, e.y, [...rgb, 255], o.mode as string, Number(o.opacity) / 100, Number(o.tolerance), !!o.antiAlias, !!o.contiguous, !!o.allLayers).then(show);
+      client.call('bucket', active.id, quickMask ? 'selection' : 'pixels', e.x, e.y, [...rgb, 255], erase ? 'clear' : o.mode as string, Number(o.opacity) / 100,
+        Number(o.tolerance), !!o.antiAlias, !!o.contiguous, !!o.allLayers, erase ? 'Magic Eraser' : 'Paint Bucket').then(show);
     };
     return () => { v.onPointer = () => {}; };
   }, [tool, active, fg, bg, quickMask]);

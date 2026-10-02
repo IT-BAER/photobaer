@@ -1,4 +1,4 @@
-import init, { Engine, Fonts, filter_schema, fit_path, live_path, puppet_geometry, vanishing_connected, vanishing_render, type Liquify } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts, filter_schema, fit_path, icc_builtins, icc_describe, live_path, puppet_geometry, vanishing_connected, vanishing_render, type Liquify } from './engine-pkg/photobaer_engine.js';
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
@@ -16,8 +16,12 @@ import { layerName } from './shell/typesession.ts';
 import { locate, nodeById } from './layers.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
-import type { AlignMode, Adjustment, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
+import type { AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { boxScale, thumbSize } from './app/navigator.ts';
+import { inkGray } from './app/channels.ts';
+import { CMYK_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
+import { DEFAULT_VIEW, engineView, sanitizeHdr, type ViewState } from './app/proof.ts';
+import { psdWithIcc, readIcc } from './app/iccFiles.ts';
 import { TILE } from './view.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
@@ -119,9 +123,37 @@ function isDirty(i: number) {
   return (d.parents[0]?.history ?? d.history).top !== d.saved || (d.parents.length > 0 && d.version !== d.parents.at(-1)!.saved);
 }
 
-const tabDepth = (i: number) => (i === active ? parents[0]?.eng ?? eng! : docs[i].parents[0]?.eng ?? docs[i].eng).depth();
+const tabEngine = (i: number) => (i === active ? parents[0]?.eng ?? eng! : docs[i].parents[0]?.eng ?? docs[i].eng);
+const tabDepth = (i: number) => tabEngine(i).depth();
+const MODE_TAB: Record<ColorMode['kind'], string> = { bitmap: 'Bitmap', duotone: 'Duotone', indexed: 'Index', cmyk: 'CMYK', lab: 'Lab', multichannel: 'Multichannel' };
+const tabMode = (i: number) => {
+  const v = JSON.parse(tabEngine(i).vector_json()) as { gray?: boolean; mode?: ColorMode };
+  return v.mode ? MODE_TAB[v.mode.kind] : v.gray ? 'Gray' : 'RGB';
+};
 
 const tabName = (i: number) => i === active ? parents[0]?.name ?? name : docs[i].parents[0]?.name ?? docs[i].name;
+
+// One 8-bit mask at `level` from per-tile reads; tiles that read null are the default
+// (255 if def > 0 else 0). A null default means there is no mask (data null).
+// Apply Image / Calculations source: `layer` null is the merged image; see the engine's ImageSource.
+export type ImageSource = { layer: number | null; channel: string; invert: boolean };
+
+function maskAt(e: Engine, level: number, def: number | null, tile: (tx: number, ty: number) => unknown) {
+  const scale = 1 << level;
+  const w = Math.ceil(e.width() / scale), h = Math.ceil(e.height() / scale);
+  if (def === null) return { docId, version, w, h, data: null };
+  const data = new Uint8Array(w * h);
+  if (def > 0) data.fill(255);
+  for (let ty = 0; ty < Math.ceil(h / 256); ty++) {
+    for (let tx = 0; tx < Math.ceil(w / 256); tx++) {
+      const t = tile(tx, ty) as Uint8Array | null | undefined;
+      if (!t) continue;
+      const x0 = tx * 256, y0 = ty * 256, tw = Math.min(256, w - x0), th = Math.min(256, h - y0);
+      for (let y = 0; y < th; y++) data.set(t.subarray(y * 256, y * 256 + tw), (y0 + y) * w + x0);
+    }
+  }
+  return { docId, version, w, h, data: data.buffer as ArrayBuffer };
+}
 
 const emit = (state: AutosaveState, detail?: string) => {
   lastState = state;
@@ -139,11 +171,11 @@ function info(): DocInfo | null {
     global_light: GlobalLight;
   };
   const vec = JSON.parse(eng.vector_json()) as {
-    resolution: number; guides: Guide[]; grid: { spacing_x: number; spacing_y: number };
+    resolution: number; guides: Guide[]; grid: { spacing_x: number; spacing_y: number }; gray?: boolean; mode?: ColorMode;
     guides_locked: boolean; artboards_locked: boolean; paths: SavedPathInfo[];
   };
   return {
-    resolution: vec.resolution, guides: vec.guides, paths: vec.paths, grid: vec.grid,
+    resolution: vec.resolution, guides: vec.guides, paths: vec.paths, grid: vec.grid, gray: vec.gray ?? false, mode: vec.mode ?? null, profile: JSON.parse(eng.profile_json()), view: viewOf(eng),
     guidesLocked: vec.guides_locked, artboardsLocked: vec.artboards_locked,
     docId, version, name,
     width: eng.width(), height: eng.height(), depth: eng.depth(), maxLevel: eng.max_level(),
@@ -160,8 +192,44 @@ function info(): DocInfo | null {
     parents: parents.map(p => p.name),
     key: docs[active].key,
     dirty: isDirty(active),
-    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active, dirty: isDirty(i), mode: 'RGB', depth: tabDepth(i) })),
+    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active, dirty: isDirty(i), mode: tabMode(i), depth: tabDepth(i) })),
   };
+}
+
+// Edit > Color Settings as the app sent them; null (the default) leaves documents untagged.
+let colorSettings: ColorSettings | null = null;
+
+// The RGB profile embedded in file bytes `b`; a gray profile is dropped, another space warns.
+async function embeddedProfile(b: Uint8Array): Promise<{ name: string | null; icc: Uint8Array | null; warning?: string }> {
+  const icc = await readIcc(b);
+  if (!icc) return { name: null, icc: null };
+  try {
+    const d = JSON.parse(icc_describe(icc)) as { name: string; space: string };
+    if (d.space === 'rgb') return { name: d.name, icc };
+    return { name: null, icc: null, warning: d.space === 'gray' ? undefined : `The embedded ${d.space} profile "${d.name}" was ignored.` };
+  } catch {
+    return { name: null, icc: null, warning: 'The embedded color profile could not be read and was ignored.' };
+  }
+}
+
+// Tags, converts or drops the embedded profile `p` of a just-opened engine (no history step).
+function applyOpenProfile(e: Engine, p: { name: string | null; icc: Uint8Array | null }, action: OpenAction, s: ColorSettings) {
+  const builtin = (n: string) => (JSON.parse(icc_builtins()) as IccProfile[]).some(b => b.name === n);
+  if ((action === 'keep' || action === 'convert') && p.name && p.icc) e.assign_profile(p.name, builtin(p.name) ? new Uint8Array() : p.icc);
+  if (action === 'convert') e.convert_to_profile(s.rgb, new Uint8Array(), JSON.stringify({ intent: s.intent, blackPointCompensation: s.bpc, dither: s.dither }));
+  if (action === 'assign') e.assign_profile(s.rgb, new Uint8Array());
+}
+
+// Profiles loaded with Load... this session, by name.
+const loadedProfiles = new Map<string, { info: IccProfile; bytes: Uint8Array }>();
+// Each engine's view state (View menu proofing); engines without an entry show DEFAULT_VIEW.
+const views = new WeakMap<Engine, ViewState>();
+const viewOf = (e: Engine) => views.get(e) ?? DEFAULT_VIEW;
+
+function applyView(e: Engine, v: ViewState) {
+  const json = engineView(v, colorSettings?.cmyk ?? CMYK_SPACES[0]);
+  const loaded = v.setup.id === 'custom' && v.setup.profile ? loadedProfiles.get(v.setup.profile)?.bytes : undefined;
+  e.set_view(JSON.stringify(json), loaded ?? new Uint8Array());
 }
 
 function nextCompName(): string {
@@ -243,6 +311,21 @@ function changed() {
 
 // One undo step, or with `preview` a rerun inside the open preview session (no autosave until previewEnd).
 // One undo step when `fn` changed a pixel, none when it did not.
+// Layer > Flatten Image: root nodes not drawn are deleted, the rest merges onto a white Background.
+function flattenImage(e: Engine, tree: LayerNode[]) {
+  const visible = drawnRoots(tree);
+  const bg = e.add_special(0, JSON.stringify({ name: 'Background', content: { type: 'solid', color: [255, 255, 255] } }));
+  e.move_node(bg, 0, 0);
+  for (const n of tree) if (!visible.includes(n.id)) e.delete_node(n.id);
+  e.merge_nodes(Uint32Array.of(bg, ...visible), false, true);
+}
+
+// Drawn root nodes: a clipped node is skipped with its hidden base, as the compositor does.
+function drawnRoots(tree: LayerNode[]) {
+  let baseShown = false;
+  return tree.filter((n, i) => { if (i === 0 || !n.clipping) baseShown = n.visible; return n.visible && baseShown; }).map(n => n.id);
+}
+
 function stepIfChanged(label: string, fn: () => boolean) {
   history.begin(label);
   let ok = false;
@@ -486,11 +569,48 @@ const api = {
   newDoc(width: number, height: number, depth: number, bg: [number, number, number, number] | null) {
     const e = new Engine(width, height, depth);
     if (bg) e.fill(BACKGROUND, 'pixels', ...bg);
+    if (colorSettings && colorSettings.rgbPolicy !== 'off') e.assign_profile(colorSettings.rgb, new Uint8Array());
     return adopt(e, 'Untitled');
   },
 
-  async openFile(file: File): Promise<OpenResult> {
+  setColorSettings(s: ColorSettings | null) {
+    colorSettings = s;
+    // Proofs to the working CMYK follow it.
+    for (const e of new Set([...docs.map(d => d.eng), ...(eng ? [eng] : [])])) if (views.has(e)) applyView(e, views.get(e)!);
+    if (eng) version++;
+  },
+
+  // View > Proof Setup, Proof Colors, Gamut Warning and 32-bit Preview Options of the active
+  // document; display only, so no history step and no autosave.
+  setView(patch: Partial<ViewState>) {
+    const e = need();
+    const v = { ...viewOf(e), ...patch };
+    if (patch.hdr) v.hdr = sanitizeHdr(patch.hdr);
+    applyView(e, v);
+    views.set(e, v);
+    version++;
+    return info()!;
+  },
+
+  // The embedded RGB profile of `file` and what opening it does under the color settings; 'ask'
+  // means the app shows Profile Mismatch or Missing Profile and passes the choice to openFile.
+  async openProfileQuestion(file: File): Promise<{ embedded: string | null; action: OpenAction | 'ask' }> {
+    const { name: embedded } = await embeddedProfile(new Uint8Array(await file.arrayBuffer()));
+    return { embedded, action: colorSettings ? openAction(colorSettings, embedded) : 'leave' };
+  },
+
+  // `action` (from the open dialogs) or, without one, the policy decides about the embedded profile.
+  async openFile(file: File, action?: OpenAction): Promise<OpenResult> {
     const { e, name: n, warnings } = await engineOf(file);
+    if (colorSettings) {
+      const p = await embeddedProfile(new Uint8Array(await file.arrayBuffer()));
+      if (p.warning) warnings.push(p.warning);
+      try {
+        applyOpenProfile(e, p, action ?? openAction(colorSettings, p.name, false) as OpenAction, colorSettings);
+      } catch (err) {
+        warnings.push(`The color profile was not applied: ${(err as Error).message}`);
+      }
+    }
     return { ...adopt(e, n), warnings };
   },
 
@@ -500,6 +620,10 @@ const api = {
     if (docs[active]?.key !== key) throw new Error('The document to revert is no longer active.');
     if (parents.length) throw new Error('Close Edit Contents before reverting.');
     const { e, warnings } = await engineOf(file);
+    if (colorSettings && colorSettings.rgbPolicy !== 'off') {
+      const p = await embeddedProfile(new Uint8Array(await file.arrayBuffer()));
+      try { applyOpenProfile(e, p, 'keep', colorSettings); } catch { /* reverted untagged */ }
+    }
     if (docs[active]?.key !== key) { e.free(); throw new Error('The document to revert is no longer active.'); }
     const old = eng!, h = history;
     docs[active] = { key: uuid(), eng: e, history: historyOf(e), name, version: version + 1, parents: [], saved: null };
@@ -640,6 +764,12 @@ const api = {
     return { ...(cut ? changed() : info())!, clip: { w: c.w, h: c.h, data: c.rgba.slice().buffer } };
   },
 
+  // The selected pixels of `id` as an overlay image (Content-Aware Move Transform On Drop); no history step.
+  selectedPixels(id: number) {
+    const c = copyPixels(need(), id);
+    return { image: { x: c.x, y: c.y, w: c.w, h: c.h, f: 1 }, data: c.rgba.slice().buffer };
+  },
+
   // Layer > New > Layer via Copy: the selected pixels as a new layer above `id`, in place; the clipboard is untouched.
   layerViaCopy(id: number) {
     const e = need();
@@ -731,9 +861,9 @@ const api = {
 
   // target is a parameter so a later batch can point bucket at the quick-mask selection channel;
   // this batch only ever passes 'pixels'.
-  bucket(id: number, target: 'pixels' | 'selection', x: number, y: number, rgba: [number, number, number, number], mode: string, opacity: number, tolerance: number, antialias: boolean, contiguous: boolean, allLayers: boolean) {
+  bucket(id: number, target: 'pixels' | 'selection', x: number, y: number, rgba: [number, number, number, number], mode: string, opacity: number, tolerance: number, antialias: boolean, contiguous: boolean, allLayers: boolean, label = 'Paint Bucket') {
     const e = need();
-    history.run('Paint Bucket', () => e.bucket(id, target, Math.floor(x), Math.floor(y), ...rgba, mode, opacity, tolerance, antialias, contiguous, allLayers));
+    history.run(label, () => e.bucket(id, target, Math.floor(x), Math.floor(y), ...rgba, mode, opacity, tolerance, antialias, contiguous, allLayers));
     return changed();
   },
 
@@ -793,22 +923,142 @@ const api = {
   // with the selection default (255 if default > 0 else 0).
   selectionMask(level: number) {
     const e = need();
-    const scale = 1 << level;
-    const w = Math.ceil(e.width() / scale), h = Math.ceil(e.height() / scale);
     const ch = JSON.parse(e.channels_json()) as { selection: { default: number } | null };
-    if (!ch.selection) return { docId, version, w, h, data: null };
-    const fill = ch.selection.default > 0 ? 255 : 0;
-    const data = new Uint8Array(w * h);
-    if (fill) data.fill(fill);
-    for (let ty = 0; ty < Math.ceil(h / 256); ty++) {
-      for (let tx = 0; tx < Math.ceil(w / 256); tx++) {
-        const tile = e.selection_tile(level, tx, ty) as Uint8Array | undefined;
-        if (!tile) continue;
-        const x0 = tx * 256, y0 = ty * 256, tw = Math.min(256, w - x0), th = Math.min(256, h - y0);
-        for (let y = 0; y < th; y++) data.set(tile.subarray(y * 256, y * 256 + tw), (y0 + y) * w + x0);
+    return maskAt(e, level, ch.selection?.default ?? null, (tx, ty) => e.selection_tile(level, tx, ty));
+  },
+
+  // A saved channel assembled like selectionMask (data is never null).
+  channelMask(id: number, level: number) {
+    const e = need();
+    const ch = (JSON.parse(e.channels_json()) as { channels: { id: number; default: number }[] }).channels.find(c => c.id === id);
+    if (!ch) throw new Error(`unknown channel ${id}`);
+    return maskAt(e, level, ch.default, (tx, ty) => e.channel_tile(id, level, tx, ty));
+  },
+
+  // One CMYK or Lab channel of the composite at pyramid `level`, as the Channels panel shows it alone;
+  // transparent areas show white.
+  colorChannelMask(mode: 'cmyk' | 'lab', ch: number, level: number) {
+    const e = need();
+    return maskAt(e, level, 255, (tx, ty) => {
+      const t = e.display_tile(level, tx, ty) as Uint8Array | undefined;
+      if (!t) return null;
+      const out = new Uint8Array(t.length / 4);
+      for (let i = 0; i < out.length; i++) {
+        const a = t[i * 4 + 3];
+        const s = (v: number) => (a ? Math.min(255, Math.round((v * 255) / a)) : 255);
+        const g = inkGray(mode, ch, s(t[i * 4]), s(t[i * 4 + 1]), s(t[i * 4 + 2]));
+        out[i] = Math.round(g * a / 255 + 255 - a);
       }
-    }
-    return { docId, version, w, h, data: data.buffer as ArrayBuffer };
+      return out;
+    });
+  },
+
+  // Image > Apply Image on pixel layer `id`; `preview` reruns inside the dialog's session.
+  applyImage(id: number, src: ImageSource, mode: string, opacity: number, preserve: boolean, preview = false) {
+    const e = need();
+    return edit('Apply Image', preview, () => e.apply_image(id, JSON.stringify(src), mode, opacity, preserve));
+  },
+
+  // Image > Calculations into a new channel, or into the selection (the channel is then dropped).
+  calculations(src1: ImageSource, src2: ImageSource, mode: string, opacity: number, result: 'channel' | 'selection') {
+    const e = need();
+    const names = new Set((JSON.parse(e.channels_json()) as { channels: { name: string }[] }).channels.map(c => c.name));
+    let n = 1;
+    while (names.has(`Alpha ${n}`)) n++;
+    history.run('Calculations', () => {
+      const ch = e.calculations(JSON.stringify(src1), JSON.stringify(src2), mode, opacity, `Alpha ${n}`);
+      if (result === 'selection') { e.load_selection(ch, false, 'new'); e.delete_channel(ch); }
+    });
+    if (result === 'selection') selGen++;
+    return changed();
+  },
+
+  // Image > Mode: bit depth, or a color mode with its dialog options; no step when nothing changes.
+  // Bitmap and Indexed Color flatten a document of several layers first, in the same step.
+  convertDepth(depth: 8 | 16 | 32) {
+    const e = need();
+    if (e.depth() === depth) return info();
+    history.run(`${depth} Bits/Channel`, () => e.convert_depth(depth));
+    return changed();
+  },
+
+  setColorMode(spec: ModeSpec) {
+    const e = need();
+    const label = { rgb: 'RGB Color', gray: 'Grayscale', bitmap: 'Bitmap', duotone: 'Duotone', indexed: 'Indexed Color', cmyk: 'CMYK Color', lab: 'Lab Color', multichannel: 'Multichannel' }[spec.mode];
+    const tree = JSON.parse(e.layers_json()) as LayerNode[];
+    const flatten = (spec.mode === 'bitmap' || spec.mode === 'indexed') && (tree.length > 1 || (tree[0] && tree[0].kind !== 'pixel'));
+    return stepIfChanged(label, () => {
+      if (flatten) flattenImage(e, tree);
+      return e.set_color_mode(JSON.stringify(spec)) || flatten;
+    });
+  },
+
+  setColorTable(table: [number, number, number][]) {
+    const e = need();
+    return stepIfChanged('Color Table', () => e.set_color_table(JSON.stringify(table)));
+  },
+
+  // Edit > Assign Profile (null: Don't Color Manage) and Convert to Profile; built-in names or a
+  // profile loaded this session. Convert flattens first when asked or when non-pixel layers exist.
+  iccProfiles(): IccProfile[] {
+    const builtin = (JSON.parse(icc_builtins()) as { name: string; space: string }[]).filter((p): p is IccProfile => p.space !== 'lab');
+    return [...builtin, ...[...loadedProfiles.values()].map(p => p.info)];
+  },
+
+  loadProfile(bytes: Uint8Array): IccProfile {
+    const d = JSON.parse(icc_describe(bytes)) as { name: string; space: string; class: string };
+    if (d.space !== 'rgb' && d.space !== 'gray' && d.space !== 'cmyk') throw new Error(`"${d.name}" is a ${d.space} profile; only RGB, CMYK and Gray profiles can be used.`);
+    const info = { name: d.name, space: d.space, loaded: true } as IccProfile;
+    loadedProfiles.set(d.name, { info, bytes });
+    return info;
+  },
+
+  assignProfile(name: string | null) {
+    const e = need();
+    return stepIfChanged('Assign Profile', () => e.assign_profile(name ?? '', loadedProfiles.get(name ?? '')?.bytes ?? new Uint8Array()));
+  },
+
+  convertToProfile(name: string, opts: { intent: string; blackPointCompensation: boolean; dither: boolean; flatten: boolean }) {
+    const e = need();
+    const tree = JSON.parse(e.layers_json()) as LayerNode[];
+    const nonPixel = (ns: LayerNode[]): boolean => ns.some(n => n.kind === 'group' ? nonPixel(n.children ?? []) : n.kind !== 'pixel');
+    const flatten = (opts.flatten && (tree.length > 1 || tree[0]?.kind !== 'pixel')) || nonPixel(tree);
+    const o = { intent: opts.intent, blackPointCompensation: opts.blackPointCompensation, dither: opts.dither };
+    return stepIfChanged('Convert to Profile', () => {
+      if (flatten) flattenImage(e, tree);
+      return e.convert_to_profile(name, loadedProfiles.get(name)?.bytes ?? new Uint8Array(), JSON.stringify(o)) || flatten;
+    });
+  },
+
+  newChannel() {
+    const e = need();
+    const names = new Set((JSON.parse(e.channels_json()) as { channels: { name: string }[] }).channels.map(c => c.name));
+    let n = 1;
+    while (names.has(`Alpha ${n}`)) n++;
+    let created = 0;
+    history.run('New Channel', () => { created = e.new_channel(`Alpha ${n}`); });
+    return { ...changed(), created };
+  },
+
+  renameChannel(id: number, name: string) {
+    const e = need();
+    history.run('Rename Channel', () => e.rename_channel(id, name));
+    return changed();
+  },
+
+  duplicateChannel(id: number) {
+    const e = need();
+    const src = (JSON.parse(e.channels_json()) as { channels: { id: number; name: string }[] }).channels.find(c => c.id === id);
+    if (!src) throw new Error(`unknown channel ${id}`);
+    let created = 0;
+    history.run('Duplicate Channel', () => { created = e.duplicate_channel(id, `${src.name} copy`); });
+    return { ...changed(), created };
+  },
+
+  deleteChannel(id: number) {
+    const e = need();
+    history.run('Delete Channel', () => e.delete_channel(id));
+    return changed();
   },
 
   addLayer(above: number, name?: string) {
@@ -902,9 +1152,7 @@ const api = {
     const e = need();
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     const label = { down: 'Merge Down', layers: 'Merge Layers', visible: 'Merge Visible', stamp: 'Stamp Visible', flatten: 'Flatten Image' }[mode];
-    // Drawn root nodes: a clipped node is skipped with its hidden base, as the compositor does.
-    let baseShown = false;
-    const visible = tree.filter((n, i) => { if (i === 0 || !n.clipping) baseShown = n.visible; return n.visible && baseShown; }).map(n => n.id);
+    const visible = drawnRoots(tree);
     if (mode === 'down') {
       const at = locate(tree, ids[0]);
       if (at?.list[at.index].kind === 'group') ids = [ids[0]];
@@ -921,12 +1169,7 @@ const api = {
         const id = e.merge_nodes(Uint32Array.from(visible), true, false);
         e.set_props(id, JSON.stringify({ name }));
         e.move_node(id, 0, tree.length);
-      } else {
-        const bg = e.add_special(0, JSON.stringify({ name: 'Background', content: { type: 'solid', color: [255, 255, 255] } }));
-        e.move_node(bg, 0, 0);
-        for (const n of tree) if (!visible.includes(n.id)) e.delete_node(n.id);
-        e.merge_nodes(Uint32Array.of(bg, ...visible), false, true);
-      }
+      } else flattenImage(e, tree);
     });
     return changed();
   },
@@ -2615,8 +2858,9 @@ const api = {
   savePsd(): { blob: Blob; warnings: string[] } {
     const e = need();
     const { bytes, warnings } = exportPsd(e);
+    const icc = e.profile_icc();
     markSaved();
-    return { blob: new Blob([bytes], { type: 'image/vnd.adobe.photoshop' }), warnings };
+    return { blob: new Blob([(icc.length ? psdWithIcc(bytes, icc) : bytes) as Uint8Array<ArrayBuffer>], { type: 'image/vnd.adobe.photoshop' }), warnings };
   },
 
   // Ends a save: `ok` false (cancelled or failed write) restores the dirty state from before it.
@@ -2636,6 +2880,17 @@ const api = {
     if (i < 0) throw new Error('That document is not open.');
     stash();
     activate(i);
+    scheduleSave(0);
+    return info()!;
+  },
+
+  // Moves tab `key` to index `to` (tab bar drag); the active document stays active.
+  moveDoc(key: string, to: number) {
+    const i = docs.findIndex(d => d.key === key);
+    if (i < 0) throw new Error('That document is not open.');
+    const cur = docs[active];
+    docs.splice(Math.max(0, Math.min(to, docs.length - 1)), 0, docs.splice(i, 1)[0]);
+    active = docs.indexOf(cur);
     scheduleSave(0);
     return info()!;
   },
@@ -2736,7 +2991,7 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 
 // Ops that may run while a stroke is open without committing it (they never touch the document or history).
 const STROKE_OPS = new Set<keyof Api>(['cloneSample', 'strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'patternPixels']);
-const PREVIEW_OPS = new Set<keyof Api>(['cloneSample', 'fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels']);
+const PREVIEW_OPS = new Set<keyof Api>(['applyImage', 'cloneSample', 'fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels']);
 // An open move session commits before any other op, so history never sees a half move.
 const MOVE_OPS = new Set<keyof Api>(['cloneSample', 'moveFloat', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels']);
 // App-scope font calls: never refused for a stale document id and never close an open session.
@@ -2754,7 +3009,7 @@ let queue = Promise.resolve();
 // Edit Contents switched documents would hit the new document with the old one's node ids, so it is refused.
 onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[]; doc?: number }>) => {
   const { id, op, args, doc } = ev.data;
-  if (op === 'displayTile' || op === 'displayProgram' || op === 'selectionMask' || op === 'colorRangePreview') { void handle(id, op, args); return; }
+  if (op === 'displayTile' || op === 'displayProgram' || op === 'selectionMask' || op === 'channelMask' || op === 'colorRangePreview') { void handle(id, op, args); return; }
   queue = queue.then(() => {
     if (FONT_OPS.has(op)) return handle(id, op, args);
     if (doc !== undefined && doc !== docId) { postMessage({ id, error: 'The document changed before this command ran, so it was not applied.', docId }); return; }

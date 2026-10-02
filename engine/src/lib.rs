@@ -6,6 +6,7 @@ mod filters;
 mod font;
 mod glyph_cells;
 mod heal;
+pub mod icc;
 mod gradient;
 mod livewire;
 mod liquify;
@@ -802,6 +803,87 @@ impl Engine {
         self.0.doc.delete_channel(id).map_err(err)
     }
 
+    /// Image > Apply Image; `src` is JSON `{ layer, channel, invert }` (see `ImageSource`).
+    pub fn apply_image(&mut self, id: u32, src: &str, mode: &str, opacity: f32, preserve: bool) -> Result<(), JsError> {
+        let s: doc::ImageSource = serde_json::from_str(src).map_err(|e| err(e.to_string()))?;
+        self.0.doc.apply_image(id, &s, blend::Blend::parse(mode).map_err(err)?, opacity, preserve).map_err(err)
+    }
+
+    /// Image > Calculations into a new saved channel; returns its id.
+    pub fn calculations(&mut self, src1: &str, src2: &str, mode: &str, opacity: f32, name: &str) -> Result<u32, JsError> {
+        let a: doc::ImageSource = serde_json::from_str(src1).map_err(|e| err(e.to_string()))?;
+        let b: doc::ImageSource = serde_json::from_str(src2).map_err(|e| err(e.to_string()))?;
+        self.0.doc.calculations(&a, &b, blend::Blend::parse(mode).map_err(err)?, opacity, name).map_err(err)
+    }
+
+    /// Image > Mode > 8/16/32 Bits/Channel; false when the depth is already `depth`.
+    pub fn convert_depth(&mut self, depth: u8) -> Result<bool, JsError> {
+        self.0.doc.convert_depth(depth).map_err(err)
+    }
+
+    /// Image > Mode > Grayscale (true) or RGB Color (false).
+    pub fn convert_mode(&mut self, gray: bool) -> Result<(), JsError> {
+        self.0.doc.convert_mode(gray).map_err(err)
+    }
+
+    /// Image > Mode with dialog options: `{ mode: 'rgb' | 'gray' | 'bitmap' | 'duotone' | 'indexed'
+    /// | 'cmyk' | 'lab' | 'multichannel', ... }` (see `ModeSpec`); false when nothing changes.
+    pub fn set_color_mode(&mut self, spec: &str) -> Result<bool, JsError> {
+        let spec: crate::doc::color_mode::ModeSpec = serde_json::from_str(spec).map_err(|e| err(format!("invalid mode: {e}")))?;
+        self.0.doc.set_color_mode(&spec).map_err(err)
+    }
+
+    /// Image > Mode > Color Table: `[[r, g, b], ...]`, as long as the current table.
+    pub fn set_color_table(&mut self, table: &str) -> Result<bool, JsError> {
+        let table: Vec<[u8; 3]> = serde_json::from_str(table).map_err(|e| err(format!("invalid color table: {e}")))?;
+        self.0.doc.set_color_table(table).map_err(err)
+    }
+
+    /// Edit > Assign Profile: `icc` (a profile file) when not empty, else the built-in `name`;
+    /// both empty untags the document. False when the tag does not change.
+    pub fn assign_profile(&mut self, name: &str, icc: &[u8]) -> Result<bool, JsError> {
+        let p = profile_arg(name, icc)?;
+        self.0.doc.assign_profile(p.as_ref()).map_err(err)
+    }
+
+    /// Edit > Convert to Profile to `icc` or the built-in `name`, with `{ intent?: 'perceptual' |
+    /// 'relativeColorimetric' | 'saturation' | 'absoluteColorimetric', blackPointCompensation?, dither? }`.
+    pub fn convert_to_profile(&mut self, name: &str, icc: &[u8], opts: &str) -> Result<bool, JsError> {
+        let p = profile_arg(name, icc)?.ok_or_else(|| err("choose a destination profile".into()))?;
+        let opts: crate::doc::profile::ConvertOpts = serde_json::from_str(opts).map_err(|e| err(format!("invalid options: {e}")))?;
+        self.0.doc.convert_to_profile(&p, opts).map_err(err)
+    }
+
+    /// `{ name, builtin }` of the document's profile, or null when untagged.
+    pub fn profile_json(&self) -> String {
+        serde_json::to_string(&self.0.doc.profile().map(|p| serde_json::json!({ "name": p.name, "builtin": p.icc.is_none() }))).expect("plain JSON")
+    }
+
+    /// The document's RGB profile as ICC bytes to embed in an export; empty when there is none.
+    pub fn profile_icc(&self) -> Vec<u8> {
+        self.0.doc.profile_icc()
+    }
+
+    pub fn new_channel(&mut self, name: &str) -> Result<u32, JsError> {
+        self.0.doc.new_channel(name).map_err(err)
+    }
+
+    pub fn rename_channel(&mut self, id: u32, name: &str) -> Result<(), JsError> {
+        self.0.doc.rename_channel(id, name).map_err(err)
+    }
+
+    pub fn duplicate_channel(&mut self, id: u32, name: &str) -> Result<u32, JsError> {
+        self.0.doc.duplicate_channel(id, name).map_err(err)
+    }
+
+    /// A saved channel's values of one display tile as 8-bit bytes, or null when the whole tile is its default.
+    pub fn channel_tile(&self, id: u32, level: u32, tx: u32, ty: u32) -> Result<JsValue, JsError> {
+        match self.0.doc.channel_tile(id, level, tx, ty).map_err(err)? {
+            Some(bytes) => Ok(js_sys::Uint8Array::from(bytes.as_slice()).into()),
+            None => Ok(JsValue::NULL),
+        }
+    }
+
     pub fn combine_into_channel(&mut self, channel: u32, mode: &str) -> Result<(), JsError> {
         self.0.doc.combine_into_channel(channel, Mode::parse(mode).map_err(err)?).map_err(err)
     }
@@ -892,7 +974,7 @@ impl Engine {
 
     /// Returns null when the tile is fully transparent or out of the document's tile range.
     pub fn display_tile(&self, level: u32, tx: u32, ty: u32) -> Result<JsValue, JsError> {
-        match self.0.doc.display_tile(level, tx, ty).map_err(err)? {
+        match self.0.doc.display_tile_view(&self.0.view, level, tx, ty).map_err(err)? {
             Some(bytes) => Ok(js_sys::Uint8Array::from(bytes.as_slice()).into()),
             None => Ok(JsValue::NULL),
         }
@@ -901,7 +983,31 @@ impl Engine {
     /// The encoded draw program for one display tile (8-bit only); `known` lists payload keys
     /// the caller already holds, whose bytes are then left out.
     pub fn display_program(&self, level: u32, tx: u32, ty: u32, known: Vec<u64>) -> Result<Vec<u8>, JsError> {
+        if self.0.doc.view_needs_cpu(&self.0.view) {
+            return Err(err("proofing and 32-bit preview display as CPU tiles".into()));
+        }
         self.0.doc.display_program(level, tx, ty, &known).map_err(err)
+    }
+
+    /// The view's display options `{ setup: { kind: 'device' | 'protanopia' | 'deuteranopia',
+    /// profile?, plates?: [c, m, y, k], intent?, blackPointCompensation?, preserveNumbers?,
+    /// simulatePaper?, simulateBlackInk? }, proofColors?, gamutWarning?, hdr?: { method?:
+    /// 'exposureAndGamma' | 'highlightCompression', exposure?, gamma? } }`; `icc` is the proof
+    /// device's profile file when it is not built in. Display tiles change, the document does not.
+    pub fn set_view(&mut self, json: &str, icc: &[u8]) -> Result<(), JsError> {
+        let mut v: crate::doc::proof::View = serde_json::from_str(json).map_err(|e| err(format!("invalid view: {e}")))?;
+        if !icc.is_empty() {
+            v.setup.icc = Some(icc.to_vec());
+        }
+        if !(v.hdr.exposure.abs() <= 20.0 && (0.1..=10.0).contains(&v.hdr.gamma)) {
+            return Err(err("exposure must be within -20..20 and gamma within 0.1..10".into()));
+        }
+        if v.setup.kind == crate::doc::proof::ProofKind::Device {
+            Document::proof_device(&v.setup).map_err(err)?;
+        }
+        v.hdr_max = if self.0.doc.depth() == 32 { self.0.doc.brightest() } else { 1.0 };
+        self.0.view = v;
+        Ok(())
     }
 
     pub fn flatten_tile_rgba8(&self, tx: u32, ty: u32) -> Result<Vec<u8>, JsError> {
@@ -1258,6 +1364,30 @@ impl Engine {
 }
 
 /// The filter registry as JSON (docs/M5.md section 1, D3).
+fn profile_arg(name: &str, icc: &[u8]) -> Result<Option<icc::Profile>, JsError> {
+    if !icc.is_empty() {
+        return icc::Profile::parse(icc).map(Some).map_err(err);
+    }
+    if name.is_empty() {
+        return Ok(None);
+    }
+    icc::Profile::builtin(name).map(Some).ok_or_else(|| err(format!("unknown profile \"{name}\"")))
+}
+
+/// `[{ name, space }]` of the built-in profiles; space is 'rgb' | 'gray' | 'lab'.
+#[wasm_bindgen]
+pub fn icc_builtins() -> String {
+    let v: Vec<_> = icc::builtin_names().iter().map(|n| serde_json::json!({ "name": n, "space": icc::Profile::builtin(n).expect("listed").space.label() })).collect();
+    serde_json::to_string(&v).expect("plain JSON")
+}
+
+/// `{ name, space, class }` of a profile file, or an error when it cannot be read.
+#[wasm_bindgen]
+pub fn icc_describe(bytes: &[u8]) -> Result<String, JsError> {
+    let p = icc::Profile::parse(bytes).map_err(err)?;
+    Ok(serde_json::json!({ "name": p.name, "space": p.space.label(), "class": String::from_utf8_lossy(&p.class) }).to_string())
+}
+
 #[wasm_bindgen]
 pub fn filter_schema() -> String {
     filters::schema_json()

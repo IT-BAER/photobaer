@@ -8,6 +8,12 @@ import { flatNodes, nodeById } from './layers.ts';
 import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
+import { ChannelsPanel } from './ChannelsPanel.tsx';
+import { ImageCalcDialog, type ImageCalcHandle } from './ImageCalcDialog.tsx';
+import { ModeDialog, type ModeDialogHandle } from './ModeDialog.tsx';
+import { ColorDialog, type ColorDialogHandle } from './ColorDialog.tsx';
+import type { OpenAction } from './app/colorSettings.ts';
+import { COMPOSITE, GRAY_MATRIX, viewState, type ChannelView } from './app/channels.ts';
 import { PathsPanel } from './PathsPanel.tsx';
 import { ArtboardPanel, PropertiesPanel, ShapePanel, SmartFiltersPanel, VectorMaskPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
@@ -199,6 +205,8 @@ export function App() {
   const rulerFlagsRef = useRef({ showRulers, showPixelGrid, showGuides, showGrid });
   rulerFlagsRef.current = { showRulers, showPixelGrid, showGuides, showGrid };
   const [showLayerComps, setShowLayerComps] = useState(false);
+  const [showChannels, setShowChannels] = useState(false);
+  const [channelView, setChannelView] = useState<ChannelView>(COMPOSITE);
   const [showPaths, setShowPaths] = useState(false);
   const [pathSel, setPathSel] = useState<PathSel>({ selected: null, cleared: false });
   const pathSelRef = useRef(pathSel);
@@ -290,6 +298,9 @@ export function App() {
   const scaleEffectsDialog = useRef<HTMLDialogElement>(null);
   // The Filter menu's generic dialog (also Edit > Fade) and Layer > Smart Filter > Blending Options.
   const filterDialog = useRef<FilterDialogHandle>(null);
+  const imageCalc = useRef<ImageCalcHandle>(null);
+  const modeDialog = useRef<ModeDialogHandle>(null);
+  const colorDialog = useRef<ColorDialogHandle>(null);
   const liquifyDialog = useRef<LiquifyDialogHandle>(null);
   const vpDialog = useRef<VanishingPointDialogHandle>(null);
   const [deform, setDeform] = useState<DeformRequest | null>(null);
@@ -414,6 +425,8 @@ export function App() {
     for (const k of tabState.current.keys()) if (!d?.docs.some(t => t.key === k)) tabState.current.delete(k);
     for (const k of origins.current.keys()) if (!d?.docs.some(t => t.key === k)) origins.current.delete(k);
     const saved = switched ? tabState.current.get(d.key) : undefined;
+    // An error belongs to the document it came from.
+    if (switched || (prev && !d)) setError(null);
     setDoc(d);
     v?.setDoc(d, saved?.view);
     document.title = d ? `${d.name}${d.dirty ? '*' : ''} - photobaer` : PAGE_TITLE;
@@ -454,9 +467,18 @@ export function App() {
   // `handle`: the file's File System Access handle (picker, drop, launch, Open Recent), kept for Save and Revert.
   async function open(f: File, handle?: FileSystemFileHandle | null) {
     setMenu(null);
+    let action: OpenAction | undefined;
+    try {
+      const q = await client.call('openProfileQuestion', f);
+      if (q.action === 'ask') {
+        const a = await colorDialog.current?.ask(f.name, q.embedded);
+        if (!a) return;
+        action = a;
+      }
+    } catch { /* unreadable profile: the policy decides in openFile */ }
     setBusy(`Opening ${f.name}…`);
     try {
-      const d = await client.call('openFile', f);
+      const d = await client.call('openFile', f, action);
       if (handle) {
         origins.current.set(d.key, { handle, kind: kindOf(f.name), warned: d.warnings.length > 0 });
         remember(handle);
@@ -500,11 +522,13 @@ export function App() {
   // a close that cannot write back offers to close without saving.
   const lost = (warnings: string[]) => `The source file cannot store:\n- ${warnings.join('\n- ')}`;
   async function editContents(id: number) {
+    let warnings: string[] = [];
     await run('Opening contents…', async () => {
       const d = await client.call('editContents', id);
-      if (d.warnings.length) setError(`Opened with warnings: ${d.warnings.join('; ')}`);
+      warnings = d.warnings;
       return d;
     });
+    if (warnings.length) setError(`Opened with warnings: ${warnings.join('; ')}`);
   }
   async function saveContents() {
     await run('Saving contents…', async () => {
@@ -684,12 +708,14 @@ export function App() {
       return;
     }
     if (!confirm(`Revert to the saved version of ${o.handle.name}? This cannot be undone.`)) return;
+    let warnings: string[] = [];
     await run('Reverting…', async () => {
       const r = await client.call('revertDoc', await o.handle.getFile(), d.key);
       origins.current.set(r.key, { ...o, warned: r.warnings.length > 0 });
-      if (r.warnings.length) setError(`Opened with warnings: ${r.warnings.join('; ')}`);
+      warnings = r.warnings;
       return r;
     });
+    if (warnings.length) setError(`Opened with warnings: ${warnings.join('; ')}`);
   }
 
   function editTarget(a: Active) { return quickMask ? 'selection' as const : a.target; }
@@ -1165,9 +1191,12 @@ export function App() {
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
+    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog,
+    openImageCalc: calc => { setMenu(null); if (calc) imageCalc.current?.open({ kind: 'calc' }); else if (active) imageCalc.current?.open({ kind: 'apply', id: active.id }); }, trimDialog, imageSizeDialog, canvasSizeDialog,
+    openModeDialog: kind => { setMenu(null); modeDialog.current?.open(kind); },
+    openColorDialog: kind => { setMenu(null); colorDialog.current?.open(kind); },
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
-    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
+    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openVanishingPoint: () => openVanishingPoint(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
@@ -1384,6 +1413,28 @@ export function App() {
   const dpr = viewer.current?.dpr ?? (window.devicePixelRatio || 1);
   const antsLevelValue = doc ? antsLevel(levelFor(view.zoom, dpr, doc.maxLevel), doc.width, doc.height, doc.maxLevel) : 0;
 
+  // Channels panel view: a color matrix on the document canvas and a saved channel on the overlay.
+  const channelState = viewState({ ...channelView, alpha: channelView.alpha.filter(id => doc?.channels.some(c => c.id === id)) });
+  const channelMatrix = doc?.gray && doc.mode?.kind !== 'duotone' ? GRAY_MATRIX : channelState.matrix;
+  const inkView = doc?.mode?.kind === 'cmyk' || doc?.mode?.kind === 'lab' ? channelState.ink : null;
+  const channelFilter = channelMatrix ? 'url(#channel-view)' : undefined;
+  useEffect(() => setChannelView(COMPOSITE), [doc?.key]);
+  useEffect(() => {
+    const overlay = overlayRef.current, a = channelState.alpha, mode = doc?.mode?.kind;
+    if (!overlay) return;
+    if (!doc || (!a && inkView === null)) { overlay.setChannelOverlay(null, 0, 0, 1, 'gray'); redrawOverlay(); return; }
+    const docId = doc.docId;
+    let alive = true;
+    const mask = a ? client.call('channelMask', a.id, antsLevelValue) : client.call('colorChannelMask', mode as 'cmyk' | 'lab', inkView!, antsLevelValue);
+    mask.then(r => {
+      if (!alive || r.docId !== docId || !r.data) return;
+      overlay.setChannelOverlay(new Uint8Array(r.data), r.w, r.h, 1 << antsLevelValue, a ? a.mode : 'gray');
+      redrawOverlay();
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc?.docId, doc?.version, channelState.alpha?.id, channelState.alpha?.mode, inkView, antsLevelValue]);
+
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
@@ -1548,7 +1599,7 @@ export function App() {
 
   useShortcuts({
     menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setDockTab, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
-    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef,
+    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef, setChannelView,
   });
 
   // Brush presets: the selected preset (with a protected texture carried over) and the Brushes/Brush Settings panels.
@@ -1807,13 +1858,19 @@ export function App() {
               })}
             />
           ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions }} fg={fg} />}
-          {doc && <TabBar doc={doc} switchTo={key => run(null, () => client.call('switchDoc', key))} close={key => void closeTab(key)} />}
+          {doc && <TabBar doc={doc} switchTo={key => run(null, () => client.call('switchDoc', key))} close={key => void closeTab(key)}
+            move={(key, to) => run(null, () => client.call('moveDoc', key, to))} />}
           <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
-            <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} onContextMenu={e => {
+            <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined, filter: channelFilter }} onContextMenu={e => {
               e.preventDefault();
               if (transformRef.current || (e.ctrlKey && e.altKey) || !has) return;
               setCanvasMenu([e.clientX, e.clientY]);
             }} />
+            <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+              <filter id="channel-view" colorInterpolationFilters="sRGB">
+                <feColorMatrix type="matrix" values={channelMatrix ?? '1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0'} />
+              </filter>
+            </svg>
             <canvas ref={pixelGridCanvas} className="overlay" />
             <canvas ref={overlayCanvas} className="overlay" />
             <canvas ref={rulerTop} className="ruler ruler-top" style={{ display: showRulers ? 'block' : 'none' }} />
@@ -1918,6 +1975,7 @@ export function App() {
                 openLayerStyle={(id, page) => openLayerStyle(page, id)}
               />
               <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
+              {showChannels && <ChannelsPanel doc={doc} run={run} view={channelView} setView={setChannelView} setError={setError} />}
               {showLayerComps && <LayerCompsPanel doc={doc} run={run} />}
               {showPaths && <PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} />}
             </>
@@ -2000,6 +2058,9 @@ export function App() {
       )}
       <GlobalLightDialog globalLightDialog={globalLightDialog} doc={doc} run={run} />
       <FilterDialog ref={filterDialog} viewer={viewer} show={d => show(d)} setError={m => setError(m)} />
+      <ImageCalcDialog ref={imageCalc} doc={doc} show={d => show(d)} setError={m => setError(m)} />
+      <ModeDialog ref={modeDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
+      <ColorDialog ref={colorDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
       <LiquifyDialog ref={liquifyDialog} show={d => show(d)} setError={m => setError(m)} />
       <VanishingPointDialog ref={vpDialog} show={d => show(d)} setError={m => setError(m)} />
       <FilterBlendDialog

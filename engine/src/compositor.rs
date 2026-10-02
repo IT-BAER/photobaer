@@ -662,6 +662,9 @@ impl Document {
                 _ => unreachable!("tile depth differs from the document depth"),
             }
         }
+        if self.depth == 32 {
+            return self.reduce_f32(kids, valid, mask_default);
+        }
         let k8 = || kids.each_ref().map(|k| k.as_ref().map(|(_, p)| u8s(p)));
         let k16 = || kids.each_ref().map(|k| k.as_ref().map(|(_, p)| u16s(p)));
         match (self.depth, mask_default) {
@@ -672,8 +675,7 @@ impl Document {
         }
     }
 
-    // The float reduction the integer one replaced; kept as the oracle for its test.
-    #[cfg(test)]
+    // The float reduction: 32-bit documents, and the oracle for the integer one's test.
     pub(super) fn reduce_f32(
         &self,
         kids: &[Option<(u64, Arc<Pixels>)>; 4],
@@ -1281,7 +1283,7 @@ impl Document {
     }
 
     /// The ordered draw program for one display tile, with the level tiles it references.
-    fn program(&self, level: u32, tx: u32, ty: u32) -> Result<Program, String> {
+    pub(super) fn program(&self, level: u32, tx: u32, ty: u32) -> Result<Program, String> {
         if level > 8 {
             return Err("level must be <= 8".into());
         }
@@ -1439,13 +1441,14 @@ impl Document {
     // Composites one level-0 tile bottom-to-top into a premultiplied f32 buffer.
     // Pixels outside the document rect (in an edge tile) are left as 0 (transparent).
     pub(super) fn composite_tile_premul(&self, tx: u32, ty: u32) -> Vec<f32> {
-        Document::run_program(&self.program(0, tx, ty).expect("level 0 is valid"))
+        self.mode_map(0, Document::run_program(&self.program(0, tx, ty).expect("level 0 is valid")))
     }
 
-    /// The level-`level` display tile as premultiplied RGBA8, or None when it is fully
-    /// transparent. Level 0 is exact; higher levels composite the layers' pyramid tiles.
+    /// The level-`level` display tile as premultiplied RGBA8 under the default view (see
+    /// `display_tile_view`), or None when it is fully transparent.
+    #[cfg(test)]
     pub fn display_tile(&self, level: u32, tx: u32, ty: u32) -> Result<Option<Vec<u8>>, String> {
-        Ok(quantize_premul(&Document::run_program(&self.program(level, tx, ty)?)))
+        self.display_tile_view(&Default::default(), level, tx, ty)
     }
 
     /// The encoded draw program for one display tile (8-bit documents only). `known` lists
@@ -1453,6 +1456,13 @@ impl Document {
     pub fn display_program(&self, level: u32, tx: u32, ty: u32, known: &[u64]) -> Result<Vec<u8>, String> {
         if self.depth != 8 {
             return Err("draw programs need an 8-bit document".into());
+        }
+        use super::color_mode::ColorMode as M;
+        if matches!(self.vector.mode, Some(M::Bitmap | M::Duotone { .. } | M::Indexed { .. })) {
+            return Err("Bitmap, Duotone and Indexed Color display as CPU tiles".into());
+        }
+        if self.display_profile().is_some() {
+            return Err("documents with a non-sRGB profile display as CPU tiles".into());
         }
         Ok(self.program(level, tx, ty)?.encode(known))
     }

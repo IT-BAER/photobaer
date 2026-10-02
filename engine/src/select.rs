@@ -830,18 +830,54 @@ impl Document {
         let Some((_, px)) = self.level_tile(&sel.tiles, Some(sel.default), level, tx, ty) else {
             return Ok(None);
         };
-        Ok(Some(match px.as_ref() {
-            Pixels::Mask8(d) => d.to_vec(),
-            Pixels::Mask16(d) => d.iter().map(|v| (v >> 8) as u8).collect(),
-            _ => return Err("a selection tile is always a mask".into()),
-        }))
+        Ok(Some(mask_bytes8(&px)?))
+    }
+
+    /// A saved channel's mask of one display tile as 8-bit values, like `selection_tile`.
+    pub fn channel_tile(&self, id: u32, level: u32, tx: u32, ty: u32) -> Result<Option<Vec<u8>>, String> {
+        if level > 8 {
+            return Err("level must be <= 8".into());
+        }
+        let ch = self.channels.iter().find(|c| c.id == id).ok_or_else(|| format!("unknown channel {id}"))?;
+        match self.level_tile(&ch.mask.tiles, Some(ch.mask.default), level, tx, ty) {
+            Some((_, px)) => Ok(Some(mask_bytes8(&px)?)),
+            None => Ok(None),
+        }
+    }
+
+    pub(super) fn next_channel_id(&self) -> u32 {
+        self.channels.iter().map(|c| c.id).max().unwrap_or(0) + 1
+    }
+
+    /// Adds an empty (all unselected) channel and returns its id.
+    pub fn new_channel(&mut self, name: &str) -> Result<u32, String> {
+        self.check_idle()?;
+        let id = self.next_channel_id();
+        self.channels.push(Channel { id, name: name.to_string(), mask: SelMask::default() });
+        Ok(id)
+    }
+
+    pub fn rename_channel(&mut self, id: u32, name: &str) -> Result<(), String> {
+        self.check_idle()?;
+        let ch = self.channels.iter_mut().find(|c| c.id == id).ok_or_else(|| format!("unknown channel {id}"))?;
+        ch.name = name.to_string();
+        Ok(())
+    }
+
+    /// Copies a channel to the end of the list and returns the copy's id.
+    pub fn duplicate_channel(&mut self, id: u32, name: &str) -> Result<u32, String> {
+        self.check_idle()?;
+        let mask = self.channels.iter().find(|c| c.id == id).ok_or_else(|| format!("unknown channel {id}"))?.mask.clone();
+        let new = self.next_channel_id();
+        self.channels.push(Channel { id: new, name: name.to_string(), mask });
+        Ok(new)
     }
 
     /// Saves the selection as a named channel and returns its id.
     pub fn save_selection(&mut self, name: &str) -> Result<u32, String> {
         self.check_idle()?;
         let mask = self.selection.clone().ok_or("nothing is selected")?;
-        let id = self.channels.iter().map(|c| c.id).max().unwrap_or(0) + 1;
+        let id = self.next_channel_id();
         self.channels.push(Channel { id, name: name.to_string(), mask });
         Ok(id)
     }
@@ -1122,4 +1158,12 @@ impl Document {
         }
         Ok(())
     }
+}
+
+fn mask_bytes8(px: &Pixels) -> Result<Vec<u8>, String> {
+    Ok(match px {
+        Pixels::Mask8(d) => d.to_vec(),
+        Pixels::Mask16(d) => d.iter().map(|v| (v >> 8) as u8).collect(),
+        _ => return Err("a selection tile is always a mask".into()),
+    })
 }

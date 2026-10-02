@@ -635,6 +635,8 @@ fn parse_stroke(
         effect,
         art,
         smudge_prev: None,
+        fx_sample: None,
+        reservoir: None,
     })
 }
 
@@ -702,6 +704,9 @@ pub struct Stroke {
     pub(super) art: Option<Art>,
     // The previous smudge dab center.
     pub(super) smudge_prev: Option<(f64, f64)>,
+    // The color the matching effects compare against (Sampling: Once keeps the first).
+    pub(super) fx_sample: Option<[f32; 3]>,
+    pub(super) reservoir: Option<Reservoir>,
     // Erase to history: the same layer's tiles in the chosen snapshot.
     pub(super) hist: Option<Tiles>,
     // A quick-mask stroke that created the selection removes it again on cancel.
@@ -731,6 +736,11 @@ pub struct EngineCore {
     // The last selected-pixels lift and its key: a move drag restores one base per step and
     // lifts it once. ponytail: one entry; it holds the lifted tiles until the next lift.
     lift: Option<(Vec<u64>, Arc<Lift>)>,
+    // The mixer brush well after the last stroke, for a stroke that does not reload.
+    mixer_well: Option<Reservoir>,
+    // View > Proof Setup, Proof Colors, Gamut Warning, 32-bit Preview Options: display only, so
+    // outside the document and its snapshots.
+    pub view: crate::doc::proof::View,
 }
 
 impl EngineCore {
@@ -747,6 +757,8 @@ impl EngineCore {
             patterns: HashMap::new(),
             next_pattern_id: 0,
             lift: None,
+            mixer_well: None,
+            view: Default::default(),
         }
     }
 
@@ -949,6 +961,10 @@ impl EngineCore {
         if target == Target::Selection && sel_was_none {
             self.doc.selection = Some(SelMask::default());
         }
+        let mut stroke = stroke;
+        if matches!(stroke.effect, Some(Effect::Mixer { color: None, .. })) {
+            stroke.reservoir = self.mixer_well.clone();
+        }
         self.stroke = Some(stroke);
         Ok(())
     }
@@ -995,6 +1011,9 @@ impl EngineCore {
     /// Closes the stroke; a heal stroke repairs what it covered first.
     pub fn stroke_end(&mut self) -> Result<(), String> {
         let st = self.stroke.take().ok_or_else(|| "no stroke is open".to_string())?;
+        if let Some(Effect::Mixer { clean, .. }) = st.effect {
+            self.mixer_well = if clean { None } else { st.reservoir.clone() };
+        }
         self.doc.heal_stroke(&st).map(|_| ())
     }
 

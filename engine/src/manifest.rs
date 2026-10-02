@@ -162,7 +162,7 @@ impl Document {
             })),
             "has_last_selection": self.last_selection.is_some(),
             "global_light": self.global_light,
-            "channels": self.channels.iter().map(|c| serde_json::json!({ "id": c.id, "name": c.name })).collect::<Vec<_>>(),
+            "channels": self.channels.iter().map(|c| serde_json::json!({ "id": c.id, "name": c.name, "default": c.mask.default })).collect::<Vec<_>>(),
             "patterns": self.patterns.iter().map(|p| serde_json::json!({ "id": p.id, "name": p.name })).collect::<Vec<_>>(),
             "layer_comps": self.layer_comps.iter().map(|c| serde_json::json!({
                 "id": c.id, "name": c.name, "layer_count": c.layers.len(),
@@ -333,9 +333,18 @@ impl Document {
                     guides_locked: m.guides_locked,
                     artboards_locked: m.artboards_locked,
                     vanishing_planes: m.vanishing_planes,
+                    gray: m.gray,
+                    mode: m.mode,
+                    profile: m.profile,
                 };
                 if probe.version < 7 && !vector.vanishing_planes.is_empty() {
                     return Err("vanishing_planes need manifest v7".into());
+                }
+                if let Some(mode) = &vector.mode {
+                    mode.check()?;
+                    if m.depth == 32 {
+                        return Err("a 32-bit document is RGB or Grayscale".into());
+                    }
                 }
                 Document::build(
                     Head { width: m.width, height: m.height, depth: m.depth, tiles_x: m.tiles_x, tiles_y: m.tiles_y },
@@ -1207,6 +1216,12 @@ struct ManifestV5In {
     artboards_locked: bool,
     #[serde(default)]
     vanishing_planes: Vec<crate::vanishing::VPlane>,
+    #[serde(default)]
+    gray: bool,
+    #[serde(default)]
+    mode: Option<super::color_mode::ColorMode>,
+    #[serde(default)]
+    profile: Option<super::profile::DocProfile>,
 }
 
 // The document-level fields v4 adds; v1 to v3 load with the defaults.

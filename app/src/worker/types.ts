@@ -1,3 +1,4 @@
+import type { ViewState } from '../app/proof.ts';
 import type { Blending, LayerStyle } from '../layerStyle.ts';
 import type { Live, ShapeStroke } from '../shell/shapetools.ts';
 import type { TextJson } from '../psd/text.ts';
@@ -107,9 +108,23 @@ export type ArtboardBackground = { type: 'none' | 'white' | 'black' | 'transpare
 export interface SavedPathInfo { id: number; name: string; work: boolean; path: VectorPath }
 // A path-edit target: a shape layer's path, a layer's vector mask path, or a saved path.
 export type PathRole = 'shape' | 'vectorMask' | 'document';
+type Rgb3 = [number, number, number];
+// Image > Mode beyond RGB and Grayscale (null): Bitmap and Duotone also keep `gray`.
+export type ColorMode = { kind: 'bitmap' } | { kind: 'duotone'; inks: Rgb3[] } | { kind: 'indexed'; table: Rgb3[] } | { kind: 'cmyk' } | { kind: 'lab' } | { kind: 'multichannel' };
+export type ModeSpec =
+  | { mode: 'rgb' | 'gray' | 'cmyk' | 'lab' | 'multichannel' }
+  | { mode: 'bitmap'; method: 'threshold' | 'pattern' | 'diffusion' }
+  | { mode: 'duotone'; inks: Rgb3[] }
+  | {
+    mode: 'indexed'; palette: 'exact' | 'uniform' | 'web' | 'adaptive'; colors: number; forced: 'none' | 'black_white' | 'primaries' | 'web';
+    transparency: boolean; dither: 'none' | 'diffusion' | 'pattern' | 'noise'; amount: number;
+  };
 export interface DocInfo {
   docId: number; version: number; name: string;
-  width: number; height: number; depth: number; maxLevel: number;
+  width: number; height: number; depth: number; maxLevel: number; gray: boolean; mode: ColorMode | null;
+  profile: { name: string; builtin: boolean } | null;
+  // View > Proof Setup, Proof Colors, Gamut Warning, 32-bit Preview Options (display only).
+  view: ViewState;
   undoLabel: string | null; redoLabel: string | null;
   layers: LayerNode[];
   history: { labels: string[]; current: number };
@@ -126,7 +141,7 @@ export interface DocInfo {
   key: string;
   // Unsaved changes since the last project or PSD save (also for undo past it); per tab in `docs`.
   dirty: boolean;
-  docs: { key: string; name: string; active: boolean; dirty: boolean; mode: 'RGB'; depth: number }[];
+  docs: { key: string; name: string; active: boolean; dirty: boolean; mode: string; depth: number }[];
   // Pixels per inch (docs/M4.md D13, section 12).
   resolution: number;
   guides: Guide[];
@@ -175,3 +190,5 @@ export type TransformOp = number[] | string;
 export type Box = [number, number, number, number];
 // A registered font face (engine font registry); `source` says where its bytes came from.
 export interface FaceInfo { id: number; family: string; style: string; weight: number; italic: boolean; postscript: string; source: 'bundled' | 'local' | 'upload'; color: boolean }
+
+export interface IccProfile { name: string; space: 'rgb' | 'gray' | 'cmyk'; loaded?: boolean }

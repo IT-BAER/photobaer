@@ -671,6 +671,160 @@ test('selectionMask assembles tiles at a level, filling missing tiles with the d
   assert.equal(empty.data, null);
 });
 
+test('channel ops: new, rename, duplicate, delete and channelMask, one history step each', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  type Ch = { channels: { id: number; name: string }[]; history: { labels: string[] }; created: number };
+  const a = (await call('newChannel')).result as Ch;
+  assert.deepEqual(a.channels.map(c => c.name), ['Alpha 1']);
+  assert.equal(new Uint8Array(((await call('channelMask', a.created, 0)).result as { data: ArrayBuffer }).data)[0], 0);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 32, h: 64 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('saveSelection', 'left', null, 'new');
+  const left = ((await call('newChannel')).result as Ch).channels.find(c => c.name === 'left')!;
+  await call('renameChannel', left.id, 'half');
+  const d = (await call('duplicateChannel', left.id)).result as Ch;
+  assert.deepEqual(d.channels.map(c => c.name), ['Alpha 1', 'half', 'Alpha 2', 'half copy']);
+  const m = (await call('channelMask', d.created, 1)).result as { w: number; h: number; data: ArrayBuffer };
+  const px = new Uint8Array(m.data);
+  assert.equal(m.w, 32);
+  assert.deepEqual([px[0], px[31]], [255, 0]);
+  const del = (await call('deleteChannel', a.created)).result as Ch;
+  assert.equal(del.channels.length, 3);
+  assert.deepEqual(del.history.labels.slice(-4), ['New Channel', 'Rename Channel', 'Duplicate Channel', 'Delete Channel']);
+  assert.ok((await call('channelMask', 999, 0)).error);
+});
+
+test('applyImage previews inside a session and calculations writes a channel or the selection', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', [200, 50, 10, 255]);
+  const src = { layer: null, channel: 'red', invert: true };
+  for (let i = 0; i < 2; i++) assert.equal((await call('applyImage', 1, src, 'normal', 1, true, true)).error, undefined);
+  const pe = await call('previewEnd', true);
+  assert.equal(pe.error, undefined);
+  const done = pe.result as { history: { labels: string[] } };
+  assert.equal(done.history.labels.filter(l => l === 'Apply Image').length, 1);
+  assert.deepEqual((await call('sample', 5, 5, 1, 1)).result, [55, 55, 55, 255]);
+  const c = (await call('calculations', { layer: null, channel: 'red', invert: false }, { layer: null, channel: 'green', invert: false }, 'multiply', 1, 'channel')).result as { channels: { name: string }[] };
+  assert.deepEqual(c.channels.map(x => x.name), ['Alpha 1']);
+  const s = (await call('calculations', { layer: null, channel: 'gray', invert: false }, { layer: null, channel: 'alpha', invert: false }, 'normal', 1, 'selection')).result as { channels: unknown[]; selection: unknown };
+  assert.equal(s.channels.length, 1);
+  assert.ok(s.selection);
+  assert.ok((await call('calculations', { layer: null, channel: 'rgb', invert: false }, src, 'normal', 1, 'channel')).error);
+});
+
+test('Image > Mode: depth and grayscale conversions are one step each and show in the tab', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', [200, 50, 10, 255]);
+  type I = { depth: number; gray: boolean; history: { labels: string[] }; docs: { active: boolean; mode: string; depth: number }[] };
+  const d16 = (await call('convertDepth', 16)).result as I;
+  assert.equal(d16.depth, 16);
+  const g = (await call('setColorMode', { mode: 'gray' })).result as I;
+  assert.equal(g.gray, true);
+  assert.deepEqual(g.docs.filter(t => t.active).map(t => [t.mode, t.depth]), [['Gray', 16]]);
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [91, 91, 91, 255]);
+  const same = (await call('setColorMode', { mode: 'gray' })).result as I;
+  assert.deepEqual(same.history.labels.slice(-2), ['16 Bits/Channel', 'Grayscale']);
+  const u = (await call('undo')).result as I;
+  assert.equal(u.gray, false);
+  const d32 = (await call('convertDepth', 32)).result as I;
+  assert.deepEqual(d32.docs.filter(t => t.active).map(t => [t.mode, t.depth]), [['RGB', 32]]);
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [200, 50, 10, 255]);
+  assert.match((await call('setColorMode', { mode: 'cmyk' })).error ?? '', /RGB or Grayscale only/);
+});
+
+test('Edit > Assign/Convert to Profile: tag only vs. new numbers, one step each', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', [200, 50, 10, 255]);
+  type I = { profile: { name: string } | null; layers: unknown[]; history: { labels: string[] } };
+  const list = (await call('iccProfiles')).result as { name: string; space: string }[];
+  assert.ok(list.some(p => p.name === 'Adobe RGB (1998)' && p.space === 'rgb'));
+  const a = (await call('assignProfile', 'Adobe RGB (1998)')).result as I;
+  assert.equal(a.profile?.name, 'Adobe RGB (1998)');
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [200, 50, 10, 255]);
+  const same = (await call('assignProfile', 'Adobe RGB (1998)')).result as I;
+  assert.equal(same.history.labels.filter(l => l === 'Assign Profile').length, 1);
+  await call('addLayer', 1);
+  const opts = { intent: 'relativeColorimetric', blackPointCompensation: false, dither: false, flatten: true };
+  const c = (await call('convertToProfile', 'sRGB IEC61966-2.1', opts)).result as I;
+  assert.equal(c.profile?.name, 'sRGB IEC61966-2.1');
+  assert.equal(c.layers.length, 1, 'flattened in the same step');
+  assert.deepEqual(c.history.labels.slice(-1), ['Convert to Profile']);
+  const px = (await call('sample', 5, 5, 1, null)).result as number[];
+  assert.ok(Math.abs(px[0] - 232) <= 1 && Math.abs(px[1] - 46) <= 1 && px[2] <= 1, `got ${px}`);
+  const u = (await call('undo')).result as I;
+  assert.equal(u.profile?.name, 'Adobe RGB (1998)');
+  assert.equal(((await call('assignProfile', null)).result as I).profile, null);
+  assert.match((await call('loadProfile', new Uint8Array(8))).error ?? '', /./);
+});
+
+test('View > Proof Colors, Gamut Warning and Proof Setup change display tiles only, no history step', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  type I = { version: number; history: { labels: string[] }; view: { proofColors: boolean; gamutWarning: boolean; setup: { id: string } } };
+  const before = (await call('command', 'fill', 1, 'pixels', [0, 0, 255, 255])).result as I;
+  const tile = async () => new Uint8Array(((await call('displayTile', 0, 0, 0)).result as { data: ArrayBuffer }).data).slice(0, 3);
+  assert.deepEqual([...await tile()], [0, 0, 255]);
+  const on = (await call('setView', { setup: { id: 'workingCmyk', intent: 'relativeColorimetric', bpc: true, preserveNumbers: false, simulatePaper: false, simulateBlackInk: false }, proofColors: true })).result as I;
+  assert.ok(on.version > before.version && on.view.proofColors && on.view.setup.id === 'workingCmyk');
+  assert.deepEqual(on.history.labels, before.history.labels, 'no history step');
+  const p = await tile();
+  assert.ok(p[2] < 230 && p[0] > 20, `printed blue: ${p}`);
+  assert.match((await call('displayProgram', 0, 0, 0, new BigUint64Array())).error ?? '', /CPU tiles/);
+  await call('setView', { proofColors: false, gamutWarning: true });
+  assert.deepEqual([...await tile()], [128, 128, 128], 'out of gamut');
+  await call('setView', { gamutWarning: false });
+  assert.deepEqual([...await tile()], [0, 0, 255]);
+  assert.match((await call('setView', { setup: { id: 'custom', profile: 'No Such Profile', intent: 'relativeColorimetric', bpc: true, preserveNumbers: false, simulatePaper: false, simulateBlackInk: false }, proofColors: true })).error ?? '', /unknown proof profile/);
+});
+
+test('Color Settings: new documents get the working RGB, PSD saves embed it, open applies the policy', async () => {
+  await call('init');
+  const s = { rgb: 'sRGB IEC61966-2.1', gray: 'Dot Gain 20%', rgbPolicy: 'preserveEmbedded', grayPolicy: 'preserveEmbedded', askWhenOpening: false, askWhenMissing: false, intent: 'relativeColorimetric', bpc: false, dither: false };
+  await call('setColorSettings', s);
+  type I = { profile: { name: string } | null; history: { labels: string[] } };
+  const n = (await call('newDoc', 64, 64, 8, [200, 50, 10, 255])).result as I;
+  assert.equal(n.profile?.name, 'sRGB IEC61966-2.1');
+  assert.deepEqual(n.history.labels.filter(l => l === 'Assign Profile'), [], 'no history step');
+  await call('assignProfile', 'Adobe RGB (1998)');
+  const file = new File([((await call('savePsd')).result as { blob: Blob }).blob], 'tagged.psd');
+  assert.deepEqual((await call('openProfileQuestion', file)).result, { embedded: 'Adobe RGB (1998)', action: 'keep' });
+  assert.equal(((await call('openFile', file)).result as I).profile?.name, 'Adobe RGB (1998)');
+  await call('setColorSettings', { ...s, askWhenOpening: true });
+  assert.deepEqual((await call('openProfileQuestion', file)).result, { embedded: 'Adobe RGB (1998)', action: 'ask' });
+  const c = (await call('openFile', file, 'convert')).result as I;
+  assert.equal(c.profile?.name, 'sRGB IEC61966-2.1');
+  const px = (await call('sample', 5, 5, 1, null)).result as number[];
+  assert.ok(Math.abs(px[0] - 232) <= 1 && Math.abs(px[1] - 46) <= 1, `got ${px}`);
+  assert.equal(((await call('openFile', file, 'discard')).result as I).profile, null);
+  await call('setColorSettings', { ...s, rgbPolicy: 'off' });
+  assert.equal(((await call('newDoc', 8, 8, 8, null)).result as I).profile, null);
+  await call('setColorSettings', null);
+});
+
+test('Image > Mode: Indexed Color flattens in one step, Color Table remaps, Duotone needs Grayscale', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', [200, 50, 10, 255]);
+  await call('addLayer', 1);
+  type I = { mode: { kind: string; table?: number[][] } | null; layers: unknown[]; history: { labels: string[] }; docs: { active: boolean; mode: string }[] };
+  assert.match((await call('setColorMode', { mode: 'duotone', inks: [[0, 0, 0]] })).error ?? '', /Grayscale/);
+  const spec = { mode: 'indexed', palette: 'exact', colors: 256, forced: 'none', transparency: false, dither: 'none', amount: 0.75 };
+  const ix = (await call('setColorMode', spec)).result as I;
+  assert.equal(ix.mode?.kind, 'indexed');
+  assert.deepEqual(ix.mode?.table, [[200, 50, 10]]);
+  assert.equal(ix.layers.length, 1, 'flattened');
+  assert.deepEqual(ix.history.labels.slice(-1), ['Indexed Color']);
+  assert.deepEqual(ix.docs.filter(t => t.active).map(t => t.mode), ['Index']);
+  const ct = (await call('setColorTable', [[0, 0, 255]])).result as I;
+  assert.deepEqual(ct.history.labels.slice(-1), ['Color Table']);
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [0, 0, 255, 255]);
+  const back = (await call('setColorMode', { mode: 'rgb' })).result as I;
+  assert.equal(back.mode, null);
+});
+
 test('clearSelected only clears with a selection and labels the step', async () => {
   await call('init');
   const before = (await call('newDoc', 64, 64, 8, null)).result as { version: number };
@@ -2480,6 +2634,25 @@ test('Edit Contents stays open in its tab across switches', async () => {
   const closed = await res(call('smartEditClose', 'discard'));
   assert.deepEqual(closed.parents, []);
   assert.equal(closed.undoLabel, 'Convert to Smart Object');
+});
+
+test('moveDoc reorders tabs and keeps the active document and its layers', async () => {
+  await call('init');
+  await closeAll();
+  const a = await res(call('newDoc', 8, 8, 8, null));
+  const b = await res(call('newDoc', 16, 8, 8, null));
+  const c = await res(call('newDoc', 24, 8, 8, null));
+  await res(call('switchDoc', b.key));
+  const m = await res(call('moveDoc', c.key, 0));
+  assert.deepEqual(m.docs.map(d => d.key), [c.key, a.key, b.key]);
+  assert.equal(m.key, b.key);
+  assert.equal(m.width, 16);
+  const end = await res(call('moveDoc', c.key, 9));
+  assert.deepEqual(end.docs.map(d => d.key), [a.key, b.key, c.key]);
+  assert.deepEqual(activeKeys(end), [b.key]);
+  const next = await res(call('closeDoc'));
+  assert.equal(next.key, c.key);
+  assert.ok((await call('moveDoc', 'nope', 0)).error);
 });
 
 test('a failing open or new document keeps every tab and the active one', async () => {

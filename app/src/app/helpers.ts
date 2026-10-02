@@ -11,6 +11,7 @@ const PAINT_LABELS: Record<string, string> = {
   brush: 'Brush', pencil: 'Pencil', eraser: 'Eraser', cloneStamp: 'Clone Stamp', patternStamp: 'Pattern Stamp',
   spotHealing: 'Spot Healing Brush', healingBrush: 'Healing Brush', historyBrush: 'History Brush', artHistoryBrush: 'Art History Brush',
   blur: 'Blur', sharpen: 'Sharpen', smudge: 'Smudge', dodge: 'Dodge', burn: 'Burn', sponge: 'Sponge',
+  colorReplacement: 'Color Replacement', mixerBrush: 'Mixer Brush', backgroundEraser: 'Background Eraser',
 };
 const PAINT_TOOLS = new Set(Object.keys(PAINT_LABELS));
 

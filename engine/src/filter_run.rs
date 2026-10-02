@@ -282,6 +282,9 @@ impl Document {
                 let px = if depth == 8 {
                     let d = if let Some(Pixels::U8(d)) = old { Some(&d[..]) } else { None };
                     Pixels::U8(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, max, |v| v as u8, |a| a as f32))
+                } else if depth == 32 {
+                    let d = if let Some(Pixels::F32(d)) = old { Some(&d[..]) } else { None };
+                    Pixels::F32(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, 1.0, |v| (v - 0.5).max(0.0), |a| a))
                 } else {
                     let d = if let Some(Pixels::U16(d)) = old { Some(&d[..]) } else { None };
                     Pixels::U16(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, max, |v| v as u16, |a| a as f32))

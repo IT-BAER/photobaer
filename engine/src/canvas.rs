@@ -13,7 +13,7 @@ const TI: i32 = TILE as i32;
 /// One raster plane of the document: a node's pixels or mask, the selection, the last
 /// selection, or a saved channel (by index).
 #[derive(Clone, Copy)]
-enum At {
+pub(super) enum At {
     Pixels(u32),
     Mask(u32),
     // A smart object's filter mask (filter index) or its stack mask.
@@ -388,7 +388,7 @@ impl Document {
         self.nodes = nodes;
     }
 
-    fn planes(&self) -> Vec<At> {
+    pub(super) fn planes(&self) -> Vec<At> {
         let mut ids = Vec::new();
         collect_ids(&self.nodes, &mut ids);
         let mut out = Vec::new();
@@ -976,10 +976,149 @@ impl Document {
 }
 
 
+// One tile at another bit depth (8, 16, 32), rounding to the nearest value. 32-bit masks are 16-bit.
+fn convert_px(px: &Pixels, depth: u8) -> Pixels {
+    let up = |v: u8| v as u16 * 257;
+    let down = |v: u16| ((v as u32 + 128) / 257) as u8;
+    let floats = |p: &Pixels| (0..TILE_PIXELS).flat_map(|i| p.rgba_f32(i)).collect::<Vec<f32>>();
+    match (px, depth) {
+        (Pixels::U8(_) | Pixels::U16(_), 32) | (Pixels::F32(_), 8 | 16) => Pixels::from_straight(depth, &floats(px)),
+        (Pixels::Mask8(d), 32) => Pixels::Mask16(d.iter().map(|&v| up(v)).collect()),
+        (Pixels::U8(d), 16) => Pixels::U16(d.iter().map(|&v| up(v)).collect()),
+        (Pixels::U16(d), 8) => Pixels::U8(d.iter().map(|&v| down(v)).collect()),
+        (Pixels::Mask8(d), 16) => Pixels::Mask16(d.iter().map(|&v| up(v)).collect()),
+        (Pixels::Mask16(d), 8) => Pixels::Mask8(d.iter().map(|&v| down(v)).collect()),
+        (p, _) => p.clone(),
+    }
+}
+
+impl Document {
+    /// Image > Mode > 8 or 16 Bits/Channel: every plane and mask default at the new depth.
+    pub fn convert_depth(&mut self, depth: u8) -> Result<bool, String> {
+        self.check_idle()?;
+        validate_dims(self.width, self.height, depth)?;
+        if depth == self.depth {
+            return Ok(false);
+        }
+        if depth == 32 && self.vector.mode.is_some() {
+            return Err("32 Bits/Channel needs an RGB or Grayscale document".into());
+        }
+        if matches!(self.vector.mode, Some(super::color_mode::ColorMode::Bitmap | super::color_mode::ColorMode::Indexed { .. })) {
+            return Err("Bitmap and Indexed Color documents are 8-bit".into());
+        }
+        let mut d = self.clone();
+        let (old, new) = (max_value(d.depth) as f64, max_value(depth) as f64);
+        let scale = |v: u32| (v as f64 * new / old).round() as u32;
+        let mut out = Vec::new();
+        for at in d.planes() {
+            let (tiles, _) = d.plane(at);
+            let mut fresh = Tiles::default();
+            for (tx, ty) in tiles.coords() {
+                let px = convert_px(&tiles.get(tx, ty).expect("a listed tile").px, depth);
+                fresh.put(tx, ty, Some(Tile { id: d.alloc_tile_id(), px: Arc::new(px) }));
+            }
+            out.push((at, fresh));
+            let def = match at {
+                At::Mask(id) => d.node_mut(id).ok().and_then(|n| n.mask.as_mut()).map(|m| &mut m.default),
+                At::FilterMask(id, i) => d.node_mut(id).ok().and_then(|n| n.smart_mut().filters[i].mask.as_mut()).map(|m| &mut m.default),
+                At::StackMask(id) => d.node_mut(id).ok().and_then(|n| n.smart_mut().stack_mask.as_mut()).map(|m| &mut m.default),
+                At::Selection => d.selection.as_mut().map(|m| &mut m.default),
+                At::LastSelection => d.last_selection.as_mut().map(|m| &mut m.default),
+                At::Channel(i) => Some(&mut d.channels[i].mask.default),
+                At::Pixels(_) | At::TextCache(_) => None,
+            };
+            if let Some(v) = def {
+                *v = scale(*v);
+            }
+        }
+        d.depth = depth;
+        let (w, h) = (d.width, d.height);
+        d.replace_planes(out, w, h);
+        *self = d;
+        Ok(true)
+    }
+
+    /// Image > Mode > Grayscale (true) or RGB Color (false). Grayscale turns every pixel layer to
+    /// its luminosity; the flag makes the display and exports gray.
+    pub fn convert_mode(&mut self, gray: bool) -> Result<(), String> {
+        use super::color_mode::ModeSpec;
+        self.set_color_mode(if gray { &ModeSpec::Gray } else { &ModeSpec::Rgb }).map(|_| ())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::transform::tests::{get_mask, get_px, put_mask, put_px};
     use super::*;
+
+    #[test]
+    fn convert_depth_round_trips_pixels_masks_and_defaults() {
+        let mut d = Document::new(300, 300, 8).unwrap();
+        put_px(&mut d, 1, 260, 5, [200, 50, 10, 128]);
+        d.add_mask(1, true).unwrap();
+        put_mask(&mut d, 1, 3, 3, 77);
+        d.select_rect(0.0, 0.0, 10.0, 10.0, Mode::New).unwrap();
+        d.select_all().unwrap();
+        assert!(d.convert_depth(16).unwrap());
+        assert_eq!(d.depth(), 16);
+        assert_eq!(d.selection.as_ref().unwrap().default, 65535);
+        assert_eq!(d.node(1).unwrap().mask.as_ref().unwrap().default, 65535);
+        assert!(!d.convert_depth(16).unwrap(), "same depth is no change");
+        assert!(d.convert_depth(8).unwrap());
+        assert_eq!(get_px(&d, 1, 260, 5), [200, 50, 10, 128]);
+        assert_eq!(get_mask(&d, 1, 3, 3), 77);
+        assert_eq!(d.node(1).unwrap().mask.as_ref().unwrap().default, 255);
+        assert!(d.convert_depth(12).is_err());
+    }
+
+    #[test]
+    fn convert_to_32_bit_stores_floats_keeps_over_range_and_reloads() {
+        let mut d = Document::new(300, 300, 8).unwrap();
+        put_px(&mut d, 1, 260, 5, [200, 50, 10, 255]);
+        d.add_mask(1, true).unwrap();
+        put_mask(&mut d, 1, 3, 3, 77);
+        assert!(d.convert_depth(32).unwrap());
+        assert_eq!(d.depth(), 32);
+        assert_eq!(d.node(1).unwrap().mask.as_ref().unwrap().default, 65535, "masks stay 16-bit");
+        let p = 5 * TILE + 4;
+        let px = d.node(1).unwrap().pixel_tiles().unwrap().get(1, 0).unwrap().px.clone();
+        let Pixels::F32(_) = px.as_ref() else { panic!("32-bit tiles hold floats") };
+        assert!((px.rgba_f32(p)[0] - 200.0 / 255.0).abs() < 1e-6);
+        let mut hdr = (*px).clone();
+        hdr.set_rgba_f32(p, [2.5, 0.5, 0.0, 1.0]);
+        let back = Pixels::from_bytes(32, false, &hdr.to_bytes()).unwrap();
+        assert_eq!(back.rgba_f32(p), [2.5, 0.5, 0.0, 1.0], "over-range survives storage");
+        let m = d.manifest();
+        let mut e = Document::from_manifest(&m).unwrap();
+        let ids: Vec<u64> = e.loading.as_ref().unwrap().pending_ids.iter().copied().collect();
+        for id in ids {
+            e.put_tile(id, &d.tile_bytes(id).unwrap()).unwrap();
+        }
+        e.finish_load().unwrap();
+        assert_eq!(&e.flatten_tile_rgba8(1, 0).unwrap()[p * 4..p * 4 + 4], &[200, 50, 10, 255]);
+        assert!(e.display_tile(1, 0, 0).unwrap().is_some(), "pyramid levels reduce float tiles");
+        assert!(d.convert_depth(16).unwrap());
+        assert!(d.convert_depth(8).unwrap());
+        assert_eq!(get_px(&d, 1, 260, 5), [200, 50, 10, 255]);
+        assert_eq!(get_mask(&d, 1, 3, 3), 77);
+    }
+
+    #[test]
+    fn grayscale_desaturates_pixel_layers_and_persists_the_mode() {
+        let mut d = Document::new(64, 64, 8).unwrap();
+        put_px(&mut d, 1, 5, 5, [200, 50, 10, 255]);
+        d.convert_mode(true).unwrap();
+        assert_eq!(get_px(&d, 1, 5, 5), [91, 91, 91, 255]);
+        assert!(d.vector.gray);
+        let top = d.add_layer("color", 1).unwrap();
+        put_px(&mut d, top, 6, 5, [0, 0, 255, 255]);
+        assert_eq!(&d.flatten_tile_rgba8(0, 0).unwrap()[(5 * TILE + 6) * 4..(5 * TILE + 6) * 4 + 4], &[28, 28, 28, 255], "color added later shows gray");
+        let (m, again) = super::super::m3_tests::reload(&d);
+        assert_eq!(m, again);
+        assert!(m.contains("\"gray\":true"));
+        d.convert_mode(false).unwrap();
+        assert!(!d.vector.gray && !d.manifest().contains("\"gray\":true"));
+    }
 
     const T: i32 = TILE as i32;
 
