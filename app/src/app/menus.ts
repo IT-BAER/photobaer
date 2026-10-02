@@ -26,7 +26,7 @@ export interface MenuCtx {
   setMenu: SetState<string | null>; newDialog: DialogRef; fileInput: RefObject<HTMLInputElement | null>; placeFile: (linked: boolean) => Promise<void>;
   has: boolean; active: Active | null; saveProject: () => Promise<boolean>; savePsd: () => Promise<void>;
   exportAs: (mime: Mime, ext: string) => Promise<void>; exportLayerComps: (mime: Mime, ext: string) => Promise<void>;
-  doc: DocInfo | null; closeTab: () => Promise<void>; run: Run; openPreviewDialog: (which: 'fill' | 'stroke') => void;
+  doc: DocInfo | null; closeTab: () => Promise<void>; closeTabs: (which: 'all' | 'others') => Promise<void>; renameLayer: () => void; run: Run; openPreviewDialog: (which: 'fill' | 'stroke') => void;
   contentAwareFill: (dialog: boolean) => void;
   quickFill: (rgb: Rgb, label: string) => void; fg: Rgb; bg: Rgb; quickMask: boolean; startTransform: (mode?: Mode, selection?: boolean) => Promise<void>;
   transformAgain: () => void; transformStore: TransformBarStore | null; transformMode: (m: Mode) => void; warping: boolean;
@@ -64,7 +64,7 @@ export function buildMenus(c: MenuCtx) {
     if (key) void c.run(null, () => client.call('switchDoc', key));
   };
   const {
-    setMenu, newDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeTab, run,
+    setMenu, newDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer, run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
@@ -120,6 +120,8 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Layer Comps to Files (JPEG)…', run: () => exportLayerComps('image/jpeg', 'jpg'), off: !has || !doc?.layerComps.length },
       { label: 'Layer Comps to Files (WebP)…', run: () => exportLayerComps('image/webp', 'webp'), off: !has || !doc?.layerComps.length },
       { label: 'Close', run: () => void closeTab(), off: !has },
+      { label: 'Close All', run: () => void closeTabs('all'), off: !has },
+      { label: 'Close Others', run: () => void closeTabs('others'), off: (doc?.docs.length ?? 0) < 2 },
     ],
     Edit: [
       { label: doc?.undoLabel ? `Undo ${doc.undoLabel}` : 'Undo', keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
@@ -159,8 +161,15 @@ export function buildMenus(c: MenuCtx) {
       { label: 'New Group', run: newGroup, off: !has },
       // Ctrl+J: the selected pixels as a new layer, or the whole layer when there is no pixel selection (Photoshop).
       { label: 'Layer via Copy', keys: 'Ctrl+J', run: () => doc?.selection && node?.kind === 'pixel' && active ? run(null, () => client.call('layerViaCopy', active.id), selectCreated) : duplicateLayer(), off: !has || !active },
+      { label: 'Layer via Cut', keys: 'Shift+Ctrl+J', run: () => active && run(null, () => client.call('layerViaCut', active.id), selectCreated), off: !has || !active || !doc?.selection || node?.kind !== 'pixel' },
       { label: 'Duplicate Layer', run: duplicateLayer, off: !has },
-      { label: 'Delete Layer', run: deleteLayer, off: deleteDisabled },
+      { label: 'Rename Layer', run: renameLayer, off: !has || !active },
+      {
+        label: 'Delete', keys: '›', run: () => {}, off: !has, sub: [
+          { label: 'Layer', run: deleteLayer, off: deleteDisabled },
+          { label: 'Hidden Layers', run: () => run(null, () => client.call('deleteHiddenLayers')), off: !has || !flatNodes(doc?.layers ?? []).some(n => !n.visible) },
+        ],
+      },
       { label: 'Group Layers', keys: 'Ctrl+G', run: groupLayers, off: !has },
       { label: 'Ungroup Layers', keys: 'Shift+Ctrl+G', run: ungroupLayers, off: !has || node?.kind !== 'group' },
       { label: 'Lock All Layers in Group', run: () => node && run(null, () => client.call('setLocks', flatNodes(node.children ?? []).map(n => n.id), { transparency: true, pixels: true, position: true })), off: !has || node?.kind !== 'group' },

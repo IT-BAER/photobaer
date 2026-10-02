@@ -34,7 +34,7 @@ export function FillDialog({ fillDialog, endPreviewDialog, previewRef, fillForm,
   picker: RefObject<ColorPickerHandle | null>; brushLib: BrushLibRef;
 }) {
   return (
-    <dialog ref={fillDialog} aria-label="Fill" onClose={endPreviewDialog}>
+    <dialog ref={fillDialog} className="live-preview" aria-label="Fill" onClose={endPreviewDialog}>
       <form onSubmit={e => { e.preventDefault(); previewRef.current.commit = true; fillDialog.current?.close(); }}>
         <h2>Fill</h2>
         <label>Contents <select name="contents" value={fillForm.contents} onChange={e => setFillForm({ ...fillForm, contents: e.currentTarget.value as FillContents })}>
@@ -92,7 +92,7 @@ export function StrokeDialog({ strokeDialog, endPreviewDialog, previewRef, strok
   picker: RefObject<ColorPickerHandle | null>;
 }) {
   return (
-    <dialog ref={strokeDialog} aria-label="Stroke" onClose={endPreviewDialog}>
+    <dialog ref={strokeDialog} className="live-preview" aria-label="Stroke" onClose={endPreviewDialog}>
       <form onSubmit={e => { e.preventDefault(); previewRef.current.commit = true; strokeDialog.current?.close(); }}>
         <h2>Stroke</h2>
         <label>Width <input name="width" type="number" min={1} max={250} value={strokeForm.width}
@@ -125,7 +125,7 @@ export function AdjustDialog({ adjustDialog, adjustForm, endPreviewDialog, previ
   setAdjustForm: SetState<AdjustForm>; gradEditor: RefObject<GradientEditorHandle | null>; pickLookupFile: PickLookupFile; active: Active | null;
 }) {
   return (
-    <dialog ref={adjustDialog} aria-label={adjustForm ? COMMAND_LABEL[adjustForm.kind] : 'Adjustment'} onClose={endPreviewDialog}>
+    <dialog ref={adjustDialog} className="live-preview" aria-label={adjustForm ? COMMAND_LABEL[adjustForm.kind] : 'Adjustment'} onClose={endPreviewDialog}>
       <form onSubmit={e => { e.preventDefault(); previewRef.current.commit = true; adjustDialog.current?.close(); }}>
         <h2>{adjustForm && COMMAND_LABEL[adjustForm.kind]}</h2>
         {adjustForm && (

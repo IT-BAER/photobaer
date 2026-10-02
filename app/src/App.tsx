@@ -133,6 +133,7 @@ export function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const newDialog = useRef<HTMLDialogElement>(null);
   const closeDialog = useRef<HTMLDialogElement>(null);
+  const [renameTick, setRenameTick] = useState(0);
   const [closeName, setCloseName] = useState('');
   const closeAnswer = useRef<((c: CloseChoice) => void) | null>(null);
   const aboutDialog = useRef<HTMLDialogElement>(null);
@@ -475,6 +476,17 @@ export function App() {
       }
     }
     await run(null, () => client.call('closeDoc', k));
+  }
+  // Close All / Close Others: tabs close one by one (the dirty one is shown first); Cancel or a failed save stops the rest.
+  async function closeTabs(which: 'all' | 'others') {
+    const keep = which === 'others' ? docRef.current?.key : undefined;
+    for (const t of docRef.current?.docs ?? []) {
+      if (t.key === keep) continue;
+      if (t.dirty && docRef.current?.key !== t.key) await run(null, () => client.call('switchDoc', t.key));
+      const n = docRef.current?.docs.length;
+      await closeTab(t.key);
+      if (docRef.current?.docs.length === n) return;
+    }
   }
   async function closeContents() {
     await run('Closing contents…', async () => {
@@ -971,7 +983,7 @@ export function App() {
   };
   const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
   const menus = buildMenus({
-    setMenu, newDialog, aboutDialog, agentDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeTab, run,
+    setMenu, newDialog, aboutDialog, agentDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer: () => setRenameTick(n => n + 1), run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
@@ -1722,7 +1734,7 @@ export function App() {
                 contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerRowItems(menus, layerContextItems(n, nodes, run, setError))]}
                 newLayer={newLayer} newGroup={newGroup}
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
-                openProperties={() => setShowProperties(true)}
+                openProperties={() => setShowProperties(true)} renameTick={renameTick}
                 openLayerStyle={(id, page) => openLayerStyle(page, id)}
               />
               <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />

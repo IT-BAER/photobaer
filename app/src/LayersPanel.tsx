@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import {
-  Brush, ChevronDown, ChevronRight, CornerLeftDown, Eye, Folder, FolderPlus, Frame, Grid2x2, Link2, Lock, Move,
-  PaintBucket, SquareDashed, SquarePlus, Trash2,
+  Brush, ChevronDown, ChevronRight, Contrast, CornerLeftDown, Eye, Folder, FolderPlus, Frame, Grid2x2, Image as ImageIcon, Link2, Lock, Move,
+  PaintBucket, Package, Shapes, SquareDashed, SquarePlus, Trash2, Type as TypeIcon,
 } from 'lucide-react';
 import { client } from './client.ts';
 import { BLEND_MODES, nodeById, dropTarget, type Where } from './layers.ts';
@@ -9,6 +9,7 @@ import type { DocInfo, LayerNode } from './engine.worker.ts';
 import { effectRows, setEffectEnabled, type EffectKind } from './layerStyle.ts';
 import { pathData } from './app/svgcss.ts';
 import type { Item } from './app/helpers.ts';
+import { filterLayers, KIND_FILTERS, type KindFilter } from './app/layerFilter.ts';
 
 export type Active = { id: number; target: 'pixels' | 'mask' };
 type SelectAfter = (d: DocInfo) => Active;
@@ -30,9 +31,15 @@ interface Props {
   addMask: () => void;
   openProperties: () => void;
   openLayerStyle: (id: number, page: 'blending' | { kind: EffectKind; index: number }) => void;
+  // Layer > Rename Layer: each increment starts the inline rename of the active layer.
+  renameTick: number;
 }
 
 const ICON = { size: 16, strokeWidth: 1.75 };
+const KIND_ICONS: Record<KindFilter, ReactNode> = {
+  pixel: <ImageIcon size={14} strokeWidth={1.75} />, adjustment: <Contrast size={14} strokeWidth={1.75} />, type: <TypeIcon size={14} strokeWidth={1.75} />,
+  shape: <Shapes size={14} strokeWidth={1.75} />, smart: <Package size={14} strokeWidth={1.75} />,
+};
 
 // Y within a row: top quarter = above, bottom quarter = below, middle half = into for a group,
 // else nearest half.
@@ -92,6 +99,13 @@ export function LayersPanel(props: Props) {
   const { doc, active, setActive, run } = props;
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [renaming, setRenaming] = useState<number | null>(null);
+  const [filterOn, setFilterOn] = useState(false);
+  const [kinds, setKinds] = useState<Set<KindFilter>>(new Set());
+  const shown = filterOn ? filterLayers(doc.layers, kinds) : doc.layers;
+  const tick = useRef(props.renameTick);
+  useEffect(() => {
+    if (tick.current !== props.renameTick) { tick.current = props.renameTick; setRenaming(active.id); }
+  }, [props.renameTick]);
   const [dragId, setDragId] = useState<number | null>(null);
   const [dropHint, setDropHint] = useState<{ id: number; where: Where } | null>(null);
   // Layers whose effect rows are folded, and the layer whose fx badge is being dragged.
@@ -131,11 +145,16 @@ export function LayersPanel(props: Props) {
   // Rows top to bottom as drawn (collapsed groups hide their children).
   const rowOrder = (nodes: LayerNode[]): number[] =>
     [...nodes].reverse().flatMap(n => [n.id, ...(n.children && !collapsed.has(n.id) ? rowOrder(n.children) : [])]);
+  // Picking a kind turns the filter on (Photoshop); the switch only pauses it.
+  const toggleKind = (k: KindFilter) => {
+    setKinds(s => { const next = new Set(s); if (!next.delete(k)) next.add(k); return next; });
+    setFilterOn(true);
+  };
 
   // Ctrl+click toggles a layer in the selection, Shift+click selects the rows from the active one.
   function rowClick(e: MouseEvent, id: number) {
     if (e.shiftKey) {
-      const order = rowOrder(doc.layers), a = order.indexOf(active.id), b = order.indexOf(id);
+      const order = rowOrder(shown), a = order.indexOf(active.id), b = order.indexOf(id);
       props.setPicked(order.slice(Math.min(a, b), Math.max(a, b) + 1));
       setActive({ id, target: 'pixels' });
     } else if (e.ctrlKey || e.metaKey) {
@@ -330,6 +349,7 @@ export function LayersPanel(props: Props) {
               className="rename"
               autoFocus
               defaultValue={n.name}
+              onFocus={e => e.currentTarget.select()}
               onClick={e => e.stopPropagation()}
               onBlur={e => { setRenaming(null); const v = e.currentTarget.value.trim(); if (v && v !== n.name) setProps(n.id, { name: v }); }}
               onKeyDown={e => {
@@ -389,8 +409,14 @@ export function LayersPanel(props: Props) {
           </div>
         </div>
       )}
+      <div className="layer-filter" role="group" aria-label="Filter layers by kind">
+        {KIND_FILTERS.map(f => (
+          <button key={f.kind} aria-label={f.label} aria-pressed={kinds.has(f.kind)} title={f.label} onClick={() => toggleKind(f.kind)}>{KIND_ICONS[f.kind]}</button>
+        ))}
+        <button className="layer-filter-switch" aria-label="Layer filter" aria-pressed={filterOn} title="Turn the layer filter on or off" onClick={() => setFilterOn(v => !v)}>Filter</button>
+      </div>
       <div className="layers-tree" role="tree" aria-label="Layers">
-        {[...doc.layers].reverse().map(n => renderRow(n, 0, n.clipping))}
+        {[...shown].reverse().map(n => renderRow(n, 0, n.clipping))}
       </div>
       {context && (
         <>

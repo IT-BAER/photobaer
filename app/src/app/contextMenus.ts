@@ -29,7 +29,7 @@ export function pickItems(menus: Menus, groups: string[][]): Item[] {
 }
 
 const LAYER_ROW: string[][] = [
-  ['Layer/Duplicate Layer', 'Layer/Delete Layer'],
+  ['Layer/Duplicate Layer', 'Layer/Delete/Layer=Delete Layer'],
   ['Layer/Group Layers=Group from Layers', 'Layer/Merge Down|Merge Layers|Merge Group', 'Layer/Merge Visible', 'Layer/Flatten Image'],
   ['Layer/Rasterize>', 'Layer/Smart Objects/Convert to Smart Object'],
   ['Layer/Add Layer Mask', 'Layer/Delete Layer Mask', 'Layer/Create Clipping Mask|Release Clipping Mask', 'Layer/Layer Style/Blending Options…=Blending Options…'],

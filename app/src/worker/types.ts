@@ -116,7 +116,7 @@ export interface DocInfo {
   key: string;
   // Unsaved changes since the last project or PSD save (also for undo past it); per tab in `docs`.
   dirty: boolean;
-  docs: { key: string; name: string; active: boolean; dirty: boolean }[];
+  docs: { key: string; name: string; active: boolean; dirty: boolean; mode: 'RGB'; depth: number }[];
   // Pixels per inch (docs/M4.md D13, section 12).
   resolution: number;
   guides: Guide[];

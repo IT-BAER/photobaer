@@ -219,6 +219,11 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .drop-line.drop-above { top: -2px; }
 .drop-line.drop-below { bottom: -2px; }
 
+.layer-filter { display: flex; align-items: center; gap: 2px; margin-bottom: 6px; color: var(--dim); }
+.layer-filter button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; background: none; border: 0; border-radius: 5px; color: var(--dim); cursor: pointer; }
+.layer-filter button:hover { color: var(--text); background: var(--panel-hi); }
+.layer-filter button[aria-pressed=true] { color: var(--accent); }
+.layer-filter .layer-filter-switch { margin-left: auto; width: auto; padding: 0 6px; font-size: 11px; }
 .layers-footer { display: flex; justify-content: flex-end; gap: 2px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
 .layers-footer button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; background: none; border: 0; border-radius: 8px; color: var(--dim); cursor: pointer; }
 .layers-footer button:hover:not(:disabled) { color: var(--text); background: var(--panel-hi); }
@@ -345,7 +350,7 @@ dialog button.primary { background: var(--accent); color: var(--on-accent); bord
 
 dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; min-width: 300px; }
 dialog::backdrop { background: #0008; }
-dialog.filter-dialog::backdrop { background: none; }
+dialog.filter-dialog::backdrop, dialog.live-preview::backdrop, dialog.layer-style-dialog::backdrop { background: none; }
 dialog h2 { margin: 0 0 12px; font-size: 16px; }
 dialog label { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 dialog input, dialog select { flex: 1; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
@@ -567,5 +572,6 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .doc-tab.active { background: var(--panel-hi); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
 .doc-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .doc-tab-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.doc-tab-mode { opacity: 0.6; }
 .doc-tab-close { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; color: inherit; background: none; border: 0; border-radius: 4px; cursor: pointer; }
 .doc-tab-close:hover { background: var(--panel); color: var(--text); }

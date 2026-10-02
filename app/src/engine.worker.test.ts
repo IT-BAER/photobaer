@@ -2575,3 +2575,59 @@ test('removing a tip after Edit Contents closed in a tab that was switched away 
   assert.ok((await call('brushPreview', tipParams(id), 64, 32)).error, 'the tip is gone');
   await res(call('switchDoc', b.key));
 });
+
+test('Layer via Cut moves the selected pixels to a new layer and clears only the selection, one step', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  const v = (await call('layerViaCut', 1)).result as Pasted;
+  assert.deepEqual([v.undoLabel, v.layers.length, v.layers.at(-1)!.id], ['Layer via Cut', 2, v.created]);
+  assert.deepEqual((await call('movingBounds', v.created)).result, [4, 4, 8, 8]);
+  assert.deepEqual(await at1(5, 5, v.created), RED);
+  assert.deepEqual(await at1(5, 5, 1), CLEAR);
+  assert.deepEqual(await at1(20, 20, 1), RED);
+  const u = (await call('undo')).result as Pasted;
+  assert.equal(u.layers.length, 1);
+  assert.deepEqual(await at1(5, 5, 1), RED);
+});
+
+test('Layer via Cut without a selection errors and adds no step', async () => {
+  await call('init');
+  const n = (await call('newDoc', 64, 64, 8, null)).result as { version: number; undoLabel: string | null };
+  assert.ok((await call('layerViaCut', 1)).error);
+  assert.equal(((await call('undo')).result as { undoLabel: string | null }).undoLabel, n.undoLabel);
+});
+
+test('deleteHiddenLayers removes hidden layers and groups anywhere in one step; undo restores them', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  const a = ((await call('addLayer', 1)).result as { created: number }).created;
+  const g = ((await call('addGroup', a)).result as { created: number }).created;
+  const inner = ((await call('addLayer', g)).result as { created: number }).created;
+  await call('moveNode', inner, g, 0);
+  const b = ((await call('addLayer', g)).result as { created: number }).created;
+  await call('moveNode', b, g, 1);
+  await call('setProps', a, { visible: false });
+  await call('setProps', b, { visible: false });
+  const ids = (l: { id: number; children?: unknown[] }[]): number[] => l.flatMap(x => [x.id, ...ids((x.children ?? []) as { id: number; children?: unknown[] }[])]);
+  const r = (await call('deleteHiddenLayers')).result as Pasted;
+  assert.equal(r.undoLabel, 'Delete Hidden Layers');
+  assert.deepEqual(ids(r.layers), [1, g, inner]);
+  const u = (await call('undo')).result as Pasted;
+  assert.deepEqual(ids(u.layers).sort(), [1, a, g, inner, b].sort());
+});
+
+test('deleteHiddenLayers without hidden layers adds no step', async () => {
+  await call('init');
+  const n = (await call('newDoc', 64, 64, 8, null)).result as { undoLabel: string | null };
+  const r = (await call('deleteHiddenLayers')).result as { undoLabel: string | null };
+  assert.equal(r.undoLabel, n.undoLabel);
+});
+
+test('every tab reports its mode and depth', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  const d = (await call('newDoc', 32, 32, 16, null)).result as { docs: { mode: string; depth: number }[] };
+  assert.deepEqual(d.docs.slice(-2).map(t => [t.mode, t.depth]), [['RGB', 8], ['RGB', 16]]);
+});

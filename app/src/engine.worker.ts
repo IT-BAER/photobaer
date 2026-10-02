@@ -112,6 +112,8 @@ function isDirty(i: number) {
   return (d.parents[0]?.history ?? d.history).top !== d.saved || (d.parents.length > 0 && d.version !== d.parents.at(-1)!.saved);
 }
 
+const tabDepth = (i: number) => (i === active ? parents[0]?.eng ?? eng! : docs[i].parents[0]?.eng ?? docs[i].eng).depth();
+
 const tabName = (i: number) => i === active ? parents[0]?.name ?? name : docs[i].parents[0]?.name ?? docs[i].name;
 
 const emit = (state: AutosaveState, detail?: string) => {
@@ -151,7 +153,7 @@ function info(): DocInfo | null {
     parents: parents.map(p => p.name),
     key: docs[active].key,
     dirty: isDirty(active),
-    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active, dirty: isDirty(i) })),
+    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active, dirty: isDirty(i), mode: 'RGB', depth: tabDepth(i) })),
   };
 }
 
@@ -621,6 +623,19 @@ const api = {
     return { ...changed(), created };
   },
 
+  // Layer > New > Layer via Cut: Layer via Copy, then the selected pixels of `id` are cleared (as Edit > Cut), one step.
+  layerViaCut(id: number) {
+    const e = need();
+    const c = copyPixels(e, id);
+    let created = 0;
+    history.run('Layer via Cut', () => {
+      created = e.add_layer(nextName('Layer'), id);
+      e.put_rgba8(created, c.x, c.y, c.w, c.h, c.rgba);
+      e.clear(id, 'pixels');
+    });
+    return { ...changed(), created };
+  },
+
   // Edit > Paste / Paste in Place / Paste Into: a new layer above `above`. `bytes` is a system clipboard
   // image; one sized like the internal clipboard is taken as that (it keeps the origin). `pasted`: false = nothing to paste.
   async paste(above: number, mode: 'paste' | 'inPlace' | 'into', bytes: Uint8Array | null) {
@@ -797,6 +812,17 @@ const api = {
   deleteNode(id: number) {
     const e = need();
     history.run('Delete Layer', () => e.delete_node(id));
+    return changed();
+  },
+
+  // Layer > Delete > Hidden Layers: every node whose own visibility is off (its subtree goes with it), one step; none if no node is hidden.
+  deleteHiddenLayers() {
+    const e = need();
+    const hidden: number[] = [];
+    const walk = (nodes: LayerNode[]) => { for (const n of nodes) { if (!n.visible) hidden.push(n.id); else if (n.children) walk(n.children); } };
+    walk(JSON.parse(e.layers_json()));
+    if (!hidden.length) return info();
+    history.run('Delete Hidden Layers', () => { for (const id of hidden) e.delete_node(id); });
     return changed();
   },
 
