@@ -129,6 +129,7 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .options-bar select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
 .transform-bar { padding-left: 10px; }
 .transform-bar button, .crop-actions button { padding: 2px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.deform-hint { opacity: .75; }
 .transform-bar button.primary, .crop-actions button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .crop-actions { display: flex; gap: 6px; }
 .transform-bar .link-toggle { display: grid; place-items: center; padding: 2px 4px; color: var(--dim); }

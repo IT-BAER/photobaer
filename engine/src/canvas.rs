@@ -299,6 +299,7 @@ impl Document {
     fn remap_vectors(&mut self, m: &[f64; 9]) {
         remap_nodes(&mut self.nodes, m);
         self.remap_liquify(m);
+        self.remap_warps(m);
         for p in &mut self.vector.paths {
             map_path(m, &mut p.path);
         }
@@ -313,6 +314,33 @@ impl Document {
                 (g.axis, g.pos) = (Axis::X, a.0);
             }
         }
+    }
+
+    // Puppet and Perspective Warp smart filters follow the canvas: their points map by `m`.
+    fn remap_warps(&mut self, m: &[f64; 9]) {
+        fn walk(nodes: &mut [Node], m: &[f64; 9]) {
+            for n in nodes {
+                match &mut n.kind {
+                    Kind::Group(ch) => walk(ch, m),
+                    Kind::Smart(s) => {
+                        for f in s.filters.iter_mut().map(|sf| &mut sf.filter) {
+                            let key = match f.kind.as_str() {
+                                "puppet_warp" => "rig",
+                                "perspective_warp" => "state",
+                                _ => continue,
+                            };
+                            let Some(v) = f.params.get(key) else { continue };
+                            let out = if key == "rig" { crate::puppet::remapped(v, m) } else { crate::pwarp::remapped(v, m) };
+                            if let Ok(out) = out {
+                                f.params.insert(key.into(), out);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        walk(&mut self.nodes, m);
     }
 
     // Liquify smart filter meshes follow the canvas: each is resampled into the new document frame

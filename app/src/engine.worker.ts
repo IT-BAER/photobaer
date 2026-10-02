@@ -1,4 +1,4 @@
-import init, { Engine, Fonts, filter_schema, fit_path, live_path, type Liquify } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts, filter_schema, fit_path, live_path, puppet_geometry, type Liquify } from './engine-pkg/photobaer_engine.js';
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
@@ -6,6 +6,7 @@ import { tileIds } from './project.ts';
 import { importPsd, exportPsd, compositeRgba, isPsdBytes } from './psd.ts';
 import { getHandle, putHandle } from './links.ts';
 import { denormalize, isIdentity } from './transform/matrix.ts';
+import type { Density, Geometry, Grid, Rig } from './transform/puppet.ts';
 import { patternRefs, type Blending, type LayerStyle } from './layerStyle.ts';
 import type { PatternRecord } from './brushes/preset.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
@@ -2237,6 +2238,15 @@ const api = {
   applyFilter(id: number, target: 'pixels' | 'mask' | 'selection', filter: SmartFilterKind, label: string, preview = false, view: number[] = [], scale = 1) {
     const e = need();
     return edit(label, preview, () => e.apply_filter(id, target, JSON.stringify(filter), Int32Array.from(view), scale));
+  },
+
+  // Edit > Puppet Warp: the mesh over layer `id`'s opaque pixels, and a rig's deformed mesh for the overlay.
+  puppetMesh(id: number, density: Density, expansion: number) {
+    return JSON.parse(need().puppet_mesh(id, density, expansion)) as Grid;
+  },
+
+  puppetGeometry(rig: Rig) {
+    return JSON.parse(puppet_geometry(JSON.stringify(rig))) as Geometry;
   },
 
   // Filter > Liquify: a session on layer `id`'s pixels, or on its Liquify smart filter `filterId`'s mesh.

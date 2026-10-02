@@ -46,7 +46,7 @@ export interface MenuCtx {
   rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
   loadSelDialog: DialogRef; saveSelDialog: DialogRef; viewer: RefObject<Viewer | null>;
-  filterSpecs: FilterSpec[]; openFilter: (spec: FilterSpec) => void; openLiquify: () => void; lastFilter: () => void; openFade: () => void; openSearch: () => void;
+  filterSpecs: FilterSpec[]; openFilter: (spec: FilterSpec) => void; openLiquify: () => void; startDeform: (kind: 'puppet' | 'perspective') => void; lastFilter: () => void; openFade: () => void; openSearch: () => void;
   showAnts: boolean; setShowAnts: SetState<boolean>; showAdjustments: boolean; setShowAdjustments: SetState<boolean>;
   showLayerComps: boolean; setShowLayerComps: SetState<boolean>; showPaths: boolean; setShowPaths: SetState<boolean>; showProperties: boolean; setShowProperties: SetState<boolean>;
   showStyles: boolean; setShowStyles: SetState<boolean>; showPatterns: boolean; setShowPatterns: SetState<boolean>;
@@ -76,7 +76,7 @@ export function buildMenus(c: MenuCtx) {
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
-    selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
+    selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
   } = c;
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
@@ -94,6 +94,8 @@ export function buildMenus(c: MenuCtx) {
         label: (smart?.stack_mode ?? null) === mode ? `✓ ${label}` : label, run: () => node && run(null, () => client.call('setStackMode', node.id, mode)),
       })),
     },
+    { label: 'Perspective Warp', sep: true, run: () => startDeform('perspective'), off: !smart },
+    { label: 'Puppet Warp', run: () => startDeform('puppet'), off: !smart },
     { label: 'Rasterize', sep: true, run: () => node && run('Rasterizing…', () => client.call('rasterizeSmart', node.id, 'Rasterize')), off: !smart },
   ];
 
@@ -154,6 +156,8 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Content-Aware Fill…', run: () => contentAwareFill(true), off: !has || !active },
       { label: 'Delete and Fill Selection', run: () => contentAwareFill(false), off: !has || !active },
       { label: 'Clear', keys: 'Delete', run: () => active && run('Clearing…', () => client.call('clearSelected', active.id, quickMask ? 'selection' : active.target)), off: !doc?.selection || !active },
+      { label: 'Puppet Warp', run: () => startDeform('puppet'), off: !has || !active },
+      { label: 'Perspective Warp', run: () => startDeform('perspective'), off: !has || !active },
       { label: 'Free Transform', keys: 'Ctrl+T', run: () => void startTransform(), off: !has || !active },
       {
         label: 'Transform', keys: '›', run: () => {}, off: !has || !active, sub: [

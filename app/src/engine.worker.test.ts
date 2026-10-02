@@ -2798,3 +2798,39 @@ test('Liquify commits one step, then a smart filter that re-edits and survives a
   assert.deepEqual(pts.map(at), before, 'the restored smart filter renders the same pixels');
   e.free();
 });
+
+test('Puppet Warp and Perspective Warp preview over the whole document and commit one step; a smart object gets the smart filter', async () => {
+  await call('init');
+  await call('newDoc', 32, 32, 8, [255, 255, 255, 255]);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 16, h: 32 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  await call('selectCommand', 'deselect');
+  const mesh = (await call('puppetMesh', 1, 'normal', 2)).result as { cols: number; rows: number; step: number };
+  assert.ok(mesh.cols > 0 && mesh.rows > 0 && mesh.step > 0);
+  const rest = { mesh, pins: [{ x: 8, y: 16, tx: 8, ty: 16, rotation: 0, fixed: false, depth: 0 }], mode: 'normal', density: 'normal', expansion: 2 };
+  const geo = (await call('puppetGeometry', rest)).result as { rest: number[]; deformed: number[]; triangles: number[] };
+  assert.ok(geo.triangles.length > 0 && geo.triangles.length % 3 === 0);
+  assert.deepEqual(geo.deformed, geo.rest, 'nothing moved: the mesh is at rest');
+  const rig = { ...rest, pins: [{ ...rest.pins[0], tx: 18 }] };
+  const puppet = { kind: 'puppet_warp', params: { rig } };
+  await call('applyFilter', 1, 'pixels', puppet, 'Puppet Warp', true, [], 0.5);
+  await call('applyFilter', 1, 'pixels', puppet, 'Puppet Warp', true, [], 1);
+  const d = (await call('previewEnd', true)).result as FilterDoc;
+  assert.equal(d.undoLabel, 'Puppet Warp');
+  assert.deepEqual(await pixelAt(20, 16), [255, 0, 0, 255], 'one pin moves the layer by 10 px');
+  await call('undo');
+  assert.deepEqual(await pixelAt(20, 16), [255, 255, 255, 255]);
+
+  const sq = [[0, 0], [32, 0], [32, 32], [0, 32]];
+  const persp = { kind: 'perspective_warp', params: { state: { layout: sq, current: sq.map(([x, y]) => [x + 10, y]), quads: [[0, 1, 2, 3]] } } };
+  await call('applyFilter', 1, 'pixels', persp, 'Perspective Warp', true, [], 1);
+  const p = (await call('previewEnd', true)).result as FilterDoc;
+  assert.equal(p.undoLabel, 'Perspective Warp');
+  assert.deepEqual(await pixelAt(20, 16), [255, 0, 0, 255], 'the plane moved 10 px right');
+  await call('undo');
+
+  await call('convertForSmartFilters', 1);
+  const s = (await call('applyFilter', 1, 'pixels', puppet, 'Puppet Warp')).result as FilterDoc;
+  assert.deepEqual(filtersOf(s, 1).map(f => f.filter.kind), ['puppet_warp']);
+  assert.deepEqual(await pixelAt(20, 16), [255, 0, 0, 255], 'the smart filter renders the warp');
+});

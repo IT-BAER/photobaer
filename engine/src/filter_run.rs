@@ -223,15 +223,17 @@ impl Document {
                 let tiles = self.node(id)?.pixel_tiles()?.clone();
                 // Point, pin and path params are fractions of the tight bounds, so only they pay for them in a preview.
                 let exact = spec.params.iter().any(|p| matches!(p.kind, PKind::Point | PKind::Pins | PKind::Paths));
-                // Render filters fill empty layers; Liquify moves pixels into empty areas.
-                let b = if spec.group == "render" || spec.id == "liquify" {
+                // Render filters fill empty layers; Liquify and the warps move pixels into empty
+                // areas (the warps read the tight bounds as their source rect).
+                let b = if spec.group == "render" || spec.id == "liquify" || spec.extent.is_some() {
                     Some(doc)
                 } else if scale < 1.0 && !exact {
                     tile_bounds(&tiles)
                 } else {
                     self.layer_bounds(id)?
                 };
-                (Src::Pixels(tiles), b.map(grown), b.unwrap_or(doc))
+                let refb = if spec.extent.is_some() { self.layer_bounds(id)?.unwrap_or(doc) } else { b.unwrap_or(doc) };
+                (Src::Pixels(tiles), b.map(grown), refb)
             }
             Target::Mask => {
                 let m = self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
@@ -414,6 +416,18 @@ impl Document {
         let mut p = downsample(&Src::Pixels(tiles), doc, doc, s);
         p.premultiply();
         Ok(Liquify::new(mesh, p.data, p.w, p.h, s as f32))
+    }
+
+    /// A Puppet Warp mesh (JSON of `puppet::Grid`) over layer `id`'s opaque pixels, read from a
+    /// proxy whose long side is at most 768 px.
+    pub fn puppet_mesh(&self, id: u32, density: &str, expansion: f64) -> Result<String, String> {
+        self.check_pixel_edit(id)?;
+        let b = self.layer_bounds(id)?.ok_or(crate::puppet::EMPTY)?;
+        let s = (768.0 / b[2].max(b[3]) as f64).min(1.0);
+        let p = downsample(&Src::Pixels(self.node(id)?.pixel_tiles()?.clone()), b, b, s);
+        let alpha: Vec<f32> = p.data.chunks_exact(4).map(|px| px[3]).collect();
+        let g = crate::puppet::build(&alpha, p.w, p.h, (b[0] as f64, b[1] as f64), s, density, expansion.clamp(-50.0, 50.0)).ok_or(crate::puppet::EMPTY)?;
+        serde_json::to_string(&g).map_err(|e| e.to_string())
     }
 
     /// Mask Options from the selection (`source` "selection") or layer `id`'s transparency, read

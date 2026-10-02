@@ -1396,3 +1396,160 @@ fn a_liquify_smart_filter_mesh_follows_canvas_size() {
     let after: Vec<[u8; 4]> = (9..20).map(|x| lpx(&d, 1, x, 3)).collect();
     assert_eq!(after, before, "the warp moved 8 px right with the canvas");
 }
+
+// A varied opaque block over x 16..48, y 12..36 of a 64 x 48 doc, transparent elsewhere.
+fn puppet_doc() -> Document {
+    doc_with(64, 48, |x, y| if (16..48).contains(&x) && (12..36).contains(&y) { [(x * 7) as u8, (y * 9) as u8, ((x + y) * 3) as u8, 255] } else { [0; 4] })
+}
+
+// The `puppet_warp` filter JSON for layer 1's mesh (Normal density, expansion 2) and `pins`
+// as (x, y, tx, ty).
+fn puppet(d: &Document, pins: &[(f64, f64, f64, f64)], mode: &str) -> String {
+    let mesh: Value = serde_json::from_str(&d.puppet_mesh(1, "normal", 2.0).unwrap()).unwrap();
+    let pins: Vec<Value> = pins.iter().map(|&(x, y, tx, ty)| json!({ "x": x, "y": y, "tx": tx, "ty": ty, "rotation": 0.0, "fixed": false, "depth": 0 })).collect();
+    filter("puppet_warp", json!({ "rig": { "mesh": mesh, "pins": pins, "mode": mode, "density": "normal", "expansion": 2.0 } }))
+}
+
+fn layer_px(d: &Document) -> Vec<[u8; 4]> {
+    (0..d.height as i32).flat_map(|y| (0..d.width as i32).map(move |x| (x, y))).map(|(x, y)| lpx(d, 1, x, y)).collect()
+}
+
+#[test]
+fn puppet_warp_with_pins_not_moved_is_the_identity() {
+    let mut d = puppet_doc();
+    let before = layer_px(&d);
+    let f = puppet(&d, &[(20.0, 16.0, 20.0, 16.0), (40.0, 16.0, 40.0, 16.0), (30.0, 30.0, 30.0, 30.0)], "normal");
+    d.apply_filter(1, Target::Pixels, &f, None, 1.0).unwrap();
+    assert_eq!(layer_px(&d), before);
+}
+
+#[test]
+fn puppet_warp_with_every_pin_moved_by_10_0_translates_by_10() {
+    let before = puppet_doc();
+    let pins = [(20.0, 16.0, 30.0, 16.0), (40.0, 16.0, 50.0, 16.0), (30.0, 30.0, 40.0, 30.0)];
+    for mode in ["rigid", "normal", "distort"] {
+        let mut d = before.clone();
+        d.apply_filter(1, Target::Pixels, &puppet(&before, &pins, mode), None, 1.0).unwrap();
+        for y in 14..34 {
+            for x in 28..56 {
+                let (p, q) = (lpx(&d, 1, x, y), lpx(&before, 1, x - 10, y));
+                assert!(p.iter().zip(q).all(|(a, b)| a.abs_diff(b) <= 1), "{mode} {x},{y}: {p:?} vs {q:?}");
+            }
+        }
+        assert_eq!(lpx(&d, 1, 20, 20), [0; 4], "{mode}: the area the block left is empty");
+    }
+}
+
+#[test]
+fn puppet_warp_rigid_and_distort_bend_differently() {
+    let d = puppet_doc();
+    let pins = [(18.0, 24.0, 18.0, 24.0), (32.0, 24.0, 32.0, 24.0), (46.0, 24.0, 46.0, 40.0)];
+    let bent = |mode: &str| {
+        let mut e = d.clone();
+        e.apply_filter(1, Target::Pixels, &puppet(&d, &pins, mode), None, 1.0).unwrap();
+        layer_px(&e)
+    };
+    let (rigid, distort) = (bent("rigid"), bent("distort"));
+    let differ = rigid.iter().zip(&distort).filter(|(a, b)| a != b).count();
+    assert!(differ > 20, "{differ} pixels differ");
+    assert_ne!(rigid, layer_px(&d), "the bend moved pixels");
+}
+
+#[test]
+fn puppet_meshes_cover_the_opaque_pixels_and_refuse_an_empty_layer() {
+    let d = puppet_doc();
+    let m: Value = serde_json::from_str(&d.puppet_mesh(1, "normal", 0.0).unwrap()).unwrap();
+    // 32 x 24 px at spacing 16: 2 x 2 cells, all occupied (run lengths: 0 empty, 4 occupied).
+    assert_eq!((m["x"].as_f64(), m["y"].as_f64(), m["step"].as_f64(), m["cols"].as_u64(), m["rows"].as_u64()), (Some(16.0), Some(12.0), Some(16.0), Some(2), Some(2)));
+    assert_eq!(m["cells"], json!([0, 4]));
+    let grown: Value = serde_json::from_str(&d.puppet_mesh(1, "morePoints", 2.0).unwrap()).unwrap();
+    assert_eq!((grown["x"].as_f64(), grown["step"].as_f64()), (Some(14.0), Some(8.0)));
+    let empty = Document::new(16, 16, 8).unwrap();
+    assert_eq!(empty.puppet_mesh(1, "normal", 2.0).unwrap_err(), "Puppet Warp needs an unlocked pixel layer with content.");
+}
+
+// The `perspective_warp` filter JSON for one quad over the puppet block with corner 2 at `c2`.
+fn perspective(c2: (f64, f64)) -> String {
+    let layout = json!([[16.0, 12.0], [48.0, 12.0], [48.0, 36.0], [16.0, 36.0]]);
+    let current = json!([[16.0, 12.0], [48.0, 12.0], [c2.0, c2.1], [16.0, 36.0]]);
+    filter("perspective_warp", json!({ "state": { "layout": layout, "current": current, "quads": [[0, 1, 2, 3]] } }))
+}
+
+#[test]
+fn perspective_warp_with_unchanged_quads_is_the_identity() {
+    let mut d = puppet_doc();
+    let before = layer_px(&d);
+    d.apply_filter(1, Target::Pixels, &perspective((48.0, 36.0)), None, 1.0).unwrap();
+    assert_eq!(layer_px(&d), before);
+}
+
+#[test]
+fn perspective_warp_maps_a_moved_quad_corner_exactly() {
+    let mut d = doc_with(64, 48, |x, y| match (x, y) {
+        (47, 35) => [255, 0, 0, 255],
+        _ if (16..48).contains(&x) && (12..36).contains(&y) => [0, 0, 255, 255],
+        _ => [0; 4],
+    });
+    d.apply_filter(1, Target::Pixels, &perspective((56.0, 44.0)), None, 1.0).unwrap();
+    // The source corner pixel (47, 35) spans (47..48, 35..36); the corner (48, 36) lands on (56, 44).
+    let red = |x: i32, y: i32| { let p = lpx(&d, 1, x, y); (p[0] as i32 - p[2] as i32) * p[3] as i32 };
+    let reddest = (30..64).flat_map(|x| (20..48).map(move |y| (x, y))).max_by_key(|&(x, y)| red(x, y)).unwrap();
+    assert!((53..=55).contains(&reddest.0) && (41..=43).contains(&reddest.1), "{reddest:?}");
+    assert!(lpx(&d, 1, 56, 44)[3] < 32, "past the moved corner only the bicubic tail remains");
+    assert_eq!(lpx(&d, 1, 58, 46)[3], 0);
+    assert_ne!(lpx(&d, 1, 54, 42)[3], 0);
+}
+
+#[test]
+fn perspective_warp_refuses_a_horizon_crossing_and_bad_states() {
+    let mut d = puppet_doc();
+    let bad = filter("perspective_warp", json!({ "state": { "layout": [[0, 0], [1, 0], [1, 1]], "current": [[0, 0], [1, 0], [1, 1]], "quads": [[0, 1, 2, 3]] } }));
+    assert!(d.apply_filter(1, Target::Pixels, &bad, None, 1.0).unwrap_err().contains("Perspective Warp"), "an index out of range");
+    let concave = filter("perspective_warp", json!({ "state": { "layout": [[0, 0], [10, 0], [2, 2], [0, 10]], "current": [[0, 0], [10, 0], [2, 2], [0, 10]], "quads": [[0, 1, 2, 3]] } }));
+    assert!(d.apply_filter(1, Target::Pixels, &concave, None, 1.0).is_err());
+    let huge = filter("perspective_warp", json!({ "state": {
+        "layout": [[16, 12], [48, 12], [48, 36], [16, 36]], "current": [[6400, 4800], [19200, 4800], [19200, 14400], [6400, 14400]], "quads": [[0, 1, 2, 3]] } }));
+    let e = d.apply_filter(1, Target::Pixels, &huge, None, 1.0).unwrap_err();
+    assert_eq!(e, "The perspective extends beyond a finite image. Move the corners closer to the original plane.");
+    let thin = filter("perspective_warp", json!({ "state": {
+        "layout": [[0, 0], [1e4, 0], [1e4, 1e4], [0, 1e4]], "current": [[-1e12, 0], [0, 0], [0, 1e-3], [-1e12, 1e-3]], "quads": [[0, 1, 2, 3]] } }));
+    assert_eq!(d.apply_filter(1, Target::Pixels, &thin, None, 1.0).unwrap_err(), e, "a long thin plane past the i32 range");
+}
+
+#[test]
+fn warp_smart_filters_render_like_the_destructive_warps_and_survive_a_reparse() {
+    let d0 = puppet_doc();
+    let pins = [(20.0, 16.0, 24.0, 18.0), (40.0, 16.0, 44.0, 14.0), (30.0, 30.0, 30.0, 34.0)];
+    for f in [puppet(&d0, &pins, "rigid"), perspective((52.0, 40.0))] {
+        let (mut flat, mut smart) = (d0.clone(), d0.clone());
+        flat.apply_filter(1, Target::Pixels, &f, None, 1.0).unwrap();
+        smart.convert_for_smart_filters(1, &json!({ "link_id": "l", "source_blob": null }).to_string()).unwrap();
+        smart.apply_filter(1, Target::Pixels, &f, None, 1.0).unwrap();
+        assert_eq!(layer_px(&smart), layer_px(&flat), "the stack area reaches as far as the warp moves pixels");
+        let stored = smart.smart(1).unwrap().filters[0].filter.clone();
+        let text = serde_json::to_string(&stored).unwrap();
+        assert_eq!(serde_json::to_string(&filters::Filter::parse(&text).unwrap()).unwrap(), text, "a reparse is byte identical");
+        let again = layer_px(&smart);
+        smart.render_smart(1).unwrap();
+        assert_eq!(layer_px(&smart), again, "a re-render is identical");
+    }
+}
+
+#[test]
+fn warp_smart_filters_follow_canvas_size() {
+    let d0 = puppet_doc();
+    let pins = [(20.0, 16.0, 24.0, 18.0), (40.0, 16.0, 44.0, 14.0), (30.0, 30.0, 30.0, 34.0)];
+    for f in [puppet(&d0, &pins, "normal"), perspective((52.0, 40.0))] {
+        let mut d = d0.clone();
+        d.convert_for_smart_filters(1, &json!({ "link_id": "l", "source_blob": null }).to_string()).unwrap();
+        d.apply_filter(1, Target::Pixels, &f, None, 1.0).unwrap();
+        let before = layer_px(&d);
+        d.canvas_size(72, 48, (1, 0), None).unwrap();
+        d.render_smart(1).unwrap();
+        for y in 0..48 {
+            for x in 0..64 {
+                assert_eq!(lpx(&d, 1, x + 8, y), before[(y * 64 + x) as usize], "{x},{y}");
+            }
+        }
+    }
+}

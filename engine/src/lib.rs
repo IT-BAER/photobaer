@@ -9,6 +9,8 @@ mod heal;
 mod gradient;
 mod livewire;
 mod liquify;
+mod puppet;
+mod pwarp;
 mod geom;
 mod path;
 mod pattern;
@@ -245,6 +247,12 @@ impl Engine {
     /// `max_side` px and a mesh of `spacing` px, or re-editing Liquify smart filter `filter_id`.
     pub fn liquify_begin(&mut self, id: u32, max_side: u32, spacing: u32, filter_id: Option<u32>) -> Result<liquify::Liquify, JsError> {
         self.0.doc.liquify_begin(id, max_side, spacing, filter_id).map_err(err)
+    }
+
+    /// A Puppet Warp mesh JSON over layer `id`'s opaque pixels (density fewerPoints, normal or
+    /// morePoints; expansion -50..50 px).
+    pub fn puppet_mesh(&self, id: u32, density: &str, expansion: f64) -> Result<String, JsError> {
+        self.0.doc.puppet_mesh(id, density, expansion).map_err(err)
     }
 
     /// Liquify Mask Options from "selection" or "transparency" (layer `id`) by `op`.
@@ -1246,6 +1254,12 @@ impl Engine {
 #[wasm_bindgen]
 pub fn filter_schema() -> String {
     filters::schema_json()
+}
+
+/// `{ rest, deformed, triangles }` of a Puppet Warp rig JSON, for the session overlay.
+#[wasm_bindgen]
+pub fn puppet_geometry(rig_json: &str) -> Result<String, JsError> {
+    puppet::geometry(rig_json).map_err(|e| JsError::new(&e))
 }
 
 /// The path JSON a live shape JSON generates (the shape tools' Path mode).

@@ -69,6 +69,11 @@ fn check_size(size: [u32; 2]) -> Result<(), String> {
 }
 
 // Row-major source px -> document px translation.
+fn union(a: [i32; 4], b: [i32; 4]) -> [i32; 4] {
+    let (x, y) = (a[0].min(b[0]), a[1].min(b[1]));
+    [x, y, (a[0] + a[2]).max(b[0] + b[2]) - x, (a[1] + a[3]).max(b[1] + b[3]) - y]
+}
+
 fn translate(x: f64, y: f64) -> [f64; 9] {
     [1.0, 0.0, x, 0.0, 1.0, y, 0.0, 0.0, 1.0]
 }
@@ -168,8 +173,14 @@ impl Document {
     pub(super) fn filtered(&mut self, base: Tiles, filters: &[SmartFilter], stack: Option<&Mask>, layer: Option<&Mask>) -> Result<Tiles, String> {
         let on: Vec<&SmartFilter> = filters.iter().filter(|f| f.enabled).collect();
         let Some(b) = tile_rect(&base).filter(|_| !on.is_empty()) else { return Ok(base) };
-        let reach: i32 = on.iter().map(|f| f.filter.reach()).sum();
-        let r = [b[0] - reach, b[1] - reach, b[2] + 2 * reach, b[3] + 2 * reach];
+        // The plane grows by each reach from `b`; a warp adds where it can move the content (`t`).
+        let tight = tiles_bounds(&base).unwrap_or(b);
+        let (mut r, mut t) = (b, tight);
+        for f in &on {
+            let n = f.filter.extent(t)?;
+            r = if f.filter.spec()?.extent.is_some() { union(r, n) } else { f.filter.extent(r)? };
+            t = n;
+        }
         check_area(r)?;
         let (w, h) = (r[2] as usize, r[3] as usize);
         // Premultiplied RGBA.
@@ -177,7 +188,6 @@ impl Document {
         let plane = |m: Option<&Mask>| m.filter(|m| m.enabled).map(|m| self.mask_plane(&m.tiles, m.default, r).data);
         let stack = plane(stack);
         // The filter context matches a destructive apply: tight bounds and the layer mask.
-        let tight = tiles_bounds(&base).unwrap_or(b);
         let lmask = layer.map(|m| self.mask_plane(&m.tiles, m.default, r).data);
         let lm_default = layer.map_or(0.0, |m| m.default as f32 / self.max());
         let mask_at = lmask.as_ref().map(|m| {

@@ -77,6 +77,8 @@ import { NavigatorPanel } from './NavigatorPanel.tsx';
 import { useShortcuts } from './app/shortcuts.ts';
 import { FilterDialog, runFilter, type FilterDialogHandle } from './filters/FilterDialog.tsx';
 import { LiquifyDialog, type LiquifyDialogHandle } from './filters/LiquifyDialog.tsx';
+import { DeformSession, type DeformRequest } from './shell/DeformSession.tsx';
+import type { Grid } from './transform/puppet.ts';
 import { applyFilter, repeatLastFilter, type ParamValue } from './filters/lastFilter.ts';
 import { connectBridge, pairing, toBase64, type Format } from './app/agentBridge.ts';
 import { schema, setColorSource, setSchema, type FilterSpec } from './filters/schema.ts';
@@ -288,6 +290,7 @@ export function App() {
   // The Filter menu's generic dialog (also Edit > Fade) and Layer > Smart Filter > Blending Options.
   const filterDialog = useRef<FilterDialogHandle>(null);
   const liquifyDialog = useRef<LiquifyDialogHandle>(null);
+  const [deform, setDeform] = useState<DeformRequest | null>(null);
   const [filterSpecs, setFilterSpecs] = useState<FilterSpec[]>(schema);
   const filterBlendDialog = useRef<HTMLDialogElement>(null);
   const [filterBlend, setFilterBlend] = useState<{ id: number; fid: number; blend: string; opacity: number } | null>(null);
@@ -832,6 +835,25 @@ export function App() {
     liquifyDialog.current?.open({ id: active.id, filterId, width: doc.width, height: doc.height, guides: doc.guides, layers });
   }
 
+  // Edit > Puppet Warp / Perspective Warp: an on-canvas session on the active layer's pixels.
+  async function startDeform(kind: DeformRequest['kind']) {
+    setMenu(null);
+    if (!active || !doc || deform) return;
+    if (transformRef.current) endTransform(false);
+    const n = nodeById(doc.layers, active.id), empty = 'Select an unlocked layer with pixels to warp.';
+    if (n?.kind === 'text' || n?.kind === 'shape') { setError('Convert type and shape layers to Smart Objects, or rasterize them, before warping.'); return; }
+    if (!n || (n.kind !== 'pixel' && n.kind !== 'smart') || editTarget(active) !== 'pixels' || n.locks.pixels || n.locks.position) { setError(empty); return; }
+    const base = { id: active.id, width: doc.width, height: doc.height };
+    try {
+      if (kind === 'puppet') setDeform({ ...base, kind, mesh: await client.call('puppetMesh', active.id, 'normal', 2) as Grid });
+      else {
+        const b = await client.call('movingBounds', active.id) as number[] | null;
+        if (!b) throw new Error(empty);
+        setDeform({ ...base, kind, bounds: { x: b[0], y: b[1], w: b[2], h: b[3] } });
+      }
+    } catch (e) { setError((e as Error).message); }
+  }
+
   function lastFilter() {
     setMenu(null);
     if (!active) return;
@@ -1127,7 +1149,7 @@ export function App() {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), lastFilter, openFade, openSearch: () => setSearchOpen(true),
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems: typeMenuItems(typeCtx),
   });
@@ -1734,7 +1756,7 @@ export function App() {
           quickMask={quickMask} setQuickMask={setQuickMask}
         />
         <div className="stage-column">
-          {transformStore ? (
+          {deform ? <DeformSession req={deform} viewer={viewer} show={d => show(d)} setError={m => setError(m)} onEnd={() => setDeform(null)} /> : transformStore ? (
             <TransformBar
               store={transformStore}
               setMode={m => withTransform(t => setTransformMode(t, m))}

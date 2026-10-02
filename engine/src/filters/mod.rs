@@ -62,6 +62,10 @@ pub enum PKind {
     Paths,
     /// 0..64 Filter Gallery effect layers `{ kind, enabled, params }`, applied bottom (first) to top.
     Stack,
+    /// A Puppet Warp rig (`puppet::Rig`).
+    Rig,
+    /// Perspective Warp quads (`pwarp::State`).
+    Quads,
 }
 
 #[derive(Clone, Copy)]
@@ -82,6 +86,8 @@ pub enum Def {
     Paths(&'static [&'static [(f64, f64)]]),
     /// The empty stack.
     Stack,
+    /// No default: the param must be given.
+    Required,
 }
 
 pub struct Param {
@@ -110,6 +116,9 @@ pub struct Spec {
     /// The params are a typed M3 adjustment edited by its own dialog.
     pub adjustment: bool,
     pub reach: fn(&Filter) -> i32,
+    /// The document rect the output of a source within a rect can cover, when it is not the rect
+    /// grown by `reach` (the warps move pixels any distance).
+    pub extent: Option<fn(&Filter, [i32; 4]) -> Result<[i32; 4], String>>,
     pub apply: fn(&mut Plane, &Filter, &Ctx) -> Result<(), String>,
 }
 
@@ -189,6 +198,7 @@ impl Filter {
         let mut out = Params::new();
         for p in spec.params {
             let v = match self.params.get(p.key) {
+                None if matches!(p.default, Def::Required) => return Err(format!("{}: {} is required", spec.label, p.key)),
                 None => default_value(p),
                 Some(v) => check(spec, p, v)?,
             };
@@ -217,6 +227,17 @@ impl Filter {
 
     pub fn reach(&self) -> i32 {
         self.spec().map_or(0, |s| (s.reach)(self))
+    }
+
+    /// The document rect the output of a source within `r` can cover.
+    pub fn extent(&self, r: [i32; 4]) -> Result<[i32; 4], String> {
+        match self.spec()?.extent {
+            Some(e) => e(self, r),
+            None => {
+                let n = self.reach();
+                Ok([r[0] - n, r[1] - n, r[2] + 2 * n, r[3] + 2 * n])
+            }
+        }
     }
 
     pub fn num(&self, key: &str) -> f64 {
@@ -292,6 +313,7 @@ fn default_value(p: &Param) -> Value {
         Def::Pins(pins) => Value::Array(pins.iter().map(|&(x, y, blur)| json!({ "x": x, "y": y, "blur": blur })).collect()),
         Def::Paths(paths) => Value::Array(paths.iter().map(|pts| points_json(pts)).collect()),
         Def::Stack => json!([]),
+        Def::Required => Value::Null,
     }
 }
 
@@ -378,6 +400,8 @@ fn check(spec: &Spec, p: &Param, v: &Value) -> Result<Value, String> {
             let each = a.iter().enumerate().map(|(i, e)| gallery::check_layer(e).map_err(|m| format!("{}: {} entry {} {m}", spec.label, p.key, i + 1)));
             Ok(Value::Array(each.collect::<Result<_, _>>()?))
         }
+        PKind::Rig => crate::puppet::check(v),
+        PKind::Quads => crate::pwarp::check(v),
     }
 }
 
@@ -458,6 +482,8 @@ pub fn schema_json() -> String {
                         PKind::Pins => ("pins", None),
                         PKind::Paths => ("paths", None),
                         PKind::Stack => ("stack", None),
+                        PKind::Rig => ("rig", None),
+                        PKind::Quads => ("quads", None),
                     };
                     let mut o = json!({ "key": p.key, "label": p.label, "kind": kind, "min": p.min, "max": p.max, "step": p.step,
                         "unit": p.unit, "default": default_value(p) });

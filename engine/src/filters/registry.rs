@@ -8,7 +8,7 @@ const fn none(_: &Filter) -> i32 {
 }
 
 const fn entry(id: &'static str, label: &'static str, group: &'static str, apply: fn(&mut Plane, &Filter, &Ctx) -> Result<(), String>) -> Spec {
-    Spec { id, label, group, params: &[], exec: Exec::Point, keep_alpha: true, preview: true, rgb_only: false, adjustment: false, reach: none, apply }
+    Spec { id, label, group, params: &[], exec: Exec::Point, keep_alpha: true, preview: true, rgb_only: false, adjustment: false, reach: none, extent: None, apply }
 }
 
 const fn adjustment(id: &'static str, label: &'static str) -> Spec {
@@ -713,6 +713,18 @@ pub static ALL: &[Spec] = &[
         ],
         crate::liquify::apply,
     )
+    },
+
+    // Edit > Puppet Warp and Perspective Warp sessions; smart filters on smart objects.
+    Spec {
+        extent: Some(crate::puppet::extent),
+        preview: false,
+        ..global("puppet_warp", "Puppet Warp", "warp", &[Param { kind: PKind::Rig, default: Def::Required, ..num("rig", "Rig", 0.0, 0.0, 0.0, "", 0.0) }], crate::puppet::apply)
+    },
+    Spec {
+        extent: Some(crate::pwarp::extent),
+        preview: false,
+        ..global("perspective_warp", "Perspective Warp", "warp", &[Param { kind: PKind::Quads, default: Def::Required, ..num("state", "State", 0.0, 0.0, 0.0, "", 0.0) }], crate::pwarp::apply)
     },
 ];
 
