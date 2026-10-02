@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, CircleSlash2, Droplet, Droplets, Scaling, SprayCan, type LucideIcon } from 'lucide-react';
+import {
+  AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignHorizontalDistributeEnd,
+  AlignHorizontalDistributeStart, AlignStartHorizontal, AlignStartVertical, AlignVerticalDistributeCenter, AlignVerticalDistributeEnd, AlignVerticalDistributeStart,
+  ChevronDown, CircleSlash2, Droplet, Droplets, Scaling, SprayCan, type LucideIcon,
+} from 'lucide-react';
+import type { AlignMode } from '../worker/types.ts';
+import { ALIGN_ITEMS } from '../app/helpers.ts';
 import { rgbToHex, type Rgb } from './color.ts';
 import { ICONS } from './ToolBar.tsx';
 import { saveToolOptions, type Tool } from './tools.ts';
@@ -8,6 +14,23 @@ import { saveToolOptions, type Tool } from './tools.ts';
 export type ToolOptions = Record<string, number | string | boolean>;
 
 const OPTION_ICONS: Record<string, LucideIcon> = { CircleSlash2, Droplet, Droplets, Scaling, SprayCan };
+
+const ALIGN_ICONS: LucideIcon[] = [
+  AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+  AlignVerticalDistributeStart, AlignVerticalDistributeCenter, AlignVerticalDistributeEnd, AlignHorizontalDistributeStart, AlignHorizontalDistributeCenter, AlignHorizontalDistributeEnd,
+];
+
+// Move tool align and distribute buttons for the selected layers (`count`); same order as ALIGN_ITEMS.
+export function AlignButtons({ count, onAlign }: { count: number; onAlign: (mode: AlignMode) => void }) {
+  return (
+    <span className="options-item" role="group" aria-label="Align and distribute">
+      {ALIGN_ITEMS.map(([mode, text], i) => {
+        const Icon = ALIGN_ICONS[i], label = `${mode.startsWith('align') ? 'Align' : 'Distribute'} ${text}`;
+        return <button key={mode} type="button" className="opt-icon" aria-label={label} title={label} disabled={count < (i < 6 ? 1 : 3)} onClick={() => onAlign(mode)}><Icon size={16} /></button>;
+      })}
+    </span>
+  );
+}
 
 // Rounds to the step's precision and clamps into [min, max].
 function fit(v: number, min = -Infinity, max = Infinity, step = 1): number {

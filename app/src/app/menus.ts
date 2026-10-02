@@ -13,7 +13,7 @@ import { GROUPS, menuLabel, type FilterSpec } from '../filters/schema.ts';
 import type { DocInfo, LayerNode, SmartFilterInfo, SmartInfo } from '../worker/types.ts';
 import type { SnapSettings } from '../shell/snapping.ts';
 import type { ArtboardMode } from './Dialogs.tsx';
-import { STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
+import { ALIGN_ITEMS, STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
 import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.ts';
 import { copy, paste } from './clipboard.ts';
 
@@ -161,6 +161,10 @@ export function buildMenus(c: MenuCtx) {
           ['front', 'Bring to Front', 'Shift+Ctrl+]'], ['forward', 'Bring Forward', 'Ctrl+]'], ['backward', 'Send Backward', 'Ctrl+['], ['back', 'Send to Back', 'Shift+Ctrl+['],
         ] as const).map(([mode, label, keys]) => ({ label, keys, run: () => run(null, () => client.call('arrangeNodes', selectedNodes.map(n => n.id), mode)) })),
       },
+      ...([['Align', 1, ALIGN_ITEMS.slice(0, 6)], ['Distribute', 3, ALIGN_ITEMS.slice(6)]] as const).map(([label, min, items]) => ({
+        label, keys: '›', run: () => {}, off: !has || selectedNodes.length < min,
+        sub: items.map(([mode, text]) => ({ label: text, run: () => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode)) })),
+      })),
       selectedNodes.length > 1
         ? { label: 'Merge Layers', keys: 'Ctrl+E', sep: true, run: () => run(null, () => client.call('mergeNodes', selectedNodes.map(n => n.id), 'layers')), off: !has }
         : { label: node?.kind === 'group' ? 'Merge Group' : 'Merge Down', keys: 'Ctrl+E', sep: true, run: () => node && run(null, () => client.call('mergeNodes', [node.id], 'down')), off: !has || !node || (node.kind !== 'group' && !locate(doc!.layers, node.id)?.index) },

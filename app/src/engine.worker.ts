@@ -15,7 +15,7 @@ import { layerName } from './shell/typesession.ts';
 import { locate, nodeById } from './layers.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
-import type { Adjustment, FaceInfo, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
+import type { AlignMode, Adjustment, FaceInfo, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
@@ -794,6 +794,57 @@ const api = {
         e.move_node(bg, 0, 0);
         for (const n of tree) if (!visible.includes(n.id)) e.delete_node(n.id);
         e.merge_nodes(Uint32Array.of(bg, ...visible), false, true);
+      }
+    });
+    return changed();
+  },
+
+  // Layer > Align / Distribute: align to the selection, else the union of the layers (one layer: the canvas);
+  // distribute needs three layers and keeps the outer two. Each layer's subtree moves by an integer offset,
+  // position-locked layers (or under a locked group) are skipped. One history step, none when nothing moves.
+  alignLayers(ids: number[], mode: AlignMode) {
+    const e = need();
+    const tree = JSON.parse(e.layers_json()) as LayerNode[];
+    const locked = new Set<number>();
+    const mark = (ns: LayerNode[], under: boolean) => { for (const n of ns) { if (under || n.locks.position) locked.add(n.id); if (n.children) mark(n.children, under || n.locks.position); } };
+    mark(tree, false);
+    const items: { id: number; b: number[] }[] = [];
+    for (const id of new Set(ids)) {
+      if (locked.has(id)) continue;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const pid of collectPixelIds(tree, id)) {
+        const b = e.layer_bounds(pid) as [number, number, number, number] | null;
+        if (!b || b[2] <= 0 || b[3] <= 0) continue;
+        x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[0] + b[2]); y1 = Math.max(y1, b[1] + b[3]);
+      }
+      if (x0 !== Infinity) items.push({ id, b: [x0, y0, x1, y1] });
+    }
+    const [kind, edge] = mode.split('-') as ['align' | 'distribute', 'top' | 'vcenter' | 'bottom' | 'left' | 'hcenter' | 'right'];
+    const vertical = edge === 'top' || edge === 'vcenter' || edge === 'bottom';
+    const o = vertical ? 1 : 0; // index of the min edge in b: x 0 / y 1; the max edge is o + 2
+    const pos = (b: number[]) => (edge === 'top' || edge === 'left' ? b[o] : edge === 'bottom' || edge === 'right' ? b[o + 2] : (b[o] + b[o + 2]) / 2);
+    const offsets = new Map<number, number>();
+    if (kind === 'align') {
+      if (!items.length) return changed();
+      const sb = e.selection_bounds() as Int32Array | null;
+      const t = sb ? [sb[0], sb[1], sb[0] + sb[2], sb[1] + sb[3]]
+        : items.length === 1 ? [0, 0, e.width(), e.height()]
+          : [0, 1, 2, 3].map(i => (i < 2 ? Math.min : Math.max)(...items.map(it => it.b[i])));
+      for (const it of items) offsets.set(it.id, Math.round(pos(t) - pos(it.b)));
+    } else if (items.length >= 3) {
+      items.sort((p, q) => pos(p.b) - pos(q.b));
+      const first = pos(items[0].b), last = pos(items[items.length - 1].b);
+      items.forEach((it, i) => offsets.set(it.id, Math.round(first + (last - first) * i / (items.length - 1) - pos(it.b))));
+    }
+    const moves = [...offsets].filter(([, d]) => d !== 0);
+    if (!moves.length) return changed();
+    const names: Record<string, string> = { top: 'Top Edges', vcenter: 'Vertical Centers', bottom: 'Bottom Edges', left: 'Left Edges', hcenter: 'Horizontal Centers', right: 'Right Edges' };
+    history.run(`${kind === 'align' ? 'Align' : 'Distribute'} ${names[edge]}`, () => {
+      for (const [id, d] of moves) {
+        const [dx, dy] = vertical ? [0, d] : [d, 0];
+        for (const pid of collectPixelIds(tree, id)) e.offset_layer(pid, dx, dy);
+        if (findNode(e, id)?.artboard) e.offset_artboard(id, dx, dy);
+        e.reparent_to_artboard(id);
       }
     });
     return changed();

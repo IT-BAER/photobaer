@@ -364,6 +364,77 @@ test('arrangeNodes moves a selection as a block keeping its order', async () => 
   assert.deepEqual(((await call('arrangeNodes', [a, c], 'forward')).result as ArrDoc).layers.map(n => n.id), [b, a, d, c]);
 });
 
+const bounds = async (id: number) => (await call('movingBounds', id)).result as number[];
+async function alignDoc() {
+  await call('init');
+  await call('newDoc', 64, 64, 8, [255, 255, 255, 255]);
+  const a = await rectLayer(1, 4, 4, 10, 10, [255, 0, 0, 255]);
+  const b = await rectLayer(a, 20, 10, 6, 20, [0, 255, 0, 255]);
+  const c = await rectLayer(b, 40, 30, 8, 4, [0, 0, 255, 255]);
+  return [a, b, c];
+}
+const origins = async (ids: number[]) => Promise.all(ids.map(async id => (await bounds(id)).slice(0, 2)));
+
+test('alignLayers aligns each edge and center to the union of the layers', async () => {
+  const ids = await alignDoc();
+  const want: Record<string, number[][]> = {
+    'align-top': [[4, 4], [20, 4], [40, 4]], 'align-bottom': [[4, 24], [20, 14], [40, 30]], 'align-vcenter': [[4, 14], [20, 9], [40, 17]],
+    'align-left': [[4, 4], [4, 10], [4, 30]], 'align-right': [[38, 4], [42, 10], [40, 30]], 'align-hcenter': [[21, 4], [23, 10], [22, 30]],
+  };
+  for (const [mode, expected] of Object.entries(want)) {
+    await call('alignLayers', ids, mode);
+    assert.deepEqual(await origins(ids), expected, mode);
+    await call('undo');
+  }
+});
+
+test('alignLayers is one undo step and a no-op makes none', async () => {
+  const ids = await alignDoc();
+  const r = (await call('alignLayers', ids, 'align-left')).result as ArrDoc;
+  assert.equal(r.undoLabel, 'Align Left Edges');
+  assert.deepEqual(await origins(ids), [[4, 4], [4, 10], [4, 30]]);
+  const again = (await call('alignLayers', ids, 'align-left')).result as ArrDoc;
+  assert.equal(again.undoLabel, 'Align Left Edges');
+  const u = (await call('undo')).result as ArrDoc;
+  assert.notEqual(u.undoLabel, 'Align Left Edges', 'the repeat moved nothing and added no step');
+  assert.deepEqual(await origins(ids), [[4, 4], [20, 10], [40, 30]], 'one undo restores every layer');
+});
+
+test('alignLayers aligns to the selection, and a single layer to the canvas', async () => {
+  const [a, b, c] = await alignDoc();
+  await call('select', { kind: 'rect', x: 10, y: 5, w: 30, h: 30 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('alignLayers', [a, b, c], 'align-left');
+  assert.deepEqual(await origins([a, b, c]), [[10, 4], [10, 10], [10, 30]]);
+  await call('selectCommand', 'deselect');
+  await call('alignLayers', [a], 'align-hcenter');
+  await call('alignLayers', [a], 'align-bottom');
+  assert.deepEqual(await bounds(a), [27, 54, 10, 10]);
+});
+
+test('alignLayers moves a group subtree and skips position-locked layers', async () => {
+  const [a, b, c] = await alignDoc();
+  const g = ((await call('groupNodes', [b])).result as { created: number }).created;
+  await call('setLocks', [c], { transparency: false, pixels: false, position: true });
+  await call('alignLayers', [a, g, c], 'align-right');
+  assert.deepEqual(await origins([a, b, c]), [[16, 4], [20, 10], [40, 30]], 'the group is bounded by its child; the locked layer stays and is not a target');
+});
+
+test('distributeLayers spaces the middle layers evenly and keeps the outer two', async () => {
+  const [a, b, c] = await alignDoc();
+  const want: Record<string, number[][]> = {
+    'distribute-left': [[4, 4], [22, 10], [40, 30]], 'distribute-top': [[4, 4], [20, 17], [40, 30]], 'distribute-bottom': [[4, 4], [20, 4], [40, 30]],
+    'distribute-right': [[4, 4], [25, 10], [40, 30]], 'distribute-hcenter': [[4, 4], [24, 10], [40, 30]],
+  };
+  for (const [mode, expected] of Object.entries(want)) {
+    const r = (await call('alignLayers', [c, a, b], mode)).result as ArrDoc;
+    assert.equal(r.undoLabel?.startsWith('Distribute'), true, mode);
+    assert.deepEqual(await origins([a, b, c]), expected, mode);
+    await call('undo');
+  }
+  const before = (await call('alignLayers', [a], 'align-left')).result as ArrDoc;
+  assert.equal(((await call('alignLayers', [a, b], 'distribute-left')).result as ArrDoc).undoLabel, before.undoLabel, 'fewer than three layers is a no-op');
+});
+
 test('setLocks locks every listed layer in one history step', async () => {
   const [, b, c, d] = await fourLayers();
   const all = { transparency: true, pixels: true, position: true };

@@ -19,7 +19,7 @@ import { COMMAND_LABEL, DESTRUCTIVE_LABEL, MENU_LABEL, defaultAdjustment, defaul
 import type { Adjustment, AutosaveState, DestructiveAdjustment, DocInfo, FillContent, FillParams, GradientParams, LayerNode } from './engine.worker.ts';
 import type { ContentAwareOpts, FaceInfo } from './worker/types.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
-import { OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
+import { AlignButtons, OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
 import { ColorPanel } from './shell/ColorPanel.tsx';
 import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
 import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
@@ -1538,7 +1538,7 @@ export function App() {
                 t.store.set({ warp: warpBar(ws) });
               })}
             />
-          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions }} fg={fg} />}
+          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions }} fg={fg} />}
           <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} />
             <canvas ref={pixelGridCanvas} className="overlay" />

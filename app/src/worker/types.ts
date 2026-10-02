@@ -3,6 +3,8 @@ import type { Live, ShapeStroke } from '../shell/shapetools.ts';
 import type { TextJson } from '../psd/text.ts';
 import type { ParamValue } from '../filters/lastFilter.ts';
 
+export type AlignMode = `${'align' | 'distribute'}-${'top' | 'vcenter' | 'bottom' | 'left' | 'hcenter' | 'right'}`;
+
 // A fill layer's content (docs/M3.md section 4); field names match the engine JSON verbatim.
 export interface GradientDef {
   method: 'classic' | 'linear' | 'perceptual';

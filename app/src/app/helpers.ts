@@ -2,7 +2,7 @@ import type { Active } from '../LayersPanel.tsx';
 import { locate, nodeById } from '../layers.ts';
 import type { Rgb } from '../shell/color.ts';
 import type { ViewerTool } from '../viewer.ts';
-import type { AutosaveState, DocInfo, FillContent, StrokeSelectionParams } from '../worker/types.ts';
+import type { AlignMode, AutosaveState, DocInfo, FillContent, StrokeSelectionParams } from '../worker/types.ts';
 
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
@@ -146,6 +146,10 @@ async function pickPlaceFile(): Promise<{ file: File; handle: FileSystemFileHand
     i.click();
   });
 }
+const ALIGN_ITEMS: [AlignMode, string][] = [
+  ['align-top', 'Top Edges'], ['align-vcenter', 'Vertical Centers'], ['align-bottom', 'Bottom Edges'], ['align-left', 'Left Edges'], ['align-hcenter', 'Horizontal Centers'], ['align-right', 'Right Edges'],
+  ['distribute-top', 'Top Edges'], ['distribute-vcenter', 'Vertical Centers'], ['distribute-bottom', 'Bottom Edges'], ['distribute-left', 'Left Edges'], ['distribute-hcenter', 'Horizontal Centers'], ['distribute-right', 'Right Edges'],
+];
 const STACK_MODES: [string | null, string][] = [
   [null, 'None'], ['entropy', 'Entropy'], ['kurtosis', 'Kurtosis'], ['maximum', 'Maximum'], ['mean', 'Mean'], ['median', 'Median'],
   ['minimum', 'Minimum'], ['range', 'Range'], ['skewness', 'Skewness'], ['standard_deviation', 'Standard Deviation'],
@@ -178,6 +182,6 @@ type Show = (d: DocInfo | null, selectAfter?: SelectAfter) => void;
 export {
   SAMPLE_SIZES, VIEWER_TOOL, SELECT_TOOLS, PAINT_LABELS, PAINT_TOOLS, MODIFY_OPS, COLOR_RANGE_PRESETS, makeLatch, FILL_KEY, FILL_CONTENTS,
   loadFillForm, STROKE_DEFAULT, FILL_LAYERS, fillContentFromForm, formFromFillContent, fallbackActive, selectCreated, selectAfterDelete,
-  AUTOSAVE_TEXT, pickPlaceFile, STACK_MODES, saveBlob,
+  AUTOSAVE_TEXT, pickPlaceFile, STACK_MODES, ALIGN_ITEMS, saveBlob,
 };
 export type { Rgba, TrimBase, FillContents, FillForm, StrokeForm, FillContentForm, FillDialogMode, SelectAfter, Item, Run, Show };

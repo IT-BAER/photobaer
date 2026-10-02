@@ -105,6 +105,7 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'autoSelectTarget', kind: 'select', label: 'Auto-select target', default: 'layer', choices: ['layer', 'group'] },
       { id: 'showTransform', kind: 'boolean', label: 'Show transform controls', default: false },
       { id: 'snap', kind: 'boolean', label: 'Snap', default: true },
+      { id: 'align', kind: 'custom', label: 'Align', default: '', sep: true },
     ],
   },
   marqueeRect: {
