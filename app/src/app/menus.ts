@@ -24,9 +24,9 @@ type Mime = 'image/png' | 'image/jpeg' | 'image/webp';
 
 export interface MenuCtx {
   setMenu: SetState<string | null>; newDialog: DialogRef; fileInput: RefObject<HTMLInputElement | null>; placeFile: (linked: boolean) => Promise<void>;
-  has: boolean; active: Active | null; saveProject: () => Promise<void>; savePsd: () => Promise<void>;
+  has: boolean; active: Active | null; saveProject: () => Promise<boolean>; savePsd: () => Promise<void>;
   exportAs: (mime: Mime, ext: string) => Promise<void>; exportLayerComps: (mime: Mime, ext: string) => Promise<void>;
-  doc: DocInfo | null; closeContents: () => Promise<void>; run: Run; openPreviewDialog: (which: 'fill' | 'stroke') => void;
+  doc: DocInfo | null; closeTab: () => Promise<void>; run: Run; openPreviewDialog: (which: 'fill' | 'stroke') => void;
   contentAwareFill: (dialog: boolean) => void;
   quickFill: (rgb: Rgb, label: string) => void; fg: Rgb; bg: Rgb; quickMask: boolean; startTransform: (mode?: Mode, selection?: boolean) => Promise<void>;
   transformAgain: () => void; transformStore: TransformBarStore | null; transformMode: (m: Mode) => void; warping: boolean;
@@ -64,7 +64,7 @@ export function buildMenus(c: MenuCtx) {
     if (key) void c.run(null, () => client.call('switchDoc', key));
   };
   const {
-    setMenu, newDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeContents, run,
+    setMenu, newDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeTab, run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
@@ -119,7 +119,7 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Layer Comps to Files (PNG)…', run: () => exportLayerComps('image/png', 'png'), off: !has || !doc?.layerComps.length },
       { label: 'Layer Comps to Files (JPEG)…', run: () => exportLayerComps('image/jpeg', 'jpg'), off: !has || !doc?.layerComps.length },
       { label: 'Layer Comps to Files (WebP)…', run: () => exportLayerComps('image/webp', 'webp'), off: !has || !doc?.layerComps.length },
-      { label: 'Close', run: () => doc?.parents.length ? closeContents() : run(null, () => client.call('closeDoc')), off: !has },
+      { label: 'Close', run: () => void closeTab(), off: !has },
     ],
     Edit: [
       { label: doc?.undoLabel ? `Undo ${doc.undoLabel}` : 'Undo', keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
@@ -337,7 +337,7 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Next Document', keys: 'Ctrl+Tab', sep: true, run: () => switchStep(1), off: (doc?.docs.length ?? 0) < 2 },
       { label: 'Previous Document', keys: 'Shift+Ctrl+Tab', run: () => switchStep(-1), off: (doc?.docs.length ?? 0) < 2 },
       ...(doc?.docs ?? []).map((t, i) => ({
-        label: `${t.active ? '✓ ' : ''}${i + 1} ${t.name}`, sep: i === 0, run: () => { setMenu(null); if (!t.active) void run(null, () => client.call('switchDoc', t.key)); },
+        label: `${t.active ? '✓ ' : ''}${i + 1} ${t.name}${t.dirty ? '*' : ''}`, sep: i === 0, run: () => { setMenu(null); if (!t.active) void run(null, () => client.call('switchDoc', t.key)); },
       })),
     ],
     Help: [

@@ -79,7 +79,7 @@ import { connectBridge, pairing, toBase64, type Format } from './app/agentBridge
 import { schema, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, AboutDialog, AgentDialog, DonateDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
+  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, AboutDialog, AgentDialog, DonateDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
   ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
 } from './app/Dialogs.tsx';
 
@@ -132,6 +132,9 @@ export function App() {
   const newGuideLayoutDialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const newDialog = useRef<HTMLDialogElement>(null);
+  const closeDialog = useRef<HTMLDialogElement>(null);
+  const [closeName, setCloseName] = useState('');
+  const closeAnswer = useRef<((c: CloseChoice) => void) | null>(null);
   const aboutDialog = useRef<HTMLDialogElement>(null);
   const donateDialog = useRef<HTMLDialogElement>(null);
   const agentDialog = useRef<HTMLDialogElement>(null);
@@ -394,7 +397,7 @@ export function App() {
     const saved = switched ? tabState.current.get(d.key) : undefined;
     setDoc(d);
     v?.setDoc(d, saved?.view);
-    document.title = d ? `${d.name} - photobaer` : PAGE_TITLE;
+    document.title = d ? `${d.name}${d.dirty ? '*' : ''} - photobaer` : PAGE_TITLE;
     if (!d) { setActive(null); return; }
     if (switched) { setQuickMask(false); setPicked(saved ? saved.picked.filter(id => nodeById(d.layers, id)) : []); }
     // Node ids restart per document: a previous document's active layer never carries over.
@@ -448,10 +451,30 @@ export function App() {
       return d.written || !confirm(`${lost(d.warnings)}\n\nWrite the contents back anyway?`) ? d : client.call('smartEditSave', true);
     });
   }
-  // The active tab closes like File > Close (Edit Contents first); another tab closes by key.
-  function closeTab(key?: string) {
-    if (key === undefined || key === docRef.current?.key) return docRef.current?.parents.length ? closeContents() : run(null, () => client.call('closeDoc'));
-    return run(null, () => client.call('closeDoc', key));
+  function chooseClose(c: CloseChoice) {
+    closeDialog.current?.close();
+    closeAnswer.current?.(c);
+    closeAnswer.current = null;
+  }
+  // The active tab closes like File > Close (Edit Contents first, with its own write-back confirm); another tab
+  // closes by key. A dirty tab asks first; Save closes only when the save left the document clean.
+  async function closeTab(key?: string) {
+    const d = docRef.current;
+    if (!d) return;
+    const k = key ?? d.key;
+    if (k === d.key && d.parents.length) return closeContents();
+    const tab = d.docs.find(t => t.key === k);
+    if (tab?.dirty) {
+      setMenu(null);
+      setCloseName(tab.name);
+      const c = await new Promise<CloseChoice>(r => { closeAnswer.current = r; closeDialog.current?.showModal(); closeDialog.current?.querySelector<HTMLButtonElement>('.primary')?.focus(); });
+      if (c === 'cancel') return;
+      if (c === 'save') {
+        if (k !== d.key) await run(null, () => client.call('switchDoc', k));
+        if (!await saveProject()) return;
+      }
+    }
+    await run(null, () => client.call('closeDoc', k));
   }
   async function closeContents() {
     await run('Closing contents…', async () => {
@@ -467,15 +490,17 @@ export function App() {
     const d = docRef.current;
     if (!d) return;
     setBusy('Saving PSD…');
+    let saved = false;
     try {
       const { blob, warnings } = await client.call('savePsd');
-      await saveBlob(blob, `${d.name}.psd`, 'image/vnd.adobe.photoshop', 'psd');
+      saved = await saveBlob(blob, `${d.name}.psd`, 'image/vnd.adobe.photoshop', 'psd');
       if (warnings.length) setError(`Saved with warnings: ${warnings.join('; ')}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(null);
     }
+    show(await client.call('saveEnd', saved));
   }
 
   async function exportAs(mime: 'image/png' | 'image/jpeg' | 'image/webp', ext: string) {
@@ -508,18 +533,23 @@ export function App() {
     }
   }
 
+  // True when the file was written and the document is clean.
   async function saveProject() {
     setMenu(null);
     const d = docRef.current;
-    if (!d) return;
+    if (!d) return false;
     setBusy('Saving project…');
+    let saved = false;
     try {
-      await saveBlob(await client.call('saveProject'), `${d.name}.pbaer`, 'application/x-photobaer', 'pbaer');
+      saved = await saveBlob(await client.call('saveProject'), `${d.name}.pbaer`, 'application/x-photobaer', 'pbaer');
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(null);
     }
+    const after = await client.call('saveEnd', saved);
+    show(after);
+    return saved && !after?.dirty;
   }
 
   function editTarget(a: Active) { return quickMask ? 'selection' as const : a.target; }
@@ -941,7 +971,7 @@ export function App() {
   };
   const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
   const menus = buildMenus({
-    setMenu, newDialog, aboutDialog, agentDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeContents, run,
+    setMenu, newDialog, aboutDialog, agentDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeTab, run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
@@ -1586,7 +1616,7 @@ export function App() {
               })}
             />
           ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions }} fg={fg} />}
-          {doc && <TabBar doc={doc} switchTo={key => run(null, () => client.call('switchDoc', key))} close={closeTab} />}
+          {doc && <TabBar doc={doc} switchTo={key => run(null, () => client.call('switchDoc', key))} close={key => void closeTab(key)} />}
           <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} onContextMenu={e => {
               e.preventDefault();
@@ -1748,6 +1778,7 @@ export function App() {
       <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.pbaer,.psd"
         onChange={async e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; for (const f of fs) await open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
+      <CloseDialog closeDialog={closeDialog} name={closeName} choose={chooseClose} />
       <AboutDialog aboutDialog={aboutDialog} />
       <DonateDialog donateDialog={donateDialog} />
       <AgentDialog agentDialog={agentDialog} />

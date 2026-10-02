@@ -156,7 +156,8 @@ const STACK_MODES: [string | null, string][] = [
   ['summation', 'Summation'], ['variance', 'Variance'],
 ];
 
-async function saveBlob(blob: Blob, name: string, mime: string, ext: string) {
+// False when the user cancels the file picker.
+async function saveBlob(blob: Blob, name: string, mime: string, ext: string): Promise<boolean> {
   const picker = (window as unknown as { showSaveFilePicker?: (o: object) => Promise<FileSystemFileHandle> }).showSaveFilePicker;
   if (picker) {
     try {
@@ -164,9 +165,9 @@ async function saveBlob(blob: Blob, name: string, mime: string, ext: string) {
       const w = await (h as unknown as { createWritable(): Promise<WritableStream & { write(b: Blob): Promise<void>; close(): Promise<void> }> }).createWritable();
       await w.write(blob);
       await w.close();
-      return;
+      return true;
     } catch (e) {
-      if ((e as Error).name === 'AbortError') return;
+      if ((e as Error).name === 'AbortError') return false;
       throw e;
     }
   }
@@ -175,6 +176,7 @@ async function saveBlob(blob: Blob, name: string, mime: string, ext: string) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
+  return true;
 }
 type Run = (label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) => Promise<void>;
 type Show = (d: DocInfo | null, selectAfter?: SelectAfter) => void;

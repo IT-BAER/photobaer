@@ -202,6 +202,24 @@ export function NewImageDialog({ newDialog, createNew }: { newDialog: DialogRef;
   );
 }
 
+export type CloseChoice = 'save' | 'discard' | 'cancel';
+
+// Close prompt for a dirty tab; Escape cancels and Save has the focus.
+export function CloseDialog({ closeDialog, name, choose }: { closeDialog: DialogRef; name: string; choose: (c: CloseChoice) => void }) {
+  return (
+    <dialog ref={closeDialog} onCancel={e => { e.preventDefault(); choose('cancel'); }}>
+      <form onSubmit={e => { e.preventDefault(); choose('save'); }}>
+        <p>Save changes to the photobaer document &quot;{name}&quot; before closing?</p>
+        <div className="actions">
+          <button type="button" onClick={() => choose('cancel')}>Cancel</button>
+          <button type="button" onClick={() => choose('discard')}>Don&apos;t Save</button>
+          <button type="submit" className="primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
 export function AboutDialog({ aboutDialog }: { aboutDialog: DialogRef }) {
   return (
     <dialog ref={aboutDialog} className="about-dialog" aria-label="About photobaer">

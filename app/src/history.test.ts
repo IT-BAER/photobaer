@@ -152,3 +152,31 @@ test('settle runs after every committed step, never after a failed one', () => {
   h.commit();
   assert.deepEqual(seen, ['a', 'ab']);
 });
+
+test('top identifies the applied state across undo/redo, new edits and trimming', () => {
+  const s = store();
+  const h = new History(s, 2);
+  const t0 = h.top;
+  h.run('A', () => { s.value = 'a'; });
+  const ta = h.top;
+  assert.notEqual(ta, t0);
+  h.run('B', () => { s.value = 'ab'; });
+  h.undo();
+  assert.equal(h.top, ta);
+  h.redo();
+  h.undo();
+  h.redo();
+  h.undo();
+  h.undo();
+  assert.equal(h.top, t0);
+  h.redo();
+  h.run('C', () => { s.value = 'ac'; });
+  assert.notEqual(h.top, ta);
+  h.redo();
+  const tc = h.top;
+  h.run('D', () => { s.value = 'acd'; });
+  h.undo();
+  assert.equal(h.top, tc);
+  h.undo();
+  assert.notEqual(h.top, t0, 'the base after trimming is not the original state');
+});

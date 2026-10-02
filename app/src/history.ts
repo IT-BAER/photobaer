@@ -15,6 +15,8 @@ export class History {
   #undo: Step[] = [];
   #redo: Step[] = [];
   #open: Step | null = null;
+  // Stands for the state before the oldest kept step; replaced when that step is trimmed or the history cleared.
+  #base: object | null = null;
 
   constructor(s: Snapshots, limit = 50) {
     this.#s = s;
@@ -26,6 +28,8 @@ export class History {
   // Every step oldest first; the first `current` are applied, the rest can be redone.
   get labels() { return [...this.#undo, ...this.#redo.toReversed()].map(s => s.label); }
   get current() { return this.#undo.length; }
+  // Identity of the state the document is in: the last applied step (kept across undo/redo), else the base.
+  get top(): object | null { return this.#undo.at(-1) ?? this.#base; }
 
   goto(n: number) {
     let moved = false;
@@ -90,7 +94,11 @@ export class History {
   #push(step: Step) {
     this.#undo.push(step);
     this.#free(this.#redo.splice(0));
-    if (this.#undo.length > this.#limit) this.#free(this.#undo.splice(0, this.#undo.length - this.#limit));
+    if (this.#undo.length > this.#limit) {
+      const gone = this.#undo.splice(0, this.#undo.length - this.#limit);
+      this.#base = gone.at(-1)!;
+      this.#free(gone);
+    }
   }
 
   undo() { return this.#move(this.#undo, this.#redo); }
@@ -99,14 +107,17 @@ export class History {
   clear() {
     this.#free(this.#undo.splice(0));
     this.#free(this.#redo.splice(0));
+    this.#base = {};
   }
 
   #move(from: Step[], to: Step[]) {
     const step = from.pop();
     if (!step) return false;
-    to.push({ label: step.label, snap: this.#s.snapshot() });
-    this.#s.restore(step.snap);
-    this.#s.drop(step.snap);
+    const old = step.snap;
+    step.snap = this.#s.snapshot();
+    to.push(step);
+    this.#s.restore(old);
+    this.#s.drop(old);
     return true;
   }
 

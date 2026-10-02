@@ -2469,3 +2469,59 @@ test('a failing open or new document keeps every tab and the active one', async 
   assert.deepEqual(now.docs.map(d => d.key), [a.key, b.key]);
   assert.equal(now.key, a.key);
 });
+
+type DirtyTab = Omit<Tab, 'docs'> & { dirty: boolean; docs: { key: string; name: string; active: boolean; dirty: boolean }[] };
+const dirtyOf = async (op: string, ...args: unknown[]) => (await res(call(op, ...args))) as DirtyTab;
+
+test('dirty: new and opened documents are clean; a history step dirties; undo to the saved state cleans again', async () => {
+  await call('init');
+  await closeAll();
+  const n = await dirtyOf('newDoc', 16, 16, 8, null);
+  assert.equal(n.dirty, false);
+  assert.equal((await dirtyOf('addLayer', 0)).dirty, true);
+  assert.equal((await dirtyOf('undo')).dirty, false);
+  assert.equal((await dirtyOf('redo')).dirty, true);
+  await dirtyOf('undo');
+  await dirtyOf('addLayer', 0);
+  assert.equal((await dirtyOf('undo')).dirty, false, 'undo of the one new step is the original state');
+  await dirtyOf('redo');
+  const blob = (await call('saveProject')).result as Blob;
+  const o = await dirtyOf('openFile', new File([blob], 'x.pbaer'));
+  assert.equal(o.dirty, false);
+  assert.equal(o.docs.find(d => d.active)!.dirty, false);
+});
+
+test('dirty: saveProject and savePsd clean the document, export does not, saveEnd(false) restores', async () => {
+  await call('init');
+  await closeAll();
+  await dirtyOf('newDoc', 16, 16, 8, null);
+  await dirtyOf('addLayer', 0);
+  await call('exportImage', 'image/png');
+  assert.equal((await dirtyOf('saveEnd', true)).dirty, true, 'export leaves it dirty');
+  await call('saveProject');
+  assert.equal((await dirtyOf('saveEnd', true)).dirty, false);
+  const edited = await dirtyOf('addLayer', 0);
+  assert.equal(edited.dirty, true);
+  await call('savePsd');
+  assert.equal((await dirtyOf('saveEnd', true)).dirty, false);
+  assert.equal((await dirtyOf('undo')).dirty, true, 'one step before the saved state');
+  assert.equal((await dirtyOf('redo')).dirty, false, 'back to exactly the saved state');
+  await dirtyOf('addLayer', 0);
+  await call('saveProject');
+  assert.equal((await dirtyOf('saveEnd', false)).dirty, true, 'a cancelled picker puts the previous state back');
+});
+
+test('dirty: a background tab keeps its own flag across switches', async () => {
+  await call('init');
+  await closeAll();
+  const a = await dirtyOf('newDoc', 8, 8, 8, null);
+  await dirtyOf('addLayer', 0);
+  const b = await dirtyOf('newDoc', 8, 8, 8, null);
+  assert.deepEqual(b.docs.map(d => d.dirty), [true, false]);
+  const a2 = await dirtyOf('switchDoc', a.key);
+  assert.equal(a2.dirty, true);
+  assert.deepEqual(a2.docs.map(d => d.dirty), [true, false]);
+  await dirtyOf('undo');
+  const b2 = await dirtyOf('switchDoc', b.key);
+  assert.deepEqual(b2.docs.map(d => d.dirty), [false, false]);
+});

@@ -78,18 +78,22 @@ interface Parent { eng: Engine; history: History; name: string; id: number; save
 let parents: Parent[] = [];
 // Open documents (tabs) in tab order. The active one's state lives in the module globals above and is
 // copied back into its entry only on switch, so `docs[active]` is stale while it is active.
-interface Doc { key: string; eng: Engine; history: History; name: string; version: number; parents: Parent[] }
+// `saved` is the outermost history's top at the last project/PSD save (History.top); a document is dirty while it differs.
+interface Doc { key: string; eng: Engine; history: History; name: string; version: number; parents: Parent[]; saved: object | null }
 const docs: Doc[] = [];
 let active = -1;
+let saved: object | null = null;
+// The `saved` a save replaced, so a cancelled file picker can put it back (saveEnd).
+let savedPrev: object | null = null;
 
 function stash() {
-  if (active >= 0) Object.assign(docs[active], { eng: eng!, history, name, version, parents });
+  if (active >= 0) Object.assign(docs[active], { eng: eng!, history, name, version, parents, saved });
 }
 
 // Makes tab `i` the active document under a new document id (D1).
 function activate(i: number) {
   active = i;
-  ({ eng, history, name, version, parents } = docs[i]);
+  ({ eng, history, name, version, parents, saved } = docs[i]);
   docId++;
   selGen++;
 }
@@ -102,6 +106,12 @@ function freeDoc(d: Doc) {
 }
 
 // The tab name: the outermost document's, also while Edit Contents shows a nested one.
+// Unsaved history steps in the outermost document, or Edit Contents changes not written back yet.
+function isDirty(i: number) {
+  const d = i === active ? { history, version, parents, saved } : docs[i];
+  return (d.parents[0]?.history ?? d.history).top !== d.saved || (d.parents.length > 0 && d.version !== d.parents.at(-1)!.saved);
+}
+
 const tabName = (i: number) => i === active ? parents[0]?.name ?? name : docs[i].parents[0]?.name ?? docs[i].name;
 
 const emit = (state: AutosaveState, detail?: string) => {
@@ -140,7 +150,8 @@ function info(): DocInfo | null {
     globalLight: ch.global_light,
     parents: parents.map(p => p.name),
     key: docs[active].key,
-    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active })),
+    dirty: isDirty(active),
+    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active, dirty: isDirty(i) })),
   };
 }
 
@@ -201,13 +212,19 @@ function dropParents() {
 // Adds `e` as a new tab after the others and activates it; the open documents stay open.
 function adopt(e: Engine, n: string, restored = false) {
   stash();
-  docs.push({ key: uuid(), eng: e, history: historyOf(e), name: n, version: 1, parents: [] });
+  docs.push({ key: uuid(), eng: e, history: historyOf(e), name: n, version: 1, parents: [], saved: null });
   activate(docs.length - 1);
   if (!restored) {
     autosave?.startDocument();
     scheduleSave(0);
   }
   return info()!;
+}
+
+function markSaved() {
+  if (parents.length) return;
+  savedPrev = saved;
+  saved = history.top;
 }
 
 function changed() {
@@ -2379,15 +2396,26 @@ const api = {
     return files;
   },
 
+  // Marks the outermost document saved (an open Edit Contents saves the nested one, which is not the tab's file).
+  // Call saveEnd(false) when the user then cancels the file picker.
   saveProject() {
     const e = need();
-    return packProject(e.manifest(), id => e.tile_bytes(BigInt(id)));
+    const blob = packProject(e.manifest(), id => e.tile_bytes(BigInt(id)));
+    markSaved();
+    return blob;
   },
 
   savePsd(): { blob: Blob; warnings: string[] } {
     const e = need();
     const { bytes, warnings } = exportPsd(e);
+    markSaved();
     return { blob: new Blob([bytes], { type: 'image/vnd.adobe.photoshop' }), warnings };
+  },
+
+  // Ends a save: `ok` false (cancelled or failed write) restores the dirty state from before it.
+  saveEnd(ok: boolean) {
+    if (!ok) saved = savedPrev;
+    return info();
   },
 
   // Activates tab `key` under a new document id (D1); autosave follows the active document.

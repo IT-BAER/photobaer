@@ -114,7 +114,9 @@ export interface DocInfo {
   parents: string[];
   // Document tabs: the active document's stable key and every open document in tab order.
   key: string;
-  docs: { key: string; name: string; active: boolean }[];
+  // Unsaved changes since the last project or PSD save (also for undo past it); per tab in `docs`.
+  dirty: boolean;
+  docs: { key: string; name: string; active: boolean; dirty: boolean }[];
   // Pixels per inch (docs/M4.md D13, section 12).
   resolution: number;
   guides: Guide[];
