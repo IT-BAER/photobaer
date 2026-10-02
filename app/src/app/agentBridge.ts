@@ -2,7 +2,7 @@
 // serves the same tools as WebMCP plus file transfer. Pairing comes from the #agent=PORT.TOKEN fragment.
 import type { ToolDef } from './webmcp.ts';
 
-export const FORMATS = ['png', 'jpeg', 'webp', 'psd', 'project'] as const;
+export const FORMATS = ['png', 'jpeg', 'webp', 'psd'] as const;
 export type Format = typeof FORMATS[number];
 export interface BridgeCtx {
   openFile: (f: File) => Promise<{ warnings: string[] } | void>;

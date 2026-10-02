@@ -1,7 +1,7 @@
 // File > Open / Save / Save As / Revert / Open Recent on the File System Access API (Chromium).
 // Without it (Firefox, Safari) Open uses the file input and saving downloads.
-type Kind = 'pbaer' | 'psd' | 'image';
-type SaveFormat = 'pbaer' | 'psd';
+type Kind = 'psd' | 'image';
+type SaveFormat = 'psd';
 // The file a tab was opened from or saved as; `warned`: the open reported content the PSD writer cannot store.
 interface Origin { handle: FileSystemFileHandle; kind: Kind; warned: boolean }
 interface Recent { name: string; kind: Kind; handle: FileSystemFileHandle; time: number }
@@ -11,26 +11,25 @@ type Pickers = { showOpenFilePicker?: (o: object) => Promise<FileSystemFileHandl
 
 const RECENT_MAX = 10;
 const OPEN_TYPES = [{
-  description: 'Images, PSD and photobaer projects',
+  description: 'Images and PSD',
   accept: {
     'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/webp': ['.webp'], 'image/gif': ['.gif'], 'image/bmp': ['.bmp'], 'image/avif': ['.avif'],
-    'image/vnd.adobe.photoshop': ['.psd'], 'application/x-photobaer': ['.pbaer'],
+    'image/vnd.adobe.photoshop': ['.psd'],
   },
 }];
 const SAVE_TYPES = [
-  { description: 'photobaer project', accept: { 'application/x-photobaer': ['.pbaer'] } },
   { description: 'Photoshop', accept: { 'image/vnd.adobe.photoshop': ['.psd'] } },
 ];
 
-const kindOf = (name: string): Kind => /\.pbaer$/i.test(name) ? 'pbaer' : /\.psd$/i.test(name) ? 'psd' : 'image';
+const kindOf = (name: string): Kind => /\.psd$/i.test(name) ? 'psd' : 'image';
 // The format Save As writes, by extension; null for any other name.
-const saveFormat = (name: string): SaveFormat | null => /\.psd$/i.test(name) ? 'psd' : /\.pbaer$/i.test(name) ? 'pbaer' : null;
+const saveFormat = (name: string): SaveFormat | null => /\.psd$/i.test(name) ? 'psd' : null;
 const baseName = (name: string) => name.replace(/\.[^.]+$/, '');
 
-// Ctrl+S writes back only to an opened .pbaer, or a .psd that opened without warnings (D3); Edit Contents
+// Ctrl+S writes back only to a .psd that opened without warnings (D3); Edit Contents
 // shows a nested document, which is not the tab's file.
 function saveRoute(o: Pick<Origin, 'kind' | 'warned'> | undefined, nested: boolean): 'write' | 'saveAs' {
-  return !nested && (o?.kind === 'pbaer' || (o?.kind === 'psd' && !o.warned)) ? 'write' : 'saveAs';
+  return !nested && o?.kind === 'psd' && !o.warned ? 'write' : 'saveAs';
 }
 
 // `r` first, any entry for the same file dropped, at most RECENT_MAX. A handle that cannot compare counts as another file.

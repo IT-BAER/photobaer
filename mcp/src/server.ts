@@ -13,7 +13,7 @@ export const DEFAULT_URL = 'https://photobaer.com/';
 const ORIGINS = ['https://photobaer.com', 'https://www.photobaer.com'];
 // Below the 60 s default tool timeout of common agents; connect can be called again with the same link.
 const CONNECT_TIMEOUT_MS = 50_000;
-const FORMATS: Record<string, string> = { '.png': 'png', '.jpg': 'jpeg', '.jpeg': 'jpeg', '.webp': 'webp', '.psd': 'psd', '.pbaer': 'project' };
+const FORMATS: Record<string, string> = { '.png': 'png', '.jpg': 'jpeg', '.jpeg': 'jpeg', '.webp': 'webp', '.psd': 'psd' };
 
 // Opens the default browser without a shell, so the URL is never parsed by one.
 export function launch(url: string) {
@@ -31,16 +31,16 @@ const own: Tool[] = [
   },
   {
     name: 'open_file', title: 'Open file',
-    description: 'Opens an image file from disk in photobaer (PNG, JPEG, WebP, GIF, BMP, PSD or .pbaer project). Relative paths resolve against the server working directory.',
+    description: 'Opens an image file from disk in photobaer (PNG, JPEG, WebP, GIF, BMP or PSD). Relative paths resolve against the server working directory.',
     inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
   },
   {
     name: 'save_file', title: 'Save file',
-    description: 'Saves the open document to disk. The format follows the extension (.png, .jpg, .webp, .psd, .pbaer) unless format is given. Refuses to replace a file unless overwrite is true.',
+    description: 'Saves the open document to disk. The format follows the extension (.png, .jpg, .webp, .psd) unless format is given. Refuses to replace a file unless overwrite is true.',
     inputSchema: {
       type: 'object', required: ['path'],
       properties: {
-        path: { type: 'string' }, format: { type: 'string', enum: ['png', 'jpeg', 'webp', 'psd', 'project'] },
+        path: { type: 'string' }, format: { type: 'string', enum: ['png', 'jpeg', 'webp', 'psd'] },
         quality: { type: 'number', minimum: 0, maximum: 1 }, overwrite: { type: 'boolean' },
       },
     },
@@ -140,7 +140,7 @@ export function createServer({ url = DEFAULT_URL, open = launch }: { url?: strin
   async function saveFile({ path, format, quality, overwrite }: Record<string, unknown>) {
     const file = resolve(String(path));
     const fmt = typeof format === 'string' ? format : FORMATS[extname(file).toLowerCase()];
-    if (!fmt) return fail(`Cannot tell the format of ${file}. Pass format: png, jpeg, webp, psd or project.`);
+    if (!fmt) return fail(`Cannot tell the format of ${file}. Pass format: png, jpeg, webp or psd.`);
     if (!overwrite && await access(file).then(() => true, () => false)) return fail(`${file} exists. Pass overwrite: true to replace it.`);
     const r = await checked('export_bytes', { format: fmt, ...(typeof quality === 'number' ? { quality } : {}) }) as { data: string; warnings: string[] };
     const bytes = Buffer.from(r.data, 'base64');

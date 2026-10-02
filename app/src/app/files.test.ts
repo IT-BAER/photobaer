@@ -7,24 +7,20 @@ const h = (path: string) => ({ name: path.split('/').at(-1)!, isSameEntry: async
 const rec = (path: string, time: number): Recent => ({ name: path.split('/').at(-1)!, kind: kindOf(path), handle: h(path), time });
 
 test('kindOf and saveFormat follow the extension, case-insensitive', () => {
-  assert.equal(kindOf('a.PBAER'), 'pbaer');
   assert.equal(kindOf('a.psd'), 'psd');
   assert.equal(kindOf('a.png'), 'image');
   assert.equal(kindOf('a.psb'), 'image');
   assert.equal(saveFormat('x.PSD'), 'psd');
-  assert.equal(saveFormat('x.pbaer'), 'pbaer');
   assert.equal(saveFormat('x'), null);
   assert.equal(saveFormat('x.png'), null);
 });
 
-test('saveRoute writes back only to a .pbaer or a cleanly opened .psd outside Edit Contents', () => {
+test('saveRoute writes back only to a cleanly opened .psd outside Edit Contents', () => {
   assert.equal(saveRoute(undefined, false), 'saveAs');
-  assert.equal(saveRoute({ kind: 'pbaer', warned: false }, false), 'write');
-  assert.equal(saveRoute({ kind: 'pbaer', warned: true }, false), 'write');
   assert.equal(saveRoute({ kind: 'psd', warned: false }, false), 'write');
   assert.equal(saveRoute({ kind: 'psd', warned: true }, false), 'saveAs');
   assert.equal(saveRoute({ kind: 'image', warned: false }, false), 'saveAs');
-  assert.equal(saveRoute({ kind: 'pbaer', warned: false }, true), 'saveAs');
+  assert.equal(saveRoute({ kind: 'psd', warned: false }, true), 'saveAs');
 });
 
 test('addRecent puts the entry first, drops the same file, caps at 10', async () => {

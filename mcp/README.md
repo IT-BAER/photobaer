@@ -29,8 +29,8 @@ The server accepts only the photobaer origin, only the token from the last `conn
 | Tool | What it does |
 | --- | --- |
 | `connect` | Opens photobaer and pairs the tab |
-| `open_file` | Opens an image from disk (PNG, JPEG, WebP, GIF, BMP, PSD, .pbaer) |
-| `save_file` | Saves to disk as PNG, JPEG, WebP, PSD or .pbaer; never replaces a file unless `overwrite` is true |
+| `open_file` | Opens an image from disk (PNG, JPEG, WebP, GIF, BMP, PSD) |
+| `save_file` | Saves to disk as PNG, JPEG, WebP or PSD; never replaces a file unless `overwrite` is true |
 | `get_document` | Document size, layers and active layer |
 | `select_layer` | Makes a layer active |
 | `new_document` | Creates a white RGB document |

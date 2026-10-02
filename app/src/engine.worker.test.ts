@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { initSync, Engine } from './engine-pkg/photobaer_engine.js';
 import { exportPsd } from './psd.ts';
 import { Autosave } from './autosave.ts';
+import { tileIds } from './project.ts';
+import { loadEngine } from './worker/helpers.ts';
 import { FakeDir, fs } from './fake-opfs.ts';
 import { engineMesh, identityMesh } from './transform/warp.ts';
 import { croppedSize } from './crop/geometry.ts';
@@ -37,6 +39,16 @@ function callAt(doc: number, op: string, ...args: unknown[]) {
   return p;
 }
 const settle = () => new Promise(r => setTimeout(r, 200));
+
+// The active document as the next start restores it from the autosave.
+async function restored() {
+  await new Promise(r => setTimeout(r, 1300));
+  const s = (await (await Autosave.fromRoot(root as unknown as FileSystemDirectoryHandle)).load())!;
+  const d = s.docs.find(x => x.key === s.active)!;
+  const tiles = new Map<number, Uint8Array>();
+  for (const id of tileIds(d.manifest)) tiles.set(id, await d.tile(id));
+  return { manifest: JSON.parse(d.manifest), tiles, e: loadEngine(d.manifest, id => tiles.get(id)!) };
+}
 
 test('a new document has one Background pixel layer', async () => {
   await call('init');
@@ -1687,18 +1699,15 @@ test('via copy, rasterize, stack mode and relink refusals', async () => {
   assert.match((await call('editContents', 1)).error!, /smart object/);
 });
 
-test('a placed smart object survives a project save and open with its source', async () => {
+test('a placed smart object survives an autosave restore with its source', async () => {
   await call('init');
   await call('newDoc', 10, 10, 8, null);
   const p = (await call('placeSmart', 1, png(), false)).result as SmartDoc;
-  const blob = (await call('saveProject')).result as Blob;
-  const o = (await call('openFile', new File([blob], 'x.pbaer'))).result as SmartDoc;
-  const n = o.layers.find(l => l.id === p.created)!;
+  const { manifest, tiles, e } = await restored();
+  const n = manifest.layers.find((l: { id: number }) => l.id === p.created);
   assert.equal(n.kind, 'smart');
-  const t = await call('transformAgain', p.created, [2, 0, 0, 0, 2, 0, 0, 0, 1], 'bicubic');
-  assert.equal(t.error, undefined, 'a reopened smart object re-renders from its source');
-  const ex = (await call('exportContents', p.created)).result as { blob: Blob };
-  assert.equal((await ex.blob.arrayBuffer()).byteLength, 7);
+  assert.equal(tiles.get(n.smart.source.blob)!.byteLength, 7, 'the source bytes come back');
+  e.free();
 });
 
 test('a warp on a smart object starts from its current look and commits one Warp step', async () => {
@@ -2479,7 +2488,6 @@ test('a failing open or new document keeps every tab and the active one', async 
   const a = await res(call('newDoc', 8, 8, 8, null));
   const b = await res(call('newDoc', 8, 8, 8, null));
   await res(call('switchDoc', a.key));
-  assert.ok((await call('openFile', new File([new Uint8Array([1, 2, 3])], 'bad.pbaer'))).error);
   assert.ok((await call('openFile', new File([new Uint8Array([1, 2, 3])], 'bad.psd'))).error);
   assert.ok((await call('newDoc', 0, 0, 8, null)).error);
   const now = await res(call('redo'));
@@ -2502,20 +2510,20 @@ test('dirty: new and opened documents are clean; a history step dirties; undo to
   await dirtyOf('addLayer', 0);
   assert.equal((await dirtyOf('undo')).dirty, false, 'undo of the one new step is the original state');
   await dirtyOf('redo');
-  const blob = (await call('saveProject')).result as Blob;
-  const o = await dirtyOf('openFile', new File([blob], 'x.pbaer'));
+  const { blob } = (await call('savePsd')).result as { blob: Blob };
+  const o = await dirtyOf('openFile', new File([blob], 'x.psd'));
   assert.equal(o.dirty, false);
   assert.equal(o.docs.find(d => d.active)!.dirty, false);
 });
 
-test('dirty: saveProject and savePsd clean the document, export does not, saveEnd(false) restores', async () => {
+test('dirty: savePsd cleans the document, export does not, saveEnd(false) restores', async () => {
   await call('init');
   await closeAll();
   await dirtyOf('newDoc', 16, 16, 8, null);
   await dirtyOf('addLayer', 0);
   await call('exportImage', 'image/png');
   assert.equal((await dirtyOf('saveEnd', true)).dirty, true, 'export leaves it dirty');
-  await call('saveProject');
+  await call('savePsd');
   assert.equal((await dirtyOf('saveEnd', true)).dirty, false);
   const edited = await dirtyOf('addLayer', 0);
   assert.equal(edited.dirty, true);
@@ -2524,7 +2532,7 @@ test('dirty: saveProject and savePsd clean the document, export does not, saveEn
   assert.equal((await dirtyOf('undo')).dirty, true, 'one step before the saved state');
   assert.equal((await dirtyOf('redo')).dirty, false, 'back to exactly the saved state');
   await dirtyOf('addLayer', 0);
-  await call('saveProject');
+  await call('savePsd');
   assert.equal((await dirtyOf('saveEnd', false)).dirty, true, 'a cancelled picker puts the previous state back');
 });
 
@@ -2669,15 +2677,15 @@ test('revertDoc replaces the active tab with the file under a new key at the sam
   await call('init');
   await closeAll();
   const n = await dirtyOf('newDoc', 8, 8, 8, null);
-  const blob = (await call('saveProject')).result as Blob;
+  const { blob } = (await call('savePsd')).result as { blob: Blob };
   await call('saveEnd', true);
   await dirtyOf('addLayer', 0);
   const edited = await dirtyOf('addLayer', 0);
   assert.equal(edited.layers.length, 3);
   await dirtyOf('newDoc', 8, 8, 8, null);
   await dirtyOf('switchDoc', n.key);
-  assert.ok((await call('revertDoc', new File([blob], 'x.pbaer'), 'other')).error, 'another tab became active');
-  const r = (await res(call('revertDoc', new File([blob], 'x.pbaer'), n.key))) as Named & { warnings: string[] };
+  assert.ok((await call('revertDoc', new File([blob], 'x.psd'), 'other')).error, 'another tab became active');
+  const r = (await res(call('revertDoc', new File([blob], 'x.psd'), n.key))) as Named & { warnings: string[] };
   assert.notEqual(r.key, n.key, 'a new key: the autosave folder of the old key holds other pixels under the same tile ids');
   assert.equal(r.docs[0].key, r.key);
   assert.ok(!r.docs.some(d => d.key === n.key));
@@ -2688,7 +2696,7 @@ test('revertDoc replaces the active tab with the file under a new key at the sam
   assert.equal(r.undoLabel, null);
   assert.notEqual(r.docId, edited.docId);
   assert.deepEqual(r.warnings, []);
-  assert.ok((await call('revertDoc', new File([new Uint8Array([1, 2, 3])], 'bad.pbaer'), r.key)).error);
+  assert.ok((await call('revertDoc', new File([new Uint8Array([1, 2, 3])], 'bad.psd'), r.key)).error);
   const after = await dirtyOf('addLayer', 0);
   assert.equal(after.layers.length, 2, 'a failed revert keeps the reverted document');
 });
@@ -2698,22 +2706,22 @@ test('saveEnd(false) restores only the tab whose save it ends; a save under Edit
   await closeAll();
   const a = await dirtyOf('newDoc', 8, 8, 8, null);
   await dirtyOf('addLayer', 0);
-  await call('saveProject');
+  await call('savePsd');
   await dirtyOf('saveEnd', true);
   await dirtyOf('addLayer', 0);
-  await call('saveProject');
+  await call('savePsd');
   const b = await dirtyOf('newDoc', 8, 8, 8, null);
   assert.equal((await dirtyOf('saveEnd', false)).dirty, false, 'B keeps its own clean state');
   assert.equal((await dirtyOf('switchDoc', a.key)).dirty, true, "A's failed save leaves A dirty");
-  await call('saveProject');
+  await call('savePsd');
   assert.equal((await dirtyOf('saveEnd', true)).dirty, false);
   await call('command', 'fill', 1, 'pixels', [0, 128, 0, 255]);
   const c = (await call('convertToSmart', [1])).result as SmartDoc;
-  await call('saveProject');
+  await call('savePsd');
   await dirtyOf('saveEnd', true);
   const opened = await dirtyOf('editContents', c.created);
   assert.equal(opened.dirty, false);
-  await call('saveProject');
+  await call('savePsd');
   assert.equal((await dirtyOf('saveEnd', false)).dirty, false, 'a nested save leaves the outer state as it was');
   await call('smartEditClose', 'discard');
   void b;
@@ -2731,7 +2739,7 @@ test('navigatorThumb returns the flattened composite at the long side, keeping t
   assert.deepEqual([s.w, s.h], [60, 40]);
 });
 
-test('a Filter Gallery smart filter keeps its stack and pixels through a project save and open', async () => {
+test('a Filter Gallery smart filter keeps its stack and pixels through an autosave restore', async () => {
   await call('init');
   await call('newDoc', 24, 24, 8, [40, 160, 220, 255]);
   await call('convertForSmartFilters', 1);
@@ -2742,9 +2750,10 @@ test('a Filter Gallery smart filter keeps its stack and pixels through a project
   const d = (await call('applyFilter', 1, 'pixels', { kind: 'gallery.filter_gallery', params: { stack, seed: 7 } }, 'Filter Gallery')).result as FilterDoc & { layers: { smart?: { filters: { filter: { params: { stack: unknown } } }[] } }[] };
   const before = await Promise.all([[3, 4], [17, 9], [20, 20]].map(([x, y]) => pixelAt(x, y)));
   assert.deepEqual(filtersOf(d, 1).map(f => f.filter.kind), ['gallery.filter_gallery']);
-  const blob = (await call('saveProject')).result as Blob;
-  const o = (await call('openFile', new File([blob], 'x.pbaer'))).result as typeof d;
-  const f = o.layers.find(l => l.id === 1)!.smart!.filters[0].filter as unknown as { params: { stack: unknown } };
-  assert.deepEqual(f.params.stack, stack);
-  assert.deepEqual(await Promise.all([[3, 4], [17, 9], [20, 20]].map(([x, y]) => pixelAt(x, y))), before, 'the reopened smart filter renders the same pixels');
+  const { manifest, e } = await restored();
+  assert.deepEqual(manifest.layers.find((l: { id: number }) => l.id === 1).smart.filters[0].filter.params.stack, stack);
+  const t = e.flatten_tile_rgba8(0, 0)!;
+  const at = ([x, y]: number[]) => [...t.subarray((y * 256 + x) * 4, (y * 256 + x) * 4 + 4)];
+  assert.deepEqual([[3, 4], [17, 9], [20, 20]].map(at), before, 'the restored smart filter renders the same pixels');
+  e.free();
 });

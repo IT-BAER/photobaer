@@ -2,7 +2,7 @@ import init, { Engine, Fonts, filter_schema, fit_path, live_path } from './engin
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
-import { packProject, unpackProject, tileIds } from './project.ts';
+import { tileIds } from './project.ts';
 import { importPsd, exportPsd, compositeRgba, isPsdBytes } from './psd.ts';
 import { getHandle, putHandle } from './links.ts';
 import { denormalize, isIdentity } from './transform/matrix.ts';
@@ -419,17 +419,9 @@ function removeAsset(id: number) {
 
 const previewEngine = () => eng ?? (scratch ??= new Engine(1, 1, 8));
 
-// A document engine from an opened file: .pbaer project, .psd, or a browser-decoded image as one Background layer.
+// A document engine from an opened file: .psd, or a browser-decoded image as one Background layer.
 async function engineOf(file: File): Promise<{ e: Engine; name: string; warnings: string[] }> {
   const lower = file.name.toLowerCase();
-  if (lower.endsWith('.pbaer')) {
-    const p = await unpackProject(file);
-    return { e: loadEngine(p.manifest, id => {
-      const t = p.tiles.get(id);
-      if (!t) throw new Error(`project is missing tile ${id}`);
-      return t;
-    }), name: file.name.replace(/\.pbaer$/i, ''), warnings: [] };
-  }
   if (lower.endsWith('.psb')) throw new Error('PSB files are not supported yet');
   if (lower.endsWith('.psd')) {
     const { engine, warnings, sources } = importPsd(new Uint8Array(await file.arrayBuffer()));
@@ -2496,13 +2488,6 @@ const api = {
 
   // Marks the outermost document saved (an open Edit Contents saves the nested one, which is not the tab's file).
   // Call saveEnd(false) when the user then cancels the file picker.
-  saveProject() {
-    const e = need();
-    const blob = packProject(e.manifest(), id => e.tile_bytes(BigInt(id)));
-    markSaved();
-    return blob;
-  },
-
   savePsd(): { blob: Blob; warnings: string[] } {
     const e = need();
     const { bytes, warnings } = exportPsd(e);

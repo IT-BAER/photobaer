@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { packProject, unpackProject, tileIds } from './project.ts';
+import { tileIds } from './project.ts';
 import { readFileSync } from 'node:fs';
 import { initSync, Engine } from './engine-pkg/photobaer_engine.js';
 import { Autosave } from './autosave.ts';
@@ -9,7 +9,6 @@ import { FakeDir } from './fake-opfs.ts';
 initSync({ module: readFileSync(new URL('./engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
 
 const manifest = JSON.stringify({ format: 'photobaer-manifest', version: 1, layers: [{ tiles: [0, 7, 7, 2 ** 40 + 3] }, { tiles: [9, 0] }] });
-const bytes = (id: number) => new Uint8Array([id % 251, 1, 2, 3, id % 7]);
 
 const manifestV2 = JSON.stringify({
   format: 'photobaer-manifest', version: 2, layers: [
@@ -55,32 +54,6 @@ test('tileIds reads a v3 manifest without a selection or channels', () => {
   assert.deepEqual([...tileIds(m)], [3]);
 });
 
-test('pack then unpack returns the manifest and every tile', async () => {
-  const blob = await packProject(manifest, bytes);
-  const p = await unpackProject(blob);
-  assert.equal(p.manifest, manifest);
-  assert.equal(p.tiles.size, 3);
-  for (const id of tileIds(manifest)) assert.deepEqual(p.tiles.get(id), bytes(id));
-});
-
-test('the file is gzip compressed', async () => {
-  const head = new Uint8Array(await (await packProject(manifest, bytes)).arrayBuffer()).slice(0, 2);
-  assert.deepEqual([...head], [0x1f, 0x8b]);
-});
-
-test('a truncated file is rejected', async () => {
-  const raw = new Uint8Array(await new Response((await packProject(manifest, bytes)).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
-  const cut = raw.slice(0, raw.length - 10);
-  const gz = await new Response(new Blob([cut]).stream().pipeThrough(new CompressionStream('gzip'))).blob();
-  await assert.rejects(unpackProject(gz), /truncated/);
-});
-
-test('a file that is not a project is rejected', async () => {
-  const gz = await new Response(new Blob(['hello world, not a project']).stream().pipeThrough(new CompressionStream('gzip'))).blob();
-  await assert.rejects(unpackProject(gz), /not a photobaer project/);
-  await assert.rejects(unpackProject(new Blob(['plain'])), /not a photobaer project/);
-});
-
 const manifestV4 = JSON.stringify({
   format: 'photobaer-manifest', version: 4,
   layers: [
@@ -100,16 +73,6 @@ const manifestV4 = JSON.stringify({
 
 test('tileIds walks v4 smart sources, filter and stack masks and the blob list', () => {
   assert.deepEqual([...tileIds(manifestV4)].sort((a, b) => a - b), [21, 22, 23, 24, 25, 30, 31]);
-});
-
-test('a project with a 3-byte blob round-trips', async () => {
-  const blob = new Uint8Array([1, 2, 3]);
-  const data = (id: number) => (id === 30 ? blob : bytes(id));
-  const p = await unpackProject(await packProject(manifestV4, data));
-  assert.equal(p.manifest, manifestV4);
-  assert.equal(p.tiles.size, 7);
-  assert.deepEqual(p.tiles.get(30), blob);
-  for (const id of tileIds(manifestV4)) assert.deepEqual(p.tiles.get(id), data(id));
 });
 
 const run = (length: number) => ({
@@ -144,13 +107,12 @@ function textDoc() {
   return e;
 }
 
-test('a .pbaer with a text layer and a 3-tile cache round-trips', async () => {
+test('a text layer with a 3-tile cache reloads from its manifest and tiles', () => {
   const e = textDoc();
   const manifest = e.manifest();
   assert.deepEqual([...tileIds(manifest)].sort((a, b) => a - b), [1, 2, 3]);
-  const p = await unpackProject(await packProject(manifest, id => e.tile_bytes(BigInt(id))));
-  const back = Engine.from_manifest(p.manifest);
-  for (const [id, bytes] of p.tiles) back.put_tile(BigInt(id), bytes);
+  const back = Engine.from_manifest(manifest);
+  for (const id of tileIds(manifest)) back.put_tile(BigInt(id), e.tile_bytes(BigInt(id)));
   back.finish_load();
   assert.equal(back.manifest(), manifest);
   for (const id of [1, 2, 3]) assert.deepEqual(back.tile_bytes(BigInt(id)), cacheTile(id));

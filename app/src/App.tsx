@@ -52,7 +52,7 @@ import {
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
 import { buildMenus } from './app/menus.ts';
-import { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, saveFormat, saveRoute, storeRecent, writeFile, type Origin, type Recent, type SaveFormat } from './app/files.ts';
+import { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, saveFormat, saveRoute, storeRecent, writeFile, type Origin, type Recent } from './app/files.ts';
 import { agentTools, registerWebMcp, type ModelContext, type WebMcpCtx } from './app/webmcp.ts';
 import { layerContextItems } from './app/vectorCommands.ts';
 import { canvasItems, layerRowItems } from './app/contextMenus.ts';
@@ -581,16 +581,16 @@ export function App() {
   }
 
   // Serializes the active document and marks it saved; every call is followed by saveEnd.
-  const encode = async (format: SaveFormat) => format === 'psd' ? client.call('savePsd') : { blob: await client.call('saveProject'), warnings: [] as string[] };
+  const encode = () => client.call('savePsd');
 
   // Writes the active document to `h`; true when written. `save` (Ctrl+S overwrite) confirms PSD export warnings
   // first; `copy` leaves the dirty state as it was.
-  async function writeDoc(h: FileSystemFileHandle, format: SaveFormat, how: 'save' | 'as' | 'copy') {
+  async function writeDoc(h: FileSystemFileHandle, how: 'save' | 'as' | 'copy') {
     setBusy(`Saving ${h.name}…`);
     let encoded = false, saved = false;
     try {
       if (!await permit(h, 'readwrite')) throw new Error('permission denied');
-      const { blob, warnings } = await encode(format);
+      const { blob, warnings } = await encode();
       encoded = true;
       if (how !== 'save' || !warnings.length || confirm(`${lost(warnings)}\n\nOverwrite ${h.name} anyway?`)) {
         await writeFile(h, blob);
@@ -606,17 +606,17 @@ export function App() {
     return saved;
   }
 
-  // Without File System Access: Save As downloads a project, Save as PSD a PSD; `copy` leaves the dirty state.
-  async function download(format: SaveFormat, copy: boolean) {
+  // Without File System Access: Save As downloads a PSD; `copy` leaves the dirty state.
+  async function download(copy: boolean) {
     setMenu(null);
     const d = docRef.current;
     if (!d) return false;
     setBusy('Saving…');
     let encoded = false, saved = false;
     try {
-      const { blob, warnings } = await encode(format);
+      const { blob, warnings } = await encode();
       encoded = true;
-      saved = await saveBlob(blob, `${d.name}.${format}`, format === 'psd' ? 'image/vnd.adobe.photoshop' : 'application/x-photobaer', format);
+      saved = await saveBlob(blob, `${d.name}.psd`, 'image/vnd.adobe.photoshop', 'psd');
       if (warnings.length) setError(`Saved with warnings: ${warnings.join('; ')}`);
     } catch (e) {
       setError((e as Error).message);
@@ -635,7 +635,7 @@ export function App() {
     if (!d) return false;
     const o = origins.current.get(d.key);
     if (saveRoute(o, d.parents.length > 0) === 'saveAs') return saveAs();
-    return await writeDoc(o!.handle, o!.kind as SaveFormat, 'save') && !docRef.current?.dirty;
+    return await writeDoc(o!.handle, 'save') && !docRef.current?.dirty;
   }
 
   // File > Save As (the tab takes the new file and its name) and Save a Copy (nothing about the tab changes).
@@ -643,19 +643,19 @@ export function App() {
     setMenu(null);
     const d = docRef.current;
     if (!d) return false;
-    if (!fsAccess()) return download('pbaer', copy);
+    if (!fsAccess()) return download(copy);
     const o = origins.current.get(d.key);
     let h: FileSystemFileHandle | null;
     try {
-      h = await pickSave(`${d.name}.${o?.kind === 'psd' ? 'psd' : 'pbaer'}`, o?.handle);
+      h = await pickSave(`${d.name}.psd`, o?.handle);
     } catch (e) {
       setError((e as Error).message);
       return false;
     }
     if (!h) return false;
     const format = saveFormat(h.name);
-    if (!format) { setError(`Choose a .pbaer or .psd file name, not ${h.name}.`); return false; }
-    if (!await writeDoc(h, format, copy ? 'copy' : 'as')) return false;
+    if (!format) { setError(`Choose a .psd file name, not ${h.name}.`); return false; }
+    if (!await writeDoc(h, copy ? 'copy' : 'as')) return false;
     if (copy) return true;
     remember(h);
     // An open Edit Contents saved the nested document: the tab keeps its own file.
@@ -1104,7 +1104,7 @@ export function App() {
   };
   const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
   const menus = buildMenus({
-    setMenu, newDialog, aboutDialog, agentDialog, openFiles, placeFile, has, active, save, saveAs: () => void saveAs(), saveCopy: () => void saveAs(true), savePsd: () => void download('psd', false),
+    setMenu, newDialog, aboutDialog, agentDialog, openFiles, placeFile, has, active, save, saveAs: () => void saveAs(), saveCopy: () => void saveAs(true),
     revert, revertOff: !doc || !origins.current.has(doc.key) || !doc.dirty || doc.parents.length > 0,
     recent: fsAccess() ? recent : null, openRecent, clearRecent: () => { setMenu(null); updateRecent(() => []); }, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer: () => setRenameTick(n => n + 1), run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
@@ -1147,7 +1147,7 @@ export function App() {
     },
     async exportFile(format: Format, quality = 0.92) {
       if (format === 'psd') return client.call('savePsd');
-      const blob = format === 'project' ? await client.call('saveProject') : await client.call('exportImage', `image/${format}`, quality);
+      const blob = await client.call('exportImage', `image/${format}`, quality);
       return { blob, warnings: [] };
     },
   };
@@ -1780,7 +1780,7 @@ export function App() {
                   onDrop={() => setDragOver(false)}
                 >
                   Drop an image here
-                  <small>PNG, JPEG, WebP, GIF, BMP, AVIF, PSD or .pbaer</small>
+                  <small>PNG, JPEG, WebP, GIF, BMP, AVIF or PSD</small>
                 </div>
                 <small className="copyright">
                   © 2026 IT-BAER ·{' '}
@@ -1913,7 +1913,7 @@ export function App() {
         if (!f) return;
         try { await uploadFont(client, f); setFaces(await client.call('fontFaces')); } catch (err) { setError((err as Error).message); }
       }} />
-      <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.pbaer,.psd"
+      <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.psd"
         onChange={async e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; for (const f of fs) await open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <CloseDialog closeDialog={closeDialog} name={closeName} choose={chooseClose} />
