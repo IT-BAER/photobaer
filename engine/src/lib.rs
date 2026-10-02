@@ -320,6 +320,11 @@ impl Engine {
         self.0.doc.set_stack_mode(id, json).map_err(err)
     }
 
+    /// Merges sibling `ids` into one pixel layer of their composite (see `Document::merge_nodes`).
+    pub fn merge_nodes(&mut self, ids: Vec<u32>, keep: bool, clip: bool) -> Result<u32, JsError> {
+        self.0.doc.merge_nodes(&ids, keep, clip).map_err(err)
+    }
+
     /// The sibling layers `ids` as a new document at their union bounds (the Convert to Smart
     /// Object source).
     pub fn extract_document(&self, ids: Vec<u32>) -> Result<Engine, JsError> {

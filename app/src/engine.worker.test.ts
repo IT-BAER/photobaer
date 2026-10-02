@@ -374,6 +374,134 @@ test('setLocks locks every listed layer in one history step', async () => {
   assert.ok(u.layers.every(n => !n.locks.pixels && !n.locks.position && !n.locks.transparency));
 });
 
+type MergeNode = { id: number; name: string; kind: string; visible: boolean; blend: string; opacity: number; children?: MergeNode[] };
+type MergeDoc = { layers: MergeNode[]; undoLabel: string | null };
+const composite = async () => new Uint8Array(((await call('copy', 1, true, false)).result as { clip: { data: ArrayBuffer } }).clip.data);
+const maxDiff = (a: Uint8Array, b: Uint8Array) => { assert.equal(a.length, b.length); return a.reduce((m, v, i) => Math.max(m, Math.abs(v - b[i])), 0); };
+async function rectLayer(above: number, x: number, y: number, w: number, h: number, rgba: number[]) {
+  const id = ((await call('addLayer', above)).result as { created: number }).created;
+  await call('select', { kind: 'rect', x, y, w, h }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', id, 'pixels', rgba);
+  await call('selectCommand', 'deselect');
+  return id;
+}
+async function mergeDoc() {
+  await call('init');
+  await call('newDoc', 64, 64, 8, [255, 255, 255, 255]);
+  const a = await rectLayer(1, 4, 4, 30, 30, [255, 0, 0, 255]);
+  const b = await rectLayer(a, 20, 20, 30, 30, [0, 0, 255, 255]);
+  return [a, b];
+}
+
+test('mergeNodes down bakes blend and opacity into the bottom layer, one undo step', async () => {
+  const [a, b] = await mergeDoc();
+  await call('setProps', b, { blend: 'multiply', opacity: 0.5 });
+  const before = await composite();
+  const r = (await call('mergeNodes', [b], 'down')).result as MergeDoc;
+  assert.deepEqual(r.layers.map(n => n.name), ['Background', 'Layer 1']);
+  assert.equal(r.undoLabel, 'Merge Down');
+  assert.deepEqual([r.layers[1].kind, r.layers[1].blend, r.layers[1].opacity], ['pixel', 'normal', 1]);
+  assert.ok(maxDiff(before, await composite()) <= 1);
+  const u = (await call('undo')).result as MergeDoc;
+  assert.deepEqual(u.layers.map(n => n.id), [1, a, b]);
+  assert.deepEqual([u.layers[2].blend, u.layers[2].opacity], ['multiply', 0.5]);
+  assert.equal(((await call('mergeNodes', [1], 'down')).error ?? '').length > 0, true);
+});
+
+test('mergeNodes merges selected siblings with a mask and a drop shadow', async () => {
+  const [a, b] = await mergeDoc();
+  const c = await rectLayer(b, 30, 2, 20, 20, [0, 255, 0, 255]);
+  await call('addMask', b, false);
+  await call('setLayerStyle', c, { ...emptyStyle(), drop_shadows: [defaultEffect('drop_shadows')] }, defaultBlending(), 1, null);
+  const before = await composite();
+  const r = (await call('mergeNodes', [a, b, c], 'layers')).result as MergeDoc;
+  assert.deepEqual(r.layers.map(n => n.name), ['Background', 'Layer 1']);
+  assert.equal(r.undoLabel, 'Merge Layers');
+  assert.ok(maxDiff(before, await composite()) <= 1);
+});
+
+test('mergeNodes refuses nodes with different parents without a history step', async () => {
+  const [a, b] = await mergeDoc();
+  await call('groupNodes', [b]);
+  const r = await call('mergeNodes', [a, b], 'layers');
+  assert.match(r.error ?? '', /same/);
+  assert.equal(((await call('setProps', a, { name: 'x' })).result as MergeDoc & { history: { labels: string[] } }).history.labels.includes('Merge Layers'), false);
+});
+
+test('mergeNodes visible keeps hidden layers in place, stamp adds a top layer, flatten fills white', async () => {
+  const [a, b] = await mergeDoc();
+  const c = await rectLayer(b, 0, 0, 10, 10, [0, 255, 0, 255]);
+  await call('setProps', 1, { visible: false });
+  await call('setProps', c, { visible: false });
+  const before = await composite();
+  const v = (await call('mergeNodes', [], 'visible')).result as MergeDoc;
+  assert.deepEqual(v.layers.map(n => [n.id, n.visible]), [[1, false], [v.layers[1].id, true], [c, false]]);
+  assert.equal(v.layers[1].name, 'Layer 1');
+  assert.ok(maxDiff(before, await composite()) <= 1);
+  await call('undo');
+  const s = (await call('mergeNodes', [], 'stamp')).result as MergeDoc;
+  assert.deepEqual(s.layers.slice(0, 4).map(n => n.id), [1, a, b, c]);
+  assert.equal(s.layers.length, 5);
+  assert.equal(s.undoLabel, 'Stamp Visible');
+  assert.ok(maxDiff(before, await composite()) <= 1);
+  await call('undo');
+  const f = (await call('mergeNodes', [], 'flatten')).result as MergeDoc;
+  assert.deepEqual(f.layers.map(n => [n.name, n.kind]), [['Background', 'pixel']]);
+  assert.equal(f.undoLabel, 'Flatten Image');
+  const flat = await composite();
+  assert.ok(flat.every((v, i) => i % 4 !== 3 || v === 255));
+  assert.deepEqual([...flat.subarray(0, 4)], [255, 255, 255, 255]);
+  assert.ok(maxDiff(flat.subarray((25 * 64 + 4) * 4, (25 * 64 + 50) * 4), before.subarray((25 * 64 + 4) * 4, (25 * 64 + 50) * 4)) <= 1);
+});
+
+test('mergeNodes down keeps a merged clipped stack clipped', async () => {
+  const [a, b] = await mergeDoc();
+  const c = await rectLayer(b, 0, 40, 64, 10, [0, 255, 0, 255]);
+  await call('setProps', b, { clipping: true });
+  await call('setProps', c, { clipping: true });
+  const before = await composite();
+  const r = (await call('mergeNodes', [c], 'down')).result as MergeDoc;
+  assert.deepEqual(r.layers.slice(0, 2).map(n => n.id), [1, a]);
+  assert.equal(r.layers.length, 3);
+  assert.ok(maxDiff(before, await composite()) <= 1);
+});
+
+test('mergeNodes visible, stamp and flatten skip layers clipped to a hidden base', async () => {
+  const [a, b] = await mergeDoc();
+  await call('setProps', b, { clipping: true });
+  await call('setProps', a, { visible: false });
+  const before = await composite();
+  for (const mode of ['visible', 'stamp']) {
+    await call('mergeNodes', [], mode);
+    assert.ok(maxDiff(before, await composite()) <= 1, mode);
+    await call('undo');
+  }
+  const f = (await call('mergeNodes', [], 'flatten')).result as MergeDoc;
+  assert.deepEqual(f.layers.map(n => n.name), ['Background']);
+  assert.ok(maxDiff(before, await composite()) <= 1);
+});
+
+test('mergeNodes down on a group merges its subtree into one layer named after the group', async () => {
+  const [a, b] = await mergeDoc();
+  const c = await rectLayer(b, 30, 2, 20, 20, [0, 255, 0, 255]);
+  const g = ((await call('groupNodes', [b, c])).result as { created: number }).created;
+  const name = ((await call('setProps', g, { opacity: 0.7 })).result as MergeDoc).layers[2].name;
+  const before = await composite();
+  const r = (await call('mergeNodes', [g], 'down')).result as MergeDoc;
+  assert.deepEqual(r.layers.slice(0, 2).map(n => n.id), [1, a]);
+  assert.deepEqual([r.layers[2].name, r.layers[2].kind, r.layers.length], [name, 'pixel', 3]);
+  assert.ok(maxDiff(before, await composite()) <= 1);
+});
+
+test('mergeNodes flatten with only hidden layers gives a white Background', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, [255, 0, 0, 255]);
+  await call('setProps', 1, { visible: false });
+  const f = (await call('mergeNodes', [], 'flatten')).result as MergeDoc;
+  assert.deepEqual(f.layers.map(n => [n.name, n.visible]), [['Background', true]]);
+  assert.ok((await composite()).every(v => v === 255));
+});
+
 test('closing a document and creating the next one right away keeps the new autosave', async () => {
   await call('init');
   await call('newDoc', 256, 256, 8, null);

@@ -764,6 +764,41 @@ const api = {
     return changed();
   },
 
+  // Layer > Merge Down (ids[0] and the sibling below; a group alone: Merge Group), Merge Layers, Merge Visible, Stamp Visible, Flatten Image:
+  // one pixel layer of the composite, named after the bottom-most merged node, in one history step.
+  mergeNodes(ids: number[], mode: 'down' | 'layers' | 'visible' | 'stamp' | 'flatten') {
+    const e = need();
+    const tree = JSON.parse(e.layers_json()) as LayerNode[];
+    const label = { down: 'Merge Down', layers: 'Merge Layers', visible: 'Merge Visible', stamp: 'Stamp Visible', flatten: 'Flatten Image' }[mode];
+    // Drawn root nodes: a clipped node is skipped with its hidden base, as the compositor does.
+    let baseShown = false;
+    const visible = tree.filter((n, i) => { if (i === 0 || !n.clipping) baseShown = n.visible; return n.visible && baseShown; }).map(n => n.id);
+    if (mode === 'down') {
+      const at = locate(tree, ids[0]);
+      if (at?.list[at.index].kind === 'group') ids = [ids[0]];
+      else if (!at || at.index === 0) throw new Error('Could not merge down: there is no layer below in the same group.');
+      else ids = [at.list[at.index - 1].id, ids[0]];
+    } else if (mode === 'layers') {
+      if (ids.length < 2) throw new Error('Could not merge layers: select at least two layers.');
+      if (new Set(ids.map(id => locate(tree, id)?.parent)).size > 1) throw new Error('Could not merge layers: the layers must be in the same group.');
+    } else if ((mode === 'visible' || mode === 'stamp') && !visible.length) throw new Error(`Could not ${label.toLowerCase()}: no layers are visible.`);
+    const name = nextName('Layer');
+    history.run(label, () => {
+      if (mode === 'down' || mode === 'layers' || mode === 'visible') e.merge_nodes(Uint32Array.from(mode === 'visible' ? visible : ids), false, false);
+      else if (mode === 'stamp') {
+        const id = e.merge_nodes(Uint32Array.from(visible), true, false);
+        e.set_props(id, JSON.stringify({ name }));
+        e.move_node(id, 0, tree.length);
+      } else {
+        const bg = e.add_special(0, JSON.stringify({ name: 'Background', content: { type: 'solid', color: [255, 255, 255] } }));
+        e.move_node(bg, 0, 0);
+        for (const n of tree) if (!visible.includes(n.id)) e.delete_node(n.id);
+        e.merge_nodes(Uint32Array.of(bg, ...visible), false, true);
+      }
+    });
+    return changed();
+  },
+
   setLocks(ids: number[], locks: { transparency: boolean; pixels: boolean; position: boolean }) {
     const e = need();
     history.run('Lock All Layers in Group', () => { for (const id of ids) e.set_props(id, JSON.stringify({ locks })); });

@@ -727,6 +727,69 @@ impl Document {
         Ok((sub, b))
     }
 
+    // `sub`'s composite as straight pixels at this document's depth, tile (tx, ty) put at (ox + tx, oy + ty).
+    fn straight_tiles(&mut self, sub: &Document, ox: i32, oy: i32) -> Tiles {
+        let mut out = Tiles::default();
+        let mut buf = vec![0f32; TILE_PIXELS * 4];
+        for ty in 0..sub.tiles_y() {
+            for tx in 0..sub.tiles_x() {
+                let premul = sub.composite_tile_premul(tx, ty);
+                for (o, p) in buf.chunks_exact_mut(4).zip(premul.chunks_exact(4)) {
+                    let a = p[3];
+                    o.copy_from_slice(&if a > 0.0 { [p[0] / a, p[1] / a, p[2] / a, a] } else { [0.0; 4] });
+                }
+                let px = Pixels::from_straight(self.depth, &buf);
+                if px.any_alpha() {
+                    out.put(ox + tx as i32, oy + ty as i32, Some(Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
+                }
+            }
+        }
+        out
+    }
+
+    /// Merges the sibling `ids` into a new pixel layer of their composite over transparency, named
+    /// after the bottom-most. `keep`: they stay and it goes above the top-most, else it takes their
+    /// place. `clip`: canvas only, else content past the canvas is kept.
+    pub fn merge_nodes(&mut self, ids: &[u32], keep: bool, clip: bool) -> Result<u32, String> {
+        self.check_idle()?;
+        let paths = self.sibling_paths(ids)?;
+        let nodes: Vec<Node> = paths.iter().map(|p| node_at(&self.nodes, p).clone()).collect();
+        let (t, canvas) = (TILE as i32, [0, 0, self.width as i32, self.height as i32]);
+        let mut r = canvas;
+        if !clip {
+            for b in nodes.iter().filter_map(|n| self.content_bounds(n)) {
+                r = [r[0].min(b[0]), r[1].min(b[1]), r[2].max(b[0] + b[2]), r[3].max(b[1] + b[3])];
+            }
+        }
+        // A tile-aligned origin keeps the sub-document's tiles on the layer tile grid.
+        let (x0, y0) = (r[0].div_euclid(t) * t, r[1].div_euclid(t) * t);
+        let (name, clipping) = (nodes[0].name.clone(), nodes[0].clipping && !keep);
+        let mut sub = self.clone();
+        sub.nodes = nodes;
+        (sub.selection, sub.last_selection) = (None, None);
+        sub.channels.clear();
+        sub.layer_comps.clear();
+        if [x0, y0, r[2], r[3]] != canvas {
+            sub.apply_crop([x0, y0, r[2] - x0, r[3] - y0].map(|v| v as f64), false)?;
+        }
+        let tiles = self.straight_tiles(&sub, x0 / t, y0 / t);
+        let prefix = paths[0][..paths[0].len() - 1].to_vec();
+        let idx: Vec<usize> = paths.iter().map(|p| *p.last().expect("a path")).collect();
+        let id = self.alloc_node_id();
+        let mut node = Node::new(id, &name, Kind::Pixel(tiles));
+        node.clipping = clipping;
+        let list = list_mut(&mut self.nodes, &prefix);
+        if keep {
+            list.insert(idx[idx.len() - 1] + 1, node);
+        } else {
+            for &i in idx.iter().rev() {
+                list.remove(i);
+            }
+            list.insert(idx[0], node);
+        }
+        Ok(id)
+    }
+
     /// Convert to Smart Object: the sibling layers `ids` move into a source at their union
     /// bounds; the new smart object takes their place at the lowest index. `json` carries the
     /// name, the embedded link id and the source bytes blob (a PSB of `extract_document`).
@@ -739,21 +802,7 @@ impl Document {
         self.check_blob(c.source_blob)?;
         let (sub, b) = self.extract_document(ids)?;
         let size = [b[2] as u32, b[3] as u32];
-        let mut src = Tiles::default();
-        let mut buf = vec![0f32; TILE_PIXELS * 4];
-        for ty in 0..sub.tiles_y() {
-            for tx in 0..sub.tiles_x() {
-                let premul = sub.composite_tile_premul(tx, ty);
-                for (o, p) in buf.chunks_exact_mut(4).zip(premul.chunks_exact(4)) {
-                    let a = p[3];
-                    o.copy_from_slice(&if a > 0.0 { [p[0] / a, p[1] / a, p[2] / a, a] } else { [0.0; 4] });
-                }
-                let px = Pixels::from_straight(self.depth, &buf);
-                if px.any_alpha() {
-                    src.put(tx as i32, ty as i32, Some(Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
-                }
-            }
-        }
+        let src = self.straight_tiles(&sub, 0, 0);
         let t = translate(b[0] as f64, b[1] as f64);
         let cache = self.smart_render(&src, size, &t, None)?;
         let paths = self.sibling_paths(ids)?;
@@ -1309,5 +1358,29 @@ mod tests {
         assert_eq!(get_px(&d, id, 1, 1), [9, 9, 9, 255]);
         d.offset_layer(id, 1, 0).unwrap();
         assert_eq!(get_px(&d, id, 2, 1), [9, 9, 9, 255], "an exact move needs no source");
+    }
+
+    #[test]
+    fn merge_nodes_keeps_content_past_the_canvas_and_the_document_depth() {
+        let mut d = Document::new(64, 64, 8).unwrap();
+        let a = d.add_layer("a", 1).unwrap();
+        let b = d.add_layer("b", a).unwrap();
+        put_px(&mut d, a, -3, 5, [255, 0, 0, 255]);
+        put_px(&mut d, b, 10, 10, [0, 0, 255, 128]);
+        assert!(d.merge_nodes(&[1, 99], false, false).is_err());
+        let m = d.merge_nodes(&[b, a], false, false).unwrap();
+        assert_eq!(d.nodes.iter().map(|n| n.id).collect::<Vec<_>>(), [1, m]);
+        assert_eq!(d.nodes[1].name, "a");
+        assert_eq!(get_px(&d, m, -3, 5), [255, 0, 0, 255]);
+        assert_eq!(get_px(&d, m, 10, 10), [0, 0, 255, 128]);
+        let s = d.merge_nodes(&[m], true, true).unwrap();
+        assert_eq!(d.nodes.iter().map(|n| n.id).collect::<Vec<_>>(), [1, m, s]);
+        assert_eq!(get_px(&d, s, -3, 5), [0; 4]);
+        assert_eq!(get_px(&d, s, 10, 10), [0, 0, 255, 128]);
+        let mut d16 = Document::new(8, 8, 16).unwrap();
+        d16.put_rgba8(1, 0, 0, 1, 1, &[1, 2, 3, 255]).unwrap();
+        let m = d16.merge_nodes(&[1], false, true).unwrap();
+        let px = d16.node(m).unwrap().pixel_tiles().unwrap().get(0, 0).unwrap().px.clone();
+        assert!(matches!(px.as_ref(), Pixels::U16(_)));
     }
 }

@@ -110,6 +110,9 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && k === 'j') trigger('Duplicate Layer', e);
       else if (ctrl && e.altKey && k === 'g') triggerBy(l => l.endsWith('Clipping Mask'), e);
       else if (ctrl && e.shiftKey && k === 'g') trigger('Ungroup Layers', e);
+      else if (ctrl && e.altKey && e.shiftKey && e.code === 'KeyE') trigger('Stamp Visible', e);
+      else if (ctrl && !e.altKey && e.shiftKey && k === 'e') trigger('Merge Visible', e);
+      else if (ctrl && !e.altKey && k === 'e') triggerBy(l => l === 'Merge Down' || l === 'Merge Layers' || l === 'Merge Group', e);
       else if (ctrl && k === 'g') trigger('Group Layers', e);
       else if (ctrl && !e.altKey && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
         trigger(e.code === 'BracketRight' ? (e.shiftKey ? 'Bring to Front' : 'Bring Forward') : (e.shiftKey ? 'Send to Back' : 'Send Backward'), e);

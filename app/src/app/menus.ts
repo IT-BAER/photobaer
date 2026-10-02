@@ -1,6 +1,6 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { client } from '../client.ts';
-import { flatNodes } from '../layers.ts';
+import { flatNodes, locate } from '../layers.ts';
 import type { Active } from '../LayersPanel.tsx';
 import type { StylePage } from '../LayerStyleDialog.tsx';
 import { EFFECT_KINDS, EFFECT_LABEL } from '../layerStyle.ts';
@@ -161,6 +161,12 @@ export function buildMenus(c: MenuCtx) {
           ['front', 'Bring to Front', 'Shift+Ctrl+]'], ['forward', 'Bring Forward', 'Ctrl+]'], ['backward', 'Send Backward', 'Ctrl+['], ['back', 'Send to Back', 'Shift+Ctrl+['],
         ] as const).map(([mode, label, keys]) => ({ label, keys, run: () => run(null, () => client.call('arrangeNodes', selectedNodes.map(n => n.id), mode)) })),
       },
+      selectedNodes.length > 1
+        ? { label: 'Merge Layers', keys: 'Ctrl+E', sep: true, run: () => run(null, () => client.call('mergeNodes', selectedNodes.map(n => n.id), 'layers')), off: !has }
+        : { label: node?.kind === 'group' ? 'Merge Group' : 'Merge Down', keys: 'Ctrl+E', sep: true, run: () => node && run(null, () => client.call('mergeNodes', [node.id], 'down')), off: !has || !node || (node.kind !== 'group' && !locate(doc!.layers, node.id)?.index) },
+      { label: 'Merge Visible', keys: 'Shift+Ctrl+E', run: () => run(null, () => client.call('mergeNodes', [], 'visible')), off: !has },
+      { label: 'Stamp Visible', keys: 'Alt+Shift+Ctrl+E', run: () => run(null, () => client.call('mergeNodes', [], 'stamp')), off: !has },
+      { label: 'Flatten Image', run: () => run(null, () => client.call('mergeNodes', [], 'flatten')), off: !has },
       { label: node?.clipping ? 'Release Clipping Mask' : 'Create Clipping Mask', keys: 'Alt+Ctrl+G', run: toggleClipping, off: !has },
       { label: 'Add Layer Mask', run: addMask, off: !has || !!node?.mask },
       { label: 'Delete Layer Mask', run: deleteMask, off: !has || !node?.mask },
