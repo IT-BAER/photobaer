@@ -58,5 +58,8 @@ to `docs/M5.md` section 15.
   Social), preset search, Clipboard preset, name, units, resolution, orientation, color mode, size estimate.
 - Start screen with New, Open and recent files with thumbnails.
 - Status bar: document size (flattened / with layers), units selector.
+- Localization: UI, menus and dialogs in the languages most Adobe users work in (for example German, French,
+  Spanish, Portuguese (BR), Italian, Japanese, Chinese, Korean), with a language picker; menu labels match
+  each language's Photoshop terms so users find commands by the names they know.
 - Help: Keyboard Shortcuts reference, System Info.
 - Video layers and timeline last; drop if nobody needs them.
