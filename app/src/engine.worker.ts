@@ -75,7 +75,34 @@ let history = new History({ snapshot: () => need().snapshot(), restore: id => ne
 // Edit Contents sessions (D6): each open source document's parent, innermost last. `id` is the smart object
 // being edited in the parent, `saved` the nested document's version at its last write-back.
 interface Parent { eng: Engine; history: History; name: string; id: number; saved: number }
-const parents: Parent[] = [];
+let parents: Parent[] = [];
+// Open documents (tabs) in tab order. The active one's state lives in the module globals above and is
+// copied back into its entry only on switch, so `docs[active]` is stale while it is active.
+interface Doc { key: string; eng: Engine; history: History; name: string; version: number; parents: Parent[] }
+const docs: Doc[] = [];
+let active = -1;
+
+function stash() {
+  if (active >= 0) Object.assign(docs[active], { eng: eng!, history, name, version, parents });
+}
+
+// Makes tab `i` the active document under a new document id (D1).
+function activate(i: number) {
+  active = i;
+  ({ eng, history, name, version, parents } = docs[i]);
+  docId++;
+  selGen++;
+}
+
+// Frees a non-active document with its history and Edit Contents parents.
+function freeDoc(d: Doc) {
+  for (const p of d.parents) { p.history.clear(); p.eng.free(); }
+  d.history.clear();
+  d.eng.free();
+}
+
+// The tab name: the outermost document's, also while Edit Contents shows a nested one.
+const tabName = (i: number) => i === active ? parents[0]?.name ?? name : docs[i].parents[0]?.name ?? docs[i].name;
 
 const emit = (state: AutosaveState, detail?: string) => {
   lastState = state;
@@ -112,6 +139,8 @@ function info(): DocInfo | null {
     layerComps: ch.layer_comps.map(c => ({ id: c.id, name: c.name, layerCount: c.layer_count })),
     globalLight: ch.global_light,
     parents: parents.map(p => p.name),
+    key: docs[active].key,
+    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active })),
   };
 }
 
@@ -169,16 +198,11 @@ function dropParents() {
   for (const p of parents.splice(0)) { p.history.clear(); p.eng.free(); }
 }
 
+// Adds `e` as a new tab after the others and activates it; the open documents stay open.
 function adopt(e: Engine, n: string, restored = false) {
-  history.clear();
-  eng?.free();
-  dropParents();
-  eng = e;
-  history = historyOf(e);
-  name = n;
-  docId++;
-  version++;
-  selGen++;
+  stash();
+  docs.push({ key: uuid(), eng: e, history: historyOf(e), name: n, version: 1, parents: [] });
+  activate(docs.length - 1);
   if (!restored) {
     autosave?.startDocument();
     scheduleSave(0);
@@ -304,7 +328,8 @@ async function runSave() {
     console.error('autosave failed', err);
     emit('error', String(err));
   } finally {
-    if (alive()) e.drop_snapshot(snap);
+    // A switched-away tab keeps its engine, so its snapshot is dropped too; a freed engine has none.
+    if (eng === e || docs.some((d, i) => i !== active && d.eng === e)) e.drop_snapshot(snap);
   }
 }
 
@@ -352,7 +377,7 @@ function removeAsset(id: number) {
   const a = assets.get(id);
   if (!a) return;
   assets.delete(id);
-  for (const e of [eng, scratch]) {
+  for (const e of [eng, scratch, ...docs.map(d => d.eng)]) {
     const eid = e ? engineIds.get(e)?.get(id) : undefined;
     if (e && eid !== undefined) { if (a.kind === 'tip') e.tip_remove(eid); else e.pattern_remove(eid); engineIds.get(e)!.delete(id); }
   }
@@ -2365,15 +2390,46 @@ const api = {
     return { blob: new Blob([bytes], { type: 'image/vnd.adobe.photoshop' }), warnings };
   },
 
-  async closeDoc() {
-    if (parents.length) {
+  // Activates tab `key` under a new document id (D1); autosave follows the active document.
+  switchDoc(key: string) {
+    const i = docs.findIndex(d => d.key === key);
+    if (i < 0) throw new Error('That document is not open.');
+    stash();
+    activate(i);
+    autosave?.startDocument();
+    scheduleSave(0);
+    return info()!;
+  },
+
+  // Closes tab `key` (default: the active one, where an open Edit Contents closes first, writing back).
+  // The active tab's right neighbour becomes active, else its left one; another tab keeps the active document.
+  async closeDoc(key?: string) {
+    if (key === undefined && parents.length) {
       const r = await api.smartEditClose();
       if (!r.closed) throw new Error(r.error ?? `The contents were not saved: ${r.warnings.join('; ')}`);
       return r;
     }
-    history.clear();
-    eng?.free();
+    const i = key === undefined ? active : docs.findIndex(d => d.key === key);
+    if (key !== undefined && i < 0) throw new Error('That document is not open.');
+    if (i !== active) {
+      freeDoc(docs.splice(i, 1)[0]);
+      if (i < active) active--;
+      return info();
+    }
+    if (eng) {
+      dropParents();
+      history.clear();
+      eng.free();
+      docs.splice(active, 1);
+    }
     eng = null;
+    if (docs.length) {
+      activate(Math.min(active, docs.length - 1));
+      autosave?.startDocument();
+      scheduleSave(0);
+      return info();
+    }
+    active = -1;
     docId++;
     clearTimeout(timer);
     await saving;

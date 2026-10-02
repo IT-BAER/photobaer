@@ -112,6 +112,9 @@ export interface DocInfo {
   globalLight: GlobalLight;
   // Edit Contents (D6): the names of the documents this one is nested in, outermost first.
   parents: string[];
+  // Document tabs: the active document's stable key and every open document in tab order.
+  key: string;
+  docs: { key: string; name: string; active: boolean }[];
   // Pixels per inch (docs/M4.md D13, section 12).
   resolution: number;
   guides: Guide[];

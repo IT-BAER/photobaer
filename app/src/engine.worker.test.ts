@@ -2345,3 +2345,127 @@ test('Paste of an external image keeps its full size; one sized like the interna
   assert.deepEqual((await call('movingBounds', same.created)).result, [4, 4, 8, 8]);
   assert.deepEqual(await at1(4, 4, same.created), RED);
 });
+
+type Tab = { key: string; docId: number; width: number; parents: string[]; layers: { id: number }[]; undoLabel: string | null; redoLabel: string | null; docs: { key: string; name: string; active: boolean }[]; created: number };
+const res = async (p: Promise<{ result?: unknown; error?: string }>) => { const r = await p; assert.equal(r.error, undefined); return r.result as Tab; };
+const activeKeys = (t: Tab) => t.docs.filter(d => d.active).map(d => d.key);
+// Closes every open tab so the document tab tests see only their own documents.
+async function closeAll() {
+  for (let i = 0; i < 1000 && (await call('closeDoc')).result; i++);
+}
+
+test('new documents open as tabs; the newest is active and the others stay open', async () => {
+  await call('init');
+  await closeAll();
+  const a = await res(call('newDoc', 16, 16, 8, null));
+  const b = await res(call('newDoc', 32, 16, 8, null));
+  assert.notEqual(a.key, b.key);
+  assert.deepEqual(b.docs.map(d => d.key), [a.key, b.key]);
+  assert.deepEqual(activeKeys(b), [b.key]);
+  assert.equal(b.width, 32);
+});
+
+test('switchDoc keeps each document its own layers and undo/redo history, with a new docId each time', async () => {
+  await call('init');
+  await closeAll();
+  const a0 = await res(call('newDoc', 16, 16, 8, null));
+  await res(call('addLayer', 0));
+  const b0 = await res(call('newDoc', 32, 32, 8, null));
+  await res(call('addLayer', 0));
+  const b1 = await res(call('addLayer', 0));
+  const a1 = await res(call('switchDoc', a0.key));
+  assert.equal(a1.key, a0.key);
+  assert.deepEqual(activeKeys(a1), [a0.key]);
+  assert.equal(a1.width, 16);
+  assert.equal(a1.layers.length, 2);
+  assert.equal(a1.undoLabel, 'New Layer');
+  assert.ok(a1.docId > b1.docId);
+  const a2 = await res(call('undo'));
+  assert.equal(a2.layers.length, 1);
+  assert.equal(a2.redoLabel, 'New Layer');
+  const b2 = await res(call('switchDoc', b0.key));
+  assert.ok(b2.docId > a2.docId);
+  assert.equal(b2.layers.length, 3);
+  assert.equal(b2.redoLabel, null);
+  await res(call('undo'));
+  const a3 = await res(call('switchDoc', a0.key));
+  assert.ok(a3.docId > b2.docId);
+  assert.equal(a3.layers.length, 1);
+  assert.equal(a3.redoLabel, 'New Layer');
+  assert.equal((await res(call('redo'))).layers.length, 2);
+  const b3 = await res(call('switchDoc', b0.key));
+  assert.equal(b3.layers.length, 2);
+  assert.equal(b3.redoLabel, 'New Layer');
+  const again = await res(call('switchDoc', b0.key));
+  assert.ok(again.docId > b3.docId, 'even a switch to the active document renumbers it');
+  assert.match((await callAt(b3.docId, 'addLayer', 0)).error ?? '', /document changed/);
+  assert.ok((await call('switchDoc', 'nope')).error);
+});
+
+test('closeDoc activates the right neighbour, else the left one; closing the last gives no document', async () => {
+  await call('init');
+  await closeAll();
+  const a = await res(call('newDoc', 8, 8, 8, null));
+  const b = await res(call('newDoc', 8, 8, 8, null));
+  const c = await res(call('newDoc', 8, 8, 8, null));
+  await res(call('switchDoc', b.key));
+  const r1 = await res(call('closeDoc'));
+  assert.deepEqual(r1.docs.map(d => d.key), [a.key, c.key]);
+  assert.deepEqual(activeKeys(r1), [c.key]);
+  const r2 = await res(call('closeDoc', a.key));
+  assert.deepEqual(r2.docs.map(d => d.key), [c.key]);
+  assert.equal(r2.key, c.key);
+  assert.equal(r2.docId, r1.docId, 'closing another tab keeps the active document id');
+  const d = await res(call('newDoc', 8, 8, 8, null));
+  const r3 = await res(call('closeDoc', d.key));
+  assert.deepEqual(activeKeys(r3), [c.key], 'the rightmost tab closes to its left neighbour');
+  assert.equal((await call('closeDoc')).result, null);
+  assert.equal((await call('closeDoc')).result, null);
+  assert.ok((await call('closeDoc', c.key)).error);
+});
+
+test('switching documents commits an open move session on the document it belongs to', async () => {
+  await call('init');
+  await closeAll();
+  const a = await res(call('newDoc', 16, 16, 8, [255, 0, 0, 255]));
+  const b = await res(call('newDoc', 16, 16, 8, null));
+  await res(call('switchDoc', a.key));
+  await res(call('moveLayerBegin', 1, false, 'Move'));
+  await res(call('moveLayerStep', 3, 0));
+  const sb = await res(call('switchDoc', b.key));
+  assert.equal(sb.undoLabel, null, 'the move never lands on the other document');
+  const sa = await res(call('switchDoc', a.key));
+  assert.equal(sa.undoLabel, 'Move');
+});
+
+test('Edit Contents stays open in its tab across switches', async () => {
+  await call('init');
+  await closeAll();
+  const a = await res(call('newDoc', 8, 8, 8, [255, 255, 255, 255]));
+  const l = await res(call('addLayer', 1));
+  await res(call('command', 'fill', l.created, 'pixels', [0, 128, 0, 255]));
+  const c = await res(call('convertToSmart', [l.created]));
+  await res(call('editContents', c.created));
+  const b = await res(call('newDoc', 8, 8, 8, null));
+  assert.deepEqual(b.parents, []);
+  assert.deepEqual(b.docs.map(d => d.name), ['Untitled', 'Untitled']);
+  const back = await res(call('switchDoc', a.key));
+  assert.deepEqual(back.parents, ['Untitled']);
+  const closed = await res(call('smartEditClose', 'discard'));
+  assert.deepEqual(closed.parents, []);
+  assert.equal(closed.undoLabel, 'Convert to Smart Object');
+});
+
+test('a failing open or new document keeps every tab and the active one', async () => {
+  await call('init');
+  await closeAll();
+  const a = await res(call('newDoc', 8, 8, 8, null));
+  const b = await res(call('newDoc', 8, 8, 8, null));
+  await res(call('switchDoc', a.key));
+  assert.ok((await call('openFile', new File([new Uint8Array([1, 2, 3])], 'bad.pbaer'))).error);
+  assert.ok((await call('openFile', new File([new Uint8Array([1, 2, 3])], 'bad.psd'))).error);
+  assert.ok((await call('newDoc', 0, 0, 8, null)).error);
+  const now = await res(call('redo'));
+  assert.deepEqual(now.docs.map(d => d.key), [a.key, b.key]);
+  assert.equal(now.key, a.key);
+});
