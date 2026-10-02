@@ -623,33 +623,8 @@ impl Tri {
     }
 }
 
-/// The registry entry `puppet_warp`: the plane (straight RGBA, `ctx.scale` px per document px)
-/// through the deformed mesh; pixels no triangle covers become transparent. On overlap the
-/// triangle nearest the deeper pin wins.
-pub fn apply(p: &mut Plane, f: &Filter, ctx: &Ctx) -> Result<(), String> {
-    let (rig, solve) = solved(f.params.get("rig").unwrap_or(&Value::Null))?;
-    if rig.identity() || p.w == 0 || p.h == 0 {
-        return Ok(());
-    }
-    let (mesh, def) = (&solve.0, &solve.1);
-    let (s, e) = (ctx.scale, rig.exponent());
-    // Triangle depth: that of the pin weighing most at its rest centroid; stable sort, later wins.
-    let depth = |t: &[usize; 3]| {
-        let (cx, cy) = (t.iter().map(|i| mesh.verts[*i][0]).sum::<f64>() / 3.0, t.iter().map(|i| mesh.verts[*i][1]).sum::<f64>() / 3.0);
-        let (mut d, mut best) = (0, f64::NEG_INFINITY);
-        for pin in &rig.pins {
-            let d2 = (cx - pin.x).powi(2) + (cy - pin.y).powi(2);
-            let w = if d2 < 1e-12 { f64::INFINITY } else { weight(d2, e) };
-            if w > best {
-                (best, d) = (w, pin.depth);
-            }
-        }
-        d
-    };
-    let mut order: Vec<(i32, &[usize; 3])> = mesh.tris.iter().map(|t| (depth(t), t)).collect();
-    order.sort_by_key(|(d, _)| *d);
-    let at = |v: [f64; 2]| (v[0] * s, v[1] * s);
-    let tris: Vec<Tri> = order.iter().filter_map(|(_, t)| Tri::new(t.map(|i| at(def[i])), t.map(|i| at(mesh.verts[i])))).collect();
+// Draws `tris` (later wins on overlap) from a copy of `p`; pixels no triangle covers become transparent.
+fn raster(p: &mut Plane, tris: &[Tri]) {
     let most = tris.iter().map(|t| t.scale).filter(|v| v.is_finite()).fold(0.0, f64::max);
     let mut src = Plane { data: p.data.clone(), ..*p };
     src.premultiply();
@@ -678,6 +653,95 @@ pub fn apply(p: &mut Plane, f: &Filter, ctx: &Ctx) -> Result<(), String> {
             }
         }
     }
+}
+
+/// The registry entry `puppet_warp`: the plane (straight RGBA, `ctx.scale` px per document px)
+/// through the deformed mesh; pixels no triangle covers become transparent. On overlap the
+/// triangle nearest the deeper pin wins.
+pub fn apply(p: &mut Plane, f: &Filter, ctx: &Ctx) -> Result<(), String> {
+    let (rig, solve) = solved(f.params.get("rig").unwrap_or(&Value::Null))?;
+    if rig.identity() || p.w == 0 || p.h == 0 {
+        return Ok(());
+    }
+    let (mesh, def) = (&solve.0, &solve.1);
+    let (s, e) = (ctx.scale, rig.exponent());
+    // Triangle depth: that of the pin weighing most at its rest centroid; stable sort, later wins.
+    let depth = |t: &[usize; 3]| {
+        let (cx, cy) = (t.iter().map(|i| mesh.verts[*i][0]).sum::<f64>() / 3.0, t.iter().map(|i| mesh.verts[*i][1]).sum::<f64>() / 3.0);
+        let (mut d, mut best) = (0, f64::NEG_INFINITY);
+        for pin in &rig.pins {
+            let d2 = (cx - pin.x).powi(2) + (cy - pin.y).powi(2);
+            let w = if d2 < 1e-12 { f64::INFINITY } else { weight(d2, e) };
+            if w > best {
+                (best, d) = (w, pin.depth);
+            }
+        }
+        d
+    };
+    let mut order: Vec<(i32, &[usize; 3])> = mesh.tris.iter().map(|t| (depth(t), t)).collect();
+    order.sort_by_key(|(d, _)| *d);
+    let at = |v: [f64; 2]| (v[0] * s, v[1] * s);
+    let tris: Vec<Tri> = order.iter().filter_map(|(_, t)| Tri::new(t.map(|i| at(def[i])), t.map(|i| at(mesh.verts[i])))).collect();
+    raster(p, &tris);
+    Ok(())
+}
+
+/// A PSD puppet as triangles: `PSPW`, then u32 LE version, vertex count, triangle count, the source
+/// then the target vertices as f64 LE (x, y), the triangle indices as u32 LE and per-triangle depth as i32 LE.
+const PSD_MAGIC: &[u8; 4] = b"PSPW";
+const PSD_HEADER: usize = 16;
+const PSD_MAX_VERTS: usize = 1 << 20;
+const PSD_MAX_TRIS: usize = 1 << 21;
+
+pub struct PsdPuppet {
+    pub source: Vec<[f64; 2]>,
+    pub target: Vec<[f64; 2]>,
+    pub tris: Vec<([usize; 3], i32)>,
+}
+
+impl PsdPuppet {
+    pub fn from_bytes(b: &[u8]) -> Result<PsdPuppet, String> {
+        const BAD: &str = "the Photoshop puppet mesh is damaged";
+        if b.len() < PSD_HEADER || &b[..4] != PSD_MAGIC {
+            return Err(BAD.into());
+        }
+        let u = |at: usize| u32::from_le_bytes(b[at..at + 4].try_into().expect("4 bytes"));
+        let (nv, nt) = (u(8) as usize, u(12) as usize);
+        if u(4) != 1 || nv > PSD_MAX_VERTS || nt > PSD_MAX_TRIS || b.len() != PSD_HEADER + nv * 32 + nt * 16 {
+            return Err(BAD.into());
+        }
+        let f = |at: usize| f64::from_le_bytes(b[at..at + 8].try_into().expect("8 bytes"));
+        let pts = |at: usize| (0..nv).map(|i| [f(at + i * 16), f(at + i * 16 + 8)]).collect::<Vec<_>>();
+        let (source, target) = (pts(PSD_HEADER), pts(PSD_HEADER + nv * 16));
+        if !source.iter().chain(&target).flatten().all(|v| v.is_finite()) {
+            return Err(BAD.into());
+        }
+        let at = PSD_HEADER + nv * 32;
+        let tris: Vec<([usize; 3], i32)> = (0..nt).map(|t| ([0, 1, 2].map(|k| u(at + t * 12 + k * 4) as usize), u(at + nt * 12 + t * 4) as i32)).collect();
+        if tris.iter().any(|(t, _)| t.iter().any(|&i| i >= nv)) {
+            return Err(BAD.into());
+        }
+        Ok(PsdPuppet { source, target, tris })
+    }
+
+    fn identity(&self) -> bool {
+        self.source == self.target
+    }
+}
+
+/// The registry entry `psd_filter`: its `puppet` blob (if any) through the deformed PSD triangles,
+/// drawn in order of depth; without one the plane is untouched.
+pub fn apply_psd(p: &mut Plane, f: &Filter, ctx: &Ctx) -> Result<(), String> {
+    let Some(id) = f.blob() else { return Ok(()) };
+    let rig = PsdPuppet::from_bytes(ctx.blobs.get(&id).ok_or_else(|| format!("unknown blob {id}"))?)?;
+    if rig.identity() || p.w == 0 || p.h == 0 {
+        return Ok(());
+    }
+    let mut order: Vec<&([usize; 3], i32)> = rig.tris.iter().collect();
+    order.sort_by_key(|(_, d)| *d);
+    let at = |v: [f64; 2]| (v[0] * ctx.scale, v[1] * ctx.scale);
+    let tris: Vec<Tri> = order.iter().filter_map(|(t, _)| Tri::new(t.map(|i| at(rig.target[i])), t.map(|i| at(rig.source[i])))).collect();
+    raster(p, &tris);
     Ok(())
 }
 
@@ -761,5 +825,79 @@ mod tests {
         assert!(check(&bad).is_err(), "cell runs that wrap the sum");
         (bad["mesh"]["cols"], bad["mesh"]["rows"], bad["mesh"]["cells"]) = (serde_json::json!(1u64 << 32), serde_json::json!(1u64 << 32), serde_json::json!([]));
         assert!(check(&bad).is_err(), "cols x rows that wraps");
+    }
+}
+
+#[cfg(test)]
+mod psd_tests {
+    use super::*;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    fn bytes(source: &[[f64; 2]], target: &[[f64; 2]], tris: &[([u32; 3], i32)]) -> Vec<u8> {
+        let mut b = PSD_MAGIC.to_vec();
+        for v in [1u32, source.len() as u32, tris.len() as u32] {
+            b.extend_from_slice(&v.to_le_bytes());
+        }
+        for p in source.iter().chain(target).flatten() {
+            b.extend_from_slice(&p.to_le_bytes());
+        }
+        for (t, _) in tris {
+            t.iter().for_each(|i| b.extend_from_slice(&i.to_le_bytes()));
+        }
+        for (_, d) in tris {
+            b.extend_from_slice(&d.to_le_bytes());
+        }
+        b
+    }
+
+    const SQUARE: [[f64; 2]; 4] = [[0.0, 0.0], [8.0, 0.0], [8.0, 8.0], [0.0, 8.0]];
+    const TRIS: [([u32; 3], i32); 2] = [([0, 1, 2], 0), ([0, 2, 3], 0)];
+
+    fn plane() -> Plane {
+        let data = (0..8 * 8).flat_map(|i| [i as f32 / 64.0, 0.5, 0.25, 1.0]).collect();
+        Plane { x: 0, y: 0, w: 8, h: 8, data }
+    }
+
+    fn run(blob: Vec<u8>) -> Plane {
+        let blobs = HashMap::from([(5u64, Arc::new(blob))]);
+        let mut p = plane();
+        let f = Filter { kind: "psd_filter".into(), params: json!({ "name": "", "puppet": 5, "reach": 0 }).as_object().unwrap().clone() };
+        let ctx = Ctx { blobs: &blobs, cov: None, bounds: [0, 0, 8, 8], scale: 1.0, mask: None };
+        apply_psd(&mut p, &f, &ctx).unwrap();
+        p
+    }
+
+    #[test]
+    fn undeformed_triangles_leave_the_plane_untouched() {
+        assert_eq!(run(bytes(&SQUARE, &SQUARE, &TRIS)).data, plane().data);
+    }
+
+    #[test]
+    fn deformed_triangles_move_the_pixels_and_leave_the_rest_transparent() {
+        let moved: Vec<[f64; 2]> = SQUARE.iter().map(|p| [p[0] + 2.0, p[1]]).collect();
+        let p = run(bytes(&SQUARE, &moved, &TRIS));
+        let src = plane();
+        let at = |p: &Plane, x: usize, y: usize| p.data[(y * 8 + x) * 4..][..4].to_vec();
+        assert_eq!(at(&p, 0, 3)[3], 0.0, "uncovered");
+        for x in 2..7 {
+            let (a, b) = (at(&p, x, 4), at(&src, x - 2, 4));
+            assert!(a.iter().zip(&b).all(|(u, v)| (u - v).abs() < 0.02), "x={x} {a:?} {b:?}");
+        }
+    }
+
+    #[test]
+    fn damaged_or_oversized_meshes_are_refused() {
+        let ok = bytes(&SQUARE, &SQUARE, &TRIS);
+        assert!(PsdPuppet::from_bytes(&ok).is_ok());
+        assert!(PsdPuppet::from_bytes(&ok[..ok.len() - 1]).is_err(), "truncated");
+        assert!(PsdPuppet::from_bytes(&bytes(&SQUARE, &SQUARE, &[([0, 1, 4], 0)])).is_err(), "index out of range");
+        let mut nan = ok.clone();
+        nan[PSD_HEADER..PSD_HEADER + 8].copy_from_slice(&f64::NAN.to_le_bytes());
+        assert!(PsdPuppet::from_bytes(&nan).is_err(), "non-finite");
+        let mut big = ok.clone();
+        big[8..12].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert!(PsdPuppet::from_bytes(&big).is_err(), "vertex count");
+        assert!(PsdPuppet::from_bytes(b"PSPW").is_err());
     }
 }

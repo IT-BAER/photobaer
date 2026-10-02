@@ -260,6 +260,34 @@ pub struct SmartFilter {
     pub opacity: f32,
     pub blend: Blend,
     pub mask: Option<Mask>,
+    /// The imported PSD filter record for lossless write-back; byte arrays inside it are
+    /// `{ "$blob": id }` references.
+    pub psd: Option<serde_json::Value>,
+}
+
+const MAX_PSD_BYTES: usize = 8 << 20;
+
+/// Validates a `SmartFilter::psd` value and returns the blob ids it references.
+pub fn check_psd(v: &serde_json::Value) -> Result<Vec<u64>, String> {
+    fn walk(v: &serde_json::Value, out: &mut Vec<u64>) -> Result<(), String> {
+        match v {
+            serde_json::Value::Array(a) => a.iter().try_for_each(|x| walk(x, out)),
+            serde_json::Value::Object(o) => match (o.len(), o.get("$blob")) {
+                (1, Some(id)) => {
+                    out.push(id.as_u64().ok_or("a PSD blob reference must be a blob id")?);
+                    Ok(())
+                }
+                _ => o.values().try_for_each(|x| walk(x, out)),
+            },
+            _ => Ok(()),
+        }
+    }
+    if !v.is_object() || v.to_string().len() > MAX_PSD_BYTES {
+        return Err("the PSD filter record must be an object of at most 8 MiB".into());
+    }
+    let mut out = Vec::new();
+    walk(v, &mut out)?;
+    Ok(out)
 }
 
 /// A smart object (section 6). `source_blob` holds the source file bytes (none for a linked

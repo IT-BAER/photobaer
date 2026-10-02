@@ -60,7 +60,7 @@ use crate::adjust::{self, Adjustment};
 use crate::blend;
 use crate::blend::{blend_channel, blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blend, PaintMode};
 use crate::filters;
-use crate::content::{CompLayer, FillContent, Filter, GlobalLight, LayerComp, Link, PatternEntry, Smart, SmartFilter, StackMode, WarpMesh};
+use crate::content::{check_psd, CompLayer, FillContent, Filter, GlobalLight, LayerComp, Link, PatternEntry, Smart, SmartFilter, StackMode, WarpMesh};
 use crate::gradient;
 use crate::livewire::{self, LiveWire};
 use crate::path::{Artboard, DocVector, ShapeData, VectorMask};

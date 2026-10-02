@@ -1727,3 +1727,64 @@ fn vanishing_point_planes_follow_canvas_size_and_crop() {
     d.crop_rotated([4.0, 2.0, 60.0, 40.0], 0.0, true).unwrap();
     assert_eq!(d.vector.vanishing_planes[0].corners[2], [46.0, 38.0]);
 }
+
+// ---------- PSD smart filters (batch B16) ----------
+
+fn psd_smart_doc() -> Document {
+    let mut d = vp_doc();
+    d.convert_for_smart_filters(1, &json!({ "link_id": "l", "source_blob": null }).to_string()).unwrap();
+    d
+}
+
+#[test]
+fn a_smart_filter_keeps_its_psd_record_and_its_blobs_through_a_reload() {
+    let mut d = psd_smart_doc();
+    let b = d.blob_add(&[1, 2, 3]).unwrap();
+    let psd = json!({ "filter": { "type": "liquify", "liquifyMesh": { "$blob": b } }, "mesh": 7 });
+    d.add_smart_filter(1, &json!({ "kind": "invert", "params": {}, "psd": psd }).to_string()).unwrap();
+    let (first, second) = reload(&d);
+    assert_eq!(first, second, "write -> read -> write is byte identical");
+    let v: Value = serde_json::from_str(&first).unwrap();
+    assert_eq!(v["layers"][0]["smart"]["filters"][0]["psd"], psd);
+    assert!(v["blobs"].as_array().unwrap().contains(&json!(b)), "the blob inside the record is listed");
+    // A set patch replaces the record.
+    d.set_smart_filter(1, 1, &json!({ "psd": { "filter": { "type": "invert" } } }).to_string()).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&d.manifest()).unwrap()["layers"][0]["smart"]["filters"][0]["psd"], json!({ "filter": { "type": "invert" } }));
+}
+
+#[test]
+fn a_manifest_without_psd_records_opens_and_writes_none() {
+    let mut d = psd_smart_doc();
+    d.add_smart_filter(1, &filter("invert", json!({}))).unwrap();
+    let (first, _) = reload(&d);
+    let v: Value = serde_json::from_str(&first).unwrap();
+    assert!(v["layers"][0]["smart"]["filters"][0].get("psd").is_none());
+    assert_eq!(v["version"], 7);
+}
+
+#[test]
+fn psd_records_are_checked() {
+    let mut d = psd_smart_doc();
+    let add = |d: &mut Document, psd: Value| d.add_smart_filter(1, &json!({ "kind": "invert", "params": {}, "psd": psd }).to_string());
+    assert!(add(&mut d, json!({ "filter": { "m": { "$blob": 999 } } })).unwrap_err().contains("unknown blob 999"));
+    assert!(add(&mut d, json!({ "filter": { "m": { "$blob": "x" } } })).is_err());
+    assert!(add(&mut d, json!([1])).is_err());
+    assert!(add(&mut d, json!({ "big": "x".repeat(9 << 20) })).is_err());
+    assert!(smart_filters(&d).is_empty());
+}
+
+fn smart_filters(d: &Document) -> Vec<Value> {
+    serde_json::from_str::<Value>(&d.manifest()).unwrap()["layers"][0]["smart"]["filters"].as_array().unwrap().clone()
+}
+
+#[test]
+fn the_photoshop_filter_kind_renders_nothing_and_stays_out_of_every_menu_group() {
+    let mut d = psd_smart_doc();
+    let before = layer_px(&d);
+    d.add_smart_filter(1, &filter("psd_filter", json!({ "name": "Tree Wave" }))).unwrap();
+    assert_eq!(layer_px(&d), before);
+    assert!(d.add_smart_filter(1, &filter("psd_filter", json!({ "puppet": 999 }))).is_err());
+    let v: Value = serde_json::from_str(&filters::schema_json()).unwrap();
+    let e = v.as_array().unwrap().iter().find(|e| e["id"] == "psd_filter").unwrap();
+    assert_eq!((e["group"].as_str(), e["label"].as_str()), (Some("psd"), Some("Photoshop Filter")));
+}

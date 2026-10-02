@@ -4,7 +4,7 @@ import type { ParamValue } from './lastFilter.ts';
 
 export interface FilterParam {
   key: string; label: string;
-  kind: 'number' | 'int' | 'percent' | 'angle' | 'select' | 'bool' | 'blob' | 'seed' | 'point' | 'kernel' | 'curve' | 'color' | 'lights' | 'path' | 'pins' | 'paths' | 'stack' | 'rig' | 'quads' | 'stamps';
+  kind: 'number' | 'int' | 'percent' | 'angle' | 'select' | 'bool' | 'blob' | 'text' | 'seed' | 'point' | 'kernel' | 'curve' | 'color' | 'lights' | 'path' | 'pins' | 'paths' | 'stack' | 'rig' | 'quads' | 'stamps';
   min: number; max: number; step: number; unit: string; default: ParamValue | null; choices?: string[];
 }
 export interface FilterSpec {
@@ -25,8 +25,8 @@ export const setSchema = (s: FilterSpec[]) => { specs = s; };
 export const schema = () => specs;
 export const specOf = (id: string) => specs.find(s => s.id === id);
 
-// Blob, seed and color params are carried in the filter but never shown.
-export const visibleParams = (s: FilterSpec) => s.params.filter(p => p.kind !== 'blob' && p.kind !== 'seed' && p.kind !== 'color');
+// Blob, text, seed and color params are carried in the filter but never shown.
+export const visibleParams = (s: FilterSpec) => s.params.filter(p => p.kind !== 'blob' && p.kind !== 'text' && p.kind !== 'seed' && p.kind !== 'color');
 export const menuLabel = (s: FilterSpec) => (visibleParams(s).length ? `${s.label}…` : s.label);
 
 // Color params (`foreground`, `background`) take the current colors as #rrggbb.

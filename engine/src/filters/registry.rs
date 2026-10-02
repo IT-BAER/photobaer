@@ -715,6 +715,24 @@ pub static ALL: &[Spec] = &[
     )
     },
 
+    // An imported PSD filter with no registry kind: renders its PSD puppet triangles (`puppet` blob), else nothing.
+    // Not in the Filter menu (group `psd`); `reach` is the longest vertex shift.
+    Spec {
+        reach: liquify_reach,
+        preview: false,
+        ..global(
+            "psd_filter",
+            "Photoshop Filter",
+            "psd",
+            &[
+                Param { kind: PKind::Text, default: Def::Str(""), ..num("name", "Name", 0.0, 0.0, 0.0, "", 0.0) },
+                Param { kind: PKind::Blob, ..num("puppet", "Puppet", 0.0, 0.0, 0.0, "", 0.0) },
+                int("reach", "Reach", 0.0, 65535.0, 0.0),
+            ],
+            crate::puppet::apply_psd,
+        )
+    },
+
     // Edit > Puppet Warp and Perspective Warp sessions; smart filters on smart objects.
     Spec {
         extent: Some(crate::puppet::extent),
@@ -749,6 +767,7 @@ pub static ALL: &[Spec] = &[
 fn liquify_reach(f: &Filter) -> i32 {
     f.num("reach").ceil() as i32
 }
+
 
 pub fn lookup(id: &str) -> Option<&'static Spec> {
     ALL.iter().find(|s| s.id == id)

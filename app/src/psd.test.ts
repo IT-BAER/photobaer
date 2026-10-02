@@ -432,14 +432,14 @@ test('an imported smart object with a PSB source is live: its source pixels come
   void id;
 });
 
-test('a smart object with a smart filter PSD cannot write refuses export naming the filter', () => {
+test('a smart object with a smart filter PSD has no default object for refuses export naming the filter', () => {
   const { e, id } = psbSmartDoc();
   const m = JSON.parse(e.manifest());
-  m.layers[0].smart.filters = [{ id: 1, filter: { kind: 'gaussian_blur', params: { radius: 2 } }, enabled: true, opacity: 1, blend: 'normal', mask: null }];
+  m.layers[0].smart.filters = [{ id: 1, filter: { kind: 'render.tree', params: {} }, enabled: true, opacity: 1, blend: 'normal', mask: null }];
   const f = Engine.from_manifest(JSON.stringify(m));
   for (const t of tileIds(JSON.stringify(m))) f.put_tile(BigInt(t), e.tile_bytes(BigInt(t)));
   f.finish_load();
-  assert.throws(() => exportPsd(f), /Cannot export a changed placement with the gaussian blur smart filter/);
+  assert.throws(() => exportPsd(f), /Cannot export Tree as an editable Photoshop filter/);
   e.free(); f.free();
   void id;
 });
@@ -494,10 +494,10 @@ test('a smart object stack mask with tiles outside the canvas warns on PSD expor
   e.free(); f.free();
 });
 
-test('other smart filters refuse PSD export naming the filter', () => {
+test('adjustments without a PSD filter refuse export naming the filter', () => {
   const { e, id } = psbSmartDoc();
-  e.add_smart_filter(id, JSON.stringify({ kind: 'invert', params: {} }));
-  assert.throws(() => exportPsd(e), /Cannot export a changed placement with the invert smart filter/);
+  e.add_smart_filter(id, JSON.stringify({ kind: 'posterize', params: { levels: 4 } }));
+  assert.throws(() => exportPsd(e), /Cannot export Posterize as an editable Photoshop filter/);
   e.free();
 });
 

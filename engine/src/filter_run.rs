@@ -217,7 +217,7 @@ impl Document {
                 self.check_pixel_edit(id)?;
                 if matches!(self.node(id)?.kind, Kind::Smart(_)) {
                     let mask = self.selection.as_ref().map(|s| Mask { enabled: true, default: s.default, tiles: s.tiles.clone() });
-                    return self.push_filter(id, f, mask).map(|_| ());
+                    return self.push_filter(id, f, mask, None).map(|_| ());
                 }
                 let grown = |b: [i32; 4]| if spec.keep_alpha || spec.exec == Exec::Global { b } else { grow(b, f.reach()) };
                 let tiles = self.node(id)?.pixel_tiles()?.clone();

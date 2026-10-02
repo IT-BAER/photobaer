@@ -27,6 +27,8 @@ struct FilterPatch {
     opacity: Option<f32>,
     #[serde(default)]
     blend: Option<Blend>,
+    #[serde(default)]
+    psd: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -285,28 +287,39 @@ impl Document {
     }
 
     // Appends an enabled normal filter at full opacity; returns its id.
-    pub(super) fn push_filter(&mut self, id: u32, filter: Filter, mask: Option<Mask>) -> Result<u32, String> {
+    pub(super) fn push_filter(&mut self, id: u32, filter: Filter, mask: Option<Mask>, psd: Option<serde_json::Value>) -> Result<u32, String> {
         let filter = filter.normalized()?;
         self.check_blob(filter.blob())?;
+        self.check_psd_value(psd.as_ref())?;
         self.edit_filters(id, |filters, _| {
             let fid = filters.iter().map(|f| f.id).max().unwrap_or(0) + 1;
-            filters.push(SmartFilter { id: fid, filter, enabled: true, opacity: 1.0, blend: Blend::Normal, mask });
+            filters.push(SmartFilter { id: fid, filter, enabled: true, opacity: 1.0, blend: Blend::Normal, mask, psd });
             Ok(fid)
         })
     }
 
-    /// Appends filter `json` (`{ kind, params }`) to smart object `id`'s stack; returns its id.
+    // The PSD record's blob references must exist.
+    fn check_psd_value(&self, psd: Option<&serde_json::Value>) -> Result<(), String> {
+        for b in psd.map(check_psd).transpose()?.unwrap_or_default() {
+            self.check_blob(Some(b))?;
+        }
+        Ok(())
+    }
+
+    /// Appends filter `json` (`{ kind, params, psd? }`) to smart object `id`'s stack; returns its id.
     pub fn add_smart_filter(&mut self, id: u32, json: &str) -> Result<u32, String> {
-        self.push_filter(id, Filter::parse(json)?, None)
+        let mut v: serde_json::Value = serde_json::from_str(json).map_err(|e| format!("invalid filter: {e}"))?;
+        let psd = v.as_object_mut().and_then(|o| o.remove("psd"));
+        self.push_filter(id, Filter::parse(&v.to_string())?, None, psd)
     }
 
     /// Applying a hosted adjustment to a smart object: a new filter masked to the selection.
     pub(super) fn apply_as_filter(&mut self, id: u32, a: &Adjustment) -> Result<(), String> {
         let mask = self.selection.as_ref().map(|s| Mask { enabled: true, default: s.default, tiles: s.tiles.clone() });
-        self.push_filter(id, Filter::from_adjustment(a), mask).map(|_| ())
+        self.push_filter(id, Filter::from_adjustment(a), mask, None).map(|_| ())
     }
 
-    /// JSON `{ filter?, enabled?, opacity?, blend? }` for filter `fid`.
+    /// JSON `{ filter?, enabled?, opacity?, blend?, psd? }` for filter `fid`.
     pub fn set_smart_filter(&mut self, id: u32, fid: u32, json: &str) -> Result<(), String> {
         let mut p: FilterPatch = serde_json::from_str(json).map_err(|e| format!("invalid smart filter: {e}"))?;
         if let Some(f) = p.filter.take() {
@@ -314,6 +327,7 @@ impl Document {
             self.check_blob(f.blob())?;
             p.filter = Some(f);
         }
+        self.check_psd_value(p.psd.as_ref())?;
         if let Some(o) = p.opacity {
             unit(o, "filter opacity")?;
         }
@@ -328,6 +342,9 @@ impl Document {
             f.enabled = p.enabled.unwrap_or(f.enabled);
             f.opacity = p.opacity.unwrap_or(f.opacity);
             f.blend = p.blend.unwrap_or(f.blend);
+            if p.psd.is_some() {
+                f.psd = p.psd;
+            }
             Ok(())
         })
     }

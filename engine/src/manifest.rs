@@ -70,6 +70,7 @@ impl Document {
                             opacity: f.opacity,
                             blend: f.blend,
                             mask: f.mask.as_ref().map(mask_out),
+                            psd: &f.psd,
                         })
                         .collect(),
                     stack_mask: s.stack_mask.as_ref().map(mask_out),
@@ -89,7 +90,10 @@ impl Document {
                     Kind::Adjustment(a) => out.extend(a.blob()),
                     Kind::Smart(s) => {
                         out.extend(s.source_blob);
-                        out.extend(s.filters.iter().filter_map(|f| f.filter.blob()));
+                        for f in &s.filters {
+                            out.extend(f.filter.blob());
+                            out.extend(f.psd.as_ref().and_then(|v| check_psd(v).ok()).unwrap_or_default());
+                        }
                     }
                     Kind::Pixel(_) | Kind::Fill(_) | Kind::Shape(_) | Kind::Text(_) => {}
                 }
@@ -793,6 +797,9 @@ fn take_smart(s: &SmartIn, cache: &[Coord], path: &[usize], ctx: &mut LoadCtx) -
             return Err("pass through is only allowed on groups".into());
         }
         ctx.blob_refs.extend(filter.blob());
+        if let Some(v) = &f.psd {
+            ctx.blob_refs.extend(check_psd(v)?);
+        }
         let mask = f.mask.as_ref().map(|m| take_mask(m, Slot::FilterMask(path.to_vec(), i), ctx)).transpose()?;
         filters.push(SmartFilter {
             id: f.id,
@@ -801,6 +808,7 @@ fn take_smart(s: &SmartIn, cache: &[Coord], path: &[usize], ctx: &mut LoadCtx) -
             opacity: f.opacity,
             blend: f.blend,
             mask,
+            psd: f.psd.clone(),
         });
     }
     let stack_mask = s.stack_mask.as_ref().map(|m| take_mask(m, Slot::StackMask(path.to_vec()), ctx)).transpose()?;
@@ -912,6 +920,8 @@ struct FilterOut<'a> {
     opacity: f32,
     blend: Blend,
     mask: Option<MaskOut>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    psd: &'a Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -1011,6 +1021,8 @@ struct FilterIn {
     opacity: f32,
     blend: Blend,
     mask: Option<MaskIn<Coord>>,
+    #[serde(default)]
+    psd: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]

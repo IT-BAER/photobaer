@@ -40,8 +40,10 @@ pub enum PKind {
     Angle,
     Select(&'static [&'static str]),
     Bool,
-    /// A document blob id.
+    /// A document blob id; 0 is no blob.
     Blob,
+    /// A string of at most 256 characters.
+    Text,
     /// The per-instance random seed (u32, D4).
     Seed,
     /// `{ x, y }` as fractions of the layer bounds.
@@ -224,7 +226,7 @@ impl Filter {
         if spec.adjustment {
             return self.adjustment()?.blob();
         }
-        spec.params.iter().find(|p| matches!(p.kind, PKind::Blob)).and_then(|p| self.params.get(p.key)?.as_u64())
+        spec.params.iter().find(|p| matches!(p.kind, PKind::Blob)).and_then(|p| self.params.get(p.key)?.as_u64()).filter(|&id| id != 0)
     }
 
     pub fn reach(&self) -> i32 {
@@ -357,6 +359,7 @@ fn check(spec: &Spec, p: &Param, v: &Value) -> Result<Value, String> {
         },
         PKind::Bool => v.as_bool().map(Value::Bool).ok_or_else(|| bad("true or false")),
         PKind::Blob => v.as_u64().map(|n| json!(n)).ok_or_else(|| bad("a blob id")),
+        PKind::Text => v.as_str().filter(|s| s.chars().count() <= 256).map(|s| json!(s)).ok_or_else(|| bad("a string of at most 256 characters")),
         PKind::Seed => v.as_u64().filter(|n| *n <= u32::MAX as u64).map(|n| json!(n)).ok_or_else(|| bad("a 32-bit seed")),
         PKind::Point => {
             let o = v.as_object().filter(|o| o.len() == 2).ok_or_else(|| bad("a point { x, y }"))?;
@@ -475,6 +478,7 @@ pub fn schema_json() -> String {
                         PKind::Select(c) => ("select", Some(c)),
                         PKind::Bool => ("bool", None),
                         PKind::Blob => ("blob", None),
+                        PKind::Text => ("text", None),
                         PKind::Seed => ("seed", None),
                         PKind::Point => ("point", None),
                         PKind::Kernel => ("kernel", None),
