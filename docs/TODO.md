@@ -5,23 +5,6 @@ to `docs/M5.md` section 15.
 
 ## Quick wins (next)
 
-### Q1 Small UI and layer commands
-- Document tabs show color mode and depth next to the name (for example `RGB/8`).
-- Dialogs with a live preview (adjustments, Levels, Curves, Layer Style) do not dim the canvas.
-- Layers panel: filter row by kind (pixel, adjustment, type, shape, smart object) with an on/off switch.
-- Layer > Rename Layer.
-- Layer > Delete > Hidden Layers (one undo step).
-- Layer > New > Layer via Cut (Shift+Ctrl+J).
-- File > Close All and Close Others (each unsaved tab asks; Cancel stops the rest).
-
-### Q2 File workflow
-- Open through the file picker so the file handle is kept per document (input fallback where the API is missing).
-- Save (Ctrl+S) writes back to the opened `.pbaer` or `.psd` file; a PSD that opened with warnings goes to
-  Save As instead, so content that cannot be written back is never overwritten.
-- File > Save As (Shift+Ctrl+S) and Save a Copy.
-- File > Revert (F12), one undoable history step.
-- File > Open Recent (last 10 files, permission asked on click) and Clear Recent Files List.
-
 ### Q3 Command search
 - Edit > Search (Ctrl+F): search every menu command by name, show its menu path and shortcut, run with Enter.
 

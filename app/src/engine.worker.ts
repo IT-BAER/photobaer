@@ -83,8 +83,8 @@ interface Doc { key: string; eng: Engine; history: History; name: string; versio
 const docs: Doc[] = [];
 let active = -1;
 let saved: object | null = null;
-// The `saved` a save replaced, so a cancelled file picker can put it back (saveEnd).
-let savedPrev: object | null = null;
+// The save in progress: its tab and the `saved` it replaced, so a cancelled or failed write can put it back (saveEnd).
+let pendingSave: { key: string; prev: object | null } | null = null;
 
 function stash() {
   if (active >= 0) Object.assign(docs[active], { eng: eng!, history, name, version, parents, saved });
@@ -222,8 +222,9 @@ function adopt(e: Engine, n: string, key?: string) {
 }
 
 function markSaved() {
+  pendingSave = null;
   if (parents.length) return;
-  savedPrev = saved;
+  pendingSave = { key: docs[active].key, prev: saved };
   saved = history.top;
 }
 
@@ -416,6 +417,36 @@ function removeAsset(id: number) {
 
 const previewEngine = () => eng ?? (scratch ??= new Engine(1, 1, 8));
 
+// A document engine from an opened file: .pbaer project, .psd, or a browser-decoded image as one Background layer.
+async function engineOf(file: File): Promise<{ e: Engine; name: string; warnings: string[] }> {
+  const lower = file.name.toLowerCase();
+  if (lower.endsWith('.pbaer')) {
+    const p = await unpackProject(file);
+    return { e: loadEngine(p.manifest, id => {
+      const t = p.tiles.get(id);
+      if (!t) throw new Error(`project is missing tile ${id}`);
+      return t;
+    }), name: file.name.replace(/\.pbaer$/i, ''), warnings: [] };
+  }
+  if (lower.endsWith('.psb')) throw new Error('PSB files are not supported yet');
+  if (lower.endsWith('.psd')) {
+    const { engine, warnings, sources } = importPsd(new Uint8Array(await file.arrayBuffer()));
+    await loadSources(engine, sources, m => { if (!warnings.includes(m)) warnings.push(m); });
+    return { e: engine, name: file.name.replace(/\.psd$/i, ''), warnings };
+  }
+  const bmp = await createImageBitmap(file, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+  const c = new OffscreenCanvas(bmp.width, bmp.height);
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(bmp, 0, 0);
+  bmp.close();
+  const e = new Engine(c.width, c.height, 8);
+  tileLoop(c.width, c.height, (tx, ty) => {
+    const d = ctx.getImageData(tx * 256, ty * 256, 256, 256).data;
+    e.set_tile_rgba8(BACKGROUND, tx, ty, new Uint8Array(d.buffer, d.byteOffset, d.length));
+  });
+  return { e, name: file.name.replace(/\.[^.]+$/, ''), warnings: [] };
+}
+
 const api = {
   async init() {
     // A UI hot reload calls init again; the engine and the autosave lock are already ours.
@@ -460,32 +491,31 @@ const api = {
   },
 
   async openFile(file: File): Promise<OpenResult> {
-    const lower = file.name.toLowerCase();
-    if (lower.endsWith('.pbaer')) {
-      const p = await unpackProject(file);
-      return { ...adopt(loadEngine(p.manifest, id => {
-        const t = p.tiles.get(id);
-        if (!t) throw new Error(`project is missing tile ${id}`);
-        return t;
-      }), file.name.replace(/\.pbaer$/i, '')), warnings: [] };
-    }
-    if (lower.endsWith('.psb')) throw new Error('PSB files are not supported yet');
-    if (lower.endsWith('.psd')) {
-      const { engine, warnings, sources } = importPsd(new Uint8Array(await file.arrayBuffer()));
-      await loadSources(engine, sources, m => { if (!warnings.includes(m)) warnings.push(m); });
-      return { ...adopt(engine, file.name.replace(/\.psd$/i, '')), warnings };
-    }
-    const bmp = await createImageBitmap(file, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
-    const c = new OffscreenCanvas(bmp.width, bmp.height);
-    const ctx = c.getContext('2d', { willReadFrequently: true })!;
-    ctx.drawImage(bmp, 0, 0);
-    bmp.close();
-    const e = new Engine(c.width, c.height, 8);
-    tileLoop(c.width, c.height, (tx, ty) => {
-      const d = ctx.getImageData(tx * 256, ty * 256, 256, 256).data;
-      e.set_tile_rgba8(BACKGROUND, tx, ty, new Uint8Array(d.buffer, d.byteOffset, d.length));
-    });
-    return { ...adopt(e, file.name.replace(/\.[^.]+$/, '')), warnings: [] };
+    const { e, name: n, warnings } = await engineOf(file);
+    return { ...adopt(e, n), warnings };
+  },
+
+  // File > Revert: tab `key` (the active one) becomes `file`'s content at the same place and name, history
+  // cleared and clean. A new key: autosave tiles are immutable per key and tile id. A failed load keeps the document.
+  async revertDoc(file: File, key: string): Promise<OpenResult> {
+    if (docs[active]?.key !== key) throw new Error('The document to revert is no longer active.');
+    if (parents.length) throw new Error('Close Edit Contents before reverting.');
+    const { e, warnings } = await engineOf(file);
+    if (docs[active]?.key !== key) { e.free(); throw new Error('The document to revert is no longer active.'); }
+    const old = eng!, h = history;
+    docs[active] = { key: uuid(), eng: e, history: historyOf(e), name, version: version + 1, parents: [], saved: null };
+    activate(active);
+    h.clear();
+    old.free();
+    scheduleSave(0);
+    return { ...info()!, warnings };
+  },
+
+  // The tab name (Save As takes the file's base name); no history step, the dirty state stays.
+  setDocName(n: string) {
+    if (parents.length) parents[0].name = n; else name = n;
+    scheduleSave(0);
+    return info()!;
   },
 
   command(op: 'fill' | 'invert', id: number, target: 'pixels' | 'mask' | 'selection', rgba?: [number, number, number, number]) {
@@ -2463,7 +2493,12 @@ const api = {
 
   // Ends a save: `ok` false (cancelled or failed write) restores the dirty state from before it.
   saveEnd(ok: boolean) {
-    if (!ok) saved = savedPrev;
+    const p = pendingSave;
+    pendingSave = null;
+    if (!ok && p) {
+      if (docs[active]?.key === p.key) saved = p.prev;
+      else { const d = docs.find(x => x.key === p.key); if (d) d.saved = p.prev; }
+    }
     return info();
   },
 

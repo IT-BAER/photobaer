@@ -52,6 +52,7 @@ import {
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
 import { buildMenus } from './app/menus.ts';
+import { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, saveFormat, saveRoute, storeRecent, writeFile, type Origin, type Recent, type SaveFormat } from './app/files.ts';
 import { agentTools, registerWebMcp, type ModelContext, type WebMcpCtx } from './app/webmcp.ts';
 import { layerContextItems } from './app/vectorCommands.ts';
 import { canvasItems, layerRowItems } from './app/contextMenus.ts';
@@ -131,6 +132,11 @@ export function App() {
   const [artboardMode, setArtboardMode] = useState<ArtboardMode>('new');
   const newGuideLayoutDialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  // Each tab's file (File System Access), by document key; Save writes back to it, Revert re-reads it.
+  const origins = useRef(new Map<string, Origin>());
+  const [recent, setRecent] = useState<Recent[]>([]);
+  const recentRef = useRef<Recent[]>([]);
+  const recentQueue = useRef(Promise.resolve());
   const newDialog = useRef<HTMLDialogElement>(null);
   const closeDialog = useRef<HTMLDialogElement>(null);
   const [renameTick, setRenameTick] = useState(0);
@@ -395,6 +401,7 @@ export function App() {
       tabState.current.set(prev.key, { view: { ...v.view }, active: activeRef.current, picked: pickedRef.current });
     }
     for (const k of tabState.current.keys()) if (!d?.docs.some(t => t.key === k)) tabState.current.delete(k);
+    for (const k of origins.current.keys()) if (!d?.docs.some(t => t.key === k)) origins.current.delete(k);
     const saved = switched ? tabState.current.get(d.key) : undefined;
     setDoc(d);
     v?.setDoc(d, saved?.view);
@@ -422,11 +429,27 @@ export function App() {
     }
   }
 
-  async function open(f: File) {
+  // Open Recent updates run one after another; the list persists in IndexedDB.
+  function updateRecent(f: (l: Recent[]) => Recent[] | Promise<Recent[]>) {
+    recentQueue.current = recentQueue.current.then(async () => {
+      const next = await f(recentRef.current);
+      recentRef.current = next;
+      setRecent(next);
+      await storeRecent(next);
+    }).catch(e => console.error('recent files', e));
+  }
+  const remember = (h: FileSystemFileHandle) => updateRecent(l => addRecent(l, { name: h.name, kind: kindOf(h.name), handle: h, time: Date.now() }));
+
+  // `handle`: the file's File System Access handle (picker, drop, launch, Open Recent), kept for Save and Revert.
+  async function open(f: File, handle?: FileSystemFileHandle | null) {
     setMenu(null);
     setBusy(`Opening ${f.name}…`);
     try {
       const d = await client.call('openFile', f);
+      if (handle) {
+        origins.current.set(d.key, { handle, kind: kindOf(f.name), warned: d.warnings.length > 0 });
+        remember(handle);
+      }
       show(d);
       if (d.warnings.length) setError(`Opened with warnings: ${d.warnings.join('; ')}`);
     } catch (e) {
@@ -434,6 +457,32 @@ export function App() {
     } finally {
       setBusy(null);
     }
+  }
+
+  // File > Open: the File System Access picker (handles kept), else the file input.
+  async function openFiles() {
+    setMenu(null);
+    if (!fsAccess()) { fileInput.current?.click(); return; }
+    try {
+      for (const h of await pickOpen() ?? []) await open(await h.getFile(), h);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  // A recent file that cannot be read (gone, permission denied) leaves the list.
+  async function openRecent(r: Recent) {
+    setMenu(null);
+    let f: File;
+    try {
+      if (!await permit(r.handle, 'read')) throw new Error('permission denied');
+      f = await r.handle.getFile();
+    } catch (e) {
+      updateRecent(l => l.filter(x => x !== r));
+      setError(`Could not open ${r.name}: ${(e as Error).message}`);
+      return;
+    }
+    await open(f, r.handle);
   }
 
   // Edit Contents write-back: PSD export warnings (settings the source cannot store) need a confirm;
@@ -472,7 +521,7 @@ export function App() {
       if (c === 'cancel') return;
       if (c === 'save') {
         if (k !== d.key) await run(null, () => client.call('switchDoc', k));
-        if (!await saveProject()) return;
+        if (!await save()) return;
       }
     }
     await run(null, () => client.call('closeDoc', k));
@@ -495,24 +544,6 @@ export function App() {
       if (!d.closed && confirm(`${d.error ?? 'The contents were not written back.'}\n\nClose without saving the contents?`)) d = await client.call('smartEditClose', 'discard');
       return d;
     });
-  }
-
-  async function savePsd() {
-    setMenu(null);
-    const d = docRef.current;
-    if (!d) return;
-    setBusy('Saving PSD…');
-    let saved = false;
-    try {
-      const { blob, warnings } = await client.call('savePsd');
-      saved = await saveBlob(blob, `${d.name}.psd`, 'image/vnd.adobe.photoshop', 'psd');
-      if (warnings.length) setError(`Saved with warnings: ${warnings.join('; ')}`);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(null);
-    }
-    show(await client.call('saveEnd', saved));
   }
 
   async function exportAs(mime: 'image/png' | 'image/jpeg' | 'image/webp', ext: string) {
@@ -545,23 +576,109 @@ export function App() {
     }
   }
 
-  // True when the file was written and the document is clean.
-  async function saveProject() {
+  // Serializes the active document and marks it saved; every call is followed by saveEnd.
+  const encode = async (format: SaveFormat) => format === 'psd' ? client.call('savePsd') : { blob: await client.call('saveProject'), warnings: [] as string[] };
+
+  // Writes the active document to `h`; true when written. `save` (Ctrl+S overwrite) confirms PSD export warnings
+  // first; `copy` leaves the dirty state as it was.
+  async function writeDoc(h: FileSystemFileHandle, format: SaveFormat, how: 'save' | 'as' | 'copy') {
+    setBusy(`Saving ${h.name}…`);
+    let encoded = false, saved = false;
+    try {
+      if (!await permit(h, 'readwrite')) throw new Error('permission denied');
+      const { blob, warnings } = await encode(format);
+      encoded = true;
+      if (how !== 'save' || !warnings.length || confirm(`${lost(warnings)}\n\nOverwrite ${h.name} anyway?`)) {
+        await writeFile(h, blob);
+        saved = true;
+        if (warnings.length) setError(`Saved with warnings: ${warnings.join('; ')}`);
+      }
+    } catch (e) {
+      setError(`Could not save ${h.name}: ${(e as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+    if (encoded) show(await client.call('saveEnd', saved && how !== 'copy'));
+    return saved;
+  }
+
+  // Without File System Access: Save As downloads a project, Save as PSD a PSD; `copy` leaves the dirty state.
+  async function download(format: SaveFormat, copy: boolean) {
     setMenu(null);
     const d = docRef.current;
     if (!d) return false;
-    setBusy('Saving project…');
-    let saved = false;
+    setBusy('Saving…');
+    let encoded = false, saved = false;
     try {
-      saved = await saveBlob(await client.call('saveProject'), `${d.name}.pbaer`, 'application/x-photobaer', 'pbaer');
+      const { blob, warnings } = await encode(format);
+      encoded = true;
+      saved = await saveBlob(blob, `${d.name}.${format}`, format === 'psd' ? 'image/vnd.adobe.photoshop' : 'application/x-photobaer', format);
+      if (warnings.length) setError(`Saved with warnings: ${warnings.join('; ')}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(null);
     }
-    const after = await client.call('saveEnd', saved);
-    show(after);
-    return saved && !after?.dirty;
+    if (encoded) show(await client.call('saveEnd', saved && !copy));
+    return saved && !docRef.current?.dirty;
+  }
+
+  // File > Save: writes back to the tab's file when saveRoute allows (D3), else Save As.
+  // True when the file was written and the document is clean.
+  async function save() {
+    setMenu(null);
+    const d = docRef.current;
+    if (!d) return false;
+    const o = origins.current.get(d.key);
+    if (saveRoute(o, d.parents.length > 0) === 'saveAs') return saveAs();
+    return await writeDoc(o!.handle, o!.kind as SaveFormat, 'save') && !docRef.current?.dirty;
+  }
+
+  // File > Save As (the tab takes the new file and its name) and Save a Copy (nothing about the tab changes).
+  async function saveAs(copy = false) {
+    setMenu(null);
+    const d = docRef.current;
+    if (!d) return false;
+    if (!fsAccess()) return download('pbaer', copy);
+    const o = origins.current.get(d.key);
+    let h: FileSystemFileHandle | null;
+    try {
+      h = await pickSave(`${d.name}.${o?.kind === 'psd' ? 'psd' : 'pbaer'}`, o?.handle);
+    } catch (e) {
+      setError((e as Error).message);
+      return false;
+    }
+    if (!h) return false;
+    const format = saveFormat(h.name);
+    if (!format) { setError(`Choose a .pbaer or .psd file name, not ${h.name}.`); return false; }
+    if (!await writeDoc(h, format, copy ? 'copy' : 'as')) return false;
+    if (copy) return true;
+    remember(h);
+    // An open Edit Contents saved the nested document: the tab keeps its own file.
+    if (d.parents.length) return false;
+    origins.current.set(d.key, { handle: h, kind: format, warned: false });
+    show(await client.call('setDocName', baseName(h.name)));
+    return !docRef.current?.dirty;
+  }
+
+  // File > Revert: re-reads the tab's file into the same tab. The history is cleared, so it asks first.
+  async function revert() {
+    setMenu(null);
+    const d = docRef.current, o = d && origins.current.get(d.key);
+    if (!d || !o) return;
+    try {
+      if (!await permit(o.handle, 'read')) throw new Error('permission denied');
+    } catch (e) {
+      setError(`Could not read ${o.handle.name}: ${(e as Error).message}`);
+      return;
+    }
+    if (!confirm(`Revert to the saved version of ${o.handle.name}? This cannot be undone.`)) return;
+    await run('Reverting…', async () => {
+      const r = await client.call('revertDoc', await o.handle.getFile(), d.key);
+      origins.current.set(r.key, { ...o, warned: r.warnings.length > 0 });
+      if (r.warnings.length) setError(`Opened with warnings: ${r.warnings.join('; ')}`);
+      return r;
+    });
   }
 
   function editTarget(a: Active) { return quickMask ? 'selection' as const : a.target; }
@@ -983,7 +1100,9 @@ export function App() {
   };
   const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
   const menus = buildMenus({
-    setMenu, newDialog, aboutDialog, agentDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer: () => setRenameTick(n => n + 1), run,
+    setMenu, newDialog, aboutDialog, agentDialog, openFiles, placeFile, has, active, save, saveAs: () => void saveAs(), saveCopy: () => void saveAs(true), savePsd: () => void download('psd', false),
+    revert, revertOff: !doc || !origins.current.has(doc.key) || !doc.dirty || doc.parents.length > 0,
+    recent: fsAccess() ? recent : null, openRecent, clearRecent: () => { setMenu(null); updateRecent(() => []); }, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer: () => setRenameTick(n => n + 1), run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
@@ -1105,7 +1224,8 @@ export function App() {
         setBusy(null);
       }
       const lq = (window as unknown as { launchQueue?: { setConsumer(f: (p: { files: FileSystemFileHandle[] }) => void): void } }).launchQueue;
-      lq?.setConsumer(async p => { for (const h of p.files) await open(await h.getFile()); });
+      lq?.setConsumer(async p => { for (const h of p.files) await open(await h.getFile(), h); });
+      if (fsAccess()) updateRecent(() => loadRecent());
     })();
     return () => { alive = false; };
   }, []);
@@ -1645,7 +1765,7 @@ export function App() {
                 <h1><img src="./logo-light.png" alt="" width={64} height={64} />photobaer</h1>
                 <p className="tagline">Image editing in your browser</p>
                 <div className="actions">
-                  <button className="primary" onClick={() => fileInput.current?.click()}>Open image…</button>
+                  <button className="primary" onClick={() => void openFiles()}>Open image…</button>
                   <button onClick={() => newDialog.current?.showModal()}>New image</button>
                 </div>
                 <div

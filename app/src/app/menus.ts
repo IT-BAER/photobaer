@@ -17,14 +17,16 @@ import { ALIGN_ITEMS, STACK_MODES, selectCreated, type FillContentForm, type Ite
 import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.ts';
 import { copy, paste } from './clipboard.ts';
 import { stepTab } from './tabs.ts';
+import type { Recent } from './files.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type DialogRef = RefObject<HTMLDialogElement | null>;
 type Mime = 'image/png' | 'image/jpeg' | 'image/webp';
 
 export interface MenuCtx {
-  setMenu: SetState<string | null>; newDialog: DialogRef; fileInput: RefObject<HTMLInputElement | null>; placeFile: (linked: boolean) => Promise<void>;
-  has: boolean; active: Active | null; saveProject: () => Promise<boolean>; savePsd: () => Promise<void>;
+  setMenu: SetState<string | null>; newDialog: DialogRef; openFiles: () => Promise<void>; placeFile: (linked: boolean) => Promise<void>;
+  has: boolean; active: Active | null; save: () => Promise<boolean>; saveAs: () => void; saveCopy: () => void; savePsd: () => void;
+  revert: () => Promise<void>; revertOff: boolean; recent: Recent[] | null; openRecent: (r: Recent) => Promise<void>; clearRecent: () => void;
   exportAs: (mime: Mime, ext: string) => Promise<void>; exportLayerComps: (mime: Mime, ext: string) => Promise<void>;
   doc: DocInfo | null; closeTab: () => Promise<void>; closeTabs: (which: 'all' | 'others') => Promise<void>; renameLayer: () => void; run: Run; openPreviewDialog: (which: 'fill' | 'stroke') => void;
   contentAwareFill: (dialog: boolean) => void;
@@ -64,7 +66,7 @@ export function buildMenus(c: MenuCtx) {
     if (key) void c.run(null, () => client.call('switchDoc', key));
   };
   const {
-    setMenu, newDialog, fileInput, placeFile, has, active, saveProject, savePsd, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer, run,
+    setMenu, newDialog, openFiles, placeFile, has, active, save, saveAs, saveCopy, savePsd, revert, revertOff, recent, openRecent, clearRecent, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer, run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
@@ -108,11 +110,21 @@ export function buildMenus(c: MenuCtx) {
   const menus: Record<string, Item[]> = {
     File: [
       { label: 'New…', keys: 'Alt+Ctrl+N', run: () => { setMenu(null); newDialog.current?.showModal(); } },
-      { label: 'Open…', keys: 'Ctrl+O', run: () => { setMenu(null); fileInput.current?.click(); } },
+      { label: 'Open…', keys: 'Ctrl+O', run: () => void openFiles() },
+      ...(recent ? [{
+        label: 'Open Recent', keys: '›', run: () => {}, off: !recent.length, sub: [
+          ...recent.map(r => ({ label: r.name, run: () => void openRecent(r) })),
+          { label: 'Clear Recent File List', sep: recent.length > 0, run: clearRecent },
+        ],
+      }] : []),
       { label: 'Place Embedded…', run: () => void placeFile(false), off: !has || !active },
       { label: 'Place Linked…', run: () => void placeFile(true), off: !has || !active },
-      { label: 'Save project…', keys: 'Ctrl+S', run: saveProject, off: !has },
-      { label: 'Save as PSD…', run: savePsd, off: !has },
+      { label: 'Save', keys: 'Ctrl+S', sep: true, run: () => void save(), off: !has },
+      { label: 'Save As…', keys: 'Shift+Ctrl+S', run: saveAs, off: !has },
+      { label: 'Save a Copy…', keys: 'Alt+Ctrl+S', run: saveCopy, off: !has },
+      // Without File System Access, Save As downloads a project; PSD has its own item.
+      ...(recent ? [] : [{ label: 'Save as PSD…', run: savePsd, off: !has }]),
+      { label: 'Revert', keys: 'F12', run: () => void revert(), off: revertOff },
       { label: 'Export PNG…', run: () => exportAs('image/png', 'png'), off: !has },
       { label: 'Export JPEG…', run: () => exportAs('image/jpeg', 'jpg'), off: !has },
       { label: 'Export WebP…', run: () => exportAs('image/webp', 'webp'), off: !has },

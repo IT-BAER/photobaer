@@ -2631,3 +2631,73 @@ test('every tab reports its mode and depth', async () => {
   const d = (await call('newDoc', 32, 32, 16, null)).result as { docs: { mode: string; depth: number }[] };
   assert.deepEqual(d.docs.slice(-2).map(t => [t.mode, t.depth]), [['RGB', 8], ['RGB', 16]]);
 });
+
+type Named = DirtyTab & { name: string };
+test('setDocName renames the tab without a history step and keeps the dirty state', async () => {
+  await call('init');
+  await closeAll();
+  await dirtyOf('newDoc', 8, 8, 8, null);
+  const r = await dirtyOf('setDocName', 'photo') as Named;
+  assert.equal(r.name, 'photo');
+  assert.equal(r.docs.find(d => d.active)!.name, 'photo');
+  assert.equal(r.dirty, false);
+  assert.equal(r.undoLabel, null);
+  await dirtyOf('addLayer', 0);
+  const d = await dirtyOf('setDocName', 'other');
+  assert.equal(d.dirty, true);
+  assert.equal(d.undoLabel, 'New Layer');
+});
+
+test('revertDoc replaces the active tab with the file under a new key at the same place: same name, history cleared, clean', async () => {
+  await call('init');
+  await closeAll();
+  const n = await dirtyOf('newDoc', 8, 8, 8, null);
+  const blob = (await call('saveProject')).result as Blob;
+  await call('saveEnd', true);
+  await dirtyOf('addLayer', 0);
+  const edited = await dirtyOf('addLayer', 0);
+  assert.equal(edited.layers.length, 3);
+  await dirtyOf('newDoc', 8, 8, 8, null);
+  await dirtyOf('switchDoc', n.key);
+  assert.ok((await call('revertDoc', new File([blob], 'x.pbaer'), 'other')).error, 'another tab became active');
+  const r = (await res(call('revertDoc', new File([blob], 'x.pbaer'), n.key))) as Named & { warnings: string[] };
+  assert.notEqual(r.key, n.key, 'a new key: the autosave folder of the old key holds other pixels under the same tile ids');
+  assert.equal(r.docs[0].key, r.key);
+  assert.ok(!r.docs.some(d => d.key === n.key));
+  assert.equal(r.docs.length, 2);
+  assert.equal(r.name, 'Untitled');
+  assert.equal(r.layers.length, 1);
+  assert.equal(r.dirty, false);
+  assert.equal(r.undoLabel, null);
+  assert.notEqual(r.docId, edited.docId);
+  assert.deepEqual(r.warnings, []);
+  assert.ok((await call('revertDoc', new File([new Uint8Array([1, 2, 3])], 'bad.pbaer'), r.key)).error);
+  const after = await dirtyOf('addLayer', 0);
+  assert.equal(after.layers.length, 2, 'a failed revert keeps the reverted document');
+});
+
+test('saveEnd(false) restores only the tab whose save it ends; a save under Edit Contents changes nothing', async () => {
+  await call('init');
+  await closeAll();
+  const a = await dirtyOf('newDoc', 8, 8, 8, null);
+  await dirtyOf('addLayer', 0);
+  await call('saveProject');
+  await dirtyOf('saveEnd', true);
+  await dirtyOf('addLayer', 0);
+  await call('saveProject');
+  const b = await dirtyOf('newDoc', 8, 8, 8, null);
+  assert.equal((await dirtyOf('saveEnd', false)).dirty, false, 'B keeps its own clean state');
+  assert.equal((await dirtyOf('switchDoc', a.key)).dirty, true, "A's failed save leaves A dirty");
+  await call('saveProject');
+  assert.equal((await dirtyOf('saveEnd', true)).dirty, false);
+  await call('command', 'fill', 1, 'pixels', [0, 128, 0, 255]);
+  const c = (await call('convertToSmart', [1])).result as SmartDoc;
+  await call('saveProject');
+  await dirtyOf('saveEnd', true);
+  const opened = await dirtyOf('editContents', c.created);
+  assert.equal(opened.dirty, false);
+  await call('saveProject');
+  assert.equal((await dirtyOf('saveEnd', false)).dirty, false, 'a nested save leaves the outer state as it was');
+  await call('smartEditClose', 'discard');
+  void b;
+});

@@ -17,7 +17,7 @@ export interface ShortcutCtx {
   patchToolOptions: (toolId: string, patch: Record<string, number | string | boolean>) => void;
   flowDigitRef: RefObject<DigitState | null>; opacityDigitRef: RefObject<DigitState | null>;
   moveKeysRef: RefObject<{ nudge: (dx: number, dy: number, alt: boolean) => void } | null>; selectByKey: (key: string, shift: boolean) => boolean;
-  open: (f: File) => Promise<void>;
+  open: (f: File, handle?: FileSystemFileHandle | null) => Promise<void>;
   // The active pen or path selection tool's keys; true = handled.
   penKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>;
   // An open type edit session's keys; checked first (Esc commits instead of resetting the view rotation).
@@ -74,7 +74,9 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && k === 'tab') triggerBy(l => l === (e.shiftKey ? 'Previous Document' : 'Next Document'), e);
       else if (ctrl && !e.altKey && !e.shiftKey && k === 'w') triggerBy(l => l === 'Close', e);
       else if (ctrl && k === 'o') trigger('Open', e);
-      else if (ctrl && k === 's') trigger('Save project', e);
+      else if (ctrl && e.altKey && !e.shiftKey && k === 's') triggerBy(l => l === 'Save a Copy…', e);
+      else if (ctrl && e.shiftKey && !e.altKey && k === 's') triggerBy(l => l === 'Save As…', e);
+      else if (ctrl && !e.altKey && k === 's') triggerBy(l => l === 'Save', e);
       else if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) trigger('Redo', e);
       else if (ctrl && k === 'z') trigger('Undo', e);
       else if (ctrl && k === 'a') trigger('All', e);
@@ -102,6 +104,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && k === 't') trigger('Free Transform', e);
       else if (e.shiftKey && k === 'f6') trigger('Feather', e);
       else if (e.shiftKey && !ctrl && k === 'f5') triggerBy(l => l === 'Fill…', e);
+      else if (k === 'f12' && !ctrl && !e.shiftKey && !e.altKey && find(l => l === 'Revert')?.off === false) triggerBy(l => l === 'Revert', e);
       else if (k === 'f5' && !ctrl) { e.preventDefault(); setDockTab(t => (t === 'brushSettings' ? 'color' : 'brushSettings')); }
       else if (ctrl && k === 'h') triggerBy(l => l.endsWith('selection edges'), e);
       else if (ctrl && k === 'r') triggerBy(l => l.endsWith('Rulers'), e);
@@ -184,7 +187,16 @@ export function useShortcuts(c: ShortcutCtx) {
     const over = (e: DragEvent) => e.preventDefault();
     const drop = (e: DragEvent) => {
       e.preventDefault();
-      void (async () => { for (const f of [...(e.dataTransfer?.files ?? [])]) await open(f); })();
+      // Files and handles are only readable during the event; a dropped folder has no file.
+      type Item = DataTransferItem & { getAsFileSystemHandle?(): Promise<FileSystemHandle | null> };
+      const dropped = [...(e.dataTransfer?.items ?? [])].filter(i => i.kind === 'file')
+        .map(i => ({ file: i.getAsFile(), handle: (i as Item).getAsFileSystemHandle?.().catch(() => null) ?? null }));
+      void (async () => {
+        for (const d of dropped) {
+          const h = await d.handle;
+          if (d.file) await open(d.file, h?.kind === 'file' ? h as FileSystemFileHandle : null);
+        }
+      })();
     };
     addEventListener('keydown', down);
     addEventListener('keyup', up);
