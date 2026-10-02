@@ -15,6 +15,8 @@ import {
 } from './adjustments.ts';
 import { rampCss, type Gradient } from './gradients/gradient.ts';
 import { LevelsCurvesBody, type SampleCanvas } from './LevelsCurvesBody.tsx';
+import { GalleryStack } from './filters/GalleryStack.tsx';
+import type { GalleryLayer, ParamValue } from './filters/lastFilter.ts';
 import { fieldSpecs, specOf } from './filters/schema.ts';
 
 type Run = (label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) => Promise<void>;
@@ -201,7 +203,10 @@ export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFil
       {current && (
         <>
           <h3>{filterLabel(current.filter)}</h3>
-          {spec && spec.editor !== 'adjustment'
+          {spec && spec.params.some(p => p.kind === 'stack')
+            ? <GalleryStack key={current.id} value={(current.filter.params as Record<string, ParamValue>).stack as GalleryLayer[]}
+                onChange={v => set(current.id, { filter: { kind: spec.id, params: { ...current.filter.params, stack: v } } as SmartFilterKind }, false)} />
+            : spec && spec.editor !== 'adjustment'
             ? fieldSpecs(spec).map(fs => <Field key={fs.path} spec={fs} params={current.filter.params}
                 onChange={(path, v, live) => set(current.id, { filter: { kind: spec.id, params: { ...current.filter.params, [path]: v } } as SmartFilterKind }, live)} />)
             : <AdjustmentBody key={current.id} adjustment={current.filter as Adjustment} onChange={(a, live) => set(current.id, { filter: a as Adjustment }, live)}

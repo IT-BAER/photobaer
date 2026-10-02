@@ -12,6 +12,7 @@ use crate::adjust::Adjustment;
 mod blur;
 mod blur_gallery;
 mod distort;
+mod gallery;
 mod noise;
 mod other;
 mod pixelate;
@@ -59,6 +60,8 @@ pub enum PKind {
     Pins,
     /// 1..1000 paths of 2..256 `{ x, y }` points as fractions of the layer bounds.
     Paths,
+    /// 0..64 Filter Gallery effect layers `{ kind, enabled, params }`, applied bottom (first) to top.
+    Stack,
 }
 
 #[derive(Clone, Copy)]
@@ -77,6 +80,8 @@ pub enum Def {
     Path(&'static [(f64, f64)]),
     Pins(&'static [(f64, f64, f64)]),
     Paths(&'static [&'static [(f64, f64)]]),
+    /// The empty stack.
+    Stack,
 }
 
 pub struct Param {
@@ -286,6 +291,7 @@ fn default_value(p: &Param) -> Value {
         Def::Path(pts) => points_json(pts),
         Def::Pins(pins) => Value::Array(pins.iter().map(|&(x, y, blur)| json!({ "x": x, "y": y, "blur": blur })).collect()),
         Def::Paths(paths) => Value::Array(paths.iter().map(|pts| points_json(pts)).collect()),
+        Def::Stack => json!([]),
     }
 }
 
@@ -367,6 +373,11 @@ fn check(spec: &Spec, p: &Param, v: &Value) -> Result<Value, String> {
             let paths: Option<Vec<Value>> = v.as_array().filter(|a| (1..=1000).contains(&a.len())).and_then(|a| a.iter().map(path_points).collect());
             paths.map(Value::Array).ok_or_else(|| bad("1 to 1000 paths of 2 to 256 points { x, y } in 0..=1"))
         }
+        PKind::Stack => {
+            let a = v.as_array().filter(|a| a.len() <= 64).ok_or_else(|| bad("an array of at most 64 effect layers"))?;
+            let each = a.iter().enumerate().map(|(i, e)| gallery::check_layer(e).map_err(|m| format!("{}: {} entry {} {m}", spec.label, p.key, i + 1)));
+            Ok(Value::Array(each.collect::<Result<_, _>>()?))
+        }
     }
 }
 
@@ -446,6 +457,7 @@ pub fn schema_json() -> String {
                         PKind::Path => ("path", None),
                         PKind::Pins => ("pins", None),
                         PKind::Paths => ("paths", None),
+                        PKind::Stack => ("stack", None),
                     };
                     let mut o = json!({ "key": p.key, "label": p.label, "kind": kind, "min": p.min, "max": p.max, "step": p.step,
                         "unit": p.unit, "default": default_value(p) });

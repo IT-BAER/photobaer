@@ -308,7 +308,7 @@ pub fn shape(p: &mut Plane, f: &Filter, _: &Ctx) -> Result<(), String> {
 // Surface blur: neighbors within `radius` differing from the pixel by less than `thr` weigh
 // 1 - diff / thr. When the layer area times the window area reaches 8e6, one box blur stands in
 // for the neighborhood (the reference's fast path).
-fn surface(p: &mut Plane, radius: f64, thr: f32, area: f64) {
+pub(super) fn surface(p: &mut Plane, radius: f64, thr: f32, area: f64) {
     if radius <= 0.0 || thr <= 0.0 {
         return;
     }

@@ -29,7 +29,7 @@ const BINS: usize = 4096;
 
 // The median over a (2r+1)^2 square per channel, edges clamped. Radii up to 2 sort exactly; larger
 // ones slide a histogram along each row (values quantized to 1/4095, below 8-bit precision).
-fn median(p: &Plane, r: usize) -> Vec<f32> {
+pub(super) fn median(p: &Plane, r: usize) -> Vec<f32> {
     let (w, h, r) = (p.w as isize, p.h as isize, r as isize);
     let at = |x: isize, y: isize, c: usize| p.data[((y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) * 4) as usize + c];
     let mut out = vec![0f32; p.data.len()];

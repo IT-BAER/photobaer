@@ -304,6 +304,7 @@ export function buildMenus(c: MenuCtx) {
     Filter: [
       { label: 'Last Filter', keys: 'Alt+Ctrl+F', run: lastFilter, off: !has || !active },
       { label: 'Convert for Smart Filters', sep: true, run: () => node && run('Converting…', () => client.call('convertForSmartFilters', node.id)), off: !has || node?.kind !== 'pixel' },
+      { label: 'Filter Gallery…', sep: true, run: () => { const s = filterSpecs.find(s => s.id === 'gallery.filter_gallery'); if (s) openFilter(s); }, off: !has || !active },
       ...GROUPS.map(([g, name]) => ({ name, specs: filterSpecs.filter(s => s.group === g) })).filter(g => g.specs.length).map((g, i) => ({
         label: g.name, keys: '›', sep: i === 0, run: () => {}, off: !has || !active,
         sub: g.specs.map(s => ({ label: menuLabel(s), run: () => openFilter(s) })),

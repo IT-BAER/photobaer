@@ -41,7 +41,7 @@ fn smooth(t: f64) -> f64 {
 }
 
 // Value noise in 0..1 between the hashed integer lattice points around (u, v).
-fn value_noise(seed: u32, u: f64, v: f64) -> f64 {
+pub(super) fn value_noise(seed: u32, u: f64, v: f64) -> f64 {
     let (i, j) = (u.floor(), v.floor());
     let (fu, fv) = (smooth(u - i), smooth(v - j));
     let (i, j) = (i as i32, j as i32);

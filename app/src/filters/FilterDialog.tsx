@@ -8,12 +8,13 @@ import { ValueInput } from '../LevelsCurvesBody.tsx';
 import { Field } from '../PropertiesPanel.tsx';
 import type { Viewer } from '../viewer.ts';
 import type { DocInfo } from '../worker/types.ts';
-import { applyFilter, type CurvePoint, type Light, type ParamValue, type PathPoint } from './lastFilter.ts';
+import { applyFilter, type CurvePoint, type GalleryLayer, type Light, type ParamValue, type PathPoint } from './lastFilter.ts';
 import { BlurGalleryOverlay } from './BlurGalleryOverlay.tsx';
 import { snap, type Box } from './gallery.ts';
+import { GalleryStack } from './GalleryStack.tsx';
 import { FlamePath, LightsEditor } from './RenderEditors.tsx';
 import { ShearCurve } from './ShearCurve.tsx';
-import { defaults, fieldSpecs, previewScale, type FilterSpec } from './schema.ts';
+import { defaults, fieldSpecs, previewScale, visibleParams, type FilterSpec } from './schema.ts';
 
 type Target = 'pixels' | 'mask' | 'selection';
 type Show = (d: DocInfo | null) => void;
@@ -96,6 +97,7 @@ export function FilterDialog({ ref, viewer, show, setError }: {
   // OK renders the whole target at full resolution: inside the open preview session, or as a plain step.
   function ok() {
     if (!req) return;
+    if (stacked && !(params.stack as GalleryLayer[]).some(l => l.enabled)) { setError('The filter stack is empty.'); return; }
     stop();
     st.current.closing = true;
     dialog.current?.close();
@@ -131,8 +133,9 @@ export function FilterDialog({ ref, viewer, show, setError }: {
   const title = req ? (req.type === 'fade' ? `Fade ${req.step}` : req.spec.label) : 'Filter';
   const fields = req?.type === 'filter' ? fieldSpecs(req.spec) : FADE_FIELDS;
   const gallery = req?.type === 'filter' && req.spec.group === 'blurGallery' ? req.spec.id.replace('blur_gallery.', '') : null;
+  const stacked = req?.type === 'filter' && req.spec.params.some(p => p.kind === 'stack');
   return (
-    <dialog ref={dialog} className={gallery ? 'filter-dialog docked' : 'filter-dialog'} aria-label={title} onClose={cancel}
+    <dialog ref={dialog} className={gallery ? 'filter-dialog docked' : stacked ? 'filter-dialog wide' : 'filter-dialog'} aria-label={title} onClose={cancel}
       onKeyDown={e => { setAlt(e.altKey); if (gallery && e.key === 'Escape') dialog.current?.close(); }} onKeyUp={e => setAlt(e.altKey)}>
       {gallery && box && (
         <BlurGalleryOverlay kind={gallery} params={params} box={box} viewer={viewer}
@@ -143,6 +146,7 @@ export function FilterDialog({ ref, viewer, show, setError }: {
         {req?.type === 'filter' && req.spec.params.filter(p => p.kind === 'curve').map(p => (
           <ShearCurve key={p.key} value={params[p.key] as CurvePoint[]} onChange={v => setParams(q => ({ ...q, [p.key]: v }))} />
         ))}
+        {stacked && <GalleryStack value={params.stack as GalleryLayer[]} onChange={v => setParams(q => ({ ...q, stack: v }))} />}
         {req?.type === 'filter' && req.spec.params.filter(p => p.kind === 'lights' || p.kind === 'path').map(p => p.kind === 'lights'
           ? <LightsEditor key={p.key} value={params[p.key] as Light[]} onChange={v => setParams(q => ({ ...q, [p.key]: v }))} />
           : <FlamePath key={p.key} value={params[p.key] as PathPoint[]} onChange={v => setParams(q => ({ ...q, [p.key]: v }))} />)}
@@ -171,7 +175,7 @@ export function FilterDialog({ ref, viewer, show, setError }: {
 
 // A filter command: runs at once without visible params, else opens the dialog.
 export function runFilter(spec: FilterSpec, id: number, target: Target, dialog: FilterDialogHandle | null, show: Show) {
-  if (fieldSpecs(spec).length) { dialog?.open({ type: 'filter', spec, id, target }); return Promise.resolve(); }
+  if (visibleParams(spec).length) { dialog?.open({ type: 'filter', spec, id, target }); return Promise.resolve(); }
   return applyFilter(async f => show(await client.call('applyFilter', id, target, { kind: f.kind, params: f.params }, f.label)),
     { kind: spec.id, params: defaults(spec), label: spec.label });
 }

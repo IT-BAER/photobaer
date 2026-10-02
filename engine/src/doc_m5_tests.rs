@@ -1232,3 +1232,85 @@ fn a_proxy_preview_places_pins_and_paths_on_the_tight_layer_bounds() {
     d.apply_filter(1, Target::Pixels, &filter("blur_gallery.field_blur", json!({ "pins": pins })), Some([0, 0, 300, 40]), 0.5).unwrap();
     assert!(lpx(&d, 1, 18, 20)[0] > 30, "the 16 px pin sits on the layer's right edge and blurs the edge at x 20");
 }
+
+// ---------- B8 Filter Gallery ----------
+
+fn gallery_kinds() -> Vec<String> {
+    let v: Value = serde_json::from_str(&filters::schema_json()).unwrap();
+    v.as_array().unwrap().iter().filter(|e| e["group"].as_str().unwrap().starts_with("gallery.")).map(|e| e["id"].as_str().unwrap().to_string()).collect()
+}
+
+fn stack(layers: &[(&str, Value)]) -> Value {
+    json!({ "stack": layers.iter().map(|(k, p)| json!({ "kind": k, "enabled": true, "params": p })).collect::<Vec<_>>(), "seed": 5 })
+}
+
+#[test]
+fn the_gallery_lists_47_effects_in_six_groups() {
+    let v: Value = serde_json::from_str(&filters::schema_json()).unwrap();
+    let count = |g: &str| v.as_array().unwrap().iter().filter(|e| e["group"] == g).count();
+    let groups = [("gallery.artistic", 15), ("gallery.brushStrokes", 8), ("gallery.distort", 3), ("gallery.sketch", 14), ("gallery.stylize", 1), ("gallery.texture", 6)];
+    assert_eq!(groups.map(|(g, _)| count(g)), groups.map(|(_, n)| n));
+    assert_eq!(gallery_kinds().len(), 47);
+}
+
+#[test]
+fn every_gallery_effect_is_deterministic_per_seed_and_changes_the_ramp() {
+    let d = ramp(48, 40);
+    for kind in gallery_kinds() {
+        let a = filtered(&d, &kind, json!({ "seed": 9 }));
+        assert!(same(&a, &filtered(&d, &kind, json!({ "seed": 9 })), 48, 40), "{kind} is deterministic");
+        assert!(!same(&a, &d, 48, 40), "{kind} changes the layer");
+    }
+}
+
+#[test]
+fn every_gallery_effect_on_the_whole_layer_equals_its_plane_run() {
+    // Palette Knife averages sector pixels; an exact .5 mean may store either way at 8 bits.
+    for kind in gallery_kinds() {
+        let tie = u8::from(kind.ends_with("palette_knife"));
+        let params = if kind.ends_with("mosaic_tiles") { json!({ "seed": 4, "tileSize": 4 }) } else { json!({ "seed": 4 }) };
+        assert!(whole_layer_diff(&kind, params, 0) <= tie, "{kind}");
+    }
+}
+
+#[test]
+fn neutral_gallery_settings_leave_the_layer_unchanged() {
+    let d = ramp(40, 30);
+    for (kind, params) in [
+        ("gallery.brushStrokes.spatter", json!({ "sprayRadius": 0 })),
+        ("gallery.distort.glass", json!({ "distortion": 0 })),
+        ("gallery.distort.ocean_ripple", json!({ "rippleMagnitude": 0 })),
+        ("gallery.texture.grain", json!({ "intensity": 0, "contrast": 50 })),
+    ] {
+        assert!(same(&filtered(&d, kind, params), &d, 40, 30), "{kind}");
+    }
+}
+
+#[test]
+fn a_stack_of_one_equals_the_effect_and_order_matters() {
+    let d = ramp(48, 40);
+    let alone = filtered(&d, "gallery.artistic.cutout", json!({ "seed": 5 }));
+    assert!(same(&filtered(&d, "gallery.filter_gallery", stack(&[("gallery.artistic.cutout", json!({}))])), &alone, 48, 40));
+    let (a, b) = (("gallery.artistic.cutout", json!({})), ("gallery.stylize.glowing_edges", json!({})));
+    let ab = filtered(&d, "gallery.filter_gallery", stack(&[a.clone(), b.clone()]));
+    assert!(!same(&ab, &filtered(&d, "gallery.filter_gallery", stack(&[b, a])), 48, 40), "Cutout then Glowing Edges differs from the reverse");
+    let off = json!({ "stack": [{ "kind": "gallery.artistic.cutout", "enabled": false, "params": {} }] });
+    assert!(same(&filtered(&d, "gallery.filter_gallery", off), &d, 48, 40), "a disabled layer does nothing");
+}
+
+#[test]
+fn gallery_stack_entries_validate_and_store_only_their_own_params() {
+    let f = filters::Filter::parse(&filter("gallery.filter_gallery", stack(&[("gallery.texture.grain", json!({ "intensity": 10, "seed": 3 }))]))).unwrap();
+    let p = &f.params["stack"][0]["params"];
+    assert_eq!(p["intensity"], 10);
+    assert!(p.get("seed").is_none() && p.get("foreground").is_none(), "{p}");
+    for (layer, needle) in [
+        (json!({ "kind": "blur.blur", "enabled": true, "params": {} }), "not a Filter Gallery effect"),
+        (json!({ "kind": "gallery.texture.grain", "enabled": true, "params": { "intensity": 500 } }), "intensity"),
+        (json!({ "kind": "gallery.texture.grain", "params": {} }), "kind, enabled, params"),
+    ] {
+        let e = filters::Filter::parse(&filter("gallery.filter_gallery", json!({ "stack": [layer] }))).unwrap_err();
+        assert!(e.contains("Filter Gallery") && e.contains("entry 1") && e.contains(needle), "{e}");
+    }
+}
+

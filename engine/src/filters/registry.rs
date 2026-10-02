@@ -1,6 +1,6 @@
 //! The registry table in reference menu order within each group (docs/M5.md section 14).
 
-use super::{blur, blur_gallery, distort, noise, other, pixelate, render, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
+use super::{blur, blur_gallery, distort, gallery, noise, other, pixelate, render, sharpen, stylize, Ctx, Def, Exec, Filter, PKind, Param, Plane, Spec};
 use crate::adjust;
 
 const fn none(_: &Filter) -> i32 {
@@ -143,6 +143,25 @@ const fn frac(key: &'static str, label: &'static str, min: f64, max: f64, defaul
 const GALLERY_BLUR: Param = px("blur", "Blur", 0.0, 500.0, 1.0, 15.0);
 const SIZE: Param = frac("radius", "Size", 0.01, 2.0, 0.4);
 const ASPECT: Param = frac("aspect", "Aspect", 0.1, 10.0, 1.0);
+
+// A Filter Gallery effect: its params, then the seed and colors the gallery filter passes in.
+macro_rules! fx {
+    ($id:literal, $label:literal, $group:literal, [$($p:expr),* $(,)?]) => {
+        global(concat!("gallery.", $group, ".", $id), $label, concat!("gallery.", $group), &[$($p,)* SEED, FG, BG], gallery::effect)
+    };
+}
+
+const fn r(key: &'static str, label: &'static str, min: f64, max: f64, default: f64) -> Param {
+    ranged(key, label, min, max, default)
+}
+
+const LIGHTS: &[&str] = &["top", "topLeft", "left", "bottomLeft", "bottom", "bottomRight", "right", "topRight"];
+const STROKE_DIRS: &[&str] = &["rightDiagonal", "horizontal", "leftDiagonal", "vertical"];
+const TEX: Param = select("texture", "Texture", &["brick", "burlap", "canvas", "sandstone"], "canvas");
+const SCALING: Param = Param { unit: "%", ..ranged("scaling", "Scaling", 50.0, 200.0, 100.0) };
+const LIGHT: Param = select("lightDirection", "Light", LIGHTS, "top");
+const INVERT: Param = ranged("invertTexture", "Invert", 0.0, 1.0, 0.0);
+const RELIEF: Param = ranged("relief", "Relief", 0.0, 50.0, 4.0);
 
 pub static ALL: &[Spec] = &[
     Spec { exec: Exec::Global, ..entry("blur.average", "Average", "blur", blur::average) },
@@ -629,6 +648,57 @@ pub static ALL: &[Spec] = &[
     adjustment("threshold", "Threshold"),
     adjustment("gradient_map", "Gradient Map"),
     adjustment("selective_color", "Selective Color"),
+    Spec {
+        params: &[Param { kind: PKind::Stack, default: Def::Stack, ..num("stack", "Effect Layers", 0.0, 64.0, 1.0, "", 0.0) }, SEED, FG, BG],
+        ..global("gallery.filter_gallery", "Filter Gallery", "gallery", &[], gallery::filter_gallery)
+    },
+    fx!("colored_pencil", "Colored Pencil", "artistic", [r("pencilWidth", "Pencil Width", 1.0, 24.0, 4.0), r("strokePressure", "Stroke Pressure", 0.0, 15.0, 8.0), r("paperBrightness", "Paper Brightness", 0.0, 50.0, 25.0)]),
+    fx!("cutout", "Cutout", "artistic", [r("levels", "No. of Levels", 2.0, 8.0, 4.0), r("edgeSimplicity", "Edge Simplicity", 0.0, 10.0, 4.0), r("edgeFidelity", "Edge Fidelity", 1.0, 3.0, 2.0)]),
+    fx!("dry_brush", "Dry Brush", "artistic", [r("brushSize", "Brush Size", 0.0, 10.0, 2.0), r("brushDetail", "Brush Detail", 0.0, 10.0, 8.0), r("texture", "Texture", 1.0, 3.0, 1.0)]),
+    fx!("film_grain", "Film Grain", "artistic", [r("grain", "Grain", 0.0, 20.0, 4.0), r("highlightArea", "Highlight Area", 0.0, 20.0, 0.0), r("intensity", "Intensity", 0.0, 10.0, 10.0)]),
+    fx!("fresco", "Fresco", "artistic", [r("brushSize", "Brush Size", 0.0, 10.0, 2.0), r("brushDetail", "Brush Detail", 0.0, 10.0, 8.0), r("texture", "Texture", 1.0, 3.0, 1.0)]),
+    fx!("neon_glow", "Neon Glow", "artistic", [r("glowSize", "Size", -24.0, 24.0, 5.0), r("glowBrightness", "Brightness", 0.0, 50.0, 15.0), select("glowColor", "Glow Color", &["blue", "magenta", "green", "amber"], "blue")]),
+    fx!("paint_daubs", "Paint Daubs", "artistic", [r("brushSize", "Brush Size", 1.0, 50.0, 8.0), r("sharpness", "Sharpness", 0.0, 40.0, 7.0), select("brushType", "Brush Type", &["simple", "lightRough", "darkRough", "wideSharp", "wideBlurry", "sparkle"], "simple")]),
+    fx!("palette_knife", "Palette Knife", "artistic", [r("strokeSize", "Stroke Size", 1.0, 50.0, 25.0), r("strokeDetail", "Stroke Detail", 1.0, 3.0, 3.0), r("softness", "Softness", 0.0, 10.0, 0.0)]),
+    fx!("plastic_wrap", "Plastic Wrap", "artistic", [r("highlightStrength", "Highlight Strength", 0.0, 20.0, 15.0), r("detail", "Detail", 1.0, 15.0, 9.0), r("smoothness", "Smoothness", 1.0, 15.0, 7.0)]),
+    fx!("poster_edges", "Poster Edges", "artistic", [r("edgeThickness", "Edge Thickness", 0.0, 10.0, 2.0), r("edgeIntensity", "Edge Intensity", 0.0, 10.0, 1.0), r("posterization", "Posterization", 0.0, 6.0, 2.0)]),
+    fx!("rough_pastels", "Rough Pastels", "artistic", [r("strokeLength", "Stroke Length", 0.0, 40.0, 6.0), r("strokeDetail", "Stroke Detail", 1.0, 20.0, 4.0), TEX, SCALING, RELIEF, LIGHT, INVERT]),
+    fx!("smudge_stick", "Smudge Stick", "artistic", [r("strokeLength", "Stroke Length", 0.0, 10.0, 2.0), r("highlightArea", "Highlight Area", 0.0, 20.0, 0.0), r("intensity", "Intensity", 0.0, 10.0, 10.0)]),
+    fx!("sponge", "Sponge", "artistic", [r("brushSize", "Brush Size", 0.0, 10.0, 0.0), r("definition", "Definition", 0.0, 25.0, 12.0), r("smoothness", "Smoothness", 1.0, 15.0, 5.0)]),
+    fx!("underpainting", "Underpainting", "artistic", [r("brushSize", "Brush Size", 0.0, 40.0, 6.0), r("textureCoverage", "Texture Coverage", 0.0, 40.0, 16.0), TEX, SCALING, RELIEF, LIGHT, INVERT]),
+    fx!("watercolor", "Watercolor", "artistic", [r("brushDetail", "Brush Detail", 1.0, 14.0, 9.0), r("shadowIntensity", "Shadow Intensity", 1.0, 10.0, 1.0), r("texture", "Texture", 1.0, 3.0, 1.0)]),
+    fx!("accented_edges", "Accented Edges", "brushStrokes", [r("edgeWidth", "Edge Width", 1.0, 14.0, 2.0), r("edgeBrightness", "Edge Brightness", 0.0, 50.0, 38.0), r("smoothness", "Smoothness", 1.0, 15.0, 5.0)]),
+    fx!("angled_strokes", "Angled Strokes", "brushStrokes", [r("directionBalance", "Direction Balance", 0.0, 100.0, 50.0), r("strokeLength", "Stroke Length", 3.0, 50.0, 15.0), r("sharpness", "Sharpness", 0.0, 10.0, 3.0)]),
+    fx!("crosshatch", "Crosshatch", "brushStrokes", [r("strokeLength", "Stroke Length", 3.0, 50.0, 9.0), r("sharpness", "Sharpness", 0.0, 20.0, 6.0), r("strength", "Strength", 1.0, 3.0, 1.0)]),
+    fx!("dark_strokes", "Dark Strokes", "brushStrokes", [r("balance", "Balance", 0.0, 10.0, 5.0), r("blackIntensity", "Black Intensity", 0.0, 10.0, 6.0), r("whiteIntensity", "White Intensity", 0.0, 10.0, 2.0)]),
+    fx!("ink_outlines", "Ink Outlines", "brushStrokes", [r("strokeLength", "Stroke Length", 1.0, 50.0, 4.0), r("darkIntensity", "Dark Intensity", 0.0, 50.0, 20.0), r("lightIntensity", "Light Intensity", 0.0, 50.0, 10.0)]),
+    fx!("spatter", "Spatter", "brushStrokes", [r("sprayRadius", "Spray Radius", 0.0, 25.0, 10.0), r("smoothness", "Smoothness", 1.0, 15.0, 5.0)]),
+    fx!("sprayed_strokes", "Sprayed Strokes", "brushStrokes", [r("strokeLength", "Stroke Length", 0.0, 20.0, 12.0), r("sprayRadius", "Spray Radius", 0.0, 25.0, 7.0), select("strokeDirection", "Stroke Direction", STROKE_DIRS, "rightDiagonal")]),
+    fx!("sumi_e", "Sumi-e", "brushStrokes", [r("stroke", "Stroke Width", 2.0, 15.0, 10.0), r("strokePressure", "Stroke Pressure", 0.0, 15.0, 2.0), r("contrast", "Contrast", 0.0, 40.0, 16.0)]),
+    fx!("diffuse_glow", "Diffuse Glow", "distort", [r("graininess", "Graininess", 0.0, 10.0, 6.0), r("glowAmount", "Glow Amount", 0.0, 20.0, 10.0), r("clearAmount", "Clear Amount", 0.0, 20.0, 15.0)]),
+    fx!("glass", "Glass", "distort", [r("distortion", "Distortion", 0.0, 20.0, 5.0), r("smoothness", "Smoothness", 1.0, 15.0, 3.0), select("texture", "Texture", &["brick", "burlap", "canvas", "sandstone", "frosted", "tinyLens"], "canvas"), SCALING, flag("invertTexture", "Invert")]),
+    fx!("ocean_ripple", "Ocean Ripple", "distort", [r("rippleSize", "Ripple Size", 1.0, 15.0, 9.0), r("rippleMagnitude", "Ripple Magnitude", 0.0, 20.0, 9.0)]),
+    fx!("bas_relief", "Bas Relief", "sketch", [r("detail", "Detail", 1.0, 15.0, 13.0), r("smoothness", "Smoothness", 1.0, 15.0, 3.0), select("lightDirection", "Light", LIGHTS, "bottom")]),
+    fx!("chalk_and_charcoal", "Chalk & Charcoal", "sketch", [r("charcoalArea", "Charcoal Area", 0.0, 20.0, 6.0), r("chalkArea", "Chalk Area", 0.0, 20.0, 6.0), r("strokePressure", "Stroke Pressure", 0.0, 5.0, 1.0)]),
+    fx!("charcoal", "Charcoal", "sketch", [r("charcoalThickness", "Charcoal Thickness", 1.0, 7.0, 1.0), r("detail", "Detail", 0.0, 5.0, 5.0), r("lightDark", "Light/Dark Balance", 0.0, 100.0, 50.0)]),
+    fx!("chrome", "Chrome", "sketch", [r("detail", "Detail", 0.0, 10.0, 4.0), r("smoothness", "Smoothness", 0.0, 10.0, 7.0)]),
+    fx!("conte_crayon", "Conté Crayon", "sketch", [r("foregroundLevel", "Foreground Level", 1.0, 15.0, 11.0), r("backgroundLevel", "Background Level", 1.0, 15.0, 7.0), TEX, SCALING, RELIEF, LIGHT, INVERT]),
+    fx!("graphic_pen", "Graphic Pen", "sketch", [r("strokeLength", "Stroke Length", 1.0, 15.0, 15.0), r("lightDarkBalance", "Light/Dark Balance", 0.0, 100.0, 50.0), select("strokeDirection", "Stroke Direction", STROKE_DIRS, "rightDiagonal")]),
+    fx!("halftone_pattern", "Halftone Pattern", "sketch", [r("size", "Size", 1.0, 12.0, 1.0), r("contrast", "Contrast", 0.0, 50.0, 5.0), select("patternType", "Pattern Type", &["circle", "dot", "line"], "circle")]),
+    fx!("note_paper", "Note Paper", "sketch", [r("imageBalance", "Image Balance", 0.0, 50.0, 25.0), r("graininess", "Graininess", 0.0, 20.0, 10.0), r("relief", "Relief", 0.0, 25.0, 11.0)]),
+    fx!("photocopy", "Photocopy", "sketch", [r("detail", "Detail", 1.0, 24.0, 7.0), r("darkness", "Darkness", 1.0, 50.0, 8.0)]),
+    fx!("plaster", "Plaster", "sketch", [r("imageBalance", "Image Balance", 0.0, 50.0, 20.0), r("smoothness", "Smoothness", 1.0, 15.0, 2.0), select("lightPosition", "Light Position", LIGHTS, "bottom")]),
+    fx!("reticulation", "Reticulation", "sketch", [r("density", "Density", 0.0, 50.0, 12.0), r("foregroundLevel", "Foreground Level", 0.0, 50.0, 40.0), r("backgroundLevel", "Background Level", 0.0, 50.0, 5.0)]),
+    fx!("stamp", "Stamp", "sketch", [r("lightDarkBalance", "Light/Dark Balance", 0.0, 50.0, 25.0), r("smoothness", "Smoothness", 1.0, 50.0, 5.0)]),
+    fx!("torn_edges", "Torn Edges", "sketch", [r("imageBalance", "Image Balance", 0.0, 50.0, 25.0), r("smoothness", "Smoothness", 1.0, 15.0, 11.0), r("contrast", "Contrast", 1.0, 25.0, 17.0)]),
+    fx!("water_paper", "Water Paper", "sketch", [r("fiberLength", "Fiber Length", 3.0, 50.0, 15.0), r("brightness", "Brightness", 0.0, 100.0, 60.0), r("contrast", "Contrast", 0.0, 100.0, 80.0)]),
+    fx!("glowing_edges", "Glowing Edges", "stylize", [r("edgeWidth", "Edge Width", 1.0, 14.0, 2.0), r("edgeBrightness", "Edge Brightness", 0.0, 20.0, 6.0), r("smoothness", "Smoothness", 1.0, 15.0, 5.0)]),
+    fx!("craquelure", "Craquelure", "texture", [r("crackSpacing", "Crack Spacing", 2.0, 100.0, 15.0), r("crackDepth", "Crack Depth", 0.0, 10.0, 6.0), r("crackBrightness", "Crack Brightness", 0.0, 10.0, 9.0)]),
+    fx!("grain", "Grain", "texture", [r("intensity", "Intensity", 0.0, 100.0, 40.0), r("contrast", "Contrast", 0.0, 100.0, 50.0), select("grainType", "Grain Type", &["regular", "soft", "sprinkles", "clumped", "contrasty", "enlarged", "stippled", "horizontal", "vertical", "speckle"], "regular")]),
+    fx!("mosaic_tiles", "Mosaic Tiles", "texture", [r("tileSize", "Tile Size", 2.0, 100.0, 24.0), r("groutWidth", "Grout Width", 1.0, 15.0, 3.0), r("lightenGrout", "Lighten Grout", 0.0, 10.0, 9.0)]),
+    fx!("patchwork", "Patchwork", "texture", [r("squareSize", "Square Size", 0.0, 10.0, 4.0), r("relief", "Relief", 0.0, 25.0, 8.0)]),
+    fx!("stained_glass", "Stained Glass", "texture", [r("cellSize", "Cell Size", 2.0, 50.0, 8.0), r("borderThickness", "Border Thickness", 1.0, 20.0, 4.0), r("lightIntensity", "Light Intensity", 0.0, 10.0, 3.0)]),
+    fx!("texturizer", "Texturizer", "texture", [TEX, SCALING, RELIEF, LIGHT, flag("invertTexture", "Invert")]),
 ];
 
 pub fn lookup(id: &str) -> Option<&'static Spec> {

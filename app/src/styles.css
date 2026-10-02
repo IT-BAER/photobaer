@@ -596,3 +596,16 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .navigator-pct { width: 48px; text-align: right; }
 .stage canvas.gallery-overlay { pointer-events: auto; outline: none; }
 dialog.filter-dialog.docked { position: fixed; inset: 64px 16px auto auto; margin: 0; max-height: calc(100vh - 96px); overflow: auto; }
+dialog.filter-dialog.wide { width: min(860px, calc(100vw - 32px)); }
+.gallery-stack { display: grid; grid-template-columns: 1fr 240px 200px; gap: 12px; align-items: start; }
+.gallery-effects { max-height: 420px; overflow-y: auto; }
+.gallery-effects details { display: grid; gap: 2px; }
+.gallery-effects summary { cursor: pointer; font-weight: 600; padding: 2px 0; }
+.gallery-effects button, .gallery-layers li button { text-align: left; }
+.gallery-effects button[aria-pressed="true"], .gallery-layers button[aria-pressed="true"] { outline: 2px solid var(--accent); }
+.gallery-params h3 { margin: 0 0 8px; font-size: 12px; }
+.gallery-layers ol { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
+.gallery-layers li { display: flex; align-items: center; gap: 6px; }
+.gallery-layers li button { flex: 1; }
+.gallery-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 8px; }
+@media (max-width: 720px) { .gallery-stack { grid-template-columns: 1fr; } }

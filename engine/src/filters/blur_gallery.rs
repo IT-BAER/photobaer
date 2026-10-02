@@ -196,7 +196,7 @@ fn strobe_weight(pos: f64, (flashes, strength): (f64, f64)) -> f64 {
 
 // Each pixel with length >= 1 becomes the weighted mean of bilinear samples along its angle,
 // -n..n (or 0..n one-sided); taper fades the far samples by (1 - |k| / (n + 1))^taper.
-fn smear(p: &mut Plane, angles: &[f64], lengths: &[f64], taper: f64, strobe: (f64, f64), one_sided: bool) {
+pub(super) fn smear(p: &mut Plane, angles: &[f64], lengths: &[f64], taper: f64, strobe: (f64, f64), one_sided: bool) {
     let src = p.data.clone();
     for (i, (&a, &len)) in angles.iter().zip(lengths).enumerate() {
         if len < 1.0 {

@@ -7,7 +7,8 @@ export interface Light {
   type: 'point' | 'spot' | 'infinite'; intensity: number; hotspot: number; x: number; y: number; z: number;
   targetX: number; targetY: number; color: string; enabled: boolean;
 }
-export type ParamValue = number | string | boolean | PathPoint | number[] | CurvePoint[] | PathPoint[] | Light[] | Pin[] | PathPoint[][];
+export type GalleryLayer = { kind: string; enabled: boolean; params: Record<string, ParamValue> };
+export type ParamValue = number | string | boolean | PathPoint | number[] | CurvePoint[] | PathPoint[] | Light[] | Pin[] | PathPoint[][] | GalleryLayer[];
 export interface AppliedFilter { kind: string; params: Record<string, ParamValue>; label: string }
 
 let last: AppliedFilter | null = null;

@@ -2730,3 +2730,21 @@ test('navigatorThumb returns the flattened composite at the long side, keeping t
   const s = (await call('navigatorThumb', 200)).result as { w: number; h: number };
   assert.deepEqual([s.w, s.h], [60, 40]);
 });
+
+test('a Filter Gallery smart filter keeps its stack and pixels through a project save and open', async () => {
+  await call('init');
+  await call('newDoc', 24, 24, 8, [40, 160, 220, 255]);
+  await call('convertForSmartFilters', 1);
+  const stack = [
+    { kind: 'gallery.texture.grain', enabled: true, params: { intensity: 60, contrast: 50, grainType: 'speckle' } },
+    { kind: 'gallery.artistic.cutout', enabled: false, params: { levels: 3, edgeSimplicity: 4, edgeFidelity: 2 } },
+  ];
+  const d = (await call('applyFilter', 1, 'pixels', { kind: 'gallery.filter_gallery', params: { stack, seed: 7 } }, 'Filter Gallery')).result as FilterDoc & { layers: { smart?: { filters: { filter: { params: { stack: unknown } } }[] } }[] };
+  const before = await Promise.all([[3, 4], [17, 9], [20, 20]].map(([x, y]) => pixelAt(x, y)));
+  assert.deepEqual(filtersOf(d, 1).map(f => f.filter.kind), ['gallery.filter_gallery']);
+  const blob = (await call('saveProject')).result as Blob;
+  const o = (await call('openFile', new File([blob], 'x.pbaer'))).result as typeof d;
+  const f = o.layers.find(l => l.id === 1)!.smart!.filters[0].filter as unknown as { params: { stack: unknown } };
+  assert.deepEqual(f.params.stack, stack);
+  assert.deepEqual(await Promise.all([[3, 4], [17, 9], [20, 20]].map(([x, y]) => pixelAt(x, y))), before, 'the reopened smart filter renders the same pixels');
+});
