@@ -835,6 +835,15 @@ export function App() {
     liquifyDialog.current?.open({ id: active.id, filterId, width: doc.width, height: doc.height, guides: doc.guides, layers });
   }
 
+  // Edit > Content-Aware Scale: the filter dialog on the active pixel layer.
+  function openContentAwareScale() {
+    setMenu(null);
+    const spec = filterSpecs.find(s => s.id === 'content_aware_scale'), n = active && doc ? nodeById(doc.layers, active.id) : null;
+    if (!spec || !active) return;
+    if (n?.kind !== 'pixel' || editTarget(active) !== 'pixels' || n.locks.pixels || n.locks.position) { setError('Content-Aware Scale needs an unlocked pixel layer.'); return; }
+    openFilter(spec);
+  }
+
   // Edit > Puppet Warp / Perspective Warp: an on-canvas session on the active layer's pixels.
   async function startDeform(kind: DeformRequest['kind']) {
     setMenu(null);
@@ -1149,7 +1158,7 @@ export function App() {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems: typeMenuItems(typeCtx),
   });

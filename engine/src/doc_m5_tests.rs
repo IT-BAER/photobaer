@@ -1553,3 +1553,48 @@ fn warp_smart_filters_follow_canvas_size() {
         }
     }
 }
+
+// A 100 x 10 gray layer (in a 160 px wide doc) with a red bar over x 40..50; its green cycles over three columns so the bar is not flat (flat runs carry no energy).
+fn bar_doc() -> Document {
+    doc_with(160, 10, |x, _| if x >= 100 {
+        [0; 4]
+    } else if (40..50).contains(&x) { [255, (x % 3 * 60) as u8, 0, 255] } else { gray(128) })
+}
+
+fn cas(d: &mut Document, width: f64, amount: f64, skin: bool) {
+    let f = filter("content_aware_scale", json!({ "width": width, "height": 100.0, "amount": amount, "protectSkinTones": skin }));
+    d.apply_filter(1, Target::Pixels, &f, None, 1.0).unwrap();
+}
+
+fn red_run(d: &Document) -> usize {
+    (0..160).filter(|x| lpx(d, 1, *x, 5)[0] == 255).count()
+}
+
+#[test]
+fn content_aware_scale_narrows_and_widens_around_the_bar() {
+    for (width, w) in [(50.0, 50), (150.0, 150)] {
+        let mut d = bar_doc();
+        cas(&mut d, width, 100.0, false);
+        assert_eq!(d.layer_bounds(1).unwrap(), Some([0, 0, w, 10]), "{width}");
+        assert_eq!(red_run(&d), 10, "{width}: the bar keeps its width");
+    }
+}
+
+#[test]
+fn content_aware_scale_with_amount_0_is_the_plain_resample() {
+    let mut d = doc_with(40, 8, |x, y| [(x * 6) as u8, (y * 30) as u8, (x * y) as u8, 255]);
+    cas(&mut d, 150.0, 0.0, false);
+    let mut plain = doc_with(40, 8, |x, y| [(x * 6) as u8, (y * 30) as u8, (x * y) as u8, 255]);
+    plain.transform_layer(1, &[1.5, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], crate::resample::Interp::Bicubic).unwrap();
+    assert_eq!(layer_px(&d), layer_px(&plain));
+}
+
+#[test]
+fn content_aware_scale_protects_skin_tones() {
+    let flat = || doc_with(30, 6, |x, _| if x < 15 { [204, 153, 128, 255] } else { [40, 90, 200, 255] });
+    let skin_columns = |d: &Document| (0..30).filter(|x| lpx(d, 1, *x, 3)[..3] == [204, 153, 128]).count();
+    let (mut off, mut on) = (flat(), flat());
+    cas(&mut off, 66.0, 100.0, false);
+    cas(&mut on, 66.0, 100.0, true);
+    assert!(skin_columns(&on) > skin_columns(&off), "{} vs {}", skin_columns(&on), skin_columns(&off));
+}

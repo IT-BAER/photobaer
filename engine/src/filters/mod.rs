@@ -501,6 +501,9 @@ pub fn schema_json() -> String {
             if s.adjustment {
                 o["editor"] = "adjustment".into();
             }
+            if s.extent.is_some() {
+                o["whole"] = true.into();
+            }
             o
         })
         .collect();

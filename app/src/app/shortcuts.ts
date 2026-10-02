@@ -86,6 +86,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && e.shiftKey && k === 'i') trigger('Inverse', e);
       else if (ctrl && e.altKey && !e.shiftKey && k === 'i') trigger('Image Size', e);
       else if (ctrl && e.altKey && !e.shiftKey && k === 'c') trigger('Canvas Size', e);
+      else if (ctrl && e.altKey && e.shiftKey && k === 'c') trigger('Content-Aware Scale', e);
       else if (ctrl && !e.altKey && e.shiftKey && k === 'c') triggerBy(l => l === 'Copy Merged', e);
       else if (ctrl && !e.altKey && k === 'c') triggerBy(l => l === 'Copy', e);
       else if (ctrl && !e.altKey && !e.shiftKey && k === 'x') triggerBy(l => l === 'Cut', e);

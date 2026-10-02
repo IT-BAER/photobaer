@@ -2834,3 +2834,16 @@ test('Puppet Warp and Perspective Warp preview over the whole document and commi
   assert.deepEqual(filtersOf(s, 1).map(f => f.filter.kind), ['puppet_warp']);
   assert.deepEqual(await pixelAt(20, 16), [255, 0, 0, 255], 'the smart filter renders the warp');
 });
+
+test('Content-Aware Scale previews over the whole document and commits one step that halves the layer width', async () => {
+  await call('init');
+  await call('newDoc', 32, 32, 8, [255, 255, 255, 255]);
+  const scale = { kind: 'content_aware_scale', params: { width: 50, height: 100, amount: 100, protectSkinTones: false } };
+  await call('applyFilter', 1, 'pixels', scale, 'Content-Aware Scale', true, [], 0.5);
+  await call('applyFilter', 1, 'pixels', scale, 'Content-Aware Scale', true, [], 1);
+  const d = (await call('previewEnd', true)).result as FilterDoc;
+  assert.equal(d.undoLabel, 'Content-Aware Scale');
+  assert.deepEqual((await call('movingBounds', 1)).result, [0, 0, 16, 32]);
+  await call('undo');
+  assert.deepEqual((await call('movingBounds', 1)).result, [0, 0, 32, 32]);
+});

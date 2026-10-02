@@ -10,6 +10,8 @@ export interface FilterParam {
 export interface FilterSpec {
   id: string; label: string; group: string; params: FilterParam[];
   exec: 'point' | 'local' | 'global'; alpha: 'kept' | 'processed'; preview: boolean; rgb_only: boolean; editor?: 'adjustment';
+  // The output can leave the source rect (a scale or warp): the preview covers the whole layer.
+  whole?: boolean;
 }
 
 // Filter menu submenus in reference order; registry groups not listed here (adjust) stay out of the menu.

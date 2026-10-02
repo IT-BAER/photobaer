@@ -81,8 +81,10 @@ export function FilterDialog({ ref, viewer, show, setError }: {
     const g = st.current.gen, r = req, p = params;
     if (!previewOn || (r.type === 'filter' && !r.spec.preview)) { enqueue(() => endSession(false)); return; }
     st.current.timers.push(setTimeout(() => {
-      const rect = r.type === 'filter' ? viewer.current?.visibleRect() ?? null : null;
-      const view = rect ? [...rect] : [], scale = rect ? previewScale(rect[2], rect[3]) : 1;
+      // A whole-layer spec (scale, warps) previews the document, not the visible rect.
+      const rect = r.type !== 'filter' ? null : r.spec.whole ? viewer.current?.docRect() ?? null : viewer.current?.visibleRect() ?? null;
+      const whole = r.type === 'filter' && r.spec.whole;
+      const view = rect && !whole ? [...rect] : [], scale = rect ? previewScale(rect[2], rect[3]) : 1;
       enqueue(async () => {
         if (g !== st.current.gen) return;
         show(await preview(r, p, view, scale));

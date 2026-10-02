@@ -153,6 +153,7 @@ export class Viewer {
   screenToDoc(sx: number, sy: number): [number, number] { return screenToDoc(this.view, sx, sy, this.#w, this.#h); }
   docToScreen(dx: number, dy: number): [number, number] { return docToScreen(this.view, dx, dy, this.#w, this.#h); }
   // The document rect on screen (a filter's live preview renders only this).
+  docRect() { return this.#doc ? ([0, 0, this.#doc.width, this.#doc.height] as const) : null; }
   visibleRect() { return this.#doc ? visibleRect(this.view, this.#w, this.#h, this.#doc.width, this.#doc.height) : null; }
   zoomBy(f: number) { this.animateView(zoomAt(this.#anim?.to ?? this.view, f, this.#w / 2, this.#h / 2, this.#w, this.#h)); }
   resetRotation() { this.animateView({ ...(this.#anim?.to ?? this.view), rot: 0 }); }

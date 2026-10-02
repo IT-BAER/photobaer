@@ -11,6 +11,7 @@ mod livewire;
 mod liquify;
 mod puppet;
 mod pwarp;
+mod seam;
 mod geom;
 mod path;
 mod pattern;

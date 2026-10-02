@@ -726,6 +726,18 @@ pub static ALL: &[Spec] = &[
         preview: false,
         ..global("perspective_warp", "Perspective Warp", "warp", &[Param { kind: PKind::Quads, default: Def::Required, ..num("state", "State", 0.0, 0.0, 0.0, "", 0.0) }], crate::pwarp::apply)
     },
+
+    // Edit > Content-Aware Scale: its own dialog, not in the Filter menu.
+    Spec {
+        extent: Some(crate::seam::extent),
+        ..global(
+            "content_aware_scale",
+            "Content-Aware Scale",
+            "scale",
+            &[amount("width", "Width", 10.0, 300.0, 1.0, 100.0), amount("height", "Height", 10.0, 300.0, 1.0, 100.0), amount("amount", "Amount", 0.0, 100.0, 1.0, 100.0), flag("protectSkinTones", "Protect Skin Tones")],
+            crate::seam::apply,
+        )
+    },
 ];
 
 fn liquify_reach(f: &Filter) -> i32 {
