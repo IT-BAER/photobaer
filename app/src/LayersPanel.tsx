@@ -97,7 +97,7 @@ export function LayersPanel(props: Props) {
   // Layers whose effect rows are folded, and the layer whose fx badge is being dragged.
   const [fxFolded, setFxFolded] = useState<Set<number>>(new Set());
   const [fxDrag, setFxDrag] = useState<number | null>(null);
-  const [context, setContext] = useState<{ x: number; y: number; items: Item[] } | null>(null);
+  const [context, setContext] = useState<{ x: number; y: number; n: LayerNode; nodes: LayerNode[] } | null>(null);
 
   const [thumbs, setThumbs] = useState<Map<number, Thumb>>(new Map());
   const thumbDoc = useRef(doc.docId);
@@ -152,7 +152,7 @@ export function LayersPanel(props: Props) {
     const inSel = props.selected.includes(n.id);
     if (!inSel) select(n.id, 'pixels');
     const nodes = inSel ? props.selected.map(id => nodeById(doc.layers, id)).filter((x): x is LayerNode => !!x) : [n];
-    setContext({ x: e.clientX, y: e.clientY, items: props.contextItems(n, nodes) });
+    setContext({ x: e.clientX, y: e.clientY, n, nodes });
   }
 
   function setProps(id: number, partial: Record<string, unknown>) {
@@ -400,7 +400,7 @@ export function LayersPanel(props: Props) {
             right: innerWidth - context.x, ...(context.y > innerHeight / 2 ? { bottom: innerHeight - context.y } : { top: context.y }),
           }}>
             <ul role="menu" aria-label="Layer">
-              {context.items.map(i => (
+              {props.contextItems(context.n, context.nodes).map(i => (
                 <Fragment key={i.label}>
                   {i.sep && <li role="separator" className="menu-sep" />}
                   <li><button role="menuitem" disabled={i.off} onClick={() => { setContext(null); i.run(); }}><span>{i.label}</span></button></li>

@@ -544,6 +544,18 @@ const api = {
     return { ...(cut ? changed() : info())!, clip: { w: c.w, h: c.h, data: c.rgba.slice().buffer } };
   },
 
+  // Layer > New > Layer via Copy: the selected pixels as a new layer above `id`, in place; the clipboard is untouched.
+  layerViaCopy(id: number) {
+    const e = need();
+    const c = copyPixels(e, id);
+    let created = 0;
+    history.run('Layer via Copy', () => {
+      created = e.add_layer(nextName('Layer'), id);
+      e.put_rgba8(created, c.x, c.y, c.w, c.h, c.rgba);
+    });
+    return { ...changed(), created };
+  },
+
   // Edit > Paste / Paste in Place / Paste Into: a new layer above `above`. `bytes` is a system clipboard
   // image; one sized like the internal clipboard is taken as that (it keeps the origin). `pasted`: false = nothing to paste.
   async paste(above: number, mode: 'paste' | 'inPlace' | 'into', bytes: Uint8Array | null) {

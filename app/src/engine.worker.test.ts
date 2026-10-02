@@ -2307,6 +2307,22 @@ test('Paste Into masks the new layer to the selection and deselects', async () =
   assert.deepEqual(await at1(21, 21, p.created), RED);
 });
 
+test('Layer via Copy adds the selected pixels in place as one step and leaves the clipboard alone', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('copy', 1, false, false);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  const v = (await call('layerViaCopy', 1)).result as Pasted;
+  assert.deepEqual([v.undoLabel, v.layers.length, v.layers.at(-1)!.id, v.layers.at(-1)!.name], ['Layer via Copy', 2, v.created, 'Layer 1']);
+  assert.deepEqual((await call('movingBounds', v.created)).result, [4, 4, 8, 8]);
+  const p = (await call('paste', 1, 'inPlace', null)).result as Pasted;
+  assert.deepEqual((await call('movingBounds', p.created)).result, [0, 0, 4, 4]);
+  await call('undo');
+  assert.equal(((await call('undo')).result as Pasted).layers.length, 1);
+});
+
 test('Paste of an external image keeps its full size; one sized like the internal clipboard pastes the internal one', async () => {
   const psd = (w: number, h: number, rgba: number[]) => {
     const src = new Engine(w, h, 8);

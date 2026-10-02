@@ -53,6 +53,7 @@ import {
 import { buildMenus } from './app/menus.ts';
 import { agentTools, registerWebMcp, type ModelContext, type WebMcpCtx } from './app/webmcp.ts';
 import { layerContextItems } from './app/vectorCommands.ts';
+import { canvasItems, layerRowItems } from './app/contextMenus.ts';
 import { ShapesPanel } from './ShapesPanel.tsx';
 import { CharacterPanel, ParagraphPanel, TextStylesPanel, TypeProperties, WarpTextDialog } from './TypePanels.tsx';
 import { loadTypePrefs, typeContextItems, typeMenuItems, type TypeCtx, type TypePanel } from './app/typeMenu.ts';
@@ -232,6 +233,7 @@ export function App() {
   const againRef = useRef<{ n: Mat3; interp: string } | null>(null);
   const [transformStore, setTransformStore] = useState<TransformBarStore | null>(null);
   const [transformMenu, setTransformMenu] = useState<[number, number] | null>(null);
+  const [canvasMenu, setCanvasMenu] = useState<[number, number] | null>(null);
   const polygonActionsRef = useRef<{ active: () => boolean; commit: () => void; cancel: () => void; removeLast: () => void } | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -935,6 +937,12 @@ export function App() {
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
+  useEffect(() => {
+    if (!canvasMenu) return;
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setCanvasMenu(null); };
+    addEventListener('keydown', key);
+    return () => removeEventListener('keydown', key);
+  }, [canvasMenu]);
   const runRef = useRef(run);
   runRef.current = run;
 
@@ -1501,6 +1509,26 @@ export function App() {
           </div>
         </>
       )}
+      {canvasMenu && (() => {
+        const items = canvasItems(menus, !!doc?.selection, active ? [{ label: 'Layer via Copy', run: () => run(null, () => client.call('layerViaCopy', active.id), selectCreated) }] : []);
+        return (
+          <>
+            <div className="scrim" onClick={() => setCanvasMenu(null)} onContextMenu={e => { e.preventDefault(); setCanvasMenu(null); }} />
+            <div className="menu context-menu" style={{
+              left: Math.max(0, Math.min(canvasMenu[0], innerWidth - 220)), top: Math.max(0, Math.min(canvasMenu[1], innerHeight - items.length * 30 - 20)),
+            }}>
+              <ul role="menu" aria-label="Canvas">
+                {items.map(i => (
+                  <Fragment key={i.label}>
+                    {i.sep && <li role="separator" className="menu-sep" />}
+                    <li><button role="menuitem" disabled={i.off} onClick={() => { setCanvasMenu(null); i.run(); }}><span>{i.label}</span></button></li>
+                  </Fragment>
+                ))}
+              </ul>
+            </div>
+          </>
+        );
+      })()}
       <main className={`workspace${doc ? ' with-sidebar' : ' no-doc'}`}>
         <ToolBar
           active={tool} setActive={setTool} lastUsed={lastUsed} setLastUsed={setLastUsed}
@@ -1540,7 +1568,11 @@ export function App() {
             />
           ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions }} fg={fg} />}
           <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
-            <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} />
+            <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined }} onContextMenu={e => {
+              e.preventDefault();
+              if (transformRef.current || (e.ctrlKey && e.altKey) || !has) return;
+              setCanvasMenu([e.clientX, e.clientY]);
+            }} />
             <canvas ref={pixelGridCanvas} className="overlay" />
             <canvas ref={overlayCanvas} className="overlay" />
             <canvas ref={rulerTop} className="ruler ruler-top" style={{ display: showRulers ? 'block' : 'none' }} />
@@ -1637,7 +1669,7 @@ export function App() {
               <LayersPanel
                 doc={doc} active={active} setActive={setActive} run={run}
                 selected={selectedNodes.map(n => n.id)} setPicked={setPicked}
-                contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerContextItems(n, nodes, run, setError)]}
+                contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerRowItems(menus, layerContextItems(n, nodes, run, setError))]}
                 newLayer={newLayer} newGroup={newGroup}
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
                 openProperties={() => setShowProperties(true)}
