@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-02
+
+### Added
+
+- Document tabs: open several images at once, drag tabs to reorder, unsaved marks per tab, Close All and
+  Close Others, Next/Previous Document (Ctrl+Tab), and autosave that restores every open tab.
+- File workflow in Chromium browsers: Ctrl+S writes back to an opened PSD, Save As, Save a Copy, Revert (F12)
+  and Open Recent.
+- Image Size, Canvas Size, Cut/Copy/Paste through the system clipboard, Paste in Place and Paste Into.
+- Layer menu: Arrange, Merge Down/Layers/Visible, Stamp Visible, Flatten, Align and Distribute, Layer via Copy
+  (Ctrl+J) and Layer via Cut, and right-click menus on layers and on the canvas.
+- Edit > Search (Ctrl+F) over every menu command, and Window > Navigator.
+- Filters: Pixelate, Stylize and Render groups, Blur Gallery (Field, Iris, Tilt-Shift, Path, Spin),
+  Filter Gallery with 47 effects, Liquify, Vanishing Point, Camera Raw Filter (Shift+Ctrl+A),
+  Lens Correction (Shift+Ctrl+R) and Adaptive Wide Angle (Alt+Shift+Ctrl+A).
+- Puppet Warp, Perspective Warp and Content-Aware Scale, also as smart filters.
+- PSD smart filters keep their settings both ways; filters photobaer cannot run stay in the file unchanged.
+- Tools: Mixer Brush, Color Replacement, Background Eraser and Magic Eraser.
+- Image > Mode: Bitmap, Grayscale, Duotone, Indexed Color with Color Table, RGB, CMYK, Lab, Multichannel,
+  and 8, 16 and 32 bits per channel.
+- Color management: Color Settings (Shift+Ctrl+K), Assign Profile, Convert to Profile, embedded ICC profiles
+  in PNG, JPEG and PSD, and a question when an opened file has a different or no profile.
+- Proof Setup, Proof Colors (Ctrl+Y), Gamut Warning (Shift+Ctrl+Y) and 32-bit Preview Options.
+- Image > Apply Image and Calculations, and the Channels panel.
+
+### Changed
+
+- Tabs show the color mode and bit depth. Adjustment, Fill, Stroke and Layer Style dialogs no longer dim the
+  canvas.
+
+### Removed
+
+- The .pbaer project file. Open and save handle PSD and image files; autosave still keeps your work.
+
+### Fixed
+
+- Inner shadow at the canvas edge, Patch with Transparent, Healing Brush Diffusion, error messages that stayed
+  after a tab switch, and the Filter Gallery list in the Properties panel.
+
 ## [0.3.0] - 2026-10-01
 
 ### Added
@@ -130,7 +169,8 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/IT-BAER/photobaer/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/IT-BAER/photobaer/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/IT-BAER/photobaer/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/IT-BAER/photobaer/compare/v0.2.0...v0.2.1
