@@ -2701,3 +2701,15 @@ test('saveEnd(false) restores only the tab whose save it ends; a save under Edit
   await call('smartEditClose', 'discard');
   void b;
 });
+
+test('navigatorThumb returns the flattened composite at the long side, keeping the aspect', async () => {
+  await call('init');
+  await call('newDoc', 1000, 500, 8, null);
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  const r = (await call('navigatorThumb', 200)).result as { w: number; h: number; data: ArrayBuffer };
+  assert.deepEqual([r.w, r.h, r.data.byteLength], [200, 100, 200 * 100 * 4]);
+  assert.deepEqual([...new Uint8Array(r.data, (50 * 200 + 100) * 4, 4)], [255, 0, 0, 255]);
+  await call('newDoc', 60, 40, 8, [0, 255, 0, 255]);
+  const s = (await call('navigatorThumb', 200)).result as { w: number; h: number };
+  assert.deepEqual([s.w, s.h], [60, 40]);
+});

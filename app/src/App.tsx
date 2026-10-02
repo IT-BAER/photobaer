@@ -73,6 +73,7 @@ import { useCropTool, usePerspectiveCropTool } from './app/cropTools.ts';
 import { usePaintTool } from './app/paintTool.ts';
 import { useCloneOverlay, useRetouchTools } from './app/retouchTools.ts';
 import { CloneSourcePanel } from './CloneSourcePanel.tsx';
+import { NavigatorPanel } from './NavigatorPanel.tsx';
 import { useShortcuts } from './app/shortcuts.ts';
 import { FilterDialog, runFilter, type FilterDialogHandle } from './filters/FilterDialog.tsx';
 import { applyFilter, repeatLastFilter, type ParamValue } from './filters/lastFilter.ts';
@@ -160,6 +161,7 @@ export function App() {
   const viewer = useRef<Viewer | null>(null);
   const [doc, setDoc] = useState<DocInfo | null>(null);
   const [view, setView] = useState({ zoom: 1, rot: 0 });
+  const [fullView, setFullView] = useState<View>({ zoom: 1, rot: 0, cx: 0, cy: 0 });
   const [autosave, setAutosave] = useState<AutosaveState>('off');
   const [renderer, setRenderer] = useState('');
   const [busy, setBusy] = useState<string | null>('Starting…');
@@ -204,6 +206,7 @@ export function App() {
   const [showGradients, setShowGradients] = useState(false);
   const [showShapes, setShowShapes] = useState(false);
   const [showCloneSource, setShowCloneSource] = useState(false);
+  const [showNavigator, setShowNavigator] = useState(false);
   const [typePanels, setTypePanels] = useState<Record<TypePanel, boolean>>({ character: false, paragraph: false, characterStyles: false, paragraphStyles: false, glyphs: false });
   const [typePrefs, setTypePrefs] = useState(loadTypePrefs);
   // Changes with the type session and its selection, so the type panels re-read it.
@@ -1114,7 +1117,7 @@ export function App() {
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
-    selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, typeItems: typeMenuItems(typeCtx),
+    selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems: typeMenuItems(typeCtx),
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
@@ -1205,7 +1208,7 @@ export function App() {
         const v = new Viewer(canvas.current!, r, makeTileSource(client, r));
         overlayRef.current = new SelectionOverlay(overlayCanvas.current!);
         rulersRef.current = new Rulers(rulerTop.current!, rulerLeft.current!, pixelGridCanvas.current!);
-        v.onView = x => { setView({ zoom: x.zoom * v.dpr, rot: x.rot }); redrawOverlay(); redrawRulers(); };
+        v.onView = x => { setView({ zoom: x.zoom * v.dpr, rot: x.rot }); setFullView(x); redrawOverlay(); redrawRulers(); };
         v.guideHit = guideHit;
         rulerTop.current?.addEventListener('pointerdown', rulerGuideStart('y'));
         rulerLeft.current?.addEventListener('pointerdown', rulerGuideStart('x'));
@@ -1826,6 +1829,7 @@ export function App() {
           )}
           {doc && active && showGradients && <GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} />}
           {doc && showCloneSource && <CloneSourcePanel docKey={doc.key} />}
+          {doc && showNavigator && <NavigatorPanel doc={doc} viewer={viewer.current} view={fullView} />}
           {doc && showShapes && (
             <ShapesPanel selected={String((optionsByTool.customShape ?? loadToolOptions(TOOLS.customShape)).customShape ?? '')} arm={armShape} />
           )}

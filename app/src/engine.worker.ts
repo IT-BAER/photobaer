@@ -16,6 +16,8 @@ import { locate, nodeById } from './layers.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
 import type { AlignMode, Adjustment, FaceInfo, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
+import { boxScale, thumbSize } from './app/navigator.ts';
+import { TILE } from './view.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
@@ -2067,6 +2069,23 @@ const api = {
       out.push(thumb);
     }
     return out;
+  },
+
+  // Window > Navigator: the flattened composite, longest side `size` px (never upscaled), straight RGBA.
+  // Built from the coarsest pyramid level that still has at least `size` px on its long side.
+  navigatorThumb(size: number) {
+    const e = need();
+    const W = e.width(), H = e.height(), [w, h] = thumbSize(W, H, size);
+    let L = 0;
+    while (L < e.max_level() && Math.max(W, H) >> (L + 1) >= size) L++;
+    const lw = Math.ceil(W / 2 ** L), lh = Math.ceil(H / 2 ** L), src = new Uint8Array(lw * lh * 4);
+    for (let ty = 0; ty * TILE < lh; ty++) for (let tx = 0; tx * TILE < lw; tx++) {
+      const t = e.display_tile(L, tx, ty) as Uint8Array | undefined;
+      if (!t) continue;
+      const cw = Math.min(TILE, lw - tx * TILE);
+      for (let y = 0; y < Math.min(TILE, lh - ty * TILE); y++) src.set(t.subarray(y * TILE * 4, (y * TILE + cw) * 4), ((ty * TILE + y) * lw + tx * TILE) * 4);
+    }
+    return { docId, version, w, h, data: boxScale(src, lw, lh, w, h).buffer as ArrayBuffer };
   },
 
   // Mean RGBA over an odd-sized box centered on (x, y), clamped to the canvas; layerId null

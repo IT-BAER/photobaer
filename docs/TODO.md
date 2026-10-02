@@ -3,11 +3,6 @@
 Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` section 4; M5 batches refer
 to `docs/M5.md` section 15.
 
-## Quick wins (next)
-
-### Q4 Navigator panel
-- Window > Navigator: document thumbnail with the view rectangle, drag to pan, click to center, zoom slider.
-
 ## M5 Filters and retouch (remaining batches)
 - B5 Pixelate (Color Halftone, Crystallize, Facet, Fragment, Mezzotint, Mosaic, Pointillize) and the rest of
   Stylize (Diffuse, Emboss, Extrude, Find Edges, Oil Paint, Tiles, Trace Contour, Wind).

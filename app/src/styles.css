@@ -586,3 +586,7 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .doc-tab-mode { opacity: 0.6; }
 .doc-tab-close { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; color: inherit; background: none; border: 0; border-radius: 4px; cursor: pointer; }
 .doc-tab-close:hover { background: var(--panel); color: var(--text); }
+.navigator-canvas { display: block; width: 100%; max-width: 100%; margin: 6px 0; cursor: crosshair; touch-action: none; background: repeating-conic-gradient(#3a3a3a 0 25%, #2a2a2a 0 50%) 0 0 / 12px 12px; }
+.navigator-zoom { display: flex; align-items: center; gap: 4px; }
+.navigator-zoom input[type="range"] { flex: 1; min-width: 0; }
+.navigator-pct { width: 48px; text-align: right; }
