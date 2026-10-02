@@ -160,11 +160,11 @@ test('a .pbaer with a text layer and a 3-tile cache round-trips', async () => {
 test('autosave writes the text cache once across saves', async () => {
   const e = textDoc();
   const s = await Autosave.fromRoot(new FakeDir() as unknown as FileSystemDirectoryHandle);
-  s.startDocument();
   const calls: number[] = [];
   const data = (id: number) => { calls.push(id); return e.tile_bytes(BigInt(id)); };
-  assert.equal(await s.save('t', e.manifest(), data, () => true), true);
+  const doc = () => ({ key: 'k', name: 't', manifest: e.manifest(), dirty: false, tile: data });
+  assert.equal(await s.save([doc()], 'k', () => true), true);
   e.set_props(1, JSON.stringify({ name: 'bg' }));
-  assert.equal(await s.save('t', e.manifest(), data, () => true), true);
+  assert.equal(await s.save([doc()], 'k', () => true), true);
   assert.deepEqual(calls.sort(), [1, 2, 3]);
 });

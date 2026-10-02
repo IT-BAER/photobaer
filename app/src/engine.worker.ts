@@ -210,14 +210,12 @@ function dropParents() {
 }
 
 // Adds `e` as a new tab after the others and activates it; the open documents stay open.
-function adopt(e: Engine, n: string, restored = false) {
+// `key` restores an autosaved tab under its own key (its autosave folder), without scheduling a save.
+function adopt(e: Engine, n: string, key?: string) {
   stash();
-  docs.push({ key: uuid(), eng: e, history: historyOf(e), name: n, version: 1, parents: [], saved: null });
+  docs.push({ key: key ?? uuid(), eng: e, history: historyOf(e), name: n, version: 1, parents: [], saved: null });
   activate(docs.length - 1);
-  if (!restored) {
-    autosave?.startDocument();
-    scheduleSave(0);
-  }
+  if (!key) scheduleSave(0);
   return info()!;
 }
 
@@ -331,22 +329,35 @@ function scheduleSave(ms: number) {
   }, ms);
 }
 
+// The engine of tab `i`'s outermost document (Edit Contents parent stacks are not autosaved).
+const outerEng = (i: number) => i === active ? parents[0]?.eng ?? eng! : docs[i].parents[0]?.eng ?? docs[i].eng;
+
+// Shows the documents the autosave could not restore as an error, which a later save must not hide.
+function lostError() {
+  const lost = autosave?.lost ?? [];
+  if (lost.length) emit('error', `Could not restore ${lost.join(', ')}`);
+  return lost.length > 0;
+}
+
+// Saves every open tab; the autosave writes tiles only for documents whose manifest changed.
 async function runSave() {
-  const e = eng, id = docId;
-  if (!autosave || !e) return;
+  if (!autosave || !eng) return;
   emit('saving');
-  // Hold a snapshot so every tile in this manifest stays readable while the async writes run.
-  const snap = e.snapshot();
-  const alive = () => eng === e && docId === id;
+  const tabs = docs.map((_, i) => {
+    const e = outerEng(i);
+    // Hold a snapshot so every tile in this manifest stays readable while the async writes run.
+    return { e, snap: e.snapshot(), doc: { key: docs[i].key, name: tabName(i), dirty: isDirty(i), manifest: e.manifest(), tile: (t: number) => e.tile_bytes(BigInt(t)) } };
+  });
+  const open = (e: Engine) => docs.some((_, i) => outerEng(i) === e);
   try {
-    const ok = await autosave.save(name, e.manifest(), t => e.tile_bytes(BigInt(t)), alive);
-    emit(ok ? 'saved' : 'idle');
+    const ok = await autosave.save(tabs.map(t => t.doc), docs[active].key, () => tabs.every(t => open(t.e)));
+    if (!lostError()) emit(ok ? 'saved' : 'idle');
   } catch (err) {
     console.error('autosave failed', err);
     emit('error', String(err));
   } finally {
-    // A switched-away tab keeps its engine, so its snapshot is dropped too; a freed engine has none.
-    if (eng === e || docs.some((d, i) => i !== active && d.eng === e)) e.drop_snapshot(snap);
+    // A closed tab's engine is freed and has no snapshot left.
+    for (const t of tabs) if (open(t.e)) t.e.drop_snapshot(t.snap);
   }
 }
 
@@ -394,7 +405,8 @@ function removeAsset(id: number) {
   const a = assets.get(id);
   if (!a) return;
   assets.delete(id);
-  for (const e of [eng, scratch, ...docs.map(d => d.eng)]) {
+  // docs[active].eng is stale (it can be a freed Edit Contents engine); `eng` stands for the active tab.
+  for (const e of [eng, scratch, ...docs.map((d, i) => i === active ? null : d.eng)]) {
     const eid = e ? engineIds.get(e)?.get(id) : undefined;
     if (e && eid !== undefined) { if (a.kind === 'tip') e.tip_remove(eid); else e.pattern_remove(eid); engineIds.get(e)!.delete(id); }
   }
@@ -411,17 +423,28 @@ const api = {
     autosave = await Autosave.open().catch(() => null);
     let restored: DocInfo | null = null;
     if (autosave) {
+      // Each tab restores on its own: a broken one (or running out of memory) keeps the tabs before it,
+      // and the autosave keeps listing it (autosave.lost).
       try {
         const r = await autosave.load();
-        if (r) {
-          const tiles = new Map<number, Uint8Array>();
-          for (const id of tileIds(r.manifest)) tiles.set(id, await r.tile(id));
-          restored = adopt(loadEngine(r.manifest, id => tiles.get(id)!), r.name, true);
+        for (const d of r?.docs ?? []) {
+          try {
+            const tiles = new Map<number, Uint8Array>();
+            for (const id of tileIds(d.manifest)) tiles.set(id, await d.tile(id));
+            adopt(loadEngine(d.manifest, id => tiles.get(id)!), d.name, d.key);
+            saved = d.dirty ? {} : history.top;
+          } catch (err) {
+            console.error('autosave restore failed', d.name, err);
+            autosave.keep(d);
+          }
         }
+        const i = docs.findIndex(d => d.key === r?.active);
+        if (i >= 0 && i !== active) { stash(); activate(i); }
       } catch (err) {
         console.error('autosave restore failed', err);
       }
-      emit(restored ? 'saved' : 'idle');
+      restored = info();
+      if (!lostError()) emit(restored ? 'saved' : 'idle');
     } else {
       emit('storage' in navigator && 'locks' in navigator && 'getDirectory' in navigator.storage ? 'other-tab' : 'off');
     }
@@ -2418,13 +2441,12 @@ const api = {
     return info();
   },
 
-  // Activates tab `key` under a new document id (D1); autosave follows the active document.
+  // Activates tab `key` under a new document id (D1); the autosave records the new active key.
   switchDoc(key: string) {
     const i = docs.findIndex(d => d.key === key);
     if (i < 0) throw new Error('That document is not open.');
     stash();
     activate(i);
-    autosave?.startDocument();
     scheduleSave(0);
     return info()!;
   },
@@ -2442,6 +2464,7 @@ const api = {
     if (i !== active) {
       freeDoc(docs.splice(i, 1)[0]);
       if (i < active) active--;
+      scheduleSave(0);
       return info();
     }
     if (eng) {
@@ -2453,7 +2476,6 @@ const api = {
     eng = null;
     if (docs.length) {
       activate(Math.min(active, docs.length - 1));
-      autosave?.startDocument();
       scheduleSave(0);
       return info();
     }

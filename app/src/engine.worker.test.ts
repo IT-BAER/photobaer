@@ -585,7 +585,7 @@ test('closing a document and creating the next one right away keeps the new auto
   fs.slow = false;
   const r = await (await Autosave.fromRoot(root as unknown as FileSystemDirectoryHandle)).load();
   assert.ok(r, 'the new document must be restorable');
-  assert.equal(JSON.parse(r.manifest).width, 512);
+  assert.equal(JSON.parse(r.docs.find(d => d.key === r.active)!.manifest).width, 512);
 });
 
 test('an autosave never stores the hidden source of an open transform session', async () => {
@@ -598,7 +598,7 @@ test('an autosave never stores the hidden source of an open transform session', 
   const r = await (await Autosave.fromRoot(root as unknown as FileSystemDirectoryHandle)).load();
   await call('transformCancel');
   assert.ok(r);
-  assert.ok(JSON.parse(r.manifest).layers[0].tiles.length > 0, 'the saved layer keeps its pixels');
+  assert.ok(JSON.parse(r.docs.find(d => d.key === r.active)!.manifest).layers[0].tiles.length > 0, 'the saved layer keeps its pixels');
 });
 
 test('transformCommit without an open session fails instead of reporting success', async () => {
@@ -2524,4 +2524,54 @@ test('dirty: a background tab keeps its own flag across switches', async () => {
   await dirtyOf('undo');
   const b2 = await dirtyOf('switchDoc', b.key);
   assert.deepEqual(b2.docs.map(d => d.dirty), [false, false]);
+});
+
+// Tile files per autosave folder, by object identity of their data (a rewrite replaces it).
+async function tileFiles() {
+  const docs = await (await root.getDirectoryHandle('autosave')).getDirectoryHandle('docs');
+  return new Map([...docs.entries].map(([k, d]) => [k, new Map([...(d as FakeDir).entries].map(([n, f]) => [n, (f as { data: Uint8Array }).data]))]));
+}
+
+test('autosave keeps every tab: switching writes no tiles, an edit rewrites only its own document, a closed tab leaves after the next commit', async () => {
+  await call('init');
+  await closeAll();
+  const a = await res(call('newDoc', 300, 16, 8, [255, 0, 0, 255]));
+  const b = await res(call('newDoc', 16, 300, 8, [0, 0, 255, 255]));
+  await settle();
+  const before = await tileFiles();
+  assert.deepEqual([...before.keys()].sort(), [a.key, b.key].sort());
+  assert.ok(before.get(a.key)!.size > 0 && before.get(b.key)!.size > 0);
+  await res(call('switchDoc', a.key));
+  await settle();
+  const switched = await tileFiles();
+  for (const k of [a.key, b.key]) assert.deepEqual(switched.get(k), before.get(k), 'switching rewrites no tile');
+  const session = (await (await Autosave.fromRoot(root as unknown as FileSystemDirectoryHandle)).load())!;
+  assert.equal(session.active, a.key);
+  assert.deepEqual(session.docs.map(d => d.key), [a.key, b.key]);
+  assert.equal((await call('command', 'fill', 1, 'pixels', [0, 255, 0, 255])).error, undefined);
+  await new Promise(r => setTimeout(r, 1300));
+  const edited = await tileFiles();
+  assert.deepEqual(edited.get(b.key), before.get(b.key), 'the background tab is not rewritten');
+  assert.ok([...edited.get(a.key)!].some(([n, d]) => before.get(a.key)!.get(n) !== d), 'the edited tab wrote new tiles');
+  await res(call('closeDoc', b.key));
+  await settle();
+  assert.deepEqual([...(await tileFiles()).keys()], [a.key]);
+  assert.deepEqual((await (await Autosave.fromRoot(root as unknown as FileSystemDirectoryHandle)).load())!.docs.map(d => d.key), [a.key]);
+});
+
+test('removing a tip after Edit Contents closed in a tab that was switched away and back skips the freed contents engine', async () => {
+  await call('init');
+  await closeAll();
+  const a = await res(call('newDoc', 8, 8, 8, [255, 255, 255, 255]));
+  const l = await res(call('addLayer', 1));
+  await call('command', 'fill', l.created, 'pixels', [0, 128, 0, 255]);
+  const c = await res(call('convertToSmart', [l.created]));
+  await res(call('editContents', c.created));
+  const id = (await call('tipAdd', 3, 3, new Uint8Array(9).fill(255))).result as number;
+  const b = await res(call('newDoc', 8, 8, 8, null));
+  await res(call('switchDoc', a.key));
+  await res(call('smartEditClose', 'discard'));
+  assert.equal((await call('tipRemove', id)).error, undefined);
+  assert.ok((await call('brushPreview', tipParams(id), 64, 32)).error, 'the tip is gone');
+  await res(call('switchDoc', b.key));
 });
