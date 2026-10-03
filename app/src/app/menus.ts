@@ -13,6 +13,8 @@ import { GROUPS, menuLabel, type FilterSpec } from '../filters/schema.ts';
 import type { DocInfo, LayerNode, SmartFilterInfo, SmartInfo } from '../worker/types.ts';
 import type { SnapSettings } from '../shell/snapping.ts';
 import type { ArtboardMode, AutomateKind } from './Dialogs.tsx';
+import { exportPrefs, FORMAT_LABEL, type FilesKind } from '../ExportDialogs.tsx';
+export type ExportKind = 'as' | 'web' | 'prefs' | FilesKind;
 import { ALIGN_ITEMS, STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
 import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.ts';
 import { copy, paste } from './clipboard.ts';
@@ -30,7 +32,7 @@ export interface MenuCtx {
   setMenu: SetState<string | null>; newDialog: DialogRef; openFiles: () => Promise<void>; placeFile: (linked: boolean) => Promise<void>;
   has: boolean; active: Active | null; save: () => Promise<boolean>; saveAs: () => void; saveCopy: () => void;
   revert: () => Promise<void>; revertOff: boolean; recent: Recent[] | null; openRecent: (r: Recent) => Promise<void>; clearRecent: () => void;
-  exportAs: (mime: Mime, ext: string) => Promise<void>; exportLayerComps: (mime: Mime, ext: string) => Promise<void>;
+  quickExport: () => void; openExport: (k: ExportKind) => void; pathsToSvg: () => void; exportLayerComps: (mime: Mime, ext: string) => Promise<void>;
   doc: DocInfo | null; closeTab: () => Promise<void>; closeTabs: (which: 'all' | 'others') => Promise<void>; renameLayer: () => void; run: Run; openPreviewDialog: (which: 'fill' | 'stroke') => void;
   contentAwareFill: (dialog: boolean) => void;
   quickFill: (rgb: Rgb, label: string) => void; fg: Rgb; bg: Rgb; quickMask: boolean; selEdit: boolean; startTransform: (mode?: Mode, selection?: boolean) => Promise<void>;
@@ -45,7 +47,8 @@ export interface MenuCtx {
   filterCommand: (op: 'toggle' | 'clear' | 'deleteMasks' | 'toggleMasks', label: string) => () => void; filters: SmartFilterInfo[];
   filterMasks: boolean; maskLabel: string; openFilterBlend: () => void; openLayerStyle: (page: StylePage, id?: number) => void;
   globalLightDialog: DialogRef; allEffectsHidden: boolean; anyStyled: boolean; scaleEffectsDialog: DialogRef;
-  openAutomate: (kind: AutomateKind) => void; openBatch: () => void;
+  openAutomate: (kind: AutomateKind) => void; openBatch: () => void; openImageProcessor: () => void; openLoadStack: () => void; browseScript: () => void; scriptRunning: boolean;
+  assetsOn: boolean; toggleImageAssets: () => void; packageDoc: () => void; openVariables: (tab: 'define' | 'sets') => void; openApplyDataSet: () => void; openImportSets: () => void; openFileInfo: () => void; openPrint: () => void; printOneCopy: () => void;
   openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; openImageCalc: (calc: boolean) => void; openModeDialog: (kind: ModeDialogKind) => void; openColorDialog: (kind: ColorDialogKind) => void; applyDestructive: (kind: DestructiveKind) => void;
   rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
@@ -109,12 +112,12 @@ export function buildMenus(c: MenuCtx) {
     if (key) void c.run(null, () => client.call('switchDoc', key));
   };
   const {
-    setMenu, newDialog, openFiles, placeFile, has, active, save, saveAs, saveCopy, revert, revertOff, recent, openRecent, clearRecent, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer, run,
+    setMenu, newDialog, openFiles, placeFile, has, active, save, saveAs, saveCopy, revert, revertOff, recent, openRecent, clearRecent, quickExport, openExport, pathsToSvg, exportLayerComps, doc, closeTab, closeTabs, renameLayer, run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, selEdit, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    openAutomate, openBatch, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
+    openAutomate, openBatch, openImageProcessor, openLoadStack, browseScript, scriptRunning, assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo, openPrint, printOneCopy, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
@@ -164,16 +167,37 @@ export function buildMenus(c: MenuCtx) {
       }] : []),
       { label: 'Place Embedded…', run: () => void placeFile(false), off: !has || !active },
       { label: 'Place Linked…', run: () => void placeFile(true), off: !has || !active },
+      { label: 'Package…', run: packageDoc, off: !has },
+      {
+        label: 'Import', keys: '›', run: () => {}, off: !has, sub: [
+          { label: 'Variable Data Sets…', run: openImportSets },
+        ],
+      },
       { label: 'Save', keys: 'Ctrl+S', sep: true, run: () => void save(), off: !has },
       { label: 'Save As…', keys: 'Shift+Ctrl+S', run: saveAs, off: !has },
       { label: 'Save a Copy…', keys: 'Alt+Ctrl+S', run: saveCopy, off: !has },
       { label: 'Revert', keys: 'F12', run: () => void revert(), off: revertOff },
-      { label: 'Export PNG…', run: () => exportAs('image/png', 'png'), off: !has },
-      { label: 'Export JPEG…', run: () => exportAs('image/jpeg', 'jpg'), off: !has },
-      { label: 'Export WebP…', run: () => exportAs('image/webp', 'webp'), off: !has },
-      { label: 'Layer Comps to Files (PNG)…', run: () => exportLayerComps('image/png', 'png'), off: !has || !doc?.layerComps.length },
-      { label: 'Layer Comps to Files (JPEG)…', run: () => exportLayerComps('image/jpeg', 'jpg'), off: !has || !doc?.layerComps.length },
-      { label: 'Layer Comps to Files (WebP)…', run: () => exportLayerComps('image/webp', 'webp'), off: !has || !doc?.layerComps.length },
+      {
+        label: 'Export', keys: '›', run: () => {}, off: !has, sub: [
+          { label: `Quick Export as ${FORMAT_LABEL[exportPrefs().format]}`, run: quickExport },
+          { label: 'Export As…', keys: 'Alt+Shift+Ctrl+W', run: () => openExport('as') },
+          { label: 'Export Preferences…', run: () => openExport('prefs') },
+          { label: 'Save for Web (Legacy)…', keys: 'Alt+Shift+Ctrl+S', sep: true, run: () => openExport('web') },
+          { label: 'Artboards to Files…', sep: true, run: () => openExport('artboards'), off: !doc?.layers.some(l => l.artboard) },
+          { label: 'Artboards to PDF…', run: () => openExport('pdf'), off: !doc?.layers.some(l => l.artboard) },
+          { label: 'Layers to Files…', run: () => openExport('layers'), off: !doc?.layers.length },
+          { label: 'Layer Comps to Files (PNG)…', run: () => exportLayerComps('image/png', 'png'), off: !has || !doc?.layerComps.length },
+          { label: 'Layer Comps to Files (JPEG)…', run: () => exportLayerComps('image/jpeg', 'jpg'), off: !has || !doc?.layerComps.length },
+          { label: 'Layer Comps to Files (WebP)…', run: () => exportLayerComps('image/webp', 'webp'), off: !has || !doc?.layerComps.length },
+          { label: 'Data Sets as Files…', sep: true, run: () => openExport('datasets'), off: !has },
+          { label: 'Paths to SVG…', sep: true, run: pathsToSvg, off: !doc?.paths.length },
+        ],
+      },
+      {
+        label: 'Generate', keys: '›', run: () => {}, sub: [
+          { label: `${assetsOn ? '✓ ' : ''}Image Assets`, run: toggleImageAssets },
+        ],
+      },
       {
         label: 'Automate', keys: '›', run: () => {}, sub: [
           { label: 'Batch…', run: openBatch },
@@ -181,7 +205,20 @@ export function buildMenus(c: MenuCtx) {
           { label: 'Merge to HDR Pro…', run: () => openAutomate('hdr'), off: (doc?.docs.length ?? 0) < 2 },
         ],
       },
-      { label: 'Close', run: () => void closeTab(), off: !has },
+      {
+        label: 'Scripts', keys: '›', run: () => {}, sub: [
+          { label: 'Image Processor…', run: openImageProcessor },
+          { label: 'Delete All Empty Layers', sep: true, run: () => run(null, () => client.call('deleteEmptyLayers')), off: !has },
+          { label: 'Flatten All Layer Effects', run: () => run(null, () => client.call('flattenAllLayerEffects')), off: !has },
+          { label: 'Flatten All Masks', run: () => run(null, () => client.call('flattenAllMasks')), off: !has },
+          { label: 'Load Files into Stack…', sep: true, run: openLoadStack },
+          { label: scriptRunning ? 'Stop Script' : 'Browse…', sep: true, run: browseScript },
+        ],
+      },
+      { label: 'File Info…', keys: 'Alt+Shift+Ctrl+I', sep: true, run: openFileInfo, off: !has },
+      { label: 'Print…', keys: 'Ctrl+P', sep: true, run: openPrint, off: !has },
+      { label: 'Print One Copy', keys: 'Alt+Shift+Ctrl+P', run: printOneCopy, off: !has },
+      { label: 'Close', sep: true, run: () => void closeTab(), off: !has },
       { label: 'Close All', run: () => void closeTabs('all'), off: !has },
       { label: 'Close Others', run: () => void closeTabs('others'), off: (doc?.docs.length ?? 0) < 2 },
     ],
@@ -345,6 +382,13 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Reveal All', run: () => run('Revealing…', () => client.call('revealAll')), off: !has },
       { label: 'Apply Image…', sep: true, run: () => openImageCalc(false), off: pixelsOff },
       { label: 'Calculations…', run: () => openImageCalc(true), off: !has },
+      {
+        label: 'Variables', keys: '›', sep: true, run: () => {}, off: !has, sub: [
+          { label: 'Define…', run: () => openVariables('define') },
+          { label: 'Data Sets…', run: () => openVariables('sets') },
+        ],
+      },
+      { label: 'Apply Data Set…', run: openApplyDataSet, off: !has },
     ],
     Select: [
       { label: 'All', keys: 'Ctrl+A', run: () => run(null, () => client.call('selectCommand', 'all')), off: !has },

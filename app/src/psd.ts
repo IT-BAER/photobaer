@@ -1043,6 +1043,7 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
   if (artboards) psd.artboards = { count: artboards };
   const channels = (JSON.parse(e.channels_json()) as { channels: { id: number; name: string }[] }).channels;
   if (channels.length) warn('saved selections are not stored in PSD');
+  if (JSON.parse(e.vector_json()).variables) warn('variables and data sets are not stored in PSD');
   const bytes = new Uint8Array(writePsdRaw(psd, { generateThumbnail: false, psb: !!opts.psb }, x.raws));
   return { bytes: manifest.paths.length ? writeSavedPaths(bytes, manifest.paths, w, h) : bytes, warnings };
 }

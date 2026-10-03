@@ -44,12 +44,30 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   in the session. Batch rest: Save and Close, file naming options, Override Action "Open"/"Save As"; same-named outputs overwrite;
   a Files batch that closes the last document leaves a stale "document changed" toast; Batch does not refuse to
   start while recording.
-- Scripts: Image Processor, Delete All Empty Layers, Flatten All Layer Effects, Flatten All Masks,
-  Load Files into Stack; JS scripting with a documented API.
-- File > Export: Quick Export as PNG, Export As (format, size, quality per file), Export Preferences,
-  Save for Web, Layers to Files, Artboards to Files, Artboards to PDF, Paths to SVG.
-- Generate Image Assets, Package (linked files), File Info, Print.
-- Variables and Data Sets (define, import CSV/TSV, export as files).
+- Scripts rest: Image Processor TIFF output (no browser encoder), Copyright Info and Include ICC Profile
+  options, Save in Same Location; Flatten All Masks only on pixel layers (type, shape and smart object masks
+  stay); Flatten All Layer Effects also applies the layer mask and drops a disabled vector mask; Statistics;
+  Load Files into Stack places each file at the top left and has no Add Open Files; scripts cannot open,
+  save or close documents and have no ExtendScript/UXP compatibility; Image Processor undo leaves its
+  Image Size/Convert to Profile steps as redo entries on open documents.
+  Delete All Empty Layers also deletes locked layers and empty clipping bases, and may leave a document
+  with no layer; baked layers lose color label and link group.
+- Export rest: no TIFF, BMP or TGA output (no browser encoder); exported PNG/JPEG carry File Info only as XMP (no EXIF, no WebP); Export As has no canvas size, resample or preview pane; Save for Web has no 2-up/4-up previews, matte,
+  lossy GIF, interlace or web-snap; GIF and PNG-8 have binary transparency (alpha below 50% is clear) and a
+  median-cut palette without the Perceptual/Selective choices; Layers to Files has no file name prefix or
+  per-layer-comp option and names collide only inside one run; Artboards to PDF writes JPEG pages without
+  a color profile and no Layer Comps; Paths to SVG writes all saved paths with no path choice; Layer Comps to
+  Files keeps its three PNG/JPEG/WebP menu items.
+- R19 rest: File Info has no Camera Data (EXIF) tab, no IPTC Core/Origin panels or templates, and the Raw XMP
+  tab is read-only; XMP properties other than the six fields are dropped on open; compressed PNG iTXt XMP is
+  not read. Image Assets has no size (WxH) or subfolder syntax, no default/config layer and asks for a folder
+  per document (downloads without folder access). Package embeds linked files into one PSD instead of copying
+  them to a Links folder. Print has no color management (profile, rendering intent), no printer choice beyond
+  the browser dialog, no multiple-artboard pages.
+- R20 rest: Variables bind only visibility and type text (no pixel replacement); variables and data sets live in
+  the document manifest and autosave but not in PSD (saving warns); Import Data Sets reads UTF-8 only; Data Sets
+  as Files names files <document>_<data set> with no naming options; applying text keeps the first run and
+  paragraph style only, and the type layer keeps its name.
 - Layer > Quick Export / Export As for selected layers.
 
 ## M9 Remaining

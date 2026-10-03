@@ -43,7 +43,7 @@ export const NOT_LAYER_PARAMS = new Set([
 export const NO_RECORD = new Set([
   'init', 'newDoc', 'setColorSettings', 'setView', 'openProfileQuestion', 'openFile', 'revertDoc', 'setDocName', 'undo', 'redo', 'historyGoto',
   'displayTile', 'displayProgram', 'exportImage', 'exportLayerCompsToFiles', 'savePsd', 'saveFormat', 'saveEnd', 'switchDoc', 'moveDoc',
-  'closeDoc', 'editContents', 'smartEditSave', 'smartEditClose', 'iccProfiles', 'loadProfile', 'photomerge', 'mergeHdr', 'calculations',
+  'closeDoc', 'editContents', 'smartEditSave', 'smartEditClose', 'iccProfiles', 'loadProfile', 'photomerge', 'mergeHdr', 'loadStack', 'calculations',
   'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'recordStart', 'recordStop', 'playAction',
   'fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing', 'glyphCells', 'glyphAlternates', 'fontCovers',
 ]);

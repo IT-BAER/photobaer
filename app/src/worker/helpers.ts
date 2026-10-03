@@ -3,6 +3,8 @@ import { tileIds } from '../project.ts';
 import { importPsd, compositeRgba, isPsdBytes, type PendingSource } from '../psd.ts';
 import { getHandle } from '../links.ts';
 import { embedIcc } from '../app/iccFiles.ts';
+import { embedInfo, hasInfo, type FileInfo } from '../app/fileInfo.ts';
+import { encodeGif, encodePng8, quantize, type Dither } from '../app/webExport.ts';
 import type { Box, GlobalLight, LayerNode, SmartInfo, SmartLink, TransformKind, TransformOp } from './types.ts';
 
 // Global Light: angle mod 360, altitude clamped to 0..90.
@@ -91,43 +93,107 @@ async function encodeFlattened(e: Engine, type: 'image/png' | 'image/jpeg' | 'im
   return icc.length ? new Blob([await embedIcc(new Uint8Array(await blob.arrayBuffer()), type, icc) as Uint8Array<ArrayBuffer>], { type }) : blob;
 }
 
-// The layer alone (its ancestors kept, every other branch hidden in a clone) rendered and trimmed
-// to its non-transparent pixels, as PNG base64; null when nothing is left.
-async function layerPng(e: Engine, id: number): Promise<{ w: number; h: number; base64: string } | null> {
-  const clone = loadEngine(e.manifest(), t => e.tile_bytes(BigInt(t)));
+export type ExportFormat = 'png' | 'jpeg' | 'webp' | 'gif' | 'png8';
+/** File > Export: `layer` renders that layer alone (trimmed to its pixels with `trim`), `artboard` that
+ * artboard cropped to its rect; neither renders the canvas. `reveal` shows a hidden target and its hidden
+ * ancestors. quality 0-1; colors/dither for GIF and PNG-8. */
+export interface ExportOptions {
+  format: ExportFormat; quality: number; scale: number; colors: number; dither: Dither; icc: boolean;
+  layer?: number; layers?: number[]; trim?: boolean; artboard?: number; reveal?: boolean; meta?: boolean;
+}
+
+/** The document's File > File Info, or null when it has none. */
+export const docInfo = (e: Engine): FileInfo | null => (JSON.parse(e.vector_json()) as { info?: FileInfo }).info ?? null;
+interface Rgba { data: Uint8ClampedArray<ArrayBuffer>; w: number; h: number }
+
+// The composite of `e`, or of some layers (ancestors kept, every other branch hidden in a clone) or one
+// root artboard; null when the trimmed layers or the clipped artboard have no pixels.
+function renderRgba(e: Engine, o: Pick<ExportOptions, 'layer' | 'layers' | 'trim' | 'artboard' | 'reveal'>): Rgba | null {
+  const one = o.layer ?? o.artboard;
+  const only = o.layers ?? (one === undefined ? undefined : [one]);
+  const src = only === undefined ? e : loadEngine(e.manifest(), t => e.tile_bytes(BigInt(t)));
   try {
+    const tree = JSON.parse(src.layers_json()) as LayerNode[];
     const hide = (nodes: LayerNode[]) => {
       for (const n of nodes) {
-        if (n.id === id) continue;
-        if (n.children && containsId(n.children, id)) hide(n.children);
-        else if (n.visible) clone.set_props(n.id, JSON.stringify({ visible: false }));
+        const kept = only!.includes(n.id), branch = !kept && !!n.children && only!.some(id => containsId(n.children!, id));
+        if (o.reveal && !n.visible && (kept || branch)) src.set_props(n.id, JSON.stringify({ visible: true }));
+        if (kept) continue;
+        if (branch) hide(n.children!);
+        else if (n.visible) src.set_props(n.id, JSON.stringify({ visible: false }));
       }
     };
-    hide(JSON.parse(clone.layers_json()) as LayerNode[]);
-    const w = clone.width(), h = clone.height();
-    const c = new OffscreenCanvas(w, h);
-    const ctx = c.getContext('2d')!;
-    tileLoop(w, h, (tx, ty) => {
-      const px = clone.flatten_tile_rgba8(tx, ty);
-      ctx.putImageData(new ImageData(new Uint8ClampedArray(px.buffer as ArrayBuffer, px.byteOffset, px.length), 256, 256), tx * 256, ty * 256);
+    if (only !== undefined) hide(tree);
+    const W = src.width(), H = src.height(), all = new Uint8ClampedArray(W * H * 4);
+    tileLoop(W, H, (tx, ty) => {
+      const px = src.flatten_tile_rgba8(tx, ty), w = Math.min(256, W - tx * 256);
+      for (let y = 0; y < 256 && ty * 256 + y < H; y++) all.set(px.subarray(y * 1024, y * 1024 + w * 4), ((ty * 256 + y) * W + tx * 256) * 4);
     });
-    const a = ctx.getImageData(0, 0, w, h).data;
-    let x0 = w, y0 = h, x1 = -1, y1 = -1;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      if (!a[(y * w + x) * 4 + 3]) continue;
-      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    let [x0, y0, x1, y1] = [0, 0, W, H];
+    const ab = o.artboard === undefined ? null : tree.find(n => n.id === o.artboard)?.artboard;
+    if (ab) [x0, y0, x1, y1] = [Math.max(0, ab.rect[0]), Math.max(0, ab.rect[1]), Math.min(W, ab.rect[2]), Math.min(H, ab.rect[3])];
+    else if ((o.layer ?? o.layers) !== undefined && o.trim) {
+      [x0, y0, x1, y1] = [W, H, 0, 0];
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        if (!all[(y * W + x) * 4 + 3]) continue;
+        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + 1); y1 = Math.max(y1, y + 1);
+      }
     }
-    if (x1 < 0) return null;
-    const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
-    const out = new OffscreenCanvas(cw, ch);
-    out.getContext('2d')!.drawImage(c, -x0, -y0);
-    const bytes = new Uint8Array(await (await out.convertToBlob({ type: 'image/png' })).arrayBuffer());
-    let bin = '';
-    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    return { w: cw, h: ch, base64: btoa(bin) };
+    const w = x1 - x0, h = y1 - y0;
+    if (w <= 0 || h <= 0) return null;
+    if (w === W && h === H) return { data: all, w, h };
+    const data = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) data.set(all.subarray(((y0 + y) * W + x0) * 4, ((y0 + y) * W + x1) * 4), y * w * 4);
+    return { data, w, h };
   } finally {
-    clone.free();
+    if (src !== e) src.free();
   }
+}
+
+// Scales `img` (smoothed) and encodes it; JPEG flattens onto white, GIF/PNG-8 keep alpha < 50% as transparent.
+async function encodeRgba(e: Engine, img: Rgba, o: ExportOptions): Promise<{ blob: Blob; width: number; height: number }> {
+  let c = new OffscreenCanvas(img.w, img.h);
+  c.getContext('2d')!.putImageData(new ImageData(img.data, img.w, img.h), 0, 0);
+  const width = Math.max(1, Math.round(img.w * o.scale)), height = Math.max(1, Math.round(img.h * o.scale));
+  if (width !== img.w || height !== img.h || o.format === 'jpeg') {
+    const s = new OffscreenCanvas(width, height), ctx = s.getContext('2d')!;
+    if (o.format === 'jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height); }
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(c, 0, 0, width, height);
+    c = s;
+  }
+  if (o.format === 'gif' || o.format === 'png8') {
+    const q = quantize(c.getContext('2d')!.getImageData(0, 0, width, height).data, width, o.colors, o.dither, true);
+    const bytes = o.format === 'gif' ? encodeGif(q, width, height) : await encodePng8(q, width, height);
+    return { blob: new Blob([bytes], { type: `image/${o.format === 'gif' ? 'gif' : 'png'}` }), width, height };
+  }
+  const type = `image/${o.format}` as 'image/png' | 'image/jpeg' | 'image/webp';
+  const blob = await c.convertToBlob({ type, quality: o.quality });
+  if (blob.type !== type) throw new Error(`${type} export is not supported by this browser`);
+  const icc = o.icc && type !== 'image/webp' ? e.profile_icc() : new Uint8Array();
+  const info = o.meta && type !== 'image/webp' ? docInfo(e) : null;
+  if (!icc.length && !hasInfo(info)) return { blob, width, height };
+  let bytes: Uint8Array = new Uint8Array(await blob.arrayBuffer());
+  if (icc.length) bytes = await embedIcc(bytes, type, icc);
+  if (hasInfo(info)) bytes = embedInfo(bytes, type, info);
+  return { blob: new Blob([bytes as Uint8Array<ArrayBuffer>], { type }), width, height };
+}
+
+async function exportAsset(e: Engine, o: ExportOptions) {
+  const img = renderRgba(e, o);
+  if (!img) throw new Error(o.artboard !== undefined ? 'The artboard is outside the canvas.' : 'The layer has no pixels.');
+  return encodeRgba(e, img, o);
+}
+
+// The layer alone, trimmed to its non-transparent pixels, as PNG base64; null when nothing is left.
+async function layerPng(e: Engine, id: number): Promise<{ w: number; h: number; base64: string } | null> {
+  const img = renderRgba(e, { layer: id, trim: true });
+  if (!img) return null;
+  const { blob } = await encodeRgba(e, img, { format: 'png', quality: 1, scale: 1, colors: 256, dither: 'none', icc: false });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return { w: img.w, h: img.h, base64: btoa(bin) };
 }
 
 type Sparse = [number, number, number][];
@@ -361,4 +427,4 @@ function smartWarpStart(e: Engine, id: number, maxSide: number) {
   return { bounds, ...lifted, mesh };
 }
 
-export { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };
+export { renderRgba, applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, exportAsset, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };

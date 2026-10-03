@@ -11,6 +11,15 @@ import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { ChannelsPanel } from './ChannelsPanel.tsx';
 import { ActionsPanel, playSteps } from './ActionsPanel.tsx';
 import { BatchDialog, type BatchDialogHandle, type BatchOptions } from './BatchDialog.tsx';
+import { assetOptions, canFolder, EXT, ExportAsDialog, exportPrefs, ExportPrefsDialog, FilesExportDialog, SaveForWebDialog, type ExportDialogHandle, type ExportRow, type FilesDialogHandle, type FilesOptions, type WebOptions } from './ExportDialogs.tsx';
+import { assetSpecs, fileStem, pathsSvg } from './app/webExport.ts';
+import { FileInfoDialog, PrintDialog, type FileInfoHandle, type PrintHandle } from './FileDialogs.tsx';
+import { ApplyDataSetDialog, ImportDataSetsDialog, VariablesDialog, type ApplySetHandle, type ImportSetsHandle, type VariablesHandle } from './VariablesDialogs.tsx';
+import { exportCsv, type Variables } from './app/variables.ts';
+import { defaultPrint, printHtml, printLayout, printPage, type PrintSettings } from './app/print.ts';
+import { ImageProcessorDialog, LoadStackDialog, type ImageProcessorOptions, type ScriptDialogHandle } from './ScriptDialogs.tsx';
+import { runScript } from './app/scripting.ts';
+import type { ActionStep } from './actions.ts';
 import { actions } from './app/actionsStore.ts';
 import { ImageCalcDialog, type ImageCalcHandle } from './ImageCalcDialog.tsx';
 import { ModeDialog, type ModeDialogHandle } from './ModeDialog.tsx';
@@ -61,7 +70,7 @@ import {
   fillContentFromForm, formFromFillContent, loadFillForm, pickPlaceFile, saveBlob, selectAfterDelete, selectCreated,
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
-import { buildMenus } from './app/menus.ts';
+import { buildMenus, type ExportKind } from './app/menus.ts';
 import { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, rasterSvg, saveFormat, saveRoute, storeRecent, writeFile, type Origin, type Recent, type SaveFormat } from './app/files.ts';
 import { agentTools, registerWebMcp, type ModelContext, type WebMcpCtx } from './app/webmcp.ts';
 import { layerContextItems } from './app/vectorCommands.ts';
@@ -103,6 +112,8 @@ import {
 declare const __APP_VERSION__: string;
 // The SEO title from index.html, shown while no document is open.
 const PAGE_TITLE = document.title;
+// File > Generate > Image Assets on/off.
+const ASSETS_KEY = 'photobaer.imageAssets';
 
 // Menus are fixed so the scrolling menubar does not clip them; both stay inside the viewport.
 function placeMenu(ul: HTMLUListElement | null) {
@@ -310,6 +321,21 @@ export function App() {
   const colorDialog = useRef<ColorDialogHandle>(null);
   const pdfDialog = useRef<PdfDialogHandle>(null);
   const batchDialog = useRef<BatchDialogHandle>(null);
+  const imageProcessorDialog = useRef<ScriptDialogHandle>(null);
+  const loadStackDialog = useRef<ScriptDialogHandle>(null);
+  const exportAsDialog = useRef<ExportDialogHandle>(null);
+  const saveForWebDialog = useRef<ExportDialogHandle>(null);
+  const exportPrefsDialog = useRef<ExportDialogHandle>(null);
+  const filesExportDialog = useRef<FilesDialogHandle>(null);
+  const fileInfoDialog = useRef<FileInfoHandle>(null);
+  const variablesDialog = useRef<VariablesHandle>(null);
+  const importSetsDialog = useRef<ImportSetsHandle>(null);
+  const applySetDialog = useRef<ApplySetHandle>(null);
+  const printDialog = useRef<PrintHandle>(null);
+  const printSettings = useRef<PrintSettings>(defaultPrint());
+  const [assetsOn, setAssetsOn] = useState(() => { try { return localStorage.getItem(ASSETS_KEY) === '1'; } catch { return false; } });
+  const assetDirs = useRef(new Map<string, FileSystemDirectoryHandle>());
+  const [script, setScript] = useState<AbortController | null>(null);
   const liquifyDialog = useRef<LiquifyDialogHandle>(null);
   const vpDialog = useRef<VanishingPointDialogHandle>(null);
   const [deform, setDeform] = useState<DeformRequest | null>(null);
@@ -600,18 +626,198 @@ export function App() {
     });
   }
 
-  async function exportAs(mime: 'image/png' | 'image/jpeg' | 'image/webp', ext: string) {
+  // File > Export. Each export runs under the busy overlay; errors go to the toast.
+  async function exporting(body: (d: DocInfo) => Promise<void>) {
     setMenu(null);
     const d = docRef.current;
     if (!d) return;
     setBusy('Exporting…');
     try {
-      await saveBlob(await client.call('exportImage', mime, 0.92), `${d.name}.${ext}`, mime, ext);
+      await body(d);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(null);
     }
+  }
+  const saveAsset = (blob: Blob, name: string, ask: boolean) => (ask ? saveBlob(blob, name, blob.type, name.split('.').pop()!) : (downloadBlob(blob, name), Promise.resolve(true)));
+  function quickExport() {
+    const p = exportPrefs();
+    void exporting(async d => {
+      const { blob } = await client.call('exportAsset', assetOptions(p.format, 1, p.quality));
+      await saveAsset(blob, `${d.name}.${EXT[p.format]}`, p.ask);
+    });
+  }
+  function openExport(k: ExportKind) {
+    setMenu(null);
+    if (k === 'as') exportAsDialog.current?.open();
+    else if (k === 'web') saveForWebDialog.current?.open();
+    else if (k === 'prefs') exportPrefsDialog.current?.open();
+    else filesExportDialog.current?.open(k);
+  }
+  // Export As: one row asks for the file; several go into one folder (picked first, while the click still counts)
+  // or downloads.
+  async function runExportAs(rows: ExportRow[]) {
+    let dir: FileSystemDirectoryHandle | null = null;
+    if (rows.length > 1 && canFolder()) {
+      try { dir = await (window as unknown as { showDirectoryPicker(o: object): Promise<FileSystemDirectoryHandle> }).showDirectoryPicker({ mode: 'readwrite' }); } catch { return; }
+    }
+    await exporting(async d => {
+      const used = new Set<string>();
+      for (const r of rows) {
+        const { blob } = await client.call('exportAsset', assetOptions(r.format, r.scale, r.quality));
+        const name = `${fileStem(d.name + r.suffix, used)}.${EXT[r.format]}`;
+        if (rows.length === 1) await saveBlob(blob, name, blob.type, EXT[r.format]);
+        else await saveOut(dir ? 'folder' : 'download', dir, name, blob);
+      }
+    });
+  }
+  function runSaveForWeb(o: WebOptions) {
+    void exporting(async d => {
+      const { blob } = await client.call('exportAsset', assetOptions(o.format, o.scale, o.quality, { colors: o.colors, dither: o.dither }));
+      await saveBlob(blob, `${d.name}.${EXT[o.format]}`, blob.type, EXT[o.format]);
+    });
+  }
+  // Layers to Files (root layers, or the leaves inside groups too) and Artboards to Files (root artboards); a
+  // layer with no pixels is skipped and named in the toast. Artboards to PDF writes one file.
+  function runFilesExport(o: FilesOptions) {
+    void exporting(async d => {
+      if (o.kind === 'datasets') {
+        const files = await client.call('exportDataSets', o.setFormat, o.quality / 100);
+        const used = new Set<string>(), ext = o.setFormat === 'jpeg' ? 'jpg' : o.setFormat;
+        for (const f of files) await saveOut(o.dest, o.folder, `${fileStem(`${d.name}_${f.name}`, used)}.${ext}`, f.blob);
+        return;
+      }
+      if (o.kind === 'pdf') {
+        await saveBlob(await client.call('artboardsPdf', o.quality / 100), `${d.name}.pdf`, 'application/pdf', 'pdf');
+        return;
+      }
+      const nodes: LayerNode[] = [];
+      const walk = (ls: LayerNode[]) => {
+        for (const n of [...ls].reverse()) {
+          if (o.skipHidden && !n.visible) continue;
+          if (o.kind === 'layers' && o.nested && n.children) walk(n.children);
+          else nodes.push(n);
+        }
+      };
+      if (o.kind === 'artboards') nodes.push(...[...d.layers].reverse().filter(n => n.artboard));
+      else walk(d.layers);
+      const used = new Set<string>(), skipped: string[] = [];
+      let n = 0;
+      for (const node of nodes) {
+        setBusy(`Exporting ${++n} of ${nodes.length}: ${node.name}…`);
+        const target = o.kind === 'artboards' ? { artboard: node.id, reveal: true } : { layer: node.id, trim: o.trim, reveal: true };
+        try {
+          const { blob } = await client.call('exportAsset', assetOptions(o.format, o.scale, o.quality, target));
+          await saveOut(o.dest, o.folder, `${fileStem(node.name, used)}.${EXT[o.format]}`, blob);
+        } catch (e) {
+          skipped.push(`${node.name} (${(e as Error).message})`);
+        }
+      }
+      if (skipped.length) setError(`Skipped ${skipped.length} of ${nodes.length}: ${skipped.join(', ')}`);
+    });
+  }
+  // File > Package: a PSD copy with every linked Smart Object embedded.
+  function packageDoc() {
+    void exporting(async d => {
+      const { blob, warnings, embedded } = await client.call('packagePsd');
+      if (!await saveBlob(blob, `${d.name}.psd`, 'image/vnd.adobe.photoshop', 'psd')) return;
+      setError(`Packaged ${d.name}.psd with ${embedded} linked file${embedded === 1 ? '' : 's'} embedded.${warnings.length ? ` Warnings: ${warnings.join('; ')}` : ''}`);
+    });
+  }
+
+  // File > Generate > Image Assets: while on, every save writes the layers named like files ("200% icon.png")
+  // into <folder>/<document>-assets; the folder is asked once per document (downloads without folder access).
+  function toggleImageAssets() {
+    setMenu(null);
+    const on = !assetsOn;
+    setAssetsOn(on);
+    try { localStorage.setItem(ASSETS_KEY, on ? '1' : '0'); } catch { /* storage blocked: on for this session */ }
+    if (!on) setError('Image Assets generation is off.');
+    else if (docRef.current) void generateAssets();
+    else setError('Image Assets generation is on; it runs on every save.');
+  }
+  // `quiet` (after a save) skips the toast for a document without asset-named layers.
+  async function generateAssets(quiet = false) {
+    const d = docRef.current;
+    if (!d) return;
+    if (!flatNodes(d.layers).some(n => assetSpecs(n.name).length)) { if (!quiet) setError('No layer names look like assets (try naming a layer "banner.png").'); return; }
+    let dir = assetDirs.current.get(d.key) ?? null;
+    if (!dir && canFolder()) {
+      try { dir = await (window as unknown as { showDirectoryPicker(o: object): Promise<FileSystemDirectoryHandle> }).showDirectoryPicker({ mode: 'readwrite' }); }
+      catch { setError('Image Assets: no folder was chosen. Turn File > Generate > Image Assets off and on to choose one.'); return; }
+      assetDirs.current.set(d.key, dir);
+    }
+    await exporting(async () => {
+      const { files, errors } = await client.call('imageAssets', exportPrefs().icc);
+      const folder = `${fileStem(d.name, new Set())}-assets`;
+      const out = dir ? await dir.getDirectoryHandle(folder, { create: true }) : null;
+      for (const f of files) await saveOut(out ? 'folder' : 'download', out, f.name, f.blob);
+      setError(errors.length ? `Generated ${files.length} asset(s); ${errors.length} failed: ${errors.join('; ')}` : `Generated ${files.length} asset(s)${out ? ` into ${folder}` : ''}.`);
+    });
+  }
+
+  // Image > Variables (Define, Data Sets), Image > Apply Data Set, File > Import > Variable Data Sets.
+  async function withVariables(f: (m: Variables, d: DocInfo) => void) {
+    setMenu(null);
+    const d = docRef.current;
+    if (!d) return;
+    try { f(await client.call('variables'), d); } catch (e) { setError((e as Error).message); }
+  }
+  const openVariables = (tab: 'define' | 'sets') => void withVariables((m, d) => variablesDialog.current?.open(tab, m, d.layers, active?.id ?? null));
+  const openApplyDataSet = () => void withVariables(m => m.data_sets.length ? applySetDialog.current?.open(m) : setError('There are no data sets to apply.'));
+  const importInto = (m: Variables, done: (m: Variables, report: string) => void) => importSetsDialog.current?.open(m, done);
+  const openImportSets = () => void withVariables(m => importInto(m, (n, report) =>
+    void run(null, () => client.call('setVariables', n, 'Import Data Sets')).then(() => setError(report))));
+  async function applySet(name: string) {
+    const r = await client.call('applyDataSet', name);
+    if (r.errors.length) setError(`Apply Data Set: ${r.errors.join(' ')}`);
+    return r.doc;
+  }
+  const commitVariables = (m: Variables, apply: string | null) =>
+    run(null, async () => { const d = await client.call('setVariables', m, 'Variables'); return apply ? applySet(apply) : d; });
+  const saveSetsCsv = (m: Variables) => void exporting(async d => { await saveBlob(new Blob([exportCsv(m)], { type: 'text/csv' }), `${d.name}-datasets.csv`, 'text/csv', 'csv'); });
+
+  // File > File Info.
+  async function openFileInfo() {
+    setMenu(null);
+    if (!docRef.current) return;
+    try { fileInfoDialog.current?.open(await client.call('fileInfo')); } catch (e) { setError((e as Error).message); }
+  }
+
+  // File > Print (dialog) and Print One Copy (the last settings): the image at up to 300 ppi of its printed size.
+  function openPrint() {
+    setMenu(null);
+    const d = docRef.current;
+    if (d) printDialog.current?.open({ width: d.width, height: d.height, resolution: d.resolution });
+  }
+  async function printDoc(s: PrintSettings) {
+    setMenu(null);
+    printSettings.current = s;
+    const d = docRef.current;
+    if (!d) return;
+    let url = '';
+    setBusy('Preparing to print…');
+    try {
+      const l = printLayout(d.width, d.height, d.resolution, s);
+      const scale = Math.min(1, l.widthMm / 25.4 * 300 / d.width);
+      const { blob } = await client.call('exportAsset', { format: 'png', quality: 1, scale, colors: 256, dither: 'none', icc: true });
+      url = URL.createObjectURL(blob);
+      setBusy(null);
+      await printPage(printHtml(l, s, url, d.name));
+    } catch (e) {
+      setError(`The document could not be printed: ${(e as Error).message}`);
+    } finally {
+      setBusy(null);
+      if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }
+
+  function pathsToSvg() {
+    void exporting(async d => {
+      const svg = pathsSvg(d.width, d.height, d.paths.map(p => ({ name: p.work ? 'Work Path' : p.name, path: p.path })));
+      await saveBlob(new Blob([svg], { type: 'image/svg+xml' }), `${d.name}.svg`, 'image/svg+xml', 'svg');
+    });
   }
 
   // A browser download with no picker: the batch runs long after the click, so no user gesture is left.
@@ -621,46 +827,134 @@ export function App() {
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
 
-  // File > Automate > Batch. Each document plays the action with its top layer as the target; files the
-  // batch opened close after saving. Errors stop the batch or go to a downloaded report.
-  async function runBatch(o: BatchOptions) {
-    const steps = actions.sets.find(s => s.id === o.setId)?.actions.find(a => a.id === o.actionId)?.steps.filter(s => s.enabled) ?? [];
-    const items = o.source === 'opened' ? (docRef.current?.docs ?? []).map(t => ({ key: t.key, name: t.name, file: null as File | null })) : o.files.map(f => ({ key: null as string | null, name: f.name, file: f }));
-    const ext = o.format === 'jpeg' ? 'jpg' : o.format, mime = o.format === 'psd' ? 'image/vnd.adobe.photoshop' : `image/${o.format}`;
+  // Batch and Image Processor: `body` runs on each open document or opened file; files opened here close
+  // afterwards. An error stops (false) or goes to a downloaded report named `title`; body false ends early.
+  async function eachDoc(title: string, source: 'opened' | 'files', files: File[], stop: boolean, body: (d: DocInfo) => Promise<boolean>) {
+    const items = source === 'opened' ? (docRef.current?.docs ?? []).map(t => ({ key: t.key, name: t.name, file: null as File | null })) : files.map(f => ({ key: null as string | null, name: f.name, file: f }));
     const log: string[] = [];
     let n = 0;
     for (const it of items) {
-      setBusy(`Batch ${++n} of ${items.length}: ${it.name}…`);
+      setBusy(`${title} ${++n} of ${items.length}: ${it.name}…`);
       let opened: string | null = null;
       try {
-        let d: DocInfo | null = it.key ? await client.call('switchDoc', it.key) : await client.call('openFile', await rasterSvg(it.file!));
+        const d: DocInfo | null = it.key ? await client.call('switchDoc', it.key) : await client.call('openFile', await rasterSvg(it.file!));
         if (!d) throw new Error('The document is not open.');
         if (!it.key) opened = d.key;
         show(d);
-        const top = d.layers.at(-1)?.id ?? null;
-        const done = await playSteps(steps, async (seg, resume) => { d = await client.call('playAction', seg, top, resume) ?? d; show(d); return true; });
-        if (!done) { if (opened) show(await client.call('closeDoc', opened)); break; }
-        if (o.dest !== 'none') {
-          let blob: Blob;
-          if (o.format === 'psd') { blob = (await client.call('savePsd')).blob; show(await client.call('saveEnd', false)); }
-          else blob = await client.call('exportImage', mime as 'image/png' | 'image/jpeg', 0.92);
-          const file = `${d!.name}.${ext}`;
-          if (o.dest === 'folder') await writeFile(await o.folder!.getFileHandle(file, { create: true }), blob);
-          else downloadBlob(blob, file);
-        }
+        const go = await body(d);
         if (opened) { show(await client.call('closeDoc', opened)); opened = null; }
+        if (!go) break;
       } catch (e) {
         const m = `${it.name}: ${(e as Error).message}`;
         if (opened) show(await client.call('closeDoc', opened).catch(() => docRef.current));
-        if (o.errors === 'stop') { setBusy(null); setError(`Batch stopped. ${m}`); return; }
+        if (stop) { setBusy(null); setError(`${title} stopped. ${m}`); return; }
         log.push(m);
       }
     }
     setBusy(null);
     if (log.length) {
-      downloadBlob(new Blob([`Batch errors\n\n${log.join('\n')}\n`], { type: 'text/plain' }), 'Batch errors.txt');
-      setError(`Batch finished with ${log.length} error${log.length > 1 ? 's' : ''}; see Batch errors.txt.`);
+      downloadBlob(new Blob([`${title} errors\n\n${log.join('\n')}\n`], { type: 'text/plain' }), `${title} errors.txt`);
+      setError(`${title} finished with ${log.length} error${log.length > 1 ? 's' : ''}; see ${title} errors.txt.`);
     }
+  }
+  // Plays an action on the active document `d` with its top layer as the target; false when a stop ended it.
+  async function playOn(d: DocInfo, steps: ActionStep[]) {
+    const top = d.layers.at(-1)?.id ?? null;
+    return playSteps(steps, async (seg, resume) => { d = await client.call('playAction', seg, top, resume) ?? d; show(d); return true; });
+  }
+  async function saveOut(dest: 'folder' | 'download', dir: FileSystemDirectoryHandle | null, file: string, blob: Blob) {
+    if (dest === 'folder') await writeFile(await dir!.getFileHandle(file, { create: true }), blob);
+    else downloadBlob(blob, file);
+  }
+  const enabledSteps = (setId: string, actionId: string) => actions.sets.find(s => s.id === setId)?.actions.find(a => a.id === actionId)?.steps.filter(s => s.enabled) ?? [];
+
+  // File > Automate > Batch.
+  async function runBatch(o: BatchOptions) {
+    const steps = enabledSteps(o.setId, o.actionId);
+    const ext = o.format === 'jpeg' ? 'jpg' : o.format, mime = o.format === 'psd' ? 'image/vnd.adobe.photoshop' : `image/${o.format}`;
+    await eachDoc('Batch', o.source, o.files, o.errors === 'stop', async d => {
+      if (!await playOn(d, steps)) return false;
+      if (o.dest === 'none') return true;
+      let blob: Blob;
+      if (o.format === 'psd') { blob = (await client.call('savePsd')).blob; show(await client.call('saveEnd', false)); }
+      else blob = await client.call('exportImage', mime as 'image/png' | 'image/jpeg', 0.92);
+      await saveOut(o.dest, o.folder, `${docRef.current?.name ?? d.name}.${ext}`, blob);
+      return true;
+    });
+  }
+
+  // File > Scripts > Image Processor: per image the action, then per file type an optional fit and sRGB
+  // conversion that are undone after the file is written (counted by version: a full history trims, keeps `current`).
+  async function runImageProcessor(o: ImageProcessorOptions) {
+    const steps = o.action.on ? enabledSteps(o.action.setId, o.action.actionId) : [];
+    const types = [['JPEG', 'jpg', o.jpeg], ['PSD', 'psd', o.psd], ['PNG', 'png', o.png]] as const;
+    const dirs = new Map<string, FileSystemDirectoryHandle>();
+    for (const [name, , t] of types) if (t.on && o.dest === 'folder') dirs.set(name, await o.folder!.getDirectoryHandle(name, { create: true }));
+    await eachDoc('Image Processor', o.source, o.files, false, async d => {
+      if (steps.length && !await playOn(d, steps)) return false;
+      for (const [name, ext, t] of types) {
+        if (!t.on) continue;
+        const cur = docRef.current!;
+        let undo = 0;
+        const step = async (p: Promise<DocInfo>) => { const v = docRef.current!.version, r = await p; show(r); if (r.version !== v) undo++; };
+        try {
+          if (t.fit.on) {
+            const f = Math.min(t.fit.w / cur.width, t.fit.h / cur.height);
+            const w = Math.max(1, Math.round(cur.width * f)), h = Math.max(1, Math.round(cur.height * f));
+            if (w !== cur.width || h !== cur.height) await step(client.call('imageSize', w, h, 'bicubic', true, null));
+          }
+          let blob: Blob;
+          if (name === 'JPEG') {
+            if (o.jpeg.srgb) await step(client.call('convertToProfile', 'sRGB IEC61966-2.1', { intent: 'relativeColorimetric', blackPointCompensation: true, dither: false, flatten: false }));
+            blob = await client.call('exportImage', 'image/jpeg', o.jpeg.quality / 12);
+          } else if (name === 'PSD') { blob = (await client.call('savePsd')).blob; show(await client.call('saveEnd', false)); }
+          else blob = await client.call('exportImage', 'image/png', 1);
+          await saveOut(o.dest, dirs.get(name) ?? null, `${cur.name}.${ext}`, blob);
+        } finally {
+          for (; undo > 0; undo--) show(await client.call('undo'));
+        }
+      }
+      return true;
+    });
+  }
+
+  // File > Scripts > Load Files into Stack.
+  async function loadStack(files: File[], align: boolean, smart: boolean) {
+    await run('Loading layers…', async () => {
+      const d = await client.call('loadStack', await Promise.all(files.map(rasterSvg)), align, smart);
+      if (d.warnings.length) setError(d.warnings.join('; '));
+      return d;
+    });
+  }
+
+  // File > Scripts > Browse: runs a picked .js file; a second click while it runs stops it.
+  function browseScript() {
+    setMenu(null);
+    if (script) { script.abort(); return; }
+    const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.js,.jsx,text/javascript' });
+    input.onchange = async () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      const stop = new AbortController();
+      setScript(stop);
+      try {
+        await runScript(await f.text(), {
+          doc: () => docRef.current,
+          call: async (op, args) => {
+            const r = await (client.call as (op: string, ...a: unknown[]) => Promise<unknown>)(op, ...args);
+            if (r && typeof r === 'object' && 'docs' in r) show(r as DocInfo);
+            return r;
+          },
+          alert: m => alert(m),
+          download: async (name, type, quality) => downloadBlob(await client.call('exportImage', type as 'image/png', quality), name),
+        }, stop.signal);
+      } catch (e) {
+        setError(`${f.name}: ${(e as Error).message}`);
+      } finally {
+        setScript(null);
+      }
+    };
+    input.click();
   }
 
   // File > Export > Layer Comps to Files: one flattened image per comp; TIFF is not available in the browser encoder.
@@ -723,6 +1017,7 @@ export function App() {
       setBusy(null);
     }
     if (encoded) show(await client.call('saveEnd', saved && !copy));
+    if (saved && !copy && assetsOn) await generateAssets(true);
     return saved && !docRef.current?.dirty;
   }
 
@@ -734,7 +1029,9 @@ export function App() {
     if (!d) return false;
     const o = origins.current.get(d.key);
     if (saveRoute(o, d.parents.length > 0) === 'saveAs') return saveAs();
-    return await writeDoc(o!.handle, 'save') && !docRef.current?.dirty;
+    const ok = await writeDoc(o!.handle, 'save');
+    if (ok && assetsOn) await generateAssets(true);
+    return ok && !docRef.current?.dirty;
   }
 
   // File > Save As (the tab takes the new file and its name) and Save a Copy (nothing about the tab changes).
@@ -764,6 +1061,7 @@ export function App() {
     if (d.parents.length) return false;
     origins.current.set(d.key, { handle: h, kind: 'psd', warned: false });
     show(await client.call('setDocName', baseName(h.name)));
+    if (assetsOn) await generateAssets(true);
     return !docRef.current?.dirty;
   }
 
@@ -1260,7 +1558,7 @@ export function App() {
   const menus = buildMenus({
     setMenu, newDialog, aboutDialog, agentDialog, openFiles, placeFile, has, active, save, saveAs: () => void saveAs(), saveCopy: () => void saveAs(true),
     revert, revertOff: !doc || !origins.current.has(doc.key) || !doc.dirty || doc.parents.length > 0,
-    recent: fsAccess() ? recent : null, openRecent, clearRecent: () => { setMenu(null); updateRecent(() => []); }, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer: () => setRenameTick(n => n + 1), run,
+    recent: fsAccess() ? recent : null, openRecent, clearRecent: () => { setMenu(null); updateRecent(() => []); }, quickExport, openExport, pathsToSvg, exportLayerComps, doc, closeTab, closeTabs, renameLayer: () => setRenameTick(n => n + 1), run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, selEdit, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
@@ -1269,6 +1567,10 @@ export function App() {
     openImageCalc: calc => { setMenu(null); if (calc) imageCalc.current?.open({ kind: 'calc' }); else if (active) imageCalc.current?.open({ kind: 'apply', id: active.id }); }, trimDialog, imageSizeDialog, canvasSizeDialog,
     openAutomate: kind => { setMenu(null); setAutomate(kind); automateDialog.current?.showModal(); },
     openBatch: () => { setMenu(null); batchDialog.current?.open(); },
+    openImageProcessor: () => { setMenu(null); imageProcessorDialog.current?.open(); },
+    openLoadStack: () => { setMenu(null); loadStackDialog.current?.open(); },
+    assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo: () => void openFileInfo(), openPrint, printOneCopy: () => void printDoc(printSettings.current),
+    browseScript, scriptRunning: !!script,
     openModeDialog: kind => { setMenu(null); modeDialog.current?.open(kind); },
     openColorDialog: kind => { setMenu(null); colorDialog.current?.open(kind); },
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
@@ -2148,6 +2450,17 @@ export function App() {
       <ColorDialog ref={colorDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
       <PdfDialog ref={pdfDialog} setError={m => setError(m)} />
       <BatchDialog ref={batchDialog} start={o => void runBatch(o)} />
+      <ImageProcessorDialog ref={imageProcessorDialog} start={o => void runImageProcessor(o)} />
+      <LoadStackDialog ref={loadStackDialog} start={(f, a, sm) => void loadStack(f, a, sm)} />
+      <ExportAsDialog ref={exportAsDialog} start={rows => void runExportAs(rows)} />
+      <SaveForWebDialog ref={saveForWebDialog} size={[doc?.width ?? 1, doc?.height ?? 1]} start={runSaveForWeb} />
+      <ExportPrefsDialog ref={exportPrefsDialog} />
+      <FilesExportDialog ref={filesExportDialog} start={runFilesExport} />
+      <FileInfoDialog ref={fileInfoDialog} commit={i => run(null, () => client.call('setFileInfo', i))} />
+      <VariablesDialog ref={variablesDialog} commit={commitVariables} importInto={importInto} exportCsv={saveSetsCsv} />
+      <ImportDataSetsDialog ref={importSetsDialog} />
+      <ApplyDataSetDialog ref={applySetDialog} apply={name => void run(null, () => applySet(name))} />
+      <PrintDialog ref={printDialog} settings={printSettings.current} start={s => void printDoc(s)} />
       <LiquifyDialog ref={liquifyDialog} show={d => show(d)} setError={m => setError(m)} />
       <VanishingPointDialog ref={vpDialog} show={d => show(d)} setError={m => setError(m)} />
       <FilterBlendDialog

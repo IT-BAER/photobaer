@@ -989,3 +989,57 @@ fn rasterize_shape_type_and_vector_mask_keep_the_rendered_image() {
     assert_eq!(d.node(t).unwrap().kind_name(), "pixel");
     assert_eq!(composite(&d), before);
 }
+
+#[test]
+fn file_info_is_stored_in_the_manifest_and_limited() {
+    let mut d = Document::new(16, 16, 8).unwrap();
+    let mut v: Value = serde_json::from_str(&d.vector_json()).unwrap();
+    assert!(v.get("info").is_none(), "no File Info is written for a new document");
+    let info = json!({ "title": "T", "author": "A", "description": "D", "keywords": ["k1", "k2"], "copyright": "C", "copyright_url": "https://x" });
+    v["info"] = info.clone();
+    d.set_document_vector(&v.to_string()).unwrap();
+    let e = Document::from_manifest(&d.manifest()).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&e.vector_json()).unwrap()["info"], info);
+    let mut long = v.clone();
+    long["info"]["description"] = json!("x".repeat(65537));
+    assert!(d.set_document_vector(&long.to_string()).unwrap_err().contains("File Info"));
+    let mut many = v.clone();
+    many["info"]["keywords"] = json!(vec!["k"; 1001]);
+    assert!(d.set_document_vector(&many.to_string()).is_err());
+    let mut bad = serde_json::from_str::<Value>(&d.manifest()).unwrap();
+    bad["info"]["title"] = json!("y".repeat(65537));
+    assert!(Document::from_manifest(&bad.to_string()).is_err(), "a loaded manifest is checked too");
+}
+
+#[test]
+fn variables_are_stored_in_the_manifest_and_checked() {
+    let mut d = Document::new(16, 16, 8).unwrap();
+    let mut v: Value = serde_json::from_str(&d.vector_json()).unwrap();
+    assert!(v.get("variables").is_none(), "no variables are written for a new document");
+    let vars = json!({
+        "variables": [{ "kind": "visibility", "name": "show_logo", "layer": 2 }, { "kind": "text", "name": "title", "layer": 3 }],
+        "data_sets": [{ "name": "Set 1", "values": { "show_logo": "true", "title": "Hello" } }],
+        "active": "Set 1",
+    });
+    v["variables"] = vars.clone();
+    d.set_document_vector(&v.to_string()).unwrap();
+    let e = Document::from_manifest(&d.manifest()).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&e.vector_json()).unwrap()["variables"], vars);
+    for (path, bad) in [
+        ("/variables/0/name", json!("1st")),
+        ("/variables/1/name", json!("show_logo")),
+        ("/data_sets/0/name", json!("")),
+        ("/active", json!("Set 9")),
+    ] {
+        let mut w = v.clone();
+        *w["variables"].pointer_mut(path).unwrap() = bad;
+        assert!(d.set_document_vector(&w.to_string()).unwrap_err().contains("ariable"), "{path}");
+    }
+    let mut twice = v.clone();
+    twice["variables"]["data_sets"] = json!([{ "name": "A", "values": {} }, { "name": "A", "values": {} }]);
+    twice["variables"]["active"] = Value::Null;
+    assert!(d.set_document_vector(&twice.to_string()).is_err(), "data set names are unique");
+    let mut big = v.clone();
+    big["variables"]["data_sets"][0]["values"]["title"] = json!("x".repeat(65537));
+    assert!(d.set_document_vector(&big.to_string()).is_err());
+}

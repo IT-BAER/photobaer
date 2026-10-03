@@ -320,6 +320,99 @@ pub struct DocVector {
     /// Edit > Assign Profile; none = untagged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<crate::doc::profile::DocProfile>,
+    /// File > File Info.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub info: Option<FileInfo>,
+    /// Image > Variables: layer bindings and data sets.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variables: Option<Variables>,
+}
+
+/// Image > Variables: named bindings of a layer's visibility or type text, and the data sets that fill them.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Variables {
+    pub variables: Vec<Variable>,
+    pub data_sets: Vec<DataSet>,
+    pub active: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum VariableKind {
+    Visibility,
+    Text,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Variable {
+    pub kind: VariableKind,
+    pub name: String,
+    /// A layer id; a binding to a deleted layer stays and is reported when a data set is applied.
+    pub layer: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DataSet {
+    pub name: String,
+    pub values: std::collections::BTreeMap<String, String>,
+}
+
+impl Variables {
+    fn validate(&self) -> Result<(), String> {
+        const MAX: usize = 65536;
+        if self.variables.len() > 1000 || self.data_sets.len() > 10000 {
+            return Err("Variables are limited to 1000 bindings and 10000 data sets".into());
+        }
+        let mut names = std::collections::HashSet::new();
+        for v in &self.variables {
+            let mut c = v.name.chars();
+            if v.name.len() > 255 || !c.next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_') || !c.all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                return Err(format!("\"{}\" is not a valid variable name; use letters, digits and underscore, not starting with a digit", v.name));
+            }
+            if !names.insert(&v.name) {
+                return Err(format!("the variable name \"{}\" is used twice", v.name));
+            }
+        }
+        let mut sets = std::collections::HashSet::new();
+        for d in &self.data_sets {
+            if d.name.is_empty() || d.name.len() > 1024 || !sets.insert(&d.name) {
+                return Err(format!("variable data set names must be unique and 1 to 1024 bytes: \"{}\"", d.name));
+            }
+            if d.values.len() > 1000 || d.values.iter().any(|(k, v)| k.len() > 255 || v.len() > MAX) {
+                return Err(format!("variable data set \"{}\" has a value over 64 KiB or too many values", d.name));
+            }
+        }
+        if self.active.as_ref().is_some_and(|a| !sets.contains(a)) {
+            return Err("the active variable data set does not exist".into());
+        }
+        Ok(())
+    }
+}
+
+/// File > File Info: the XMP description fields.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct FileInfo {
+    pub title: String,
+    pub author: String,
+    pub description: String,
+    pub keywords: Vec<String>,
+    pub copyright: String,
+    pub copyright_url: String,
+}
+
+impl FileInfo {
+    fn validate(&self) -> Result<(), String> {
+        const MAX: usize = 65536;
+        let texts = [&self.title, &self.author, &self.description, &self.copyright, &self.copyright_url];
+        if texts.iter().any(|t| t.len() > MAX) || self.keywords.len() > 1000 || self.keywords.iter().any(|k| k.len() > 1024) {
+            return Err("File Info fields are limited to 64 KiB, keywords to 1000 of 1 KiB".into());
+        }
+        Ok(())
+    }
 }
 
 impl Default for DocVector {
@@ -335,6 +428,8 @@ impl Default for DocVector {
             gray: false,
             mode: None,
             profile: None,
+            info: None,
+            variables: None,
         }
     }
 }
@@ -347,6 +442,12 @@ impl DocVector {
         crate::vanishing::check_planes(&self.vanishing_planes)?;
         if let Some(p) = &self.profile {
             p.resolve()?;
+        }
+        if let Some(i) = &self.info {
+            i.validate()?;
+        }
+        if let Some(v) = &self.variables {
+            v.validate()?;
         }
         let mut ids = std::collections::HashSet::new();
         for p in &self.paths {

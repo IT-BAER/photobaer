@@ -374,7 +374,7 @@ dialog button.primary { background: var(--accent); color: var(--on-accent); bord
 .status .grow, .status .shrink { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .status .shrink { flex: 0 1 auto; }
 
-dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; min-width: 300px; }
+dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; min-width: 300px; box-shadow: 0 16px 48px #000a, 0 2px 8px #0006; }
 dialog::backdrop { background: #0008; }
 dialog.filter-dialog::backdrop, dialog.live-preview::backdrop, dialog.layer-style-dialog::backdrop { background: none; }
 dialog h2 { margin: 0 0 12px; font-size: 16px; }
@@ -699,3 +699,23 @@ dialog.vp-dialog h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); }
 .actions-panel .rec, .layers-footer button.recording { color: #e5484d; }
 .actions-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
 .actions-buttons button { padding: 6px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 4px; color: var(--text); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.batch-dialog { width: min(540px, calc(100vw - 32px)); }
+.batch-dialog fieldset { margin: 0 0 10px; padding: 2px 10px 6px; border: 1px solid var(--line); border-radius: 6px; }
+.batch-dialog legend { padding: 0 4px; color: var(--dim); }
+.batch-dialog .row { display: flex; align-items: center; flex-wrap: wrap; gap: 0 12px; }
+.batch-dialog .row label { margin: 4px 0; }
+.batch-dialog input[type=number] { flex: none; width: 76px; }
+.batch-dialog .hint { margin: 4px 0; font-size: 12px; color: var(--dim); }
+.batch-dialog ol.hint { padding-left: 20px; }
+.batch-dialog .hint.bad { color: var(--danger); }
+.variables-values { display: grid; gap: 4px; max-height: 40vh; overflow: auto; }
+.variables-values textarea { width: 100%; box-sizing: border-box; }
+.variables-preview { margin: 6px 0; max-height: 30vh; overflow: auto; }
+.variables-preview div { display: flex; gap: 8px; }
+.variables-preview dt { color: var(--dim); min-width: 30%; }
+.variables-preview dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.export-dialog { width: min(680px, calc(100vw - 32px)); }
+.export-rows { width: 100%; border-collapse: collapse; }
+.export-rows th { text-align: left; font-weight: normal; color: var(--dim); padding: 0 6px 2px 0; }
+.export-rows td { padding: 2px 6px 2px 0; white-space: nowrap; }
+.export-rows input:not([type=number]) { width: 72px; }

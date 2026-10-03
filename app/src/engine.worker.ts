@@ -7,13 +7,14 @@ import { importPsd, exportPsd, compositeRgba, isPsdBytes } from './psd.ts';
 import { getHandle, putHandle } from './links.ts';
 import { denormalize, isIdentity } from './transform/matrix.ts';
 import type { Density, Geometry, Grid, Rig } from './transform/puppet.ts';
-import { patternRefs, type Blending, type LayerStyle } from './layerStyle.ts';
+import { defaultBlending, effectRows, patternRefs, type Blending, type LayerStyle } from './layerStyle.ts';
 import type { PatternRecord } from './brushes/preset.ts';
 import { DESTRUCTIVE_KINDS } from './adjustments.ts';
 import { layerCss, pngSvg, shapeSvg } from './app/svgcss.ts';
+import { makePdf, type PdfPage } from './app/webExport.ts';
 import { BOOL_LABEL } from './shell/shapetools.ts';
 import { layerName } from './shell/typesession.ts';
-import { locate, nodeById } from './layers.ts';
+import { flatNodes, locate, nodeById } from './layers.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
 import type { Spot, AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
@@ -22,10 +23,13 @@ import { inkGray } from './app/channels.ts';
 import { CMYK_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
 import { DEFAULT_VIEW, engineView, sanitizeHdr, type ViewState } from './app/proof.ts';
 import { psdWithIcc, readIcc } from './app/iccFiles.ts';
+import { embedInfo, hasInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
+import { emptyVariables, planDataSet, replaceText, type Variables } from './app/variables.ts';
+import { assetSpecs } from './app/webExport.ts';
 import { TILE } from './view.ts';
 import { NO_RECORD, decodeCall, encodeCall, hot, newIds, recordable, type ActionStep, type Call, type Layers } from './actions.ts';
 import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, toLinear, type FloatImage } from './formats.ts';
-import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
+import { applyTransform, collectPixelIds, decodeSource, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
@@ -314,6 +318,15 @@ function adopt(e: Engine, n: string, key?: string) {
   return info()!;
 }
 
+// The PSD (or PSB) file of `e` with its color profile and File Info.
+function psdFile(e: Engine, psb = false): { blob: Blob; warnings: string[] } {
+  const { bytes, warnings } = exportPsd(e, { psb });
+  const icc = e.profile_icc(), i = docInfo(e);
+  let b: Uint8Array = icc.length ? psdWithIcc(bytes, icc) : bytes;
+  if (hasInfo(i)) b = embedInfo(b, 'image/vnd.adobe.photoshop', i);
+  return { blob: new Blob([b as Uint8Array<ArrayBuffer>], { type: 'image/vnd.adobe.photoshop' }), warnings };
+}
+
 function markSaved() {
   pendingSave = null;
   if (parents.length) return;
@@ -336,6 +349,29 @@ function flattenImage(e: Engine, tree: LayerNode[]) {
   e.move_node(bg, 0, 0);
   for (const n of tree) if (!visible.includes(n.id)) e.delete_node(n.id);
   e.merge_nodes(Uint32Array.of(bg, ...visible), false, true);
+}
+
+// Sibling layers `ids` into one smart object named `name`; its source bytes are a PSB of the layers (D5).
+// A source PSD cannot hold everything (16-bit, smart filters): the source pixels still render and edit.
+function toSmart(e: Engine, ids: number[], name: string) {
+  const sub = e.extract_document(Uint32Array.from(ids));
+  let bytes: Uint8Array | null = null;
+  try { bytes = exportPsd(sub, { psb: true }).bytes; } catch { bytes = null; } finally { sub.free(); }
+  const blob = bytes ? Number(e.blob_add(bytes)) : null;
+  return e.convert_to_smart(Uint32Array.from(ids), JSON.stringify({ name, link_id: uuid(), source_blob: blob }));
+}
+
+// Replaces `n` by a pixel layer of itself alone (mask applied; effects and fill baked unless `keepStyle`)
+// and gives it back its own settings. A disabled layer mask is applied too.
+function bakeLayer(e: Engine, n: LayerNode, keepStyle: boolean) {
+  const { name, visible, opacity, fill, blend, clipping, locks, blending, style } = n;
+  e.set_props(n.id, JSON.stringify({ visible: true, opacity: 1, blend: 'normal', clipping: false, ...(keepStyle ? { fill: 1 } : {}), ...(n.mask ? { mask_enabled: true } : {}) }));
+  e.set_blending(n.id, JSON.stringify(defaultBlending()));
+  if (keepStyle) e.set_style(n.id, 'null');
+  const id = e.merge_nodes(Uint32Array.of(n.id), false, false);
+  e.set_props(id, JSON.stringify({ name, visible, opacity, blend, clipping, locks, ...(keepStyle ? { fill } : {}) }));
+  e.set_blending(id, JSON.stringify(blending));
+  if (keepStyle) e.set_style(id, JSON.stringify(style));
 }
 
 // Drawn root nodes: a clipped node is skipped with its hidden base, as the compositor does.
@@ -384,6 +420,20 @@ function endPreview(commit: boolean) {
   history.restoreOpen();
   history.abort();
   if (commit) { const e = previewError; previewError = null; throw new Error(e!); }
+}
+
+// Applies data set `name` in place and makes it the active one; returns the bindings that could not be applied.
+function applyDataSet(e: Engine, name: string): string[] {
+  const v = JSON.parse(e.vector_json());
+  const m: Variables = v.variables ?? emptyVariables();
+  const plan = planDataSet(m, flatNodes(JSON.parse(e.layers_json()) as LayerNode[]), name);
+  for (const [id, visible] of plan.visible) e.set_props(id, JSON.stringify({ visible }));
+  for (const [id, text] of plan.text) {
+    e.set_text(id, JSON.stringify(replaceText(findNode(e, id)!.text as TextJson, text)));
+    e.render_text(id, fontReg(), resolution(e));
+  }
+  e.set_document_vector(JSON.stringify({ ...v, variables: { ...m, active: name } }));
+  return plan.errors;
 }
 
 // Every point-valued length in a text model (run size, leading, baseline shift; paragraph indents and spacing) times k.
@@ -597,7 +647,19 @@ async function recorded(op: keyof Api, args: unknown[], run: () => Promise<void>
 }
 
 // A document engine from an opened file: .psd/.psb, .exr/.hdr as 32 bits, or a browser-decoded image as one Background layer.
+// A decoded file with the File Info of its XMP packet.
 async function engineOf(file: File): Promise<{ e: Engine; name: string; warnings: string[] }> {
+  const r = await decodeFile(file);
+  const i = readInfo(new Uint8Array(await file.arrayBuffer()));
+  try {
+    if (i) r.e.set_document_vector(JSON.stringify({ ...JSON.parse(r.e.vector_json()), info: i }));
+  } catch (err) {
+    r.warnings.push(`The File Info was not kept: ${(err as Error).message}`);
+  }
+  return r;
+}
+
+async function decodeFile(file: File): Promise<{ e: Engine; name: string; warnings: string[] }> {
   const lower = file.name.toLowerCase();
   const base = file.name.replace(/\.[^.]+$/, '');
   if (lower.endsWith('.psd') || lower.endsWith('.psb')) {
@@ -1244,6 +1306,46 @@ const api = {
     walk(JSON.parse(e.layers_json()));
     if (!hidden.length) return info();
     history.run('Delete Hidden Layers', () => { for (const id of hidden) e.delete_node(id); });
+    return changed();
+  },
+
+  // File > Scripts > Delete All Empty Layers: pixel layers without pixels and groups with nothing else left, one step.
+  deleteEmptyLayers() {
+    const e = need();
+    const doomed: number[] = [];
+    const empty = (n: LayerNode): boolean => n.kind === 'group'
+      ? !n.artboard && (n.children ?? []).map(empty).every(Boolean)
+      : n.kind === 'pixel' && !(e.layer_bounds(n.id) as number[] | null)?.slice(2).every(v => v > 0);
+    const walk = (nodes: LayerNode[]) => { for (const n of nodes) { if (empty(n)) doomed.push(n.id); else if (n.children) walk(n.children); } };
+    walk(JSON.parse(e.layers_json()));
+    if (!doomed.length) throw new Error('There were no empty layers.');
+    history.run('Delete All Empty Layers', () => { for (const id of doomed) e.delete_node(id); });
+    return changed();
+  },
+
+  // File > Scripts > Flatten All Layer Effects: each styled layer becomes pixels of itself with its effects
+  // (and mask) baked in; name, visibility, opacity, blend mode, clipping, locks and blending options stay.
+  flattenAllLayerEffects() {
+    const e = need();
+    const styled = flatNodes(JSON.parse(e.layers_json()) as LayerNode[])
+      .filter(n => n.kind !== 'group' && n.style?.enabled && effectRows(n.style).some(r => r.enabled));
+    if (!styled.length) throw new Error('No layer has an effect to flatten.');
+    history.run('Flatten All Layer Effects', () => { for (const n of styled) bakeLayer(e, n, false); });
+    return changed();
+  },
+
+  // File > Scripts > Flatten All Masks: the layer and vector masks of every pixel layer are applied to its
+  // pixels; the layer style stays and follows the new edges.
+  flattenAllMasks() {
+    const e = need();
+    const masked = flatNodes(JSON.parse(e.layers_json()) as LayerNode[]).filter(n => n.kind === 'pixel' && (n.mask || n.vector_mask));
+    if (!masked.length) throw new Error('No layer has a mask to apply.');
+    history.run('Flatten All Masks', () => {
+      for (const n of masked) {
+        if (n.vector_mask) e.rasterize_vector_mask(n.id);
+        bakeLayer(e, n, true);
+      }
+    });
     return changed();
   },
 
@@ -2628,16 +2730,36 @@ const api = {
     const walk = (ns: LayerNode[]) => { for (const n of ns) { used.add(n.name); if (n.children) walk(n.children); } };
     walk(JSON.parse(e.layers_json()));
     const name = nodes.length === 1 ? nodes[0]!.name : used.has('Group') ? nextName('Group') : 'Group';
-    const sub = e.extract_document(Uint32Array.from(ids));
-    let bytes: Uint8Array | null = null;
-    // A source PSD cannot hold everything (16-bit, smart filters): the source pixels still render and edit.
-    try { bytes = exportPsd(sub, { psb: true }).bytes; } catch { bytes = null; } finally { sub.free(); }
     let created = 0;
-    history.run('Convert to Smart Object', () => {
-      const blob = bytes ? Number(e.blob_add(bytes)) : null;
-      created = e.convert_to_smart(Uint32Array.from(ids), JSON.stringify({ name, link_id: uuid(), source_blob: blob }));
-    });
+    history.run('Convert to Smart Object', () => { created = toSmart(e, ids, name); });
     return { ...changed(), created };
+  },
+
+  // File > Scripts > Load Files into Stack: a new document as large as the largest file, one layer per
+  // file at the top left (the first file at the bottom), optionally auto-aligned and turned into one smart object.
+  async loadStack(files: File[], align: boolean, smart: boolean): Promise<OpenResult> {
+    const srcs = [];
+    for (const f of files) srcs.push({ name: f.name.replace(/\.[^.]+$/, ''), ...await decodeSource(new Uint8Array(await f.arrayBuffer())) });
+    if (!srcs.length) throw new Error('Choose at least one file.');
+    const e = new Engine(Math.max(...srcs.map(s => s.w)), Math.max(...srcs.map(s => s.h)), 8);
+    const warnings: string[] = [];
+    try {
+      const ids: number[] = [];
+      for (const s of srcs) {
+        ids.push(e.add_layer(s.name, ids.at(-1) ?? BACKGROUND));
+        putRgba(e, ids.at(-1)!, s.w, s.h, s.rgba);
+      }
+      e.delete_node(BACKGROUND);
+      if (align && ids.length > 1) {
+        try { e.auto_align(Uint32Array.from(ids), false); } catch (err) { warnings.push(`The layers were not aligned: ${(err as Error).message}`); }
+      }
+      if (smart) toSmart(e, ids, srcs[0].name);
+      if (colorSettings && colorSettings.rgbPolicy !== 'off') e.assign_profile(colorSettings.rgb, new Uint8Array());
+    } catch (err) {
+      e.free();
+      throw err;
+    }
+    return { ...adopt(e, 'Untitled'), warnings };
   },
 
   // Filter > Convert for Smart Filters: one pixel layer in place (same id); its source is a PSB of the
@@ -3013,6 +3135,24 @@ const api = {
     return encodeFlattened(need(), type, quality);
   },
 
+  // File > Export: Quick Export, Export As, Save for Web, Layers and Artboards to Files.
+  exportAsset(o: ExportOptions) {
+    return exportAsset(need(), o);
+  },
+
+  // File > Export > Artboards to PDF: each root artboard on the canvas as one JPEG page at the document resolution.
+  async artboardsPdf(quality: number) {
+    const e = need(), res = resolution(e) || 72;
+    const pages: PdfPage[] = [];
+    for (const n of (JSON.parse(e.layers_json()) as LayerNode[]).filter(n => n.artboard)) {
+      const a = await exportAsset(e, { format: 'jpeg', quality, scale: 1, colors: 256, dither: 'none', icc: false, artboard: n.id, reveal: true }).catch(() => null);
+      if (!a) continue;
+      pages.push({ jpeg: new Uint8Array(await a.blob.arrayBuffer()), width: a.width, height: a.height, ptW: a.width * 72 / res, ptH: a.height * 72 / res });
+    }
+    if (!pages.length) throw new Error('No artboard lies on the canvas.');
+    return new Blob([makePdf(pages)], { type: 'application/pdf' });
+  },
+
   // File > Export > Layer Comps to Files: applies each comp to a clone of the document, flattens
   // and encodes it, and discards the clone; the open document stays unchanged. TIFF is not
   // available through the browser's canvas encoder, so only PNG/JPEG/WebP are offered.
@@ -3036,11 +3176,92 @@ const api = {
   // Marks the outermost document saved (an open Edit Contents saves the nested one, which is not the tab's file).
   // Call saveEnd(false) when the user then cancels the file picker.
   savePsd(): { blob: Blob; warnings: string[] } {
-    const e = need();
-    const { bytes, warnings } = exportPsd(e);
-    const icc = e.profile_icc();
+    const r = psdFile(need());
     markSaved();
-    return { blob: new Blob([(icc.length ? psdWithIcc(bytes, icc) : bytes) as Uint8Array<ArrayBuffer>], { type: 'image/vnd.adobe.photoshop' }), warnings };
+    return r;
+  },
+
+  // File > Package: a PSD copy with every linked Smart Object embedded; the document is unchanged.
+  async packagePsd(): Promise<{ blob: Blob; warnings: string[]; embedded: number }> {
+    const e = need();
+    const c = loadEngine(e.manifest(), t => e.tile_bytes(BigInt(t)));
+    try {
+      let embedded = 0;
+      for (const n of flatNodes(JSON.parse(c.layers_json()) as LayerNode[])) {
+        if (n.smart?.link.type !== 'linked') continue;
+        const bytes = await readLinked(n.smart.link);
+        c.set_smart_link(n.id, JSON.stringify({ link: { type: 'embedded', id: uuid() }, source_blob: Number(c.blob_add(bytes)) }));
+        embedded++;
+      }
+      return { ...psdFile(c), embedded };
+    } finally {
+      c.free();
+    }
+  },
+
+  // File > File Info.
+  fileInfo(): FileInfo | null { return docInfo(need()); },
+  setFileInfo(i: FileInfo) {
+    const e = need();
+    const v = JSON.parse(e.vector_json());
+    const before = JSON.stringify(v.info ?? null);
+    if (hasInfo(i)) v.info = i; else delete v.info;
+    if (JSON.stringify(v.info ?? null) === before) return info();
+    history.run('File Info', () => e.set_document_vector(JSON.stringify(v)));
+    return changed();
+  },
+
+  // Image > Variables.
+  variables(): Variables { return JSON.parse(need().vector_json()).variables ?? emptyVariables(); },
+  setVariables(m: Variables, label: string) {
+    const e = need();
+    const v = JSON.parse(e.vector_json());
+    if (JSON.stringify(v.variables ?? emptyVariables()) === JSON.stringify(m)) return info();
+    const keep = m.variables.length || m.data_sets.length;
+    history.run(label, () => e.set_document_vector(JSON.stringify({ ...v, variables: keep ? m : undefined })));
+    return changed();
+  },
+  // Image > Apply Data Set; the errors name bindings that could not be applied.
+  applyDataSet(name: string) {
+    const e = need();
+    let errors: string[] = [];
+    history.run('Apply Data Set', () => { errors = applyDataSet(e, name); });
+    return { doc: changed(), errors };
+  },
+  // File > Export > Data Sets as Files: each set applied to a clone, which is then encoded and discarded.
+  async exportDataSets(format: 'psd' | 'png' | 'jpeg', quality: number) {
+    const e = need();
+    const manifest = e.manifest();
+    const files: { name: string; blob: Blob }[] = [];
+    for (const d of (JSON.parse(e.vector_json()).variables as Variables | undefined)?.data_sets ?? []) {
+      const c = loadEngine(manifest, id => e.tile_bytes(BigInt(id)));
+      try {
+        applyDataSet(c, d.name);
+        files.push({ name: d.name, blob: format === 'psd' ? psdFile(c).blob : await encodeFlattened(c, `image/${format}`, quality) });
+      } finally {
+        c.free();
+      }
+    }
+    if (!files.length) throw new Error('The document has no data sets.');
+    return files;
+  },
+
+  // File > Generate > Image Assets: every layer named like "200% icon.png, photo.jpg80", trimmed and
+  // shown even when hidden; a repeated file name is reported, the first one is kept.
+  async imageAssets(icc: boolean): Promise<{ files: { name: string; blob: Blob }[]; errors: string[] }> {
+    const e = need(), files: { name: string; blob: Blob }[] = [], errors: string[] = [];
+    for (const n of flatNodes(JSON.parse(e.layers_json()) as LayerNode[])) {
+      for (const a of assetSpecs(n.name)) {
+        if (files.some(f => f.name.toLowerCase() === a.file.toLowerCase())) { errors.push(`${a.file}: the name is used twice`); continue; }
+        try {
+          const r = await exportAsset(e, { format: a.format, quality: a.quality, scale: a.scale, colors: 256, dither: 'diffusion', icc, layer: n.id, trim: true, reveal: true });
+          files.push({ name: a.file, blob: r.blob });
+        } catch (err) {
+          errors.push(`${a.file}: ${(err as Error).message}`);
+        }
+      }
+    }
+    return { files, errors };
   },
 
   // Actions panel recording; steps arrive as actionStep events.
@@ -3086,10 +3307,9 @@ const api = {
   async saveFormat(format: 'psb' | 'exr' | 'hdr' | 'ico'): Promise<{ blob: Blob; warnings: string[] }> {
     const e = need();
     if (format === 'psb') {
-      const { bytes, warnings } = exportPsd(e, { psb: true });
-      const icc = e.profile_icc();
+      const r = psdFile(e, true);
       markSaved();
-      return { blob: new Blob([(icc.length ? psdWithIcc(bytes, icc) : bytes) as Uint8Array<ArrayBuffer>], { type: 'image/vnd.adobe.photoshop' }), warnings };
+      return r;
     }
     if (format === 'ico') {
       const png = new Uint8Array(await (await encodeFlattened(e, 'image/png')).arrayBuffer());

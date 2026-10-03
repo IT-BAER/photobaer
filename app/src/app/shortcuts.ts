@@ -77,6 +77,10 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && k === 'tab') triggerBy(l => l === (e.shiftKey ? 'Previous Document' : 'Next Document'), e);
       else if (ctrl && !e.altKey && !e.shiftKey && k === 'w') triggerBy(l => l === 'Close', e);
       else if (ctrl && k === 'o') trigger('Open', e);
+      else if (ctrl && e.shiftKey && e.altKey && k === 'p') triggerBy(l => l === 'Print One Copy', e);
+      else if (ctrl && !e.shiftKey && !e.altKey && k === 'p') triggerBy(l => l === 'Print…', e);
+      else if (ctrl && e.altKey && e.shiftKey && k === 's') triggerBy(l => l === 'Save for Web (Legacy)…', e);
+      else if (ctrl && e.altKey && e.shiftKey && k === 'w') triggerBy(l => l === 'Export As…', e);
       else if (ctrl && e.altKey && !e.shiftKey && k === 's') triggerBy(l => l === 'Save a Copy…', e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 's') triggerBy(l => l === 'Save As…', e);
       else if (ctrl && !e.altKey && k === 's') triggerBy(l => l === 'Save', e);
@@ -89,6 +93,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && k === 'a') trigger('All', e);
       else if (ctrl && e.shiftKey && k === 'd') trigger('Reselect', e);
       else if (ctrl && k === 'd') trigger('Deselect', e);
+      else if (ctrl && e.shiftKey && e.altKey && k === 'i') triggerBy(l => l === 'File Info…', e);
       else if (ctrl && e.shiftKey && k === 'i') trigger('Inverse', e);
       else if (ctrl && e.altKey && !e.shiftKey && k === 'i') trigger('Image Size', e);
       else if (ctrl && e.altKey && !e.shiftKey && k === 'c') trigger('Canvas Size', e);

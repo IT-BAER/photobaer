@@ -1,8 +1,8 @@
 // Embedded ICC profiles of image files: read on open (PNG, JPEG, WebP, PSD), written on export (PNG, JPEG, PSD).
 
-const ascii = (b: Uint8Array, o: number, n: number) => String.fromCharCode(...b.subarray(o, o + n));
-const view = (b: Uint8Array) => new DataView(b.buffer, b.byteOffset, b.byteLength);
-const concat = (parts: Uint8Array[]) => {
+export const ascii = (b: Uint8Array, o: number, n: number) => String.fromCharCode(...b.subarray(o, o + n));
+export const view = (b: Uint8Array) => new DataView(b.buffer, b.byteOffset, b.byteLength);
+export const concat = (parts: Uint8Array[]) => {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
   let o = 0;
   for (const p of parts) { out.set(p, o); o += p.length; }
@@ -26,13 +26,13 @@ export function crc(b: Uint8Array) {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-const isPng = (b: Uint8Array) => b.length > 8 && b[0] === 0x89 && ascii(b, 1, 3) === 'PNG';
-const isJpeg = (b: Uint8Array) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8;
-const isWebp = (b: Uint8Array) => b.length > 12 && ascii(b, 0, 4) === 'RIFF' && ascii(b, 8, 4) === 'WEBP';
-const isPsd = (b: Uint8Array) => b.length > 30 && ascii(b, 0, 4) === '8BPS';
+export const isPng = (b: Uint8Array) => b.length > 8 && b[0] === 0x89 && ascii(b, 1, 3) === 'PNG';
+export const isJpeg = (b: Uint8Array) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8;
+export const isWebp = (b: Uint8Array) => b.length > 12 && ascii(b, 0, 4) === 'RIFF' && ascii(b, 8, 4) === 'WEBP';
+export const isPsd = (b: Uint8Array) => b.length > 30 && ascii(b, 0, 4) === '8BPS';
 
 // PNG chunks as [type, data offset, data length].
-function* pngChunks(b: Uint8Array) {
+export function* pngChunks(b: Uint8Array) {
   for (let o = 8; o + 12 <= b.length;) {
     const n = view(b).getUint32(o);
     if (o + 12 + n > b.length) return;
@@ -42,7 +42,7 @@ function* pngChunks(b: Uint8Array) {
 }
 
 // JPEG marker segments before the scan as [marker, segment offset, segment length incl. marker].
-function* jpegSegments(b: Uint8Array) {
+export function* jpegSegments(b: Uint8Array) {
   for (let o = 2; o + 4 <= b.length && b[o] === 0xff;) {
     const m = b[o + 1];
     if (m === 0xda || m === 0xd9) return;
@@ -55,7 +55,7 @@ function* jpegSegments(b: Uint8Array) {
 const ICC_SIG = 'ICC_PROFILE\0';
 
 // PSD image resource blocks as [id, block offset, block length, data offset, data length].
-function* psdResources(b: Uint8Array) {
+export function* psdResources(b: Uint8Array) {
   const v = view(b);
   const start = 34 + v.getUint32(26);
   const end = Math.min(b.length, start + v.getUint32(start - 4));
@@ -107,7 +107,7 @@ export async function readIcc(b: Uint8Array): Promise<Uint8Array | null> {
   return null;
 }
 
-function pngChunk(type: string, data: Uint8Array) {
+export function pngChunk(type: string, data: Uint8Array) {
   const out = new Uint8Array(12 + data.length);
   view(out).setUint32(0, data.length);
   for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
@@ -158,15 +158,20 @@ export async function embedIcc(b: Uint8Array, mime: string, icc: Uint8Array): Pr
 
 /** A PSD file with image resource 1039 (ICC profile) set to `icc`. */
 export function psdWithIcc(b: Uint8Array, icc: Uint8Array): Uint8Array {
+  return psdWithResource(b, 1039, icc);
+}
+
+/** A PSD file with image resource `rid` set to `data`. */
+export function psdWithResource(b: Uint8Array, rid: number, data: Uint8Array): Uint8Array {
   const v = view(b);
   const start = 34 + v.getUint32(26);
   const len = v.getUint32(start - 4);
   const keep: Uint8Array[] = [];
-  for (const [id, o, n] of psdResources(b)) if (id !== 1039) keep.push(b.subarray(o, o + n));
-  const block = new Uint8Array(12 + icc.length + (icc.length & 1));
-  block.set([0x38, 0x42, 0x49, 0x4d, 0x04, 0x0f, 0, 0]);
-  view(block).setUint32(8, icc.length);
-  block.set(icc, 12);
+  for (const [id, o, n] of psdResources(b)) if (id !== rid) keep.push(b.subarray(o, o + n));
+  const block = new Uint8Array(12 + data.length + (data.length & 1));
+  block.set([0x38, 0x42, 0x49, 0x4d, rid >> 8, rid & 255, 0, 0]);
+  view(block).setUint32(8, data.length);
+  block.set(data, 12);
   const res = concat([...keep, block]);
   const size = new Uint8Array(4);
   view(size).setUint32(0, res.length);

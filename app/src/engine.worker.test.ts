@@ -11,6 +11,7 @@ import { engineMesh, identityMesh } from './transform/warp.ts';
 import { croppedSize } from './crop/geometry.ts';
 import { ADJUSTMENT_KINDS, DESTRUCTIVE_KINDS, DESTRUCTIVE_LABEL, MENU_LABEL, defaultAdjustment, defaultDestructive } from './adjustments.ts';
 import { defaultBlending, defaultEffect, emptyStyle, type LayerStyle } from './layerStyle.ts';
+import type { LayerNode } from './worker/types.ts';
 
 // Runs the real worker module in Node: WASM loaded up front, worker globals and OPFS faked.
 initSync({ module: readFileSync(new URL('./engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
@@ -3206,4 +3207,141 @@ test('recording: a cancelled preview leaves no calls behind, a committed preview
   assert.equal(r.error, undefined);
   assert.deepEqual((await call('sample', 2, 2, 1, 1)).result, [0, 255, 0, 255]);
   assert.equal((r.result as { undoLabel: string }).undoLabel, 'Fill');
+});
+
+const ids = (l: { id: number; children?: unknown[] }[]): number[] => l.flatMap(x => [x.id, ...ids((x.children ?? []) as { id: number; children?: unknown[] }[])]);
+const probe = [[10, 10], [18, 30], [21, 21], [30, 30], [49, 49], [52, 40], [60, 60]];
+
+test('Delete All Empty Layers removes empty pixel layers and groups left empty in one step', async () => {
+  await styledDoc();
+  const empty = ((await call('addLayer', 2)).result as { created: number }).created;
+  const g = ((await call('addGroup', empty)).result as { created: number }).created;
+  const inner = ((await call('addLayer', g)).result as { created: number }).created;
+  await call('moveNode', inner, g, 0);
+  const r = (await call('deleteEmptyLayers')).result as Pasted;
+  assert.equal(r.undoLabel, 'Delete All Empty Layers');
+  assert.deepEqual(ids(r.layers), [1, 2]);
+  const again = await call('deleteEmptyLayers');
+  assert.equal(again.error, 'There were no empty layers.');
+});
+
+test('Flatten All Layer Effects bakes effects into pixels and keeps name, opacity and blend mode', async () => {
+  await styledDoc();
+  await call('setLayerStyle', 2, { ...emptyStyle(), strokes: [blueStroke(3)] }, defaultBlending(), 1, null);
+  await call('setProps', 2, { name: 'Red', opacity: 0.5, blend: 'multiply' });
+  const before = await samples(probe);
+  const r = (await call('flattenAllLayerEffects')).result as StyledDoc;
+  assert.equal(r.undoLabel, 'Flatten All Layer Effects');
+  const n = (r.layers as unknown as LayerNode[])[1];
+  assert.deepEqual([n.kind, n.name, n.opacity, n.blend, n.style], ['pixel', 'Red', 0.5, 'multiply', null]);
+  assert.deepEqual(await samples(probe), before);
+  assert.equal((await call('flattenAllLayerEffects')).error, 'No layer has an effect to flatten.');
+});
+
+test('Flatten All Masks applies layer masks and keeps the layer style', async () => {
+  await styledDoc();
+  await call('addMask', 2, false);
+  await call('select', { kind: 'rect', x: 20, y: 20, w: 15, h: 30 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 2, 'mask', [255, 255, 255, 255]);
+  await call('selectCommand', 'deselect');
+  await call('setLayerStyle', 2, { ...emptyStyle(), strokes: [blueStroke(3)] }, defaultBlending(), 0.5, null);
+  const before = await samples(probe);
+  const r = (await call('flattenAllMasks')).result as StyledDoc;
+  assert.equal((r.layers as unknown as LayerNode[])[1].fill, 0.5);
+  assert.equal(r.undoLabel, 'Flatten All Masks');
+  const n = (r.layers as unknown as LayerNode[])[1];
+  assert.equal(n.mask, null);
+  assert.notEqual(n.style, null);
+  assert.deepEqual(await samples(probe), before);
+  assert.equal((await pixelAt(40, 40, n.id))[3], 0);
+  assert.equal((await call('flattenAllMasks')).error, 'No layer has a mask to apply.');
+});
+
+test('Load Files into Stack opens one new document with a layer per file, first file at the bottom', async () => {
+  await call('init');
+  const file = (n: string) => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3])], n);
+  const r = (await call('loadStack', [file('a.png'), file('b.jpg')], false, false)).result as SmartDoc & { width: number; height: number };
+  assert.deepEqual(r.layers.map(l => [l.name, l.kind]), [['a', 'pixel'], ['b', 'pixel']]);
+  assert.equal(r.undoLabel, null);
+  assert.deepEqual(await pixelAt(0, 0), [255, 0, 0, 255]);
+  assert.deepEqual(await pixelAt(3, 1), [0, 0, 255, 255]);
+  const s = (await call('loadStack', [file('a.png'), file('b.jpg')], false, true)).result as SmartDoc;
+  assert.deepEqual(s.layers.map(l => [l.name, l.kind]), [['a', 'smart']]);
+});
+
+test('File Info is one undoable step, saved into the PSD and read back on open', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  const i = { title: 'T', author: 'A', description: 'D', keywords: ['k'], copyright: '© C', copyright_url: 'https://x' };
+  const set = await call('setFileInfo', i);
+  assert.equal(set.error, undefined);
+  const r = set.result as { undoLabel: string; history: { labels: string[] } };
+  assert.equal(r.undoLabel, 'File Info');
+  assert.deepEqual((await call('fileInfo')).result, i);
+  const same = (await call('setFileInfo', i)).result as { history: { labels: string[] } };
+  assert.equal(same.history.labels.length, r.history.labels.length, 'no step when nothing changed');
+  const { blob } = (await call('savePsd')).result as { blob: Blob };
+  await call('saveEnd', true);
+  await call('openFile', new File([blob], 'info.psd'));
+  assert.deepEqual((await call('fileInfo')).result, i);
+  await call('closeDoc');
+  await call('undo');
+  assert.equal((await call('fileInfo')).result, null);
+  await call('setFileInfo', i);
+  await call('setFileInfo', { title: '', author: '', description: '', keywords: [], copyright: '', copyright_url: '' });
+  assert.equal((await call('fileInfo')).result, null, 'empty fields remove the File Info');
+});
+
+test('a file with File Info over the limits still opens, without the File Info and with a warning', async () => {
+  const { embedInfo } = await import('./app/fileInfo.ts');
+  const psd = exportPsd(new Engine(4, 2, 8)).bytes;
+  const big = embedInfo(psd, 'image/vnd.adobe.photoshop', { title: 'T', author: '', description: '', keywords: Array.from({ length: 1001 }, (_, i) => `k${i}`), copyright: '', copyright_url: '' });
+  await call('init');
+  const r = await call('openFile', new File([big as Uint8Array<ArrayBuffer>], 'big.psd'));
+  assert.equal(r.error, undefined);
+  assert.ok((r.result as { warnings: string[] }).warnings.some(w => w.includes('File Info')));
+  assert.equal((await call('fileInfo')).result, null);
+});
+
+test('Variables: Apply Data Set sets visibility and type text in one step, and Data Sets as Files leaves the document alone', async () => {
+  await call('init');
+  await call('newDoc', 200, 100, 8, [255, 255, 255, 255]);
+  await call('fontAdd', readFileSync(new URL('../public/fonts/NotoSans-Regular.ttf', import.meta.url)), 'bundled');
+  const { newText } = await import('./shell/typesession.ts');
+  type Info = { undoLabel: string; history: { labels: string[] }; layers: { id: number; visible: boolean; kind: string; text?: { text: string } }[] };
+  const t0 = newText({ family: 'Noto Sans', style: 'Regular', size: 28, color: [0, 0, 0], alignment: 'left', orientation: 'horizontal' }, { type: 'point' }, [10, 60]);
+  const t1 = { ...t0, text: 'Hi', runs: [{ ...t0.runs[0], length: 2 }], paragraphs: [{ ...t0.paragraphs[0], length: 2 }] };
+  const { id } = (await call('typeBegin', { text: t0, above: 0 })).result as { id: number };
+  await call('typeUpdate', t1, 'Hi');
+  const bg = ((await call('typeCommit')).result as Info).layers.find(l => l.kind !== 'text')!.id;
+  const m = {
+    variables: [{ kind: 'visibility', name: 'bg', layer: bg }, { kind: 'text', name: 'title', layer: id }, { kind: 'text', name: 'bad', layer: bg }],
+    data_sets: [{ name: 'One', values: { bg: 'hidden', title: 'Grüße 😀', bad: 'x' } }, { name: 'Two', values: { bg: 'true', title: 'B' } }],
+    active: null,
+  };
+  const sv = await call('setVariables', m, 'Define Variables');
+  assert.equal(sv.error, undefined);
+  assert.equal((sv.result as Info).undoLabel, 'Define Variables');
+  const r = (await call('applyDataSet', 'One')).result as { doc: Info; errors: string[] };
+  assert.equal(r.doc.undoLabel, 'Apply Data Set');
+  assert.equal(r.errors.length, 1);
+  assert.equal(r.doc.layers.find(l => l.id === bg)!.visible, false);
+  assert.equal(r.doc.layers.find(l => l.id === id)!.text!.text, 'Grüße 😀');
+  assert.equal(((await call('variables')).result as { active: string }).active, 'One');
+  const ex = await call('exportDataSets', 'psd', 1);
+  assert.equal(ex.error, undefined);
+  const psd = ex.result as { name: string; blob: Blob }[];
+  assert.deepEqual(psd.map(f => [f.name, f.blob.type]), [['One', 'image/vnd.adobe.photoshop'], ['Two', 'image/vnd.adobe.photoshop']]);
+  const saved = (await call('savePsd')).result as { warnings: string[] };
+  await call('saveEnd', false);
+  assert.ok(saved.warnings.includes('variables and data sets are not stored in PSD'));
+  const back = await call('openFile', new File([psd[1].blob], 'two.psd'));
+  assert.equal((back.result as Info).layers.find(l => l.kind === 'text')!.text!.text, 'B', 'the second file has the second set');
+  await call('closeDoc');
+  const now = ((await call('undo')).result as Info);
+  assert.equal(now.layers.find(l => l.id === id)!.text!.text, 'Hi', 'one undo restores the text');
+  assert.equal(now.layers.find(l => l.id === bg)!.visible, true);
+  await call('setVariables', { variables: [], data_sets: [], active: null }, 'Define Variables');
+  assert.ok(!((await call('savePsd')).result as { warnings: string[] }).warnings.some(w => w.includes('variables')), 'an empty model is removed');
+  await call('saveEnd', false);
 });
