@@ -652,8 +652,10 @@ const api = {
   },
 
   // `action` (from the open dialogs) or, without one, the policy decides about the embedded profile.
-  async openFile(file: File, action?: OpenAction): Promise<OpenResult> {
+  // `resolution` (ppi) is set for rasterized PDF pages.
+  async openFile(file: File, action?: OpenAction, resolution?: number): Promise<OpenResult> {
     const { e, name: n, warnings } = await engineOf(file);
+    if (resolution) e.set_document_vector(JSON.stringify({ ...JSON.parse(e.vector_json()), resolution }));
     if (colorSettings) {
       const p = await embeddedProfile(new Uint8Array(await file.arrayBuffer()));
       if (p.warning) warnings.push(p.warning);

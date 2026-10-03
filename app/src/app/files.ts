@@ -14,7 +14,7 @@ const OPEN_TYPES = [{
   description: 'Images and PSD',
   accept: {
     'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/webp': ['.webp'], 'image/gif': ['.gif'], 'image/bmp': ['.bmp'], 'image/avif': ['.avif'],
-    'image/vnd.adobe.photoshop': ['.psd', '.psb'], 'image/x-exr': ['.exr'], 'image/vnd.radiance': ['.hdr'], 'image/svg+xml': ['.svg'], 'image/x-icon': ['.ico'],
+    'image/vnd.adobe.photoshop': ['.psd', '.psb'], 'image/x-exr': ['.exr'], 'image/vnd.radiance': ['.hdr'], 'image/svg+xml': ['.svg'], 'image/x-icon': ['.ico'], 'application/pdf': ['.pdf'],
   },
 }];
 const SAVE_TYPES = [

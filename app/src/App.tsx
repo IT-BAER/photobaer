@@ -12,6 +12,7 @@ import { ChannelsPanel } from './ChannelsPanel.tsx';
 import { ImageCalcDialog, type ImageCalcHandle } from './ImageCalcDialog.tsx';
 import { ModeDialog, type ModeDialogHandle } from './ModeDialog.tsx';
 import { ColorDialog, type ColorDialogHandle } from './ColorDialog.tsx';
+import { PdfDialog, type PdfDialogHandle } from './PdfDialog.tsx';
 import type { OpenAction } from './app/colorSettings.ts';
 import { COMPOSITE, editChannels, GRAY_MATRIX, viewState, type ChannelView } from './app/channels.ts';
 import { PathsPanel } from './PathsPanel.tsx';
@@ -303,6 +304,7 @@ export function App() {
   const imageCalc = useRef<ImageCalcHandle>(null);
   const modeDialog = useRef<ModeDialogHandle>(null);
   const colorDialog = useRef<ColorDialogHandle>(null);
+  const pdfDialog = useRef<PdfDialogHandle>(null);
   const liquifyDialog = useRef<LiquifyDialogHandle>(null);
   const vpDialog = useRef<VanishingPointDialogHandle>(null);
   const [deform, setDeform] = useState<DeformRequest | null>(null);
@@ -467,8 +469,16 @@ export function App() {
   const remember = (h: FileSystemFileHandle) => updateRecent(l => addRecent(l, { name: h.name, kind: kindOf(h.name), handle: h, time: Date.now() }));
 
   // `handle`: the file's File System Access handle (picker, drop, launch, Open Recent), kept for Save and Revert.
-  async function open(file: File, handle?: FileSystemFileHandle | null) {
+  async function open(file: File, handle?: FileSystemFileHandle | null, ppi?: number) {
     setMenu(null);
+    if (/\.pdf$/i.test(file.name)) {
+      // PDF pages open as rasterized documents without the PDF as their file.
+      const r = await pdfDialog.current?.ask(file);
+      if (!r) return;
+      if (handle) remember(handle);
+      for (const p of r.files) await open(p, null, r.ppi);
+      return;
+    }
     let f: File;
     try { f = await rasterSvg(file); } catch (e) { setError((e as Error).message); return; }
     let action: OpenAction | undefined;
@@ -482,7 +492,7 @@ export function App() {
     } catch { /* unreadable profile: the policy decides in openFile */ }
     setBusy(`Opening ${f.name}…`);
     try {
-      const d = await client.call('openFile', f, action);
+      const d = await client.call('openFile', f, action, ppi);
       if (handle) {
         origins.current.set(d.key, { handle, kind: kindOf(f.name), warned: d.warnings.length > 0 });
         remember(handle);
@@ -2043,7 +2053,7 @@ export function App() {
         if (!f) return;
         try { await uploadFont(client, f); setFaces(await client.call('fontFaces')); } catch (err) { setError((err as Error).message); }
       }} />
-      <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,image/svg+xml,image/x-icon,.psd,.psb,.exr,.hdr,.svg,.ico"
+      <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,image/svg+xml,image/x-icon,application/pdf,.psd,.psb,.exr,.hdr,.svg,.ico,.pdf"
         onChange={async e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; for (const f of fs) await open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <CloseDialog closeDialog={closeDialog} name={closeName} choose={chooseClose} />
@@ -2079,6 +2089,7 @@ export function App() {
       <ImageCalcDialog ref={imageCalc} doc={doc} show={d => show(d)} setError={m => setError(m)} />
       <ModeDialog ref={modeDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
       <ColorDialog ref={colorDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
+      <PdfDialog ref={pdfDialog} setError={m => setError(m)} />
       <LiquifyDialog ref={liquifyDialog} show={d => show(d)} setError={m => setError(m)} />
       <VanishingPointDialog ref={vpDialog} show={d => show(d)} setError={m => setError(m)} />
       <FilterBlendDialog

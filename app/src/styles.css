@@ -679,3 +679,9 @@ dialog.vp-dialog h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); }
 .color-dialog .row { display: flex; align-items: center; gap: 8px; }
 .color-dialog .row select { flex: 1; min-width: 0; }
 .color-dialog .hint { font-size: 12px; opacity: 0.8; margin: 8px 0 0; }
+.pdf-dialog form { min-width: 420px; max-width: 560px; }
+.pdf-pages { display: flex; flex-wrap: wrap; gap: 8px; max-height: 320px; overflow: auto; padding: 4px; border: 1px solid var(--line); border-radius: 4px; margin-bottom: 8px; }
+.pdf-pages button { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 112px; padding: 6px; border: 2px solid transparent; background: none; }
+.pdf-pages button.on { border-color: var(--accent); }
+.pdf-pages img, .pdf-blank { width: 96px; height: 96px; object-fit: contain; background: #fff; }
+.pdf-dialog .row { display: flex; gap: 8px; margin-bottom: 8px; }

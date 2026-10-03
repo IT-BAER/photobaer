@@ -26,7 +26,7 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   saved channel ignores the active selection; spot ink previews as an overlay, not multiplied; PSD export and import
   carry no alpha or spot channels; Shift+click to target several channels; with Quick Mask on and a saved
   channel picked, painting goes into the channel; the panel shows a saved channel's old values during a stroke.
-- Formats rest: PDF import (needs pdf.js, a new dependency); EXR tiled, multi-part, deep and PIZ/PXR24/B44/DWA
+- Formats rest: Import PDF has no Crop To boxes, size fields, mode/bit depth or Images extraction (pages only, ppi); EXR tiled, multi-part, deep and PIZ/PXR24/B44/DWA
   compression; EXR/HDR assume sRGB-encoded 32-bit documents (a non-sRGB profile is not linearized by its own
   curve); SVG opens at its own size without a rasterize dialog; ICO writes one PNG entry up to 256 px; 16/32-bit
   PSD/PSB export.
