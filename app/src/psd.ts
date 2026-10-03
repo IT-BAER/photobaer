@@ -1004,7 +1004,7 @@ function exportNode(x: ExportCtx, n: ManifestNode): Layer {
 // `psb` writes the large document format (smart object sources, D5).
 export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uint8Array<ArrayBuffer>; warnings: string[] } {
   ensureCanvas();
-  if (e.depth() !== 8) throw new Error('16-bit PSD export is not supported yet');
+  if (e.depth() !== 8) throw new Error(`${e.depth()}-bit PSD export is not supported yet`);
   const w = e.width(), h = e.height();
   const manifest = JSON.parse(e.manifest()) as {
     layers: ManifestNode[]; global_light: { angle: number; altitude: number };

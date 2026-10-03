@@ -1,40 +1,60 @@
 // Image > Apply Image (live preview on the active layer) and Image > Calculations (into a new
-// channel or the selection).
+// channel, the selection or a new document). Sources and the mask may come from any open
+// document of the same pixel size.
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { client } from './client.ts';
 import { BLEND_MODES } from './layers.ts';
-import type { DocInfo, ImageSource } from './engine.worker.ts';
+import type { CalcOpts, DocInfo, ImageSource } from './engine.worker.ts';
 import type { LayerNode } from './worker/types.ts';
 
 export type ImageCalcRequest = { kind: 'apply'; id: number } | { kind: 'calc' };
 export interface ImageCalcHandle { open(r: ImageCalcRequest): void }
 
 type Form = {
-  src1: ImageSource; src2: ImageSource; mode: string; opacity: number; preserve: boolean; result: 'channel' | 'selection'; preview: boolean;
+  src1: ImageSource; src2: ImageSource; mode: string; opacity: number; scale: number; offset: number; useMask: boolean; mask: ImageSource;
+  preserve: boolean; result: 'channel' | 'selection' | 'document'; preview: boolean;
 };
+
+const SCALED = new Set(['add', 'subtract']);
+const opts = (f: Form): CalcOpts => ({ mode: f.mode, opacity: f.opacity / 100, scale: f.scale, offset: f.offset, mask: f.useMask ? f.mask : null });
+const clampNum = (v: string, lo: number, hi: number, fallback: number) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback; };
 
 const title = (s: string) => s.replace(/(^| )\w/g, c => c.toUpperCase());
 const pixelLayers = (nodes: LayerNode[]): LayerNode[] =>
   nodes.flatMap(n => [...(n.kind === 'group' ? pixelLayers(n.children ?? []) : []), ...(n.kind === 'group' || n.kind === 'adjustment' || n.kind === 'fill' ? [] : [n])]);
 
+// Another document shows only its merged image and color channels (its layers and saved channels
+// are not loaded here).
 function SourceFields({ label, doc, value, set, calc }: { label: string; doc: DocInfo; value: ImageSource; set: (s: ImageSource) => void; calc: boolean }) {
+  const own = value.doc === undefined;
   const channels: [string, string][] = [
     ...(calc ? [] : [['rgb', 'RGB']] as [string, string][]),
     ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'],
     ...(calc ? [['gray', 'Gray']] as [string, string][] : []),
     ...(value.layer !== null ? [['alpha', 'Transparency']] as [string, string][] : []),
-    ...doc.channels.map(c => [`channel:${c.id}`, c.name] as [string, string]),
+    ...(own ? doc.channels.map(c => [`channel:${c.id}`, c.name] as [string, string]) : []),
   ];
+  const others = doc.docs.filter(d => !d.active && d.width === doc.width && d.height === doc.height);
   return (
     <fieldset>
       <legend>{label}</legend>
+      {others.length > 0 && (
+        <label>Document <select aria-label={`${label} document`} value={value.doc ?? ''}
+          onChange={e => {
+            const key = e.currentTarget.value || undefined;
+            set({ layer: null, channel: calc ? 'gray' : 'rgb', invert: value.invert, ...(key ? { doc: key } : {}) });
+          }}>
+          <option value="">{doc.name}</option>
+          {others.map(d => <option key={d.key} value={d.key}>{d.name}</option>)}
+        </select></label>
+      )}
       <label>Layer <select aria-label={`${label} layer`} value={value.layer ?? 'merged'}
         onChange={e => {
           const layer = e.currentTarget.value === 'merged' ? null : Number(e.currentTarget.value);
           set({ ...value, layer, channel: layer === null && value.channel === 'alpha' ? (calc ? 'gray' : 'rgb') : value.channel });
         }}>
         <option value="merged">Merged</option>
-        {pixelLayers(doc.layers).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+        {own && pixelLayers(doc.layers).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
       </select></label>
       <label>Channel <select aria-label={`${label} channel`} value={value.channel} onChange={e => set({ ...value, channel: e.currentTarget.value })}>
         {channels.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -51,7 +71,8 @@ export function ImageCalcDialog({ ref, doc, show, setError }: {
   const [req, setReq] = useState<ImageCalcRequest | null>(null);
   const [form, setForm] = useState<Form>({
     src1: { layer: null, channel: 'rgb', invert: false }, src2: { layer: null, channel: 'gray', invert: false },
-    mode: 'multiply', opacity: 100, preserve: true, result: 'channel', preview: true,
+    mode: 'multiply', opacity: 100, scale: 1, offset: 0, useMask: false, mask: { layer: null, channel: 'gray', invert: false },
+    preserve: true, result: 'channel', preview: true,
   });
   // One worker call at a time; `session`: an Apply Image preview is open in the worker.
   const st = useRef({ chain: Promise.resolve() as Promise<unknown>, session: false, closing: false });
@@ -61,16 +82,17 @@ export function ImageCalcDialog({ ref, doc, show, setError }: {
     st.current.session = false;
     show(await client.call('previewEnd', commit));
   };
-  const apply = (id: number, f: Form) => client.call('applyImage', id, f.src1, f.mode, f.opacity / 100, f.preserve, true);
+  const apply = (id: number, f: Form) => client.call('applyImage', id, f.src1, { ...opts(f), preserve: f.preserve }, true);
 
   useImperativeHandle(ref, () => ({
     open(r) {
       st.current.closing = false;
       setReq(r);
       setForm(f => ({
-        ...f, mode: 'multiply', opacity: 100,
+        ...f, mode: 'multiply', opacity: 100, scale: 1, offset: 0, useMask: false,
         src1: { layer: null, channel: r.kind === 'apply' ? 'rgb' : 'gray', invert: false },
         src2: { layer: null, channel: 'gray', invert: false },
+        mask: { layer: null, channel: 'gray', invert: false },
       }));
       dialog.current?.showModal();
     },
@@ -96,7 +118,7 @@ export function ImageCalcDialog({ ref, doc, show, setError }: {
     const r = req, f = form;
     enqueue(async () => {
       try {
-        if (r.kind === 'calc') { show(await client.call('calculations', f.src1, f.src2, f.mode, f.opacity / 100, f.result)); return; }
+        if (r.kind === 'calc') { show(await client.call('calculations', f.src1, f.src2, opts(f), f.result)); return; }
         st.current.session = true;
         show(await apply(r.id, f));
         await endSession(true);
@@ -126,15 +148,24 @@ export function ImageCalcDialog({ ref, doc, show, setError }: {
           <SourceFields label={calc ? 'Source 1' : 'Source'} doc={doc} value={form.src1} set={src1 => setForm({ ...form, src1 })} calc={calc} />
           {calc && <SourceFields label="Source 2" doc={doc} value={form.src2} set={src2 => setForm({ ...form, src2 })} calc />}
           <label>Blending <select aria-label="Blending" value={form.mode} onChange={e => setForm({ ...form, mode: e.currentTarget.value })}>
-            {BLEND_MODES.filter(m => m !== 'dissolve').map(m => <option key={m} value={m}>{title(m)}</option>)}
+            {[...BLEND_MODES.filter(m => m !== 'dissolve'), 'add'].map(m => <option key={m} value={m}>{title(m)}</option>)}
           </select></label>
           <label>Opacity <input type="number" min={0} max={100} value={form.opacity}
-            onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setForm({ ...form, opacity: Math.min(100, Math.max(0, v)) }); }} /> %</label>
+            onChange={e => setForm({ ...form, opacity: clampNum(e.currentTarget.value, 0, 100, form.opacity) })} /> %</label>
+          {SCALED.has(form.mode) && <>
+            <label>Scale <input type="number" min={1} max={2} step={0.001} value={form.scale}
+              onChange={e => setForm({ ...form, scale: clampNum(e.currentTarget.value, 1, 2, form.scale) })} /></label>
+            <label>Offset <input type="number" min={-255} max={255} value={form.offset}
+              onChange={e => setForm({ ...form, offset: clampNum(e.currentTarget.value, -255, 255, form.offset) })} /></label>
+          </>}
+          <label><input type="checkbox" checked={form.useMask} onChange={e => setForm({ ...form, useMask: e.currentTarget.checked })} /> Mask</label>
+          {form.useMask && <SourceFields label="Mask" doc={doc} value={form.mask} set={mask => setForm({ ...form, mask })} calc />}
           {!calc && <label><input type="checkbox" checked={form.preserve} onChange={e => setForm({ ...form, preserve: e.currentTarget.checked })} /> Preserve Transparency</label>}
           {calc && (
             <label>Result <select aria-label="Result" value={form.result} onChange={e => setForm({ ...form, result: e.currentTarget.value as Form['result'] })}>
               <option value="channel">New Channel</option>
               <option value="selection">Selection</option>
+              <option value="document">New Document</option>
             </select></label>
           )}
           {!calc && <label className="adjustment-check"><input type="checkbox" checked={form.preview} onChange={e => setForm({ ...form, preview: e.currentTarget.checked })} /> Preview</label>}

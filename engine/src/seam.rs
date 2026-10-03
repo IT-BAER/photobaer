@@ -58,10 +58,12 @@ fn energy(img: &Img, protect: bool) -> Vec<f32> {
     e
 }
 
-// The column of the cheapest vertical seam in every row.
 fn seam(img: &Img, protect: bool) -> Vec<usize> {
-    let (w, h) = (img.w, img.h);
-    let mut m = energy(img, protect);
+    min_seam(energy(img, protect), img.w, img.h)
+}
+
+/// The column of the cheapest 8-connected top-to-bottom seam through cost `m` (w x h) in every row.
+pub(crate) fn min_seam(mut m: Vec<f32>, w: usize, h: usize) -> Vec<usize> {
     for y in 1..h {
         for x in 0..w {
             let up = |c: usize| m[(y - 1) * w + c];

@@ -741,6 +741,19 @@ pub struct EngineCore {
     // View > Proof Setup, Proof Colors, Gamut Warning, 32-bit Preview Options: display only, so
     // outside the document and its snapshots.
     pub view: crate::doc::proof::View,
+    // Channels panel target, UI state outside the document like `view`: pixel edits keep the
+    // color channels not in `color_target`; selection-target edits paint saved channel `alpha_target`.
+    pub color_target: [bool; 3],
+    pub alpha_target: Option<u32>,
+    // What the open stroke holds for its target until it ends.
+    stroke_hold: Option<Hold>,
+}
+
+/// A pixel edit's state for `EngineCore::release`: the layer tiles before it, or the selection
+/// set aside while a saved channel stands in for it.
+enum Hold {
+    Color(u32, Tiles),
+    Alpha(u32, Option<SelMask>),
 }
 
 impl EngineCore {
@@ -759,7 +772,40 @@ impl EngineCore {
             lift: None,
             mixer_well: None,
             view: Default::default(),
+            color_target: [true; 3],
+            alpha_target: None,
+            stroke_hold: None,
         }
+    }
+
+    fn hold(&mut self, id: u32, target: Target) -> Result<Option<Hold>, String> {
+        let c = self.color_target;
+        Ok(match (target, self.alpha_target) {
+            (Target::Selection, Some(ch)) => Some(Hold::Alpha(ch, self.doc.channel_in(ch)?)),
+            (Target::Pixels, _) if c.contains(&true) && c.contains(&false) => {
+                self.doc.node(id).ok().and_then(|n| n.pixel_tiles().ok()).map(|t| Hold::Color(id, t.clone()))
+            }
+            _ => None,
+        })
+    }
+
+    fn release(&mut self, h: Option<Hold>) -> Result<(), String> {
+        match h {
+            Some(Hold::Color(id, before)) => self.doc.keep_channels(id, &before, self.color_target),
+            Some(Hold::Alpha(ch, sel)) => {
+                self.doc.channel_out(ch, sel);
+                Ok(())
+            }
+            None => Ok(()),
+        }
+    }
+
+    /// Runs one edit of `target` on layer `id` through the Channels panel target.
+    pub fn targeted<T>(&mut self, id: u32, target: Target, f: impl FnOnce(&mut Document) -> Result<T, String>) -> Result<T, String> {
+        let h = self.hold(id, target)?;
+        let r = f(&mut self.doc);
+        self.release(h)?;
+        r
     }
 
     /// `transform_selected_pixels` by whole pixels, reusing the cached lift for the same content.
@@ -836,7 +882,7 @@ impl EngineCore {
             }
             other => return Err(format!("unknown fill source {other}")),
         };
-        self.doc.fill_ex(id, target, &src, mode, p.opacity, p.preserve_transparency)
+        self.targeted(id, target, |d| d.fill_ex(id, target, &src, mode, p.opacity, p.preserve_transparency))
     }
 
     /// Edit > Content-Aware Fill: `params_json` is `{structure, color, mode?, opacity?,
@@ -847,7 +893,7 @@ impl EngineCore {
             Some(m) => Some((PaintMode::parse(&m)?, p.opacity, p.preserve_transparency)),
             None => None,
         };
-        self.doc.content_aware_fill(id, p.structure, p.color, opts, p.deselect)
+        self.targeted(id, Target::Pixels, |d| d.content_aware_fill(id, p.structure, p.color, opts, p.deselect))
     }
 
     /// Stroke ring (B6 spec v1 Part E2): `params_json` is `{width, rgba, location, mode, opacity,
@@ -855,7 +901,7 @@ impl EngineCore {
     pub fn stroke_selection(&mut self, id: u32, params_json: &str) -> Result<(), String> {
         let p: StrokeSelIn = serde_json::from_str(params_json).map_err(|e| format!("bad stroke params: {e}"))?;
         let mode = PaintMode::parse(&p.mode)?;
-        self.doc.stroke_selection(id, p.width, p.rgba, &p.location, mode, p.opacity, p.preserve_transparency)
+        self.targeted(id, Target::Pixels, |d| d.stroke_selection(id, p.width, p.rgba, &p.location, mode, p.opacity, p.preserve_transparency))
     }
 
     /// Gradient render (B6 spec v1 Part E3): `target` is "pixels", "mask" or "selection".
@@ -881,20 +927,22 @@ impl EngineCore {
             .into_iter()
             .map(|s| gradient::OpacityStop { position: s.position, opacity: s.opacity, midpoint: s.midpoint })
             .collect();
-        self.doc.gradient(
-            id,
-            target,
-            color_stops,
-            opacity_stops,
-            method,
-            style,
-            (p.start.x, p.start.y),
-            (p.end.x, p.end.y),
-            p.reverse,
-            p.dither,
-            p.transparency,
-            p.opacity,
-        )
+        self.targeted(id, target, |d| {
+            d.gradient(
+                id,
+                target,
+                color_stops,
+                opacity_stops,
+                method,
+                style,
+                (p.start.x, p.start.y),
+                (p.end.x, p.end.y),
+                p.reverse,
+                p.dither,
+                p.transparency,
+                p.opacity,
+            )
+        })
     }
 
     /// Magnetic lasso (docs/M2.md section 3): computes the gradient field of the sampled image
@@ -948,6 +996,7 @@ impl EngineCore {
         } else {
             false
         };
+        let hold = self.hold(layer_id, target)?;
         let sel_was_none = self.doc.selection.is_none();
         let snapshots = &self.snapshots;
         let stroke = parse_stroke(layer_id, target, params_json, &self.tips, &self.patterns, &self.snapshots, keep_alpha, sel_was_none, Some(&self.doc), |id| {
@@ -957,7 +1006,15 @@ impl EngineCore {
                 .and_then(|n| n.pixel_tiles())
                 .map_err(|_| format!("layer {layer_id} has no pixels in snapshot {id}"))?;
             Ok(tiles.clone())
-        })?;
+        });
+        let stroke = match stroke {
+            Ok(s) => s,
+            Err(e) => {
+                self.release(hold)?;
+                return Err(e);
+            }
+        };
+        self.stroke_hold = hold;
         if target == Target::Selection && sel_was_none {
             self.doc.selection = Some(SelMask::default());
         }
@@ -1014,7 +1071,10 @@ impl EngineCore {
         if let Some(Effect::Mixer { clean, .. }) = st.effect {
             self.mixer_well = if clean { None } else { st.reservoir.clone() };
         }
-        self.doc.heal_stroke(&st).map(|_| ())
+        let r = self.doc.heal_stroke(&st).map(|_| ());
+        let h = self.stroke_hold.take();
+        self.release(h)?;
+        r
     }
 
     /// Drops the stroke and puts the stroke-start tiles back, ids included.
@@ -1032,7 +1092,11 @@ impl EngineCore {
                 sel.tiles.put(tx, ty, t.orig);
             }
         }
-        Ok(())
+        // The tiles are back, so a color hold has nothing left to keep.
+        match self.stroke_hold.take() {
+            Some(Hold::Color(..)) | None => Ok(()),
+            h => self.release(h),
+        }
     }
 
     pub fn snapshot(&mut self) -> u32 {

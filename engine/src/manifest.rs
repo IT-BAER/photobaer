@@ -142,7 +142,7 @@ impl Document {
             channels: self
                 .channels
                 .iter()
-                .map(|c| ChannelOut { id: c.id, name: &c.name, default: c.mask.default, tiles: c.mask.tiles.out() })
+                .map(|c| ChannelOut { id: c.id, name: &c.name, default: c.mask.default, tiles: c.mask.tiles.out(), spot: c.spot })
                 .collect(),
             global_light: &self.global_light,
             patterns: &self.patterns,
@@ -162,7 +162,7 @@ impl Document {
             })),
             "has_last_selection": self.last_selection.is_some(),
             "global_light": self.global_light,
-            "channels": self.channels.iter().map(|c| serde_json::json!({ "id": c.id, "name": c.name, "default": c.mask.default })).collect::<Vec<_>>(),
+            "channels": self.channels.iter().map(|c| serde_json::json!({ "id": c.id, "name": c.name, "default": c.mask.default, "spot": c.spot })).collect::<Vec<_>>(),
             "patterns": self.patterns.iter().map(|p| serde_json::json!({ "id": p.id, "name": p.name })).collect::<Vec<_>>(),
             "layer_comps": self.layer_comps.iter().map(|c| serde_json::json!({
                 "id": c.id, "name": c.name, "layer_count": c.layers.len(),
@@ -283,6 +283,7 @@ impl Document {
             }
             3 => {
                 let m: ManifestV3In = serde_json::from_str(json).map_err(|e| format!("invalid manifest: {e}"))?;
+                spot_needs_v8(3, &m.channels)?;
                 Document::build(
                     Head { width: m.width, height: m.height, depth: m.depth, tiles_x: m.tiles_x, tiles_y: m.tiles_y },
                     m.next_id,
@@ -298,6 +299,7 @@ impl Document {
             }
             4 => {
                 let m: ManifestV4In = serde_json::from_str(json).map_err(|e| format!("invalid manifest: {e}"))?;
+                spot_needs_v8(4, &m.channels)?;
                 let extras = V4Extras {
                     global_light: m.global_light,
                     patterns: m.patterns,
@@ -317,8 +319,9 @@ impl Document {
                     false,
                 )
             }
-            5..=7 => {
+            5..=8 => {
                 let m: ManifestV5In = serde_json::from_str(json).map_err(|e| format!("invalid manifest: {e}"))?;
+                spot_needs_v8(probe.version, &m.channels)?;
                 let extras = V4Extras {
                     global_light: m.global_light,
                     patterns: m.patterns,
@@ -436,7 +439,10 @@ impl Document {
                 return Err(format!("duplicate channel id {}", c.id));
             }
             let mask = take_sel(&SelIn { default: c.default, tiles: c.tiles.clone() }, Slot::Channel(i), &mut ctx)?;
-            chans.push(Channel { id: c.id, name: c.name.clone(), mask });
+            if let Some(s) = &c.spot {
+                s.check()?;
+            }
+            chans.push(Channel { id: c.id, name: c.name.clone(), mask, spot: c.spot });
         }
         for l in layer_comps.iter().flat_map(|c| &c.layers) {
             check_comp_layer(l, |id| ctx.patterns.contains(id))?;
@@ -867,6 +873,8 @@ struct ChannelOut<'a> {
     name: &'a str,
     default: u32,
     tiles: Vec<Coord>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    spot: Option<Spot>,
 }
 
 fn sel_out(s: &SelMask) -> SelOut {
@@ -1113,6 +1121,13 @@ struct SelIn {
     tiles: Vec<Coord>,
 }
 
+fn spot_needs_v8(version: u32, channels: &[ChannelIn]) -> Result<(), String> {
+    if version < 8 && channels.iter().any(|c| c.spot.is_some()) {
+        return Err("spot channels need manifest v8".into());
+    }
+    Ok(())
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ChannelIn {
@@ -1120,6 +1135,8 @@ struct ChannelIn {
     name: String,
     default: u32,
     tiles: Vec<Coord>,
+    #[serde(default)]
+    spot: Option<Spot>,
 }
 
 #[derive(Deserialize)]

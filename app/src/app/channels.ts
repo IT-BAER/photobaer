@@ -4,6 +4,10 @@ export interface ChannelView {
   rgb: [boolean, boolean, boolean];
   alpha: number[];
   ink?: number | null;
+  // The saved channel edits paint (picked in the panel); eye toggles keep it.
+  alphaTarget?: number;
+  // The layer whose mask shows like a saved channel.
+  mask?: number;
 }
 
 // Color channels of the modes whose channels are not R, G and B. Multichannel's are the
@@ -41,6 +45,12 @@ export function inkThumb(rgba: Uint8Array, mode: 'cmyk' | 'lab', ch: number): Ui
   return out;
 }
 
+// What edits change: the color channels of a partial R/G/B view, and the picked saved channel.
+export function editChannels(v: ChannelView): { rgb: [boolean, boolean, boolean]; alpha: number | null } {
+  const partial = v.ink == null && v.rgb.some(Boolean) && !v.rgb.every(Boolean);
+  return { rgb: partial ? v.rgb : [true, true, true], alpha: v.alphaTarget ?? null };
+}
+
 export const COMPOSITE: ChannelView = { rgb: [true, true, true], alpha: [] };
 
 // A Grayscale document's view: every color channel shows the luminosity.
@@ -70,13 +80,13 @@ export function channelThumb(rgba: Uint8Array, c: number): Uint8ClampedArray<Arr
   return out;
 }
 
-// What the view draws: a color matrix for the canvas, and the first visible saved channel,
-// opaque gray when no color channel is visible, else a red tint over unselected areas.
-export function viewState(v: ChannelView): { matrix: string | null; alpha: { id: number; mode: 'gray' | 'tint' } | null; ink: number | null } {
-  const color = v.rgb.some(Boolean);
+// What the view draws: a color matrix for the canvas, and the shown layer mask or else the first
+// visible saved channel, opaque gray when no color channel is visible, else a red tint over unselected areas.
+export function viewState(v: ChannelView): { matrix: string | null; alpha: { id: number; mode: 'gray' | 'tint'; layer?: boolean } | null; ink: number | null } {
+  const color = v.rgb.some(Boolean), mode = color ? 'tint' as const : 'gray' as const;
   return {
     matrix: color ? channelMatrix(v.rgb) : null,
-    alpha: v.alpha.length ? { id: v.alpha[0], mode: color ? 'tint' : 'gray' } : null,
+    alpha: v.mask != null ? { id: v.mask, mode, layer: true } : v.alpha.length ? { id: v.alpha[0], mode } : null,
     ink: v.ink ?? null,
   };
 }

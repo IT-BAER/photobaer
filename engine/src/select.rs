@@ -845,6 +845,33 @@ impl Document {
         }
     }
 
+    /// Layer `id`'s mask of one display tile as 8-bit values, like `channel_tile`.
+    pub fn layer_mask_tile(&self, id: u32, level: u32, tx: u32, ty: u32) -> Result<Option<Vec<u8>>, String> {
+        if level > 8 {
+            return Err("level must be <= 8".into());
+        }
+        let m = self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
+        match self.level_tile(&m.tiles, Some(m.default), level, tx, ty) {
+            Some((_, px)) => Ok(Some(mask_bytes8(&px)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Puts saved channel `id` in the selection's place, so selection-target edits paint it;
+    /// returns the selection for `channel_out`.
+    pub fn channel_in(&mut self, id: u32) -> Result<Option<SelMask>, String> {
+        let mask = self.channels.iter().find(|c| c.id == id).ok_or_else(|| format!("unknown channel {id}"))?.mask.clone();
+        Ok(std::mem::replace(&mut self.selection, Some(mask)))
+    }
+
+    /// Moves the edited mask back into channel `id` and restores `sel` as the selection.
+    pub fn channel_out(&mut self, id: u32, sel: Option<SelMask>) {
+        let mask = std::mem::replace(&mut self.selection, sel).unwrap_or_default();
+        if let Some(c) = self.channels.iter_mut().find(|c| c.id == id) {
+            c.mask = mask;
+        }
+    }
+
     pub(super) fn next_channel_id(&self) -> u32 {
         self.channels.iter().map(|c| c.id).max().unwrap_or(0) + 1
     }
@@ -853,8 +880,31 @@ impl Document {
     pub fn new_channel(&mut self, name: &str) -> Result<u32, String> {
         self.check_idle()?;
         let id = self.next_channel_id();
-        self.channels.push(Channel { id, name: name.to_string(), mask: SelMask::default() });
+        self.channels.push(Channel { id, name: name.to_string(), mask: SelMask::default(), spot: None });
         Ok(id)
+    }
+
+    /// Adds a spot channel with no ink (white) and returns its id.
+    pub fn new_spot_channel(&mut self, name: &str, spot: Spot) -> Result<u32, String> {
+        self.check_idle()?;
+        spot.check()?;
+        let id = self.next_channel_id();
+        let mask = SelMask { default: self.max() as u32, tiles: Tiles::default() };
+        self.channels.push(Channel { id, name: name.to_string(), mask, spot: Some(spot) });
+        Ok(id)
+    }
+
+    /// Spot Channel Options: name, ink color and solidity of spot channel `id`.
+    pub fn set_spot(&mut self, id: u32, name: &str, spot: Spot) -> Result<(), String> {
+        self.check_idle()?;
+        spot.check()?;
+        let ch = self.channels.iter_mut().find(|c| c.id == id).ok_or_else(|| format!("unknown channel {id}"))?;
+        if ch.spot.is_none() {
+            return Err(format!("channel {id} is not a spot channel"));
+        }
+        ch.name = name.to_string();
+        ch.spot = Some(spot);
+        Ok(())
     }
 
     pub fn rename_channel(&mut self, id: u32, name: &str) -> Result<(), String> {
@@ -867,9 +917,10 @@ impl Document {
     /// Copies a channel to the end of the list and returns the copy's id.
     pub fn duplicate_channel(&mut self, id: u32, name: &str) -> Result<u32, String> {
         self.check_idle()?;
-        let mask = self.channels.iter().find(|c| c.id == id).ok_or_else(|| format!("unknown channel {id}"))?.mask.clone();
+        let src = self.channels.iter().find(|c| c.id == id).ok_or_else(|| format!("unknown channel {id}"))?;
+        let (mask, spot) = (src.mask.clone(), src.spot);
         let new = self.next_channel_id();
-        self.channels.push(Channel { id: new, name: name.to_string(), mask });
+        self.channels.push(Channel { id: new, name: name.to_string(), mask, spot });
         Ok(new)
     }
 
@@ -878,7 +929,7 @@ impl Document {
         self.check_idle()?;
         let mask = self.selection.clone().ok_or("nothing is selected")?;
         let id = self.next_channel_id();
-        self.channels.push(Channel { id, name: name.to_string(), mask });
+        self.channels.push(Channel { id, name: name.to_string(), mask, spot: None });
         Ok(id)
     }
 

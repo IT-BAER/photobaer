@@ -12,7 +12,7 @@ import type { Viewer } from '../viewer.ts';
 import { GROUPS, menuLabel, type FilterSpec } from '../filters/schema.ts';
 import type { DocInfo, LayerNode, SmartFilterInfo, SmartInfo } from '../worker/types.ts';
 import type { SnapSettings } from '../shell/snapping.ts';
-import type { ArtboardMode } from './Dialogs.tsx';
+import type { ArtboardMode, AutomateKind } from './Dialogs.tsx';
 import { ALIGN_ITEMS, STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
 import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.ts';
 import { copy, paste } from './clipboard.ts';
@@ -33,7 +33,7 @@ export interface MenuCtx {
   exportAs: (mime: Mime, ext: string) => Promise<void>; exportLayerComps: (mime: Mime, ext: string) => Promise<void>;
   doc: DocInfo | null; closeTab: () => Promise<void>; closeTabs: (which: 'all' | 'others') => Promise<void>; renameLayer: () => void; run: Run; openPreviewDialog: (which: 'fill' | 'stroke') => void;
   contentAwareFill: (dialog: boolean) => void;
-  quickFill: (rgb: Rgb, label: string) => void; fg: Rgb; bg: Rgb; quickMask: boolean; startTransform: (mode?: Mode, selection?: boolean) => Promise<void>;
+  quickFill: (rgb: Rgb, label: string) => void; fg: Rgb; bg: Rgb; quickMask: boolean; selEdit: boolean; startTransform: (mode?: Mode, selection?: boolean) => Promise<void>;
   transformAgain: () => void; transformStore: TransformBarStore | null; transformMode: (m: Mode) => void; warping: boolean;
   warpMenuSplit: (mode: WarpSplit) => void; transformRemap: (c: Command, label: string) => void;
   newLayer: () => void; newGroup: () => void; duplicateLayer: () => void; deleteLayer: () => void; deleteDisabled: boolean;
@@ -45,6 +45,7 @@ export interface MenuCtx {
   filterCommand: (op: 'toggle' | 'clear' | 'deleteMasks' | 'toggleMasks', label: string) => () => void; filters: SmartFilterInfo[];
   filterMasks: boolean; maskLabel: string; openFilterBlend: () => void; openLayerStyle: (page: StylePage, id?: number) => void;
   globalLightDialog: DialogRef; allEffectsHidden: boolean; anyStyled: boolean; scaleEffectsDialog: DialogRef;
+  openAutomate: (kind: AutomateKind) => void;
   openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; openImageCalc: (calc: boolean) => void; openModeDialog: (kind: ModeDialogKind) => void; openColorDialog: (kind: ColorDialogKind) => void; applyDestructive: (kind: DestructiveKind) => void;
   rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
@@ -109,11 +110,11 @@ export function buildMenus(c: MenuCtx) {
   };
   const {
     setMenu, newDialog, openFiles, placeFile, has, active, save, saveAs, saveCopy, revert, revertOff, recent, openRecent, clearRecent, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer, run,
-    openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
+    openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, selEdit, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
+    openAutomate, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
@@ -173,6 +174,12 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Layer Comps to Files (PNG)…', run: () => exportLayerComps('image/png', 'png'), off: !has || !doc?.layerComps.length },
       { label: 'Layer Comps to Files (JPEG)…', run: () => exportLayerComps('image/jpeg', 'jpg'), off: !has || !doc?.layerComps.length },
       { label: 'Layer Comps to Files (WebP)…', run: () => exportLayerComps('image/webp', 'webp'), off: !has || !doc?.layerComps.length },
+      {
+        label: 'Automate', keys: '›', run: () => {}, sub: [
+          { label: 'Photomerge…', run: () => openAutomate('photomerge'), off: !has },
+          { label: 'Merge to HDR Pro…', run: () => openAutomate('hdr'), off: (doc?.docs.length ?? 0) < 2 },
+        ],
+      },
       { label: 'Close', run: () => void closeTab(), off: !has },
       { label: 'Close All', run: () => void closeTabs('all'), off: !has },
       { label: 'Close Others', run: () => void closeTabs('others'), off: (doc?.docs.length ?? 0) < 2 },
@@ -197,7 +204,7 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Stroke…', run: () => openPreviewDialog('stroke'), off: !doc?.selection || !active },
       { label: 'Content-Aware Fill…', run: () => contentAwareFill(true), off: !has || !active },
       { label: 'Delete and Fill Selection', run: () => contentAwareFill(false), off: !has || !active },
-      { label: 'Clear', keys: 'Delete', run: () => active && run('Clearing…', () => client.call('clearSelected', active.id, quickMask ? 'selection' : active.target)), off: !doc?.selection || !active },
+      { label: 'Clear', keys: 'Delete', run: () => active && run('Clearing…', () => client.call('clearSelected', active.id, selEdit ? 'selection' : active.target)), off: !doc?.selection || !active },
       { label: 'Content-Aware Scale…', keys: 'Alt+Shift+Ctrl+C', run: openContentAwareScale, off: !has || !active },
       { label: 'Puppet Warp', run: () => startDeform('puppet'), off: !has || !active },
       { label: 'Perspective Warp', run: () => startDeform('perspective'), off: !has || !active },
@@ -212,6 +219,8 @@ export function buildMenus(c: MenuCtx) {
             .map(([c, label]) => ({ label, run: () => transformRemap(c, label), off: warping })),
         ],
       },
+      { label: 'Auto-Align Layers…', run: () => openAutomate('align'), off: selectedNodes.filter(n => n.kind === 'pixel').length < 2 },
+      { label: 'Auto-Blend Layers…', run: () => openAutomate('blend'), off: selectedNodes.filter(n => n.kind === 'pixel').length < 2 },
       { label: 'Color Settings…', keys: 'Shift+Ctrl+K', sep: true, run: () => openColorDialog('settings') },
       { label: 'Assign Profile…', run: () => openColorDialog('assign'), off: !has || (!!doc?.mode && doc.mode.kind !== 'cmyk') },
       { label: 'Convert to Profile…', run: () => openColorDialog('convert'), off: !has || (!!doc?.mode && doc.mode.kind !== 'cmyk') },
@@ -306,7 +315,7 @@ export function buildMenus(c: MenuCtx) {
       },
       {
         label: 'Adjustments', sep: true, keys: '›', run: () => {}, off: !has || !active, sub: ADJUSTMENT_KINDS.map<Item>(kind => kind === 'invert'
-          ? { label: 'Invert', keys: 'Ctrl+I', sep: true, run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, quickMask ? 'selection' : active!.target)) }
+          ? { label: 'Invert', keys: 'Ctrl+I', sep: true, run: () => run('Inverting…', () => client.call('command', 'invert', active!.id, selEdit ? 'selection' : active!.target)) }
           : { label: `${MENU_LABEL[kind]}…`, keys: SHORTCUT[kind], run: () => openAdjust(kind), off: hostOff }).concat([
           { label: 'Shadows/Highlights…', sep: true, run: () => openAdjust('shadows_highlights'), off: pixelsOff },
           { label: 'HDR Toning…', run: () => openAdjust('hdr_toning'), off: pixelsOff },

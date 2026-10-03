@@ -9,8 +9,10 @@ const rec = (path: string, time: number): Recent => ({ name: path.split('/').at(
 test('kindOf and saveFormat follow the extension, case-insensitive', () => {
   assert.equal(kindOf('a.psd'), 'psd');
   assert.equal(kindOf('a.png'), 'image');
-  assert.equal(kindOf('a.psb'), 'image');
+  assert.equal(kindOf('a.PSB'), 'psd');
   assert.equal(saveFormat('x.PSD'), 'psd');
+  assert.equal(saveFormat('x.Exr'), 'exr');
+  for (const f of ['psb', 'hdr', 'ico'] as const) assert.equal(saveFormat(`x.${f}`), f);
   assert.equal(saveFormat('x'), null);
   assert.equal(saveFormat('x.png'), null);
 });

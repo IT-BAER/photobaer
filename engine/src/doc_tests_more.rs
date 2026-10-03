@@ -1483,3 +1483,113 @@ fn stroke_latency_on_a_4k_canvas() {
     println!("stroke_to (texture + dual brush): {ms:.3} ms per 20 px segment");
     e.stroke_end().unwrap();
 }
+
+// ---------- Channels panel targeting ----------
+
+fn channel_at(e: &EngineCore, id: u32, x: i32, y: i32) -> f32 {
+    let ch = e.doc.channels.iter().find(|c| c.id == id).unwrap();
+    e.doc.sel_at(&ch.mask, x, y)
+}
+
+#[test]
+fn a_fill_on_one_targeted_color_channel_keeps_the_others() {
+    let mut e = core_bg(10, 20, 30);
+    e.color_target = [false, true, false];
+    e.fill_ex(1, "pixels", r#"{"source":"solid","rgba":[200,200,200,255],"mode":"normal","opacity":1.0,"preserveTransparency":false}"#)
+        .unwrap();
+    assert_eq!(at(&e.doc, 5, 5), [10, 200, 30, 255]);
+}
+
+#[test]
+fn a_stroke_on_one_targeted_color_channel_keeps_the_others() {
+    let mut e = core_bg(0, 0, 0);
+    e.color_target = [true, false, false];
+    e.stroke_begin(1, "pixels", &hard(r#","rgba":[255,255,255,255],"size":20"#)).unwrap();
+    e.stroke_to(&[10.5, 10.5, 1.0]).unwrap();
+    e.stroke_end().unwrap();
+    assert_eq!(at(&e.doc, 10, 10), [255, 0, 0, 255]);
+}
+
+#[test]
+fn a_selection_target_stroke_paints_the_targeted_alpha_channel_and_keeps_the_selection() {
+    let mut e = core_bg(255, 255, 255);
+    let c = e.doc.new_channel("Alpha 1").unwrap();
+    e.doc.select_rect(100.0, 100.0, 20.0, 20.0, Mode::New).unwrap();
+    e.alpha_target = Some(c);
+    e.stroke_begin(1, "selection", &hard(r#","rgba":[255,255,255,255],"size":20"#)).unwrap();
+    e.stroke_to(&[10.5, 10.5, 1.0]).unwrap();
+    e.stroke_end().unwrap();
+    assert_eq!(channel_at(&e, c, 10, 10), 1.0);
+    assert_eq!(channel_at(&e, c, 40, 10), 0.0);
+    assert_eq!(e.doc.selection_bounds(), Some([100, 100, 20, 20]), "the selection is untouched");
+    assert_eq!(at(&e.doc, 10, 10), [255, 255, 255, 255], "the layer is untouched");
+}
+
+#[test]
+fn a_cancelled_alpha_channel_stroke_restores_the_channel_and_the_selection() {
+    let mut e = core_bg(255, 255, 255);
+    let c = e.doc.new_channel("Alpha 1").unwrap();
+    e.alpha_target = Some(c);
+    e.stroke_begin(1, "selection", &hard("")).unwrap();
+    e.stroke_to(&[10.5, 10.5, 1.0]).unwrap();
+    e.stroke_cancel().unwrap();
+    assert_eq!(channel_at(&e, c, 10, 10), 0.0);
+    assert!(!e.doc.has_selection());
+}
+
+#[test]
+fn a_selection_target_fill_fills_the_targeted_alpha_channel() {
+    let mut e = core_bg(0, 0, 0);
+    let c = e.doc.new_channel("Alpha 1").unwrap();
+    e.alpha_target = Some(c);
+    e.fill_ex(1, "selection", r#"{"source":"solid","rgba":[255,255,255,255],"mode":"normal","opacity":1.0,"preserveTransparency":false}"#)
+        .unwrap();
+    assert_eq!(channel_at(&e, c, 5, 5), 1.0);
+    assert!(!e.doc.has_selection());
+}
+
+#[test]
+fn spot_channels_start_without_ink_take_options_duplicate_and_list_their_ink() {
+    let mut d = Document::new(16, 16, 8).unwrap();
+    let ink = Spot { color: [0, 153, 230], solidity: 0.0 };
+    let s = d.new_spot_channel("Spot Color 1", ink).unwrap();
+    let ch = d.channels.iter().find(|c| c.id == s).unwrap();
+    assert_eq!(ch.mask.default, 255, "white: no ink");
+    d.set_spot(s, "Gold", Spot { color: [200, 160, 40], solidity: 0.5 }).unwrap();
+    let dup = d.duplicate_channel(s, "Gold copy").unwrap();
+    let v: serde_json::Value = serde_json::from_str(&d.channels_json()).unwrap();
+    assert_eq!(v["channels"][0]["name"], "Gold");
+    assert_eq!(v["channels"][0]["spot"], serde_json::json!({ "color": [200, 160, 40], "solidity": 0.5 }));
+    assert_eq!(v["channels"][1]["id"], dup);
+    assert_eq!(v["channels"][1]["spot"]["color"], serde_json::json!([200, 160, 40]));
+    assert!(d.set_spot(s, "x", Spot { color: [0, 0, 0], solidity: 1.5 }).is_err(), "solidity is 0..1");
+    let a = d.new_channel("Alpha 1").unwrap();
+    assert!(d.set_spot(a, "x", ink).is_err(), "an alpha channel is not a spot channel");
+}
+
+#[test]
+fn spot_channels_survive_the_manifest_and_need_v8() {
+    let mut d = Document::new(16, 16, 8).unwrap();
+    d.new_spot_channel("Spot Color 1", Spot { color: [1, 2, 3], solidity: 0.25 }).unwrap();
+    d.new_channel("Alpha 1").unwrap();
+    let (first, second) = crate::doc::m3_tests::reload(&d);
+    assert_eq!(first, second, "write -> read -> write is byte identical");
+    let mut v: serde_json::Value = serde_json::from_str(&first).unwrap();
+    assert_eq!(v["version"], 8);
+    assert!(v["channels"][1].get("spot").is_none(), "alpha channels write no spot");
+    v["version"] = 7.into();
+    assert!(Document::from_manifest(&v.to_string()).err().unwrap().contains("v8"));
+}
+
+#[test]
+fn float_tiles_write_and_flatten_with_over_range_kept() {
+    let mut d = Document::new(300, 10, 32).unwrap();
+    let mut t = vec![0f32; TILE_PIXELS * 4];
+    t[..8].copy_from_slice(&[2.5, 0.5, 0.25, 1.0, 1.0, 0.0, 0.0, 0.5]);
+    d.set_tile_f32(1, 1, 0, &t).unwrap();
+    let f = d.flatten_tile_f32(1, 0).unwrap();
+    assert_eq!(&f[..8], &[2.5, 0.5, 0.25, 1.0, 1.0, 0.0, 0.0, 0.5]);
+    assert_eq!(d.flatten_tile_f32(0, 0).unwrap()[3], 0.0);
+    assert!(Document::new(8, 8, 8).unwrap().set_tile_f32(1, 0, 0, &t).is_err());
+    assert!(d.set_tile_f32(1, 0, 0, &t[..4]).is_err());
+}

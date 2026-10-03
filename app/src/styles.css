@@ -250,6 +250,7 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .channel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .channel-rename { flex: 1; min-width: 0; }
 .channel-keys { color: var(--dim); font-size: 11px; }
+.channel-swatch { width: 12px; height: 12px; flex: none; border-radius: 3px; border: 1px solid var(--line); }
 .path-row { align-items: center; gap: 6px; }
 .path-thumb { width: 20px; height: 16px; flex: none; border: 1px solid var(--dim); border-radius: 3px; }
 .path-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

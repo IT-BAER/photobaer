@@ -38,13 +38,16 @@ mod m4_tests;
 mod filter_run;
 #[path = "apply_image.rs"]
 mod apply_image;
+#[path = "align.rs"]
+mod align;
+pub use align::HdrAcc;
 #[path = "color_mode.rs"]
 pub mod color_mode;
 #[path = "profile.rs"]
 pub mod profile;
 #[path = "proof.rs"]
 pub mod proof;
-pub use apply_image::ImageSource;
+pub use apply_image::{CalcOp, ImageSource, SourceTiles};
 #[cfg(test)]
 #[path = "doc_m5_tests.rs"]
 mod m5_tests;
@@ -90,7 +93,7 @@ const MASK_BYTES_U8: usize = TILE_PIXELS;
 const MASK_BYTES_U16: usize = TILE_PIXELS * 2;
 const TILE_BYTES_F32: usize = TILE_PIXELS * 4 * 4;
 const MANIFEST_FORMAT: &str = "photobaer-manifest";
-const MANIFEST_VERSION: u32 = 7;
+const MANIFEST_VERSION: u32 = 8;
 // A tile coordinate far outside the largest canvas is a broken file, not a moved layer.
 const MAX_TILE_COORD: u32 = 1 << 20;
 // Ids travel as JS numbers; anything above 2^53 would lose precision or overflow next_id.
@@ -604,6 +607,22 @@ pub struct Channel {
     pub id: u32,
     pub name: String,
     pub mask: SelMask,
+    /// A spot channel's ink; its mask is ink coverage inverted (white: no ink). None for alpha.
+    pub spot: Option<Spot>,
+}
+
+/// Spot channel ink: display color and on-screen solidity 0..1 (manifest v8).
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Spot {
+    pub color: [u8; 3],
+    pub solidity: f32,
+}
+
+impl Spot {
+    pub fn check(&self) -> Result<(), String> {
+        if (0.0..=1.0).contains(&self.solidity) { Ok(()) } else { Err("spot solidity must be within 0..1".into()) }
+    }
 }
 
 #[derive(Clone)]
@@ -1292,6 +1311,43 @@ impl Document {
         let m = self.node_mut(id)?.mask.as_mut().expect("checked");
         for ((tx, ty), t) in out {
             m.tiles.put(tx, ty, t);
+        }
+        Ok(())
+    }
+
+    /// Channels panel color target: tiles of layer `id` that changed since `before` take the
+    /// color channels not in `keep` back from `before` (missing tiles read as 0); alpha stays new.
+    pub fn keep_channels(&mut self, id: u32, before: &Tiles, keep: [bool; 3]) -> Result<(), String> {
+        fn mix<T: Copy + Default>(new: &[T], old: Option<&[T]>, keep: [bool; 3]) -> Box<[T]> {
+            let mut out = new.to_vec();
+            for (i, v) in out.iter_mut().enumerate() {
+                if i % 4 < 3 && !keep[i % 4] {
+                    *v = old.map_or(T::default(), |o| o[i]);
+                }
+            }
+            out.into_boxed_slice()
+        }
+        let changed: Vec<((i32, i32), Tile)> = self
+            .node(id)?
+            .pixel_tiles()?
+            .iter()
+            .filter(|(at, t)| before.id_at(at.0, at.1) != t.id)
+            .map(|(&at, t)| (at, t.clone()))
+            .collect();
+        let mut out = Vec::with_capacity(changed.len());
+        for ((tx, ty), t) in changed {
+            let old = before.get(tx, ty).map(|o| o.px.clone());
+            let px = match (&*t.px, old.as_deref()) {
+                (Pixels::U8(n), o) => Pixels::U8(mix(n, o.and_then(|o| if let Pixels::U8(o) = o { Some(&o[..]) } else { None }), keep)),
+                (Pixels::U16(n), o) => Pixels::U16(mix(n, o.and_then(|o| if let Pixels::U16(o) = o { Some(&o[..]) } else { None }), keep)),
+                (Pixels::F32(n), o) => Pixels::F32(mix(n, o.and_then(|o| if let Pixels::F32(o) = o { Some(&o[..]) } else { None }), keep)),
+                _ => continue,
+            };
+            out.push(((tx, ty), Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
+        }
+        let tiles = self.node_mut(id)?.pixel_tiles_mut()?;
+        for ((tx, ty), t) in out {
+            tiles.put(tx, ty, Some(t));
         }
         Ok(())
     }
@@ -2126,6 +2182,23 @@ impl Document {
         Ok(())
     }
 
+    /// Straight RGBA floats of one tile into a pixel layer of a 32-bit document.
+    pub fn set_tile_f32(&mut self, id: u32, tx: u32, ty: u32, data: &[f32]) -> Result<(), String> {
+        self.check_idle()?;
+        self.check_tile_coord(tx, ty)?;
+        if self.depth != 32 {
+            return Err("float tiles need a 32-bit document".into());
+        }
+        if data.len() != TILE_PIXELS * 4 {
+            return Err(format!("expected {} values, got {}", TILE_PIXELS * 4, data.len()));
+        }
+        let transparent = data.chunks_exact(4).all(|px| !(px[3] > 0.0));
+        let tile_id = if transparent { 0 } else { self.alloc_tile_id() };
+        let tile = (!transparent).then(|| Tile { id: tile_id, px: Arc::new(Pixels::from_straight(32, data)) });
+        self.node_mut(id)?.pixel_tiles_mut()?.put(tx as i32, ty as i32, tile);
+        Ok(())
+    }
+
     pub fn set_mask_tile8(&mut self, id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), String> {
         self.check_idle()?;
         self.check_tile_coord(tx, ty)?;
@@ -2213,6 +2286,19 @@ impl Document {
             bytes[o + 3] = (a * 255.0).round().clamp(0.0, 255.0) as u8;
         }
         Ok(bytes)
+    }
+
+    /// The flattened tile as straight RGBA floats, values above 1 kept.
+    pub fn flatten_tile_f32(&self, tx: u32, ty: u32) -> Result<Vec<f32>, String> {
+        self.check_tile_coord(tx, ty)?;
+        let mut px = self.composite_tile_premul(tx, ty);
+        for p in px.chunks_exact_mut(4) {
+            let a = p[3];
+            for c in &mut p[..3] {
+                *c = if a > 0.0 { *c / a } else { 0.0 };
+            }
+        }
+        Ok(px)
     }
 
     /// 8-bit counts of luminosity (0.3r + 0.59g + 0.11b), R, G and B, 256 bins each, over the

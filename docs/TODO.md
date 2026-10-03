@@ -21,10 +21,15 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   value when the option is set, not after later edits.
 - Camera RAW and DNG open with a develop workspace (Camera Raw Filter is done: Basic sliders and vignette).
 - Lens Correction automatic lens profiles and the grid/straighten tools; Adaptive Wide Angle constraint lines.
-- Merge to HDR Pro, Photomerge, Auto-Align Layers, Auto-Blend Layers.
-- Apply Image and Calculations: Mask option, Add/Subtract with scale and offset, sources from other open documents; Calculations result New Document.
-- Channels panel: paint and filter into one selected channel (color or alpha), layer mask row, spot channels.
-- Formats: PSB, EXR, HDR, PDF import, SVG import, ICO.
+- Auto-Align Layers: Cylindrical, Spherical and Collage projections; Photomerge Vignette Removal and Geometric Distortion Correction; Merge to HDR Pro tone-mapping options and picking files instead of open documents.
+- Channels panel rest: a targeted color channel takes the paint color's own channel value, not its gray; painting a
+  saved channel ignores the active selection; spot ink previews as an overlay, not multiplied; PSD export and import
+  carry no alpha or spot channels; Shift+click to target several channels; with Quick Mask on and a saved
+  channel picked, painting goes into the channel; the panel shows a saved channel's old values during a stroke.
+- Formats rest: PDF import (needs pdf.js, a new dependency); EXR tiled, multi-part, deep and PIZ/PXR24/B44/DWA
+  compression; EXR/HDR assume sRGB-encoded 32-bit documents (a non-sRGB profile is not linearized by its own
+  curve); SVG opens at its own size without a rasterize dialog; ICO writes one PNG entry up to 256 px; 16/32-bit
+  PSD/PSB export.
 
 ## M7 AI (local, in the browser)
 - Select > Subject, Object Selection tool, Select > Focus Area.

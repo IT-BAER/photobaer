@@ -1,7 +1,7 @@
 // File > Open / Save / Save As / Revert / Open Recent on the File System Access API (Chromium).
 // Without it (Firefox, Safari) Open uses the file input and saving downloads.
 type Kind = 'psd' | 'image';
-type SaveFormat = 'psd';
+type SaveFormat = 'psd' | 'psb' | 'exr' | 'hdr' | 'ico';
 // The file a tab was opened from or saved as; `warned`: the open reported content the PSD writer cannot store.
 interface Origin { handle: FileSystemFileHandle; kind: Kind; warned: boolean }
 interface Recent { name: string; kind: Kind; handle: FileSystemFileHandle; time: number }
@@ -14,16 +14,20 @@ const OPEN_TYPES = [{
   description: 'Images and PSD',
   accept: {
     'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/webp': ['.webp'], 'image/gif': ['.gif'], 'image/bmp': ['.bmp'], 'image/avif': ['.avif'],
-    'image/vnd.adobe.photoshop': ['.psd'],
+    'image/vnd.adobe.photoshop': ['.psd', '.psb'], 'image/x-exr': ['.exr'], 'image/vnd.radiance': ['.hdr'], 'image/svg+xml': ['.svg'], 'image/x-icon': ['.ico'],
   },
 }];
 const SAVE_TYPES = [
   { description: 'Photoshop', accept: { 'image/vnd.adobe.photoshop': ['.psd'] } },
+  { description: 'Large Document Format', accept: { 'application/octet-stream': ['.psb'] } },
+  { description: 'OpenEXR (flattened copy)', accept: { 'image/x-exr': ['.exr'] } },
+  { description: 'Radiance HDR (flattened copy)', accept: { 'image/vnd.radiance': ['.hdr'] } },
+  { description: 'Windows Icon (flattened copy)', accept: { 'image/x-icon': ['.ico'] } },
 ];
 
-const kindOf = (name: string): Kind => /\.psd$/i.test(name) ? 'psd' : 'image';
+const kindOf = (name: string): Kind => /\.ps[db]$/i.test(name) ? 'psd' : 'image';
 // The format Save As writes, by extension; null for any other name.
-const saveFormat = (name: string): SaveFormat | null => /\.psd$/i.test(name) ? 'psd' : null;
+const saveFormat = (name: string): SaveFormat | null => (/\.(psd|psb|exr|hdr|ico)$/i.exec(name)?.[1].toLowerCase() as SaveFormat | undefined) ?? null;
 const baseName = (name: string) => name.replace(/\.[^.]+$/, '');
 
 // Ctrl+S writes back only to a .psd that opened without warnings (D3); Edit Contents
@@ -74,6 +78,26 @@ async function writeFile(h: FileSystemFileHandle, blob: Blob) {
   await w.close();
 }
 
+// An SVG file as a PNG File of the same name, rasterized at its own size (workers cannot decode SVG).
+async function rasterSvg(f: File): Promise<File> {
+  if (!/\.svg$/i.test(f.name) && f.type !== 'image/svg+xml') return f;
+  const url = URL.createObjectURL(new Blob([f], { type: 'image/svg+xml' }));
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode().catch(() => { throw new Error(`${f.name} is not a valid SVG file.`); });
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth || 300;
+    c.height = img.naturalHeight || 150;
+    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+    const png = await new Promise<Blob | null>(r => c.toBlob(r, 'image/png'));
+    if (!png) throw new Error(`${f.name} could not be rasterized.`);
+    return new File([png], f.name, { type: 'image/png' });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 // Open Recent list in IndexedDB (one record); empty without IndexedDB.
 const DB = 'photobaer-recent', STORE = 'recent', KEY = 'files';
 function recentStore<T>(mode: IDBTransactionMode, f: (s: IDBObjectStore) => IDBRequest): Promise<T> {
@@ -92,5 +116,5 @@ function recentStore<T>(mode: IDBTransactionMode, f: (s: IDBObjectStore) => IDBR
 const loadRecent = async () => (await recentStore<Recent[] | undefined>('readonly', s => s.get(KEY))) ?? [];
 const storeRecent = (list: Recent[]) => recentStore<unknown>('readwrite', s => s.put(list, KEY));
 
-export { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, saveFormat, saveRoute, storeRecent, writeFile };
+export { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, rasterSvg, saveFormat, saveRoute, storeRecent, writeFile };
 export type { Kind, Origin, Recent, SaveFormat };

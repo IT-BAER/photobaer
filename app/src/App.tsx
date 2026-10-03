@@ -13,7 +13,7 @@ import { ImageCalcDialog, type ImageCalcHandle } from './ImageCalcDialog.tsx';
 import { ModeDialog, type ModeDialogHandle } from './ModeDialog.tsx';
 import { ColorDialog, type ColorDialogHandle } from './ColorDialog.tsx';
 import type { OpenAction } from './app/colorSettings.ts';
-import { COMPOSITE, GRAY_MATRIX, viewState, type ChannelView } from './app/channels.ts';
+import { COMPOSITE, editChannels, GRAY_MATRIX, viewState, type ChannelView } from './app/channels.ts';
 import { PathsPanel } from './PathsPanel.tsx';
 import { ArtboardPanel, PropertiesPanel, ShapePanel, SmartFiltersPanel, VectorMaskPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
@@ -58,7 +58,7 @@ import {
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
 import { buildMenus } from './app/menus.ts';
-import { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, saveFormat, saveRoute, storeRecent, writeFile, type Origin, type Recent } from './app/files.ts';
+import { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, rasterSvg, saveFormat, saveRoute, storeRecent, writeFile, type Origin, type Recent, type SaveFormat } from './app/files.ts';
 import { agentTools, registerWebMcp, type ModelContext, type WebMcpCtx } from './app/webmcp.ts';
 import { layerContextItems } from './app/vectorCommands.ts';
 import { canvasItems, layerRowItems } from './app/contextMenus.ts';
@@ -91,8 +91,8 @@ import { connectBridge, pairing, toBase64, type Format } from './app/agentBridge
 import { schema, setColorSource, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, RotateDialog, SaveSelectionDialog,
-  ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
+  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, type AutomateKind, RotateDialog, SaveSelectionDialog,
+  AutomateDialog, ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
 } from './app/Dialogs.tsx';
 
 // Set by vite.config.ts from CHANGELOG.md.
@@ -166,6 +166,8 @@ export function App() {
   const imageSizeDialog = useRef<HTMLDialogElement>(null);
   const canvasSizeDialog = useRef<HTMLDialogElement>(null);
   const rotateDialog = useRef<HTMLDialogElement>(null);
+  const automateDialog = useRef<HTMLDialogElement>(null);
+  const [automate, setAutomate] = useState<AutomateKind>('align');
   const colorRangeCanvas = useRef<HTMLCanvasElement>(null);
   const picker = useRef<ColorPickerHandle>(null);
   const viewer = useRef<Viewer | null>(null);
@@ -465,8 +467,10 @@ export function App() {
   const remember = (h: FileSystemFileHandle) => updateRecent(l => addRecent(l, { name: h.name, kind: kindOf(h.name), handle: h, time: Date.now() }));
 
   // `handle`: the file's File System Access handle (picker, drop, launch, Open Recent), kept for Save and Revert.
-  async function open(f: File, handle?: FileSystemFileHandle | null) {
+  async function open(file: File, handle?: FileSystemFileHandle | null) {
     setMenu(null);
+    let f: File;
+    try { f = await rasterSvg(file); } catch (e) { setError((e as Error).message); return; }
     let action: OpenAction | undefined;
     try {
       const q = await client.call('openProfileQuestion', f);
@@ -611,8 +615,8 @@ export function App() {
     }
   }
 
-  // Serializes the active document and marks it saved; every call is followed by saveEnd.
-  const encode = () => client.call('savePsd');
+  // Serializes the active document (PSD/PSB mark it saved); every call is followed by saveEnd.
+  const encode = (f: SaveFormat = 'psd') => f === 'psd' ? client.call('savePsd') : client.call('saveFormat', f);
 
   // Writes the active document to `h`; true when written. `save` (Ctrl+S overwrite) confirms PSD export warnings
   // first; `copy` leaves the dirty state as it was.
@@ -621,7 +625,7 @@ export function App() {
     let encoded = false, saved = false;
     try {
       if (!await permit(h, 'readwrite')) throw new Error('permission denied');
-      const { blob, warnings } = await encode();
+      const { blob, warnings } = await encode(saveFormat(h.name) ?? 'psd');
       encoded = true;
       if (how !== 'save' || !warnings.length || confirm(`${lost(warnings)}\n\nOverwrite ${h.name} anyway?`)) {
         await writeFile(h, blob);
@@ -685,13 +689,16 @@ export function App() {
     }
     if (!h) return false;
     const format = saveFormat(h.name);
-    if (!format) { setError(`Choose a .psd file name, not ${h.name}.`); return false; }
-    if (!await writeDoc(h, copy ? 'copy' : 'as')) return false;
+    if (!format) { setError(`Choose a .psd, .psb, .exr, .hdr or .ico file name, not ${h.name}.`); return false; }
+    // EXR, HDR and ICO are flattened copies: the tab keeps its file and dirty state.
+    const flat = format !== 'psd' && format !== 'psb';
+    if (!await writeDoc(h, copy || flat ? 'copy' : 'as')) return false;
     if (copy) return true;
     remember(h);
+    if (flat) return false;
     // An open Edit Contents saved the nested document: the tab keeps its own file.
     if (d.parents.length) return false;
-    origins.current.set(d.key, { handle: h, kind: format, warned: false });
+    origins.current.set(d.key, { handle: h, kind: 'psd', warned: false });
     show(await client.call('setDocName', baseName(h.name)));
     return !docRef.current?.dirty;
   }
@@ -710,7 +717,7 @@ export function App() {
     if (!confirm(`Revert to the saved version of ${o.handle.name}? This cannot be undone.`)) return;
     let warnings: string[] = [];
     await run('Reverting…', async () => {
-      const r = await client.call('revertDoc', await o.handle.getFile(), d.key);
+      const r = await client.call('revertDoc', await rasterSvg(await o.handle.getFile()), d.key);
       origins.current.set(r.key, { ...o, warned: r.warnings.length > 0 });
       warnings = r.warnings;
       return r;
@@ -718,7 +725,10 @@ export function App() {
     if (warnings.length) setError(`Opened with warnings: ${warnings.join('; ')}`);
   }
 
-  function editTarget(a: Active) { return quickMask ? 'selection' as const : a.target; }
+  // A picked saved channel is painted through the selection target, as in quick mask.
+  const alphaEdit = !!doc?.channels.some(c => c.id === channelView.alphaTarget);
+  const selEdit = quickMask || alphaEdit;
+  function editTarget(a: Active) { return selEdit ? 'selection' as const : a.target; }
 
   function openNewFillLayer(type: FillContentForm['type']) {
     setMenu(null);
@@ -1137,9 +1147,9 @@ export function App() {
   const anyStyled = styled.length > 0;
   const allEffectsHidden = anyStyled && styled.every(n => !n.style!.enabled);
   // Destructive adjustments need a pixel layer's pixels as the target.
-  const pixelsOff = node?.kind !== 'pixel' || active?.target !== 'pixels' || quickMask;
+  const pixelsOff = node?.kind !== 'pixel' || active?.target !== 'pixels' || selEdit;
   // The 16 layer kinds also run on a smart object, where they add a smart filter.
-  const hostOff = pixelsOff && !(node?.kind === 'smart' && active?.target === 'pixels' && !quickMask);
+  const hostOff = pixelsOff && !(node?.kind === 'smart' && active?.target === 'pixels' && !selEdit);
 
   const {
     transformChange, warpChange, warpBar, withTransform, transformCommand, setTransformMode, endTransform, closeTransform, transformKey,
@@ -1187,12 +1197,13 @@ export function App() {
     setMenu, newDialog, aboutDialog, agentDialog, openFiles, placeFile, has, active, save, saveAs: () => void saveAs(), saveCopy: () => void saveAs(true),
     revert, revertOff: !doc || !origins.current.has(doc.key) || !doc.dirty || doc.parents.length > 0,
     recent: fsAccess() ? recent : null, openRecent, clearRecent: () => { setMenu(null); updateRecent(() => []); }, exportAs, exportLayerComps, doc, closeTab, closeTabs, renameLayer: () => setRenameTick(n => n + 1), run,
-    openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
+    openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, selEdit, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
     globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog,
     openImageCalc: calc => { setMenu(null); if (calc) imageCalc.current?.open({ kind: 'calc' }); else if (active) imageCalc.current?.open({ kind: 'apply', id: active.id }); }, trimDialog, imageSizeDialog, canvasSizeDialog,
+    openAutomate: kind => { setMenu(null); setAutomate(kind); automateDialog.current?.showModal(); },
     openModeDialog: kind => { setMenu(null); modeDialog.current?.open(kind); },
     openColorDialog: kind => { setMenu(null); colorDialog.current?.open(kind); },
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
@@ -1414,26 +1425,33 @@ export function App() {
   const antsLevelValue = doc ? antsLevel(levelFor(view.zoom, dpr, doc.maxLevel), doc.width, doc.height, doc.maxLevel) : 0;
 
   // Channels panel view: a color matrix on the document canvas and a saved channel on the overlay.
-  const channelState = viewState({ ...channelView, alpha: channelView.alpha.filter(id => doc?.channels.some(c => c.id === id)) });
+  const maskShown = channelView.mask != null && doc && nodeById(doc.layers, channelView.mask)?.mask ? channelView.mask : undefined;
+  const channelState = viewState({ ...channelView, alpha: channelView.alpha.filter(id => doc?.channels.some(c => c.id === id)), mask: maskShown });
   const channelMatrix = doc?.gray && doc.mode?.kind !== 'duotone' ? GRAY_MATRIX : channelState.matrix;
   const inkView = doc?.mode?.kind === 'cmyk' || doc?.mode?.kind === 'lab' ? channelState.ink : null;
   const channelFilter = channelMatrix ? 'url(#channel-view)' : undefined;
   useEffect(() => setChannelView(COMPOSITE), [doc?.key]);
+  const chTarget = editChannels({ ...channelView, alphaTarget: alphaEdit ? channelView.alphaTarget : undefined });
+  useEffect(() => {
+    if (doc) client.call('setChannelTarget', chTarget.rgb, chTarget.alpha).catch(e => setError((e as Error).message));
+  }, [doc?.docId, chTarget.rgb.join(), chTarget.alpha]);
   useEffect(() => {
     const overlay = overlayRef.current, a = channelState.alpha, mode = doc?.mode?.kind;
+    // ponytail: spot ink shows at half strength or more over the image, not multiplied like printed ink.
+    const spot = a && !a.layer ? doc?.channels.find(c => c.id === a.id)?.spot : null;
     if (!overlay) return;
     if (!doc || (!a && inkView === null)) { overlay.setChannelOverlay(null, 0, 0, 1, 'gray'); redrawOverlay(); return; }
     const docId = doc.docId;
     let alive = true;
-    const mask = a ? client.call('channelMask', a.id, antsLevelValue) : client.call('colorChannelMask', mode as 'cmyk' | 'lab', inkView!, antsLevelValue);
+    const mask = a ? (a.layer ? client.call('layerMask', a.id, antsLevelValue) : client.call('channelMask', a.id, antsLevelValue)) : client.call('colorChannelMask', mode as 'cmyk' | 'lab', inkView!, antsLevelValue);
     mask.then(r => {
       if (!alive || r.docId !== docId || !r.data) return;
-      overlay.setChannelOverlay(new Uint8Array(r.data), r.w, r.h, 1 << antsLevelValue, a ? a.mode : 'gray');
+      overlay.setChannelOverlay(new Uint8Array(r.data), r.w, r.h, 1 << antsLevelValue, spot && a?.mode === 'tint' ? { ink: spot.color, k: 0.5 + 0.5 * spot.solidity } : a ? a.mode : 'gray');
       redrawOverlay();
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc?.docId, doc?.version, channelState.alpha?.id, channelState.alpha?.mode, inkView, antsLevelValue]);
+  }, [doc?.docId, doc?.version, channelState.alpha?.id, channelState.alpha?.mode, channelState.alpha?.layer, inkView, antsLevelValue]);
 
   useEffect(() => {
     const overlay = overlayRef.current;
@@ -1461,7 +1479,7 @@ export function App() {
   });
 
   useBucket({
-    viewer, tool, active, setFg, toolOptionsRef, bg, fg, quickMask, show,
+    viewer, tool, active, setFg, toolOptionsRef, bg, fg, quickMask: selEdit, show,
   });
 
   const toolRef = useRef(tool);
@@ -1570,7 +1588,7 @@ export function App() {
   }, [showTransform, active?.id, doc?.version]);
 
   usePaintTool({
-    viewer, tool, toolOptionsRef, currentPreset, selectedPresetRef, brushLib, bgRef, fgRef, active, docRef, strokeCounter, quickMask, perfRef,
+    viewer, tool, toolOptionsRef, currentPreset, selectedPresetRef, brushLib, bgRef, fgRef, active, docRef, strokeCounter, quickMask: selEdit, perfRef,
     setError, lastStrokePoint, run,
   });
 
@@ -1975,7 +1993,7 @@ export function App() {
                 openLayerStyle={(id, page) => openLayerStyle(page, id)}
               />
               <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
-              {showChannels && <ChannelsPanel doc={doc} run={run} view={channelView} setView={setChannelView} setError={setError} />}
+              {showChannels && <ChannelsPanel doc={doc} run={run} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} />}
               {showLayerComps && <LayerCompsPanel doc={doc} run={run} />}
               {showPaths && <PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} />}
             </>
@@ -2025,7 +2043,7 @@ export function App() {
         if (!f) return;
         try { await uploadFont(client, f); setFaces(await client.call('fontFaces')); } catch (err) { setError((err as Error).message); }
       }} />
-      <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.psd"
+      <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,image/svg+xml,image/x-icon,.psd,.psb,.exr,.hdr,.svg,.ico"
         onChange={async e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; for (const f of fs) await open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <CloseDialog closeDialog={closeDialog} name={closeName} choose={chooseClose} />
@@ -2068,6 +2086,7 @@ export function App() {
       />
       <ScaleEffectsDialog scaleEffectsDialog={scaleEffectsDialog} node={node} run={run} />
       <RotateDialog rotateDialog={rotateDialog} run={run} />
+      <AutomateDialog dialog={automateDialog} kind={automate} ids={selectedNodes.filter(n => n.kind === 'pixel').map(n => n.id)} docCount={doc?.docs.length ?? 0} run={run} />
       <ColorRangeDialog
         colorRangeDialog={colorRangeDialog} setColorRangeOpen={setColorRangeOpen} active={active} colorRangeSamples={colorRangeSamples}
         closeColorRange={closeColorRange} run={run} colorRange={colorRange} setColorRange={setColorRange} colorRangeCanvas={colorRangeCanvas}

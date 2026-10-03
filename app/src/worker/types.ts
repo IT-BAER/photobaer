@@ -119,6 +119,9 @@ export type ModeSpec =
     mode: 'indexed'; palette: 'exact' | 'uniform' | 'web' | 'adaptive'; colors: number; forced: 'none' | 'black_white' | 'primaries' | 'web';
     transparency: boolean; dither: 'none' | 'diffusion' | 'pattern' | 'noise'; amount: number;
   };
+// A spot channel's ink: display color and on-screen solidity 0..1.
+export interface Spot { color: [number, number, number]; solidity: number }
+
 export interface DocInfo {
   docId: number; version: number; name: string;
   width: number; height: number; depth: number; maxLevel: number; gray: boolean; mode: ColorMode | null;
@@ -131,7 +134,7 @@ export interface DocInfo {
   selection: { bounds: [number, number, number, number] | null; default: number } | null;
   hasLastSelection: boolean;
   selGen: number;
-  channels: { id: number; name: string }[];
+  channels: { id: number; name: string; spot: Spot | null }[];
   patterns: { id: string; name: string }[];
   layerComps: { id: number; name: string; layerCount: number }[];
   globalLight: GlobalLight;
@@ -141,7 +144,7 @@ export interface DocInfo {
   key: string;
   // Unsaved changes since the last project or PSD save (also for undo past it); per tab in `docs`.
   dirty: boolean;
-  docs: { key: string; name: string; active: boolean; dirty: boolean; mode: string; depth: number }[];
+  docs: { key: string; name: string; active: boolean; dirty: boolean; mode: string; depth: number; width: number; height: number }[];
   // Pixels per inch (docs/M4.md D13, section 12).
   resolution: number;
   guides: Guide[];

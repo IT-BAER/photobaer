@@ -486,6 +486,52 @@ export function TrimDialog({ trimDialog, run }: { trimDialog: DialogRef; run: Ru
   );
 }
 
+export type AutomateKind = 'align' | 'blend' | 'photomerge' | 'hdr';
+const AUTOMATE_TITLE: Record<AutomateKind, string> = { align: 'Auto-Align Layers', blend: 'Auto-Blend Layers', photomerge: 'Photomerge', hdr: 'Merge to HDR Pro' };
+
+// Edit > Auto-Align / Auto-Blend Layers (on `ids`) and File > Automate > Photomerge / Merge to HDR Pro.
+export function AutomateDialog({ dialog, kind, ids, docCount, run }: { dialog: DialogRef; kind: AutomateKind; ids: number[]; docCount: number; run: Run }) {
+  const radios = (name: string, legend: string, items: [string, string][]) => (
+    <fieldset className="stroke-location">
+      <legend>{legend}</legend>
+      {items.map(([v, l], i) => <label key={v}><input type="radio" name={name} value={v} defaultChecked={i === 0} /> {l}</label>)}
+    </fieldset>
+  );
+  return (
+    <dialog ref={dialog} aria-label={AUTOMATE_TITLE[kind]}>
+      <form key={kind} onSubmit={e => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        const on = (k: string) => f.get(k) === 'on';
+        dialog.current?.close();
+        if (kind === 'align') run('Aligning…', () => client.call('autoAlign', ids, f.get('projection') === 'reposition'));
+        else if (kind === 'blend') run('Blending…', () => client.call('autoBlend', ids, f.get('method') === 'stack', on('seamless')));
+        else if (kind === 'photomerge') run('Merging…', () => client.call('photomerge', on('blend')));
+        else run('Merging…', () => client.call('mergeHdr', Number(f.get('stops'))));
+      }}>
+        <h2>{AUTOMATE_TITLE[kind]}</h2>
+        {kind === 'align' && radios('projection', 'Projection', [['auto', 'Auto'], ['perspective', 'Perspective'], ['reposition', 'Reposition']])}
+        {kind === 'blend' && <>
+          {radios('method', 'Blend Method', [['panorama', 'Panorama'], ['stack', 'Stack Images']])}
+          <label><input type="checkbox" name="seamless" defaultChecked /> Seamless Tones and Colors</label>
+        </>}
+        {kind === 'photomerge' && <>
+          <p>Aligns and merges the pixel layers of the active document.</p>
+          <label><input type="checkbox" name="blend" defaultChecked /> Blend Images Together</label>
+        </>}
+        {kind === 'hdr' && <>
+          <p>Merges the {docCount} open documents, in tab order, as an exposure bracket.</p>
+          <label>Stops Between Exposures <input type="number" name="stops" min={0.25} max={4} step={0.25} defaultValue={2} required /></label>
+        </>}
+        <div className="actions">
+          <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
+          <button type="submit" className="primary">OK</button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
 const num = (s: string) => (s.trim() === '' ? NaN : Number(s));
 
 // The form remounts after every close and on doc size changes, so each open starts from the document.

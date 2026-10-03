@@ -365,7 +365,7 @@ fn v6_round_trip_of_a_stack_with_blur_solarize_and_a_blob_param_is_byte_identica
     let d = load_v4(&v6_fixture().to_string()).unwrap();
     let first = d.manifest();
     let v: Value = serde_json::from_str(&first).unwrap();
-    assert_eq!(v["version"], 7);
+    assert_eq!(v["version"], 8);
     let kinds: Vec<&str> = v["layers"][3]["smart"]["filters"].as_array().unwrap().iter().map(|f| f["filter"]["kind"].as_str().unwrap()).collect();
     assert_eq!(kinds, ["color_lookup", "gaussian_blur", "blur.blur", "stylize.solarize"]);
     assert_eq!(v["layers"][3]["smart"]["filters"][0]["filter"]["params"]["table"], 11, "the blob param is kept");
@@ -1744,7 +1744,7 @@ fn vanishing_point_planes_and_dabs_survive_an_autosave_restore() {
     let (first, second) = reload(&d);
     assert_eq!(first, second, "write -> read -> write is byte identical");
     let v: Value = serde_json::from_str(&first).unwrap();
-    assert_eq!(v["version"], 7);
+    assert_eq!(v["version"], 8);
     assert_eq!(v["vanishing_planes"], planes);
     assert_eq!(v["layers"][0]["smart"]["filters"][0]["filter"]["params"]["state"], st);
     // v6 loads with no planes and refuses the v7 field.
@@ -1807,7 +1807,7 @@ fn a_manifest_without_psd_records_opens_and_writes_none() {
     let (first, _) = reload(&d);
     let v: Value = serde_json::from_str(&first).unwrap();
     assert!(v["layers"][0]["smart"]["filters"][0].get("psd").is_none());
-    assert_eq!(v["version"], 7);
+    assert_eq!(v["version"], 8);
 }
 
 #[test]

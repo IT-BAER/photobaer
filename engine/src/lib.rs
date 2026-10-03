@@ -89,6 +89,11 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct Engine(EngineCore);
 
+fn spot_of(color: &[u8], solidity: f32) -> Result<doc::Spot, JsError> {
+    let &[r, g, b] = color else { return Err(err("spot color must have three values".into())) };
+    Ok(doc::Spot { color: [r, g, b], solidity })
+}
+
 fn err(e: String) -> JsError {
     JsError::new(&e)
 }
@@ -238,12 +243,13 @@ impl Engine {
 
     /// Destructive apply of one adjustment kind onto a pixel layer's color channels.
     pub fn apply_adjustment(&mut self, id: u32, target: &str, json: &str) -> Result<(), JsError> {
-        self.0.doc.apply_adjustment(id, Target::parse(target).map_err(err)?, json).map_err(err)
+        let t = Target::parse(target).map_err(err)?;
+        self.0.targeted(id, t, |d| d.apply_adjustment(id, t, json)).map_err(err)
     }
 
     /// Destructive apply of a destructive-only kind (shadows/highlights .. auto color).
     pub fn apply_destructive(&mut self, id: u32, json: &str) -> Result<(), JsError> {
-        self.0.doc.apply_destructive(id, json).map_err(err)
+        self.0.targeted(id, Target::Pixels, |d| d.apply_destructive(id, json)).map_err(err)
     }
 
     /// Opens a Liquify session on layer `id` (docs/M5.md section 6): a proxy of at most
@@ -276,7 +282,8 @@ impl Engine {
             &[x, y, w, h] => Some([x, y, w, h]),
             _ => return Err(JsError::new("view must be empty or [x, y, w, h]")),
         };
-        self.0.doc.apply_filter(id, Target::parse(target).map_err(err)?, json, view, scale).map_err(err)
+        let t = Target::parse(target).map_err(err)?;
+        self.0.targeted(id, t, |d| d.apply_filter(id, t, json, view, scale)).map_err(err)
     }
 
     /// Edit > Fade: JSON `{ opacity, mode }` toward layer `id` in snapshot `snap`.
@@ -454,16 +461,19 @@ impl Engine {
 
     /// `target` is "pixels" or "mask"; a mask fill uses the red channel as its value.
     pub fn fill(&mut self, id: u32, target: &str, r: u8, g: u8, b: u8, a: u8) -> Result<(), JsError> {
-        self.0.doc.fill(id, Target::parse(target).map_err(err)?, r, g, b, a).map_err(err)
+        let t = Target::parse(target).map_err(err)?;
+        self.0.targeted(id, t, |d| d.fill(id, t, r, g, b, a)).map_err(err)
     }
 
     pub fn invert(&mut self, id: u32, target: &str) -> Result<(), JsError> {
-        self.0.doc.invert(id, Target::parse(target).map_err(err)?).map_err(err)
+        let t = Target::parse(target).map_err(err)?;
+        self.0.targeted(id, t, |d| d.invert(id, t)).map_err(err)
     }
 
     /// Pixels become transparent, a mask becomes 0; the selection limits the effect.
     pub fn clear(&mut self, id: u32, target: &str) -> Result<(), JsError> {
-        self.0.doc.clear(id, Target::parse(target).map_err(err)?).map_err(err)
+        let t = Target::parse(target).map_err(err)?;
+        self.0.targeted(id, t, |d| d.clear(id, t)).map_err(err)
     }
 
     /// `clear` for a whole-layer transform session: allowed on a smart object's cache.
@@ -665,20 +675,23 @@ impl Engine {
         mode: &str,
         opacity: f32,
     ) -> Result<(), JsError> {
+        let t = Target::parse(target).map_err(err)?;
+        let mode = PaintMode::parse(mode).map_err(err)?;
         self.0
-            .doc
-            .paint_coverage(
-                id,
-                Target::parse(target).map_err(err)?,
-                x,
-                y,
-                w,
-                h,
-                &coverage,
-                [r, g, b, a],
-                PaintMode::parse(mode).map_err(err)?,
-                opacity,
-            )
+            .targeted(id, t, |d| {
+                d.paint_coverage(
+                    id,
+                    t,
+                    x,
+                    y,
+                    w,
+                    h,
+                    &coverage,
+                    [r, g, b, a],
+                    mode,
+                    opacity,
+                )
+            })
             .map_err(err)
     }
 
@@ -702,21 +715,24 @@ impl Engine {
         contiguous: bool,
         all_layers: bool,
     ) -> Result<(), JsError> {
+        let t = Target::parse(target).map_err(err)?;
+        let mode = PaintMode::parse(mode).map_err(err)?;
         self.0
-            .doc
-            .bucket(
-                id,
-                Target::parse(target).map_err(err)?,
-                x,
-                y,
-                [r, g, b, a],
-                PaintMode::parse(mode).map_err(err)?,
-                opacity,
-                tolerance,
-                antialias,
-                contiguous,
-                all_layers,
-            )
+            .targeted(id, t, |d| {
+                d.bucket(
+                    id,
+                    t,
+                    x,
+                    y,
+                    [r, g, b, a],
+                    mode,
+                    opacity,
+                    tolerance,
+                    antialias,
+                    contiguous,
+                    all_layers,
+                )
+            })
             .map_err(err)
     }
 
@@ -803,17 +819,48 @@ impl Engine {
         self.0.doc.delete_channel(id).map_err(err)
     }
 
-    /// Image > Apply Image; `src` is JSON `{ layer, channel, invert }` (see `ImageSource`).
-    pub fn apply_image(&mut self, id: u32, src: &str, mode: &str, opacity: f32, preserve: bool) -> Result<(), JsError> {
+    /// An Apply Image / Calculations source read from this document; `src` is JSON
+    /// `{ layer, channel, invert }` (see `ImageSource`).
+    pub fn image_source(&self, src: &str) -> Result<ImageTiles, JsError> {
         let s: doc::ImageSource = serde_json::from_str(src).map_err(|e| err(e.to_string()))?;
-        self.0.doc.apply_image(id, &s, blend::Blend::parse(mode).map_err(err)?, opacity, preserve).map_err(err)
+        self.0.doc.image_source(&s).map(ImageTiles).map_err(err)
+    }
+
+    /// Image > Apply Image into pixel layer `id`; `offset` in -1..1.
+    #[allow(clippy::too_many_arguments)]
+    pub fn apply_image(&mut self, id: u32, src: &ImageTiles, mask: Option<ImageTiles>, mode: &str, opacity: f32, scale: f32, offset: f32, preserve: bool) -> Result<(), JsError> {
+        let op = doc::CalcOp::parse(mode, opacity, scale, offset).map_err(err)?;
+        self.0.targeted(id, Target::Pixels, |d| d.apply_image(id, &src.0, mask.as_ref().map(|m| &m.0), &op, preserve)).map_err(err)
     }
 
     /// Image > Calculations into a new saved channel; returns its id.
-    pub fn calculations(&mut self, src1: &str, src2: &str, mode: &str, opacity: f32, name: &str) -> Result<u32, JsError> {
-        let a: doc::ImageSource = serde_json::from_str(src1).map_err(|e| err(e.to_string()))?;
-        let b: doc::ImageSource = serde_json::from_str(src2).map_err(|e| err(e.to_string()))?;
-        self.0.doc.calculations(&a, &b, blend::Blend::parse(mode).map_err(err)?, opacity, name).map_err(err)
+    #[allow(clippy::too_many_arguments)]
+    pub fn calculations(&mut self, src1: &ImageTiles, src2: &ImageTiles, mask: Option<ImageTiles>, mode: &str, opacity: f32, scale: f32, offset: f32, name: &str) -> Result<u32, JsError> {
+        let op = doc::CalcOp::parse(mode, opacity, scale, offset).map_err(err)?;
+        self.0.doc.calculations(&src1.0, &src2.0, mask.as_ref().map(|m| &m.0), &op, name).map_err(err)
+    }
+
+    /// Image > Calculations into a new grayscale document.
+    #[allow(clippy::too_many_arguments)]
+    pub fn calculations_document(&self, src1: &ImageTiles, src2: &ImageTiles, mask: Option<ImageTiles>, mode: &str, opacity: f32, scale: f32, offset: f32) -> Result<Engine, JsError> {
+        let op = doc::CalcOp::parse(mode, opacity, scale, offset).map_err(err)?;
+        let d = self.0.doc.calculations_document(&src1.0, &src2.0, mask.as_ref().map(|m| &m.0), &op).map_err(err)?;
+        Ok(Engine(EngineCore::new(d)))
+    }
+
+    /// Edit > Auto-Align Layers on the selected pixel layers; returns how many moved.
+    pub fn auto_align(&mut self, ids: Vec<u32>, reposition: bool) -> Result<u32, JsError> {
+        self.0.doc.auto_align(&ids, reposition).map_err(err)
+    }
+
+    /// Edit > Auto-Blend Layers; `stack` picks Stack Images over Panorama.
+    pub fn auto_blend(&mut self, ids: Vec<u32>, stack: bool, seamless: bool) -> Result<(), JsError> {
+        self.0.doc.auto_blend(&ids, stack, seamless).map_err(err)
+    }
+
+    /// File > Automate > Photomerge on all pixel layers; returns how many moved.
+    pub fn photomerge(&mut self, blend: bool) -> Result<u32, JsError> {
+        self.0.doc.photomerge(blend).map_err(err)
     }
 
     /// Image > Mode > 8/16/32 Bits/Channel; false when the depth is already `depth`.
@@ -868,6 +915,16 @@ impl Engine {
         self.0.doc.new_channel(name).map_err(err)
     }
 
+    /// A spot channel with ink `color` (three bytes) and `solidity` 0..1; returns its id.
+    pub fn new_spot_channel(&mut self, name: &str, color: &[u8], solidity: f32) -> Result<u32, JsError> {
+        self.0.doc.new_spot_channel(name, spot_of(color, solidity)?).map_err(err)
+    }
+
+    /// Spot Channel Options of spot channel `id`.
+    pub fn set_spot(&mut self, id: u32, name: &str, color: &[u8], solidity: f32) -> Result<(), JsError> {
+        self.0.doc.set_spot(id, name, spot_of(color, solidity)?).map_err(err)
+    }
+
     pub fn rename_channel(&mut self, id: u32, name: &str) -> Result<(), JsError> {
         self.0.doc.rename_channel(id, name).map_err(err)
     }
@@ -879,6 +936,14 @@ impl Engine {
     /// A saved channel's values of one display tile as 8-bit bytes, or null when the whole tile is its default.
     pub fn channel_tile(&self, id: u32, level: u32, tx: u32, ty: u32) -> Result<JsValue, JsError> {
         match self.0.doc.channel_tile(id, level, tx, ty).map_err(err)? {
+            Some(bytes) => Ok(js_sys::Uint8Array::from(bytes.as_slice()).into()),
+            None => Ok(JsValue::NULL),
+        }
+    }
+
+    /// Layer `id`'s mask values of one display tile as 8-bit bytes, or null when the whole tile is its default.
+    pub fn layer_mask_tile(&self, id: u32, level: u32, tx: u32, ty: u32) -> Result<JsValue, JsError> {
+        match self.0.doc.layer_mask_tile(id, level, tx, ty).map_err(err)? {
             Some(bytes) => Ok(js_sys::Uint8Array::from(bytes.as_slice()).into()),
             None => Ok(JsValue::NULL),
         }
@@ -951,6 +1016,10 @@ impl Engine {
         self.0.doc.set_tile_rgba8(id, tx, ty, data).map_err(err)
     }
 
+    pub fn set_tile_f32(&mut self, id: u32, tx: u32, ty: u32, data: &[f32]) -> Result<(), JsError> {
+        self.0.doc.set_tile_f32(id, tx, ty, data).map_err(err)
+    }
+
     /// Straight RGBA8 (w x h) written into a pixel layer at (x, y), past the canvas too.
     pub fn put_rgba8(&mut self, id: u32, x: i32, y: i32, w: u32, h: u32, data: &[u8]) -> Result<(), JsError> {
         self.0.doc.put_rgba8(id, x, y, w, h, data).map_err(err)
@@ -994,6 +1063,15 @@ impl Engine {
     /// simulatePaper?, simulateBlackInk? }, proofColors?, gamutWarning?, hdr?: { method?:
     /// 'exposureAndGamma' | 'highlightCompression', exposure?, gamma? } }`; `icc` is the proof
     /// device's profile file when it is not built in. Display tiles change, the document does not.
+    /// Channels panel target: pixel edits change only the color channels set in `rgb` (three
+    /// 0/1 bytes); selection-target edits paint saved channel `alpha` instead of the selection.
+    pub fn set_channel_target(&mut self, rgb: &[u8], alpha: Option<u32>) -> Result<(), JsError> {
+        let [r, g, b] = rgb else { return Err(err("rgb must have three values".into())) };
+        self.0.color_target = [*r != 0, *g != 0, *b != 0];
+        self.0.alpha_target = alpha;
+        Ok(())
+    }
+
     pub fn set_view(&mut self, json: &str, icc: &[u8]) -> Result<(), JsError> {
         let mut v: crate::doc::proof::View = serde_json::from_str(json).map_err(|e| err(format!("invalid view: {e}")))?;
         if !icc.is_empty() {
@@ -1012,6 +1090,10 @@ impl Engine {
 
     pub fn flatten_tile_rgba8(&self, tx: u32, ty: u32) -> Result<Vec<u8>, JsError> {
         self.0.doc.flatten_tile_rgba8(tx, ty).map_err(err)
+    }
+
+    pub fn flatten_tile_f32(&self, tx: u32, ty: u32) -> Result<Vec<f32>, JsError> {
+        self.0.doc.flatten_tile_f32(tx, ty).map_err(err)
     }
 
     /// Luminosity, R, G, B counts (4 x 256) of a layer's pixels, or of the composite for id 0.
@@ -1391,6 +1473,35 @@ pub fn icc_describe(bytes: &[u8]) -> Result<String, JsError> {
 #[wasm_bindgen]
 pub fn filter_schema() -> String {
     filters::schema_json()
+}
+
+/// One Apply Image / Calculations source, read with `Engine.image_source`.
+#[wasm_bindgen]
+pub struct ImageTiles(doc::SourceTiles);
+
+/// File > Automate > Merge to HDR Pro: per canvas tile, `add` every exposure, then `write`.
+#[wasm_bindgen]
+pub struct HdrMerge(doc::HdrAcc);
+
+#[wasm_bindgen]
+impl HdrMerge {
+    #[wasm_bindgen(constructor)]
+    pub fn new(width: u32, height: u32) -> Result<HdrMerge, JsError> {
+        doc::HdrAcc::new(width, height).map(HdrMerge).map_err(err)
+    }
+
+    pub fn add(&mut self, src: &Engine, tx: u32, ty: u32, stops: f64) -> Result<(), JsError> {
+        self.0.add(&src.0.doc, tx, ty, stops).map_err(err)
+    }
+
+    pub fn write(&mut self, tx: u32, ty: u32) {
+        self.0.write(tx, ty);
+    }
+
+    /// The merged 32-bit document.
+    pub fn finish(self) -> Engine {
+        Engine(EngineCore::new(self.0.doc))
+    }
 }
 
 /// `{ rest, deformed, triangles }` of a Puppet Warp rig JSON, for the session overlay.

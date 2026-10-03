@@ -158,7 +158,7 @@ export class SelectionOverlay {
   }
 
   // Channels panel: a saved channel drawn as opaque gray, or as the quick mask tint; null hides it.
-  setChannelOverlay(values: Uint8Array | null, w: number, h: number, scale: number, mode: 'gray' | 'tint') {
+  setChannelOverlay(values: Uint8Array | null, w: number, h: number, scale: number, mode: ChannelMode) {
     this.#channel = values && maskImage(values, w, h, scale, mode);
   }
 
@@ -644,7 +644,11 @@ export class SelectionOverlay {
   }
 }
 
-function maskImage(values: Uint8Array, w: number, h: number, scale: number, mode: 'gray' | 'tint') {
+// 'gray' shows the values, 'tint' reddens unselected areas, `ink` paints a spot color where the
+// values are dark at strength `k`.
+export type ChannelMode = 'gray' | 'tint' | { ink: [number, number, number]; k: number };
+
+function maskImage(values: Uint8Array, w: number, h: number, scale: number, mode: ChannelMode) {
   const canvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : document.createElement('canvas');
   if (!(canvas instanceof OffscreenCanvas)) { canvas.width = w; canvas.height = h; }
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
@@ -653,9 +657,12 @@ function maskImage(values: Uint8Array, w: number, h: number, scale: number, mode
     if (mode === 'gray') {
       img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = values[i];
       img.data[i * 4 + 3] = 255;
-    } else {
+    } else if (mode === 'tint') {
       img.data[i * 4] = 255;
       img.data[i * 4 + 3] = Math.round((255 - values[i]) * 0.5);
+    } else {
+      img.data.set(mode.ink, i * 4);
+      img.data[i * 4 + 3] = Math.round((255 - values[i]) * mode.k);
     }
   }
   ctx.putImageData(img, 0, 0);

@@ -694,23 +694,118 @@ test('channel ops: new, rename, duplicate, delete and channelMask, one history s
   assert.ok((await call('channelMask', 999, 0)).error);
 });
 
+test('setChannelTarget: a fill changes only the targeted color channel, or fills the targeted saved channel', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', [10, 20, 30, 255]);
+  await call('setChannelTarget', [false, true, false], null);
+  await call('command', 'fill', 1, 'pixels', [200, 200, 200, 255]);
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [10, 200, 30, 255]);
+  const ch = ((await call('newChannel')).result as { created: number }).created;
+  await call('setChannelTarget', [true, true, true], ch);
+  const r = (await call('command', 'fill', 1, 'selection', [255, 255, 255, 255])).result as { history: { labels: string[] } };
+  assert.equal(r.history.labels.at(-1), 'Fill');
+  assert.equal(new Uint8Array(((await call('channelMask', ch, 0)).result as { data: ArrayBuffer }).data)[0], 255);
+  assert.equal(((await call('selectionMask', 0)).result as { data: ArrayBuffer | null }).data, null, 'the selection is untouched');
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [10, 200, 30, 255], 'the layer is untouched');
+});
+
+test('spot channels: new with no ink, options, duplicate keeps the ink, one step each', async () => {
+  await call('init');
+  await call('newDoc', 32, 32, 8, null);
+  type Ch = { channels: { id: number; name: string; spot: { color: number[]; solidity: number } | null }[]; history: { labels: string[] }; created: number };
+  const a = (await call('newSpotChannel', { color: [0, 153, 230], solidity: 0 })).result as Ch;
+  assert.deepEqual(a.channels.map(c => [c.name, c.spot]), [['Spot Color 1', { color: [0, 153, 230], solidity: 0 }]]);
+  assert.equal(new Uint8Array(((await call('channelMask', a.created, 0)).result as { data: ArrayBuffer }).data)[0], 255, 'no ink');
+  await call('spotChannelOptions', a.created, 'Gold', { color: [200, 160, 40], solidity: 0.5 });
+  const d = (await call('duplicateChannel', a.created)).result as Ch;
+  assert.deepEqual(d.channels.map(c => [c.name, c.spot?.color]), [['Gold', [200, 160, 40]], ['Gold copy', [200, 160, 40]]]);
+  assert.deepEqual(d.history.labels.slice(-3), ['New Spot Channel', 'Channel Options', 'Duplicate Channel']);
+  assert.ok((await call('spotChannelOptions', a.created, 'x', { color: [0, 0, 0], solidity: 2 })).error);
+});
+
+test('layerMask reads the layer mask like channelMask and errors without one', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  assert.ok((await call('layerMask', 1, 0)).error);
+  await call('addMask', 1, true);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 32, h: 64 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 1, 'mask', [0, 0, 0, 255]);
+  const m = (await call('layerMask', 1, 0)).result as { w: number; data: ArrayBuffer };
+  const px = new Uint8Array(m.data);
+  assert.deepEqual([m.w, px[0], px[40]], [64, 0, 255]);
+});
+
+const calcOpts = (mode: string) => ({ mode, opacity: 1, scale: 1, offset: 0, mask: null });
+
 test('applyImage previews inside a session and calculations writes a channel or the selection', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);
   await call('command', 'fill', 1, 'pixels', [200, 50, 10, 255]);
   const src = { layer: null, channel: 'red', invert: true };
-  for (let i = 0; i < 2; i++) assert.equal((await call('applyImage', 1, src, 'normal', 1, true, true)).error, undefined);
+  for (let i = 0; i < 2; i++) assert.equal((await call('applyImage', 1, src, { ...calcOpts('normal'), preserve: true }, true)).error, undefined);
   const pe = await call('previewEnd', true);
   assert.equal(pe.error, undefined);
   const done = pe.result as { history: { labels: string[] } };
   assert.equal(done.history.labels.filter(l => l === 'Apply Image').length, 1);
   assert.deepEqual((await call('sample', 5, 5, 1, 1)).result, [55, 55, 55, 255]);
-  const c = (await call('calculations', { layer: null, channel: 'red', invert: false }, { layer: null, channel: 'green', invert: false }, 'multiply', 1, 'channel')).result as { channels: { name: string }[] };
+  const c = (await call('calculations', { layer: null, channel: 'red', invert: false }, { layer: null, channel: 'green', invert: false }, calcOpts('multiply'), 'channel')).result as { channels: { name: string }[] };
   assert.deepEqual(c.channels.map(x => x.name), ['Alpha 1']);
-  const s = (await call('calculations', { layer: null, channel: 'gray', invert: false }, { layer: null, channel: 'alpha', invert: false }, 'normal', 1, 'selection')).result as { channels: unknown[]; selection: unknown };
+  const s = (await call('calculations', { layer: null, channel: 'gray', invert: false }, { layer: null, channel: 'alpha', invert: false }, calcOpts('normal'), 'selection')).result as { channels: unknown[]; selection: unknown };
   assert.equal(s.channels.length, 1);
   assert.ok(s.selection);
-  assert.ok((await call('calculations', { layer: null, channel: 'rgb', invert: false }, src, 'normal', 1, 'channel')).error);
+  assert.ok((await call('calculations', { layer: null, channel: 'rgb', invert: false }, src, calcOpts('normal'), 'channel')).error);
+});
+
+test('Apply Image reads another open document and a mask; Calculations can open a new document', async () => {
+  type D = { key: string; docs: { key: string }[]; mode: { kind: string } | null; gray: boolean; history: { labels: string[] } };
+  await call('init');
+  await closeAll();
+  const other = (await call('newDoc', 64, 64, 8, [0, 0, 0, 255])).result as D;
+  const small = (await call('newDoc', 32, 32, 8, [0, 0, 0, 255])).result as D;
+  const d = (await call('newDoc', 64, 64, 8, [255, 255, 255, 255])).result as D;
+  const m = await rectLayer(1, 0, 0, 32, 64, [255, 255, 255, 255]);
+  await call('setProps', m, { visible: false });
+  const mask = { layer: m, channel: 'gray', invert: false };
+  const r = await call('applyImage', 1, { doc: other.key, layer: null, channel: 'rgb', invert: false }, { ...calcOpts('normal'), mask, preserve: true });
+  assert.equal(r.error, undefined);
+  assert.deepEqual([(await call('sample', 5, 5, 1, 1)).result, (await call('sample', 50, 5, 1, 1)).result], [[0, 0, 0, 255], [255, 255, 255, 255]]);
+  assert.equal((await call('applyImage', 1, { doc: small.key, layer: null, channel: 'rgb', invert: false }, { ...calcOpts('normal'), preserve: true })).error, 'The source document must have the same pixel size.');
+  assert.equal((await call('applyImage', 1, { doc: 'gone', layer: null, channel: 'rgb', invert: false }, { ...calcOpts('normal'), preserve: true })).error, 'The source document is no longer open.');
+  const add = await call('applyImage', 1, { layer: null, channel: 'rgb', invert: false }, { mode: 'add', opacity: 1, scale: 2, offset: 0, mask: null, preserve: true });
+  assert.equal(add.error, undefined);
+  assert.deepEqual((await call('sample', 50, 5, 1, 1)).result, [255, 255, 255, 255], '(255 + 255) / 2');
+  const n = (await call('calculations', { layer: null, channel: 'red', invert: false }, { doc: other.key, layer: null, channel: 'red', invert: true }, calcOpts('multiply'), 'document')).result as D;
+  assert.equal(n.docs.length, 4);
+  assert.ok(n.gray || n.mode?.kind === 'gray');
+  assert.deepEqual((await call('sample', 50, 5, 1, null)).result, [255, 255, 255, 255]);
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [0, 0, 0, 255]);
+});
+
+test('Auto-Align, Auto-Blend and Photomerge are one step each; Merge to HDR Pro opens a 32-bit tab', async () => {
+  type D = { layers: { id: number; mask: unknown }[]; history: { labels: string[] }; depth: number; name: string; docs: unknown[] };
+  await call('init');
+  await closeAll();
+  await call('newDoc', 64, 32, 8, null);
+  const a = await rectLayer(1, 0, 0, 40, 32, [255, 0, 0, 255]);
+  const b = await rectLayer(a, 24, 0, 40, 32, [0, 0, 255, 255]);
+  assert.equal((await call('autoAlign', [a, b], false)).error, 'No layer could be aligned.');
+  const blended = (await call('autoBlend', [a, b], false, true)).result as D;
+  assert.ok(blended.layers.filter(l => l.id === a || l.id === b).every(l => l.mask));
+  assert.equal(blended.history.labels.at(-1), 'Auto-Blend Layers');
+  assert.equal((await call('photomerge', false)).error, 'No layer could be aligned.');
+  const pm = (await call('photomerge', true)).result as D;
+  assert.equal(pm.history.labels.at(-1), 'Photomerge');
+  await closeAll();
+  assert.match((await call('mergeHdr', 1)).error ?? '', /at least two open documents/);
+  await call('newDoc', 300, 8, 8, [64, 64, 64, 255]);
+  await call('newDoc', 300, 8, 8, [128, 128, 128, 255]);
+  const hdr = (await call('mergeHdr', 1)).result as D;
+  assert.equal(hdr.depth, 32);
+  assert.equal(hdr.name, 'Untitled HDR');
+  assert.equal(hdr.docs.length, 3);
+  const [v] = (await call('sample', 290, 4, 1, null)).result as number[];
+  assert.ok(Math.abs(v - 64) <= 1, `merged value ${v}`);
 });
 
 test('Image > Mode: depth and grayscale conversions are one step each and show in the tab', async () => {

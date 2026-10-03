@@ -1,4 +1,4 @@
-import init, { Engine, Fonts, filter_schema, fit_path, icc_builtins, icc_describe, live_path, puppet_geometry, vanishing_connected, vanishing_render, type Liquify } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts, HdrMerge, filter_schema, type ImageTiles, fit_path, icc_builtins, icc_describe, live_path, puppet_geometry, vanishing_connected, vanishing_render, type Liquify } from './engine-pkg/photobaer_engine.js';
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
@@ -16,13 +16,14 @@ import { layerName } from './shell/typesession.ts';
 import { locate, nodeById } from './layers.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
-import type { AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
+import type { Spot, AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { boxScale, thumbSize } from './app/navigator.ts';
 import { inkGray } from './app/channels.ts';
 import { CMYK_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
 import { DEFAULT_VIEW, engineView, sanitizeHdr, type ViewState } from './app/proof.ts';
 import { psdWithIcc, readIcc } from './app/iccFiles.ts';
 import { TILE } from './view.ts';
+import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, toLinear, type FloatImage } from './formats.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
@@ -135,8 +136,12 @@ const tabName = (i: number) => i === active ? parents[0]?.name ?? name : docs[i]
 
 // One 8-bit mask at `level` from per-tile reads; tiles that read null are the default
 // (255 if def > 0 else 0). A null default means there is no mask (data null).
-// Apply Image / Calculations source: `layer` null is the merged image; see the engine's ImageSource.
-export type ImageSource = { layer: number | null; channel: string; invert: boolean };
+// Apply Image / Calculations source: `doc` the tab key of another open document of the same size
+// (absent: the active one), `layer` null is the merged image; see the engine's ImageSource.
+export type ImageSource = { doc?: string; layer: number | null; channel: string; invert: boolean };
+// Blending (a layer mode, or 'add' / 'subtract' with `scale` 1..2 and `offset` -255..255),
+// opacity 0..1, and an optional mask source whose gray scales the effect.
+export type CalcOpts = { mode: string; opacity: number; scale: number; offset: number; mask: ImageSource | null };
 
 function maskAt(e: Engine, level: number, def: number | null, tile: (tx: number, ty: number) => unknown) {
   const scale = 1 << level;
@@ -165,7 +170,7 @@ function info(): DocInfo | null {
   const ch = JSON.parse(eng.channels_json()) as {
     selection: { default: number; bounds: [number, number, number, number] | null } | null;
     has_last_selection: boolean;
-    channels: { id: number; name: string }[];
+    channels: { id: number; name: string; spot: Spot | null }[];
     patterns: { id: string; name: string }[];
     layer_comps: { id: number; name: string; layer_count: number }[];
     global_light: GlobalLight;
@@ -192,7 +197,7 @@ function info(): DocInfo | null {
     parents: parents.map(p => p.name),
     key: docs[active].key,
     dirty: isDirty(active),
-    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active, dirty: isDirty(i), mode: tabMode(i), depth: tabDepth(i) })),
+    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active, dirty: isDirty(i), mode: tabMode(i), depth: tabDepth(i), width: tabEngine(i).width(), height: tabEngine(i).height() })),
   };
 }
 
@@ -284,6 +289,14 @@ function vectorPathBounds(path: VectorPath): [number, number, number, number] | 
 // Drops every open Edit Contents parent (a new or closed document replaces the whole stack).
 function dropParents() {
   for (const p of parents.splice(0)) { p.history.clear(); p.eng.free(); }
+}
+
+// An Apply Image / Calculations source read from its document: the active one (`e`) or another tab.
+function readSource(e: Engine, src: ImageSource) {
+  const { doc, ...rest } = src;
+  const i = doc === undefined ? active : docs.findIndex(d => d.key === doc);
+  if (i < 0) throw new Error('The source document is no longer open.');
+  return (i === active ? e : outerEng(i)).image_source(JSON.stringify(rest));
 }
 
 // Adds `e` as a new tab after the others and activates it; the open documents stay open.
@@ -507,15 +520,48 @@ function removeAsset(id: number) {
 
 const previewEngine = () => eng ?? (scratch ??= new Engine(1, 1, 8));
 
-// A document engine from an opened file: .psd, or a browser-decoded image as one Background layer.
+// A 32-bit document from linear float pixels, one Background layer.
+function floatEngine(img: FloatImage) {
+  const { width: w, height: h, data } = img;
+  const e = new Engine(w, h, 32);
+  const t = new Float32Array(TILE * TILE * 4);
+  tileLoop(w, h, (tx, ty) => {
+    t.fill(0);
+    for (let y = 0; y < TILE && ty * TILE + y < h; y++) for (let x = 0; x < TILE && tx * TILE + x < w; x++) {
+      const o = ((ty * TILE + y) * w + tx * TILE + x) * 4, d = (y * TILE + x) * 4;
+      for (let c = 0; c < 3; c++) t[d + c] = fromLinear(Math.max(0, data[o + c]));
+      t[d + 3] = data[o + 3];
+    }
+    e.set_tile_f32(BACKGROUND, tx, ty, t);
+  });
+  return e;
+}
+
+// The flattened document as linear floats.
+function floatImage(e: Engine): FloatImage {
+  const w = e.width(), h = e.height(), data = new Float32Array(w * h * 4);
+  tileLoop(w, h, (tx, ty) => {
+    const t = e.flatten_tile_f32(tx, ty);
+    for (let y = 0; y < TILE && ty * TILE + y < h; y++) for (let x = 0; x < TILE && tx * TILE + x < w; x++) {
+      const o = ((ty * TILE + y) * w + tx * TILE + x) * 4, d = (y * TILE + x) * 4;
+      for (let c = 0; c < 3; c++) data[o + c] = toLinear(t[d + c]);
+      data[o + 3] = t[d + 3];
+    }
+  });
+  return { width: w, height: h, data };
+}
+
+// A document engine from an opened file: .psd/.psb, .exr/.hdr as 32 bits, or a browser-decoded image as one Background layer.
 async function engineOf(file: File): Promise<{ e: Engine; name: string; warnings: string[] }> {
   const lower = file.name.toLowerCase();
-  if (lower.endsWith('.psb')) throw new Error('PSB files are not supported yet');
-  if (lower.endsWith('.psd')) {
-    const { engine, warnings, sources } = importPsd(new Uint8Array(await file.arrayBuffer()));
+  const base = file.name.replace(/\.[^.]+$/, '');
+  if (lower.endsWith('.psd') || lower.endsWith('.psb')) {
+    const { engine, warnings, sources } = importPsd(new Uint8Array(await file.arrayBuffer()), { psb: lower.endsWith('.psb') });
     await loadSources(engine, sources, m => { if (!warnings.includes(m)) warnings.push(m); });
-    return { e: engine, name: file.name.replace(/\.psd$/i, ''), warnings };
+    return { e: engine, name: base, warnings };
   }
+  if (lower.endsWith('.exr')) return { e: floatEngine(await decodeExr(new Uint8Array(await file.arrayBuffer()))), name: base, warnings: [] };
+  if (lower.endsWith('.hdr')) return { e: floatEngine(decodeHdr(new Uint8Array(await file.arrayBuffer()))), name: base, warnings: [] };
   const bmp = await createImageBitmap(file, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
   const c = new OffscreenCanvas(bmp.width, bmp.height);
   const ctx = c.getContext('2d', { willReadFrequently: true })!;
@@ -526,7 +572,7 @@ async function engineOf(file: File): Promise<{ e: Engine; name: string; warnings
     const d = ctx.getImageData(tx * 256, ty * 256, 256, 256).data;
     e.set_tile_rgba8(BACKGROUND, tx, ty, new Uint8Array(d.buffer, d.byteOffset, d.length));
   });
-  return { e, name: file.name.replace(/\.[^.]+$/, ''), warnings: [] };
+  return { e, name: base, warnings: [] };
 }
 
 const api = {
@@ -578,6 +624,12 @@ const api = {
     // Proofs to the working CMYK follow it.
     for (const e of new Set([...docs.map(d => d.eng), ...(eng ? [eng] : [])])) if (views.has(e)) applyView(e, views.get(e)!);
     if (eng) version++;
+  },
+
+  // Channels panel target of the active document: edits change only these color channels, or
+  // selection-target edits paint saved channel `alpha`. UI state, so no history step.
+  setChannelTarget(rgb: [boolean, boolean, boolean], alpha: number | null) {
+    need().set_channel_target(Uint8Array.from(rgb, Number), alpha ?? undefined);
   },
 
   // View > Proof Setup, Proof Colors, Gamut Warning and 32-bit Preview Options of the active
@@ -935,6 +987,14 @@ const api = {
     return maskAt(e, level, ch.default, (tx, ty) => e.channel_tile(id, level, tx, ty));
   },
 
+  // Layer `id`'s mask assembled like selectionMask (data is never null).
+  layerMask(id: number, level: number) {
+    const e = need();
+    const n = findNode(e, id);
+    if (!n?.mask) throw new Error(`layer ${id} has no mask`);
+    return maskAt(e, level, n.mask.default, (tx, ty) => e.layer_mask_tile(id, level, tx, ty));
+  },
+
   // One CMYK or Lab channel of the composite at pyramid `level`, as the Channels panel shows it alone;
   // transparent areas show white.
   colorChannelMask(mode: 'cmyk' | 'lab', ch: number, level: number) {
@@ -954,21 +1014,39 @@ const api = {
   },
 
   // Image > Apply Image on pixel layer `id`; `preview` reruns inside the dialog's session.
-  applyImage(id: number, src: ImageSource, mode: string, opacity: number, preserve: boolean, preview = false) {
+  applyImage(id: number, src: ImageSource, opts: CalcOpts & { preserve: boolean }, preview = false) {
     const e = need();
-    return edit('Apply Image', preview, () => e.apply_image(id, JSON.stringify(src), mode, opacity, preserve));
+    return edit('Apply Image', preview, () => {
+      const s = readSource(e, src);
+      try {
+        e.apply_image(id, s, opts.mask && readSource(e, opts.mask), opts.mode, opts.opacity, opts.scale, opts.offset / 255, opts.preserve);
+      } finally {
+        s.free();
+      }
+    });
   },
 
-  // Image > Calculations into a new channel, or into the selection (the channel is then dropped).
-  calculations(src1: ImageSource, src2: ImageSource, mode: string, opacity: number, result: 'channel' | 'selection') {
+  // Image > Calculations into a new channel, the selection (the channel is then dropped), or a new
+  // grayscale document.
+  calculations(src1: ImageSource, src2: ImageSource, opts: CalcOpts, result: 'channel' | 'selection' | 'document') {
     const e = need();
-    const names = new Set((JSON.parse(e.channels_json()) as { channels: { name: string }[] }).channels.map(c => c.name));
-    let n = 1;
-    while (names.has(`Alpha ${n}`)) n++;
-    history.run('Calculations', () => {
-      const ch = e.calculations(JSON.stringify(src1), JSON.stringify(src2), mode, opacity, `Alpha ${n}`);
-      if (result === 'selection') { e.load_selection(ch, false, 'new'); e.delete_channel(ch); }
-    });
+    const a = readSource(e, src1), b = readSource(e, src2);
+    const run = <T>(f: (mask: ImageTiles | null) => T) => f(opts.mask && readSource(e, opts.mask));
+    try {
+      if (result === 'document') {
+        return adopt(run(m => e.calculations_document(a, b, m, opts.mode, opts.opacity, opts.scale, opts.offset / 255)), 'Calculations');
+      }
+      const names = new Set((JSON.parse(e.channels_json()) as { channels: { name: string }[] }).channels.map(c => c.name));
+      let n = 1;
+      while (names.has(`Alpha ${n}`)) n++;
+      history.run('Calculations', () => {
+        const ch = run(m => e.calculations(a, b, m, opts.mode, opts.opacity, opts.scale, opts.offset / 255, `Alpha ${n}`));
+        if (result === 'selection') { e.load_selection(ch, false, 'new'); e.delete_channel(ch); }
+      });
+    } finally {
+      a.free();
+      b.free();
+    }
     if (result === 'selection') selGen++;
     return changed();
   },
@@ -1038,6 +1116,23 @@ const api = {
     let created = 0;
     history.run('New Channel', () => { created = e.new_channel(`Alpha ${n}`); });
     return { ...changed(), created };
+  },
+
+  // A spot channel with no ink, named Spot Color n unless `name` is given.
+  newSpotChannel(spot: Spot, name?: string) {
+    const e = need();
+    const names = new Set((JSON.parse(e.channels_json()) as { channels: { name: string }[] }).channels.map(c => c.name));
+    let n = 1;
+    while (names.has(`Spot Color ${n}`)) n++;
+    let created = 0;
+    history.run('New Spot Channel', () => { created = e.new_spot_channel(name || `Spot Color ${n}`, Uint8Array.from(spot.color), spot.solidity); });
+    return { ...changed(), created };
+  },
+
+  spotChannelOptions(id: number, name: string, spot: Spot) {
+    const e = need();
+    history.run('Channel Options', () => e.set_spot(id, name, Uint8Array.from(spot.color), spot.solidity));
+    return changed();
   },
 
   renameChannel(id: number, name: string) {
@@ -2021,6 +2116,44 @@ const api = {
     return canvasEdit('Perspective Crop', () => { e.perspective_crop(Float64Array.from(quad), w, h, 'bicubic'); return true; });
   },
 
+  // Edit > Auto-Align Layers (onto the bottom selected layer) and Auto-Blend Layers.
+  autoAlign(ids: number[], reposition: boolean) {
+    const e = need();
+    history.run('Auto-Align Layers', () => e.auto_align(new Uint32Array(ids), reposition));
+    return changed();
+  },
+
+  autoBlend(ids: number[], stack: boolean, seamless: boolean) {
+    const e = need();
+    history.run('Auto-Blend Layers', () => e.auto_blend(new Uint32Array(ids), stack, seamless));
+    return changed();
+  },
+
+  // File > Automate > Photomerge: aligns (and blends) every pixel layer of the active document.
+  photomerge(blend: boolean) {
+    const e = need();
+    history.run('Photomerge', () => e.photomerge(blend));
+    return changed();
+  },
+
+  // File > Automate > Merge to HDR Pro: the open documents in tab order are the exposures, each
+  // `stops` brighter than the one before; the 32-bit result opens as a new tab.
+  mergeHdr(stops: number) {
+    if (docs.length < 2) throw new Error('Merge to HDR Pro needs at least two open documents, one per exposure.');
+    const srcs = docs.map((_, i) => outerEng(i));
+    const m = new HdrMerge(srcs[0].width(), srcs[0].height());
+    try {
+      tileLoop(srcs[0].width(), srcs[0].height(), (tx, ty) => {
+        srcs.forEach((src, i) => m.add(src, tx, ty, i * stops));
+        m.write(tx, ty);
+      });
+    } catch (err) {
+      m.free();
+      throw err;
+    }
+    return adopt(m.finish(), `${tabName(0)} HDR`);
+  },
+
   trim(basedOn: 'transparent' | 'topLeftPixel' | 'bottomRightPixel', top: boolean, bottom: boolean, left: boolean, right: boolean) {
     const e = need();
     return canvasEdit('Trim', () => e.trim(basedOn, top, bottom, left, right));
@@ -2861,6 +2994,24 @@ const api = {
     const icc = e.profile_icc();
     markSaved();
     return { blob: new Blob([(icc.length ? psdWithIcc(bytes, icc) : bytes) as Uint8Array<ArrayBuffer>], { type: 'image/vnd.adobe.photoshop' }), warnings };
+  },
+
+  // Save As by extension. PSB marks the document saved like savePsd; EXR, HDR and ICO are
+  // flattened copies, so the document keeps its dirty state.
+  async saveFormat(format: 'psb' | 'exr' | 'hdr' | 'ico'): Promise<{ blob: Blob; warnings: string[] }> {
+    const e = need();
+    if (format === 'psb') {
+      const { bytes, warnings } = exportPsd(e, { psb: true });
+      const icc = e.profile_icc();
+      markSaved();
+      return { blob: new Blob([(icc.length ? psdWithIcc(bytes, icc) : bytes) as Uint8Array<ArrayBuffer>], { type: 'image/vnd.adobe.photoshop' }), warnings };
+    }
+    if (format === 'ico') {
+      const png = new Uint8Array(await (await encodeFlattened(e, 'image/png')).arrayBuffer());
+      return { blob: new Blob([encodeIco(png, e.width(), e.height())], { type: 'image/x-icon' }), warnings: [] };
+    }
+    const img = floatImage(e);
+    return { blob: new Blob([format === 'exr' ? await encodeExr(img) : encodeHdr(img)], { type: format === 'exr' ? 'image/x-exr' : 'image/vnd.radiance' }), warnings: [] };
   },
 
   // Ends a save: `ok` false (cancelled or failed write) restores the dirty state from before it.
