@@ -45,14 +45,14 @@ export interface MenuCtx {
   filterCommand: (op: 'toggle' | 'clear' | 'deleteMasks' | 'toggleMasks', label: string) => () => void; filters: SmartFilterInfo[];
   filterMasks: boolean; maskLabel: string; openFilterBlend: () => void; openLayerStyle: (page: StylePage, id?: number) => void;
   globalLightDialog: DialogRef; allEffectsHidden: boolean; anyStyled: boolean; scaleEffectsDialog: DialogRef;
-  openAutomate: (kind: AutomateKind) => void;
+  openAutomate: (kind: AutomateKind) => void; openBatch: () => void;
   openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; openImageCalc: (calc: boolean) => void; openModeDialog: (kind: ModeDialogKind) => void; openColorDialog: (kind: ColorDialogKind) => void; applyDestructive: (kind: DestructiveKind) => void;
   rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
   loadSelDialog: DialogRef; saveSelDialog: DialogRef; viewer: RefObject<Viewer | null>;
   filterSpecs: FilterSpec[]; openFilter: (spec: FilterSpec) => void; openLiquify: () => void; openVanishingPoint: () => void; openContentAwareScale: () => void; startDeform: (kind: 'puppet' | 'perspective') => void; lastFilter: () => void; openFade: () => void; openSearch: () => void;
   showAnts: boolean; setShowAnts: SetState<boolean>; showAdjustments: boolean; setShowAdjustments: SetState<boolean>;
-  showLayerComps: boolean; setShowLayerComps: SetState<boolean>; showChannels: boolean; setShowChannels: SetState<boolean>; showPaths: boolean; setShowPaths: SetState<boolean>; showProperties: boolean; setShowProperties: SetState<boolean>;
+  showLayerComps: boolean; setShowLayerComps: SetState<boolean>; showChannels: boolean; setShowChannels: SetState<boolean>; showActions: boolean; setShowActions: SetState<boolean>; showPaths: boolean; setShowPaths: SetState<boolean>; showProperties: boolean; setShowProperties: SetState<boolean>;
   showStyles: boolean; setShowStyles: SetState<boolean>; showPatterns: boolean; setShowPatterns: SetState<boolean>;
   showGradients: boolean; setShowGradients: SetState<boolean>;
   showRulers: boolean; setShowRulers: SetState<boolean>; showPixelGrid: boolean; setShowPixelGrid: SetState<boolean>;
@@ -114,9 +114,9 @@ export function buildMenus(c: MenuCtx) {
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    openAutomate, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
+    openAutomate, openBatch, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
-    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
+    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
@@ -176,7 +176,8 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Layer Comps to Files (WebP)…', run: () => exportLayerComps('image/webp', 'webp'), off: !has || !doc?.layerComps.length },
       {
         label: 'Automate', keys: '›', run: () => {}, sub: [
-          { label: 'Photomerge…', run: () => openAutomate('photomerge'), off: !has },
+          { label: 'Batch…', run: openBatch },
+          { label: 'Photomerge…', sep: true, run: () => openAutomate('photomerge'), off: !has },
           { label: 'Merge to HDR Pro…', run: () => openAutomate('hdr'), off: (doc?.docs.length ?? 0) < 2 },
         ],
       },
@@ -416,6 +417,7 @@ export function buildMenus(c: MenuCtx) {
       },
     ],
     Window: [
+      { label: showActions ? 'Hide Actions' : 'Show Actions', keys: 'Alt+F9', run: () => { setMenu(null); setShowActions(v => !v); } },
       { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); } },
       { label: showChannels ? 'Hide Channels' : 'Show Channels', run: () => { setMenu(null); setShowChannels(v => !v); } },
       { label: showCloneSource ? 'Hide Clone Source' : 'Show Clone Source', run: () => { setMenu(null); setShowCloneSource(v => !v); } },

@@ -9,6 +9,9 @@ import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { ChannelsPanel } from './ChannelsPanel.tsx';
+import { ActionsPanel, playSteps } from './ActionsPanel.tsx';
+import { BatchDialog, type BatchDialogHandle, type BatchOptions } from './BatchDialog.tsx';
+import { actions } from './app/actionsStore.ts';
 import { ImageCalcDialog, type ImageCalcHandle } from './ImageCalcDialog.tsx';
 import { ModeDialog, type ModeDialogHandle } from './ModeDialog.tsx';
 import { ColorDialog, type ColorDialogHandle } from './ColorDialog.tsx';
@@ -209,6 +212,7 @@ export function App() {
   rulerFlagsRef.current = { showRulers, showPixelGrid, showGuides, showGrid };
   const [showLayerComps, setShowLayerComps] = useState(false);
   const [showChannels, setShowChannels] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const [channelView, setChannelView] = useState<ChannelView>(COMPOSITE);
   const [showPaths, setShowPaths] = useState(false);
   const [pathSel, setPathSel] = useState<PathSel>({ selected: null, cleared: false });
@@ -305,6 +309,7 @@ export function App() {
   const modeDialog = useRef<ModeDialogHandle>(null);
   const colorDialog = useRef<ColorDialogHandle>(null);
   const pdfDialog = useRef<PdfDialogHandle>(null);
+  const batchDialog = useRef<BatchDialogHandle>(null);
   const liquifyDialog = useRef<LiquifyDialogHandle>(null);
   const vpDialog = useRef<VanishingPointDialogHandle>(null);
   const [deform, setDeform] = useState<DeformRequest | null>(null);
@@ -606,6 +611,55 @@ export function App() {
       setError((e as Error).message);
     } finally {
       setBusy(null);
+    }
+  }
+
+  // A browser download with no picker: the batch runs long after the click, so no user gesture is left.
+  function downloadBlob(blob: Blob, name: string) {
+    const url = URL.createObjectURL(blob);
+    Object.assign(document.createElement('a'), { href: url, download: name }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
+
+  // File > Automate > Batch. Each document plays the action with its top layer as the target; files the
+  // batch opened close after saving. Errors stop the batch or go to a downloaded report.
+  async function runBatch(o: BatchOptions) {
+    const steps = actions.sets.find(s => s.id === o.setId)?.actions.find(a => a.id === o.actionId)?.steps.filter(s => s.enabled) ?? [];
+    const items = o.source === 'opened' ? (docRef.current?.docs ?? []).map(t => ({ key: t.key, name: t.name, file: null as File | null })) : o.files.map(f => ({ key: null as string | null, name: f.name, file: f }));
+    const ext = o.format === 'jpeg' ? 'jpg' : o.format, mime = o.format === 'psd' ? 'image/vnd.adobe.photoshop' : `image/${o.format}`;
+    const log: string[] = [];
+    let n = 0;
+    for (const it of items) {
+      setBusy(`Batch ${++n} of ${items.length}: ${it.name}…`);
+      let opened: string | null = null;
+      try {
+        let d: DocInfo | null = it.key ? await client.call('switchDoc', it.key) : await client.call('openFile', await rasterSvg(it.file!));
+        if (!d) throw new Error('The document is not open.');
+        if (!it.key) opened = d.key;
+        show(d);
+        const top = d.layers.at(-1)?.id ?? null;
+        const done = await playSteps(steps, async (seg, resume) => { d = await client.call('playAction', seg, top, resume) ?? d; show(d); return true; });
+        if (!done) { if (opened) show(await client.call('closeDoc', opened)); break; }
+        if (o.dest !== 'none') {
+          let blob: Blob;
+          if (o.format === 'psd') { blob = (await client.call('savePsd')).blob; show(await client.call('saveEnd', false)); }
+          else blob = await client.call('exportImage', mime as 'image/png' | 'image/jpeg', 0.92);
+          const file = `${d!.name}.${ext}`;
+          if (o.dest === 'folder') await writeFile(await o.folder!.getFileHandle(file, { create: true }), blob);
+          else downloadBlob(blob, file);
+        }
+        if (opened) { show(await client.call('closeDoc', opened)); opened = null; }
+      } catch (e) {
+        const m = `${it.name}: ${(e as Error).message}`;
+        if (opened) show(await client.call('closeDoc', opened).catch(() => docRef.current));
+        if (o.errors === 'stop') { setBusy(null); setError(`Batch stopped. ${m}`); return; }
+        log.push(m);
+      }
+    }
+    setBusy(null);
+    if (log.length) {
+      downloadBlob(new Blob([`Batch errors\n\n${log.join('\n')}\n`], { type: 'text/plain' }), 'Batch errors.txt');
+      setError(`Batch finished with ${log.length} error${log.length > 1 ? 's' : ''}; see Batch errors.txt.`);
     }
   }
 
@@ -1214,10 +1268,11 @@ export function App() {
     globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog,
     openImageCalc: calc => { setMenu(null); if (calc) imageCalc.current?.open({ kind: 'calc' }); else if (active) imageCalc.current?.open({ kind: 'apply', id: active.id }); }, trimDialog, imageSizeDialog, canvasSizeDialog,
     openAutomate: kind => { setMenu(null); setAutomate(kind); automateDialog.current?.showModal(); },
+    openBatch: () => { setMenu(null); batchDialog.current?.open(); },
     openModeDialog: kind => { setMenu(null); modeDialog.current?.open(kind); },
     openColorDialog: kind => { setMenu(null); colorDialog.current?.open(kind); },
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
-    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
+    showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openVanishingPoint: () => openVanishingPoint(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
@@ -1303,6 +1358,7 @@ export function App() {
       if (e.event === 'autosave') setAutosave(e.state);
       else if (e.event === 'transformCancelled' && closeTransform()) show(e.doc);
       else if (e.event === 'typeCommitted') { if (typeRef.current) typeRef.current.ended(e.doc); else show(e.doc); }
+      else if (e.event === 'actionStep') actions.addStep(e.step);
     };
     (async () => {
       try {
@@ -1919,7 +1975,7 @@ export function App() {
                   onDrop={() => setDragOver(false)}
                 >
                   Drop an image here
-                  <small>PNG, JPEG, WebP, GIF, BMP, AVIF or PSD</small>
+                  <small>PNG, JPEG, WebP, GIF, BMP, AVIF, SVG, ICO, PSD, PSB, EXR, HDR or PDF</small>
                 </div>
                 <small className="copyright">
                   © 2026 IT-BAER ·{' '}
@@ -2005,6 +2061,7 @@ export function App() {
               <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
               {showChannels && <ChannelsPanel doc={doc} run={run} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} />}
               {showLayerComps && <LayerCompsPanel doc={doc} run={run} />}
+              {showActions && <ActionsPanel has active={active} run={run} setError={setError} />}
               {showPaths && <PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} />}
             </>
           )}
@@ -2090,6 +2147,7 @@ export function App() {
       <ModeDialog ref={modeDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
       <ColorDialog ref={colorDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
       <PdfDialog ref={pdfDialog} setError={m => setError(m)} />
+      <BatchDialog ref={batchDialog} start={o => void runBatch(o)} />
       <LiquifyDialog ref={liquifyDialog} show={d => show(d)} setError={m => setError(m)} />
       <VanishingPointDialog ref={vpDialog} show={d => show(d)} setError={m => setError(m)} />
       <FilterBlendDialog

@@ -23,6 +23,7 @@ import { CMYK_SPACES, openAction, type ColorSettings, type OpenAction } from './
 import { DEFAULT_VIEW, engineView, sanitizeHdr, type ViewState } from './app/proof.ts';
 import { psdWithIcc, readIcc } from './app/iccFiles.ts';
 import { TILE } from './view.ts';
+import { NO_RECORD, decodeCall, encodeCall, hot, newIds, recordable, type ActionStep, type Call, type Layers } from './actions.ts';
 import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, toLinear, type FloatImage } from './formats.ts';
 import { applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
@@ -75,6 +76,10 @@ const resolution = (e: Engine) => (JSON.parse(e.vector_json()) as { resolution: 
 let fontStore: Promise<FontStore | null> | null = null;
 // Open live-preview session (Fill/Stroke dialogs): one history step, rerun from its start on every change.
 let previewOpen = false;
+// Actions: an open recording buffers the calls of the step in progress; playback suspends it.
+let rec: { doc: number; last: Layers; created: number[]; buf: Call[] } | null = null;
+let playing = false;
+let playState: { created: number[]; last: Layers } | null = null;
 let previewError: string | null = null;
 
 const historyOf = (e: Engine) => new History({
@@ -549,6 +554,46 @@ function floatImage(e: Engine): FloatImage {
     }
   });
   return { width: w, height: h, data };
+}
+
+// The document's layers in layers_json order (bottom-up).
+function layersOf(e: Engine): Layers {
+  const ids: number[] = [], names = new Map<number, string>();
+  const walk = (ns: LayerNode[]) => { for (const n of ns) { ids.push(n.id); names.set(n.id, n.name); if (n.children) walk(n.children); } };
+  walk(JSON.parse(e.layers_json()) as LayerNode[]);
+  return { ids, names };
+}
+
+// Runs a queued call; while recording, a call that changed the document joins the step in progress,
+// and the step goes to the UI when its history step lands.
+async function recorded(op: keyof Api, args: unknown[], run: () => Promise<void>) {
+  if (!rec || !eng || playing || NO_RECORD.has(op)) { settle(op); return run(); }
+  if (rec.doc !== docId) rec = { doc: docId, last: layersOf(eng), created: [], buf: [] };
+  const r = rec, top0 = history.top, open0 = history.isOpen;
+  settle(op);
+  // A session that settle committed ends the step in progress; one it cancelled drops it.
+  if (history.top !== top0 && r.buf.length) {
+    postMessage({ event: 'actionStep', step: { id: uuid(), label: history.undoLabel ?? op, enabled: true, calls: r.buf } } satisfies WorkerEvent);
+    r.last = layersOf(eng);
+  }
+  if (history.top !== top0 || (open0 && !history.isOpen)) r.buf = [];
+  const v = version, top = history.top, open = history.isOpen, before = r.last, created = [...r.created];
+  await run();
+  if (rec !== r || docId !== r.doc || !eng) return;
+  // A cancelled preview or session: what led to it is not part of any step.
+  if (open && !history.isOpen && history.top === top) { r.buf = []; return; }
+  if (version === v && history.top === top && history.isOpen === open && !op.endsWith('Begin')) return;
+  if (!recordable(args)) {
+    postMessage({ event: 'actionStep', step: { id: uuid(), label: `${history.undoLabel ?? op} (uses a file, not recorded)`, enabled: false, calls: [] } } satisfies WorkerEvent);
+    r.buf = [];
+    return;
+  }
+  r.buf.push(encodeCall({ op, args }, before, created));
+  if (!hot(op)) { const now = layersOf(eng); r.created.push(...newIds(before, now)); r.last = now; }
+  if (history.top !== top && !history.isOpen) {
+    postMessage({ event: 'actionStep', step: { id: uuid(), label: history.undoLabel ?? op, enabled: true, calls: r.buf } } satisfies WorkerEvent);
+    r.buf = [];
+  }
 }
 
 // A document engine from an opened file: .psd/.psb, .exr/.hdr as 32 bits, or a browser-decoded image as one Background layer.
@@ -2998,6 +3043,44 @@ const api = {
     return { blob: new Blob([(icc.length ? psdWithIcc(bytes, icc) : bytes) as Uint8Array<ArrayBuffer>], { type: 'image/vnd.adobe.photoshop' }), warnings };
   },
 
+  // Actions panel recording; steps arrive as actionStep events.
+  recordStart() {
+    rec = eng ? { doc: docId, last: layersOf(eng), created: [], buf: [] } : null;
+    if (!rec) throw new Error('Open a document to record an action.');
+  },
+  recordStop() { rec = null; },
+
+  // Plays recorded steps on the active document; `active` stands in for layers named in the action that
+  // the document lacks. `resume` continues the layer references of the previous call (after a stop step).
+  async playAction(steps: ActionStep[], active: number | null, resume = false) {
+    const e = need();
+    const state = resume && playState ? playState : { created: [], last: layersOf(e) };
+    playState = state;
+    playing = true;
+    let at = 0;
+    try {
+      for (const s of steps) {
+        at++;
+        for (const c of s.calls) {
+          // Loaded action files are untrusted: only edit calls run.
+          const fn = (api as unknown as Record<string, unknown>)[c.op];
+          if (NO_RECORD.has(c.op) || !Object.hasOwn(api, c.op) || typeof fn !== 'function') throw new Error(`"${c.op}" cannot run in an action.`);
+          const call = decodeCall(c, state.last, state.created, active);
+          settle(call.op);
+          await (fn as (...a: unknown[]) => unknown)(...call.args);
+          if (!hot(call.op)) { const now = layersOf(need()); state.created.push(...newIds(state.last, now)); state.last = now; }
+        }
+      }
+    } catch (err) {
+      throw new Error(`${steps[at - 1]?.label ?? 'Step'}: ${(err as Error).message}`);
+    } finally {
+      playing = false;
+      // Sessions the action left open are committed (or cancelled) as the next call would.
+      settle('playAction');
+    }
+    return info();
+  },
+
   // Save As by extension. PSB marks the document saved like savePsd; EXR, HDR and ICO are
   // flattened copies, so the document keeps its dirty state.
   async saveFormat(format: 'psb' | 'exr' | 'hdr' | 'ico'): Promise<{ blob: Blob; warnings: string[] }> {
@@ -3154,6 +3237,18 @@ const TYPE_OPS = new Set<keyof Api>(['typeBegin', 'typeUpdate', 'typeCommit', 't
 // An open transform session is cancelled by any other op: only the UI knows its current matrix.
 const TRANSFORM_OPS = new Set<keyof Api>(['transformRefine', 'transformUnrefine', 'transformCommit', 'transformCancel', 'transformWarp', 'sample', 'snapTargets', 'movingBounds', 'selectionAt', 'patternPixels']);
 
+// Before `op`: commits or cancels the sessions it may not run inside.
+function settle(op: string) {
+  const o = op as keyof Api;
+  // Any other op queued while a stroke is open first commits it, so undo/save never see a half stroke.
+  if (strokeOpen && !STROKE_OPS.has(o) && eng) { eng.stroke_end(); strokeOpen = false; history.commit(); changed(); }
+  // Anything but a preview rerun, its end or a read cancels an open preview.
+  if (previewOpen && !PREVIEW_OPS.has(o) && eng) { try { endPreview(false); } catch { /* cancel never throws */ } version++; }
+  if (moveSession && !MOVE_OPS.has(o) && eng) api.moveLayerCommit();
+  if (typeSession && !TYPE_OPS.has(o) && eng) postMessage({ event: 'typeCommitted', doc: api.typeCommit() } satisfies WorkerEvent);
+  if (transformSession && !TRANSFORM_OPS.has(o) && eng) postMessage({ event: 'transformCancelled', doc: api.transformCancel() } satisfies WorkerEvent);
+}
+
 // Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
 // displayTile, displayProgram and selectionMask are synchronous and read-only, so they skip the
 // queue and the viewer keeps drawing.
@@ -3166,13 +3261,6 @@ onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[]; doc?
   queue = queue.then(() => {
     if (FONT_OPS.has(op)) return handle(id, op, args);
     if (doc !== undefined && doc !== docId) { postMessage({ id, error: 'The document changed before this command ran, so it was not applied.', docId }); return; }
-    // Any other op queued while a stroke is open first commits it, so undo/save never see a half stroke.
-    if (strokeOpen && !STROKE_OPS.has(op) && eng) { eng.stroke_end(); strokeOpen = false; history.commit(); changed(); }
-    // Anything but a preview rerun, its end or a read cancels an open preview.
-    if (previewOpen && !PREVIEW_OPS.has(op) && eng) { try { endPreview(false); } catch { /* cancel never throws */ } version++; }
-    if (moveSession && !MOVE_OPS.has(op) && eng) api.moveLayerCommit();
-    if (typeSession && !TYPE_OPS.has(op) && eng) postMessage({ event: 'typeCommitted', doc: api.typeCommit() } satisfies WorkerEvent);
-    if (transformSession && !TRANSFORM_OPS.has(op) && eng) postMessage({ event: 'transformCancelled', doc: api.transformCancel() } satisfies WorkerEvent);
-    return handle(id, op, args);
+    return recorded(op, args, () => handle(id, op, args));
   }).catch(err => postMessage({ id, error: err instanceof Error ? err.message : String(err), docId }));
 };

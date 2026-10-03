@@ -38,7 +38,12 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 - Face-Aware Liquify.
 
 ## M8 Automation and export
-- Actions panel (record and play), File > Automate > Batch, droplet equivalent.
+- Actions rest: droplets; Insert Menu Item and conditional steps; dialog (modal) toggles per step; F-key shortcuts;
+  .atn import; recording tool-only state (colors, tool options); undo while recording keeps the recorded step;
+  smart filter, path, channel and guide ids are not remapped on playback; strokes with sampled tips need the tip
+  in the session. Batch rest: Save and Close, file naming options, Override Action "Open"/"Save As"; same-named outputs overwrite;
+  a Files batch that closes the last document leaves a stale "document changed" toast; Batch does not refuse to
+  start while recording.
 - Scripts: Image Processor, Delete All Empty Layers, Flatten All Layer Effects, Flatten All Masks,
   Load Files into Stack; JS scripting with a documented API.
 - File > Export: Quick Export as PNG, Export As (format, size, quality per file), Export Preferences,

@@ -1,3 +1,4 @@
+import type { ActionStep } from '../actions.ts';
 import type { ViewState } from '../app/proof.ts';
 import type { Blending, LayerStyle } from '../layerStyle.ts';
 import type { Live, ShapeStroke } from '../shell/shapetools.ts';
@@ -159,7 +160,7 @@ export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?
 export type OpenResult = DocInfo & { warnings: string[] };
 export type AutosaveState = 'off' | 'other-tab' | 'idle' | 'saving' | 'saved' | 'error';
 export type WorkerEvent = { event: 'autosave'; state: AutosaveState; detail?: string } | { event: 'transformCancelled'; doc: DocInfo | null }
-  | { event: 'typeCommitted'; doc: DocInfo };
+  | { event: 'typeCommitted'; doc: DocInfo } | { event: 'actionStep'; step: ActionStep };
 export interface StrokeParams {
   rgba: [number, number, number, number]; mode: string; size: number;
   opacity?: number; flow?: number; hardness?: number; spacing?: number; angle?: number; roundness?: number;

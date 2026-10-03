@@ -685,3 +685,17 @@ dialog.vp-dialog h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); }
 .pdf-pages button.on { border-color: var(--accent); }
 .pdf-pages img, .pdf-blank { width: 96px; height: 96px; object-fit: contain; background: #fff; }
 .pdf-dialog .row { display: flex; gap: 8px; margin-bottom: 8px; }
+.action-row { display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 6px; cursor: default; white-space: nowrap; }
+.action-row:hover { background: var(--panel-hi); }
+.action-row.selected { background: var(--panel-hi); font-weight: 600; }
+.action-row.off .action-name { opacity: 0.5; }
+.action-row.indent1 { padding-left: 18px; }
+.action-row.indent2 { padding-left: 36px; }
+.action-row button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; background: none; border: 0; color: var(--dim); cursor: pointer; }
+.action-eye { display: inline-grid; width: 18px; flex: none; }
+.action-eye .dim { opacity: 0.5; }
+.action-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.action-count { color: var(--dim); }
+.actions-panel .rec, .layers-footer button.recording { color: #e5484d; }
+.actions-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
+.actions-buttons button { padding: 6px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 4px; color: var(--text); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

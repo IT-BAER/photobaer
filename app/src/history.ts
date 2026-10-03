@@ -28,6 +28,8 @@ export class History {
   // Every step oldest first; the first `current` are applied, the rest can be redone.
   get labels() { return [...this.#undo, ...this.#redo.toReversed()].map(s => s.label); }
   get current() { return this.#undo.length; }
+  // A begin() step is waiting for commit() or abort().
+  get isOpen() { return this.#open !== null; }
   // Identity of the state the document is in: the last applied step (kept across undo/redo), else the base.
   get top(): object | null { return this.#undo.at(-1) ?? this.#base; }
 

@@ -113,6 +113,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && e.shiftKey && k === 't') triggerBy(l => l === 'Again', e);
       else if (ctrl && k === 't') trigger('Free Transform', e);
       else if (e.shiftKey && k === 'f6') trigger('Feather', e);
+      else if (e.altKey && !ctrl && k === 'f9') triggerBy(l => l === 'Show Actions' || l === 'Hide Actions', e);
       else if (e.shiftKey && !ctrl && k === 'f5') triggerBy(l => l === 'Fill…', e);
       else if (k === 'f12' && !ctrl && !e.shiftKey && !e.altKey && find(l => l === 'Revert')?.off === false) triggerBy(l => l === 'Revert', e);
       else if (k === 'f5' && !ctrl) { e.preventDefault(); setDockTab(t => (t === 'brushSettings' ? 'color' : 'brushSettings')); }

@@ -3146,3 +3146,64 @@ test('Vanishing Point commits one "Vanishing Point" step with dabs and one "Vani
   assert.deepEqual(((await call('vpBegin', 1, 64, null)).result as { planes: unknown[] }).planes, planes);
   await call('vpEnd');
 });
+
+test('an action records steps with layer references and replays them on another document', async () => {
+  await call('init');
+  await call('newDoc', 32, 32, 8, [255, 255, 255, 255]);
+  await call('addLayer', 1, 'Old');
+  events.length = 0;
+  await call('recordStart');
+  const a = await call('addLayer', 1, 'Glow');
+  const glow = (a.result as { created: number }).created;
+  await call('layerThumbs', [glow], 16);
+  await call('setProps', glow, { opacity: 0.5 });
+  await call('command', 'fill', glow, 'pixels', [10, 200, 30, 255]);
+  await call('setProps', 1, { visible: false });
+  await call('recordStop');
+  await call('addLayer', 1);
+  const steps = events.filter(e => (e as { event: string }).event === 'actionStep').map(e => (e as { step: import('./actions.ts').ActionStep }).step);
+  assert.deepEqual(steps.map(s => s.label), ['New Layer', 'Opacity', 'Fill', 'Hide Layer'], 'reads and calls after stop are not recorded');
+  assert.deepEqual(steps[1].calls, [{ op: 'setProps', args: [{ $L: { c: 0 } }, { opacity: 0.5 }] }]);
+  assert.deepEqual(steps[3].calls[0].args[0], { $L: { n: 'Background' } });
+
+  // Another document: Background exists, "Old" does not.
+  await call('newDoc', 32, 32, 8, [0, 0, 0, 255]);
+  const r = await call('playAction', steps, null);
+  assert.equal(r.error, undefined);
+  const layers = (r.result as { layers: { name: string; opacity: number; visible: boolean }[] }).layers;
+  assert.deepEqual(layers.map(l => [l.name, l.opacity, l.visible]), [['Background', 1, false], ['Glow', 0.5, true]]);
+  assert.deepEqual((await call('sample', 5, 5, 1, (r.result as { layers: { id: number }[] }).layers[1].id)).result, [10, 200, 30, 255]);
+  assert.equal((r.result as { undoLabel: string }).undoLabel, 'Hide Layer');
+
+  const bad = await call('playAction', [{ id: 'x', label: 'Delete Old', enabled: true, calls: [{ op: 'deleteNode', args: [{ $L: { n: 'Nope' } }] }] }], null);
+  assert.match(bad.error!, /^Delete Old: There is no layer named "Nope"/);
+});
+
+test('playAction refuses calls that are not edits', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  for (const op of ['closeDoc', 'savePsd', 'fontUpload', 'toString', 'constructor']) {
+    const r = await call('playAction', [{ id: 'x', label: 'Bad', enabled: true, calls: [{ op, args: [] }] }], null);
+    assert.match(r.error!, /cannot run in an action/, op);
+  }
+});
+
+test('recording: a cancelled preview leaves no calls behind, a committed preview is one step', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  events.length = 0;
+  await call('recordStart');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill', true);
+  await call('setProps', 1, { opacity: 0.5 });
+  await call('fillEx', 1, 'pixels', solid([0, 0, 255, 255]), 'Fill', true);
+  await call('fillEx', 1, 'pixels', solid([0, 255, 0, 255]), 'Fill', true);
+  await call('previewEnd', true);
+  await call('recordStop');
+  const steps = events.filter(e => (e as { event: string }).event === 'actionStep').map(e => (e as { step: import('./actions.ts').ActionStep }).step);
+  assert.deepEqual(steps.map(s => [s.label, s.calls.map(c => c.op)]), [['Opacity', ['setProps']], ['Fill', ['fillEx', 'fillEx', 'previewEnd']]]);
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  const r = await call('playAction', steps, null);
+  assert.equal(r.error, undefined);
+  assert.deepEqual((await call('sample', 2, 2, 1, 1)).result, [0, 255, 0, 255]);
+  assert.equal((r.result as { undoLabel: string }).undoLabel, 'Fill');
+});
