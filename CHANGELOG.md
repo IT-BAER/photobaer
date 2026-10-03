@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-03
+
+### Added
+
+- Auto-Align, Auto-Blend, Photomerge and Merge to HDR Pro.
+- File > Automate > Batch: opened or picked files, saved to a folder or downloads as PSD, PNG or JPEG.
+- Actions panel (Alt+F9): record, play, sets, save and load as .json, and button mode.
+- File > Scripts: Image Processor, Delete All Empty Layers, Flatten All Layer Effects, Flatten All Masks,
+  Load Files into Stack, and Browse to run your own script (see docs/scripting.md).
+- File > Export: Quick Export, Export As (Alt+Shift+Ctrl+W), Export Preferences, Save for Web
+  (Alt+Shift+Ctrl+S), Layers to Files, Artboards to Files, Artboards to PDF and Paths to SVG.
+- File > Generate > Image Assets, File > Package, File Info (Alt+Shift+Ctrl+I) with XMP in PSD, PNG and JPEG,
+  Print (Ctrl+P) and Print One Copy (Alt+Shift+Ctrl+P).
+- Image > Variables and Data Sets: text and visibility variables, CSV/TSV import, Apply Data Set, and
+  Export > Data Sets as Files.
+- Import PDF with page thumbnails, resolution and password unlock.
+- Open PSB, OpenEXR, Radiance HDR, SVG and ICO; Save As PSB and flattened EXR, HDR and ICO copies.
+- Channels panel: target color channels and alpha channels, layer mask row, and spot channels.
+- Apply Image and Calculations: masks, Add/Subtract scale and offset, other documents as source, and
+  Calculations to a new document.
+
+### Changed
+
+- Documents saved by this version (spot channels, File Info, variables) cannot be opened by 0.3.1 or older.
+
 ## [0.3.1] - 2026-10-02
 
 ### Added
