@@ -6,9 +6,17 @@ export const PANEL_KEYS = [
 ] as const;
 export type WorkspacePanel = typeof PANEL_KEYS[number];
 export type WorkspaceDockTab = 'color' | 'swatches' | 'brushSettings' | 'brushes';
+// Sidebar sections: 'tabs' is the Color/Swatches/Brush group; layers and history are always shown with a document.
+export const DOCK_KEYS = ['tabs', 'layers', 'history', ...PANEL_KEYS] as const;
+export type DockKey = typeof DOCK_KEYS[number];
+export interface DockEntry { height?: number; collapsed?: boolean }
+export type DockLayout = Partial<Record<DockKey, DockEntry>>;
+export const DOCK_MIN_HEIGHT = 48;
+export const DOCK_MAX_HEIGHT = 2000;
 
 export interface WorkspaceSettings extends Record<WorkspacePanel, boolean> {
   dockTab: WorkspaceDockTab;
+  dock: DockLayout;
 }
 export interface NamedWorkspace { name: string; settings: WorkspaceSettings }
 export interface WorkspaceState {
@@ -26,7 +34,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   actions: false, adjustments: false, channels: false, cloneSource: false, navigator: false, layerComps: false,
   paths: false, properties: false, styles: false, patterns: false, gradients: false, shapes: false, dockTab: 'color',
   character: false, paragraph: false, characterStyles: false, paragraphStyles: false, glyphs: false,
-  histogram: false, info: false, toolPresets: false, notes: false, measurementLog: false,
+  histogram: false, info: false, toolPresets: false, notes: false, measurementLog: false, dock: {},
 };
 
 const preset = (name: string, patch: Partial<WorkspaceSettings> = {}): NamedWorkspace => ({
@@ -46,7 +54,42 @@ const STORAGE_KEY = 'photobaer.workspaces';
 const DOCK_TABS: readonly WorkspaceDockTab[] = ['color', 'swatches', 'brushSettings', 'brushes'];
 const BUILTIN_NAMES = new Set(BUILTIN_WORKSPACES.map(w => w.name));
 
-const copySettings = (settings: WorkspaceSettings): WorkspaceSettings => ({ ...settings });
+const copyDock = (dock: DockLayout): DockLayout => Object.fromEntries(Object.entries(dock).map(([k, v]) => [k, { ...v }]));
+const copySettings = (settings: WorkspaceSettings): WorkspaceSettings => ({ ...settings, dock: copyDock(settings.dock) });
+const clampHeight = (h: number) => Math.round(Math.min(DOCK_MAX_HEIGHT, Math.max(DOCK_MIN_HEIGHT, h)));
+
+function normalizeDock(value: unknown): DockLayout {
+  const out: DockLayout = {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return out;
+  const record = value as Record<string, unknown>;
+  for (const key of DOCK_KEYS) {
+    const raw = record[key];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const { height, collapsed } = raw as Record<string, unknown>;
+    const entry: DockEntry = {};
+    if (typeof height === 'number' && Number.isFinite(height)) entry.height = clampHeight(height);
+    if (collapsed === true) entry.collapsed = true;
+    if (Object.keys(entry).length) out[key] = entry;
+  }
+  return out;
+}
+
+const withEntry = (dock: DockLayout, key: DockKey, entry: DockEntry): DockLayout => {
+  const out = copyDock(dock);
+  if (Object.keys(entry).length) out[key] = entry; else delete out[key];
+  return out;
+};
+
+/** Sets or clears (null) a section's stored height. */
+export function resizeDock(dock: DockLayout, key: DockKey, height: number | null): DockLayout {
+  const { height: _, ...rest } = dock[key] ?? {};
+  return withEntry(dock, key, height === null ? rest : { ...rest, height: clampHeight(height) });
+}
+
+export function toggleDock(dock: DockLayout, key: DockKey): DockLayout {
+  const { collapsed, ...rest } = dock[key] ?? {};
+  return withEntry(dock, key, collapsed ? rest : { ...rest, collapsed: true });
+}
 const copyWorkspace = (workspace: NamedWorkspace): NamedWorkspace => ({ name: workspace.name, settings: copySettings(workspace.settings) });
 const builtIn = (name: string) => BUILTIN_WORKSPACES.find(w => w.name === name);
 const customWorkspace = (state: Pick<WorkspaceState, 'custom'>, name: string) => state.custom.find(w => w.name === name);
@@ -58,7 +101,7 @@ function normalizeSettings(value: unknown): WorkspaceSettings | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const settings = value as Record<string, unknown>;
   if (!DOCK_TABS.includes(settings.dockTab as WorkspaceDockTab)) return null;
-  const out = { dockTab: settings.dockTab } as WorkspaceSettings;
+  const out = { dockTab: settings.dockTab, dock: normalizeDock(settings.dock) } as WorkspaceSettings;
   for (const key of PANEL_KEYS) {
     if (settings[key] === undefined && ADDED_PANEL_KEYS.has(key)) out[key] = false;
     else if (typeof settings[key] === 'boolean') out[key] = settings[key];

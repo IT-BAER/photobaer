@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BUILTIN_WORKSPACES, DEFAULT_WORKSPACE_SETTINGS, addWorkspace, deleteWorkspace, loadWorkspaces, lockWorkspace,
-  resetWorkspace, saveWorkspaces, selectWorkspace, type WorkspaceSettings, type WorkspaceStorage,
+  DOCK_MAX_HEIGHT, DOCK_MIN_HEIGHT, resetWorkspace, resizeDock, saveWorkspaces, selectWorkspace, toggleDock, type WorkspaceSettings, type WorkspaceStorage,
 } from './workspaces.ts';
 
 const storage = (initial: string | null = null): WorkspaceStorage & { value: string | null } => ({
@@ -126,4 +126,37 @@ test('legacy saved and custom workspaces gain new inspection panels without losi
   const invalid = JSON.parse(raw);
   invalid.custom[0].settings.info = 'yes';
   assert.deepEqual(loadWorkspaces(storage(JSON.stringify(invalid))).custom, []);
+});
+
+test('dock layout loads empty for legacy data, normalizes bad entries, and round-trips per workspace', () => {
+  const legacy = changed() as unknown as Record<string, unknown>;
+  delete legacy.dock;
+  assert.deepEqual(loadWorkspaces(storage(JSON.stringify({ settings: legacy }))).settings.dock, {});
+  const raw = JSON.stringify({ settings: { ...changed(), dock: {
+    layers: { height: 300, collapsed: true }, history: { height: 5 }, properties: { height: 99999, collapsed: 'no' }, bogus: { height: 100 }, color: 'x',
+  } } });
+  assert.deepEqual(loadWorkspaces(storage(raw)).settings.dock, {
+    layers: { height: 300, collapsed: true }, history: { height: DOCK_MIN_HEIGHT }, properties: { height: DOCK_MAX_HEIGHT },
+  });
+  let s = addWorkspace(loadWorkspaces(storage()), 'Docked', changed({ dock: { history: { height: 180 }, adjustments: { collapsed: true } } }));
+  const current = { ...s, settings: { ...s.settings, dock: resizeDock(s.settings.dock, 'history', 240) } };
+  const mem = storage();
+  saveWorkspaces(mem, current);
+  s = loadWorkspaces(mem);
+  assert.deepEqual(s.settings.dock, { history: { height: 240 }, adjustments: { collapsed: true } });
+  assert.deepEqual(resetWorkspace(s).settings.dock, { history: { height: 180 }, adjustments: { collapsed: true } });
+  assert.deepEqual(selectWorkspace(s, 'Essentials').settings.dock, {});
+});
+
+test('dock helpers are pure, clamp, toggle, and clear', () => {
+  const dock = { history: { height: 200 } };
+  const resized = resizeDock(dock, 'history', 10);
+  assert.deepEqual(resized, { history: { height: DOCK_MIN_HEIGHT } });
+  assert.deepEqual(dock, { history: { height: 200 } });
+  assert.deepEqual(toggleDock(dock, 'history'), { history: { height: 200, collapsed: true } });
+  assert.deepEqual(toggleDock(toggleDock(dock, 'tabs'), 'tabs'), { history: { height: 200 } });
+  assert.deepEqual(resizeDock(dock, 'history', null), {});
+  const state = addWorkspace(loadWorkspaces(storage()), 'D', changed({ dock }));
+  selectWorkspace(state, 'D').settings.dock.history!.height = 1;
+  assert.equal(selectWorkspace(state, 'D').settings.dock.history!.height, 200, 'snapshots copy the dock deeply');
 });

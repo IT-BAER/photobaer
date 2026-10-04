@@ -3537,7 +3537,8 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 
 // Ops that may run while a stroke is open without committing it (they never touch the document or history).
 const STROKE_OPS = new Set<keyof Api>(['cloneSample', 'strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'patternPixels']);
-const PREVIEW_OPS = new Set<keyof Api>(['applyImage', 'cloneSample', 'fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels']);
+const PREVIEW_OPS = new Set<keyof Api>(['applyImage', 'cloneSample', 'fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels',
+  'layerThumbs', 'navigatorThumb', 'histogram', 'documentHistogram', 'documentSample', 'channelMask', 'layerMask']);
 // An open move session commits before any other op, so history never sees a half move.
 const MOVE_OPS = new Set<keyof Api>(['cloneSample', 'moveFloat', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels']);
 // App-scope font calls: never refused for a stale document id and never close an open session.

@@ -135,6 +135,7 @@ export const LOG_COLUMNS: [keyof MeasureRow, string][] = [
 export const formatValue = (v: unknown) => typeof v === 'number' ? String(Math.round(v * 1000) / 1000) : v === undefined ? '' : String(v);
 
 export function toCsv(rows: MeasureRow[], cols = LOG_COLUMNS): string {
-  const cell = (v: unknown) => { const s = formatValue(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  // Text starting with = + - @ tab or CR gets a leading ' so spreadsheets do not run it as a formula.
+  const cell = (v: unknown) => { const t = formatValue(v), s = typeof v === 'string' && /^[=+\-@\t\r]/.test(t) ? `'${t}` : t; return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   return [cols.map(c => c[1]).join(','), ...rows.map(r => cols.map(([k]) => cell(r[k])).join(','))].join('\n');
 }

@@ -26,7 +26,7 @@ import { ToolPresetsPanel } from './ToolPresetsPanel.tsx';
 import { MeasurementLogPanel, NotesPanel } from './NotesPanels.tsx';
 import { useMeasureTools } from './app/measureTools.tsx';
 import { runScript } from './app/scripting.ts';
-import { PANEL_KEYS, addWorkspace, deleteWorkspace, loadWorkspaces, lockWorkspace, resetWorkspace, saveWorkspaces, selectWorkspace, type WorkspaceSettings, type WorkspaceState } from './app/workspaces.ts';
+import { PANEL_KEYS, addWorkspace, deleteWorkspace, loadWorkspaces, lockWorkspace, resetWorkspace, resizeDock, saveWorkspaces, selectWorkspace, toggleDock, type DockKey, type WorkspaceSettings, type WorkspaceState } from './app/workspaces.ts';
 import { matchDocumentViews, type ArrangeMode, type MatchKind } from './app/arrange.ts';
 import { addToolPreset, applyToolPreset, deleteToolPreset, exportToolPresets, importToolPresets, loadToolPresets, renameToolPreset, saveToolPresets, snapshotToolPreset, validateBrushPresetAssets, validateToolOptionAssets } from './app/toolPresets.ts';
 import type { ActionStep } from './actions.ts';
@@ -50,6 +50,7 @@ import type { ContentAwareOpts, FaceInfo } from './worker/types.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
 import { AlignButtons, OptionsBar, type ToolOptions } from './shell/OptionsBar.tsx';
 import { ColorPanel } from './shell/ColorPanel.tsx';
+import { DockSection } from './shell/DockSection.tsx';
 import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
 import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
 import { SLOTS, TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
@@ -238,6 +239,7 @@ export function App() {
   const [workspace, setWorkspace] = useState(workspaceStart.state);
   const [toolPresetLibrary, setToolPresetLibrary] = useState(toolPresetStart.library);
   const [dockTab, setDockTab] = useState(workspace.settings.dockTab);
+  const [dock, setDock] = useState(workspace.settings.dock);
   const [recentPresets, setRecentPresets] = useState<string[]>([]);
   const [, setLibVersion] = useState(0);
   const protectedTexture = useRef<Dynamics['texture'] | null>(null);
@@ -284,7 +286,7 @@ export function App() {
     layerComps: showLayerComps, paths: showPaths, properties: showProperties, styles: showStyles, patterns: showPatterns,
     gradients: showGradients, shapes: showShapes, character: typePanels.character, paragraph: typePanels.paragraph,
     characterStyles: typePanels.characterStyles, paragraphStyles: typePanels.paragraphStyles, glyphs: typePanels.glyphs,
-    histogram: showHistogram, info: showInfo, toolPresets: showToolPresets, notes: showNotes, measurementLog: showMeasurementLog, dockTab,
+    histogram: showHistogram, info: showInfo, toolPresets: showToolPresets, notes: showNotes, measurementLog: showMeasurementLog, dockTab, dock,
   });
   const storeWorkspace = (next: WorkspaceState) => {
     setWorkspace(next);
@@ -296,11 +298,14 @@ export function App() {
     const s = next.settings;
     setShowActions(s.actions); setShowAdjustments(s.adjustments); setShowChannels(s.channels); setShowCloneSource(s.cloneSource);
     setShowNavigator(s.navigator); setShowLayerComps(s.layerComps); setShowPaths(s.paths); setShowProperties(s.properties);
-    setShowStyles(s.styles); setShowPatterns(s.patterns); setShowGradients(s.gradients); setShowShapes(s.shapes); setDockTab(s.dockTab);
+    setShowStyles(s.styles); setShowPatterns(s.patterns); setShowGradients(s.gradients); setShowShapes(s.shapes); setDockTab(s.dockTab); setDock(s.dock);
     setShowHistogram(s.histogram); setShowInfo(s.info); setShowToolPresets(s.toolPresets); setShowNotes(s.notes); setShowMeasurementLog(s.measurementLog);
     setTypePanels({ character: s.character, paragraph: s.paragraph, characterStyles: s.characterStyles, paragraphStyles: s.paragraphStyles, glyphs: s.glyphs });
   };
   const guardedSetDockTab: typeof setDockTab = value => { if (!workspaceLockedRef.current) setDockTab(value); };
+  const dockResize = (id: DockKey, height: number | null) => { if (!workspaceLockedRef.current) setDock(d => resizeDock(d, id, height)); };
+  const dockToggle = (id: DockKey) => { if (!workspaceLockedRef.current) setDock(d => toggleDock(d, id)); };
+  const sec = (id: DockKey, title: string) => ({ id, title, entry: dock[id], locked: workspace.locked, onResize: dockResize, onToggle: dockToggle });
   const chooseWorkspace = (name: string) => {
     setMenu(null);
     try { applyWorkspace(selectWorkspace(workspace, name)); } catch (e) { setError((e as Error).message); }
@@ -325,9 +330,10 @@ export function App() {
   };
   useEffect(() => {
     const settings = currentWorkspaceSettings();
-    if (workspace.settings.dockTab === settings.dockTab && PANEL_KEYS.every(key => workspace.settings[key] === settings[key])) return;
+    if (workspace.settings.dockTab === settings.dockTab && JSON.stringify(workspace.settings.dock) === JSON.stringify(settings.dock)
+      && PANEL_KEYS.every(key => workspace.settings[key] === settings[key])) return;
     storeWorkspace({ ...workspace, settings });
-  }, [dockTab, showActions, showAdjustments, showChannels, showCloneSource, showNavigator, showLayerComps, showPaths, showProperties, showStyles, showPatterns, showGradients, showShapes, showHistogram, showInfo, showToolPresets, showNotes, showMeasurementLog, typePanels]);
+  }, [dockTab, dock, showActions, showAdjustments, showChannels, showCloneSource, showNavigator, showLayerComps, showPaths, showProperties, showStyles, showPatterns, showGradients, showShapes, showHistogram, showInfo, showToolPresets, showNotes, showMeasurementLog, typePanels]);
   const [typePrefs, setTypePrefs] = useState(loadTypePrefs);
   // Changes with the type session and its selection, so the type panels re-read it.
   const [, setTypeSel] = useState('');
@@ -2493,12 +2499,12 @@ export function App() {
           />
         </div>
         <aside className="sidebar">
-          <div className="panel-tabs dock-tabs">
+          <DockSection {...sec('tabs', 'Color panels')} header={<div className="panel-tabs dock-tabs">
             <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('color')}>Color</button>
             <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('swatches')}>Swatches</button>
             <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} disabled={workspace.locked} title="Brush Settings (F5)" onClick={() => guardedSetDockTab('brushSettings')}>Brush Settings</button>
             <button className={`panel-tab${dockTab === 'brushes' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('brushes')}>Brushes</button>
-          </div>
+          </div>}>
           {dockTab === 'color' && <ColorPanel fg={fg} bg={bg} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} />}
           {dockTab === 'swatches' && <SwatchesPanel fg={fg} setFg={setFg} setBg={setBg} />}
           {dockTab === 'brushSettings' && (
@@ -2516,46 +2522,53 @@ export function App() {
               openSettings={() => guardedSetDockTab('brushSettings')}
             />
           )}
-          {doc && active && showAdjustments && <AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} />}
-          {doc && showStyles && <StylesPanel styles={styleLib.current} node={node ?? null} apply={applySavedStyle} />}
+          </DockSection>
+          {doc && active && showAdjustments && <DockSection {...sec('adjustments', 'Adjustments')}><AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} /></DockSection>}
+          {doc && showStyles && <DockSection {...sec('styles', 'Styles')}><StylesPanel styles={styleLib.current} node={node ?? null} apply={applySavedStyle} /></DockSection>}
           {doc && active && showPatterns && (
-            <PatternsPanel doc={doc} library={brushLib.current?.library ?? null} onDoc={d => show(d)} onError={setError}
-              fill={id => panelFillLayer({ type: 'pattern', pattern_id: id, scale: 1, angle: 0, linked: true, offset: [0, 0] })} />
+            <DockSection {...sec('patterns', 'Patterns')}><PatternsPanel doc={doc} library={brushLib.current?.library ?? null} onDoc={d => show(d)} onError={setError}
+              fill={id => panelFillLayer({ type: 'pattern', pattern_id: id, scale: 1, angle: 0, linked: true, offset: [0, 0] })} /></DockSection>
           )}
-          {doc && active && showGradients && <GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} />}
-          {doc && showCloneSource && <CloneSourcePanel docKey={doc.key} />}
-          {doc && showNavigator && <NavigatorPanel doc={doc} viewer={viewer.current} view={fullView} />}
-          {showHistogram && <HistogramPanel doc={doc} />}
-          {showInfo && <InfoPanel doc={doc} canvas={canvas} viewer={viewer} />}
-          {showNotes && <NotesPanel doc={doc} selected={measure.selectedNote} select={measure.setSelectedNote} commit={(a, label) => void measure.commit(a, label)} />}
-          {showMeasurementLog && <MeasurementLogPanel rows={measure.log} setRows={measure.setLog} record={() => void measure.record()} canRecord={!!doc} download={downloadBlob} points={measure.points} />}
-          {showToolPresets && <ToolPresetsPanel library={toolPresetLibrary} currentTool={tool}
+          {doc && active && showGradients && <DockSection {...sec('gradients', 'Gradients')}><GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} /></DockSection>}
+          {doc && showCloneSource && <DockSection {...sec('cloneSource', 'Clone Source')}><CloneSourcePanel docKey={doc.key} /></DockSection>}
+          {doc && showNavigator && <DockSection {...sec('navigator', 'Navigator')}><NavigatorPanel doc={doc} viewer={viewer.current} view={fullView} /></DockSection>}
+          {showHistogram && <DockSection {...sec('histogram', 'Histogram')}><HistogramPanel doc={doc} /></DockSection>}
+          {showInfo && <DockSection {...sec('info', 'Info')}><InfoPanel doc={doc} canvas={canvas} viewer={viewer} /></DockSection>}
+          {showNotes && <DockSection {...sec('notes', 'Notes')}><NotesPanel doc={doc} selected={measure.selectedNote} select={measure.setSelectedNote} commit={(a, label) => void measure.commit(a, label)} /></DockSection>}
+          {showMeasurementLog && <DockSection {...sec('measurementLog', 'Measurement Log')}><MeasurementLogPanel rows={measure.log} setRows={measure.setLog} record={() => void measure.record()} canRecord={!!doc} download={downloadBlob} points={measure.points} /></DockSection>}
+          {showToolPresets && <DockSection {...sec('toolPresets', 'Tool Presets')}><ToolPresetsPanel library={toolPresetLibrary} currentTool={tool}
             create={createToolPreset} rename={renameSavedToolPreset} apply={applySavedToolPreset} remove={deleteSavedToolPreset}
-            importJson={importSavedToolPresets} exportJson={() => exportToolPresets(toolPresetLibrary)} onError={setError} />}
+            importJson={importSavedToolPresets} exportJson={() => exportToolPresets(toolPresetLibrary)} onError={setError} /></DockSection>}
           {doc && showShapes && (
-            <ShapesPanel selected={String((optionsByTool.customShape ?? loadToolOptions(TOOLS.customShape)).customShape ?? '')} arm={armShape} />
+            <DockSection {...sec('shapes', 'Shapes')}><ShapesPanel selected={String((optionsByTool.customShape ?? loadToolOptions(TOOLS.customShape)).customShape ?? '')} arm={armShape} /></DockSection>
           )}
-          {doc && showProperties && node?.kind === 'adjustment' && node.adjustment && (
-            <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
+          {doc && showProperties && (
+            <DockSection {...sec('properties', 'Properties')}>
+              {node?.kind === 'adjustment' && node.adjustment && (
+                <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
+              )}
+              {node?.kind === 'text' && node.text && <TypeProperties c={typeCtx} faces={pickFaces} />}
+              {node?.artboard && <ArtboardPanel node={node} run={run} />}
+              {node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} selected={selectedNodes} />}
+              {node?.vector_mask && <VectorMaskPanel key={`vm${node.id}`} node={node} run={run} />}
+              {node?.kind === 'smart' && node.smart && (
+                <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} openLiquify={openLiquify} openVanishingPoint={openVanishingPoint} />
+              )}
+              {!(node && ((node.kind === 'adjustment' && node.adjustment) || (node.kind === 'text' && node.text) || node.artboard || (node.kind === 'shape' && node.shape) || node.vector_mask || (node.kind === 'smart' && node.smart)))
+                && <p className="panel-empty">No properties</p>}
+            </DockSection>
           )}
           {doc && typePanels.character && (
-            <CharacterPanel c={typeCtx} faces={pickFaces} eastAsian={typePrefs.language === 'eastAsian'}
-              toolOptions={optionsByTool[typeTool] ?? loadToolOptions(TOOLS[typeTool])} setToolOption={(k, v) => patchToolOptions(typeTool, { [k]: v as string | number })} />
+            <DockSection {...sec('character', 'Character')}><CharacterPanel c={typeCtx} faces={pickFaces} eastAsian={typePrefs.language === 'eastAsian'}
+              toolOptions={optionsByTool[typeTool] ?? loadToolOptions(TOOLS[typeTool])} setToolOption={(k, v) => patchToolOptions(typeTool, { [k]: v as string | number })} /></DockSection>
           )}
-          {doc && typePanels.paragraph && <ParagraphPanel c={typeCtx} />}
-          {doc && typePanels.characterStyles && <TextStylesPanel kind="character" c={typeCtx} />}
-          {doc && typePanels.paragraphStyles && <TextStylesPanel kind="paragraph" c={typeCtx} />}
-          {doc && typePanels.glyphs && <GlyphsPanel c={typeCtx} faces={pickFaces} />}
-          {doc && showProperties && node?.kind === 'text' && node.text && <TypeProperties c={typeCtx} faces={pickFaces} />}
-          {doc && showProperties && node?.artboard && <ArtboardPanel node={node} run={run} />}
-          {doc && showProperties && node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} selected={selectedNodes} />}
-          {doc && showProperties && node?.vector_mask && <VectorMaskPanel key={`vm${node.id}`} node={node} run={run} />}
-          {doc && showProperties && node?.kind === 'smart' && node.smart && (
-            <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} openLiquify={openLiquify} openVanishingPoint={openVanishingPoint} />
-          )}
+          {doc && typePanels.paragraph && <DockSection {...sec('paragraph', 'Paragraph')}><ParagraphPanel c={typeCtx} /></DockSection>}
+          {doc && typePanels.characterStyles && <DockSection {...sec('characterStyles', 'Character Styles')}><TextStylesPanel kind="character" c={typeCtx} /></DockSection>}
+          {doc && typePanels.paragraphStyles && <DockSection {...sec('paragraphStyles', 'Paragraph Styles')}><TextStylesPanel kind="paragraph" c={typeCtx} /></DockSection>}
+          {doc && typePanels.glyphs && <DockSection {...sec('glyphs', 'Glyphs')}><GlyphsPanel c={typeCtx} faces={pickFaces} /></DockSection>}
           {doc && active && (
             <>
-              <LayersPanel
+              <DockSection {...sec('layers', 'Layers')} edge="none"><LayersPanel
                 doc={doc} active={active} setActive={setActive} run={run}
                 selected={selectedNodes.map(n => n.id)} setPicked={setPicked}
                 contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerRowItems(menus, layerContextItems(n, nodes, run, setError))]}
@@ -2563,12 +2576,12 @@ export function App() {
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
                 openProperties={() => setShowProperties(true)} renameTick={renameTick}
                 openLayerStyle={(id, page) => openLayerStyle(page, id)}
-              />
-              <HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} />
-              {showChannels && <ChannelsPanel doc={doc} run={run} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} />}
-              {showLayerComps && <LayerCompsPanel doc={doc} run={run} />}
-              {showActions && <ActionsPanel has active={active} run={run} setError={setError} />}
-              {showPaths && <PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} />}
+              /></DockSection>
+              <DockSection {...sec('history', 'History')} edge="top"><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>
+              {showChannels && <DockSection {...sec('channels', 'Channels')} edge="top"><ChannelsPanel doc={doc} run={run} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} /></DockSection>}
+              {showLayerComps && <DockSection {...sec('layerComps', 'Layer Comps')} edge="top"><LayerCompsPanel doc={doc} run={run} /></DockSection>}
+              {showActions && <DockSection {...sec('actions', 'Actions')} edge="top"><ActionsPanel has active={active} run={run} setError={setError} /></DockSection>}
+              {showPaths && <DockSection {...sec('paths', 'Paths')} edge="top"><PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} /></DockSection>}
             </>
           )}
         </aside>

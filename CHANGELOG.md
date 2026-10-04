@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Side dock panels can be collapsed (click the header) and resized (drag the splitter, arrow keys on a
+  focused splitter, double-click to reset). Layers fills the remaining height. Sizes and collapsed state
+  are saved per workspace; a locked workspace keeps them fixed.
+
+### Fixed
+
+- A Properties slider drag that paused for a moment before release lost its edit: the Layers thumbnail
+  refresh cancelled the live preview. Panel reads (thumbnails, Navigator, histograms, samples, channel
+  masks) no longer end a preview session.
+- Properties no longer shrinks to a few pixels when other dock panels are open, and the panels below
+  it no longer move when the selected layer changes.
+
+- Measurement Log CSV export: text cells starting with =, +, -, @, tab or CR are prefixed with ' so
+  spreadsheets do not run them as formulas.
+
 ## [0.3.3] - 2026-10-04
 
 ### Added

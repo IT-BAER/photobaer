@@ -305,6 +305,19 @@ test('setAdjustment live preview reruns land as one undo step on commit', async 
   assert.equal(info.layers.find(l => l.id === id)!.adjustment!.params.levels, 7);
 });
 
+test('panel reads during a live adjustment preview keep the session open for the commit', async () => {
+  await call('init');
+  const key = ((await call('newDoc', 8, 8, 8, null)).result as { key: string }).key;
+  const id = ((await call('newAdjustmentLayer', 1, defaultAdjustment('posterize'), 'Posterize')).result as { created: number }).created;
+  await call('setAdjustment', id, { kind: 'posterize', params: { levels: 5 } }, 'Posterize', true);
+  for (const [op, ...args] of [['layerThumbs', [id], 26], ['navigatorThumb', 64], ['histogram', 0], ['documentHistogram', key, null], ['documentSample', key, 1, 1, 1, null], ['channelMask', 0, 0]] as [string, ...unknown[]][]) {
+    await call(op, ...args);
+  }
+  const info = (await call('previewEnd', true)).result as { history: { labels: string[] }; layers: { id: number; adjustment?: { params: { levels: number } } }[] };
+  assert.deepEqual(info.history.labels, ['Posterize', 'Posterize']);
+  assert.equal(info.layers.find(l => l.id === id)!.adjustment!.params.levels, 5);
+});
+
 test('layer comps: new, apply, options and delete are undo steps with their labels', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);

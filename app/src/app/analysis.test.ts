@@ -43,3 +43,8 @@ test('toCsv writes the chosen columns', () => {
   const rows = [{ label: 'Measurement 1', date: 'd', document: 'a.psd', source: 'Ruler' as const, length: 1.5, scale: '2 px = 1 cm', units: 'cm' }];
   assert.equal(toCsv(rows, pickColumns(['length'])), 'Label,Date and Time,Document,Source,Scale,Units,Length\nMeasurement 1,d,a.psd,Ruler,2 px = 1 cm,cm,1.5');
 });
+
+test('toCsv neutralizes spreadsheet formulas in text cells but keeps negative numbers', () => {
+  const rows = [{ label: 'Measurement 1', date: 'd', document: '=HYPERLINK("x")', source: 'Ruler' as const, angle: -30, units: '@cm' }];
+  assert.equal(toCsv(rows, pickColumns(['angle'])).split('\n')[1], `Measurement 1,d,"'=HYPERLINK(""x"")",Ruler,,'@cm,-30`);
+});
