@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-10-04
+
+### Added
+
+- Layer > Quick Export (Shift+Ctrl+') and Export As (Alt+Shift+Ctrl+') for the active or selected layers.
+- Window > Workspace: preset workspaces, New Workspace, Delete Workspace, Reset and Lock Workspace.
+- Window > Arrange: Consolidate All to Tabs, Tile All Vertically or Horizontally, 2-up to 6-up, Float All in
+  Windows, Match Zoom, Match Location and Match All.
+- Histogram, Info and Tool Presets panels.
+- Ruler (with Straighten Layer), Count, Color Sampler, Note, Slice and Slice Select, Artboard and Frame tools.
+- Notes and Measurement Log panels; the log exports CSV.
+- Image > Analysis: Set Measurement Scale, Select Data Points, Record Measurements (Shift+Ctrl+M), Ruler Tool,
+  Count Tool and Place Scale Marker.
+
+### Changed
+
+- Documents with notes, slices, count marks, color samplers or a measurement scale cannot be opened by 0.3.2
+  or older.
+
+### Fixed
+
+- A stale error toast no longer appears after closing or switching documents.
+
 ## [0.3.2] - 2026-10-03
 
 ### Added
@@ -194,7 +217,9 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.1...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/IT-BAER/photobaer/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/IT-BAER/photobaer/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/IT-BAER/photobaer/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/IT-BAER/photobaer/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/IT-BAER/photobaer/compare/v0.2.1...v0.2.2
