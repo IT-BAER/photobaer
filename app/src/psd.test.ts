@@ -114,6 +114,25 @@ test('a 16-bit PSD header is rejected', () => {
   assert.throws(() => importPsd(bytes));
 });
 
+test('an effect with a missing pattern is dropped alone; a disabled one without a warning', () => {
+  const overlay = (enabled: boolean) => ({ present: enabled, enabled, pattern: { name: 'gone', id: 'gone' } });
+  const stroke = [{ enabled: true, size: { units: 'Pixels' as const, value: 2 }, fillType: 'color' as const, color: { r: 1, g: 2, b: 3 } }];
+  const psd: Psd = {
+    width: 4, height: 4, colorMode: 3, bitsPerChannel: 8,
+    children: [
+      { name: 'off', top: 0, left: 0, imageData: solid(4, 4, [5, 6, 7, 255]), effects: { stroke, patternOverlay: overlay(false) } },
+      { name: 'on', top: 0, left: 0, imageData: solid(4, 4, [5, 6, 7, 255]), effects: { stroke, patternOverlay: overlay(true) } },
+    ],
+  };
+  const { engine, warnings } = importPsd(bytesOf(psd));
+  assert.deepEqual(warnings, ['pattern effects that use a missing pattern were not imported']);
+  for (const n of JSON.parse(engine.manifest()).layers) {
+    assert.equal(n.style.strokes.length, 1, n.name);
+    assert.equal(n.style.pattern_overlays.length, 0, n.name);
+  }
+  engine.free();
+});
+
 test('a text layer imports as a type layer that shows its raster', () => {
   const psd: Psd = {
     width: 4, height: 4, colorMode: 3, bitsPerChannel: 8,

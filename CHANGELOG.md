@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - The plain text feature page no longer flashes on a white page while the app loads.
+- PSD layer styles are no longer dropped when an unused effect names a pattern the file does not embed; an
+  enabled pattern effect without its pattern is dropped alone.
 
 ## [0.3.4] - 2026-10-04
 

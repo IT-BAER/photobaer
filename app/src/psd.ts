@@ -453,11 +453,6 @@ function blendingOut(b: any, warn: Warn): Partial<Layer> {
   };
 }
 
-const patternIdsOf = (st: any): string[] => [
-  ...st.pattern_overlays.map((p: any) => p.pattern.pattern_id), ...st.strokes.filter((s: any) => s.fill.type === 'pattern').map((s: any) => s.fill.pattern_id),
-  ...(st.texture ? [st.texture.pattern_id] : []),
-];
-
 // Source px -> document projective transform (row-major 3x3) mapping the source rect onto the corner quad
 // [x0, y0 (top left), x1, y1, x2, y2, x3, y3 (bottom left)].
 function quadTransform(q: number[], w: number, h: number): number[] {
@@ -678,8 +673,14 @@ function addM3Props({ e, warn, pats }: ImportCtx, id: number, l: Layer, adjustme
   e.set_blending(id, JSON.stringify(blendingIn(l)));
   if (!l.effects || adjustment) return;
   const st = styleIn(l.effects, warn);
-  if (patternIdsOf(st).every(p => pats.has(p))) e.set_style(id, JSON.stringify(st));
-  else warn('layer styles that use a missing pattern were not imported');
+  // Photoshop keeps unused effect slots that name presets the file does not embed; only enabled ones warn.
+  let lost = false;
+  const keep = (fx: any, pattern: string) => pats.has(pattern) || (lost ||= fx.enabled, false);
+  st.pattern_overlays = st.pattern_overlays.filter(p => keep(p, p.pattern.pattern_id));
+  st.strokes = st.strokes.filter(s => s.fill.type !== 'pattern' || keep(s, (s.fill as any).pattern_id));
+  if (st.texture && !keep(st.texture, st.texture.pattern_id)) st.texture = null;
+  if (lost) warn('pattern effects that use a missing pattern were not imported');
+  e.set_style(id, JSON.stringify(st));
 }
 
 // A type layer that cannot be mapped or that the engine refuses stays a pixel layer with its PSD pixels.
