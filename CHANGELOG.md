@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The plain text feature page no longer flashes on a white page while the app loads.
+
 ## [0.3.4] - 2026-10-04
 
 ### Added

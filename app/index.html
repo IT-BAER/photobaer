@@ -21,6 +21,8 @@
     <link rel="icon" href="./logo-light.png" type="image/png" media="(prefers-color-scheme: dark)" />
     <link rel="apple-touch-icon" href="./icon-192-v2.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
+    <!-- Crawler text in #root stays readable in the HTML but unpainted until React mounts. -->
+    <style>body{margin:0;background:#131416}#root>main{visibility:hidden}</style>
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
