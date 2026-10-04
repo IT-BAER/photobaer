@@ -25,7 +25,7 @@ export const LAYER_ARGS: Record<string, string[]> = {
   rotateExact: ['0'], autoAlign: ['0[]'], autoBlend: ['0[]'], setProps: ['0'], addMask: ['0'], deleteMask: ['0'], newFillLayer: ['0'],
   setFillContent: ['0[]'], newAdjustmentLayer: ['0'], setAdjustment: ['0'], adjust: ['0'], rasterizeFill: ['0'], setLayerStyle: ['0'],
   editLayerStyle: ['0'], copyLayerStyle: ['0'], pasteLayerStyle: ['0[]'], clearLayerStyle: ['0[]'], dragLayerStyle: ['0', '1'],
-  createLayersFromStyle: ['0'], scaleEffects: ['0'], histogram: ['0'], layerThumbs: ['0[]'], sample: ['3'], strokeBegin: ['0'],
+  createLayersFromStyle: ['0'], scaleEffects: ['0'], histogram: ['0'], documentHistogram: ['1'], layerThumbs: ['0[]'], sample: ['3'], documentSample: ['4'], strokeBegin: ['0'], straightenLayer: ['0'], newFrame: ['2'],
   placeSmart: ['0'], convertToSmart: ['0[]'], convertForSmartFilters: ['0'], applyFilter: ['0'], puppetMesh: ['0'], liquifyBegin: ['0'],
   liquifyEdit: ['0'], liquifyCommit: ['0'], liquifyBackdrop: ['0'], vpBegin: ['0'], vpCommit: ['0'], fade: ['0'], addSmartFilter: ['0'],
   setSmartFilter: ['0'], smartFilterCommand: ['0'], smartViaCopy: ['0'], rasterizeSmart: ['0'], replaceContents: ['0'], exportContents: ['0'],
@@ -42,7 +42,7 @@ export const NOT_LAYER_PARAMS = new Set([
 // Ops never recorded: documents, files, saving, history navigation, view and app state.
 export const NO_RECORD = new Set([
   'init', 'newDoc', 'setColorSettings', 'setView', 'openProfileQuestion', 'openFile', 'revertDoc', 'setDocName', 'undo', 'redo', 'historyGoto',
-  'displayTile', 'displayProgram', 'exportImage', 'exportLayerCompsToFiles', 'savePsd', 'saveFormat', 'saveEnd', 'switchDoc', 'moveDoc',
+  'displayTile', 'documentDisplayTile', 'documentHistogram', 'documentSample', 'displayProgram', 'exportImage', 'exportLayerCompsToFiles', 'savePsd', 'saveFormat', 'saveEnd', 'switchDoc', 'moveDoc',
   'closeDoc', 'editContents', 'smartEditSave', 'smartEditClose', 'iccProfiles', 'loadProfile', 'photomerge', 'mergeHdr', 'loadStack', 'calculations',
   'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'recordStart', 'recordStop', 'playAction',
   'fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing', 'glyphCells', 'glyphAlternates', 'fontCovers',

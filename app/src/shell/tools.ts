@@ -411,18 +411,73 @@ export const TOOLS: Record<string, Tool> = {
   verticalType: typeTool('verticalType', 'Vertical Type', 'TextCursor', 'vertical-text'),
   horizontalTypeMask: typeTool('horizontalTypeMask', 'Horizontal Type Mask', 'SquareDashedText', 'text'),
   verticalTypeMask: typeTool('verticalTypeMask', 'Vertical Type Mask', 'TypeOutline', 'vertical-text'),
+  colorSampler: {
+    id: 'colorSampler', label: 'Color Sampler', slot: 'eyedropper', key: 'i', cursor: 'crosshair', icon: 'Crosshair',
+    options: [
+      { id: 'sampleSize', kind: 'select', label: 'Sample size', default: 'point', choices: ['point', '3x3', '5x5', '11x11', '31x31', '51x51', '101x101'] },
+      { id: 'measure', kind: 'custom', label: 'Samplers', default: '', sep: true },
+    ],
+  },
+  ruler: {
+    id: 'ruler', label: 'Ruler', slot: 'eyedropper', key: 'i', cursor: 'crosshair', icon: 'Ruler',
+    options: [{ id: 'measure', kind: 'custom', label: 'Measurement', default: '' }],
+  },
+  note: {
+    id: 'note', label: 'Note', slot: 'eyedropper', key: 'i', cursor: 'crosshair', icon: 'StickyNote',
+    options: [
+      { id: 'noteColor', kind: 'color', label: 'Color', default: '#f2c94c' },
+      { id: 'measure', kind: 'custom', label: 'Notes', default: '', sep: true },
+    ],
+  },
+  count: {
+    id: 'count', label: 'Count', slot: 'eyedropper', key: 'i', cursor: 'crosshair', icon: 'Hash',
+    options: [
+      { id: 'group', kind: 'number', label: 'Count Group', default: 1, min: 1, max: 99 },
+      { id: 'markerSize', kind: 'number', label: 'Marker Size', default: 3, min: 1, max: 10 },
+      { id: 'labelSize', kind: 'number', label: 'Label Size', default: 12, min: 8, max: 72 },
+      { id: 'measure', kind: 'custom', label: 'Count', default: '', sep: true },
+    ],
+  },
+  slice: {
+    id: 'slice', label: 'Slice', slot: 'crop', key: 'c', cursor: 'crosshair', icon: 'Slice',
+    options: [
+      { id: 'style', kind: 'select', label: 'Style', default: 'normal', choices: ['normal', 'fixed ratio', 'fixed size'] },
+      { id: 'ratioW', kind: 'number', label: 'Ratio W', default: 1, min: 0.01, max: 1000 },
+      { id: 'ratioH', kind: 'number', label: 'Ratio H', default: 1, min: 0.01, max: 1000 },
+      { id: 'fixedW', kind: 'number', label: 'Fixed W', default: 100, min: 1, max: 30000, unit: 'px' },
+      { id: 'fixedH', kind: 'number', label: 'Fixed H', default: 100, min: 1, max: 30000, unit: 'px' },
+      { id: 'measure', kind: 'custom', label: 'Slices', default: '', sep: true },
+    ],
+  },
+  sliceSelect: {
+    id: 'sliceSelect', label: 'Slice Select', slot: 'crop', key: 'c', cursor: 'default', icon: 'SquareMousePointer',
+    options: [{ id: 'measure', kind: 'custom', label: 'Slice', default: '' }],
+  },
+  artboard: {
+    id: 'artboard', label: 'Artboard', slot: 'move', key: 'v', cursor: 'crosshair', icon: 'LayoutTemplate',
+    options: [
+      { id: 'width', kind: 'number', label: 'W', default: 1920, min: 1, max: 30000, unit: 'px' },
+      { id: 'height', kind: 'number', label: 'H', default: 1080, min: 1, max: 30000, unit: 'px' },
+      { id: 'background', kind: 'select', label: 'Background', default: 'white', choices: ['white', 'black', 'transparent'] },
+    ],
+  },
+  frame: {
+    id: 'frame', label: 'Frame', slot: 'frame', key: 'k', cursor: 'crosshair', icon: 'Scan',
+    options: [{ id: 'shape', kind: 'segmented', label: 'Frame', default: 'rectangle', choices: ['rectangle', 'ellipse'] }],
+  },
   hand: { id: 'hand', label: 'Hand', slot: 'hand', key: 'h', cursor: 'grab', icon: 'Hand', options: [] },
   rotate: { id: 'rotate', label: 'Rotate View', slot: 'rotate', key: 'r', cursor: 'alias', icon: 'RotateCw', options: [] },
   zoom: { id: 'zoom', label: 'Zoom', slot: 'zoom', key: 'z', cursor: 'zoom-in', icon: 'ZoomIn', options: [] },
 };
 
 export const SLOTS: Slot[] = [
-  { id: 'move', key: 'v', tools: ['move'] },
+  { id: 'move', key: 'v', tools: ['move', 'artboard'] },
   { id: 'marquee', key: 'm', tools: ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn'] },
   { id: 'lasso', key: 'l', tools: ['lasso', 'polygonalLasso', 'magneticLasso'] },
   { id: 'wand', key: 'w', tools: ['quickSelection', 'magicWand'] },
-  { id: 'crop', key: 'c', tools: ['crop', 'perspectiveCrop'] },
-  { id: 'eyedropper', key: 'i', tools: ['eyedropper'] },
+  { id: 'crop', key: 'c', tools: ['crop', 'perspectiveCrop', 'slice', 'sliceSelect'] },
+  { id: 'frame', key: 'k', tools: ['frame'] },
+  { id: 'eyedropper', key: 'i', tools: ['eyedropper', 'colorSampler', 'ruler', 'note', 'count'] },
   { id: 'healing', key: 'j', tools: ['spotHealing', 'healingBrush', 'patch', 'contentAwareMove', 'redEye'] },
   { id: 'brush', key: 'b', tools: ['brush', 'pencil', 'colorReplacement', 'mixerBrush'] },
   { id: 'stamp', key: 's', tools: ['cloneStamp', 'patternStamp'] },

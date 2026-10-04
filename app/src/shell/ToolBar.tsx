@@ -3,6 +3,7 @@ import {
   Blend, Brush, Circle, Crop, Eraser, Frame, Hand, Hexagon, Lasso, Magnet, Minus, Move, MousePointerClick,
   DiamondMinus, DiamondPlus, MousePointer2, Navigation, PaintBucket, PenTool, Pencil, Signature, Spline, SplinePointer, Pipette, RectangleHorizontal, RotateCw, Rows3, Shapes, Slash, Square, SquareDashedText, TextCursor, Triangle, Type, TypeOutline, Wand2, ZoomIn, Bandage, Syringe, SquareDashed, Move3d, Eye, Stamp, Grid3x3,
   History, PaintbrushVertical, Droplet, Focus, Pointer, Sun, Moon, Contrast, Replace, Palette, BrushCleaning, WandSparkles,
+  Crosshair, Ruler, StickyNote, Hash, Slice, SquareMousePointer, LayoutTemplate, Scan,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { RotateCcw, ArrowLeftRight } from 'lucide-react';
@@ -16,6 +17,7 @@ export const ICONS: Record<string, ComponentType<{ size?: number; strokeWidth?: 
   Bandage, Syringe, SquareDashed, Move3d, Eye, Stamp, Grid3x3,
   History, PaintbrushVertical, Droplet, Focus, Pointer, Sun, Moon, Contrast, Replace, Palette, BrushCleaning, WandSparkles,
   Type, TextCursor, SquareDashedText, TypeOutline,
+  Crosshair, Ruler, StickyNote, Hash, Slice, SquareMousePointer, LayoutTemplate, Scan,
 };
 
 const LONG_PRESS_MS = 350;

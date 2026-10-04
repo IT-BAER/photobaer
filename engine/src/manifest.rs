@@ -341,6 +341,7 @@ impl Document {
                     profile: m.profile,
                     info: m.info,
                     variables: m.variables,
+                    annotations: m.annotations,
                 };
                 if probe.version < 7 && !vector.vanishing_planes.is_empty() {
                     return Err("vanishing_planes need manifest v7".into());
@@ -1245,6 +1246,8 @@ struct ManifestV5In {
     info: Option<crate::path::FileInfo>,
     #[serde(default)]
     variables: Option<crate::path::Variables>,
+    #[serde(default)]
+    annotations: Option<crate::path::Annotations>,
 }
 
 // The document-level fields v4 adds; v1 to v3 load with the defaults.

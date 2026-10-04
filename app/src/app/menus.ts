@@ -23,6 +23,8 @@ import type { Recent } from './files.ts';
 import type { ModeDialogKind } from '../ModeDialog.tsx';
 import type { ColorDialogKind } from '../ColorDialog.tsx';
 import { DEFAULT_VIEW, PROOF_PRESETS, presetSetup, type ViewState } from './proof.ts';
+import { BUILTIN_WORKSPACES, type WorkspaceState } from './workspaces.ts';
+import type { ArrangeMode, MatchKind } from './arrange.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type DialogRef = RefObject<HTMLDialogElement | null>;
@@ -32,7 +34,7 @@ export interface MenuCtx {
   setMenu: SetState<string | null>; newDialog: DialogRef; openFiles: () => Promise<void>; placeFile: (linked: boolean) => Promise<void>;
   has: boolean; active: Active | null; save: () => Promise<boolean>; saveAs: () => void; saveCopy: () => void;
   revert: () => Promise<void>; revertOff: boolean; recent: Recent[] | null; openRecent: (r: Recent) => Promise<void>; clearRecent: () => void;
-  quickExport: () => void; openExport: (k: ExportKind) => void; pathsToSvg: () => void; exportLayerComps: (mime: Mime, ext: string) => Promise<void>;
+  quickExport: () => void; quickExportLayer: () => void; openLayerExport: () => void; openExport: (k: ExportKind) => void; pathsToSvg: () => void; exportLayerComps: (mime: Mime, ext: string) => Promise<void>;
   doc: DocInfo | null; closeTab: () => Promise<void>; closeTabs: (which: 'all' | 'others') => Promise<void>; renameLayer: () => void; run: Run; openPreviewDialog: (which: 'fill' | 'stroke') => void;
   contentAwareFill: (dialog: boolean) => void;
   quickFill: (rgb: Rgb, label: string) => void; fg: Rgb; bg: Rgb; quickMask: boolean; selEdit: boolean; startTransform: (mode?: Mode, selection?: boolean) => Promise<void>;
@@ -49,6 +51,7 @@ export interface MenuCtx {
   globalLightDialog: DialogRef; allEffectsHidden: boolean; anyStyled: boolean; scaleEffectsDialog: DialogRef;
   openAutomate: (kind: AutomateKind) => void; openBatch: () => void; openImageProcessor: () => void; openLoadStack: () => void; browseScript: () => void; scriptRunning: boolean;
   assetsOn: boolean; toggleImageAssets: () => void; packageDoc: () => void; openVariables: (tab: 'define' | 'sets') => void; openApplyDataSet: () => void; openImportSets: () => void; openFileInfo: () => void; openPrint: () => void; printOneCopy: () => void;
+  openAnalysis: (kind: 'scale' | 'points' | 'marker') => void; recordMeasurements: () => void; chooseTool: (id: string) => void;
   openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; openImageCalc: (calc: boolean) => void; openModeDialog: (kind: ModeDialogKind) => void; openColorDialog: (kind: ColorDialogKind) => void; applyDestructive: (kind: DestructiveKind) => void;
   rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
@@ -60,10 +63,14 @@ export interface MenuCtx {
   showGradients: boolean; setShowGradients: SetState<boolean>;
   showRulers: boolean; setShowRulers: SetState<boolean>; showPixelGrid: boolean; setShowPixelGrid: SetState<boolean>;
   showGuides: boolean; setShowGuides: SetState<boolean>; showGrid: boolean; setShowGrid: SetState<boolean>;
+  workspace: WorkspaceState; chooseWorkspace: (name: string) => void; openWorkspaceDialog: (mode: 'save' | 'delete') => void;
+  resetCurrentWorkspace: () => void; toggleWorkspaceLock: () => void;
+  arrangeMode: ArrangeMode; chooseArrangement: (mode: ArrangeMode) => void; matchArrangement: (kind: MatchKind) => void;
   snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef;
   openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null; selectedNodes: LayerNode[];
   showShapes: boolean; setShowShapes: SetState<boolean>; showCloneSource: boolean; setShowCloneSource: SetState<boolean>; showNavigator: boolean; setShowNavigator: SetState<boolean>; typeItems: Item[]; aboutDialog: DialogRef; agentDialog: DialogRef;
+  showHistogram: boolean; setShowHistogram: SetState<boolean>; showInfo: boolean; setShowInfo: SetState<boolean>; showToolPresets: boolean; setShowToolPresets: SetState<boolean>; showNotes: boolean; setShowNotes: SetState<boolean>; showMeasurementLog: boolean; setShowMeasurementLog: SetState<boolean>;
 }
 
 // Image > Mode: the modes a conversion from the current one allows, the bit depths, and the Color Table.
@@ -112,18 +119,24 @@ export function buildMenus(c: MenuCtx) {
     if (key) void c.run(null, () => client.call('switchDoc', key));
   };
   const {
-    setMenu, newDialog, openFiles, placeFile, has, active, save, saveAs, saveCopy, revert, revertOff, recent, openRecent, clearRecent, quickExport, openExport, pathsToSvg, exportLayerComps, doc, closeTab, closeTabs, renameLayer, run,
+    setMenu, newDialog, openFiles, placeFile, has, active, save, saveAs, saveCopy, revert, revertOff, recent, openRecent, clearRecent, quickExport, quickExportLayer, openLayerExport, openExport, pathsToSvg, exportLayerComps, doc, closeTab, closeTabs, renameLayer, run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, selEdit, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    openAutomate, openBatch, openImageProcessor, openLoadStack, browseScript, scriptRunning, assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo, openPrint, printOneCopy, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
+    openAutomate, openBatch, openImageProcessor, openLoadStack, browseScript, scriptRunning, assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo, openPrint, printOneCopy, openAnalysis, recordMeasurements, chooseTool, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
+    showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
+    workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
+    arrangeMode, chooseArrangement, matchArrangement,
   } = c;
+  const workspaceTypeItems = typeItems.map(item => item.label === 'Panels'
+    ? { ...item, sub: item.sub?.map(panel => ({ ...panel, off: workspace.locked })) }
+    : item);
   const smartItems: Item[] = [
     { label: 'Convert to Smart Object', run: () => node && run('Converting…', () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
     { label: 'New Smart Object via Copy', run: () => node && run(null, () => client.call('smartViaCopy', node.id), selectCreated), off: !smart },
@@ -272,6 +285,8 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Layer via Cut', keys: 'Shift+Ctrl+J', run: () => active && run(null, () => client.call('layerViaCut', active.id), selectCreated), off: !has || !active || !doc?.selection || node?.kind !== 'pixel' },
       { label: 'Duplicate Layer', run: duplicateLayer, off: !has },
       { label: 'Rename Layer', run: renameLayer, off: !has || !active },
+      { label: `Quick Export as ${FORMAT_LABEL[exportPrefs().format]}`, keys: "Shift+Ctrl+'", sep: true, run: quickExportLayer, off: !node },
+      { label: 'Export As…', keys: "Alt+Shift+Ctrl+'", run: openLayerExport, off: !selectedNodes.length },
       {
         label: 'Delete', keys: '›', run: () => {}, off: !has, sub: [
           { label: 'Layer', run: deleteLayer, off: deleteDisabled },
@@ -346,7 +361,7 @@ export function buildMenus(c: MenuCtx) {
         ],
       },
     ],
-    Type: typeItems,
+    Type: workspaceTypeItems,
     Image: [
       {
         label: 'Mode', keys: '›', run: () => {}, off: !has, sub: modeItems(doc, run, openModeDialog),
@@ -389,6 +404,16 @@ export function buildMenus(c: MenuCtx) {
         ],
       },
       { label: 'Apply Data Set…', run: openApplyDataSet, off: !has },
+      {
+        label: 'Analysis', keys: '›', sep: true, run: () => {}, off: !has, sub: [
+          { label: 'Set Measurement Scale…', run: () => openAnalysis('scale') },
+          { label: 'Select Data Points…', run: () => openAnalysis('points') },
+          { label: 'Record Measurements', keys: 'Shift+Ctrl+M', run: () => { setMenu(null); recordMeasurements(); } },
+          { label: 'Ruler Tool', sep: true, run: () => { setMenu(null); chooseTool('ruler'); } },
+          { label: 'Count Tool', run: () => { setMenu(null); chooseTool('count'); } },
+          { label: 'Place Scale Marker…', sep: true, run: () => openAnalysis('marker') },
+        ],
+      },
     ],
     Select: [
       { label: 'All', keys: 'Ctrl+A', run: () => run(null, () => client.call('selectCommand', 'all')), off: !has },
@@ -461,18 +486,47 @@ export function buildMenus(c: MenuCtx) {
       },
     ],
     Window: [
-      { label: showActions ? 'Hide Actions' : 'Show Actions', keys: 'Alt+F9', run: () => { setMenu(null); setShowActions(v => !v); } },
-      { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); } },
-      { label: showChannels ? 'Hide Channels' : 'Show Channels', run: () => { setMenu(null); setShowChannels(v => !v); } },
-      { label: showCloneSource ? 'Hide Clone Source' : 'Show Clone Source', run: () => { setMenu(null); setShowCloneSource(v => !v); } },
-      { label: showNavigator ? 'Hide Navigator' : 'Show Navigator', run: () => { setMenu(null); setShowNavigator(v => !v); } },
-      { label: showLayerComps ? 'Hide Layer Comps' : 'Show Layer Comps', run: () => { setMenu(null); setShowLayerComps(v => !v); } },
-      { label: showPaths ? 'Hide Paths' : 'Show Paths', run: () => { setMenu(null); setShowPaths(v => !v); } },
-      { label: showProperties ? 'Hide Properties' : 'Show Properties', run: () => { setMenu(null); setShowProperties(v => !v); } },
-      { label: showStyles ? 'Hide Styles' : 'Show Styles', run: () => { setMenu(null); setShowStyles(v => !v); } },
-      { label: showPatterns ? 'Hide Patterns' : 'Show Patterns', run: () => { setMenu(null); setShowPatterns(v => !v); } },
-      { label: showGradients ? 'Hide Gradients' : 'Show Gradients', run: () => { setMenu(null); setShowGradients(v => !v); } },
-      { label: showShapes ? 'Hide Shapes' : 'Show Shapes', run: () => { setMenu(null); setShowShapes(v => !v); } },
+      {
+        label: 'Arrange', keys: '›', run: () => {}, sub: [
+          { label: `${arrangeMode === 'tabs' ? '✓ ' : ''}Consolidate All to Tabs`, run: () => chooseArrangement('tabs'), off: !doc },
+          { label: `${arrangeMode === 'vertical' ? '✓ ' : ''}Tile All Vertically`, sep: true, run: () => chooseArrangement('vertical'), off: (doc?.docs.length ?? 0) < 2 },
+          { label: `${arrangeMode === 'horizontal' ? '✓ ' : ''}Tile All Horizontally`, run: () => chooseArrangement('horizontal'), off: (doc?.docs.length ?? 0) < 2 },
+          ...([['2-up', '2-up'], ['3-up', '3-up'], ['4-up', '4-up'], ['6-up', '6-up']] as const).map(([mode, label], index) => ({
+            label: `${arrangeMode === mode ? '✓ ' : ''}${label}`, sep: index === 0, run: () => chooseArrangement(mode), off: (doc?.docs.length ?? 0) < 2,
+          })),
+          { label: `${arrangeMode === 'float' ? '✓ ' : ''}Float All in Windows`, sep: true, run: () => chooseArrangement('float'), off: (doc?.docs.length ?? 0) < 2 },
+          { label: 'Match Zoom', sep: true, run: () => matchArrangement('zoom'), off: (doc?.docs.length ?? 0) < 2 },
+          { label: 'Match Location', run: () => matchArrangement('location'), off: (doc?.docs.length ?? 0) < 2 },
+          { label: 'Match All', run: () => matchArrangement('all'), off: (doc?.docs.length ?? 0) < 2 },
+        ],
+      },
+      {
+        label: 'Workspace', keys: '›', sep: true, run: () => {}, sub: [
+          ...BUILTIN_WORKSPACES.map(w => ({ label: `${workspace.selected === w.name ? '✓ ' : ''}${w.name}`, run: () => chooseWorkspace(w.name) })),
+          ...workspace.custom.map((w, i) => ({ label: `${workspace.selected === w.name ? '✓ ' : ''}${w.name}`, sep: i === 0, run: () => chooseWorkspace(w.name) })),
+          { label: 'New Workspace…', sep: true, run: () => openWorkspaceDialog('save') },
+          { label: 'Delete Workspace…', run: () => openWorkspaceDialog('delete'), off: !workspace.custom.length },
+          { label: `Reset ${workspace.selected}`, sep: true, run: resetCurrentWorkspace },
+          { label: `${workspace.locked ? '✓ ' : ''}Lock Workspace`, run: toggleWorkspaceLock },
+        ],
+      },
+      { label: showActions ? 'Hide Actions' : 'Show Actions', keys: 'Alt+F9', sep: true, run: () => { setMenu(null); setShowActions(v => !v); }, off: workspace.locked },
+      { label: showAdjustments ? 'Hide Adjustments' : 'Show Adjustments', run: () => { setMenu(null); setShowAdjustments(v => !v); }, off: workspace.locked },
+      { label: showChannels ? 'Hide Channels' : 'Show Channels', run: () => { setMenu(null); setShowChannels(v => !v); }, off: workspace.locked },
+      { label: showCloneSource ? 'Hide Clone Source' : 'Show Clone Source', run: () => { setMenu(null); setShowCloneSource(v => !v); }, off: workspace.locked },
+      { label: showNavigator ? 'Hide Navigator' : 'Show Navigator', run: () => { setMenu(null); setShowNavigator(v => !v); }, off: workspace.locked },
+      { label: showLayerComps ? 'Hide Layer Comps' : 'Show Layer Comps', run: () => { setMenu(null); setShowLayerComps(v => !v); }, off: workspace.locked },
+      { label: showPaths ? 'Hide Paths' : 'Show Paths', run: () => { setMenu(null); setShowPaths(v => !v); }, off: workspace.locked },
+      { label: showProperties ? 'Hide Properties' : 'Show Properties', run: () => { setMenu(null); setShowProperties(v => !v); }, off: workspace.locked },
+      { label: showStyles ? 'Hide Styles' : 'Show Styles', run: () => { setMenu(null); setShowStyles(v => !v); }, off: workspace.locked },
+      { label: showPatterns ? 'Hide Patterns' : 'Show Patterns', run: () => { setMenu(null); setShowPatterns(v => !v); }, off: workspace.locked },
+      { label: showGradients ? 'Hide Gradients' : 'Show Gradients', run: () => { setMenu(null); setShowGradients(v => !v); }, off: workspace.locked },
+      { label: showShapes ? 'Hide Shapes' : 'Show Shapes', run: () => { setMenu(null); setShowShapes(v => !v); }, off: workspace.locked },
+      { label: showHistogram ? 'Hide Histogram' : 'Show Histogram', run: () => { setMenu(null); setShowHistogram(v => !v); }, off: workspace.locked },
+      { label: showInfo ? 'Hide Info' : 'Show Info', run: () => { setMenu(null); setShowInfo(v => !v); }, off: workspace.locked },
+      { label: showToolPresets ? 'Hide Tool Presets' : 'Show Tool Presets', run: () => { setMenu(null); setShowToolPresets(v => !v); }, off: workspace.locked },
+      { label: showNotes ? 'Hide Notes' : 'Show Notes', run: () => { setMenu(null); setShowNotes(v => !v); }, off: workspace.locked },
+      { label: showMeasurementLog ? 'Hide Measurement Log' : 'Show Measurement Log', run: () => { setMenu(null); setShowMeasurementLog(v => !v); }, off: workspace.locked },
       { label: 'Next Document', keys: 'Ctrl+Tab', sep: true, run: () => switchStep(1), off: (doc?.docs.length ?? 0) < 2 },
       { label: 'Previous Document', keys: 'Shift+Ctrl+Tab', run: () => switchStep(-1), off: (doc?.docs.length ?? 0) < 2 },
       ...(doc?.docs ?? []).map((t, i) => ({

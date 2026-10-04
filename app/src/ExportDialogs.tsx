@@ -11,7 +11,8 @@ const INDEXED = (f: ExportFormat) => f === 'gif' || f === 'png8';
 const FORMATS = Object.keys(FORMAT_LABEL) as ExportFormat[];
 type DirPicker = { showDirectoryPicker?: (o: object) => Promise<FileSystemDirectoryHandle> };
 export const canFolder = () => !!(window as unknown as DirPicker).showDirectoryPicker;
-export interface ExportDialogHandle { open(): void }
+export interface ExportTarget { layers: number[]; name: string }
+export interface ExportDialogHandle { open(target?: ExportTarget): void }
 
 // Export Preferences: the Quick Export format and whether it asks for a location (else a browser download).
 export interface ExportPrefs { format: 'png' | 'jpeg' | 'webp'; quality: number; ask: boolean; icc: boolean; meta: boolean }
@@ -54,17 +55,19 @@ function useEstimates(opts: ExportOptions[], on: boolean) {
 
 export interface ExportRow { key: number; scale: number; suffix: string; format: ExportFormat; quality: number }
 
-export function ExportAsDialog({ ref, start }: { ref: Ref<ExportDialogHandle>; start: (rows: ExportRow[]) => void }) {
+export function ExportAsDialog({ ref, start }: { ref: Ref<ExportDialogHandle>; start: (rows: ExportRow[], target?: ExportTarget) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
+  const [target, setTarget] = useState<ExportTarget>();
   const [rows, setRows] = useState<ExportRow[]>([{ key: 1, scale: 1, suffix: '', format: 'png', quality: 85 }]);
-  useImperativeHandle(ref, () => ({ open() { setOpen(true); dialog.current?.showModal(); } }));
-  const est = useEstimates(rows.map(r => assetOptions(r.format, r.scale, r.quality)), open);
+  useImperativeHandle(ref, () => ({ open(next) { setTarget(next); setOpen(true); dialog.current?.showModal(); } }));
+  const targetOptions = target ? { layers: target.layers, trim: true, reveal: true } : {};
+  const est = useEstimates(rows.map(r => assetOptions(r.format, r.scale, r.quality, targetOptions)), open);
   const set = (k: number, p: Partial<ExportRow>) => setRows(rs => rs.map(r => (r.key === k ? { ...r, ...p } : r)));
   const close = () => { setOpen(false); dialog.current?.close(); };
   return (
     <dialog ref={dialog} className="mode-dialog batch-dialog export-dialog" aria-label="Export As" onClose={() => setOpen(false)}>
-      <form onSubmit={e => { e.preventDefault(); close(); start(rows); }}>
+      <form onSubmit={e => { e.preventDefault(); close(); start(rows, target); }}>
         <h2>Export As</h2>
         <table className="export-rows">
           <thead><tr><th>Size</th><th>Suffix</th><th>Format</th><th>Quality</th><th>Estimate</th><th /></tr></thead>

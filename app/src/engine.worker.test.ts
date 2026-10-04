@@ -897,7 +897,10 @@ test('Color Settings: new documents get the working RGB, PSD saves embed it, ope
   assert.equal(((await call('openFile', file, 'discard')).result as I).profile, null);
   await call('setColorSettings', { ...s, rgbPolicy: 'off' });
   assert.equal(((await call('newDoc', 8, 8, 8, null)).result as I).profile, null);
-  await call('setColorSettings', null);
+  // The version bump reaches the app, so keyed reads stay in step with the shown document.
+  const shown = (await call('setColorSettings', null)).result as { key: string; version: number };
+  const read = (await call('documentSample', shown.key, 1, 1, 1, null)).result as { version: number };
+  assert.equal(read.version, shown.version);
 });
 
 test('Image > Mode: Indexed Color flattens in one step, Color Table remaps, Duotone needs Grayscale', async () => {
@@ -2641,6 +2644,85 @@ test('new documents open as tabs; the newest is active and the others stay open'
   assert.equal(b.width, 32);
 });
 
+test('documentDisplayTile reads an inactive document without switching or settling active sessions', async () => {
+  await call('init');
+  await closeAll();
+  const red = await res(call('newDoc', 12, 10, 8, [255, 0, 0, 255]));
+  const blue = await res(call('newDoc', 8, 6, 8, [0, 0, 255, 255]));
+  const read = (await call('documentDisplayTile', red.key, 0, 0, 0)).result as {
+    key: string; version: number; width: number; height: number; depth: number; maxLevel: number; data: ArrayBuffer | null;
+  };
+  assert.deepEqual({ key: read.key, width: read.width, height: read.height, depth: read.depth }, { key: red.key, width: 12, height: 10, depth: 8 });
+  assert.equal(typeof read.version, 'number');
+  assert.equal(typeof read.maxLevel, 'number');
+  assert.deepEqual([...new Uint8Array(read.data!).subarray(0, 4)], [255, 0, 0, 255]);
+
+  const tip = (await call('tipAdd', 3, 3, new Uint8Array(9).fill(255))).result as number;
+  assert.equal((await call('strokeBegin', 1, 'pixels', tipParams(tip), 'Brush')).error, undefined);
+  assert.equal((await call('documentDisplayTile', red.key, 0, 0, 0)).error, undefined);
+  assert.equal((await call('strokeTo', Float64Array.from([4, 4, 1]))).error, undefined, 'the background read leaves the stroke open');
+  const stroked = await res(call('strokeEnd'));
+  assert.equal(stroked.key, blue.key);
+  assert.equal(stroked.undoLabel, 'Brush');
+
+  assert.equal((await call('fillEx', 1, 'pixels', solid([0, 255, 0, 255]), 'Fill', true)).error, undefined);
+  assert.equal((await call('documentDisplayTile', red.key, 0, 0, 0)).error, undefined);
+  assert.equal((await call('fillEx', 1, 'pixels', solid([255, 255, 0, 255]), 'Fill', true)).error, undefined, 'the background read leaves the preview open');
+  const cancelled = await res(call('previewEnd', false));
+  assert.equal(cancelled.key, blue.key);
+  assert.equal(cancelled.undoLabel, 'Brush');
+
+  for (const tile of [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]) {
+    const activeTile = await call('displayTile', ...tile);
+    const backgroundTile = await call('documentDisplayTile', red.key, ...tile);
+    assert.equal(!!backgroundTile.error, !!activeTile.error, `validation matches displayTile for ${tile.join('/')}`);
+    if (!activeTile.error) {
+      assert.equal((activeTile.result as { data: ArrayBuffer | null }).data, null);
+      assert.equal((backgroundTile.result as { data: ArrayBuffer | null }).data, null);
+    }
+  }
+  await res(call('closeDoc', red.key));
+  assert.match((await call('documentDisplayTile', red.key, 0, 0, 0)).error ?? '', /no longer open/i);
+});
+
+test('keyed inspection reads inactive native pixels without switching or settling active sessions', async () => {
+  await call('init');
+  await closeAll();
+  const red = await res(call('newDoc', 12, 10, 8, [255, 0, 0, 255]));
+  const blue = await res(call('newDoc', 8, 6, 8, [0, 0, 255, 255]));
+  const histogram = (await call('documentHistogram', red.key, null)).result as { key: string; version: number; histogram: Uint32Array };
+  assert.equal(histogram.key, red.key);
+  assert.equal(histogram.histogram.length, 1024);
+  assert.equal(histogram.histogram[256 + 255], 120);
+  assert.equal(histogram.histogram[512], 120);
+  assert.equal(histogram.histogram[768], 120);
+  const sample = (await call('documentSample', red.key, 4, 4, 3, null)).result as { key: string; version: number; color: number[] };
+  assert.deepEqual(sample.color, [255, 0, 0, 255]);
+
+  const tip = (await call('tipAdd', 3, 3, new Uint8Array(9).fill(255))).result as number;
+  assert.equal((await call('strokeBegin', 1, 'pixels', tipParams(tip), 'Brush')).error, undefined);
+  assert.equal((await call('documentHistogram', red.key, null)).error, undefined);
+  assert.equal((await call('documentSample', red.key, 4, 4, 1, null)).error, undefined);
+  assert.equal((await call('strokeTo', Float64Array.from([4, 4, 1]))).error, undefined);
+  const stroked = await res(call('strokeEnd'));
+  assert.equal(stroked.key, blue.key);
+  assert.equal(stroked.undoLabel, 'Brush');
+
+  assert.equal((await call('fillEx', 1, 'pixels', solid([0, 255, 0, 255]), 'Fill', true)).error, undefined);
+  assert.equal((await call('documentHistogram', red.key, null)).error, undefined);
+  assert.equal((await call('documentSample', red.key, 4, 4, 5, null)).error, undefined);
+  const cancelled = await res(call('previewEnd', false));
+  assert.equal(cancelled.key, blue.key);
+  assert.equal(cancelled.undoLabel, 'Brush');
+
+  assert.match((await call('documentSample', red.key, NaN, 0, 1, null)).error ?? '', /coordinate/i);
+  assert.match((await call('documentSample', red.key, 0, 0, 7, null)).error ?? '', /sample size/i);
+  assert.match((await call('documentHistogram', red.key, 9999)).error ?? '', /pixel layer/i);
+  await res(call('closeDoc', red.key));
+  assert.match((await call('documentHistogram', red.key, null)).error ?? '', /no longer open/i);
+  assert.match((await call('documentSample', red.key, 0, 0, 1, null)).error ?? '', /no longer open/i);
+});
+
 test('switchDoc keeps each document its own layers and undo/redo history, with a new docId each time', async () => {
   await call('init');
   await closeAll();
@@ -3183,7 +3265,7 @@ test('an action records steps with layer references and replays them on another 
 test('playAction refuses calls that are not edits', async () => {
   await call('init');
   await call('newDoc', 8, 8, 8, null);
-  for (const op of ['closeDoc', 'savePsd', 'fontUpload', 'toString', 'constructor']) {
+  for (const op of ['closeDoc', 'savePsd', 'documentDisplayTile', 'documentHistogram', 'documentSample', 'fontUpload', 'toString', 'constructor']) {
     const r = await call('playAction', [{ id: 'x', label: 'Bad', enabled: true, calls: [{ op, args: [] }] }], null);
     assert.match(r.error!, /cannot run in an action/, op);
   }
@@ -3344,4 +3426,59 @@ test('Variables: Apply Data Set sets visibility and type text in one step, and D
   await call('setVariables', { variables: [], data_sets: [], active: null }, 'Define Variables');
   assert.ok(!((await call('savePsd')).result as { warnings: string[] }).warnings.some(w => w.includes('variables')), 'an empty model is removed');
   await call('saveEnd', false);
+});
+
+test('M9 tools: annotations are one undoable step, Straighten Layer levels pixels, New Frame and artboard at a rect', async () => {
+  await call('init');
+  await call('newDoc', 100, 80, 8, [255, 255, 255, 255]);
+  type Info = { undoLabel: string; width: number; history: { labels: string[] }; annotations: { notes: unknown[]; samplers: number[][] }; layers: { id: number; kind: string; name: string; children?: { id: number }[]; vector_mask?: { path: { subpaths: unknown[] } } | null; artboard?: { rect: number[] } | null }[] };
+  const a = { notes: [{ id: 1, x: 5, y: 6, author: '', color: [255, 220, 80], text: 'hi' }], slices: [], counts: [], samplers: [[10, 10]] };
+  const r = (await call('setAnnotations', a, 'New Note')).result as Info;
+  assert.equal(r.undoLabel, 'New Note');
+  assert.deepEqual(r.annotations.samplers, [[10, 10]]);
+  const n = r.history.labels.length;
+  assert.equal(((await call('setAnnotations', a, 'New Note')).result as Info).history.labels.length, n, 'an unchanged model adds no step');
+  assert.equal(((await call('undo')).result as Info).annotations.notes.length, 0, 'undo removes the note');
+  const bg = r.layers[0].id;
+  // Rotating the opaque background about the canvas center leaves its corner transparent.
+  const line = (await call('straightenLayer', bg, Math.atan2(10, 80) * 180 / Math.PI)).result as Info;
+  assert.equal(line.undoLabel, 'Straighten Layer');
+  assert.ok(((await call('sample', 0, 0, 1, bg)).result as number[])[3] < 255, 'the corner turned transparent');
+  const bad = await call('straightenLayer', bg, Number.NaN);
+  assert.ok(bad.error, 'a NaN angle is refused');
+  const f = (await call('newFrame', { x: 10, y: 10, w: 30, h: 20 }, 'ellipse', bg)).result as Info & { created: number };
+  assert.equal(f.undoLabel, 'New Frame');
+  const frame = f.layers.find(l => l.id === f.created)!;
+  assert.equal(frame.kind, 'group');
+  assert.equal(frame.vector_mask!.path.subpaths.length, 1);
+  const top = ((await call('addLayer', f.created)).result as Info & { created: number }).created;
+  const g = (await call('newFrame', { x: 0, y: 0, w: 20, h: 20 }, 'rectangle', top, true)).result as Info & { created: number };
+  assert.deepEqual(g.layers.find(l => l.id === g.created)!.children!.map(c => c.id), [top], 'the layer becomes the frame content');
+  assert.equal(g.history.labels.at(-1), 'New Frame', 'one step');
+  const ab = (await call('newArtboardAt', 'Artboard 1', [120, 10, 220, 90], { type: 'white' })).result as Info & { created: number };
+  assert.equal(ab.undoLabel, 'New Artboard');
+  assert.deepEqual(ab.layers.find(l => l.id === ab.created)!.artboard!.rect, [120, 10, 220, 90]);
+  assert.equal(ab.width, 220, 'the canvas grows to hold the artboard');
+});
+
+test('R25 Analysis: a measurement scale alone persists; Place Scale Marker adds a bar and text group in one step', async () => {
+  await call('init');
+  await call('newDoc', 200, 100, 8, [255, 255, 255, 255]);
+  await call('fontAdd', readFileSync(new URL('../public/fonts/NotoSans-Regular.ttf', import.meta.url)), 'bundled');
+  type Info = { undoLabel: string; history: { labels: string[] }; annotations: { scale?: { pixels: number; logical: number; units: string } }; layers: { id: number; kind: string; name: string; children?: { kind: string }[] }[] };
+  const scale = { pixels: 50, logical: 1, units: 'cm' };
+  const s = (await call('setAnnotations', { notes: [], slices: [], counts: [], samplers: [], scale }, 'Set Measurement Scale')).result as Info;
+  assert.deepEqual(s.annotations.scale, scale, 'a scale without marks is kept');
+  const { newText } = await import('./shell/typesession.ts');
+  const t0 = newText({ family: 'Noto Sans', style: 'Regular', size: 12, color: [0, 0, 0], alignment: 'left', orientation: 'horizontal' }, { type: 'point' }, [10, 80]);
+  const text = { ...t0, text: '1 cm', runs: [{ ...t0.runs[0], length: 4 }], paragraphs: [{ ...t0.paragraphs[0], length: 4 }] };
+  const before = s.history.labels.length;
+  const m = (await call('placeScaleMarker', { x: 10, y: 85, w: 50, h: 4 }, [0, 0, 0], text)).result as Info & { created: number };
+  assert.equal(m.undoLabel, 'Place Scale Marker');
+  assert.equal(m.history.labels.length, before + 1, 'one step');
+  const g = m.layers.find(l => l.id === m.created)!;
+  assert.deepEqual([g.kind, g.children!.map(c => c.kind)], ['group', ['shape', 'text']]);
+  assert.equal(((await call('sample', 30, 86, 1, null)).result as number[])[0], 0, 'the bar is painted');
+  const u = (await call('undo')).result as Info;
+  assert.equal(u.layers.some(l => l.kind === 'group'), false, 'undo removes the marker');
 });

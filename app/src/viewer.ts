@@ -58,13 +58,17 @@ export class Viewer {
   #inst = new Float32Array(1024 * FLOATS_PER_INSTANCE);
   #w = 1;
   #h = 1;
+  #resizeObserver: ResizeObserver;
+  #inputAbort = new AbortController();
+  #destroyed = false;
 
   constructor(canvas: HTMLCanvasElement, r: Renderer, src: TileSource) {
     this.#canvas = canvas;
     this.#r = r;
     this.#src = src;
     this.#resetCache();
-    new ResizeObserver(() => this.#resize()).observe(canvas);
+    this.#resizeObserver = new ResizeObserver(() => this.#resize());
+    this.#resizeObserver.observe(canvas);
     this.#resize();
     this.#bindInput();
   }
@@ -83,6 +87,7 @@ export class Viewer {
 
   // Resolves once `version` (or a newer one) is fully drawn, or after `ms` at the latest.
   drawn(version: number, ms = 1000): Promise<void> {
+    if (this.#destroyed) return Promise.resolve();
     return new Promise(res => {
       const w = { version, done: () => { clearTimeout(t); res(); } };
       const t = setTimeout(() => { this.#waiters = this.#waiters.filter(x => x !== w); res(); }, ms);
@@ -158,8 +163,23 @@ export class Viewer {
   zoomBy(f: number) { this.animateView(zoomAt(this.#anim?.to ?? this.view, f, this.#w / 2, this.#h / 2, this.#w, this.#h)); }
   resetRotation() { this.animateView({ ...(this.#anim?.to ?? this.view), rot: 0 }); }
 
+  destroy() {
+    if (this.#destroyed) return;
+    this.#destroyed = true;
+    this.#resizeObserver.disconnect();
+    this.#inputAbort.abort();
+    if (this.#raf) cancelAnimationFrame(this.#raf);
+    this.#raf = 0;
+    this.#anim = null;
+    this.#doc = null;
+    this.#cache.clear();
+    this.#inflight.clear();
+    this.#free = [];
+    for (const waiter of this.#waiters.splice(0)) waiter.done();
+  }
+
   redraw() {
-    if (!this.#raf) this.#raf = requestAnimationFrame(() => { this.#raf = 0; this.#step(); this.#draw(); });
+    if (!this.#destroyed && !this.#raf) this.#raf = requestAnimationFrame(() => { this.#raf = 0; this.#step(); this.#draw(); });
   }
 
   #resetCache() {
@@ -169,6 +189,7 @@ export class Viewer {
   }
 
   #resize() {
+    if (this.#destroyed) return;
     const r = this.#canvas.getBoundingClientRect();
     this.#w = Math.max(1, r.width);
     this.#h = Math.max(1, r.height);
@@ -178,6 +199,7 @@ export class Viewer {
   }
 
   #draw() {
+    if (this.#destroyed) return;
     const d = this.#doc;
     const dpr = this.dpr;
     const frame = { instances: this.#inst, count: 0, matrix: clipMatrix(this.view, this.#w, this.#h), checker: 8 * dpr, nearest: this.view.zoom * dpr >= 2 };
@@ -248,11 +270,13 @@ export class Viewer {
       if (this.#inflight.has(key)) continue;
       this.#inflight.add(key);
       this.#src(level, tx, ty).then(r => {
+        if (this.#destroyed) return;
         this.#inflight.delete(key);
         if (this.#doc?.docId !== r.docId || r.docId !== d.docId) return;
         this.#store(key, r);
         this.redraw();
       }, err => {
+        if (this.#destroyed) return;
         this.#inflight.delete(key);
         console.error('tile', key, err);
       });
@@ -353,7 +377,7 @@ export class Viewer {
       const mode = e.button === 1 ? 'hand' : this.#mode();
       if (mode !== 'hand' && mode !== 'zoom' && mode !== 'zoomOut' && mode !== 'rotate') this.#emit(toolEvent('down', e, last));
       e.preventDefault();
-    });
+    }, { signal: this.#inputAbort.signal });
     c.addEventListener('pointermove', e => {
       if (!last) return;
       const p = local(e);
@@ -368,7 +392,7 @@ export class Viewer {
         this.#emit(toolEvent('move', e, p));
       }
       last = p;
-    });
+    }, { signal: this.#inputAbort.signal });
     const end = (e: PointerEvent) => {
       if (last && downAt) {
         const mode = e.button === 1 ? 'hand' : this.#mode();
@@ -385,13 +409,13 @@ export class Viewer {
       last = null;
       downAt = null;
     };
-    c.addEventListener('pointerup', end);
-    c.addEventListener('pointercancel', end);
+    c.addEventListener('pointerup', end, { signal: this.#inputAbort.signal });
+    c.addEventListener('pointercancel', end, { signal: this.#inputAbort.signal });
     c.addEventListener('wheel', e => {
       e.preventDefault();
       const [x, y] = local(e);
       const step = e.deltaMode === 1 ? 0.05 : 0.002;
       this.animateView(zoomAt(this.#anim?.to ?? this.view, 2 ** (-e.deltaY * step), x, y, this.#w, this.#h), x, y, 110);
-    }, { passive: false });
+    }, { passive: false, signal: this.#inputAbort.signal });
   }
 }

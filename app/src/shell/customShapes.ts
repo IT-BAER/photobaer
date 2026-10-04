@@ -79,9 +79,11 @@ export const shapeLibrary = () => (shared ??= new ShapeLibrary());
 export class ShapeLibrary {
   #store: Store | undefined;
   #user: CustomShape[] = [];
-  constructor(store: Store | undefined = globalThis.localStorage) {
-    this.#store = store;
-    try { this.#user = JSON.parse(store?.getItem(KEY) ?? '[]') as CustomShape[]; } catch { this.#user = []; }
+  constructor(store?: Store) {
+    try {
+      this.#store = store ?? globalThis.localStorage;
+      this.#user = JSON.parse(this.#store?.getItem(KEY) ?? '[]') as CustomShape[];
+    } catch { this.#user = []; }
   }
   list(): CustomShape[] { return [...BUILTIN_SHAPES, ...this.#user]; }
   get(id: string): CustomShape | undefined { return this.list().find(s => s.id === id); }

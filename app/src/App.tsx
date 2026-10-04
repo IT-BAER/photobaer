@@ -11,14 +11,24 @@ import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { ChannelsPanel } from './ChannelsPanel.tsx';
 import { ActionsPanel, playSteps } from './ActionsPanel.tsx';
 import { BatchDialog, type BatchDialogHandle, type BatchOptions } from './BatchDialog.tsx';
-import { assetOptions, canFolder, EXT, ExportAsDialog, exportPrefs, ExportPrefsDialog, FilesExportDialog, SaveForWebDialog, type ExportDialogHandle, type ExportRow, type FilesDialogHandle, type FilesOptions, type WebOptions } from './ExportDialogs.tsx';
+import { assetOptions, canFolder, EXT, ExportAsDialog, exportPrefs, ExportPrefsDialog, FilesExportDialog, SaveForWebDialog, type ExportDialogHandle, type ExportRow, type ExportTarget, type FilesDialogHandle, type FilesOptions, type WebOptions } from './ExportDialogs.tsx';
 import { assetSpecs, fileStem, pathsSvg } from './app/webExport.ts';
 import { FileInfoDialog, PrintDialog, type FileInfoHandle, type PrintHandle } from './FileDialogs.tsx';
 import { ApplyDataSetDialog, ImportDataSetsDialog, VariablesDialog, type ApplySetHandle, type ImportSetsHandle, type VariablesHandle } from './VariablesDialogs.tsx';
 import { exportCsv, type Variables } from './app/variables.ts';
 import { defaultPrint, printHtml, printLayout, printPage, type PrintSettings } from './app/print.ts';
 import { ImageProcessorDialog, LoadStackDialog, type ImageProcessorOptions, type ScriptDialogHandle } from './ScriptDialogs.tsx';
+import { WorkspaceDialog, type WorkspaceDialogAction, type WorkspaceDialogHandle } from './WorkspaceDialog.tsx';
+import { AnalysisDialogs, type AnalysisDialogHandle } from './AnalysisDialogs.tsx';
+import { DocumentArrangement } from './DocumentArrangement.tsx';
+import { HistogramPanel, InfoPanel } from './InspectionPanels.tsx';
+import { ToolPresetsPanel } from './ToolPresetsPanel.tsx';
+import { MeasurementLogPanel, NotesPanel } from './NotesPanels.tsx';
+import { useMeasureTools } from './app/measureTools.tsx';
 import { runScript } from './app/scripting.ts';
+import { PANEL_KEYS, addWorkspace, deleteWorkspace, loadWorkspaces, lockWorkspace, resetWorkspace, saveWorkspaces, selectWorkspace, type WorkspaceSettings, type WorkspaceState } from './app/workspaces.ts';
+import { matchDocumentViews, type ArrangeMode, type MatchKind } from './app/arrange.ts';
+import { addToolPreset, applyToolPreset, deleteToolPreset, exportToolPresets, importToolPresets, loadToolPresets, renameToolPreset, saveToolPresets, snapshotToolPreset, validateBrushPresetAssets, validateToolOptionAssets } from './app/toolPresets.ts';
 import type { ActionStep } from './actions.ts';
 import { actions } from './app/actionsStore.ts';
 import { ImageCalcDialog, type ImageCalcHandle } from './ImageCalcDialog.tsx';
@@ -42,7 +52,7 @@ import { AlignButtons, OptionsBar, type ToolOptions } from './shell/OptionsBar.t
 import { ColorPanel } from './shell/ColorPanel.tsx';
 import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
 import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
-import { TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
+import { SLOTS, TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
 import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
 import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
 import type { DigitState } from './shell/brushKeys.ts';
@@ -66,7 +76,7 @@ import { GradientEditor, type GradientEditorHandle } from './shell/GradientEdito
 import { rampCss, type Method } from './gradients/gradient.ts';
 import { BUILTIN_GRADIENTS, GradientLibrary, resolvePreset, type GradientPreset } from './gradients/presets.ts';
 import {
-  AUTOSAVE_TEXT, FILL_KEY, FILL_LAYERS, MODIFY_OPS, SELECT_TOOLS, STROKE_DEFAULT, VIEWER_TOOL, fallbackActive,
+  AUTOSAVE_TEXT, FILL_KEY, FILL_LAYERS, MODIFY_OPS, PAINT_TOOLS, SELECT_TOOLS, STROKE_DEFAULT, VIEWER_TOOL, fallbackActive,
   fillContentFromForm, formFromFillContent, loadFillForm, pickPlaceFile, saveBlob, selectAfterDelete, selectCreated,
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
@@ -182,6 +192,7 @@ export function App() {
   const canvasSizeDialog = useRef<HTMLDialogElement>(null);
   const rotateDialog = useRef<HTMLDialogElement>(null);
   const automateDialog = useRef<HTMLDialogElement>(null);
+  const workspaceDialog = useRef<WorkspaceDialogHandle>(null);
   const [automate, setAutomate] = useState<AutomateKind>('align');
   const colorRangeCanvas = useRef<HTMLCanvasElement>(null);
   const picker = useRef<ColorPickerHandle>(null);
@@ -192,7 +203,25 @@ export function App() {
   const [autosave, setAutosave] = useState<AutosaveState>('off');
   const [renderer, setRenderer] = useState('');
   const [busy, setBusy] = useState<string | null>('Starting…');
-  const [error, setError] = useState<string | null>(null);
+  const [workspaceStart] = useState(() => {
+    try { return { state: loadWorkspaces(), error: null }; }
+    catch (e) {
+      return {
+        state: loadWorkspaces({ getItem: () => null, setItem: () => {} }),
+        error: `Workspace settings could not be loaded. Changes will stay in this session: ${(e as Error).message}`,
+      };
+    }
+  });
+  const [toolPresetStart] = useState(() => {
+    try { return { library: loadToolPresets(), error: null }; }
+    catch (e) {
+      return {
+        library: loadToolPresets({ getItem: () => null, setItem: () => {} }),
+        error: `Tool presets could not be loaded. Changes will stay in this session: ${(e as Error).message}`,
+      };
+    }
+  });
+  const [error, setError] = useState<string | null>(workspaceStart.error ?? toolPresetStart.error);
   const [dragOver, setDragOver] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
   const [fg, setFg] = useState<Rgb>(hexToRgb('#e8a23a')!);
@@ -206,7 +235,9 @@ export function App() {
   const [colorRangePreview, setColorRangePreview] = useState<{ w: number; h: number; data: Uint8Array; level: number } | null>(null);
   const [colorRangeOpen, setColorRangeOpen] = useState(false);
   const [optionsByTool, setOptionsByTool] = useState<Record<string, ToolOptions>>({});
-  const [dockTab, setDockTab] = useState<'color' | 'swatches' | 'brushSettings' | 'brushes'>('color');
+  const [workspace, setWorkspace] = useState(workspaceStart.state);
+  const [toolPresetLibrary, setToolPresetLibrary] = useState(toolPresetStart.library);
+  const [dockTab, setDockTab] = useState(workspace.settings.dockTab);
   const [recentPresets, setRecentPresets] = useState<string[]>([]);
   const [, setLibVersion] = useState(0);
   const protectedTexture = useRef<Dynamics['texture'] | null>(null);
@@ -221,23 +252,82 @@ export function App() {
   // Mirrors the ruler/guide/grid toggles for the mount-frozen guide-drag closures below (docRef pattern).
   const rulerFlagsRef = useRef({ showRulers, showPixelGrid, showGuides, showGrid });
   rulerFlagsRef.current = { showRulers, showPixelGrid, showGuides, showGrid };
-  const [showLayerComps, setShowLayerComps] = useState(false);
-  const [showChannels, setShowChannels] = useState(false);
-  const [showActions, setShowActions] = useState(false);
+  const [showLayerComps, setShowLayerComps] = useState(workspace.settings.layerComps);
+  const [showChannels, setShowChannels] = useState(workspace.settings.channels);
+  const [showActions, setShowActions] = useState(workspace.settings.actions);
   const [channelView, setChannelView] = useState<ChannelView>(COMPOSITE);
-  const [showPaths, setShowPaths] = useState(false);
+  const [showPaths, setShowPaths] = useState(workspace.settings.paths);
   const [pathSel, setPathSel] = useState<PathSel>({ selected: null, cleared: false });
   const pathSelRef = useRef(pathSel);
   pathSelRef.current = pathSel;
-  const [showProperties, setShowProperties] = useState(false);
-  const [showAdjustments, setShowAdjustments] = useState(false);
-  const [showStyles, setShowStyles] = useState(false);
-  const [showPatterns, setShowPatterns] = useState(false);
-  const [showGradients, setShowGradients] = useState(false);
-  const [showShapes, setShowShapes] = useState(false);
-  const [showCloneSource, setShowCloneSource] = useState(false);
-  const [showNavigator, setShowNavigator] = useState(false);
-  const [typePanels, setTypePanels] = useState<Record<TypePanel, boolean>>({ character: false, paragraph: false, characterStyles: false, paragraphStyles: false, glyphs: false });
+  const [showProperties, setShowProperties] = useState(workspace.settings.properties);
+  const [showAdjustments, setShowAdjustments] = useState(workspace.settings.adjustments);
+  const [showStyles, setShowStyles] = useState(workspace.settings.styles);
+  const [showPatterns, setShowPatterns] = useState(workspace.settings.patterns);
+  const [showGradients, setShowGradients] = useState(workspace.settings.gradients);
+  const [showShapes, setShowShapes] = useState(workspace.settings.shapes);
+  const [showCloneSource, setShowCloneSource] = useState(workspace.settings.cloneSource);
+  const [showNavigator, setShowNavigator] = useState(workspace.settings.navigator);
+  const [showHistogram, setShowHistogram] = useState(workspace.settings.histogram);
+  const [showInfo, setShowInfo] = useState(workspace.settings.info);
+  const [showToolPresets, setShowToolPresets] = useState(workspace.settings.toolPresets);
+  const [showNotes, setShowNotes] = useState(workspace.settings.notes);
+  const [showMeasurementLog, setShowMeasurementLog] = useState(workspace.settings.measurementLog);
+  const [typePanels, setTypePanels] = useState<Record<TypePanel, boolean>>({
+    character: workspace.settings.character, paragraph: workspace.settings.paragraph,
+    characterStyles: workspace.settings.characterStyles, paragraphStyles: workspace.settings.paragraphStyles, glyphs: workspace.settings.glyphs,
+  });
+  const workspaceLockedRef = useRef(workspace.locked);
+  workspaceLockedRef.current = workspace.locked;
+  const currentWorkspaceSettings = (): WorkspaceSettings => ({
+    actions: showActions, adjustments: showAdjustments, channels: showChannels, cloneSource: showCloneSource, navigator: showNavigator,
+    layerComps: showLayerComps, paths: showPaths, properties: showProperties, styles: showStyles, patterns: showPatterns,
+    gradients: showGradients, shapes: showShapes, character: typePanels.character, paragraph: typePanels.paragraph,
+    characterStyles: typePanels.characterStyles, paragraphStyles: typePanels.paragraphStyles, glyphs: typePanels.glyphs,
+    histogram: showHistogram, info: showInfo, toolPresets: showToolPresets, notes: showNotes, measurementLog: showMeasurementLog, dockTab,
+  });
+  const storeWorkspace = (next: WorkspaceState) => {
+    setWorkspace(next);
+    if (workspaceStart.error) { setError(workspaceStart.error); return; }
+    try { saveWorkspaces(localStorage, next); } catch (e) { setError(`Workspace settings could not be saved: ${(e as Error).message}`); }
+  };
+  const applyWorkspace = (next: WorkspaceState) => {
+    storeWorkspace(next);
+    const s = next.settings;
+    setShowActions(s.actions); setShowAdjustments(s.adjustments); setShowChannels(s.channels); setShowCloneSource(s.cloneSource);
+    setShowNavigator(s.navigator); setShowLayerComps(s.layerComps); setShowPaths(s.paths); setShowProperties(s.properties);
+    setShowStyles(s.styles); setShowPatterns(s.patterns); setShowGradients(s.gradients); setShowShapes(s.shapes); setDockTab(s.dockTab);
+    setShowHistogram(s.histogram); setShowInfo(s.info); setShowToolPresets(s.toolPresets); setShowNotes(s.notes); setShowMeasurementLog(s.measurementLog);
+    setTypePanels({ character: s.character, paragraph: s.paragraph, characterStyles: s.characterStyles, paragraphStyles: s.paragraphStyles, glyphs: s.glyphs });
+  };
+  const guardedSetDockTab: typeof setDockTab = value => { if (!workspaceLockedRef.current) setDockTab(value); };
+  const chooseWorkspace = (name: string) => {
+    setMenu(null);
+    try { applyWorkspace(selectWorkspace(workspace, name)); } catch (e) { setError((e as Error).message); }
+  };
+  const resetCurrentWorkspace = () => {
+    setMenu(null);
+    try { applyWorkspace(resetWorkspace(workspace)); } catch (e) { setError((e as Error).message); }
+  };
+  const toggleWorkspaceLock = () => { setMenu(null); storeWorkspace(lockWorkspace(workspace, !workspace.locked)); };
+  const openWorkspaceDialog = (mode: 'save' | 'delete') => {
+    setMenu(null);
+    if (mode === 'save') workspaceDialog.current?.open({ mode: 'save' });
+    else workspaceDialog.current?.open({ mode: 'delete', custom: workspace.custom.map(w => w.name), selected: workspace.selected });
+  };
+  const workspaceAction = (action: WorkspaceDialogAction) => {
+    try {
+      const next = action.kind === 'save'
+        ? addWorkspace(workspace, action.name, currentWorkspaceSettings())
+        : deleteWorkspace(workspace, action.name);
+      applyWorkspace(next);
+    } catch (e) { setError((e as Error).message); }
+  };
+  useEffect(() => {
+    const settings = currentWorkspaceSettings();
+    if (workspace.settings.dockTab === settings.dockTab && PANEL_KEYS.every(key => workspace.settings[key] === settings[key])) return;
+    storeWorkspace({ ...workspace, settings });
+  }, [dockTab, showActions, showAdjustments, showChannels, showCloneSource, showNavigator, showLayerComps, showPaths, showProperties, showStyles, showPatterns, showGradients, showShapes, showHistogram, showInfo, showToolPresets, showNotes, showMeasurementLog, typePanels]);
   const [typePrefs, setTypePrefs] = useState(loadTypePrefs);
   // Changes with the type session and its selection, so the type panels re-read it.
   const [, setTypeSel] = useState('');
@@ -260,6 +350,8 @@ export function App() {
   const pickedRef = useRef(picked);
   pickedRef.current = picked;
   const tabState = useRef(new Map<string, { view: View; active: Active | null; picked: number[] }>());
+  const [arrangeMode, setArrangeMode] = useState<ArrangeMode>('tabs');
+  const [arrangeRevision, setArrangeRevision] = useState(0);
   const docRef = useRef(doc);
   docRef.current = doc;
   const toolOptionsRef = useRef(toolOptions);
@@ -329,6 +421,7 @@ export function App() {
   const filesExportDialog = useRef<FilesDialogHandle>(null);
   const fileInfoDialog = useRef<FileInfoHandle>(null);
   const variablesDialog = useRef<VariablesHandle>(null);
+  const analysisDialog = useRef<AnalysisDialogHandle>(null);
   const importSetsDialog = useRef<ImportSetsHandle>(null);
   const applySetDialog = useRef<ApplySetHandle>(null);
   const printDialog = useRef<PrintHandle>(null);
@@ -463,13 +556,15 @@ export function App() {
     // An error belongs to the document it came from.
     if (switched || (prev && !d)) setError(null);
     setDoc(d);
+    docRef.current = d;
+    setArrangeRevision(n => n + 1);
+    if (!d) setArrangeMode('tabs');
     v?.setDoc(d, saved?.view);
     document.title = d ? `${d.name}${d.dirty ? '*' : ''} - photobaer` : PAGE_TITLE;
     if (!d) { setActive(null); return; }
     if (switched) { setQuickMask(false); setPicked(saved ? saved.picked.filter(id => nodeById(d.layers, id)) : []); }
     // Node ids restart per document: a previous document's active layer never carries over.
     const sameDoc = d.docId === prev?.docId;
-    docRef.current = d;
     const restored = saved?.active && nodeById(d.layers, saved.active.id) ? saved.active : null;
     setActive(cur => selectAfter ? selectAfter(d) : restored ?? (sameDoc && cur && nodeById(d.layers, cur.id) ? cur : fallbackActive(d)));
   }
@@ -641,11 +736,21 @@ export function App() {
     }
   }
   const saveAsset = (blob: Blob, name: string, ask: boolean) => (ask ? saveBlob(blob, name, blob.type, name.split('.').pop()!) : (downloadBlob(blob, name), Promise.resolve(true)));
-  function quickExport() {
+  function quickExport(target?: ExportTarget) {
     const p = exportPrefs();
     void exporting(async d => {
-      const { blob } = await client.call('exportAsset', assetOptions(p.format, 1, p.quality));
-      await saveAsset(blob, `${d.name}.${EXT[p.format]}`, p.ask);
+      const options = target ? { layers: target.layers, trim: true, reveal: true } : {};
+      const { blob } = await client.call('exportAsset', assetOptions(p.format, 1, p.quality, options));
+      await saveAsset(blob, `${target?.name ?? d.name}.${EXT[p.format]}`, p.ask);
+    });
+  }
+  function quickExportLayer() {
+    if (node) quickExport({ layers: [node.id], name: node.name });
+  }
+  function openLayerExport() {
+    setMenu(null);
+    if (doc && selectedNodes.length) exportAsDialog.current?.open({
+      layers: selectedNodes.map(n => n.id), name: selectedNodes.length === 1 ? selectedNodes[0].name : doc.name,
     });
   }
   function openExport(k: ExportKind) {
@@ -657,7 +762,7 @@ export function App() {
   }
   // Export As: one row asks for the file; several go into one folder (picked first, while the click still counts)
   // or downloads.
-  async function runExportAs(rows: ExportRow[]) {
+  async function runExportAs(rows: ExportRow[], target?: ExportTarget) {
     let dir: FileSystemDirectoryHandle | null = null;
     if (rows.length > 1 && canFolder()) {
       try { dir = await (window as unknown as { showDirectoryPicker(o: object): Promise<FileSystemDirectoryHandle> }).showDirectoryPicker({ mode: 'readwrite' }); } catch { return; }
@@ -665,8 +770,9 @@ export function App() {
     await exporting(async d => {
       const used = new Set<string>();
       for (const r of rows) {
-        const { blob } = await client.call('exportAsset', assetOptions(r.format, r.scale, r.quality));
-        const name = `${fileStem(d.name + r.suffix, used)}.${EXT[r.format]}`;
+        const options = target ? { layers: target.layers, trim: true, reveal: true } : {};
+        const { blob } = await client.call('exportAsset', assetOptions(r.format, r.scale, r.quality, options));
+        const name = `${fileStem((target?.name ?? d.name) + r.suffix, used)}.${EXT[r.format]}`;
         if (rows.length === 1) await saveBlob(blob, name, blob.type, EXT[r.format]);
         else await saveOut(dir ? 'folder' : 'download', dir, name, blob);
       }
@@ -1550,15 +1656,34 @@ export function App() {
   const typeCtx: TypeCtx = {
     typeRef, selected: selectedNodes, anyText: !!doc && flatNodes(doc.layers).some(n => n.kind === 'text'), run, setError,
     openWarp: () => { setMenu(null); warpDialog.current?.querySelector('form')?.reset(); warpDialog.current?.showModal(); },
-    prefs: typePrefs, setPrefs: setTypePrefs, panels: typePanels, togglePanel: k => { setMenu(null); setTypePanels(v => ({ ...v, [k]: !v[k] })); },
+    prefs: typePrefs, setPrefs: setTypePrefs, panels: typePanels, togglePanel: k => {
+      setMenu(null);
+      if (!workspaceLockedRef.current) setTypePanels(v => ({ ...v, [k]: !v[k] }));
+    },
     fontDialog: k => void openFontDialog(k),
     ensureFamilies, loadSystemFonts: localFontsSupported() ? () => void loadSystemFonts() : null,
   };
   const typeTool = TYPE_TOOLS.includes(tool) ? tool : 'horizontalType';
+  const chooseArrangement = (mode: ArrangeMode) => {
+    setMenu(null);
+    setArrangeMode(mode);
+  };
+  const saveArrangementView = (key: string, nextView: View) => {
+    const previous = tabState.current.get(key);
+    tabState.current.set(key, { view: { ...nextView }, active: previous?.active ?? null, picked: previous ? [...previous.picked] : [] });
+  };
+  const matchArrangement = (kind: MatchKind) => {
+    setMenu(null);
+    const current = viewer.current;
+    if (!doc || !current) return;
+    tabState.current.set(doc.key, { view: { ...current.view }, active: activeRef.current, picked: [...pickedRef.current] });
+    tabState.current = matchDocumentViews(tabState.current, doc.docs.map(d => d.key), doc.key, current.view, kind);
+    setArrangeRevision(n => n + 1);
+  };
   const menus = buildMenus({
     setMenu, newDialog, aboutDialog, agentDialog, openFiles, placeFile, has, active, save, saveAs: () => void saveAs(), saveCopy: () => void saveAs(true),
     revert, revertOff: !doc || !origins.current.has(doc.key) || !doc.dirty || doc.parents.length > 0,
-    recent: fsAccess() ? recent : null, openRecent, clearRecent: () => { setMenu(null); updateRecent(() => []); }, quickExport, openExport, pathsToSvg, exportLayerComps, doc, closeTab, closeTabs, renameLayer: () => setRenameTick(n => n + 1), run,
+    recent: fsAccess() ? recent : null, openRecent, clearRecent: () => { setMenu(null); updateRecent(() => []); }, quickExport: () => quickExport(), quickExportLayer, openLayerExport, openExport, pathsToSvg, exportLayerComps, doc, closeTab, closeTabs, renameLayer: () => setRenameTick(n => n + 1), run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, selEdit, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
@@ -1570,6 +1695,9 @@ export function App() {
     openImageProcessor: () => { setMenu(null); imageProcessorDialog.current?.open(); },
     openLoadStack: () => { setMenu(null); loadStackDialog.current?.open(); },
     assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo: () => void openFileInfo(), openPrint, printOneCopy: () => void printDoc(printSettings.current),
+    openAnalysis: kind => { setMenu(null); analysisDialog.current?.open(kind); },
+    recordMeasurements: () => void measure.record(),
+    chooseTool: id => { const slot = SLOTS.find(s => s.tools.includes(id)); if (slot) setLastUsed(u => ({ ...u, [slot.id]: id })); setTool(id); },
     browseScript, scriptRunning: !!script,
     openModeDialog: kind => { setMenu(null); modeDialog.current?.open(kind); },
     openColorDialog: kind => { setMenu(null); colorDialog.current?.open(kind); },
@@ -1579,6 +1707,9 @@ export function App() {
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openVanishingPoint: () => openVanishingPoint(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems: typeMenuItems(typeCtx),
+    showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
+    workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
+    arrangeMode, chooseArrangement, matchArrangement,
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
@@ -1801,7 +1932,15 @@ export function App() {
   useEffect(() => setChannelView(COMPOSITE), [doc?.key]);
   const chTarget = editChannels({ ...channelView, alphaTarget: alphaEdit ? channelView.alphaTarget : undefined });
   useEffect(() => {
-    if (doc) client.call('setChannelTarget', chTarget.rgb, chTarget.alpha).catch(e => setError((e as Error).message));
+    if (!doc) return;
+    const docId = doc.docId;
+    let alive = true;
+    if (docRef.current?.docId === docId) {
+      client.call('setChannelTarget', chTarget.rgb, chTarget.alpha).catch(e => {
+        if (alive && docRef.current?.docId === docId) setError((e as Error).message);
+      });
+    }
+    return () => { alive = false; };
   }, [doc?.docId, chTarget.rgb.join(), chTarget.alpha]);
   useEffect(() => {
     const overlay = overlayRef.current, a = channelState.alpha, mode = doc?.mode?.kind;
@@ -1864,6 +2003,9 @@ export function App() {
     viewer, tool, active, overlayRef, toolOptionsRef, gradLib, fgRef, bgRef, run, editTarget, quickMask,
   });
   useShapeTools({ viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run, docRef });
+  const measure = useMeasureTools({
+    viewer, tool, doc, docRef, active, overlayRef, redrawOverlay, toolOptions, toolOptionsRef, run, setError, openNotes: () => setShowNotes(true),
+  });
   const penKeysRef = useRef<((e: KeyboardEvent) => boolean) | null>(null);
   const penRedrawRef = useRef<(() => void) | null>(null);
   usePenTools({
@@ -1984,7 +2126,7 @@ export function App() {
   }
 
   useShortcuts({
-    menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setDockTab, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
+    menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setDockTab: guardedSetDockTab, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
     toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef, setChannelView,
   });
 
@@ -2033,6 +2175,55 @@ export function App() {
     fn(next.dynamics);
     lib.library.save(next);
     bumpLib();
+  }
+  function storeToolPresetLibrary(next: typeof toolPresetLibrary) {
+    setToolPresetLibrary(next);
+    if (toolPresetStart.error) { setError(toolPresetStart.error); return; }
+    try { saveToolPresets(localStorage, next); }
+    catch (e) { setError(`Tool presets could not be saved: ${(e as Error).message}`); }
+  }
+  function createToolPreset(name: string, includeColors: boolean) {
+    try {
+      const snapshot = snapshotToolPreset(name, tool, toolOptions, PAINT_TOOLS.has(tool) ? selectedPresetId : null,
+        includeColors ? { fg, bg } : undefined);
+      storeToolPresetLibrary(addToolPreset(toolPresetLibrary, snapshot));
+    } catch (e) { setError((e as Error).message); }
+  }
+  function renameSavedToolPreset(id: string, name: string) {
+    try { storeToolPresetLibrary(renameToolPreset(toolPresetLibrary, id, name)); }
+    catch (e) { setError((e as Error).message); }
+  }
+  function deleteSavedToolPreset(id: string) {
+    try { storeToolPresetLibrary(deleteToolPreset(toolPresetLibrary, id)); }
+    catch (e) { setError((e as Error).message); }
+  }
+  function applySavedToolPreset(saved: typeof toolPresetLibrary.presets[number]) {
+    try {
+      const next = applyToolPreset(saved), toolDef = TOOLS[next.tool];
+      validateToolOptionAssets(next.options, {
+        gradient: id => gradLib.current?.get(id), shape: id => shapeLibrary().get(id),
+        pattern: id => brushLib.current?.library.patterns().find(p => p.id === id),
+      });
+      if (next.brushPresetId !== null) {
+        const lib = brushLib.current, preset = lib?.library.list().find(item => item.id === next.brushPresetId);
+        if (!lib || !preset) throw new Error(`Brush preset "${next.brushPresetId}" is unavailable.`);
+        validateBrushPresetAssets(preset, lib.library);
+        // The saved brush uses its own texture, not one carried over by Protect Texture.
+        protectedTexture.current = null;
+        setSelectedPresetId(preset.id);
+        setRecentPresets(recent => pushRecent(recent, preset.id));
+      } else if (PAINT_TOOLS.has(next.tool)) setSelectedPresetId(null);
+      const options = { ...loadToolOptions(toolDef), ...next.options };
+      setOptionsByTool(current => ({ ...current, [next.tool]: options }));
+      saveToolOptions(toolDef, options);
+      setLastUsed(current => ({ ...current, [toolDef.slot]: next.tool }));
+      setTool(next.tool);
+      if (next.colors) { setFg(next.colors.fg); setBg(next.colors.bg); }
+    } catch (e) { setError((e as Error).message); }
+  }
+  function importSavedToolPresets(json: string) {
+    try { storeToolPresetLibrary(importToolPresets(toolPresetLibrary, json)); }
+    catch (e) { setError((e as Error).message); }
   }
   const preparedPreviews = useRef(new Set<string>());
   function previewFor(p: BrushPreset | null, o: Record<string, unknown> = {}): Record<string, unknown> {
@@ -2206,7 +2397,7 @@ export function App() {
           </>
         );
       })()}
-      <main className={`workspace${doc ? ' with-sidebar' : ' no-doc'}`}>
+      <main className={`workspace${doc || showHistogram || showInfo || showToolPresets || showNotes || showMeasurementLog ? ' with-sidebar' : ''}${doc ? '' : ' no-doc'}`}>
         <ToolBar
           active={tool} setActive={setTool} lastUsed={lastUsed} setLastUsed={setLastUsed}
           fg={fg} bg={bg} openPicker={openPicker} swap={swapColors} reset={resetColors}
@@ -2243,10 +2434,15 @@ export function App() {
                 t.store.set({ warp: warpBar(ws) });
               })}
             />
-          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions }} fg={fg} />}
+          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions, measure: measure.bar }} fg={fg} />}
           {doc && <TabBar doc={doc} switchTo={key => run(null, () => client.call('switchDoc', key))} close={key => void closeTab(key)}
             move={(key, to) => run(null, () => client.call('moveDoc', key, to))} />}
-          <div className={`stage${showRulers ? ' with-rulers' : ''}`}>
+          <DocumentArrangement
+            mode={arrangeMode} documents={doc?.docs ?? []} activeKey={doc?.key ?? null}
+            views={tabState.current} revision={`${doc?.key ?? ''}:${doc?.version ?? 0}:${arrangeRevision}`}
+            activate={key => void run(null, () => client.call('switchDoc', key))}
+            saveView={saveArrangementView} onError={setError}
+            primary={<div className={`stage${showRulers ? ' with-rulers' : ''}`}>
             <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined, filter: channelFilter }} onContextMenu={e => {
               e.preventDefault();
               if (transformRef.current || (e.ctrlKey && e.altKey) || !has) return;
@@ -2293,14 +2489,15 @@ export function App() {
             )}
             {busy && <div className="busy">{busy}</div>}
             {error && <div className="error" role="alert" onClick={() => setError(null)}>{error}</div>}
-          </div>
+          </div>}
+          />
         </div>
         <aside className="sidebar">
           <div className="panel-tabs dock-tabs">
-            <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} onClick={() => setDockTab('color')}>Color</button>
-            <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} onClick={() => setDockTab('swatches')}>Swatches</button>
-            <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} title="Brush Settings (F5)" onClick={() => setDockTab('brushSettings')}>Brush Settings</button>
-            <button className={`panel-tab${dockTab === 'brushes' ? ' active' : ''}`} onClick={() => setDockTab('brushes')}>Brushes</button>
+            <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('color')}>Color</button>
+            <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('swatches')}>Swatches</button>
+            <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} disabled={workspace.locked} title="Brush Settings (F5)" onClick={() => guardedSetDockTab('brushSettings')}>Brush Settings</button>
+            <button className={`panel-tab${dockTab === 'brushes' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('brushes')}>Brushes</button>
           </div>
           {dockTab === 'color' && <ColorPanel fg={fg} bg={bg} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} />}
           {dockTab === 'swatches' && <SwatchesPanel fg={fg} setFg={setFg} setBg={setBg} />}
@@ -2316,7 +2513,7 @@ export function App() {
               presets={presets} selected={selectedPreset} recent={recentPresets} selectPreset={selectPreset} deletePreset={deletePreset}
               options={targetOptions} setOption={setTargetOption} tipBitmap={tipBitmap}
               preview={preview} previewFor={p => previewFor(p, p === selectedPreset ? targetOptions : {})} importAbr={importAbr}
-              openSettings={() => setDockTab('brushSettings')}
+              openSettings={() => guardedSetDockTab('brushSettings')}
             />
           )}
           {doc && active && showAdjustments && <AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} />}
@@ -2328,6 +2525,13 @@ export function App() {
           {doc && active && showGradients && <GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} />}
           {doc && showCloneSource && <CloneSourcePanel docKey={doc.key} />}
           {doc && showNavigator && <NavigatorPanel doc={doc} viewer={viewer.current} view={fullView} />}
+          {showHistogram && <HistogramPanel doc={doc} />}
+          {showInfo && <InfoPanel doc={doc} canvas={canvas} viewer={viewer} />}
+          {showNotes && <NotesPanel doc={doc} selected={measure.selectedNote} select={measure.setSelectedNote} commit={(a, label) => void measure.commit(a, label)} />}
+          {showMeasurementLog && <MeasurementLogPanel rows={measure.log} setRows={measure.setLog} record={() => void measure.record()} canRecord={!!doc} download={downloadBlob} points={measure.points} />}
+          {showToolPresets && <ToolPresetsPanel library={toolPresetLibrary} currentTool={tool}
+            create={createToolPreset} rename={renameSavedToolPreset} apply={applySavedToolPreset} remove={deleteSavedToolPreset}
+            importJson={importSavedToolPresets} exportJson={() => exportToolPresets(toolPresetLibrary)} onError={setError} />}
           {doc && showShapes && (
             <ShapesPanel selected={String((optionsByTool.customShape ?? loadToolOptions(TOOLS.customShape)).customShape ?? '')} arm={armShape} />
           )}
@@ -2452,12 +2656,16 @@ export function App() {
       <BatchDialog ref={batchDialog} start={o => void runBatch(o)} />
       <ImageProcessorDialog ref={imageProcessorDialog} start={o => void runImageProcessor(o)} />
       <LoadStackDialog ref={loadStackDialog} start={(f, a, sm) => void loadStack(f, a, sm)} />
-      <ExportAsDialog ref={exportAsDialog} start={rows => void runExportAs(rows)} />
+      <WorkspaceDialog ref={workspaceDialog} act={workspaceAction} />
+      <ExportAsDialog ref={exportAsDialog} start={(rows, target) => void runExportAs(rows, target)} />
       <SaveForWebDialog ref={saveForWebDialog} size={[doc?.width ?? 1, doc?.height ?? 1]} start={runSaveForWeb} />
       <ExportPrefsDialog ref={exportPrefsDialog} />
       <FilesExportDialog ref={filesExportDialog} start={runFilesExport} />
       <FileInfoDialog ref={fileInfoDialog} commit={i => run(null, () => client.call('setFileInfo', i))} />
       <VariablesDialog ref={variablesDialog} commit={commitVariables} importInto={importInto} exportCsv={saveSetsCsv} />
+      <AnalysisDialogs ref={analysisDialog} annotations={doc?.annotations ?? null} size={doc ? [doc.width, doc.height] : null} rulerLength={measure.rulerLength}
+        points={measure.points} setPoints={measure.setPoints} commit={(a, label) => void measure.commit(a, label)}
+        placeMarker={(rect, color, text) => void run('Placing scale marker…', () => client.call('placeScaleMarker', rect, color, text))} />
       <ImportDataSetsDialog ref={importSetsDialog} />
       <ApplyDataSetDialog ref={applySetDialog} apply={name => void run(null, () => applySet(name))} />
       <PrintDialog ref={printDialog} settings={printSettings.current} start={s => void printDoc(s)} />

@@ -1,4 +1,5 @@
 import type { ActionStep } from '../actions.ts';
+import type { Annotations } from '../app/measure.ts';
 import type { ViewState } from '../app/proof.ts';
 import type { Blending, LayerStyle } from '../layerStyle.ts';
 import type { Live, ShapeStroke } from '../shell/shapetools.ts';
@@ -154,6 +155,8 @@ export interface DocInfo {
   grid: { spacing_x: number; spacing_y: number };
   guidesLocked: boolean;
   artboardsLocked: boolean;
+  // Notes, slices, count marks and color samplers (app/measure.ts).
+  annotations: Annotations;
 }
 export interface GlobalLight { angle: number; altitude: number }
 export type SelectShape = { kind: 'rect' | 'ellipse' | 'polygon'; x?: number; y?: number; w?: number; h?: number; points?: number[] };

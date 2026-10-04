@@ -68,7 +68,6 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   the document manifest and autosave but not in PSD (saving warns); Import Data Sets reads UTF-8 only; Data Sets
   as Files names files <document>_<data set> with no naming options; applying text keeps the first run and
   paragraph style only, and the type layer keeps its name.
-- Layer > Quick Export / Export As for selected layers.
 
 ## M9 Remaining
 - Workspaces: presets, save, delete, lock; Window > Arrange (tile, 2/3/4/6-up, float, match zoom and location).

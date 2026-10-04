@@ -224,10 +224,10 @@ export class StyleLibrary {
   #store: Store | undefined;
   #styles: SavedStyle[] = [];
 
-  constructor(store: Store | undefined = globalThis.localStorage) {
-    this.#store = store;
+  constructor(store?: Store) {
     try {
-      const raw = store?.getItem(STYLES_KEY);
+      this.#store = store ?? globalThis.localStorage;
+      const raw = this.#store?.getItem(STYLES_KEY);
       const list: unknown = raw ? JSON.parse(raw) : [];
       if (Array.isArray(list)) this.#styles = list.filter(s => typeof s?.id === 'string' && typeof s.name === 'string' && s.style && s.blending);
     } catch { /* unavailable or corrupt: start empty */ }

@@ -8,6 +8,13 @@ import { COMPOSITE, type ChannelView } from './channels.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type Session = { active: () => boolean; commit: () => void; cancel: () => void };
+type ExportKey = Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'>;
+
+export function exportShortcut(e: ExportKey): 'quick' | 'as' | null {
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (!ctrl || !e.shiftKey || (e.code !== 'Quote' && e.key !== "'")) return null;
+  return e.altKey ? 'as' : 'quick';
+}
 
 export interface ShortcutCtx {
   menusRef: RefObject<Record<string, Item[]>>; capsLockRef: RefObject<boolean>; polygonActionsRef: RefObject<(Session & { removeLast: () => void }) | null>;
@@ -43,6 +50,11 @@ export function useShortcuts(c: ShortcutCtx) {
       e.preventDefault();
       if (it && !it.off) it.run();
     };
+    const triggerLayer = (label: string, e: KeyboardEvent) => {
+      const it = menusRef.current.Layer.find(i => i.label === label || i.label.startsWith(label));
+      e.preventDefault();
+      if (it && !it.off) it.run();
+    };
     // Image > Adjustments items only: Layer > New Adjustment Layer carries the same kind names.
     const adjustment = (label: string, e: KeyboardEvent) => {
       const sub = menusRef.current.Image.find(i => i.label === 'Adjustments');
@@ -70,7 +82,10 @@ export function useShortcuts(c: ShortcutCtx) {
         if (k === 'enter') cropSession.current.commit(); else cropSession.current.cancel();
         return;
       }
-      if (ctrl && e.altKey && k === 'n') trigger('New', e);
+      const layerExport = exportShortcut(e);
+      if (layerExport === 'quick') triggerLayer('Quick Export as ', e);
+      else if (layerExport === 'as') triggerLayer('Export As…', e);
+      else if (ctrl && e.altKey && k === 'n') trigger('New', e);
       else if (ctrl && e.altKey && !e.shiftKey && k === 'f') trigger('Last Filter', e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 'f') trigger('Fade', e);
       else if (ctrl && !e.altKey && !e.shiftKey && k === 'f') { if (!t?.closest('textarea, [contenteditable]')) triggerBy(l => l === 'Search…', e); }
@@ -111,6 +126,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && e.shiftKey && !e.altKey && k === 'u') adjustment('Desaturate', e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 'b') trigger('Auto Color', e);
       else if (ctrl && !e.altKey && k === 'l') adjustment('Levels…', e);
+      else if (ctrl && e.shiftKey && !e.altKey && k === 'm') triggerBy(l => l === 'Record Measurements', e);
       else if (ctrl && !e.altKey && k === 'm') adjustment('Curves…', e);
       else if (ctrl && !e.altKey && k === 'u') adjustment('Hue/Saturation…', e);
       else if (ctrl && e.altKey && e.shiftKey && k === 'b') adjustment('Black & White…', e);

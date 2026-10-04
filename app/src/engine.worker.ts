@@ -24,6 +24,7 @@ import { CMYK_SPACES, openAction, type ColorSettings, type OpenAction } from './
 import { DEFAULT_VIEW, engineView, sanitizeHdr, type ViewState } from './app/proof.ts';
 import { psdWithIcc, readIcc } from './app/iccFiles.ts';
 import { embedInfo, hasInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
+import { emptyAnnotations, framePath, rotationAbout, type Annotations } from './app/measure.ts';
 import { emptyVariables, planDataSet, replaceText, type Variables } from './app/variables.ts';
 import { assetSpecs } from './app/webExport.ts';
 import { TILE } from './view.ts';
@@ -186,11 +187,11 @@ function info(): DocInfo | null {
   };
   const vec = JSON.parse(eng.vector_json()) as {
     resolution: number; guides: Guide[]; grid: { spacing_x: number; spacing_y: number }; gray?: boolean; mode?: ColorMode;
-    guides_locked: boolean; artboards_locked: boolean; paths: SavedPathInfo[];
+    guides_locked: boolean; artboards_locked: boolean; paths: SavedPathInfo[]; annotations?: Annotations;
   };
   return {
     resolution: vec.resolution, guides: vec.guides, paths: vec.paths, grid: vec.grid, gray: vec.gray ?? false, mode: vec.mode ?? null, profile: JSON.parse(eng.profile_json()), view: viewOf(eng),
-    guidesLocked: vec.guides_locked, artboardsLocked: vec.artboards_locked,
+    guidesLocked: vec.guides_locked, artboardsLocked: vec.artboards_locked, annotations: vec.annotations ?? emptyAnnotations(),
     docId, version, name,
     width: eng.width(), height: eng.height(), depth: eng.depth(), maxLevel: eng.max_level(),
     undoLabel: history.undoLabel, redoLabel: history.redoLabel,
@@ -451,6 +452,27 @@ function scaleTextPt(t: TextJson, k: number): TextJson {
 }
 
 const CANVAS_REMAPS = { '180': '180°', cw: '90° Clockwise', ccw: '90° Counter Clockwise', flipH: 'Flip Canvas Horizontal', flipV: 'Flip Canvas Vertical' };
+
+function sampleDocument(e: Engine, x: number, y: number, size: number, layerId: number | null): [number, number, number, number] {
+  const half = Math.floor(size / 2);
+  const cx = Math.floor(x), cy = Math.floor(y);
+  const x0 = Math.max(0, cx - half), y0 = Math.max(0, cy - half);
+  const x1 = Math.min(e.width(), cx + half + 1), y1 = Math.min(e.height(), cy + half + 1);
+  const ids = layerId === null ? undefined : nodeTiles(e, layerId);
+  let r = 0, g = 0, b = 0, a = 0, n = 0;
+  for (let py = y0; py < y1; py++) {
+    for (let px = x0; px < x1; px++) {
+      const tx = Math.floor(px / TILE), ty = Math.floor(py / TILE);
+      const buf = layerId === null ? e.flatten_tile_rgba8(tx, ty) : layerTile(e, ids, tx, ty);
+      if (buf) {
+        const o = ((py - ty * TILE) * TILE + (px - tx * TILE)) * 4;
+        r += buf[o]; g += buf[o + 1]; b += buf[o + 2]; a += buf[o + 3];
+      }
+      n++;
+    }
+  }
+  return n ? [Math.round(r / n), Math.round(g / n), Math.round(b / n), Math.round(a / n)] : [0, 0, 0, 0];
+}
 
 // One step for an engine canvas op; a false result (nothing to change) records none.
 function canvasEdit(label: string, fn: () => boolean) {
@@ -730,7 +752,9 @@ const api = {
     colorSettings = s;
     // Proofs to the working CMYK follow it.
     for (const e of new Set([...docs.map(d => d.eng), ...(eng ? [eng] : [])])) if (views.has(e)) applyView(e, views.get(e)!);
-    if (eng) version++;
+    if (!eng) return null;
+    version++;
+    return info();
   },
 
   // Channels panel target of the active document: edits change only these color channels, or
@@ -2565,6 +2589,14 @@ const api = {
     return need().histogram(id);
   },
 
+  documentHistogram(key: string, layerId: number | null) {
+    const i = docs.findIndex(d => d.key === key);
+    if (i < 0) throw new Error('The source document is no longer open.');
+    const e = i === active ? need() : docs[i].eng;
+    if (layerId !== null && findNode(e, layerId)?.kind !== 'pixel') throw new Error('The histogram source must be a pixel layer.');
+    return { key, version: i === active ? version : docs[i].version, histogram: e.histogram(layerId ?? 0) as Uint32Array };
+  },
+
   // Layers panel thumbnails: each layer over the whole canvas, longest side `size` px (never upscaled).
   // `key` is the layer's manifest node (tile ids, text, smart placement) plus canvas size; an unchanged key reuses the render.
   layerThumbs(ids: number[], size: number) {
@@ -2613,25 +2645,17 @@ const api = {
   // Mean RGBA over an odd-sized box centered on (x, y), clamped to the canvas; layerId null
   // samples the flattened composite of all layers, else that layer's own pixels.
   sample(x: number, y: number, size: number, layerId: number | null): [number, number, number, number] {
-    const e = need();
-    const half = Math.floor(size / 2);
-    const cx = Math.floor(x), cy = Math.floor(y);
-    const x0 = Math.max(0, cx - half), y0 = Math.max(0, cy - half);
-    const x1 = Math.min(e.width(), cx + half + 1), y1 = Math.min(e.height(), cy + half + 1);
-    const ids = layerId === null ? undefined : nodeTiles(e, layerId);
-    let r = 0, g = 0, b = 0, a = 0, n = 0;
-    for (let py = y0; py < y1; py++) {
-      for (let px = x0; px < x1; px++) {
-        const tx = Math.floor(px / 256), ty = Math.floor(py / 256);
-        const buf = layerId === null ? e.flatten_tile_rgba8(tx, ty) : layerTile(e, ids, tx, ty);
-        if (buf) {
-          const o = ((py - ty * 256) * 256 + (px - tx * 256)) * 4;
-          r += buf[o]; g += buf[o + 1]; b += buf[o + 2]; a += buf[o + 3];
-        }
-        n++;
-      }
-    }
-    return n ? [Math.round(r / n), Math.round(g / n), Math.round(b / n), Math.round(a / n)] : [0, 0, 0, 0];
+    return sampleDocument(need(), x, y, size, layerId);
+  },
+
+  documentSample(key: string, x: number, y: number, size: number, layerId: number | null) {
+    const i = docs.findIndex(d => d.key === key);
+    if (i < 0) throw new Error('The source document is no longer open.');
+    const e = i === active ? need() : docs[i].eng;
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x >= e.width() || y >= e.height()) throw new Error('The sample coordinate is outside the document.');
+    if (size !== 1 && size !== 3 && size !== 5) throw new Error('The sample size must be 1, 3, or 5.');
+    if (layerId !== null && findNode(e, layerId)?.kind !== 'pixel') throw new Error('The sample source must be a pixel layer.');
+    return { key, version: i === active ? version : docs[i].version, color: sampleDocument(e, x, y, size, layerId) };
   },
 
   // Opens a stroke (docs/M2.md section 4) as one undo step spanning every strokeTo until strokeEnd.
@@ -3124,6 +3148,18 @@ const api = {
     return { docId, version, data: px ? px.buffer as ArrayBuffer : null };
   },
 
+  documentDisplayTile(key: string, level: number, tx: number, ty: number) {
+    const i = docs.findIndex(d => d.key === key);
+    if (i < 0) throw new Error('The source document is no longer open.');
+    const e = i === active ? need() : docs[i].eng;
+    const sourceVersion = i === active ? version : docs[i].version;
+    const px = e.display_tile(level, tx, ty) as Uint8Array | undefined;
+    return {
+      key, version: sourceVersion, width: e.width(), height: e.height(), depth: e.depth(), maxLevel: e.max_level(),
+      data: px ? px.buffer as ArrayBuffer : null,
+    };
+  },
+
   // The GPU draw program for one display tile; `known` are payload keys the caller already holds.
   displayProgram(level: number, tx: number, ty: number, known: BigUint64Array) {
     const e = need();
@@ -3220,6 +3256,60 @@ const api = {
     const keep = m.variables.length || m.data_sets.length;
     history.run(label, () => e.set_document_vector(JSON.stringify({ ...v, variables: keep ? m : undefined })));
     return changed();
+  },
+  // Notes, slices, count marks and color samplers (M9 tools); one step, none when unchanged.
+  setAnnotations(a: Annotations, label: string) {
+    const e = need();
+    const v = JSON.parse(e.vector_json());
+    if (JSON.stringify(v.annotations ?? emptyAnnotations()) === JSON.stringify(a)) return info();
+    const keep = a.notes.length || a.slices.length || a.counts.length || a.samplers.length || a.scale;
+    history.run(label, () => e.set_document_vector(JSON.stringify({ ...v, annotations: keep ? a : undefined })));
+    return changed();
+  },
+  // Image > Analysis > Place Scale Marker: a group holding the bar shape and, when given, its type layer; one step.
+  placeScaleMarker(rect: { x: number; y: number; w: number; h: number }, color: [number, number, number], text: TextJson | null) {
+    const e = need();
+    let created = 0;
+    history.run('Place Scale Marker', () => {
+      created = e.add_group(nextName('Measurement Scale Marker'), 0);
+      const bar = e.new_shape(JSON.stringify({ name: 'Scale Bar', path: framePath(rect, 'rectangle'), fill: { type: 'solid', color }, stroke: null }));
+      e.move_node(bar, created, 0);
+      if (!text) return;
+      const t = e.add_special(0, JSON.stringify({ name: layerName(text.text), text }));
+      e.render_text(t, fontReg(), resolution(e));
+      e.move_node(t, created, 1);
+    });
+    return { ...changed(), created };
+  },
+  // Ruler > Straighten Layer: rotates the layer `deg` clockwise about the canvas center.
+  straightenLayer(id: number, deg: number) {
+    const e = need();
+    if (!Number.isFinite(deg)) throw new Error('The straighten angle must be a number.');
+    history.run('Straighten Layer', () => e.transform_layer(id, Float64Array.from(rotationAbout(deg, e.width() / 2, e.height() / 2)), 'bicubic', true));
+    return changed();
+  },
+  // Frame tool: a group above `above` whose vector mask is the drawn rectangle or ellipse;
+  // with `content` the layer `above` moves into it.
+  newFrame(rect: { x: number; y: number; w: number; h: number }, shape: 'rectangle' | 'ellipse', above: number, content = false) {
+    const e = need();
+    let created = 0;
+    history.run('New Frame', () => {
+      created = e.add_group(nextName('Frame'), above);
+      e.set_vector_mask(created, JSON.stringify({ path: framePath(rect, shape), enabled: true, linked: true, inverted: false, density: 1, feather: 0 }));
+      if (content) e.move_node(above, created, 0);
+    });
+    return { ...changed(), created };
+  },
+  // Artboard tool: a new artboard at `rect` [l, t, r, b]; the canvas grows to hold it.
+  newArtboardAt(name: string, rect: [number, number, number, number], background: ArtboardBackground) {
+    const e = need();
+    let created = 0;
+    history.run('New Artboard', () => {
+      created = e.new_artboard(name, rect[2] - rect[0], rect[3] - rect[1], JSON.stringify(background), 0);
+      const at = findNode(e, created)!.artboard!.rect;
+      e.offset_artboard(created, rect[0] - at[0], rect[1] - at[1]);
+    });
+    return { ...changed(), created };
   },
   // Image > Apply Data Set; the errors name bindings that could not be applied.
   applyDataSet(name: string) {
@@ -3470,14 +3560,14 @@ function settle(op: string) {
 }
 
 // Calls run one at a time, so an async call (open, close, export) never interleaves with the next one.
-// displayTile, displayProgram and selectionMask are synchronous and read-only, so they skip the
+// Display reads and selectionMask are synchronous and read-only, so they skip the
 // queue and the viewer keeps drawing.
 let queue = Promise.resolve();
 // `doc` is the document id the UI saw when it issued the call; a call issued before an open, close or
 // Edit Contents switched documents would hit the new document with the old one's node ids, so it is refused.
 onmessage = (ev: MessageEvent<{ id: number; op: keyof Api; args: unknown[]; doc?: number }>) => {
   const { id, op, args, doc } = ev.data;
-  if (op === 'displayTile' || op === 'displayProgram' || op === 'selectionMask' || op === 'channelMask' || op === 'colorRangePreview') { void handle(id, op, args); return; }
+  if (op === 'displayTile' || op === 'documentDisplayTile' || op === 'documentHistogram' || op === 'documentSample' || op === 'displayProgram' || op === 'selectionMask' || op === 'channelMask' || op === 'colorRangePreview') { void handle(id, op, args); return; }
   queue = queue.then(() => {
     if (FONT_OPS.has(op)) return handle(id, op, args);
     if (doc !== undefined && doc !== docId) { postMessage({ id, error: 'The document changed before this command ran, so it was not applied.', docId }); return; }

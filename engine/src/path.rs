@@ -326,6 +326,100 @@ pub struct DocVector {
     /// Image > Variables: layer bindings and data sets.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub variables: Option<Variables>,
+    /// Notes, slices, count marks and color samplers placed by the M9 tools.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<Annotations>,
+}
+
+/// The Note, Slice, Count and Color Sampler tools' marks; all coordinates in document pixels.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Annotations {
+    pub notes: Vec<Note>,
+    pub slices: Vec<Slice>,
+    pub counts: Vec<CountGroup>,
+    pub samplers: Vec<[f64; 2]>,
+    /// Image > Analysis > Set Measurement Scale: `pixels` document pixels equal `logical` units.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scale: Option<MeasureScale>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MeasureScale {
+    pub pixels: f64,
+    pub logical: f64,
+    pub units: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Note {
+    pub id: u32,
+    pub x: f64,
+    pub y: f64,
+    pub author: String,
+    pub color: [u8; 3],
+    pub text: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Slice {
+    pub id: u32,
+    pub name: String,
+    pub rect: Bounds,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CountGroup {
+    pub name: String,
+    pub color: [u8; 3],
+    pub visible: bool,
+    pub marks: Vec<[f64; 2]>,
+}
+
+impl Annotations {
+    fn validate(&self) -> Result<(), String> {
+        const MAX: usize = 65536;
+        if self.notes.len() > 10000 || self.slices.len() > 10000 || self.counts.len() > 99 || self.samplers.len() > 10 {
+            return Err("annotations are limited to 10000 notes and slices, 99 count groups and 10 color samplers".into());
+        }
+        let mut ids = std::collections::HashSet::new();
+        for n in &self.notes {
+            if !ids.insert(n.id) {
+                return Err(format!("duplicate note id {}", n.id));
+            }
+            finite(n.x, "a note position")?;
+            finite(n.y, "a note position")?;
+            if n.text.len() > MAX || n.author.len() > 1024 {
+                return Err("a note's text is limited to 64 KiB and its author to 1 KiB".into());
+            }
+        }
+        let mut ids = std::collections::HashSet::new();
+        for s in &self.slices {
+            if !ids.insert(s.id) {
+                return Err(format!("duplicate slice id {}", s.id));
+            }
+            check_bounds(&s.rect, "a slice rect")?;
+            if s.name.len() > 1024 {
+                return Err("a slice name is limited to 1 KiB".into());
+            }
+        }
+        for g in &self.counts {
+            if g.name.len() > 1024 || g.marks.len() > 100000 {
+                return Err("a count group is limited to 100000 marks and a 1 KiB name".into());
+            }
+            g.marks.iter().flatten().try_for_each(|&v| finite(v, "a count mark"))?;
+        }
+        if let Some(m) = &self.scale {
+            if !(m.pixels.is_finite() && m.pixels > 0.0 && m.logical.is_finite() && m.logical > 0.0) || m.units.len() > 64 {
+                return Err("a measurement scale needs positive lengths and units of at most 64 bytes".into());
+            }
+        }
+        self.samplers.iter().flatten().try_for_each(|&v| finite(v, "a color sampler"))
+    }
 }
 
 /// Image > Variables: named bindings of a layer's visibility or type text, and the data sets that fill them.
@@ -430,6 +524,7 @@ impl Default for DocVector {
             profile: None,
             info: None,
             variables: None,
+            annotations: None,
         }
     }
 }
@@ -448,6 +543,9 @@ impl DocVector {
         }
         if let Some(v) = &self.variables {
             v.validate()?;
+        }
+        if let Some(a) = &self.annotations {
+            a.validate()?;
         }
         let mut ids = std::collections::HashSet::new();
         for p in &self.paths {

@@ -1,4 +1,5 @@
 import { docToScreen, type View } from '../view.ts';
+import { drawMarks, type MarksOverlay } from './marksOverlay.ts';
 
 export type Preview =
   | null
@@ -71,6 +72,7 @@ export class SelectionOverlay {
   #corners: [number, number][] | null = null;
   #pathEdit: PathEditOverlay | null = null;
   #typeEdit: TypeEditOverlay | null = null;
+  #marks: MarksOverlay | null = null;
   #dash = 0;
   #timer: ReturnType<typeof setInterval> | undefined;
   #last: [View, number, number, number] | null = null;
@@ -79,6 +81,10 @@ export class SelectionOverlay {
   constructor(canvas: HTMLCanvasElement) {
     this.#canvas = canvas;
     this.#ctx = canvas.getContext('2d')!;
+  }
+
+  setMarks(m: MarksOverlay | null) {
+    this.#marks = m;
   }
 
   setAnts(segments: Float32Array | null, scale: number) {
@@ -204,6 +210,10 @@ export class SelectionOverlay {
     if (this.#warp) this.#drawWarp(this.#warp, view, cssW, cssH, dpr);
     if (this.#pathEdit) this.#drawPathEdit(this.#pathEdit, view, cssW, cssH, dpr);
     if (this.#typeEdit) this.#drawTypeEdit(this.#typeEdit, view, cssW, cssH, dpr);
+    if (this.#marks) {
+      this.#ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawMarks(this.#ctx, this.#marks, (x, y) => docToScreen(view, x, y, cssW, cssH));
+    }
     if (this.#guides.length) this.#drawGuides(view, cssW, cssH, dpr);
     if (this.#clone) this.#drawClone(this.#clone, view, cssW, cssH, dpr);
     if (this.#cursor) this.#drawCursor(this.#cursor, view, cssW, cssH, dpr);

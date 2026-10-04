@@ -45,10 +45,10 @@ export class GradientLibrary {
   #store: Store | undefined;
   #user: GradientPreset[] = [];
 
-  constructor(store: Store | undefined = globalThis.localStorage) {
-    this.#store = store;
+  constructor(store?: Store) {
     try {
-      const raw = store?.getItem(KEY);
+      this.#store = store ?? globalThis.localStorage;
+      const raw = this.#store?.getItem(KEY);
       if (raw) this.#user = JSON.parse(raw) as GradientPreset[];
     } catch { /* unavailable or corrupt: start empty */ }
   }

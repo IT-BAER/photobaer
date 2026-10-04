@@ -1043,3 +1043,45 @@ fn variables_are_stored_in_the_manifest_and_checked() {
     big["variables"]["data_sets"][0]["values"]["title"] = json!("x".repeat(65537));
     assert!(d.set_document_vector(&big.to_string()).is_err());
 }
+
+#[test]
+fn annotations_are_stored_in_the_manifest_and_checked() {
+    let mut d = Document::new(16, 16, 8).unwrap();
+    let mut v: Value = serde_json::from_str(&d.vector_json()).unwrap();
+    assert!(v.get("annotations").is_none(), "no annotations are written for a new document");
+    let a = json!({
+        "notes": [{ "id": 1, "x": 3.0, "y": 4.0, "author": "me", "color": [255, 220, 80], "text": "fix this" }],
+        "slices": [{ "id": 1, "name": "hero", "rect": [0.0, 0.0, 8.0, 8.0] }],
+        "counts": [{ "name": "Group 1", "color": [255, 0, 0], "visible": true, "marks": [[1.0, 2.0], [5.5, 6.5]] }],
+        "samplers": [[2.0, 2.0]],
+    });
+    v["annotations"] = a.clone();
+    d.set_document_vector(&v.to_string()).unwrap();
+    let e = Document::from_manifest(&d.manifest()).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&e.vector_json()).unwrap()["annotations"], a);
+    for (path, bad) in [
+        ("/notes/0/x", json!(f64::MAX)),
+        ("/notes/0/text", json!("x".repeat(65537))),
+        ("/slices/0/rect", json!([8.0, 0.0, 0.0, 8.0])),
+        ("/samplers", json!(vec![[1.0, 1.0]; 11])),
+        ("/counts/0/marks/1", json!([1.0, f64::INFINITY])),
+    ] {
+        let mut w = v.clone();
+        *w["annotations"].pointer_mut(path).unwrap() = bad;
+        assert!(d.set_document_vector(&w.to_string()).is_err(), "{path}");
+    }
+    let mut twice = v.clone();
+    twice["annotations"]["notes"] = json!([a["notes"][0], a["notes"][0]]);
+    assert!(d.set_document_vector(&twice.to_string()).unwrap_err().contains("note id"), "note ids are unique");
+    let mut scaled = v.clone();
+    scaled["annotations"]["scale"] = json!({ "pixels": 100.0, "logical": 2.5, "units": "cm" });
+    d.set_document_vector(&scaled.to_string()).unwrap();
+    let e = Document::from_manifest(&d.manifest()).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&e.vector_json()).unwrap()["annotations"]["scale"]["units"], "cm");
+    for bad in [json!({ "pixels": 0.0, "logical": 1.0, "units": "cm" }), json!({ "pixels": 1.0, "logical": -1.0, "units": "cm" }),
+        json!({ "pixels": 1.0, "logical": 1.0, "units": "x".repeat(65) })] {
+        let mut w = v.clone();
+        w["annotations"]["scale"] = bad;
+        assert!(d.set_document_vector(&w.to_string()).is_err(), "measurement scale is checked");
+    }
+}

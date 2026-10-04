@@ -41,7 +41,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
   const [hdr, setHdr] = useState<HdrPreview>(DEFAULT_VIEW.hdr);
   const hdrBefore = useRef<HdrPreview | null>(null);
 
-  useEffect(() => { void client.call('setColorSettings', settings); }, [settings]);
+  useEffect(() => { client.call('setColorSettings', settings).then(d => { if (d) show(d); }, e => setError((e as Error).message)); }, [settings]);
 
   const gray = !!doc?.gray;
   const cmykDoc = doc?.mode?.kind === 'cmyk';
