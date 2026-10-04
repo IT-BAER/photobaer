@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-10-04
+
 ### Added
 
 - Side dock panels can be collapsed (click the header) and resized (drag the splitter, arrow keys on a
@@ -20,7 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   masks) no longer end a preview session.
 - Properties no longer shrinks to a few pixels when other dock panels are open, and the panels below
   it no longer move when the selected layer changes.
-
 - Measurement Log CSV export: text cells starting with =, +, -, @, tab or CR are prefixed with ' so
   spreadsheets do not run them as formulas.
 
@@ -234,7 +235,8 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.3...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/IT-BAER/photobaer/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/IT-BAER/photobaer/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/IT-BAER/photobaer/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/IT-BAER/photobaer/compare/v0.3.0...v0.3.1
