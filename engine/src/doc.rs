@@ -2089,7 +2089,7 @@ impl Document {
 
     /// Destructive apply of a destructive-only kind (docs/M3.md section 3, kinds 17-25). Statistics
     /// and blurs see the region = layer content bounds x selection bounds as one buffer; the result
-    /// is quantized, then mixed by selection coverage (D12) on the color channels; alpha untouched.
+    /// is quantized (full float in 32-bit), then mixed by selection coverage (D12) on the color channels; alpha untouched.
     pub fn apply_destructive(&mut self, id: u32, json: &str) -> Result<(), String> {
         self.check_idle()?;
         self.check_pixel_paint(id)?;
@@ -2132,7 +2132,9 @@ impl Document {
             }
         }
         adjust::destructive(&kind, &mut buf, w, h);
-        let max = max_value(self.depth) as f32;
+        let (max, hdr) = (max_value(self.depth) as f32, self.depth == 32);
+        // 32-bit documents store the float result unclamped; 8/16-bit round to the depth's steps.
+        let store = |v: f32| if hdr { v } else { (v.clamp(0.0, 1.0) * max).round() / max };
         let mut out = Vec::with_capacity(touched.len());
         for ((tx, ty), old) in touched {
             let cov = if selected { self.coverage(tx, ty) } else { Cov::Uniform(1.0) };
@@ -2140,7 +2142,7 @@ impl Document {
             for (p, b) in spans(tx, ty) {
                 let o = old.rgba_f32(p);
                 let c = cov.at(p).clamp(0.0, 1.0);
-                let mix = |i: usize| o[i] + ((buf[b * 4 + i].clamp(0.0, 1.0) * max).round() / max - o[i]) * c;
+                let mix = |i: usize| o[i] + (store(buf[b * 4 + i]) - o[i]) * c;
                 px.set_rgba_f32(p, [mix(0), mix(1), mix(2), o[3]]);
             }
             out.push(((tx, ty), Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
@@ -2650,6 +2652,7 @@ impl Document {
                         blobs: &self.blobs,
                         bounds,
                         doc: [self.width as f64, self.height as f64],
+                        hdr: self.depth == 32,
                     };
                     let layer = styles::Layer {
                         w: n,

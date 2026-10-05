@@ -343,6 +343,11 @@ impl PaintMode {
 /// backdrop's alpha. "clear" instead scales alpha towards 0; "behind" compisites the backdrop
 /// *over* the paint, so it only shows through where the backdrop is already transparent.
 pub fn paint_pixel(mode: PaintMode, backdrop: [f32; 4], rgb: [f32; 3], cov: f32, keep_alpha: bool) -> [f32; 4] {
+    paint_pixel_hdr(mode, backdrop, rgb, cov, keep_alpha, false)
+}
+
+/// `paint_pixel` with `hdr` (32-bit data): `hdr_mode` blends go through `blend_hdr` and keep values above 1.
+pub fn paint_pixel_hdr(mode: PaintMode, backdrop: [f32; 4], rgb: [f32; 3], cov: f32, keep_alpha: bool, hdr: bool) -> [f32; 4] {
     let [cb0, cb1, cb2, ab] = backdrop;
     if cov <= 0.0 {
         return backdrop;
@@ -386,7 +391,11 @@ pub fn paint_pixel(mode: PaintMode, backdrop: [f32; 4], rgb: [f32; 3], cov: f32,
             let cm = if b.is_passthrough_of_source() || ab <= 0.0 {
                 rgb
             } else {
-                let bl = blend_rgb(b, [cb0, cb1, cb2], rgb);
+                let bl = if hdr && hdr_mode(b) {
+                    blend_hdr(b, [cb0, cb1, cb2].map(|v| v.max(0.0)), rgb)
+                } else {
+                    blend_rgb(b, [cb0, cb1, cb2], rgb)
+                };
                 [
                     (1.0 - ab) * rgb[0] + ab * bl[0],
                     (1.0 - ab) * rgb[1] + ab * bl[1],

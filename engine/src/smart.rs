@@ -198,6 +198,9 @@ impl Document {
                 if lx < 0 || ly < 0 || lx >= r[2] || ly >= r[3] { lm_default } else { m[ly as usize * w + lx as usize] }
             }
         });
+        // 32-bit: results keep color above 1 and blend in the 32-bit modes.
+        let hdr = self.depth == 32;
+        let mix = |m: Blend, cb: [f32; 3], cs: [f32; 3]| if hdr { blend_hdr(m, cb, cs) } else { blend_rgb(m, cb, cs) };
         for f in on {
             let own = plane(f.mask.as_ref());
             let weight = |i: usize| f.opacity * own.as_ref().map_or(1.0, |m| m[i]) * stack.as_ref().map_or(1.0, |m| m[i]);
@@ -214,12 +217,12 @@ impl Document {
                     let old: [f32; 4] = px[i * 4..i * 4 + 4].try_into().expect("4 channels");
                     let n = &plane.data[i * 4..i * 4 + 4];
                     let na = if spec.keep_alpha { old[3] } else { n[3].clamp(0.0, 1.0) };
-                    let nc = [n[0].clamp(0.0, 1.0), n[1].clamp(0.0, 1.0), n[2].clamp(0.0, 1.0)];
+                    let nc: [f32; 3] = std::array::from_fn(|c| if hdr { n[c].max(0.0) } else { n[c].clamp(0.0, 1.0) });
                     let src = if f.blend == Blend::Normal || na <= 0.0 || old[3] <= 0.0 {
                         [nc[0] * na, nc[1] * na, nc[2] * na, na]
                     } else {
                         let un = [old[0] / old[3], old[1] / old[3], old[2] / old[3]];
-                        let c = blend_rgb(f.blend, un, nc);
+                        let c = mix(f.blend, un, nc);
                         [c[0] * na, c[1] * na, c[2] * na, na]
                     };
                     for c in 0..4 {
@@ -237,7 +240,7 @@ impl Document {
                 }
                 let rgb = [px[i * 4] / alpha, px[i * 4 + 1] / alpha, px[i * 4 + 2] / alpha];
                 let (x, y) = (r[0] + (i % w) as i32, r[1] + (i / w) as i32);
-                let nw = blend_rgb(f.blend, rgb, adjust::apply(k.opcode, &k.data, rgb, x as u32, y as u32));
+                let nw = mix(f.blend, rgb, adjust::apply(k.opcode, &k.data, rgb, x as u32, y as u32));
                 for c in 0..3 {
                     px[i * 4 + c] = (rgb[c] + (nw[c] - rgb[c]) * a) * alpha;
                 }

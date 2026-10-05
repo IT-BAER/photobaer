@@ -1666,6 +1666,27 @@ fn photoshop_32_bit_blend_modes_keep_values_above_one() {
     assert!((v - want).abs() < 1e-3, "adjustment layer in Multiply: {v}, want {want}");
 }
 
+// A 2.0 pixel under one Color Overlay of gray 128 in `blend` at `opacity`; the composite red value.
+fn overlay_over_two(blend: &str, opacity: f32) -> f32 {
+    let mut d = float_doc(&[2.0]);
+    let overlay = serde_json::json!({ "present": true, "enabled": true, "blend": blend, "opacity": opacity, "color": [128, 128, 128] });
+    let style = serde_json::json!({ "enabled": true, "scale": 1.0, "drop_shadows": [], "inner_shadows": [], "color_overlays": [overlay],
+        "gradient_overlays": [], "pattern_overlays": [], "strokes": [], "outer_glow": null, "inner_glow": null, "bevel": null,
+        "contour": null, "texture": null, "satin": null });
+    d.set_style(1, &style.to_string()).unwrap();
+    d.flatten_tile_f32(0, 0).unwrap()[0]
+}
+
+#[test]
+fn layer_effects_on_32_bit_documents_keep_values_above_one() {
+    let g = 128.0 / 255.0;
+    for (blend, opacity, want) in [("normal", 0.5, 1.0 + g / 2.0), ("linear dodge", 1.0, 2.0 + g), ("multiply", 1.0, 2.0 * g), ("lighten", 1.0, 2.0)] {
+        let v = overlay_over_two(blend, opacity);
+        assert!((v - want).abs() < 1e-4, "{blend}: {v}, want {want}");
+    }
+    assert!((overlay_over_two("screen", 1.0) - 1.0).abs() < 1e-6, "modes Photoshop hides in 32-bit still clamp");
+}
+
 fn hdr_json(method: &str) -> String {
     serde_json::json!({ "kind": "hdr_toning", "params": { "method": method, "radius": 16.0, "strength": 0.5, "detail": 30.0,
         "shadow": 0.0, "highlight": 0.0, "exposure": 0.0, "gamma": 1.0, "vibrance": 0.0, "saturation": 0.0 } })
@@ -1685,4 +1706,66 @@ fn hdr_toning_compresses_32_bit_values_above_one() {
     d.apply_destructive(1, &hdr_json("equalize_histogram")).unwrap();
     let f = d.flatten_tile_f32(0, 0).unwrap();
     assert!(f[4] < f[8] && f[8] <= 1.0, "values above 1 keep their order: {} {}", f[4], f[8]);
+}
+
+// A 64x64 32-bit document whose layer "L" is gray 0.25 left of x = 32 and 4.0 from there.
+fn hdr_step_doc() -> (Document, u32) {
+    let mut d = Document::new(64, 64, 32).unwrap();
+    let id = d.add_layer("L", 1).unwrap();
+    let t: Vec<f32> = (0..TILE_PIXELS).flat_map(|p| { let v = if p % TILE >= 32 { 4.0 } else { 0.25 }; [v, v, v, 1.0] }).collect();
+    d.set_tile_f32(id, 0, 0, &t).unwrap();
+    (d, id)
+}
+
+// The brightest composite channel inside the 64x64 document.
+fn brightest(d: &Document) -> f32 {
+    let f = d.flatten_tile_f32(0, 0).unwrap();
+    (0..64 * 64).map(|i| (i / 64) * TILE + i % 64).flat_map(|p| f[p * 4..p * 4 + 3].to_vec()).fold(0.0, f32::max)
+}
+
+#[test]
+fn photoshop_32_bit_filters_keep_values_above_one() {
+    let v: serde_json::Value = serde_json::from_str(&crate::filters::schema_json()).unwrap();
+    let menu = ["blur", "blurGallery", "distort", "noise", "pixelate", "render", "sharpen", "stylize", "video", "other", "tool", "liquify", "vanishing", "gallery"];
+    // Their output is a color, a threshold or a legal range by construction, also in Photoshop.
+    let bounded = ["pixelate.color_halftone", "pixelate.mezzotint", "render.clouds", "render.fibers", "stylize.trace_contour", "video.ntsc_colors"];
+    let (mut ran, mut low) = (0, Vec::new());
+    for e in v.as_array().unwrap().iter().filter(|e| menu.contains(&e["group"].as_str().unwrap().split('.').next().unwrap())) {
+        let id = e["id"].as_str().unwrap();
+        let json = serde_json::json!({ "kind": id, "params": {} }).to_string();
+        let (mut d, l) = hdr_step_doc();
+        if e["hdr"] != true {
+            let err = d.apply_filter(l, Target::Pixels, &json, None, 1.0).unwrap_err();
+            assert!(err.contains("not available for 32-bit images") || err.contains("is required"), "{id}: {err}");
+            continue;
+        }
+        if d.apply_filter(l, Target::Pixels, &json, None, 1.0).is_err() {
+            continue; // a required map or blob
+        }
+        ran += 1;
+        let flat = brightest(&d);
+        let (mut s, l) = hdr_step_doc();
+        s.convert_for_smart_filters(l, r#"{ "link_id": "l", "source_blob": null }"#).unwrap();
+        s.apply_filter(l, Target::Pixels, &json, None, 1.0).unwrap();
+        let smart = brightest(&s);
+        if !bounded.contains(&id) && !(flat > 1.01 && smart > 1.01) {
+            low.push(format!("{id}: destructive {flat}, smart {smart}"));
+        }
+    }
+    assert!(low.is_empty(), "{low:#?}");
+    assert!(ran > 40, "{ran} filters ran");
+    let (mut d, l) = hdr_step_doc();
+    d.apply_filter(l, Target::Pixels, r#"{ "kind": "gaussian_blur", "params": {} }"#, Some([0, 0, 64, 64]), 0.5).unwrap();
+    assert!(brightest(&d) > 3.9, "a preview proxy: {}", brightest(&d));
+}
+
+#[test]
+fn destructive_adjustments_store_full_float_in_32_bit() {
+    let vs = [0.25, 1.0 + 1e-5, 2.5];
+    let mut d = float_doc(&vs);
+    d.apply_destructive(1, r#"{"kind":"desaturate","params":{}}"#).unwrap();
+    let f = d.flatten_tile_f32(0, 0).unwrap();
+    for (i, v) in vs.iter().enumerate() {
+        assert_eq!(f[i * 4], *v, "gray {v} through Desaturate");
+    }
 }

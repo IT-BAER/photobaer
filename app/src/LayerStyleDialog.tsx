@@ -9,7 +9,7 @@ import type { BrushLibrary } from './brushes/store.ts';
 import { PatternPicker, adoptPatterns } from './PresetPanels.tsx';
 import { Field, type OpenGradientEditor } from './PropertiesPanel.tsx';
 import { getPath, gradientDefToUi, uiToGradientDef, type FieldSpec } from './adjustments.ts';
-import { BLEND_MODES } from './layers.ts';
+import { blendModesFor } from './layers.ts';
 import { rampCss } from './gradients/gradient.ts';
 import { rgbToHex, type Rgb } from './shell/color.ts';
 import {
@@ -315,7 +315,7 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
         return (
           <label key={spec.path} className="adjustment-field"><span>{spec.label}</span>
             <select value={String(value)} onChange={ev => set(spec.path, ev.currentTarget.value)}>
-              {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+              {blendModesFor(doc.depth, String(value)).map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           </label>
         );

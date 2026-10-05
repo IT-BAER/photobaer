@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { LayerNode } from './engine.worker.ts';
-import { dropTarget } from './layers.ts';
+import { BLEND_MODES, HDR_BLEND_MODES, blendModesFor, dropTarget } from './layers.ts';
 import { defaultBlending } from './layerStyle.ts';
 
 const node = (id: number, children?: LayerNode[]): LayerNode => ({
@@ -32,4 +32,11 @@ test('rejects drops onto itself, into its own subtree, and into a pixel layer', 
   assert.equal(dropTarget(tree(), 2, 2, 'into'), null);
   assert.equal(dropTarget(tree(), 1, 5, 'into'), null);
   assert.equal(dropTarget(tree(), 9, 5, 'above'), null);
+});
+
+test('blendModesFor lists the 32-bit modes in 32-bit documents and keeps an existing other mode', () => {
+  assert.deepEqual(blendModesFor(8, 'screen'), BLEND_MODES);
+  assert.deepEqual(blendModesFor(16, 'normal'), BLEND_MODES);
+  assert.deepEqual(blendModesFor(32, 'multiply'), HDR_BLEND_MODES);
+  assert.deepEqual(blendModesFor(32, 'screen'), [...HDR_BLEND_MODES, 'screen']);
 });

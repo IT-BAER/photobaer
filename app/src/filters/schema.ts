@@ -10,6 +10,8 @@ export interface FilterParam {
 export interface FilterSpec {
   id: string; label: string; group: string; params: FilterParam[];
   exec: 'point' | 'local' | 'global'; alpha: 'kept' | 'processed'; preview: boolean; rgb_only: boolean; editor?: 'adjustment';
+  // On Photoshop's 32-bit filter list.
+  hdr: boolean;
   // The output can leave the source rect (a scale or warp): the preview covers the whole layer.
   whole?: boolean;
 }
@@ -27,6 +29,8 @@ export const specOf = (id: string) => specs.find(s => s.id === id);
 
 // Blob, text, seed and color params are carried in the filter but never shown.
 export const visibleParams = (s: FilterSpec) => s.params.filter(p => p.kind !== 'blob' && p.kind !== 'text' && p.kind !== 'seed' && p.kind !== 'color');
+// A filter missing from the 32-bit list is disabled in 32-bit documents.
+export const filterOff = (s: FilterSpec, depth?: number) => depth === 32 && !s.hdr;
 export const menuLabel = (s: FilterSpec) => (visibleParams(s).length ? `${s.label}…` : s.label);
 
 // Color params (`foreground`, `background`) take the current colors as #rrggbb.

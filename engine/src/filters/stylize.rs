@@ -77,7 +77,7 @@ pub fn emboss(p: &mut Plane, f: &Filter, _: &Ctx) -> Result<(), String> {
     let (d, k, src) = (toward(f.num("angle")), (f.num("amount") / 100.0 * f.num("height") / 2.0) as f32, p.clone());
     for j in 0..p.h {
         for i in 0..p.w {
-            p.data[(j * p.w + i) * 4..][..3].fill((0.5 + k * relief(&src, d, i, j)).clamp(0.0, 1.0));
+            p.data[(j * p.w + i) * 4..][..3].fill((0.5 + k * relief(&src, d, i, j)).max(0.0));
         }
     }
     Ok(())

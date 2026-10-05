@@ -9,7 +9,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::adjust::Curve;
-use crate::blend::{Blend, PaintMode, dissolve_hash, lum, paint_pixel};
+use crate::blend::{Blend, PaintMode, dissolve_hash, lum, paint_pixel_hdr};
 use crate::content::{FillContent, GlobalLight, GradientDef, GradientFill, PatternEntry, PatternFill};
 use crate::gradient;
 use crate::selection::gaussian_kernel;
@@ -627,6 +627,8 @@ pub struct Ctx<'a> {
     pub blobs: &'a HashMap<u64, Arc<Vec<u8>>>,
     pub bounds: [f64; 4],
     pub doc: [f64; 2],
+    /// A 32-bit document: effect blends in `hdr_mode` modes keep values above 1.
+    pub hdr: bool,
 }
 
 fn on(present: bool, enabled: bool) -> bool {
@@ -918,9 +920,9 @@ pub struct Layer<'a> {
 }
 
 // Composites a straight effect plane onto the content with the union alpha rule.
-fn paint(content: &mut [[f32; 4]], plane: &[[f32; 4]], blend: Blend, opacity: f32) {
+fn paint(content: &mut [[f32; 4]], plane: &[[f32; 4]], blend: Blend, opacity: f32, hdr: bool) {
     for (d, s) in content.iter_mut().zip(plane) {
-        *d = paint_pixel(PaintMode::Blend(blend), *d, [s[0], s[1], s[2]], s[3] * opacity, false);
+        *d = paint_pixel_hdr(PaintMode::Blend(blend), *d, [s[0], s[1], s[2]], s[3] * opacity, false, hdr);
     }
 }
 
@@ -959,14 +961,14 @@ pub fn render_layer(style: &Style, layer: &Layer, cx: &Ctx) -> Rendered {
 
     for o in style.pattern_overlays.iter().filter(|e| live(e.present, e.enabled)) {
         let rgba = fill_plane(&FillContent::Pattern(o.pattern.clone()), &shape.plane, cx);
-        paint(&mut content, &rgba, o.blend, o.opacity);
+        paint(&mut content, &rgba, o.blend, o.opacity, cx.hdr);
     }
     for o in style.gradient_overlays.iter().filter(|e| live(e.present, e.enabled)) {
         let rgba = fill_plane(&FillContent::Gradient(o.gradient.clone()), &shape.plane, cx);
-        paint(&mut content, &rgba, o.blend, o.opacity);
+        paint(&mut content, &rgba, o.blend, o.opacity, cx.hdr);
     }
     for o in style.color_overlays.iter().filter(|e| live(e.present, e.enabled)) {
-        paint(&mut content, &colorize(&shape.plane, o.color), o.blend, o.opacity);
+        paint(&mut content, &colorize(&shape.plane, o.color), o.blend, o.opacity, cx.hdr);
     }
 
     let toward = match layer.blend {
@@ -982,13 +984,13 @@ pub fn render_layer(style: &Style, layer: &Layer, cx: &Ctx) -> Rendered {
     }
 
     if let Some(s) = style.satin.as_ref().filter(|e| live(e.present, e.enabled)) {
-        paint(&mut content, &colorize(&satin_coverage(s, &shape, cx), s.color), s.blend, s.opacity);
+        paint(&mut content, &colorize(&satin_coverage(s, &shape, cx), s.color), s.blend, s.opacity, cx.hdr);
     }
     if let Some(g) = style.inner_glow.as_ref().filter(|e| live(e.present, e.enabled)) {
-        paint(&mut content, &glow_rgba(g, true, &shape, cx), g.blend, g.opacity);
+        paint(&mut content, &glow_rgba(g, true, &shape, cx), g.blend, g.opacity, cx.hdr);
     }
     for s in style.inner_shadows.iter().filter(|e| live(e.present, e.enabled)) {
-        paint(&mut content, &colorize(&shadow_coverage(s, true, &shape, cx), s.color), s.blend, s.opacity);
+        paint(&mut content, &colorize(&shadow_coverage(s, true, &shape, cx), s.color), s.blend, s.opacity, cx.hdr);
     }
     let strokes: Vec<(&Stroke, Plane)> = style
         .strokes
@@ -1000,14 +1002,14 @@ pub fn render_layer(style: &Style, layer: &Layer, cx: &Ctx) -> Rendered {
         let emboss = b.style == BevelStyle::StrokeEmboss;
         let band = strokes.first().filter(|_| emboss).map(|(_, c)| Shape::new(c.clone()));
         let (hl, sh) = bevel_coverage(b, style.contour.as_ref(), style.texture.as_ref(), &shape, band.as_ref(), cx);
-        paint(&mut content, &colorize(&sh, b.shadow_color), b.shadow_blend, b.shadow_opacity);
-        paint(&mut content, &colorize(&hl, b.highlight_color), b.highlight_blend, b.highlight_opacity);
+        paint(&mut content, &colorize(&sh, b.shadow_color), b.shadow_blend, b.shadow_opacity, cx.hdr);
+        paint(&mut content, &colorize(&hl, b.highlight_color), b.highlight_blend, b.highlight_opacity, cx.hdr);
     }
     for (s, cov) in &strokes {
         if !s.overprint {
             content.iter_mut().zip(&cov.v).for_each(|(c, k)| c[3] *= 1.0 - k * s.opacity);
         }
-        paint(&mut content, &fill_plane(&s.fill, cov, cx), s.blend, s.opacity);
+        paint(&mut content, &fill_plane(&s.fill, cov, cx), s.blend, s.opacity, cx.hdr);
     }
 
     if layer.blending.blend_interior {
@@ -1117,7 +1119,7 @@ mod tests {
 
     fn with_cx<R>(origin: [i32; 2], f: impl FnOnce(&Ctx) -> R) -> R {
         let (light, blobs) = (GlobalLight::default(), HashMap::new());
-        f(&Ctx { origin, level: 0, scale: 1.0, light: &light, patterns: &[], blobs: &blobs, bounds: [10.0, 10.0, 20.0, 20.0], doc: [40.0, 40.0] })
+        f(&Ctx { origin, level: 0, scale: 1.0, light: &light, patterns: &[], blobs: &blobs, bounds: [10.0, 10.0, 20.0, 20.0], doc: [40.0, 40.0], hdr: false })
     }
 
     // The 40x40 plane with an opaque square at x, y in 10..=29.
