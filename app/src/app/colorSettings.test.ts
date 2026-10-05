@@ -17,6 +17,17 @@ test('open policies: keep, convert, discard and the ask cases', () => {
   assert.equal(openAction({ ...s, askWhenMissing: true }, null, false), 'leave');
 });
 
+test('gray files follow the Gray policy and working Gray', () => {
+  const s = { ...DEFAULT_COLOR_SETTINGS, gray: 'Dot Gain 20%', rgbPolicy: 'off' as const };
+  assert.equal(openAction(s, 'Dot Gain 20%', true, 'gray'), 'keep');
+  assert.equal(openAction({ ...s, grayPolicy: 'preserveEmbedded' }, 'Gray Gamma 2.2', true, 'gray'), 'keep');
+  assert.equal(openAction({ ...s, grayPolicy: 'convertToWorking' }, 'Gray Gamma 2.2', true, 'gray'), 'convert');
+  assert.equal(openAction({ ...s, grayPolicy: 'off', rgbPolicy: 'preserveEmbedded' }, 'Gray Gamma 2.2', true, 'gray'), 'discard');
+  assert.equal(openAction({ ...s, askWhenOpening: true }, 'Gray Gamma 2.2', true, 'gray'), 'ask');
+  assert.equal(openAction({ ...s, askWhenMissing: true }, null, true, 'gray'), 'ask', 'the Gray policy is on');
+  assert.equal(openAction({ ...s, askWhenMissing: true, grayPolicy: 'off' }, null, true, 'gray'), 'leave');
+});
+
 test('stored settings are checked field by field and presets are recognized', () => {
   assert.deepEqual(parseColorSettings(null), DEFAULT_COLOR_SETTINGS);
   assert.deepEqual(parseColorSettings('{broken'), DEFAULT_COLOR_SETTINGS);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { crc32, deflateSync } from 'node:zlib';
-import { crc, embedIcc, psdWithIcc, readIcc } from './iccFiles.ts';
+import { crc, embedIcc, grayFile, psdWithIcc, readIcc } from './iccFiles.ts';
 
 const icc = (n: number) => Uint8Array.from({ length: n }, (_, i) => (i * 7 + 3) & 255);
 
@@ -86,4 +86,17 @@ test('PSD: resource 1039 is inserted, replaced and read', async () => {
   assert.deepEqual(await readIcc(again), icc(8));
   assert.deepEqual([...again.subarray(-6)], [0, 0, 0, 0, 7, 7], 'layer section untouched');
   assert.equal(again.length, psd.length + 12 + 8, 'one resource block of 8 bytes plus header');
+});
+
+test('grayFile: PNG color type 0 or 4, JPEG with one component, PSD color mode 1', () => {
+  const pngOf = (type: number) => { const b = png(); b[25] = type; return b; };
+  assert.deepEqual([0, 2, 3, 4, 6].map(t => grayFile(pngOf(t))), [true, false, false, true, false]);
+  const jfif = [0xff, 0xe0, 0, 4, 0, 0];
+  const sof = (m: number, n: number) => [0xff, m, 0, 8 + 3 * n, 8, 0, 1, 0, 1, n, ...Array(3 * n).fill(1)];
+  const jpeg = (m: number, n: number) => Uint8Array.of(0xff, 0xd8, ...jfif, ...sof(m, n), 0xff, 0xda, 0, 2, 0xff, 0xd9);
+  assert.deepEqual([jpeg(0xc0, 1), jpeg(0xc2, 1), jpeg(0xc0, 3), jpeg(0xc2, 4)].map(grayFile), [true, true, false, false]);
+  assert.equal(grayFile(Uint8Array.of(0xff, 0xd8, 0xff, 0xc4, 0, 3, 1, ...sof(0xc0, 3), 0xff, 0xd9)), false, 'DHT is not a frame header');
+  const psd = (mode: number) => { const b = new Uint8Array(40); b.set(new TextEncoder().encode('8BPS')); b[5] = 1; b[25] = mode; return b; };
+  assert.deepEqual([1, 3, 4].map(m => grayFile(psd(m))), [true, false, false]);
+  assert.equal(grayFile(Uint8Array.of(1, 2, 3)), false);
 });

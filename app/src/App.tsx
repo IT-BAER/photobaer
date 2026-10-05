@@ -622,7 +622,7 @@ export function App() {
     try {
       const q = await client.call('openProfileQuestion', f);
       if (q.action === 'ask') {
-        const a = await colorDialog.current?.ask(f.name, q.embedded);
+        const a = await colorDialog.current?.ask(f.name, q.embedded, q.space);
         if (!a) return;
         action = a;
       }

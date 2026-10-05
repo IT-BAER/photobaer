@@ -97,12 +97,13 @@ export function saveColorSettings(s: ColorSettings) {
 // stays untagged; ask: the Profile Mismatch or Missing Profile dialog decides.
 export type OpenAction = 'keep' | 'convert' | 'discard' | 'leave' | 'assign';
 
-// What opening an RGB file with profile `embedded` (null: none) does under `s`; `ask` false skips the
-// dialogs (agent opens) and lets the policy decide.
-export function openAction(s: ColorSettings, embedded: string | null, ask = true): OpenAction | 'ask' {
-  if (embedded === null) return ask && s.askWhenMissing && s.rgbPolicy !== 'off' ? 'ask' : 'leave';
-  if (embedded === s.rgb) return 'keep';
-  if (s.rgbPolicy === 'off') return 'discard';
+// What opening an RGB or Gray (`space`) file with profile `embedded` (null: none) does under `s`;
+// `ask` false skips the dialogs (agent opens) and lets the policy decide.
+export function openAction(s: ColorSettings, embedded: string | null, ask = true, space: 'rgb' | 'gray' = 'rgb'): OpenAction | 'ask' {
+  const policy = space === 'gray' ? s.grayPolicy : s.rgbPolicy;
+  if (embedded === null) return ask && s.askWhenMissing && policy !== 'off' ? 'ask' : 'leave';
+  if (embedded === s[space]) return 'keep';
+  if (policy === 'off') return 'discard';
   if (ask && s.askWhenOpening) return 'ask';
-  return s.rgbPolicy === 'preserveEmbedded' ? 'keep' : 'convert';
+  return policy === 'preserveEmbedded' ? 'keep' : 'convert';
 }

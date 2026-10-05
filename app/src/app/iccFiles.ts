@@ -71,6 +71,18 @@ export function* psdResources(b: Uint8Array) {
   }
 }
 
+/** Whether an image file is grayscale: PNG color type 0 or 4, a one-component JPEG frame, PSD color mode 1. */
+export function grayFile(b: Uint8Array): boolean {
+  if (isPng(b)) return b.length > 25 && (b[25] === 0 || b[25] === 4);
+  if (isPsd(b)) return view(b).getUint16(24) === 1;
+  if (isJpeg(b)) {
+    for (const [m, o, n] of jpegSegments(b)) {
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return n > 9 && b[o + 9] === 1;
+    }
+  }
+  return false;
+}
+
 /** The embedded ICC profile of an image file, or null when it has none or cannot be read. */
 export async function readIcc(b: Uint8Array): Promise<Uint8Array | null> {
   try {
