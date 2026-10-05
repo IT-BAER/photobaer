@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-10-05
+
 ### Changed
 
 - Image > Mode > CMYK Color separates through the working CMYK profile from Color Settings (one undo step),
@@ -63,13 +65,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Opening an SVG asks for its width, height and resolution (Rasterize SVG Format) and renders the drawing at that size.
 - Import PDF: Crop To (Crop Box or Media Box), linked width, height and resolution fields, Mode and Bit Depth for
   the opened documents, and Images to open the images in the file at their own pixel size.
+- PSD and PSB files save and open 16 and 32 bits per channel with their layers; 32-bit data is stored linear
+  under the linear version of the document's profile.
+- Grayscale documents save as Grayscale PSD, and Grayscale PNG exports embed the Gray profile.
+- Alpha and spot channels are saved to and read from PSD files. PSD export keeps at most Photoshop's 56
+  channels: alpha and spot channels beyond that are left out with a warning.
+- PSD files with more than 16 channels open.
+- The Color Picker has CMYK fields, the Color panel has Gray, RGB, CMYK and Lab sliders, and Grayscale
+  documents use gray paint colors.
+- The canvas cursor shows the selected tool's icon (lasso, wand, eyedropper, bucket, crop, slice, pen and path
+  selection): a black symbol with a white outline under a small arrow whose tip is the hot spot, sharp on
+  scaled displays.
 
 ### Fixed
 
 - Turning Proof Colors or 32-bit preview off brings back GPU display tiles without reopening the document.
 - Highlight Compression preview measures the brightest value again after each edit.
 - With Quick Mask on, painting goes into the quick mask even when a saved channel is selected.
-
+- Move tool: a drag on the top layer is no longer lost when layer thumbnails, the Navigator or the Histogram
+  refresh during the move.
+- 16 and 32-bit PSD files keep their transparency when it rounds to opaque at 8 bits.
+- A PSD file with a cut-off composite image opens its layers with a warning, or fails with a clear message when
+  it has no layers. A header bit depth that does not match the composite data is rejected.
+- Flat PSD files open the channels after the color channels as alpha channels, not as transparency.
+- PSD files with an empty layer section open as documents without layers.
+- Saved document data that does not fit the bit depth (Bitmap or Indexed at 16 bits, a color mode change on
+  a 32-bit document) is refused instead of loaded.
 - The plain text feature page no longer flashes on a white page while the app loads.
 - PSD layer styles are no longer dropped when an unused effect names a pattern the file does not embed; an
   enabled pattern effect without its pattern is dropped alone.
@@ -302,7 +323,8 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.4...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/IT-BAER/photobaer/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/IT-BAER/photobaer/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/IT-BAER/photobaer/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/IT-BAER/photobaer/compare/v0.3.1...v0.3.2
