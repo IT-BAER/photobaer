@@ -10,17 +10,20 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   start and continue outside the canvas (the selection is clipped to the document, the pointer is not).
 
 ## M6 Color and photo
-- Image > Mode rest: Bitmap Halftone Screen, Custom Pattern and output resolution; Duotone ink curves and
-  overprint colors; Indexed Custom/Previous palette and Matte. Modes are flags over RGB storage: CMYK and Lab
-  use no profile until Color Settings; color pickers still offer RGB; PSD export stays RGB.
-- 32 bits per channel: edits, filters, smart filters and layer effects clip at 1.0, and so do layers kept in
-  blend modes outside Photoshop's 32-bit list; destructive results quantize to 16-bit steps; 32 -> 16/8
-  Bits/Channel with Don't Merge clips (Photoshop reportedly applies Local Adaptation per layer, unverified).
+- Image > Mode rest: Duotone curves interpolate linearly (Photoshop draws a smooth curve); Indexed Custom starts
+  from the document's table, not the live Adaptive one; the Color Table editor cannot load or save table files;
+  Duotone data is not read from or written to PSD. Modes are flags over RGB storage: color pickers still offer
+  RGB; PSD export stays RGB (also for Grayscale documents).
+- 32 bits per channel: the paint color is 8-bit (no HDR color picker) and non-Normal paint modes clip at 1.0;
+  layers kept in blend modes outside Photoshop's 32-bit list clip; Blur Gallery is disabled in 32-bit
+  (Photoshop support unverified); 32 -> 16/8 Bits/Channel with Don't Merge clips (Photoshop reportedly applies
+  Local Adaptation per layer, unverified).
 - Color management rest: with color management off, Image > Mode > CMYK Color only sets the flag and the
-  CMYK channel views use a plain formula; Lab, Multichannel and Duotone ignore profiles; WebP export embeds no profile;
+  CMYK channel views use a plain formula; a Lab document made with color management off keeps its old
+  RGB tag; Lab to Grayscale is a plain luma, not a profile conversion; WebP export embeds no profile;
   Color Settings Advanced (desaturate monitor colors, blend RGB with gamma) and ColorSync/older-version presets;
-  paste and drag between documents with different profiles; Gray working space for Image > Mode > Grayscale and
-  embedded Gray profiles on open; loaded profiles as working spaces; Assign Profile live preview; open-time
+  paste and drag between documents with different profiles; Gray profiles are not embedded on export;
+  loaded profiles as working spaces; Assign Profile live preview; open-time
   conversion converts pixel layers only (text, shape and adjustment layers keep their numbers).
 - Proofing rest: a document that was proofed stays on CPU display tiles until reopened; profile gamut tags are
   ignored (Delta E test only); the proof is not named in the tab; Highlight Compression measures the brightest

@@ -22,6 +22,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 32-bit documents: layers and adjustment layers in Darken, Multiply, Lighten, Linear Dodge, Difference, Hue,
   Saturation, Color and Luminosity keep values above 1. The Layers panel lists only the blend modes Photoshop
   offers for 32-bit images.
+- 32-bit documents: the filters Photoshop offers for 32-bit images keep values above 1, as filters and as smart
+  filters; the other filters are disabled. Destructive adjustments store full float values (no 16-bit steps).
+- 32-bit documents: layer effects keep values above 1, and the Layer Style blend lists show only the 32-bit modes.
+- Image > Mode > Grayscale converts through the working Gray profile and RGB Color from Grayscale to the working
+  RGB profile. Grayscale PSD, PNG and JPEG files open as Grayscale documents, and their embedded Gray profiles
+  follow the Gray policy in Color Settings (keep, convert, discard or ask).
+- Image > Mode > Bitmap: Output resolution (resamples first), Halftone Screen (frequency, angle, six dot shapes)
+  and Custom Pattern.
+- Image > Mode > Duotone: ink curves (Duotone Curve, 13 points) and Overprint Colors.
+- Image > Mode > Indexed Color: Custom and Previous palettes, and Matte for transparent and edge pixels.
+- Lab documents: the Lightness, a and b channel views and thumbnails show ICC Lab (D50) values. With color
+  management on, Image > Mode > Lab Color converts from the document's profile, and RGB Color from Lab converts
+  to the working RGB profile.
+- Bitmap, Duotone and Multichannel documents carry no color profile, as in Photoshop; Grayscale from them
+  takes the working Gray profile.
 
 ### Fixed
 
