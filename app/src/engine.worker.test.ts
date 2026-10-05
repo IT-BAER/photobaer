@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initSync, Engine } from './engine-pkg/photobaer_engine.js';
 import { exportPsd } from './psd.ts';
+import { concat, crc, embedIcc, psdWithIcc } from './app/iccFiles.ts';
 import { Autosave } from './autosave.ts';
 import { tileIds } from './project.ts';
 import { loadEngine } from './worker/helpers.ts';
@@ -936,10 +937,10 @@ test('Color Settings: new documents get the working RGB, PSD saves embed it, ope
   assert.deepEqual(n.history.labels.filter(l => l === 'Assign Profile'), [], 'no history step');
   await call('assignProfile', 'Adobe RGB (1998)');
   const file = new File([((await call('savePsd')).result as { blob: Blob }).blob], 'tagged.psd');
-  assert.deepEqual((await call('openProfileQuestion', file)).result, { embedded: 'Adobe RGB (1998)', action: 'keep' });
+  assert.deepEqual((await call('openProfileQuestion', file)).result, { embedded: 'Adobe RGB (1998)', action: 'keep', space: 'rgb' });
   assert.equal(((await call('openFile', file)).result as I).profile?.name, 'Adobe RGB (1998)');
   await call('setColorSettings', { ...s, askWhenOpening: true });
-  assert.deepEqual((await call('openProfileQuestion', file)).result, { embedded: 'Adobe RGB (1998)', action: 'ask' });
+  assert.deepEqual((await call('openProfileQuestion', file)).result, { embedded: 'Adobe RGB (1998)', action: 'ask', space: 'rgb' });
   const c = (await call('openFile', file, 'convert')).result as I;
   assert.equal(c.profile?.name, 'sRGB IEC61966-2.1');
   const px = (await call('sample', 5, 5, 1, null)).result as number[];
@@ -1031,6 +1032,99 @@ test('Image > Mode > Grayscale converts to the working Gray; RGB Color from Gray
   await call('newDoc', 8, 8, 32, [200, 50, 10, 255]);
   assert.ok(((await call('setColorMode', { mode: 'gray' })).result as I).gray);
   assert.deepEqual(await px(), hdrOff);
+  await call('setColorSettings', null);
+});
+
+// A flat 8-bit Grayscale PSD (color mode 1, one raw channel) filled with `v`.
+function grayPsd(w: number, h: number, v: number) {
+  const b = new Uint8Array(26 + 12 + 2 + w * h).fill(v, 40);
+  const d = new DataView(b.buffer);
+  b.set(new TextEncoder().encode('8BPS'));
+  d.setUint16(4, 1); d.setUint16(12, 1); d.setUint32(14, h); d.setUint32(18, w); d.setUint16(22, 8); d.setUint16(24, 1);
+  return b;
+}
+
+// A v4 Gray display profile `name` with a pure gamma curve.
+function grayIcc(name: string, gamma: number) {
+  const s15 = (x: number) => { const v = new Uint8Array(4); new DataView(v.buffer).setInt32(0, Math.round(x * 65536)); return [...v]; };
+  const text = [...name].flatMap(c => [0, c.charCodeAt(0)]);
+  const tags: [string, number[]][] = [
+    ['desc', [...new TextEncoder().encode('mluc'), 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 12, ...new TextEncoder().encode('enUS'), 0, 0, 0, text.length, 0, 0, 0, 28, ...text]],
+    ['wtpt', [...new TextEncoder().encode('XYZ '), 0, 0, 0, 0, ...s15(0.9642), ...s15(1), ...s15(0.8249)]],
+    ['kTRC', [...new TextEncoder().encode('para'), 0, 0, 0, 0, 0, 0, 0, 0, ...s15(gamma)]],
+  ];
+  const pad = (a: number[]) => [...a, ...Array((4 - a.length % 4) % 4).fill(0)];
+  let off = 128 + 4 + 12 * tags.length;
+  const table: number[] = [], data: number[] = [];
+  for (const [sig, t] of tags) {
+    table.push(...new TextEncoder().encode(sig), off >>> 24, (off >> 16) & 255, (off >> 8) & 255, off & 255, 0, 0, 0, t.length);
+    data.push(...pad(t));
+    off += pad(t).length;
+  }
+  const b = new Uint8Array(off);
+  const d = new DataView(b.buffer);
+  d.setUint32(0, off); d.setUint32(8, 0x04300000);
+  b.set(new TextEncoder().encode('mntrGRAYXYZ '), 12);
+  b.set(new TextEncoder().encode('acsp'), 36);
+  d.setUint32(128, tags.length);
+  b.set(table, 132);
+  b.set(data, 132 + table.length);
+  return b;
+}
+
+test('Grayscale PSD and PNG files open as Grayscale documents; a Gray profile follows the Gray policy', async () => {
+  await call('init');
+  const s = { rgb: 'sRGB IEC61966-2.1', cmyk: 'Coated Offset CMYK (analytic)', gray: 'Dot Gain 20%', rgbPolicy: 'preserveEmbedded', grayPolicy: 'preserveEmbedded', askWhenOpening: false, askWhenMissing: true, intent: 'relativeColorimetric', bpc: false, dither: false };
+  type I = { gray: boolean; mode: { kind: string } | null; profile: { name: string } | null; warnings: string[]; history: { labels: string[] } };
+  const open = async (b: Uint8Array, name: string, action?: string) => { const r = await call('openFile', new File([b as Uint8Array<ArrayBuffer>], name), action); assert.equal(r.error, undefined); return r.result as I; };
+  const question = async (b: Uint8Array, name: string) => (await call('openProfileQuestion', new File([b as Uint8Array<ArrayBuffer>], name))).result;
+  const px = async () => (await call('sample', 1, 1, 1, null)).result as number[];
+  await call('setColorSettings', null);
+  const plain = await open(grayPsd(4, 4, 90), 'g.psd');
+  assert.ok(plain.gray && plain.mode === null && plain.profile === null, 'a Grayscale document, untagged');
+  assert.deepEqual(plain.history.labels, [], 'no history step');
+  assert.deepEqual(await px(), [90, 90, 90, 255], 'pixels unchanged');
+
+  await call('setColorSettings', s);
+  assert.deepEqual(await question(grayPsd(4, 4, 90), 'g.psd'), { embedded: null, action: 'ask', space: 'gray' });
+  await call('setColorSettings', { ...s, grayPolicy: 'off' });
+  assert.deepEqual(await question(grayPsd(4, 4, 90), 'g.psd'), { embedded: null, action: 'leave', space: 'gray' }, 'the Gray policy decides');
+  await call('setColorSettings', s);
+  assert.equal((await open(grayPsd(4, 4, 90), 'g.psd', 'assign')).profile?.name, 'Dot Gain 20%', 'assign uses the working Gray');
+
+  const dg = psdWithIcc(grayPsd(4, 4, 90), grayIcc('Dot Gain 20%', 2.2));
+  assert.deepEqual(await question(dg, 'g.psd'), { embedded: 'Dot Gain 20%', action: 'keep', space: 'gray' });
+  const kept = await open(dg, 'g.psd');
+  assert.ok(kept.gray && kept.profile?.name === 'Dot Gain 20%');
+
+  const lin = psdWithIcc(grayPsd(4, 4, 90), grayIcc('Test Gray 1.0', 1));
+  await call('setColorSettings', { ...s, askWhenOpening: true });
+  assert.deepEqual(await question(lin, 'g.psd'), { embedded: 'Test Gray 1.0', action: 'ask', space: 'gray' });
+  const conv = await open(lin, 'g.psd', 'convert');
+  assert.ok(conv.gray && conv.profile?.name === 'Dot Gain 20%', `converted to the working Gray: ${conv.profile?.name}`);
+  const c = await px();
+  assert.ok(c[0] === c[1] && c[1] === c[2] && Math.abs(c[0] - 90) > 5, `new gray numbers: ${c}`);
+
+  const rgbIcc = (() => { const e = new Engine(1, 1, 8); e.assign_profile('Adobe RGB (1998)', new Uint8Array()); const b = e.profile_icc(); e.free(); return b; })();
+  await call('setColorSettings', s);
+  const wrong = await open(psdWithIcc(grayPsd(4, 4, 90), rgbIcc), 'g.psd');
+  assert.ok(wrong.gray && wrong.profile === null);
+  assert.deepEqual(wrong.warnings, ['The embedded rgb profile "Adobe RGB (1998)" was ignored.']);
+
+  // Node decodes every image to the fixed test bitmap; only the IHDR color type marks the PNG Grayscale.
+  const png = (type: number) => {
+    const ihdr = Uint8Array.of(0, 0, 0, 13, ...new TextEncoder().encode('IHDR'), 0, 0, 0, 4, 0, 0, 0, 2, 8, type, 0, 0, 0, 0, 0, 0, 0);
+    new DataView(ihdr.buffer).setUint32(21, crc(ihdr.subarray(4, 21)));
+    return concat([Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a), ihdr, Uint8Array.of(0, 0, 0, 0, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82)]);
+  };
+  const gp = await open(png(0), 'g.png', 'leave');
+  assert.ok(gp.gray && gp.profile === null);
+  const tagged = await embedIcc(png(4), 'image/png', grayIcc('Dot Gain 20%', 2.2));
+  assert.deepEqual(await question(tagged, 'g.png'), { embedded: 'Dot Gain 20%', action: 'keep', space: 'gray' });
+  assert.equal((await open(tagged, 'g.png')).profile?.name, 'Dot Gain 20%');
+  const rgbPng = await open(await embedIcc(png(6), 'image/png', grayIcc('Dot Gain 20%', 2.2)), 'c.png');
+  assert.ok(!rgbPng.gray && rgbPng.profile === null);
+  assert.deepEqual(rgbPng.warnings, ['The embedded gray profile "Dot Gain 20%" was ignored.']);
   await call('setColorSettings', null);
 });
 
@@ -1933,7 +2027,15 @@ const PLACED = new Uint8ClampedArray([...Array(4).fill([255, 0, 0, 255]).flat(),
 Object.assign(globalThis, {
   createImageBitmap: async () => ({ width: 4, height: 2, close() {} }),
   OffscreenCanvas: class {
-    getContext() { return { drawImage() {}, getImageData: () => ({ data: PLACED }) }; }
+    width: number; height: number;
+    constructor(w: number, h: number) { this.width = w; this.height = h; }
+    getContext() {
+      return { drawImage() {}, getImageData: (_x: number, _y: number, w: number, h: number) => {
+        const data = new Uint8ClampedArray(w * h * 4);
+        for (let y = 0; y < Math.min(h, 2); y++) data.set(PLACED.subarray(y * 16, y * 16 + 16), y * w * 4);
+        return { data };
+      } };
+    }
   },
 });
 type SmartDoc = { layers: { id: number; name: string; kind: string; smart?: { link: { type: string; id?: string }; source: { blob: number | null }; source_size: number[]; transform: number[]; warp?: unknown } }[]; undoLabel: string; created: number; history: { labels: string[] }; parents: string[] };

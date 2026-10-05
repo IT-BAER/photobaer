@@ -22,7 +22,7 @@ import { boxScale, thumbSize } from './app/navigator.ts';
 import { inkGray } from './app/channels.ts';
 import { CMYK_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
 import { DEFAULT_VIEW, engineView, sanitizeHdr, type ViewState } from './app/proof.ts';
-import { psdWithIcc, readIcc } from './app/iccFiles.ts';
+import { grayFile, psdWithIcc, readIcc } from './app/iccFiles.ts';
 import { embedInfo, hasInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
 import { emptyAnnotations, framePath, rotationAbout, type Annotations } from './app/measure.ts';
 import { emptyVariables, planDataSet, replaceText, type Variables } from './app/variables.ts';
@@ -214,25 +214,30 @@ function info(): DocInfo | null {
 // Edit > Color Settings as the app sent them; null (the default) leaves documents untagged.
 let colorSettings: ColorSettings | null = null;
 
-// The RGB profile embedded in file bytes `b`; a gray profile is dropped, another space warns.
-async function embeddedProfile(b: Uint8Array): Promise<{ name: string | null; icc: Uint8Array | null; warning?: string }> {
+type Embedded = { name: string | null; icc: Uint8Array | null; space: 'rgb' | 'gray'; warning?: string };
+
+// The profile embedded in file bytes `b` when it matches the file's space (Gray for grayscale
+// files, else RGB); a profile of another space is dropped with a warning.
+async function embeddedProfile(b: Uint8Array): Promise<Embedded> {
+  const space = grayFile(b) ? 'gray' : 'rgb';
   const icc = await readIcc(b);
-  if (!icc) return { name: null, icc: null };
+  if (!icc) return { name: null, icc: null, space };
   try {
     const d = JSON.parse(icc_describe(icc)) as { name: string; space: string };
-    if (d.space === 'rgb') return { name: d.name, icc };
-    return { name: null, icc: null, warning: d.space === 'gray' ? undefined : `The embedded ${d.space} profile "${d.name}" was ignored.` };
+    if (d.space === space) return { name: d.name, icc, space };
+    return { name: null, icc: null, space, warning: `The embedded ${d.space} profile "${d.name}" was ignored.` };
   } catch {
-    return { name: null, icc: null, warning: 'The embedded color profile could not be read and was ignored.' };
+    return { name: null, icc: null, space, warning: 'The embedded color profile could not be read and was ignored.' };
   }
 }
 
 // Tags, converts or drops the embedded profile `p` of a just-opened engine (no history step).
-function applyOpenProfile(e: Engine, p: { name: string | null; icc: Uint8Array | null }, action: OpenAction, s: ColorSettings) {
+function applyOpenProfile(e: Engine, p: Embedded, action: OpenAction, s: ColorSettings) {
   const builtin = (n: string) => (JSON.parse(icc_builtins()) as IccProfile[]).some(b => b.name === n);
+  const working = s[p.space];
   if ((action === 'keep' || action === 'convert') && p.name && p.icc) e.assign_profile(p.name, builtin(p.name) ? new Uint8Array() : p.icc);
-  if (action === 'convert') e.convert_to_profile(s.rgb, new Uint8Array(), JSON.stringify({ intent: s.intent, blackPointCompensation: s.bpc, dither: s.dither }));
-  if (action === 'assign') e.assign_profile(s.rgb, new Uint8Array());
+  if (action === 'convert') e.convert_to_profile(working, new Uint8Array(), JSON.stringify({ intent: s.intent, blackPointCompensation: s.bpc, dither: s.dither }));
+  if (action === 'assign') e.assign_profile(working, new Uint8Array());
 }
 
 // Grid points per axis of the CMYK separation table the channel views read.
@@ -673,11 +678,13 @@ async function recorded(op: keyof Api, args: unknown[], run: () => Promise<void>
 
 // A document engine from an opened file: .psd/.psb, .exr/.hdr as 32 bits, or a browser-decoded image as one Background layer.
 // A decoded file with the File Info of its XMP packet.
+// Grayscale PSD, PNG and JPEG files decode to R = G = B pixels and open as Grayscale documents.
 async function engineOf(file: File): Promise<{ e: Engine; name: string; warnings: string[] }> {
   const r = await decodeFile(file);
-  const i = readInfo(new Uint8Array(await file.arrayBuffer()));
+  const b = new Uint8Array(await file.arrayBuffer());
+  const i = readInfo(b);
   try {
-    if (i) r.e.set_document_vector(JSON.stringify({ ...JSON.parse(r.e.vector_json()), info: i }));
+    if (i || grayFile(b)) r.e.set_document_vector(JSON.stringify({ ...JSON.parse(r.e.vector_json()), ...(i ? { info: i } : {}), ...(grayFile(b) ? { gray: true } : {}) }));
   } catch (err) {
     r.warnings.push(`The File Info was not kept: ${(err as Error).message}`);
   }
@@ -778,11 +785,11 @@ const api = {
     return info()!;
   },
 
-  // The embedded RGB profile of `file` and what opening it does under the color settings; 'ask'
-  // means the app shows Profile Mismatch or Missing Profile and passes the choice to openFile.
-  async openProfileQuestion(file: File): Promise<{ embedded: string | null; action: OpenAction | 'ask' }> {
-    const { name: embedded } = await embeddedProfile(new Uint8Array(await file.arrayBuffer()));
-    return { embedded, action: colorSettings ? openAction(colorSettings, embedded) : 'leave' };
+  // The embedded RGB or Gray (`space`) profile of `file` and what opening it does under the color settings;
+  // 'ask' means the app shows Profile Mismatch or Missing Profile and passes the choice to openFile.
+  async openProfileQuestion(file: File): Promise<{ embedded: string | null; action: OpenAction | 'ask'; space: 'rgb' | 'gray' }> {
+    const { name: embedded, space } = await embeddedProfile(new Uint8Array(await file.arrayBuffer()));
+    return { embedded, action: colorSettings ? openAction(colorSettings, embedded, true, space) : 'leave', space };
   },
 
   // `action` (from the open dialogs) or, without one, the policy decides about the embedded profile.
@@ -794,7 +801,7 @@ const api = {
       const p = await embeddedProfile(new Uint8Array(await file.arrayBuffer()));
       if (p.warning) warnings.push(p.warning);
       try {
-        applyOpenProfile(e, p, action ?? openAction(colorSettings, p.name, false) as OpenAction, colorSettings);
+        applyOpenProfile(e, p, action ?? openAction(colorSettings, p.name, false, p.space) as OpenAction, colorSettings);
       } catch (err) {
         warnings.push(`The color profile was not applied: ${(err as Error).message}`);
       }
@@ -808,9 +815,10 @@ const api = {
     if (docs[active]?.key !== key) throw new Error('The document to revert is no longer active.');
     if (parents.length) throw new Error('Close Edit Contents before reverting.');
     const { e, warnings } = await engineOf(file);
-    if (colorSettings && colorSettings.rgbPolicy !== 'off') {
+    if (colorSettings) {
       const p = await embeddedProfile(new Uint8Array(await file.arrayBuffer()));
-      try { applyOpenProfile(e, p, 'keep', colorSettings); } catch { /* reverted untagged */ }
+      const policy = p.space === 'gray' ? colorSettings.grayPolicy : colorSettings.rgbPolicy;
+      if (policy !== 'off') try { applyOpenProfile(e, p, 'keep', colorSettings); } catch { /* reverted untagged */ }
     }
     if (docs[active]?.key !== key) { e.free(); throw new Error('The document to revert is no longer active.'); }
     const old = eng!, h = history;

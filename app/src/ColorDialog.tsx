@@ -13,8 +13,8 @@ import { DEFAULT_VIEW, HDR_EXPOSURE, HDR_GAMMA, sanitizeHdr, type HdrMethod, typ
 export type ColorDialogKind = 'settings' | 'assign' | 'convert' | 'proof' | 'hdr';
 export interface ColorDialogHandle {
   open(kind: ColorDialogKind): void;
-  // Profile Mismatch (embedded set) or Missing Profile for `file`; null when cancelled.
-  ask(file: string, embedded: string | null): Promise<OpenAction | null>;
+  // Profile Mismatch (embedded set) or Missing Profile for an RGB or Gray (`space`) `file`; null when cancelled.
+  ask(file: string, embedded: string | null, space?: 'rgb' | 'gray'): Promise<OpenAction | null>;
 }
 
 type Kind = ColorDialogKind | 'mismatch' | 'missing';
@@ -36,7 +36,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
   const [choice, setChoice] = useState<string>('working');
   const [profile, setProfile] = useState('');
   const [opts, setOpts] = useState({ intent: settings.intent as Intent, bpc: settings.bpc, dither: settings.dither, flatten: false });
-  const [question, setQuestion] = useState({ file: '', embedded: '' });
+  const [question, setQuestion] = useState({ file: '', embedded: '', space: 'rgb' as 'rgb' | 'gray' });
   const [proof, setProof] = useState({ preserveNumbers: false, simulatePaper: false, simulateBlackInk: false, preview: true });
   const [hdr, setHdr] = useState<HdrPreview>(DEFAULT_VIEW.hdr);
   const hdrBefore = useRef<HdrPreview | null>(null);
@@ -65,11 +65,12 @@ export function ColorDialog({ ref, doc, show, setError }: {
       if (k !== 'settings' && k !== 'hdr') void refresh();
       dialog.current?.showModal();
     },
-    ask(file, embedded) {
+    ask(file, embedded, space = 'rgb') {
       answer.current?.(null);
       setKind(embedded ? 'mismatch' : 'missing');
-      setQuestion({ file, embedded: embedded ?? '' });
-      setChoice(embedded ? ({ off: 'discard', preserveEmbedded: 'keep', convertToWorking: 'convert' } as const)[settings.rgbPolicy] : 'leave');
+      setQuestion({ file, embedded: embedded ?? '', space });
+      const policy = space === 'gray' ? settings.grayPolicy : settings.rgbPolicy;
+      setChoice(embedded ? ({ off: 'discard', preserveEmbedded: 'keep', convertToWorking: 'convert' } as const)[policy] : 'leave');
       dialog.current?.showModal();
       return new Promise(r => { answer.current = r; });
     },
@@ -239,16 +240,16 @@ export function ColorDialog({ ref, doc, show, setError }: {
             </>}
           </>}
           {kind === 'mismatch' && <>
-            <p>The document “{question.file}” has an embedded color profile that does not match the current RGB working space.</p>
-            <p>Embedded: {question.embedded}<br />Working: {settings.rgb}</p>
+            <p>The document “{question.file}” has an embedded color profile that does not match the current {question.space === 'gray' ? 'Gray' : 'RGB'} working space.</p>
+            <p>Embedded: {question.embedded}<br />Working: {settings[question.space]}</p>
             {radio('keep', 'Use the embedded profile (instead of the working space)')}
             {radio('convert', "Convert document's colors to the working space")}
             {radio('discard', "Discard the embedded profile (don't color manage)")}
           </>}
           {kind === 'missing' && <>
-            <p>The RGB document “{question.file}” does not have an embedded color profile.</p>
+            <p>The {question.space === 'gray' ? 'Grayscale' : 'RGB'} document “{question.file}” does not have an embedded color profile.</p>
             {radio('leave', "Leave as is (don't color manage)")}
-            {radio('assign', `Assign working RGB: ${settings.rgb}`)}
+            {radio('assign', `Assign working ${question.space === 'gray' ? 'Gray' : 'RGB'}: ${settings[question.space]}`)}
           </>}
           <div className="actions">
             <button type="button" onClick={() => close(null)}>Cancel</button>
