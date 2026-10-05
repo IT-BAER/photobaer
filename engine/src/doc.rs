@@ -2652,6 +2652,7 @@ impl Document {
                         blobs: &self.blobs,
                         bounds,
                         doc: [self.width as f64, self.height as f64],
+                        hdr: self.depth == 32,
                     };
                     let layer = styles::Layer {
                         w: n,

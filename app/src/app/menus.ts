@@ -443,7 +443,7 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Liquify…', keys: 'Shift+Ctrl+X', run: openLiquify, off: !has || !active || doc?.depth === 32 },
       { label: 'Vanishing Point…', keys: 'Alt+Ctrl+V', run: openVanishingPoint, off: !has || !active || doc?.depth === 32 },
       ...GROUPS.map(([g, name]) => ({ name, specs: filterSpecs.filter(s => s.group === g) })).filter(g => g.specs.length).map((g, i) => ({
-        label: g.name, keys: '›', sep: i === 0, run: () => {}, off: !has || !active,
+        label: g.name, keys: '›', sep: i === 0, run: () => {}, off: !has || !active || g.specs.every(s => filterOff(s, doc?.depth)),
         sub: g.specs.map(s => ({ label: menuLabel(s), run: () => openFilter(s), off: filterOff(s, doc?.depth) })),
       })),
     ],

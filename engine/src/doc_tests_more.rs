@@ -1666,6 +1666,27 @@ fn photoshop_32_bit_blend_modes_keep_values_above_one() {
     assert!((v - want).abs() < 1e-3, "adjustment layer in Multiply: {v}, want {want}");
 }
 
+// A 2.0 pixel under one Color Overlay of gray 128 in `blend` at `opacity`; the composite red value.
+fn overlay_over_two(blend: &str, opacity: f32) -> f32 {
+    let mut d = float_doc(&[2.0]);
+    let overlay = serde_json::json!({ "present": true, "enabled": true, "blend": blend, "opacity": opacity, "color": [128, 128, 128] });
+    let style = serde_json::json!({ "enabled": true, "scale": 1.0, "drop_shadows": [], "inner_shadows": [], "color_overlays": [overlay],
+        "gradient_overlays": [], "pattern_overlays": [], "strokes": [], "outer_glow": null, "inner_glow": null, "bevel": null,
+        "contour": null, "texture": null, "satin": null });
+    d.set_style(1, &style.to_string()).unwrap();
+    d.flatten_tile_f32(0, 0).unwrap()[0]
+}
+
+#[test]
+fn layer_effects_on_32_bit_documents_keep_values_above_one() {
+    let g = 128.0 / 255.0;
+    for (blend, opacity, want) in [("normal", 0.5, 1.0 + g / 2.0), ("linear dodge", 1.0, 2.0 + g), ("multiply", 1.0, 2.0 * g), ("lighten", 1.0, 2.0)] {
+        let v = overlay_over_two(blend, opacity);
+        assert!((v - want).abs() < 1e-4, "{blend}: {v}, want {want}");
+    }
+    assert!((overlay_over_two("screen", 1.0) - 1.0).abs() < 1e-6, "modes Photoshop hides in 32-bit still clamp");
+}
+
 fn hdr_json(method: &str) -> String {
     serde_json::json!({ "kind": "hdr_toning", "params": { "method": method, "radius": 16.0, "strength": 0.5, "detail": 30.0,
         "shadow": 0.0, "highlight": 0.0, "exposure": 0.0, "gamma": 1.0, "vibrance": 0.0, "saturation": 0.0 } })

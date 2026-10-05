@@ -10,6 +10,12 @@ export const BLEND_MODES = [
 // Photoshop's blend modes for 32-bit images; only these keep values above 1 in the engine (`blend::hdr_mode`).
 export const HDR_BLEND_MODES = ['normal', 'dissolve', 'darken', 'multiply', 'lighten', 'linear dodge', 'difference', 'hue', 'saturation', 'color', 'luminosity'];
 
+// A blend select's modes for a document `depth`; a 32-bit document keeps `current` listed when it is another mode.
+export function blendModesFor(depth: number, current: string): string[] {
+  if (depth !== 32) return BLEND_MODES;
+  return HDR_BLEND_MODES.includes(current) ? HDR_BLEND_MODES : [...HDR_BLEND_MODES, current];
+}
+
 export type Where = 'above' | 'below' | 'into';
 
 // The list holding `id` and its index there; parent 0 is the root.
