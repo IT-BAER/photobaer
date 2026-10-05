@@ -3699,8 +3699,9 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 const STROKE_OPS = new Set<keyof Api>(['cloneSample', 'strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'patternPixels']);
 const PREVIEW_OPS = new Set<keyof Api>(['applyImage', 'cloneSample', 'fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels',
   'layerThumbs', 'navigatorThumb', 'histogram', 'documentHistogram', 'documentSample', 'channelMask', 'layerMask']);
-// An open move session commits before any other op, so history never sees a half move.
-const MOVE_OPS = new Set<keyof Api>(['cloneSample', 'moveFloat', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels']);
+// An open move session commits before any other op, so history never sees a half move; panel refreshes only read.
+const MOVE_OPS = new Set<keyof Api>(['cloneSample', 'moveFloat', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels',
+  'layerThumbs', 'navigatorThumb', 'histogram']);
 // App-scope font calls: never refused for a stale document id and never close an open session.
 const FONT_OPS = new Set<keyof Api>(['fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing', 'glyphCells', 'glyphAlternates', 'fontCovers']);
 // An open type session commits before any other op; the UI hears it as typeCommitted.

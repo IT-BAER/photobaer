@@ -1544,6 +1544,19 @@ test('a floated move lands with its step as one Move', async () => {
   assert.equal(((await call('moveLayerCommit')).result as { undoLabel: string }).undoLabel, 'Move');
 });
 
+test('panel refreshes during a floated move (thumbnails, navigator, histogram) leave the move session open', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
+  await call('moveLayerBegin', 1, false, 'Move');
+  await call('moveFloat');
+  await call('layerThumbs', [1], 8);
+  await call('navigatorThumb', 8);
+  await call('histogram', 1);
+  await call('moveLayerStep', 3, 0);
+  assert.deepEqual(await px(1, 5), [0, 0, 0, 0]);
+  assert.equal(((await call('moveLayerCommit')).result as { undoLabel: string }).undoLabel, 'Move');
+});
+
 test('moveFloat refuses a layer with a visible layer above it and leaves the document as is', async () => {
   await call('init');
   await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
