@@ -657,15 +657,14 @@ function floatEngine(img: FloatImage) {
   return e;
 }
 
-// The flattened document as linear floats.
+// The flattened document as linear Rec. 709 floats, through the document's profile.
 function floatImage(e: Engine): FloatImage {
   const w = e.width(), h = e.height(), data = new Float32Array(w * h * 4);
   tileLoop(w, h, (tx, ty) => {
-    const t = e.flatten_tile_f32(tx, ty);
+    const t = e.flatten_tile_linear(tx, ty);
     for (let y = 0; y < TILE && ty * TILE + y < h; y++) for (let x = 0; x < TILE && tx * TILE + x < w; x++) {
       const o = ((ty * TILE + y) * w + tx * TILE + x) * 4, d = (y * TILE + x) * 4;
-      for (let c = 0; c < 3; c++) data[o + c] = toLinear(t[d + c]);
-      data[o + 3] = t[d + 3];
+      data.set(t.subarray(d, d + 4), o);
     }
   });
   return { width: w, height: h, data };

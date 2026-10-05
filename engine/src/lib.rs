@@ -1129,6 +1129,11 @@ impl Engine {
         self.0.doc.flatten_tile_rgba8(tx, ty).map_err(err)
     }
 
+    /// The flattened tile as linear Rec. 709 floats through the document profile (EXR/HDR export).
+    pub fn flatten_tile_linear(&self, tx: u32, ty: u32) -> Result<Vec<f32>, JsError> {
+        self.0.doc.flatten_tile_linear(tx, ty).map_err(err)
+    }
+
     pub fn flatten_tile_f32(&self, tx: u32, ty: u32) -> Result<Vec<f32>, JsError> {
         self.0.doc.flatten_tile_f32(tx, ty).map_err(err)
     }

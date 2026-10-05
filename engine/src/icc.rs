@@ -53,6 +53,24 @@ fn inv(m: &M3) -> Option<M3> {
 }
 
 /// The inverse of a 3x3 row-major matrix, None when it is singular.
+/// Device values of a matrix/TRC RGB or a gray profile -> linear Rec. 709 (sRGB primaries), not
+/// clipped, for scene-linear files (EXR, HDR); None for a LUT-based profile.
+pub fn to_linear_709(p: &Profile) -> Option<Box<dyn Fn([f64; 3]) -> [f64; 3]>> {
+    let srgb = Profile::builtin(SRGB)?.colorants?;
+    match (p.space, &p.colorants, &p.trc, &p.gray_trc) {
+        (Space::Rgb, Some(m), Some(trc), _) => {
+            let k = mul(&inv(&srgb)?, m);
+            let trc = trc.clone();
+            Some(Box::new(move |c| mv(&k, [0, 1, 2].map(|i| trc[i].eval(c[i])))))
+        }
+        (Space::Gray, _, _, Some(g)) => {
+            let g = g.clone();
+            Some(Box::new(move |c| [g.eval(c[0]); 3]))
+        }
+        _ => None,
+    }
+}
+
 pub fn invert3(m: &M3) -> Option<M3> {
     inv(m)
 }

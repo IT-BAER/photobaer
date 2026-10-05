@@ -858,6 +858,20 @@ test('an Exposure layer in a 32-bit document exports values above 1 to EXR', asy
   assert.ok(Math.abs(img.data[0] - want) < 0.01, `linear red ${img.data[0]}, want ${want}`);
 });
 
+test('EXR export linearizes through the document profile: Adobe RGB green leaves the Rec. 709 gamut', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 32, null);
+  await call('command', 'fill', 1, 'pixels', [0, 255, 0, 255]);
+  await call('assignProfile', 'Adobe RGB (1998)');
+  const exr = async () => decodeExr(new Uint8Array(await ((await call('saveFormat', 'exr')).result as { blob: Blob }).blob.arrayBuffer()));
+  const g = await exr();
+  assert.ok(g.data[0] < -0.2 && Math.abs(g.data[1] - 1) < 0.05, `linear Rec. 709 of Adobe RGB green: ${[...g.data.subarray(0, 3)]}`);
+  await call('command', 'fill', 1, 'pixels', [204, 204, 204, 255]);
+  const gray = (await exr()).data[0];
+  // Adobe RGB gamma 563/256 at 0.8 (stored 204/255).
+  assert.ok(Math.abs(gray - 0.8 ** (563 / 256)) < 0.004, `gray ${gray}`);
+});
+
 test('Highlight Compression measures the brightest value again after an edit', async () => {
   await call('init');
   await call('newDoc', 8, 8, 32, null);

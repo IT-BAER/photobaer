@@ -2290,6 +2290,23 @@ impl Document {
         Ok(bytes)
     }
 
+    /// The flattened tile as straight linear Rec. 709 RGBA through the document's profile (the
+    /// sRGB curve for a profile without one), values above 1 kept.
+    pub fn flatten_tile_linear(&self, tx: u32, ty: u32) -> Result<Vec<f32>, String> {
+        let mut px = self.flatten_tile_f32(tx, ty)?;
+        let lin = self.source_profile_ref().ok().as_ref().and_then(crate::icc::to_linear_709);
+        let srgb = crate::icc::Curve::Srgb;
+        for p in px.chunks_exact_mut(4) {
+            let c = [p[0] as f64, p[1] as f64, p[2] as f64];
+            let o = match &lin {
+                Some(f) => f(c),
+                None => c.map(|v| srgb.eval(v)),
+            };
+            (0..3).for_each(|i| p[i] = o[i] as f32);
+        }
+        Ok(px)
+    }
+
     /// The flattened tile as straight RGBA floats, values above 1 kept.
     pub fn flatten_tile_f32(&self, tx: u32, ty: u32) -> Result<Vec<f32>, String> {
         self.check_tile_coord(tx, ty)?;

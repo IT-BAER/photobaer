@@ -8,6 +8,9 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   show its own cursor, like Photoshop).
 - User feedback (5 October 2026): marquee and lasso selections stop at the canvas edge; a drag must be able to
   start and continue outside the canvas (the selection is clipped to the document, the pointer is not).
+- User feedback (5 October 2026): the dock sections (Color, Properties, Layers, History, Channels, ...) can be
+  reordered freely up and down, the order kept in the browser's local settings; if possible the toolbar tools
+  as well.
 
 ## M6 Color and photo
 - Image > Mode rest: Duotone data is not read from or written to PSD (the color-mode data is undocumented);
@@ -28,8 +31,7 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   targeted together; the color swatches stay in color while one channel is targeted (painting uses the gray);
   further targeted saved channels take a stroke when it ends, not live.
 - Formats rest: Import PDF has no Crop To boxes, size fields, mode/bit depth or Images extraction (pages only, ppi); EXR tiled, multi-part, deep and PIZ/PXR24/B44/DWA
-  compression; EXR/HDR assume sRGB-encoded 32-bit documents (a non-sRGB profile is not linearized by its own
-  curve); SVG opens at its own size without a rasterize dialog; 16/32-bit
+  compression; SVG opens at its own size without a rasterize dialog; 16/32-bit
   PSD/PSB export.
 
 ## M7 AI (local, in the browser)

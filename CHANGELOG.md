@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit > Assign Profile previews the chosen profile live (Preview, on by default).
 - Color Settings > Advanced Controls: Desaturate Monitor Colors By (display only).
 - Gamut Warning uses the proof profile's own gamut tag when it has one.
+- EXR and HDR export linearize through the document's profile (curve and primaries) into linear Rec. 709.
 
 ### Fixed
 

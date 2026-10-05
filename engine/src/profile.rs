@@ -155,6 +155,11 @@ impl Document {
         }
     }
 
+    // The profile of the stored numbers, for other document modules.
+    pub(super) fn source_profile_ref(&self) -> Result<Profile, String> {
+        self.source_profile()
+    }
+
     /// Edit > Assign Profile: tags the document (None = untagged) without changing pixels.
     pub fn assign_profile(&mut self, p: Option<&Profile>) -> Result<bool, String> {
         self.check_idle()?;
