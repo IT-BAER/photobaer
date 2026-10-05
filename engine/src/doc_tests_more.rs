@@ -1511,25 +1511,41 @@ fn a_stroke_on_one_targeted_color_channel_keeps_the_others() {
 }
 
 #[test]
-fn a_selection_target_stroke_paints_the_targeted_alpha_channel_and_keeps_the_selection() {
+fn a_selection_target_stroke_paints_the_targeted_alpha_channel_inside_the_selection_and_keeps_it() {
     let mut e = core_bg(255, 255, 255);
     let c = e.doc.new_channel("Alpha 1").unwrap();
     e.doc.select_rect(100.0, 100.0, 20.0, 20.0, Mode::New).unwrap();
-    e.alpha_target = Some(c);
-    e.stroke_begin(1, "selection", &hard(r#","rgba":[255,255,255,255],"size":20"#)).unwrap();
-    e.stroke_to(&[10.5, 10.5, 1.0]).unwrap();
-    e.stroke_end().unwrap();
-    assert_eq!(channel_at(&e, c, 10, 10), 1.0);
-    assert_eq!(channel_at(&e, c, 40, 10), 0.0);
+    e.alpha_targets = vec![c];
+    for p in [10.5, 110.5] {
+        e.stroke_begin(1, "selection", &hard(r#","rgba":[255,255,255,255],"size":40"#)).unwrap();
+        e.stroke_to(&[p, p, 1.0]).unwrap();
+        e.stroke_end().unwrap();
+    }
+    assert_eq!(channel_at(&e, c, 10, 10), 0.0, "outside the selection");
+    assert_eq!(channel_at(&e, c, 110, 110), 1.0);
+    assert_eq!(channel_at(&e, c, 95, 110), 0.0, "under the brush but outside the selection");
     assert_eq!(e.doc.selection_bounds(), Some([100, 100, 20, 20]), "the selection is untouched");
     assert_eq!(at(&e.doc, 10, 10), [255, 255, 255, 255], "the layer is untouched");
+}
+
+#[test]
+fn a_saved_channel_reads_its_live_values_during_a_stroke() {
+    let mut e = core_bg(255, 255, 255);
+    let c = e.doc.new_channel("Alpha 1").unwrap();
+    e.alpha_targets = vec![c];
+    e.stroke_begin(1, "selection", &hard(r#","rgba":[255,255,255,255],"size":20"#)).unwrap();
+    e.stroke_to(&[10.5, 10.5, 1.0]).unwrap();
+    let live = e.channel_tile(c, 0, 0, 0).unwrap().expect("painted");
+    assert_eq!(live[10 * 256 + 10], 255);
+    e.stroke_end().unwrap();
+    assert_eq!(e.channel_tile(c, 0, 0, 0).unwrap().expect("painted")[10 * 256 + 10], 255);
 }
 
 #[test]
 fn a_cancelled_alpha_channel_stroke_restores_the_channel_and_the_selection() {
     let mut e = core_bg(255, 255, 255);
     let c = e.doc.new_channel("Alpha 1").unwrap();
-    e.alpha_target = Some(c);
+    e.alpha_targets = vec![c];
     e.stroke_begin(1, "selection", &hard("")).unwrap();
     e.stroke_to(&[10.5, 10.5, 1.0]).unwrap();
     e.stroke_cancel().unwrap();
@@ -1541,11 +1557,32 @@ fn a_cancelled_alpha_channel_stroke_restores_the_channel_and_the_selection() {
 fn a_selection_target_fill_fills_the_targeted_alpha_channel() {
     let mut e = core_bg(0, 0, 0);
     let c = e.doc.new_channel("Alpha 1").unwrap();
-    e.alpha_target = Some(c);
+    e.alpha_targets = vec![c];
     e.fill_ex(1, "selection", r#"{"source":"solid","rgba":[255,255,255,255],"mode":"normal","opacity":1.0,"preserveTransparency":false}"#)
         .unwrap();
     assert_eq!(channel_at(&e, c, 5, 5), 1.0);
     assert!(!e.doc.has_selection());
+}
+
+#[test]
+fn several_targeted_alpha_channels_take_the_same_stroke_and_fill_inside_the_selection() {
+    let mut e = core_bg(255, 255, 255);
+    let (a, b) = (e.doc.new_channel("Alpha 1").unwrap(), e.doc.new_channel("Alpha 2").unwrap());
+    e.alpha_targets = vec![a, b];
+    e.stroke_begin(1, "selection", &hard(r#","rgba":[255,255,255,255],"size":20"#)).unwrap();
+    e.stroke_to(&[10.5, 10.5, 1.0]).unwrap();
+    e.stroke_end().unwrap();
+    for c in [a, b] {
+        assert_eq!((channel_at(&e, c, 10, 10), channel_at(&e, c, 40, 10)), (1.0, 0.0), "channel {c}");
+    }
+    assert!(!e.doc.has_selection());
+    e.doc.select_rect(100.0, 100.0, 20.0, 20.0, Mode::New).unwrap();
+    e.fill_ex(1, "selection", r#"{"source":"solid","rgba":[255,255,255,255],"mode":"normal","opacity":1.0,"preserveTransparency":false}"#)
+        .unwrap();
+    for c in [a, b] {
+        assert_eq!((channel_at(&e, c, 110, 110), channel_at(&e, c, 50, 50)), (1.0, 0.0), "fill in channel {c}");
+    }
+    assert_eq!(e.doc.selection_bounds(), Some([100, 100, 20, 20]));
 }
 
 #[test]

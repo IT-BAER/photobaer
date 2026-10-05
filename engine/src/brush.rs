@@ -742,18 +742,19 @@ pub struct EngineCore {
     // outside the document and its snapshots.
     pub view: crate::doc::proof::View,
     // Channels panel target, UI state outside the document like `view`: pixel edits keep the
-    // color channels not in `color_target`; selection-target edits paint saved channel `alpha_target`.
+    // color channels not in `color_target`; selection-target edits paint the saved channels in `alpha_targets`.
     pub color_target: [bool; 3],
-    pub alpha_target: Option<u32>,
+    pub alpha_targets: Vec<u32>,
     // What the open stroke holds for its target until it ends.
     stroke_hold: Option<Hold>,
 }
 
 /// A pixel edit's state for `EngineCore::release`: the layer tiles before it, or the selection
-/// set aside while a saved channel stands in for it.
+/// set aside while a saved channel stands in for it, plus further targeted channels a stroke
+/// paints when it ends.
 enum Hold {
     Color(u32, Tiles),
-    Alpha(u32, Option<SelMask>),
+    Alpha(u32, Option<SelMask>, Vec<u32>),
 }
 
 impl EngineCore {
@@ -773,15 +774,18 @@ impl EngineCore {
             mixer_well: None,
             view: Default::default(),
             color_target: [true; 3],
-            alpha_target: None,
+            alpha_targets: Vec::new(),
             stroke_hold: None,
         }
     }
 
     fn hold(&mut self, id: u32, target: Target) -> Result<Option<Hold>, String> {
         let c = self.color_target;
-        Ok(match (target, self.alpha_target) {
-            (Target::Selection, Some(ch)) => Some(Hold::Alpha(ch, self.doc.channel_in(ch)?)),
+        Ok(match (target, self.alpha_targets.split_first()) {
+            (Target::Selection, Some((&ch, rest))) => {
+                let rest = rest.to_vec();
+                Some(Hold::Alpha(ch, self.doc.channel_in(ch)?, rest))
+            }
             (Target::Pixels, _) if c.contains(&true) && c.contains(&false) => {
                 self.doc.node(id).ok().and_then(|n| n.pixel_tiles().ok()).map(|t| Hold::Color(id, t.clone()))
             }
@@ -792,7 +796,7 @@ impl EngineCore {
     fn release(&mut self, h: Option<Hold>) -> Result<(), String> {
         match h {
             Some(Hold::Color(id, before)) => self.doc.keep_channels(id, &before, self.color_target),
-            Some(Hold::Alpha(ch, sel)) => {
+            Some(Hold::Alpha(ch, sel, _)) => {
                 self.doc.channel_out(ch, sel);
                 Ok(())
             }
@@ -800,8 +804,27 @@ impl EngineCore {
         }
     }
 
-    /// Runs one edit of `target` on layer `id` through the Channels panel target.
-    pub fn targeted<T>(&mut self, id: u32, target: Target, f: impl FnOnce(&mut Document) -> Result<T, String>) -> Result<T, String> {
+    /// Saved channel `id`'s tile; while a stroke paints it, its live values from the selection slot.
+    pub fn channel_tile(&self, id: u32, level: u32, tx: u32, ty: u32) -> Result<Option<Vec<u8>>, String> {
+        match &self.stroke_hold {
+            Some(Hold::Alpha(ch, ..)) if *ch == id => self.doc.selection_tile(level, tx, ty),
+            _ => self.doc.channel_tile(id, level, tx, ty),
+        }
+    }
+
+    /// Runs one edit of `target` on layer `id` through the Channels panel target; with several
+    /// targeted saved channels a selection-target edit runs once per channel.
+    pub fn targeted<T>(&mut self, id: u32, target: Target, mut f: impl FnMut(&mut Document) -> Result<T, String>) -> Result<T, String> {
+        if target == Target::Selection && self.alpha_targets.len() > 1 {
+            let mut last = None;
+            for ch in self.alpha_targets.clone() {
+                let sel = self.doc.channel_in(ch)?;
+                let r = f(&mut self.doc);
+                self.doc.channel_out(ch, sel);
+                last = Some(r?);
+            }
+            return Ok(last.expect("two or more channels"));
+        }
         let h = self.hold(id, target)?;
         let r = f(&mut self.doc);
         self.release(h)?;
@@ -913,7 +936,7 @@ impl EngineCore {
         let p: GradientIn = serde_json::from_str(params_json).map_err(|e| format!("bad gradient params: {e}"))?;
         let method = gradient::Method::parse(&p.method)?;
         let style = gradient::Style::parse(&p.style)?;
-        let color_stops = p
+        let color_stops: Vec<_> = p
             .stops
             .into_iter()
             .map(|s| gradient::ColorStop {
@@ -922,7 +945,7 @@ impl EngineCore {
                 midpoint: s.midpoint,
             })
             .collect();
-        let opacity_stops = p
+        let opacity_stops: Vec<_> = p
             .opacity_stops
             .into_iter()
             .map(|s| gradient::OpacityStop { position: s.position, opacity: s.opacity, midpoint: s.midpoint })
@@ -931,8 +954,8 @@ impl EngineCore {
             d.gradient(
                 id,
                 target,
-                color_stops,
-                opacity_stops,
+                color_stops.clone(),
+                opacity_stops.clone(),
                 method,
                 style,
                 (p.start.x, p.start.y),
@@ -1073,6 +1096,11 @@ impl EngineCore {
         }
         let r = self.doc.heal_stroke(&st).map(|_| ());
         let h = self.stroke_hold.take();
+        if let Some(Hold::Alpha(_, sel, rest)) = &h {
+            for &ch in rest {
+                self.doc.stroke_into_channel(&st, ch, sel.as_ref());
+            }
+        }
         self.release(h)?;
         r
     }

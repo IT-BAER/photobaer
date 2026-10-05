@@ -777,8 +777,9 @@ const api = {
 
   // Channels panel target of the active document: edits change only these color channels, or
   // selection-target edits paint saved channel `alpha`. UI state, so no history step.
-  setChannelTarget(rgb: [boolean, boolean, boolean], alpha: number | null) {
-    need().set_channel_target(Uint8Array.from(rgb, Number), alpha ?? undefined);
+  // `alpha`: the targeted saved channels (a single id or null in recorded actions).
+  setChannelTarget(rgb: [boolean, boolean, boolean], alpha: number[] | number | null) {
+    need().set_channel_target(Uint8Array.from(rgb, Number), Uint32Array.from(alpha == null ? [] : Array.isArray(alpha) ? alpha : [alpha]));
   },
 
   // View > Proof Setup, Proof Colors, Gamut Warning and 32-bit Preview Options of the active

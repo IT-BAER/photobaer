@@ -5,13 +5,15 @@ import type { DocInfo } from './engine.worker.ts';
 import type { Spot } from './worker/types.ts';
 import type { Active } from './LayersPanel.tsx';
 import { nodeById } from './layers.ts';
-import { channelThumb, COMPOSITE, inkThumb, MODE_CHANNELS, type ChannelView } from './app/channels.ts';
+import { channelThumb, COMPOSITE, inkThumb, MODE_CHANNELS, pickChannel, type ChannelView } from './app/channels.ts';
 
 type Run = (label: string | null, p: () => Promise<DocInfo | null>) => Promise<void>;
 
 interface Props {
   doc: DocInfo;
   run: Run;
+  // Changes while a stroke paints a saved channel, to refresh its thumbnail.
+  live?: number;
   view: ChannelView;
   setView: (v: ChannelView) => void;
   setError: (e: string | null) => void;
@@ -55,7 +57,7 @@ const grayThumb = (m: { w: number; h: number; data: ArrayBuffer | null }): Thumb
 };
 
 // The composite and its R/G/B channels, the active layer's mask, then the saved channels, refreshed after edits.
-function useThumbs(doc: DocInfo, maskId: number | null) {
+function useThumbs(doc: DocInfo, maskId: number | null, live: number) {
   const [thumbs, setThumbs] = useState<{ color: Thumb[]; mask?: Thumb; alpha: Map<number, Thumb> }>({ color: [], alpha: new Map() });
   const ids = doc.channels.map(c => c.id).join(',');
   useEffect(() => {
@@ -75,14 +77,14 @@ function useThumbs(doc: DocInfo, maskId: number | null) {
       if (alive) setThumbs({ color, mask, alpha });
     }, 150);
     return () => { alive = false; clearTimeout(t); };
-  }, [doc.docId, doc.version, ids, doc.width, doc.height, doc.mode?.kind, maskId]);
+  }, [doc.docId, doc.version, ids, doc.width, doc.height, doc.mode?.kind, maskId, live]);
   return thumbs;
 }
 
-export function ChannelsPanel({ doc, run, view, setView, setError, active, setActive }: Props) {
+export function ChannelsPanel({ doc, run, live = 0, view, setView, setError, active, setActive }: Props) {
   const maskNode = active ? nodeById(doc.layers, active.id) : undefined;
   const masked = maskNode?.mask ? maskNode : undefined;
-  const thumbs = useThumbs(doc, masked?.id ?? null);
+  const thumbs = useThumbs(doc, masked?.id ?? null, live);
   const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
   const [spotForm, setSpotForm] = useState<SpotForm | null>(null);
   const spotDialog = useRef<HTMLDialogElement>(null);
@@ -96,7 +98,8 @@ export function ChannelsPanel({ doc, run, view, setView, setError, active, setAc
       return r;
     });
   };
-  const sel = doc.channels.find(c => c.id === view.alphaTarget)?.id ?? null;
+  const targets = (view.alphaTargets ?? []).filter(id => doc.channels.some(c => c.id === id));
+  const sel = targets[0] ?? null;
   const colorOn = view.rgb.every(Boolean) && view.ink == null;
   const ink = inkMode(doc);
   const names: readonly string[] = doc.gray || doc.mode?.kind === 'indexed' ? [] : doc.mode?.kind === 'multichannel' ? MODE_CHANNELS.multichannel : ink ? MODE_CHANNELS[ink] : COLORS;
@@ -114,8 +117,8 @@ export function ChannelsPanel({ doc, run, view, setView, setError, active, setAc
     setView({ ...view, rgb });
   };
   const toggleAlpha = (id: number) => setView({ ...view, alpha: view.alpha.includes(id) ? view.alpha.filter(a => a !== id) : [...view.alpha, id] });
-  const row = (key: string, name: string, on: boolean, active: boolean, thumb: Thumb | undefined, toggle: () => void, pick: () => void, extra?: { id: number; spot?: Spot | null }, keys?: string) => (
-    <div key={key} role="option" aria-selected={active} className={`channel-row${active ? ' selected' : ''}`} onClick={pick}
+  const row = (key: string, name: string, on: boolean, active: boolean, thumb: Thumb | undefined, toggle: () => void, pick: (shift: boolean) => void, extra?: { id: number; spot?: Spot | null }, keys?: string) => (
+    <div key={key} role="option" aria-selected={active} className={`channel-row${active ? ' selected' : ''}`} onClick={e => pick(e.shiftKey)}
       onDoubleClick={extra ? () => (extra.spot
         ? setSpotForm({ id: extra.id, name, color: hex(extra.spot.color), solidity: Math.round(extra.spot.solidity * 100) })
         : setRenaming({ id: extra.id, name })) : undefined}>
@@ -150,20 +153,20 @@ export function ChannelsPanel({ doc, run, view, setView, setError, active, setAc
     <div className="layers-panel channels-panel">
       <div className="panel-tabs"><span className="panel-tab">Channels</span></div>
       <div className="layers-tree" role="listbox" aria-label="Channels">
-        {row('rgb', doc.mode ? COMPOSITE_NAME[doc.mode.kind] : doc.gray ? 'Gray' : 'RGB', colorOn, colorOn && !view.alpha.length && view.alphaTarget == null && active?.target !== 'mask', thumbs.color[0], () => setView({ ...view, ink: null, rgb: colorOn ? [false, false, false] : [true, true, true] }), () => { setView(COMPOSITE); if (active?.target === 'mask') setActive({ id: active.id, target: 'pixels' }); }, undefined, 'Ctrl+2')}
+        {row('rgb', doc.mode ? COMPOSITE_NAME[doc.mode.kind] : doc.gray ? 'Gray' : 'RGB', colorOn, colorOn && !view.alpha.length && !targets.length && active?.target !== 'mask', thumbs.color[0], () => setView({ ...view, ink: null, rgb: colorOn ? [false, false, false] : [true, true, true] }), () => { setView(COMPOSITE); if (active?.target === 'mask') setActive({ id: active.id, target: 'pixels' }); }, undefined, 'Ctrl+2')}
         {names.map((name, i) => ink
           ? row(name, name, view.ink === i, view.ink === i, thumbs.color[i + 1],
             () => setView(view.ink === i ? COMPOSITE : { rgb: [false, false, false], alpha: [], ink: i }),
             () => setView({ rgb: [false, false, false], alpha: [], ink: i }))
-          : row(name, name, view.rgb[i], !colorOn && view.rgb[i] && view.rgb.filter(Boolean).length === 1, thumbs.color[i + 1],
+          : row(name, name, view.rgb[i], !colorOn && view.rgb[i] && !targets.length, thumbs.color[i + 1],
             () => toggleColor(i),
-            () => setView({ rgb: [0, 1, 2].map(j => j === i) as ChannelView['rgb'], alpha: [] }), undefined, `Ctrl+${i + 3}`))}
+            shift => setView(pickChannel(view, { color: i }, shift)), undefined, `Ctrl+${i + 3}`))}
         {masked && row('mask', `${masked.name} Mask`, view.mask === masked.id, active?.target === 'mask', thumbs.mask,
           () => setView({ ...view, mask: view.mask === masked.id ? undefined : masked.id }),
           () => { setView({ rgb: [false, false, false], alpha: [], mask: masked.id }); setActive({ id: masked.id, target: 'mask' }); })}
-        {doc.channels.map(c => row(`a${c.id}`, c.name, view.alpha.includes(c.id), c.id === sel, thumbs.alpha.get(c.id),
+        {doc.channels.map(c => row(`a${c.id}`, c.name, view.alpha.includes(c.id), targets.includes(c.id), thumbs.alpha.get(c.id),
           () => toggleAlpha(c.id),
-          () => { setView({ rgb: [false, false, false], alpha: [c.id], alphaTarget: c.id }); if (active?.target === 'mask') setActive({ id: active.id, target: 'pixels' }); }, { id: c.id, spot: c.spot }))}
+          shift => { setView(pickChannel({ ...view, alphaTargets: targets }, { alpha: c.id }, shift)); if (active?.target === 'mask') setActive({ id: active.id, target: 'pixels' }); }, { id: c.id, spot: c.spot }))}
       </div>
       <div className="layers-footer">
         <button aria-label="Load channel as selection" title="Load channel as selection" disabled={sel == null} onClick={() => void load(sel!)}>

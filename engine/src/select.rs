@@ -610,6 +610,27 @@ impl Document {
     }
 
     // Recomputes the box `b` of one tile from the stroke-start tile plus the stroke coverage.
+    // A finished selection-target stroke applied to saved channel `id` as well, through `sel`.
+    pub(super) fn stroke_into_channel(&mut self, st: &Stroke, id: u32, sel: Option<&SelMask>) {
+        let Some(before) = self.channels.iter().find(|c| c.id == id).map(|c| c.mask.clone()) else { return };
+        let mut after = before.clone();
+        let def = before.default as f32 / self.max();
+        let mut values = vec![0f32; TILE_PIXELS];
+        for (&(tx, ty), t) in &st.tiles {
+            let old = before.tiles.get(tx, ty).map(|o| o.px.clone());
+            for (p, v) in values.iter_mut().enumerate() {
+                let o = old.as_ref().map_or(def, |o| o.mask_f32(p));
+                *v = paint_mask_value(st.mode, o, st.value, t.s[p].clamp(0.0, 1.0));
+            }
+            self.set_sel_tile(&mut after, tx, ty, &values);
+        }
+        let mask = match sel {
+            Some(s) => self.blend_masks(&before, &after, s),
+            None => after,
+        };
+        self.channels.iter_mut().find(|c| c.id == id).expect("found above").mask = mask;
+    }
+
     fn stroke_flush_tile(&mut self, st: &Stroke, (tx, ty): (i32, i32), b: [i32; 4]) -> Result<(), String> {
         let t = st.tiles.get(&(tx, ty)).expect("the tile was accumulated");
         if st.target == Target::Selection {
@@ -864,12 +885,43 @@ impl Document {
         Ok(std::mem::replace(&mut self.selection, Some(mask)))
     }
 
-    /// Moves the edited mask back into channel `id` and restores `sel` as the selection.
+    /// Moves the edited mask back into channel `id` and restores `sel` as the selection; with a
+    /// selection the edit reaches the channel only as far as it is selected.
     pub fn channel_out(&mut self, id: u32, sel: Option<SelMask>) {
-        let mask = std::mem::replace(&mut self.selection, sel).unwrap_or_default();
-        if let Some(c) = self.channels.iter_mut().find(|c| c.id == id) {
-            c.mask = mask;
+        let after = std::mem::replace(&mut self.selection, sel.clone()).unwrap_or_default();
+        let Some(before) = self.channels.iter().find(|c| c.id == id).map(|c| c.mask.clone()) else { return };
+        let mask = match &sel {
+            Some(s) => self.blend_masks(&before, &after, s),
+            None => after,
+        };
+        self.channels.iter_mut().find(|c| c.id == id).expect("found above").mask = mask;
+    }
+
+    // `before` moved toward `after` by the coverage of `by`.
+    fn blend_masks(&mut self, before: &SelMask, after: &SelMask, by: &SelMask) -> SelMask {
+        let max = self.max();
+        let mix = |b: f32, a: f32, k: f32| (b + (a - b) * k).clamp(0.0, 1.0);
+        let d = |m: &SelMask| m.default as f32 / max;
+        let mut out = SelMask { default: (mix(d(before), d(after), d(by)) * max).round() as u32, tiles: Tiles::default() };
+        let mut area = before.tiles.coords();
+        for at in after.tiles.coords().into_iter().chain(by.tiles.coords()) {
+            if !area.contains(&at) {
+                area.push(at);
+            }
         }
+        let mut values = vec![0f32; TILE_PIXELS];
+        for (tx, ty) in area {
+            if !self.on_canvas(tx, ty) {
+                continue;
+            }
+            let (ox, oy) = (tx * TILE as i32, ty * TILE as i32);
+            for p in 0..TILE_PIXELS {
+                let (x, y) = (ox + (p % TILE) as i32, oy + (p / TILE) as i32);
+                values[p] = mix(self.sel_at(before, x, y), self.sel_at(after, x, y), self.sel_at(by, x, y));
+            }
+            self.set_sel_tile(&mut out, tx, ty, &values);
+        }
+        out
     }
 
     pub(super) fn next_channel_id(&self) -> u32 {

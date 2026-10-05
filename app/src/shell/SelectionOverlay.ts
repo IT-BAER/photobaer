@@ -1,5 +1,6 @@
 import { docToScreen, type View } from '../view.ts';
 import { drawMarks, type MarksOverlay } from './marksOverlay.ts';
+import { spotInk } from '../app/channels.ts';
 
 export type Preview =
   | null
@@ -60,6 +61,9 @@ export class SelectionOverlay {
   #hidden = false;
   #mask: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number } | null = null;
   #channel: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number } | null = null;
+  // A spot channel's multiplied ink, drawn on `#inkCanvas` (CSS mix-blend-mode: multiply over the image).
+  #channelInk: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number } | null = null;
+  #inkCanvas: HTMLCanvasElement | null;
   #cursor: CursorState | null = null;
   #clone: CloneOverlay | null = null;
   #guides: [number, number, number, number][] = [];
@@ -78,9 +82,10 @@ export class SelectionOverlay {
   #last: [View, number, number, number] | null = null;
   #raf = 0;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, ink: HTMLCanvasElement | null = null) {
     this.#canvas = canvas;
     this.#ctx = canvas.getContext('2d')!;
+    this.#inkCanvas = ink;
   }
 
   setMarks(m: MarksOverlay | null) {
@@ -166,6 +171,7 @@ export class SelectionOverlay {
   // Channels panel: a saved channel drawn as opaque gray, or as the quick mask tint; null hides it.
   setChannelOverlay(values: Uint8Array | null, w: number, h: number, scale: number, mode: ChannelMode) {
     this.#channel = values && maskImage(values, w, h, scale, mode);
+    this.#channelInk = values && typeof mode === 'object' ? maskImage(values, w, h, scale, { ...mode, multiply: true }) : null;
   }
 
   #syncTimer() {
@@ -200,6 +206,7 @@ export class SelectionOverlay {
     if (this.#crop) this.#drawCrop(this.#crop, view, cssW, cssH, dpr);
     if (this.#corners) this.#drawCorners(this.#corners, view, cssW, cssH, dpr);
     if (this.#channel) this.#drawMask(this.#channel, view, cssW, cssH, dpr);
+    this.#drawInk(view, cssW, cssH, dpr);
     if (this.#hidden) return;
     if (this.#mask) this.#drawMask(this.#mask, view, cssW, cssH, dpr);
     else if (this.#ants && this.#antsMatrix) this.#strokeSegments(this.#mapSegments(this.#ants, this.#antsScale, this.#antsMatrix), view, cssW, cssH, dpr, 1);
@@ -615,9 +622,16 @@ export class SelectionOverlay {
     return out;
   }
 
+  #drawInk(view: View, cssW: number, cssH: number, dpr: number) {
+    const c = this.#inkCanvas;
+    if (!c) return;
+    c.width = Math.round(cssW * dpr);
+    c.height = Math.round(cssH * dpr);
+    if (this.#channelInk) this.#drawMask(this.#channelInk, view, cssW, cssH, dpr, c.getContext('2d')!);
+  }
+
   // Blits the per-tile-scaled mask canvas at doc origin, using the same view transform as the ants.
-  #drawMask(mask: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number }, view: View, cssW: number, cssH: number, dpr: number) {
-    const ctx = this.#ctx;
+  #drawMask(mask: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number }, view: View, cssW: number, cssH: number, dpr: number, ctx = this.#ctx) {
     const o = docToScreen(view, 0, 0, cssW, cssH);
     const ex = docToScreen(view, 1, 0, cssW, cssH);
     const ey = docToScreen(view, 0, 1, cssW, cssH);
@@ -654,9 +668,9 @@ export class SelectionOverlay {
   }
 }
 
-// 'gray' shows the values, 'tint' reddens unselected areas, `ink` paints a spot color where the
-// values are dark at strength `k`.
-export type ChannelMode = 'gray' | 'tint' | { ink: [number, number, number]; k: number };
+// 'gray' shows the values, 'tint' reddens unselected areas, `ink` is a spot channel as printed: the
+// part it covers by `solidity`, or with `multiply` the image multiplied by the rest.
+export type ChannelMode = 'gray' | 'tint' | { ink: [number, number, number]; solidity: number; multiply?: boolean };
 
 function maskImage(values: Uint8Array, w: number, h: number, scale: number, mode: ChannelMode) {
   const canvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : document.createElement('canvas');
@@ -671,8 +685,9 @@ function maskImage(values: Uint8Array, w: number, h: number, scale: number, mode
       img.data[i * 4] = 255;
       img.data[i * 4 + 3] = Math.round((255 - values[i]) * 0.5);
     } else {
-      img.data.set(mode.ink, i * 4);
-      img.data[i * 4 + 3] = Math.round((255 - values[i]) * mode.k);
+      const s = spotInk(values[i], mode.ink, mode.solidity);
+      img.data.set(mode.multiply ? s.multiply : mode.ink, i * 4);
+      img.data[i * 4 + 3] = mode.multiply ? 255 : s.cover;
     }
   }
   ctx.putImageData(img, 0, 0);

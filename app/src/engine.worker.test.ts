@@ -715,14 +715,15 @@ test('setChannelTarget: a fill changes only the targeted color channel, or fills
   await call('init');
   await call('newDoc', 64, 64, 8, null);
   await call('command', 'fill', 1, 'pixels', [10, 20, 30, 255]);
-  await call('setChannelTarget', [false, true, false], null);
+  await call('setChannelTarget', [false, true, false], []);
   await call('command', 'fill', 1, 'pixels', [200, 200, 200, 255]);
   assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [10, 200, 30, 255]);
   const ch = ((await call('newChannel')).result as { created: number }).created;
-  await call('setChannelTarget', [true, true, true], ch);
+  const ch2 = ((await call('newChannel')).result as { created: number }).created;
+  await call('setChannelTarget', [true, true, true], [ch, ch2]);
   const r = (await call('command', 'fill', 1, 'selection', [255, 255, 255, 255])).result as { history: { labels: string[] } };
   assert.equal(r.history.labels.at(-1), 'Fill');
-  assert.equal(new Uint8Array(((await call('channelMask', ch, 0)).result as { data: ArrayBuffer }).data)[0], 255);
+  for (const c of [ch, ch2]) assert.equal(new Uint8Array(((await call('channelMask', c, 0)).result as { data: ArrayBuffer }).data)[0], 255, `channel ${c}`);
   assert.equal(((await call('selectionMask', 0)).result as { data: ArrayBuffer | null }).data, null, 'the selection is untouched');
   assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [10, 200, 30, 255], 'the layer is untouched');
 });

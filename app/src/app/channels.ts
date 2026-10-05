@@ -4,8 +4,8 @@ export interface ChannelView {
   rgb: [boolean, boolean, boolean];
   alpha: number[];
   ink?: number | null;
-  // The saved channel edits paint (picked in the panel); eye toggles keep it.
-  alphaTarget?: number;
+  // The saved channels edits paint (picked in the panel, Shift+click for several); eye toggles keep them.
+  alphaTargets?: number[];
   // The layer whose mask shows like a saved channel.
   mask?: number;
 }
@@ -62,11 +62,43 @@ export function inkThumb(rgba: Uint8Array, mode: 'cmyk' | 'lab', ch: number, sep
   return out;
 }
 
-// What edits change: the color channels of a partial R/G/B view, and the picked saved channel
+// What edits change: the color channels of a partial R/G/B view, and the picked saved channels
 // unless Quick Mask is on (edits then go into the quick mask).
-export function editChannels(v: ChannelView, quickMask = false): { rgb: [boolean, boolean, boolean]; alpha: number | null } {
+export function editChannels(v: ChannelView, quickMask = false): { rgb: [boolean, boolean, boolean]; alpha: number[] } {
   const partial = v.ink == null && v.rgb.some(Boolean) && !v.rgb.every(Boolean);
-  return { rgb: partial ? v.rgb : [true, true, true], alpha: quickMask ? null : v.alphaTarget ?? null };
+  return { rgb: partial ? v.rgb : [true, true, true], alpha: quickMask ? [] : v.alphaTargets ?? [] };
+}
+
+// A click on color channel `color` or saved channel `alpha`: it alone becomes the target; with Shift
+// it joins or leaves the targeted channels of its kind (the last one stays).
+export function pickChannel(v: ChannelView, ch: { color: number } | { alpha: number }, shift: boolean): ChannelView {
+  if ('color' in ch) {
+    const only = [0, 1, 2].map(j => j === ch.color) as ChannelView['rgb'];
+    const cur = v.ink == null && !v.alphaTargets?.length && !v.rgb.every(Boolean) ? v.rgb : null;
+    if (!shift || !cur) return { rgb: only, alpha: [], alphaTargets: [] };
+    const rgb = cur.map((on, j) => (j === ch.color ? !on : on)) as ChannelView['rgb'];
+    return { ...v, rgb: rgb.some(Boolean) ? rgb : cur, alphaTargets: [] };
+  }
+  const cur = v.alphaTargets ?? [];
+  if (!shift || !cur.length) return { rgb: [false, false, false], alpha: [ch.alpha], alphaTargets: [ch.alpha] };
+  const targets = cur.includes(ch.alpha) ? (cur.length > 1 ? cur.filter(a => a !== ch.alpha) : cur) : [...cur, ch.alpha];
+  return { ...v, alpha: [...new Set([...v.alpha, ...targets])], alphaTargets: targets };
+}
+
+// The color tools paint with: its gray (0.3 R + 0.59 G + 0.11 B) while exactly one color channel is the
+// edit target, as Photoshop shows the swatches in gray then.
+export function paintColor(c: [number, number, number], t: ReturnType<typeof editChannels>): [number, number, number] {
+  if (t.alpha.length || t.rgb.filter(Boolean).length !== 1) return c;
+  const g = Math.round(0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]);
+  return [g, g, g];
+}
+
+// A spot channel value (white: no ink) as printed: the ink multiplies the image by (1 - solidity) of
+// its coverage and covers it by solidity of it.
+export function spotInk(value: number, ink: [number, number, number], solidity: number) {
+  const c = (255 - value) / 255;
+  const m = c * (1 - solidity);
+  return { multiply: ink.map(v => Math.round(255 - (255 - v) * m)) as [number, number, number], cover: Math.round(c * solidity * 255) };
 }
 
 export const COMPOSITE: ChannelView = { rgb: [true, true, true], alpha: [] };

@@ -24,12 +24,14 @@ export interface PaintToolCtx {
   bgRef: RefObject<Rgb>; fgRef: RefObject<Rgb>; active: Active | null; docRef: RefObject<DocInfo | null>; strokeCounter: RefObject<number>;
   quickMask: boolean; perfRef: RefObject<PerfProbe | null>; setError: Dispatch<SetStateAction<string | null>>;
   lastStrokePoint: RefObject<Record<number, [number, number]>>; run: Run;
+  // Called after each painted step of a stroke, for views that follow it live.
+  onStep?: () => void;
 }
 
 export function usePaintTool(c: PaintToolCtx) {
   const {
     viewer, tool, toolOptionsRef, currentPreset, selectedPresetRef, brushLib, bgRef, fgRef, active, docRef, strokeCounter, quickMask, perfRef,
-    setError, lastStrokePoint, run,
+    setError, lastStrokePoint, run, onStep,
   } = c;
   // Brush, pencil, eraser and the stamp/heal brushes: pointermove samples are coalesced and sent as
   // one strokeTo per animation frame; the smoother runs on the document-space samples before they are queued.
@@ -52,6 +54,7 @@ export function usePaintTool(c: PaintToolCtx) {
         const resolved = performance.now();
         viewer.current?.invalidate(r.version, r.dirty);
         perfRef.current?.recordSample(r.version, { sampled, sent, resolved });
+        onStep?.();
       }, e => setError((e as Error).message));
     }
     function schedule() {

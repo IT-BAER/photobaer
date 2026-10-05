@@ -953,7 +953,7 @@ impl Engine {
 
     /// A saved channel's values of one display tile as 8-bit bytes, or null when the whole tile is its default.
     pub fn channel_tile(&self, id: u32, level: u32, tx: u32, ty: u32) -> Result<JsValue, JsError> {
-        match self.0.doc.channel_tile(id, level, tx, ty).map_err(err)? {
+        match self.0.channel_tile(id, level, tx, ty).map_err(err)? {
             Some(bytes) => Ok(js_sys::Uint8Array::from(bytes.as_slice()).into()),
             None => Ok(JsValue::NULL),
         }
@@ -1083,10 +1083,10 @@ impl Engine {
     /// device's profile file when it is not built in. Display tiles change, the document does not.
     /// Channels panel target: pixel edits change only the color channels set in `rgb` (three
     /// 0/1 bytes); selection-target edits paint saved channel `alpha` instead of the selection.
-    pub fn set_channel_target(&mut self, rgb: &[u8], alpha: Option<u32>) -> Result<(), JsError> {
+    pub fn set_channel_target(&mut self, rgb: &[u8], alpha: &[u32]) -> Result<(), JsError> {
         let [r, g, b] = rgb else { return Err(err("rgb must have three values".into())) };
         self.0.color_target = [*r != 0, *g != 0, *b != 0];
-        self.0.alpha_target = alpha;
+        self.0.alpha_targets = alpha.to_vec();
         Ok(())
     }
 

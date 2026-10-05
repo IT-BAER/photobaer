@@ -45,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Indexed Color > Custom opens the Color Table with the table the selected palette makes now.
 - The Color Table can load .act and .aco files and save .act files.
 - Save As ICO writes the standard icon sizes up to the image size (at most 256 px) instead of one image.
+- Channels panel: Shift+click targets several color channels or several saved channels; edits and strokes
+  change every targeted saved channel.
+- Painting, Edit > Fill and the quick fills use the paint color's gray while one color channel is targeted.
+- Spot channels preview as printed ink: multiplied over the image, covering it by the ink's solidity.
+- Saved channel thumbnails, the channel overlay and the quick mask follow a stroke while it paints.
+- Painting or filling a saved channel stays inside the active selection.
 
 ### Fixed
 

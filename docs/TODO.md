@@ -26,10 +26,9 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 - Camera RAW and DNG open with a develop workspace (Camera Raw Filter is done: Basic sliders and vignette).
 - Lens Correction automatic lens profiles and the grid/straighten tools; Adaptive Wide Angle constraint lines.
 - Auto-Align Layers: Cylindrical, Spherical and Collage projections; Photomerge Vignette Removal and Geometric Distortion Correction; Merge to HDR Pro tone-mapping options and picking files instead of open documents.
-- Channels panel rest: a targeted color channel takes the paint color's own channel value, not its gray; painting a
-  saved channel ignores the active selection; spot ink previews as an overlay, not multiplied; PSD export and import
-  carry no alpha or spot channels; Shift+click to target several channels; the panel shows a saved channel's
-  old values during a stroke.
+- Channels panel rest: PSD export and import carry no alpha or spot channels; color and saved channels cannot be
+  targeted together; the color swatches stay in color while one channel is targeted (painting uses the gray);
+  further targeted saved channels take a stroke when it ends, not live.
 - Formats rest: Import PDF has no Crop To boxes, size fields, mode/bit depth or Images extraction (pages only, ppi); EXR tiled, multi-part, deep and PIZ/PXR24/B44/DWA
   compression; EXR/HDR assume sRGB-encoded 32-bit documents (a non-sRGB profile is not linearized by its own
   curve); SVG opens at its own size without a rasterize dialog; 16/32-bit

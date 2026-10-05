@@ -36,7 +36,7 @@ import { ModeDialog, type ModeDialogHandle } from './ModeDialog.tsx';
 import { ColorDialog, type ColorDialogHandle } from './ColorDialog.tsx';
 import { PdfDialog, type PdfDialogHandle } from './PdfDialog.tsx';
 import type { OpenAction } from './app/colorSettings.ts';
-import { COMPOSITE, editChannels, GRAY_MATRIX, viewState, type ChannelView } from './app/channels.ts';
+import { COMPOSITE, editChannels, GRAY_MATRIX, paintColor, viewState, type ChannelView } from './app/channels.ts';
 import { PathsPanel } from './PathsPanel.tsx';
 import { ArtboardPanel, PropertiesPanel, ShapePanel, SmartFiltersPanel, VectorMaskPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
@@ -161,6 +161,7 @@ export function App() {
   const rulerTop = useRef<HTMLCanvasElement>(null);
   const rulerLeft = useRef<HTMLCanvasElement>(null);
   const pixelGridCanvas = useRef<HTMLCanvasElement>(null);
+  const inkCanvas = useRef<HTMLCanvasElement>(null);
   const rulersRef = useRef<Rulers | null>(null);
   const prefs = useRef(loadPreferences());
   const dragGuideRef = useRef<DragGuide | null>(null);
@@ -352,6 +353,12 @@ export function App() {
   const selectedPresetRef = useRef(selectedPresetId);
   selectedPresetRef.current = selectedPresetId;
   const strokeCounter = useRef(0);
+  // Bumped at most every 200 ms while a stroke paints, so quick mask and channel views follow it.
+  const [liveTick, setLiveTick] = useState(0);
+  const liveTimer = useRef(0);
+  const strokeStep = () => {
+    if (!liveTimer.current) liveTimer.current = window.setTimeout(() => { liveTimer.current = 0; setLiveTick(t => t + 1); }, 200);
+  };
   const activeTool = TOOLS[tool];
   const toolOptions = optionsByTool[tool] ?? loadToolOptions(activeTool);
   const setToolOptions = (v: ToolOptions) => setOptionsByTool(o => ({ ...o, [tool]: v }));
@@ -1205,8 +1212,11 @@ export function App() {
   }
 
   // A picked saved channel is painted through the selection target, as in quick mask.
-  const alphaEdit = !!doc?.channels.some(c => c.id === channelView.alphaTarget);
+  const alphaTargets = (channelView.alphaTargets ?? []).filter(id => doc?.channels.some(c => c.id === id));
+  const alphaEdit = alphaTargets.length > 0;
   const selEdit = quickMask || alphaEdit;
+  // The channels edits change, for handlers declared before it is computed below.
+  const paintTarget = useRef(editChannels(COMPOSITE));
   function editTarget(a: Active) { return selEdit ? 'selection' as const : a.target; }
 
   function openNewFillLayer(type: FillContentForm['type']) {
@@ -1306,7 +1316,7 @@ export function App() {
       if (id === undefined) throw new Error('The pattern is not available.');
       return { source: 'pattern', patternId: id, ...base };
     }
-    const rgb = { foreground: fg, background: bg, color: f.color, black: [0, 0, 0], gray: [128, 128, 128], white: [255, 255, 255] }[f.contents] as Rgb;
+    const rgb = paintColor({ foreground: fg, background: bg, color: f.color, black: [0, 0, 0], gray: [128, 128, 128], white: [255, 255, 255] }[f.contents] as Rgb, paintTarget.current);
     return { source: 'solid', rgba: [...rgb, 255], ...base };
   }
 
@@ -1520,7 +1530,7 @@ export function App() {
 
   function quickFill(rgb: Rgb, label: string) {
     if (!active) return;
-    run(null, () => client.call('fillEx', active.id, editTarget(active), { source: 'solid', rgba: [...rgb, 255], mode: 'normal', opacity: 1, preserveTransparency: false }, label));
+    run(null, () => client.call('fillEx', active.id, editTarget(active), { source: 'solid', rgba: [...paintColor(rgb, paintTarget.current), 255], mode: 'normal', opacity: 1, preserveTransparency: false }, label));
   }
 
   function openModify(op: keyof typeof MODIFY_OPS) {
@@ -1836,7 +1846,7 @@ export function App() {
         if (!alive) return;
         setRenderer(r.kind === 'webgpu' ? 'WebGPU' : 'WebGL2');
         const v = new Viewer(canvas.current!, r, makeTileSource(client, r));
-        overlayRef.current = new SelectionOverlay(overlayCanvas.current!);
+        overlayRef.current = new SelectionOverlay(overlayCanvas.current!, inkCanvas.current);
         rulersRef.current = new Rulers(rulerTop.current!, rulerLeft.current!, pixelGridCanvas.current!);
         v.onView = x => { setView({ zoom: x.zoom * v.dpr, rot: x.rot }); setFullView(x); redrawOverlay(); redrawRulers(); };
         v.guideHit = guideHit;
@@ -1967,7 +1977,8 @@ export function App() {
   const inkView = doc?.mode?.kind === 'cmyk' || doc?.mode?.kind === 'lab' ? channelState.ink : null;
   const channelFilter = channelMatrix ? 'url(#channel-view)' : undefined;
   useEffect(() => setChannelView(COMPOSITE), [doc?.key]);
-  const chTarget = editChannels({ ...channelView, alphaTarget: alphaEdit ? channelView.alphaTarget : undefined }, quickMask);
+  const chTarget = editChannels({ ...channelView, alphaTargets }, quickMask);
+  paintTarget.current = chTarget;
   useEffect(() => {
     if (!doc) return;
     const docId = doc.docId;
@@ -1978,10 +1989,9 @@ export function App() {
       });
     }
     return () => { alive = false; };
-  }, [doc?.docId, chTarget.rgb.join(), chTarget.alpha]);
+  }, [doc?.docId, chTarget.rgb.join(), chTarget.alpha.join()]);
   useEffect(() => {
     const overlay = overlayRef.current, a = channelState.alpha, mode = doc?.mode?.kind;
-    // ponytail: spot ink shows at half strength or more over the image, not multiplied like printed ink.
     const spot = a && !a.layer ? doc?.channels.find(c => c.id === a.id)?.spot : null;
     if (!overlay) return;
     if (!doc || (!a && inkView === null)) { overlay.setChannelOverlay(null, 0, 0, 1, 'gray'); redrawOverlay(); return; }
@@ -1990,12 +2000,12 @@ export function App() {
     const mask = a ? (a.layer ? client.call('layerMask', a.id, antsLevelValue) : client.call('channelMask', a.id, antsLevelValue)) : client.call('colorChannelMask', mode as 'cmyk' | 'lab', inkView!, antsLevelValue);
     mask.then(r => {
       if (!alive || r.docId !== docId || !r.data) return;
-      overlay.setChannelOverlay(new Uint8Array(r.data), r.w, r.h, 1 << antsLevelValue, spot && a?.mode === 'tint' ? { ink: spot.color, k: 0.5 + 0.5 * spot.solidity } : a ? a.mode : 'gray');
+      overlay.setChannelOverlay(new Uint8Array(r.data), r.w, r.h, 1 << antsLevelValue, spot && a?.mode === 'tint' ? { ink: spot.color, solidity: spot.solidity } : a ? a.mode : 'gray');
       redrawOverlay();
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc?.docId, doc?.version, channelState.alpha?.id, channelState.alpha?.mode, channelState.alpha?.layer, inkView, antsLevelValue]);
+  }, [doc?.docId, doc?.version, channelState.alpha?.id, channelState.alpha?.mode, channelState.alpha?.layer, inkView, antsLevelValue, selEdit ? liveTick : 0]);
 
   useEffect(() => {
     const overlay = overlayRef.current;
@@ -2015,7 +2025,7 @@ export function App() {
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc?.selGen, antsLevelValue, doc?.docId, quickMask]);
+  }, [doc?.selGen, antsLevelValue, doc?.docId, quickMask, quickMask ? liveTick : 0]);
 
   useSelectionTools({
     viewer, dragRef, polygonRef, lastPolyDownRef, overlayRef, magneticRef, tool, polygonActionsRef, toolOptionsRef, polygonModeRef, show, docRef,
@@ -2031,9 +2041,9 @@ export function App() {
   const lastUsedRef = useRef(lastUsed);
   lastUsedRef.current = lastUsed;
   const fgRef = useRef(fg);
-  fgRef.current = fg;
+  fgRef.current = paintColor(fg, chTarget);
   const bgRef = useRef(bg);
-  bgRef.current = bg;
+  bgRef.current = paintColor(bg, chTarget);
   setColorSource(() => ({ foreground: rgbToHex(fgRef.current), background: rgbToHex(bgRef.current) }));
 
   useGradientTool({
@@ -2136,7 +2146,7 @@ export function App() {
 
   usePaintTool({
     viewer, tool, toolOptionsRef, currentPreset, selectedPresetRef, brushLib, bgRef, fgRef, active, docRef, strokeCounter, quickMask: selEdit, perfRef,
-    setError, lastStrokePoint, run,
+    setError, lastStrokePoint, run, onStep: strokeStep,
   });
 
   const retouch = { viewer, canvas, overlayRef, redrawOverlay, tool, active, docRef, toolOptionsRef, run, setError };
@@ -2490,6 +2500,7 @@ export function App() {
                 <feColorMatrix type="matrix" values={channelMatrix ?? '1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0'} />
               </filter>
             </svg>
+            <canvas ref={inkCanvas} className="overlay ink" />
             <canvas ref={pixelGridCanvas} className="overlay" />
             <canvas ref={overlayCanvas} className="overlay" />
             <canvas ref={rulerTop} className="ruler ruler-top" style={{ display: showRulers ? 'block' : 'none' }} />
@@ -2609,7 +2620,7 @@ export function App() {
                 openLayerStyle={(id, page) => openLayerStyle(page, id)}
               /></DockSection>
               <DockSection {...sec('history', 'History')} edge="top"><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>
-              {showChannels && <DockSection {...sec('channels', 'Channels')} edge="top"><ChannelsPanel doc={doc} run={run} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} /></DockSection>}
+              {showChannels && <DockSection {...sec('channels', 'Channels')} edge="top"><ChannelsPanel doc={doc} run={run} live={selEdit ? liveTick : 0} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} /></DockSection>}
               {showLayerComps && <DockSection {...sec('layerComps', 'Layer Comps')} edge="top"><LayerCompsPanel doc={doc} run={run} /></DockSection>}
               {showActions && <DockSection {...sec('actions', 'Actions')} edge="top"><ActionsPanel has active={active} run={run} setError={setError} /></DockSection>}
               {showPaths && <DockSection {...sec('paths', 'Paths')} edge="top"><PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} /></DockSection>}
