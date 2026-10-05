@@ -4,6 +4,8 @@ An MCP server that lets Claude Code, Codex and other MCP clients edit images in 
 
 The editing runs in a photobaer browser tab. This server runs on your computer, talks to the agent over stdio and to the tab over a WebSocket on 127.0.0.1. Images go from your disk to the tab and back; nothing is uploaded to photobaer.com.
 
+Every edit happens in that tab, so you can watch the document change live while the agent works. History lists each step; undo works as usual.
+
 ## Setup
 
 Needs Node.js 20 or newer.

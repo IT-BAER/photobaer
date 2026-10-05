@@ -4,8 +4,6 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 
 ## Not yet placed in a milestone
 - PSD Puppet Warp import: check the vertex space against a Photoshop file (deferred, no sample file).
-- User feedback (5 October 2026): live view of agent edits over the MCP: users can watch the document in the
-  browser while an agent edits it through the MCP.
 
 ## M6 Color and photo
 - Image > Mode rest: Duotone data is not read from or written to PSD (the color-mode data is undocumented);
