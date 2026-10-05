@@ -857,6 +857,25 @@ test('an Exposure layer in a 32-bit document exports values above 1 to EXR', asy
   assert.ok(Math.abs(img.data[0] - want) < 0.01, `linear red ${img.data[0]}, want ${want}`);
 });
 
+test('Highlight Compression measures the brightest value again after an edit', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 32, null);
+  await call('command', 'fill', 1, 'pixels', [204, 204, 204, 255]);
+  await call('select', { kind: 'rect', x: 4, y: 0, w: 4, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 1, 'pixels', [255, 255, 255, 255]);
+  await call('selectCommand', 'deselect');
+  const exposure = { kind: 'exposure', params: { exposure: 1, offset: 0, gamma: 1 } };
+  await call('adjust', 1, exposure, 'Exposure');
+  const hdr = { method: 'highlightCompression', exposure: 0, gamma: 1 };
+  await call('setView', { hdr });
+  const red = async () => new Uint8Array(((await call('displayTile', 0, 0, 0)).result as { data: ArrayBuffer }).data)[0];
+  await call('adjust', 1, exposure, 'Exposure');
+  const after = await red();
+  await call('setView', { hdr });
+  assert.equal(after, await red(), 'the same tone as a fresh Highlight Compression');
+  await call('setView', { hdr: { method: 'exposureAndGamma', exposure: 0, gamma: 1 } });
+});
+
 test('32 -> 16 Bits/Channel with Merge and HDR Toning keeps values above 1 apart, one step', async () => {
   await call('init');
   await call('newDoc', 8, 8, 32, null);
@@ -986,8 +1005,9 @@ test('Image > Mode > CMYK Color separates with the working CMYK; RGB Color conve
   await call('newDoc', 64, 64, 8, [0, 0, 255, 255]);
   const off = (await call('setColorMode', { mode: 'cmyk' })).result as I;
   assert.equal(off.mode?.kind, 'cmyk');
-  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [0, 0, 255, 255], 'color management off: flag only');
-  assert.equal((await call('cmykSeparation')).result, null, 'no CMYK profile: plain formula');
+  assert.equal(off.profile, null, 'color management off: untagged');
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, blue, 'color management off: separates through the default CMYK');
+  assert.equal(((await call('cmykSeparation')).result as Float32Array).length, 17 ** 3 * 4);
 });
 
 test('Image > Mode > Lab Color reads a tagged document as sRGB numbers; RGB Color converts to the working RGB', async () => {
@@ -1003,6 +1023,7 @@ test('Image > Mode > Lab Color reads a tagged document as sRGB numbers; RGB Colo
   assert.equal(lr.error, undefined);
   const lab = lr.result as I;
   assert.equal(lab.mode?.kind, 'lab');
+  assert.equal(lab.profile, null, 'Lab has no RGB tag');
   assert.deepEqual(lab.history.labels.slice(-1), ['Lab Color']);
   const srgb = await px();
   assert.ok(Math.abs(srgb[0] - 100) > 10 && Math.abs(srgb[2] - 50) > 10, `Adobe RGB as sRGB numbers: ${srgb}`);
@@ -1015,6 +1036,15 @@ test('Image > Mode > Lab Color reads a tagged document as sRGB numbers; RGB Colo
   assert.equal(back.profile?.name, 'Adobe RGB (1998)');
   const rgb = await px();
   assert.ok(rgb.every((v, i) => Math.abs(v - [100, 150, 50, 255][i]) <= 2), `round trip: ${rgb}`);
+  await call('newDoc', 64, 64, 8, [200, 50, 10, 255]);
+  await call('setColorMode', { mode: 'gray' });
+  const direct = await px();
+  await call('undo');
+  await call('setColorMode', { mode: 'lab' });
+  const g = (await call('setColorMode', { mode: 'gray' })).result as I;
+  assert.equal(g.profile?.name, 'Dot Gain 20%', 'Lab to Grayscale converts to the working Gray');
+  const viaLab = await px();
+  assert.ok(viaLab.every((v, i) => Math.abs(v - direct[i]) <= 2), `same gray as from RGB: ${viaLab} vs ${direct}`);
   await call('setColorSettings', null);
 });
 
@@ -1222,6 +1252,20 @@ test('Image > Mode > Indexed Color: Custom table as given, Previous reuses the l
   await call('setColorMode', matte);
   assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [128, 0, 0, 255], 'half red over the black matte');
   assert.deepEqual((await call('previousColorTable')).result, matte.table);
+});
+
+test('Indexed Color: the live table of a palette is the table the conversion uses (Custom starts from it)', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  await call('command', 'fill', 1, 'pixels', [200, 50, 10, 255]);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 4, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 1, 'pixels', [10, 90, 220, 255]);
+  await call('selectCommand', 'deselect');
+  const spec = { mode: 'indexed', palette: 'adaptive', colors: 8, forced: 'black_white', transparency: true, dither: 'none', amount: 0.75 };
+  const live = (await call('indexedTable', spec)).result as number[][];
+  assert.ok(live.length >= 4, `forced black and white plus the image colors: ${JSON.stringify(live)}`);
+  const ix = (await call('setColorMode', spec)).result as { mode: { table: number[][] } };
+  assert.deepEqual(live, ix.mode.table);
 });
 
 test('Image > Mode > Duotone: ink curves and overprint colors reach the mode; spelled-out defaults store as plain inks', async () => {
@@ -3349,6 +3393,20 @@ test('every tab reports its mode and depth', async () => {
   await call('newDoc', 64, 64, 8, null);
   const d = (await call('newDoc', 32, 32, 16, null)).result as { docs: { mode: string; depth: number }[] };
   assert.deepEqual(d.docs.slice(-2).map(t => [t.mode, t.depth]), [['RGB', 8], ['RGB', 16]]);
+});
+
+test('a proofed tab names its proof: (RGB/8/CMYK)', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  type T = { docs: { active: boolean; proof: string | null }[] };
+  const proof = (r: unknown) => (r as T).docs.find(t => t.active)!.proof;
+  assert.equal(proof((await call('setView', { proofColors: false })).result), null);
+  assert.equal(proof((await call('setView', { proofColors: true })).result), 'CMYK');
+  const custom = { id: 'custom', profile: 'Adobe RGB (1998)', intent: 'relativeColorimetric', bpc: true, preserveNumbers: false, simulatePaper: false, simulateBlackInk: false };
+  assert.equal(proof((await call('setView', { setup: custom })).result), 'Adobe RGB (1998)');
+  const before = (await call('newDoc', 32, 32, 8, null)).result as T;
+  assert.deepEqual(before.docs.slice(-2).map(t => t.proof), ['Adobe RGB (1998)', null], 'per tab');
+  await call('setView', { proofColors: false });
 });
 
 type Named = DirtyTab & { name: string };

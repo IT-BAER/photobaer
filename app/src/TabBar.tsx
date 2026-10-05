@@ -64,7 +64,7 @@ export function TabBar({ doc, switchTo, close, move }: { doc: DocInfo; switchTo:
             onAuxClick={e => { if (e.button === 1) { e.preventDefault(); close(t.key); } }}
             onMouseDown={e => { if (e.button === 1) e.preventDefault(); }}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!t.active) switchTo(t.key); } }}>
-            <span className="doc-tab-name">{t.name}{t.dirty ? '*' : ''}<span className="doc-tab-mode"> ({t.mode}/{t.depth})</span></span>
+            <span className="doc-tab-name">{t.name}{t.dirty ? '*' : ''}<span className="doc-tab-mode"> ({t.mode}/{t.depth}{t.proof ? `/${t.proof}` : ''})</span></span>
             <button type="button" className="doc-tab-close" aria-label={`Close ${t.name}`} tabIndex={-1}
               onClick={e => { e.stopPropagation(); close(t.key); }}><X size={12} aria-hidden /></button>
           </div>

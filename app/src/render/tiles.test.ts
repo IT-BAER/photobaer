@@ -11,20 +11,25 @@ initSync({ module: readFileSync(new URL('../engine-pkg/photobaer_engine_bg.wasm'
 
 // A worker stand-in: one engine per document, docId counts up like engine.worker.ts.
 function fakeClient() {
-  let e: Engine, docId = 0;
+  let e: Engine, docId = 0, version = 1;
   const open = (depth: number, r: number, g: number, b: number) => {
     e = new Engine(300, 200, depth);
     e.fill(1, 'pixels', r, g, b, 255);
     docId++;
   };
+  // A view change bumps the version, as the worker's setView does.
+  const view = (v: object) => {
+    e.set_view(JSON.stringify(v), new Uint8Array());
+    version++;
+  };
   const client = {
     call: async (op: string, level: number, tx: number, ty: number, known?: BigUint64Array) => {
-      if (op === 'displayProgram') return { docId, version: 1, data: e.display_program(level, tx, ty, known!).buffer };
+      if (op === 'displayProgram') return { docId, version, data: e.display_program(level, tx, ty, known!).buffer };
       const px = e.display_tile(level, tx, ty) as Uint8Array | undefined;
-      return { docId, version: 1, data: px ? px.buffer : null };
+      return { docId, version, data: px ? px.buffer : null };
     },
   } as unknown as EngineClient;
-  return { client, open };
+  return { client, open, view };
 }
 
 // A GPU stand-in: the payload cache holds tile bytes; `run` "draws" the first pixel of the first source tile.
@@ -110,4 +115,25 @@ test('switching through a 16-bit document still drops the first document\'s GPU 
     console.warn = warn;
   }
   assert.deepEqual(drawn.at(-1), [0, 255, 0, 255]);
+});
+
+test('turning Proof Colors off brings the GPU path back without reopening the document', async () => {
+  const { client, open, view } = fakeClient();
+  const { r, drawn, uploads } = fakeRenderer();
+  const src = makeTileSource(client, r);
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    open(8, 255, 0, 0);
+    view({ setup: { kind: 'device', profile: 'Coated Offset CMYK (analytic)' }, proofColors: true });
+    (await src(0, 0, 0)).fill!(0);
+    (await src(0, 0, 0)).fill!(0);
+    assert.equal(uploads.length, 2, 'proofing shows CPU tiles');
+    view({ setup: { kind: 'device', profile: 'Coated Offset CMYK (analytic)' }, proofColors: false });
+    (await src(0, 0, 0)).fill!(0);
+    (await src(0, 0, 0)).fill!(0);
+  } finally {
+    console.warn = warn;
+  }
+  assert.deepEqual(drawn, [[255, 0, 0, 255]], 'GPU again after proofing ends');
 });

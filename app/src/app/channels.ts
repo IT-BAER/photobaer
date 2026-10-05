@@ -62,10 +62,11 @@ export function inkThumb(rgba: Uint8Array, mode: 'cmyk' | 'lab', ch: number, sep
   return out;
 }
 
-// What edits change: the color channels of a partial R/G/B view, and the picked saved channel.
-export function editChannels(v: ChannelView): { rgb: [boolean, boolean, boolean]; alpha: number | null } {
+// What edits change: the color channels of a partial R/G/B view, and the picked saved channel
+// unless Quick Mask is on (edits then go into the quick mask).
+export function editChannels(v: ChannelView, quickMask = false): { rgb: [boolean, boolean, boolean]; alpha: number | null } {
   const partial = v.ink == null && v.rgb.some(Boolean) && !v.rgb.every(Boolean);
-  return { rgb: partial ? v.rgb : [true, true, true], alpha: v.alphaTarget ?? null };
+  return { rgb: partial ? v.rgb : [true, true, true], alpha: quickMask ? null : v.alphaTarget ?? null };
 }
 
 export const COMPOSITE: ChannelView = { rgb: [true, true, true], alpha: [] };

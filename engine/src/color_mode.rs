@@ -228,8 +228,8 @@ pub fn overprint_sets(n: usize) -> Vec<u32> {
     v
 }
 
-// Ink fraction 0..1 printed at ink fraction `x`: linear between set points; an empty end point
-// keeps its identity value (Photoshop draws a smooth curve through them).
+// Ink fraction 0..1 printed at ink fraction `x`: a monotone cubic (Fritsch-Carlson PCHIP) through
+// the set points; an empty end point keeps its identity value.
 fn ink_curve(c: &InkCurve, x: f32) -> f32 {
     let x = x.clamp(0.0, 1.0) * 100.0;
     let at = |i: usize| c[i].or(match i {
@@ -238,9 +238,32 @@ fn ink_curve(c: &InkCurve, x: f32) -> f32 {
         _ => None,
     });
     let pts: Vec<(f32, f32)> = (0..13).filter_map(|i| at(i).map(|v| (INK_CURVE_INPUTS[i], v))).collect();
-    let k = pts.partition_point(|p| p.0 < x).clamp(1, pts.len() - 1);
+    let n = pts.len();
+    let h: Vec<f32> = pts.windows(2).map(|w| w[1].0 - w[0].0).collect();
+    let d: Vec<f32> = pts.windows(2).map(|w| (w[1].1 - w[0].1) / (w[1].0 - w[0].0)).collect();
+    // End slopes by the three-point formula, kept to the secant's sign; inner ones by the weighted harmonic mean.
+    let end = |h0: f32, h1: f32, d0: f32, d1: f32| {
+        let m = ((2.0 * h0 + h1) * d0 - h0 * d1) / (h0 + h1);
+        if m * d0 <= 0.0 { 0.0 } else if d0 * d1 < 0.0 && m.abs() > 3.0 * d0.abs() { 3.0 * d0 } else { m }
+    };
+    let m: Vec<f32> = (0..n)
+        .map(|i| match i {
+            _ if n == 2 => d[0],
+            0 => end(h[0], h[1], d[0], d[1]),
+            _ if i == n - 1 => end(h[n - 2], h[n - 3], d[n - 2], d[n - 3]),
+            _ if d[i - 1] * d[i] <= 0.0 => 0.0,
+            _ => {
+                let (w1, w2) = (2.0 * h[i] + h[i - 1], h[i] + 2.0 * h[i - 1]);
+                (w1 + w2) / (w1 / d[i - 1] + w2 / d[i])
+            }
+        })
+        .collect();
+    let k = pts.partition_point(|p| p.0 < x).clamp(1, n - 1);
     let ((x0, y0), (x1, y1)) = (pts[k - 1], pts[k]);
-    ((y0 + (y1 - y0) * (x - x0) / (x1 - x0)) / 100.0).clamp(0.0, 1.0)
+    let (hk, t) = (x1 - x0, (x - x0) / (x1 - x0));
+    let (t2, t3) = (t * t, t * t * t);
+    let y = (2.0 * t3 - 3.0 * t2 + 1.0) * y0 + (t3 - 2.0 * t2 + t) * hk * m[k - 1] + (-2.0 * t3 + 3.0 * t2) * y1 + (t3 - t2) * hk * m[k];
+    (y / 100.0).clamp(0.0, 1.0)
 }
 
 /// A Duotone document's display: each ink's density through its curve, then n-linear
@@ -531,6 +554,17 @@ impl Document {
         Ok(table)
     }
 
+    /// The color table an Indexed Color `spec` converts with, for Custom to start from.
+    pub fn indexed_table(&self, spec: &ModeSpec) -> Result<Vec<[u8; 3]>, String> {
+        let ModeSpec::Indexed { palette, table, colors, forced, transparency, matte, .. } = spec else {
+            return Err("not an Indexed Color mode".into());
+        };
+        match palette {
+            Palette::Custom => Ok(table.clone()),
+            _ => self.build_table(*palette, *colors, *forced, *transparency, matte.map(|m| m.map(|v| v as f32 / 255.0))),
+        }
+    }
+
     /// Image > Mode: converts to `spec`; false when the document is already in that mode.
     pub fn set_color_mode(&mut self, spec: &ModeSpec) -> Result<bool, String> {
         self.check_idle()?;
@@ -665,7 +699,7 @@ impl Document {
             ModeSpec::Multichannel => (false, Some(ColorMode::Multichannel)),
         };
         d.vector.gray = gray;
-        if matches!(mode, Some(ColorMode::Bitmap | ColorMode::Duotone { .. } | ColorMode::Multichannel)) {
+        if matches!(mode, Some(ColorMode::Bitmap | ColorMode::Duotone { .. } | ColorMode::Multichannel | ColorMode::Lab)) {
             d.vector.profile = None;
         }
         d.vector.mode = mode;
@@ -940,8 +974,9 @@ mod tests {
         let map = DuotoneMap::new(&black, &[c], &[]);
         let at = |g: f32| map.color(g)[0];
         assert!((at(0.5) - 0.2).abs() < 1e-5, "{}", at(0.5));
-        assert!((at(0.75) - 0.6).abs() < 1e-5, "25% ink: 40% output, {}", at(0.75));
-        assert!((at(0.25) - 0.1).abs() < 1e-5, "75% ink: 90% output, {}", at(0.25));
+        // Monotone cubic (Fritsch-Carlson) through (0, 0), (50, 80), (100, 100): 49.75 % at 25 %, 94 % at 75 %.
+        assert!((at(0.75) - 0.5025).abs() < 1e-4, "25% ink: smooth, above the 40% chord, {}", at(0.75));
+        assert!((at(0.25) - 0.06).abs() < 1e-4, "75% ink: 94% output, {}", at(0.25));
         assert_eq!((at(1.0), at(0.0)), (1.0, 0.0));
         let mut flat = [None; 13];
         flat[0] = Some(10.0);
@@ -1086,6 +1121,10 @@ mod tests {
         assert!(d.set_color_mode(&ModeSpec::Multichannel).unwrap());
         assert!(d.profile().is_none());
         assert!(d.assign_profile(Some(&gray)).is_err());
+        d.set_color_mode(&ModeSpec::Rgb).unwrap();
+        d.assign_profile(Some(&crate::icc::Profile::builtin(crate::icc::SRGB).unwrap())).unwrap();
+        assert!(d.set_color_mode(&ModeSpec::Lab).unwrap());
+        assert!(d.profile().is_none(), "Lab drops the RGB tag");
     }
 
     #[test]

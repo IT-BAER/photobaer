@@ -46,6 +46,14 @@ const PLATES: Partial<Record<ProofId, [boolean, boolean, boolean, boolean]>> = {
   workingCmyPlate: [true, true, true, false],
 };
 
+// The proof as the document tab names it, e.g. "CMYK" in (RGB/8/CMYK); custom: the profile name.
+export function proofLabel(s: ProofSetup): string {
+  if (s.id === 'custom') return s.profile ?? 'CMYK';
+  if (s.id === 'workingCmyk') return 'CMYK';
+  const label = PROOF_PRESETS.find(p => p[0] === s.id)![1];
+  return label.replace(/^Working |^Color Blindness — |-type$/g, '');
+}
+
 export const LEGACY_MAC = 'Legacy Macintosh RGB (Gamma 1.8)';
 export const HDR_EXPOSURE = 20;
 export const HDR_GAMMA: [number, number] = [0.1, 10];

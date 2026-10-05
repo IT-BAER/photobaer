@@ -880,6 +880,12 @@ impl Engine {
         self.0.doc.set_color_mode(&spec).map_err(err)
     }
 
+    /// `[[r, g, b], ...]`: the table Image > Mode > Indexed Color `spec` converts with.
+    pub fn indexed_table(&self, spec: &str) -> Result<String, JsError> {
+        let spec: crate::doc::color_mode::ModeSpec = serde_json::from_str(spec).map_err(|e| err(format!("invalid mode: {e}")))?;
+        Ok(serde_json::to_string(&self.0.doc.indexed_table(&spec).map_err(err)?).expect("plain JSON"))
+    }
+
     /// Image > Mode > Color Table: `[[r, g, b], ...]`, as long as the current table.
     pub fn set_color_table(&mut self, table: &str) -> Result<bool, JsError> {
         let table: Vec<[u8; 3]> = serde_json::from_str(table).map_err(|e| err(format!("invalid color table: {e}")))?;
@@ -1098,6 +1104,13 @@ impl Engine {
         v.hdr_max = if self.0.doc.depth() == 32 { self.0.doc.brightest() } else { 1.0 };
         self.0.view = v;
         Ok(())
+    }
+
+    /// Measures the brightest value again for Highlight Compression after an edit (32-bit only).
+    pub fn refresh_hdr_max(&mut self) {
+        if self.0.doc.depth() == 32 {
+            self.0.view.hdr_max = self.0.doc.brightest();
+        }
     }
 
     pub fn flatten_tile_rgba8(&self, tx: u32, ty: u32) -> Result<Vec<u8>, JsError> {

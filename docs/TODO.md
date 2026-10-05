@@ -10,34 +10,29 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   start and continue outside the canvas (the selection is clipped to the document, the pointer is not).
 
 ## M6 Color and photo
-- Image > Mode rest: Duotone curves interpolate linearly (Photoshop draws a smooth curve); Indexed Custom starts
-  from the document's table, not the live Adaptive one; the Color Table editor cannot load or save table files;
-  Duotone data is not read from or written to PSD. Modes are flags over RGB storage: color pickers still offer
+- Image > Mode rest: Duotone data is not read from or written to PSD (the color-mode data is undocumented);
+  the Duotone curve icons draw straight lines between the set points. Modes are flags over RGB storage: color pickers still offer
   RGB; PSD export stays RGB (also for Grayscale documents).
 - 32 bits per channel: the paint color is 8-bit (no HDR color picker) and non-Normal paint modes clip at 1.0;
   layers kept in blend modes outside Photoshop's 32-bit list clip; Blur Gallery is disabled in 32-bit
   (Photoshop support unverified); 32 -> 16/8 Bits/Channel with Don't Merge clips (Photoshop reportedly applies
   Local Adaptation per layer, unverified).
-- Color management rest: with color management off, Image > Mode > CMYK Color only sets the flag and the
-  CMYK channel views use a plain formula; a Lab document made with color management off keeps its old
-  RGB tag; Lab to Grayscale is a plain luma, not a profile conversion; WebP export embeds no profile;
+- Color management rest: WebP export embeds no profile;
   Color Settings Advanced (desaturate monitor colors, blend RGB with gamma) and ColorSync/older-version presets;
   paste and drag between documents with different profiles; Gray profiles are not embedded on export;
   loaded profiles as working spaces; Assign Profile live preview; open-time
   conversion converts pixel layers only (text, shape and adjustment layers keep their numbers).
-- Proofing rest: a document that was proofed stays on CPU display tiles until reopened; profile gamut tags are
-  ignored (Delta E test only); the proof is not named in the tab; Highlight Compression measures the brightest
-  value when the option is set, not after later edits.
+- Proofing rest: profile gamut tags are ignored (Delta E test only).
 - Camera RAW and DNG open with a develop workspace (Camera Raw Filter is done: Basic sliders and vignette).
 - Lens Correction automatic lens profiles and the grid/straighten tools; Adaptive Wide Angle constraint lines.
 - Auto-Align Layers: Cylindrical, Spherical and Collage projections; Photomerge Vignette Removal and Geometric Distortion Correction; Merge to HDR Pro tone-mapping options and picking files instead of open documents.
 - Channels panel rest: a targeted color channel takes the paint color's own channel value, not its gray; painting a
   saved channel ignores the active selection; spot ink previews as an overlay, not multiplied; PSD export and import
-  carry no alpha or spot channels; Shift+click to target several channels; with Quick Mask on and a saved
-  channel picked, painting goes into the channel; the panel shows a saved channel's old values during a stroke.
+  carry no alpha or spot channels; Shift+click to target several channels; the panel shows a saved channel's
+  old values during a stroke.
 - Formats rest: Import PDF has no Crop To boxes, size fields, mode/bit depth or Images extraction (pages only, ppi); EXR tiled, multi-part, deep and PIZ/PXR24/B44/DWA
   compression; EXR/HDR assume sRGB-encoded 32-bit documents (a non-sRGB profile is not linearized by its own
-  curve); SVG opens at its own size without a rasterize dialog; ICO writes one PNG entry up to 256 px; 16/32-bit
+  curve); SVG opens at its own size without a rasterize dialog; 16/32-bit
   PSD/PSB export.
 
 ## M7 AI (local, in the browser)

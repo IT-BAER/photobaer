@@ -5,7 +5,7 @@ import type { DocInfo } from './engine.worker.ts';
 import type { BitmapMethod, InkCurve, ModeSpec } from './worker/types.ts';
 import type { BrushLibrary } from './brushes/store.ts';
 import { PatternPicker } from './PresetPanels.tsx';
-import { colorTablePreset, TABLE_PRESETS } from './app/colorTable.ts';
+import { colorTablePreset, fitTable, readTableFile, TABLE_PRESETS, writeAct } from './app/colorTable.ts';
 
 type Rgb3 = [number, number, number];
 export type ModeDialogKind = 'bitmap' | 'duotone' | 'indexed' | 'table';
@@ -26,9 +26,34 @@ const MATTES: [string, string][] = [['none', 'None'], ['foreground', 'Foreground
   ['black', 'Black'], ['gray', '50% Gray'], ['netscape', 'Netscape Gray'], ['custom', 'Custom...']];
 const MATTE_RGB: Record<string, Rgb3> = { white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128], netscape: [191, 191, 191] };
 
-// Color Table grid with its preset select; presets resample to the table length.
-function TableEditor({ table, preset, set }: { table: Rgb3[]; preset: string; set: (table: Rgb3[], preset: string) => void }) {
+// Color Table grid with its preset select, Load (.act, .aco) and Save (.act); presets resample to
+// the table length, and with `fixed` (an Indexed document's table) a loaded table fits it too.
+function TableEditor({ table, preset, fixed = false, set, onError }: {
+  table: Rgb3[]; preset: string; fixed?: boolean; set: (table: Rgb3[], preset: string) => void; onError: (msg: string) => void;
+}) {
+  const file = useRef<HTMLInputElement>(null);
+  async function load(f: File) {
+    try {
+      const t = readTableFile(f.name, new Uint8Array(await f.arrayBuffer()));
+      set(fixed ? fitTable(t, table.length) : t, 'custom');
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  }
+  function save() {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([writeAct(table)], { type: 'application/octet-stream' }));
+    a.download = 'Color Table.act';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
+  }
   return (<>
+    <div className="row">
+      <button type="button" onClick={() => file.current?.click()}>Load...</button>
+      <button type="button" onClick={save}>Save...</button>
+      <input ref={file} type="file" hidden accept=".act,.aco" aria-label="Load color table"
+        onChange={e => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void load(f); }} />
+    </div>
     <label>Table <select aria-label="Table" value={preset} onChange={e => {
       const p = e.currentTarget.value;
       set(p === 'custom' ? table : colorTablePreset(p, table.length), p);
@@ -130,8 +155,13 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
   const name = { bitmap: 'Bitmap', duotone: 'Duotone Options', indexed: 'Indexed Color', table: 'Color Table' }[kind ?? 'bitmap'];
   const fixedCount = ix.palette !== 'uniform' && ix.palette !== 'adaptive';
   const ownTable = ix.palette === 'custom' || ix.palette === 'previous';
-  // Custom starts from its last table, the document's table, the previous one, or a gray ramp.
-  const customStart = () => ix.table ?? (doc?.mode?.kind === 'indexed' ? doc.mode.table : null) ?? previous ?? colorTablePreset('grayscale', ix.colors);
+  // Custom starts from its last table, the document's table, or the table the chosen palette makes now.
+  const customStart = async (): Promise<Rgb3[]> => {
+    const own = ix.table ?? (doc?.mode?.kind === 'indexed' ? doc.mode.table : null) ?? (ix.palette === 'previous' ? previous : null);
+    if (own) return own;
+    const live = ix.palette === 'custom' ? null : await client.call('indexedTable', indexed()).catch(() => null);
+    return live ?? previous ?? colorTablePreset('grayscale', ix.colors);
+  };
   function openSub(e: { ink: number; curve: InkCurve } | { over: Rgb3[] } | { table: Rgb3[]; preset: string }) {
     setEdit(e);
     sub.current?.showModal();
@@ -205,7 +235,7 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
           {kind === 'indexed' && <>
             <label>Palette <select aria-label="Palette" value={ix.palette} onChange={e => {
               const p = e.currentTarget.value as Indexed['palette'];
-              if (p === 'custom') openSub({ table: customStart(), preset: 'custom' });
+              if (p === 'custom') void customStart().then(table => openSub({ table, preset: 'custom' }));
               else setIx({ ...ix, palette: p, ...(p === 'previous' && previous ? { colors: previous.length } : {}) });
             }}>
               <option value="exact">Exact</option>
@@ -215,7 +245,7 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
               <option value="custom">Custom...</option>
               <option value="previous" disabled={!previous}>Previous</option>
             </select></label>
-            {ix.palette === 'custom' && <button type="button" onClick={() => openSub({ table: customStart(), preset: 'custom' })}>Edit Table...</button>}
+            {ix.palette === 'custom' && <button type="button" onClick={() => void customStart().then(table => openSub({ table, preset: 'custom' }))}>Edit Table...</button>}
             <label>Colors <input type="number" aria-label="Colors" min={2} max={256} disabled={fixedCount} value={ix.colors}
               onChange={e => { const v = Math.round(Number(e.currentTarget.value)); if (Number.isFinite(v)) setIx({ ...ix, colors: Math.min(256, Math.max(2, v)) }); }} /></label>
             <label>Forced <select aria-label="Forced" value={ix.forced} disabled={ownTable} onChange={e => setIx({ ...ix, forced: e.currentTarget.value as Indexed['forced'] })}>
@@ -238,7 +268,7 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
             <label>Amount <input type="number" aria-label="Amount" min={0} max={100} disabled={ix.dither === 'none'} value={Math.round(ix.amount * 100)}
               onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setIx({ ...ix, amount: Math.min(100, Math.max(0, v)) / 100 }); }} /> %</label>
           </>}
-          {kind === 'table' && <TableEditor table={table} preset={preset} set={(t, p) => { setTable(t); setPreset(p); }} />}
+          {kind === 'table' && <TableEditor table={table} preset={preset} fixed set={(t, p) => { setTable(t); setPreset(p); }} onError={setError} />}
           <div className="actions">
             <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
             <button type="submit" className="primary" disabled={kind === 'bitmap' && method === 'custom' && !pattern}>OK</button>
@@ -261,7 +291,7 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
               ))}
             </div>
           ) : 'table' in edit ? (
-            <TableEditor table={edit.table} preset={edit.preset} set={(table, preset) => setEdit({ table, preset })} />
+            <TableEditor table={edit.table} preset={edit.preset} set={(table, preset) => setEdit({ table, preset })} onError={setError} />
           ) : overprintSets(inks.length).map((s, i) => (
             <label key={i}>{s.map(v => v + 1).join(' + ')} <input type="color" aria-label={`Overprint ${s.map(v => v + 1).join('+')}`} value={hex(edit.over[i])}
               onChange={e => { const v = rgb(e.currentTarget.value); setEdit({ over: edit.over.map((x, j) => (j === i ? v : x)) }); }} /></label>

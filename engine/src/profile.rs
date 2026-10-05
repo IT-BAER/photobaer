@@ -248,13 +248,14 @@ impl Document {
     }
 
     /// The ink values (C, M, Y, K in 0..1) of stored sRGB numbers through the CMYK document's
-    /// profile, sampled on `grid`^3 points, red slowest; empty when there is no CMYK profile.
+    /// profile (untagged: the default CMYK), sampled on `grid`^3 points, red slowest; empty unless
+    /// the document is CMYK.
     pub fn cmyk_separation(&self, grid: usize) -> Vec<f32> {
-        let Some(p) = self.vector.profile.as_ref().and_then(|p| p.resolve().ok()) else { return vec![] };
-        if self.vector.mode != Some(super::color_mode::ColorMode::Cmyk) || p.space != Space::Cmyk || grid < 2 {
+        if self.vector.mode != Some(super::color_mode::ColorMode::Cmyk) || grid < 2 {
             return vec![];
         }
-        srgb_grid::<4>(&p, grid)
+        let tagged = self.vector.profile.as_ref().and_then(|p| p.resolve().ok()).filter(|p| p.space == Space::Cmyk);
+        srgb_grid::<4>(&tagged.unwrap_or_else(|| Profile::builtin(crate::icc::COATED_CMYK).expect("built in")), grid)
     }
 
     /// L*, a*, b* of the Lab document's stored sRGB numbers in D50 (relative colorimetric), encoded
@@ -369,6 +370,8 @@ mod tests {
         assert!(black[3] > 0.6 && black.iter().sum::<f32>() <= 3.01, "rich black within the ink limit: {black:?}");
         let cyan = at(0, 4, 4);
         assert!(cyan[0] > 0.4 && cyan[1] < 0.05 && cyan[2] < cyan[0] / 2.0 && cyan[3] < 0.05, "cyan separates to cyan ink: {cyan:?}");
+        d.assign_profile(None).unwrap();
+        assert_eq!(d.cmyk_separation(5), t, "an untagged CMYK document separates through the default CMYK");
     }
 
     #[test]

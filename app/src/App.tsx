@@ -1967,7 +1967,7 @@ export function App() {
   const inkView = doc?.mode?.kind === 'cmyk' || doc?.mode?.kind === 'lab' ? channelState.ink : null;
   const channelFilter = channelMatrix ? 'url(#channel-view)' : undefined;
   useEffect(() => setChannelView(COMPOSITE), [doc?.key]);
-  const chTarget = editChannels({ ...channelView, alphaTarget: alphaEdit ? channelView.alphaTarget : undefined });
+  const chTarget = editChannels({ ...channelView, alphaTarget: alphaEdit ? channelView.alphaTarget : undefined }, quickMask);
   useEffect(() => {
     if (!doc) return;
     const docId = doc.docId;

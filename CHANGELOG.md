@@ -37,8 +37,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to the working RGB profile.
 - Bitmap, Duotone and Multichannel documents carry no color profile, as in Photoshop; Grayscale from them
   takes the working Gray profile.
+- Image > Mode > Grayscale from Lab converts through the working Gray profile; Lab documents carry no RGB tag.
+- Without color settings, Image > Mode > CMYK Color still separates through the default CMYK profile and the
+  document stays untagged; untagged CMYK documents show ink channels through that profile.
+- A proofed document's tab names the proof, e.g. (RGB/8/CMYK).
+- Duotone ink curves are smooth (monotone cubic) between the set points.
+- Indexed Color > Custom opens the Color Table with the table the selected palette makes now.
+- The Color Table can load .act and .aco files and save .act files.
+- Save As ICO writes the standard icon sizes up to the image size (at most 256 px) instead of one image.
 
 ### Fixed
+
+- Turning Proof Colors or 32-bit preview off brings back GPU display tiles without reopening the document.
+- Highlight Compression preview measures the brightest value again after each edit.
+- With Quick Mask on, painting goes into the quick mask even when a saved channel is selected.
 
 - The plain text feature page no longer flashes on a white page while the app loads.
 - PSD layer styles are no longer dropped when an unused effect names a pattern the file does not embed; an

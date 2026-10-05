@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { channelMatrix, channelThumb, COMPOSITE, inkGray, inkThumb, viewState } from './channels.ts';
+import { channelMatrix, channelThumb, COMPOSITE, editChannels, inkGray, inkThumb, viewState } from './channels.ts';
 
 test('channelMatrix: all channels need no filter, one channel is gray, two keep their color', () => {
   assert.equal(channelMatrix([true, true, true]), null);
@@ -45,4 +45,10 @@ test('inkGray: Lab through an ICC Lab table, falling back to the formula without
   assert.deepEqual([0, 1, 2].map(c => inkGray('lab', c, 51, 102, 255, t)), [51, 102, 128]);
   assert.deepEqual([...inkThumb(new Uint8Array([255, 0, 0, 77]), 'lab', 1, t)], [0, 0, 0, 77]);
   assert.deepEqual([0, 1, 2].map(c => inkGray('lab', c, 255, 0, 0, null)), [136, 208, 195]);
+});
+
+test('with Quick Mask on, edits go into the quick mask, not the picked saved channel', () => {
+  const v = { rgb: [true, true, true] as [boolean, boolean, boolean], alpha: [2], alphaTarget: 2 };
+  assert.equal(editChannels(v).alpha, 2);
+  assert.equal(editChannels(v, true).alpha, null);
 });

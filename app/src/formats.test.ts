@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, toLinear, type FloatImage } from './formats.ts';
+import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, icoSizes, toLinear, type FloatImage } from './formats.ts';
 import { FIXTURES } from './formats.fixtures.ts';
 
 const b64 = (s: string) => Uint8Array.from(Buffer.from(s, 'base64'));
@@ -49,11 +49,21 @@ test('encodeHdr round-trips within RGBE precision; alpha becomes 1', () => {
   assert.equal(decodeHdr(encodeHdr(sample(3, 2))).width, 3);
 });
 
-test('encodeIco wraps a PNG and refuses more than 256 px', () => {
-  const ico = encodeIco(new Uint8Array([1, 2, 3]), 256, 16);
-  assert.deepEqual([...ico.subarray(0, 8)], [0, 0, 1, 0, 1, 0, 0, 16]);
-  assert.deepEqual([...ico.subarray(22)], [1, 2, 3]);
-  assert.throws(() => encodeIco(new Uint8Array(), 257, 1), /256 x 256/);
+test('encodeIco writes one directory entry per PNG, 256 px stored as 0', () => {
+  const ico = encodeIco([{ png: new Uint8Array([1, 2, 3]), width: 256, height: 16 }, { png: new Uint8Array([4, 5]), width: 32, height: 2 }]);
+  assert.deepEqual([...ico.subarray(0, 8)], [0, 0, 1, 0, 2, 0, 0, 16]);
+  const d = new DataView(ico.buffer);
+  assert.deepEqual([d.getUint16(10, true), d.getUint16(12, true), d.getUint32(14, true), d.getUint32(18, true)], [1, 32, 3, 38]);
+  assert.deepEqual([ico[22], ico[23], d.getUint32(30, true), d.getUint32(34, true)], [32, 2, 2, 41]);
+  assert.deepEqual([...ico.subarray(38)], [1, 2, 3, 4, 5]);
+  assert.throws(() => encodeIco([{ png: new Uint8Array(), width: 257, height: 1 }]), /256/);
+});
+
+test('icoSizes: the standard icon sizes up to the image, the long side at 256 at most, plus the own size', () => {
+  assert.deepEqual(icoSizes(48, 48), [[16, 16], [24, 24], [32, 32], [48, 48]]);
+  assert.deepEqual(icoSizes(100, 50), [[16, 8], [24, 12], [32, 16], [48, 24], [64, 32], [100, 50]]);
+  assert.deepEqual(icoSizes(1000, 500).slice(-2), [[128, 64], [256, 128]]);
+  assert.deepEqual(icoSizes(10, 3), [[10, 3]]);
 });
 
 test('toLinear and fromLinear invert each other above 1', () => {

@@ -21,7 +21,7 @@ import type { Spot, AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, Face
 import { boxScale, thumbSize } from './app/navigator.ts';
 import { inkGray } from './app/channels.ts';
 import { CMYK_SPACES, RGB_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
-import { DEFAULT_VIEW, engineView, sanitizeHdr, type ViewState } from './app/proof.ts';
+import { DEFAULT_VIEW, engineView, proofLabel, sanitizeHdr, type ViewState } from './app/proof.ts';
 import { grayFile, psdWithIcc, readIcc } from './app/iccFiles.ts';
 import { embedInfo, hasInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
 import { emptyAnnotations, framePath, rotationAbout, type Annotations } from './app/measure.ts';
@@ -30,7 +30,7 @@ import { assetSpecs } from './app/webExport.ts';
 import { TILE } from './view.ts';
 import { NO_RECORD, decodeCall, encodeCall, hot, newIds, recordable, type ActionStep, type Call, type Layers } from './actions.ts';
 import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, toLinear, type FloatImage } from './formats.ts';
-import { applyTransform, collectPixelIds, decodeSource, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
+import { applyTransform, collectPixelIds, decodeSource, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, icoEntries, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
@@ -144,6 +144,11 @@ const tabMode = (i: number) => {
   return v.mode ? MODE_TAB[v.mode.kind] : v.gray ? 'Gray' : 'RGB';
 };
 
+const tabProof = (i: number) => {
+  const v = viewOf(i === active ? eng! : docs[i].eng);
+  return v.proofColors ? proofLabel(v.setup) : null;
+};
+
 const tabName = (i: number) => i === active ? parents[0]?.name ?? name : docs[i].parents[0]?.name ?? docs[i].name;
 
 // One 8-bit mask at `level` from per-tile reads; tiles that read null are the default
@@ -209,7 +214,7 @@ function info(): DocInfo | null {
     parents: parents.map(p => p.name),
     key: docs[active].key,
     dirty: isDirty(active),
-    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active, dirty: isDirty(i), mode: tabMode(i), depth: tabDepth(i), width: tabEngine(i).width(), height: tabEngine(i).height() })),
+    docs: docs.map((d, i) => ({ key: d.key, name: tabName(i), active: i === active, dirty: isDirty(i), mode: tabMode(i), depth: tabDepth(i), proof: tabProof(i), width: tabEngine(i).width(), height: tabEngine(i).height() })),
   };
 }
 
@@ -347,6 +352,7 @@ function markSaved() {
 
 function changed() {
   version++;
+  if (eng && eng.depth() === 32 && viewOf(eng).hdr.method === 'highlightCompression') eng.refresh_hdr_max();
   scheduleSave(1000);
   return info()!;
 }
@@ -1242,17 +1248,25 @@ const api = {
     // are flags over RGB storage, so they go to RGB first. Lab holds sRGB numbers, so Lab from RGB,
     // Grayscale or CMYK converts to sRGB and RGB from Lab converts sRGB to the working RGB. Bitmap,
     // Duotone and Multichannel have no profile; Grayscale from them tags the working Gray. 32-bit
-    // documents keep the flag conversions.
+    // documents keep the flag conversions. With color management off CMYK still separates through
+    // the default CMYK, and the document stays untagged.
     const vec = JSON.parse(e.vector_json()) as { mode?: ColorMode; gray?: boolean };
     const cur = vec.mode?.kind;
     const s = colorSettings;
-    const convert = (name: string) => e.convert_to_profile(name, new Uint8Array(), JSON.stringify({ intent: s!.intent, blackPointCompensation: s!.bpc, dither: s!.dither }));
+    const convert = (name: string) => e.convert_to_profile(name, new Uint8Array(), JSON.stringify(s ? { intent: s.intent, blackPointCompensation: s.bpc, dither: s.dither } : { intent: 'relativeColorimetric', blackPointCompensation: true }));
     // A Bitmap output resolution resamples the canvas, so the selection cache resets as with Image Size.
     const step = spec.mode === 'bitmap' && spec.resolution != null && spec.resolution !== resolution(e) ? canvasEdit : stepIfChanged;
     return step(label, () => {
-      if (s && spec.mode === 'cmyk' && cur !== 'cmyk' && cur !== 'bitmap' && e.depth() !== 32) {
+      if (spec.mode === 'cmyk' && cur !== 'cmyk' && cur !== 'bitmap' && e.depth() !== 32) {
         if (cur) e.set_color_mode(JSON.stringify({ mode: 'rgb' }));
-        return convert(s.cmyk ?? CMYK_SPACES[0]) || !!cur;
+        const changed = convert(s?.cmyk ?? CMYK_SPACES[0]) || !!cur;
+        if (!s) e.assign_profile('', new Uint8Array());
+        return changed;
+      }
+      if (s && spec.mode === 'gray' && cur === 'lab' && e.depth() !== 32) {
+        e.set_color_mode(JSON.stringify({ mode: 'rgb' }));
+        e.assign_profile(RGB_SPACES[0], new Uint8Array());
+        return convert(s.gray) || true;
       }
       if (s && spec.mode === 'gray' && !vec.gray && (!cur || cur === 'cmyk') && e.depth() !== 32) return convert(s.gray);
       if (s && spec.mode === 'rgb' && (cur === 'cmyk' || (!cur && vec.gray && e.depth() !== 32))) return convert(s.rgb) || e.set_color_mode(JSON.stringify(spec));
@@ -1277,6 +1291,11 @@ const api = {
 
   previousColorTable() {
     return previousTable;
+  },
+
+  // The table Indexed Color `spec` converts with now (Custom starts from it).
+  indexedTable(spec: ModeSpec): [number, number, number][] {
+    return JSON.parse(need().indexed_table(JSON.stringify(spec)));
   },
 
   setColorTable(table: [number, number, number][]) {
@@ -3477,8 +3496,7 @@ const api = {
       return r;
     }
     if (format === 'ico') {
-      const png = new Uint8Array(await (await encodeFlattened(e, 'image/png')).arrayBuffer());
-      return { blob: new Blob([encodeIco(png, e.width(), e.height())], { type: 'image/x-icon' }), warnings: [] };
+      return { blob: new Blob([encodeIco(await icoEntries(e))], { type: 'image/x-icon' }), warnings: [] };
     }
     const img = floatImage(e);
     return { blob: new Blob([format === 'exr' ? await encodeExr(img) : encodeHdr(img)], { type: format === 'exr' ? 'image/x-exr' : 'image/vnd.radiance' }), warnings: [] };

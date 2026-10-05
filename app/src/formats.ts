@@ -251,12 +251,31 @@ export function encodeHdr(img: FloatImage): Uint8Array<ArrayBuffer> {
 
 // ---------- ICO (one PNG image, up to 256 x 256) ----------
 
-export function encodeIco(png: Uint8Array, width: number, height: number): Uint8Array<ArrayBuffer> {
-  if (width > 256 || height > 256) throw new Error('An ICO image is at most 256 x 256 pixels. Use Image > Image Size first.');
-  const head = new Uint8Array(22), d = new DataView(head.buffer);
-  d.setUint16(2, 1, true); d.setUint16(4, 1, true);
-  head[6] = width & 255; head[7] = height & 255;
-  d.setUint16(10, 1, true); d.setUint16(12, 32, true);
-  d.setUint32(14, png.length, true); d.setUint32(18, 22, true);
-  return concat([head, png]);
+export interface IcoEntry { png: Uint8Array; width: number; height: number }
+
+// One 32-bit PNG entry per image; a side of 256 is stored as 0.
+export function encodeIco(entries: IcoEntry[]): Uint8Array<ArrayBuffer> {
+  const head = new Uint8Array(6 + 16 * entries.length), d = new DataView(head.buffer);
+  d.setUint16(2, 1, true); d.setUint16(4, entries.length, true);
+  let at = head.length;
+  entries.forEach(({ png, width, height }, i) => {
+    if (width > 256 || height > 256) throw new Error('An ICO image is at most 256 x 256 pixels.');
+    const o = 6 + 16 * i;
+    head[o] = width & 255; head[o + 1] = height & 255;
+    d.setUint16(o + 4, 1, true); d.setUint16(o + 6, 32, true);
+    d.setUint32(o + 8, png.length, true); d.setUint32(o + 12, at, true);
+    at += png.length;
+  });
+  return concat([head, ...entries.map(e => e.png)]);
+}
+
+const ICO_SIDES = [16, 24, 32, 48, 64, 128, 256];
+
+// The entry sizes of an image of w x h: each standard side up to its long side (at most 256), plus its
+// own size when that fits and is not standard; the aspect ratio is kept.
+export function icoSizes(w: number, h: number): [number, number][] {
+  const long = Math.max(w, h), top = Math.min(long, 256);
+  const sides = ICO_SIDES.filter(s => s <= top);
+  if (long <= 256 && !sides.includes(long)) sides.push(long);
+  return sides.map(s => [Math.max(1, Math.round(w * s / long)), Math.max(1, Math.round(h * s / long))]);
 }

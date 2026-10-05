@@ -43,8 +43,9 @@ export function gpuTestHook(client: EngineClient, r: Renderer) {
 /// Display tiles for the viewer: composited on the GPU from the engine's draw program where that
 /// works, else the engine's own CPU display tile (WebGL2, 16-bit documents, a lost device).
 export function makeTileSource(client: EngineClient, r: Renderer): TileSource {
-  // Document ids only grow. The GPU cache holds payloads of `doc` only; `off` is a document without programs (16-bit).
-  let doc = 0, off = -1;
+  // Document ids only grow. The GPU cache holds payloads of `doc` only; `off` is a document without programs
+  // (16-bit, proofing, 32-bit preview) at version `offAt`; a later version (a view change or an edit) tries again.
+  let doc = 0, off = -1, offAt = -1, warned = -1;
   const seen = (id: number) => {
     if (id <= doc) return;
     doc = id;
@@ -74,12 +75,14 @@ export function makeTileSource(client: EngineClient, r: Renderer): TileSource {
         }
       } catch (e) {
         failed = true;
-        console.warn('GPU compositor off for this document, using CPU display tiles:', e);
+        if (warned !== doc) console.warn('GPU compositor off for this document, using CPU display tiles:', e);
+        warned = doc;
       }
     }
     const t = await client.call('displayTile', level, tx, ty);
     seen(t.docId);
-    if (failed && t.docId === doc) off = doc;
+    if (failed && t.docId === doc) [off, offAt] = [doc, t.version];
+    else if (off === doc && t.version !== offAt) off = -1;
     const data = t.data;
     return { docId: t.docId, version: t.version, fill: data ? slot => r.upload(slot, new Uint8Array(data)) : null };
   };

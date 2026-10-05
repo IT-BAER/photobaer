@@ -5,6 +5,7 @@ import { getHandle } from '../links.ts';
 import { embedIcc } from '../app/iccFiles.ts';
 import { embedInfo, hasInfo, type FileInfo } from '../app/fileInfo.ts';
 import { encodeGif, encodePng8, quantize, type Dither } from '../app/webExport.ts';
+import { icoSizes, type IcoEntry } from '../formats.ts';
 import type { Box, GlobalLight, LayerNode, SmartInfo, SmartLink, TransformKind, TransformOp } from './types.ts';
 
 // Global Light: angle mod 360, altitude clamped to 0..90.
@@ -177,6 +178,15 @@ async function encodeRgba(e: Engine, img: Rgba, o: ExportOptions): Promise<{ blo
   if (icc.length) bytes = await embedIcc(bytes, type, icc);
   if (hasInfo(info)) bytes = embedInfo(bytes, type, info);
   return { blob: new Blob([bytes as Uint8Array<ArrayBuffer>], { type }), width, height };
+}
+
+// Save As ICO: the composite as one PNG per icon size.
+export async function icoEntries(e: Engine): Promise<IcoEntry[]> {
+  const img = renderRgba(e, {})!;
+  return Promise.all(icoSizes(img.w, img.h).map(async ([w, h]) => {
+    const { blob } = await encodeRgba(e, img, { format: 'png', quality: 1, scale: w / img.w, colors: 256, dither: 'none', icc: false });
+    return { png: new Uint8Array(await blob.arrayBuffer()), width: w, height: h };
+  }));
 }
 
 async function exportAsset(e: Engine, o: ExportOptions) {
