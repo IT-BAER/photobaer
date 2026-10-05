@@ -724,6 +724,10 @@ dialog.vp-dialog h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); }
 .color-table { display: grid; grid-template-columns: repeat(16, 18px); gap: 2px; margin: 8px 0; }
 .color-table-cell { width: 18px; height: 18px; border: 1px solid var(--border, #555); position: relative; cursor: pointer; }
 .color-table-cell input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+/* Image > Mode > Duotone: a curve button beside each ink; Duotone Curve fields in two columns. */
+.duotone-ink { display: flex; align-items: center; gap: 8px; }
+.duotone-ink label { flex: 1; }
+.duotone-curve { display: grid; grid-template-columns: repeat(2, auto); column-gap: 16px; }
 .color-dialog form { min-width: 420px; max-width: 520px; }
 .color-dialog fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 8px 0; padding: 4px 10px; }
 .color-dialog legend { padding: 0 4px; color: var(--dim); }

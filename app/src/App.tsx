@@ -2695,7 +2695,7 @@ export function App() {
       <GlobalLightDialog globalLightDialog={globalLightDialog} doc={doc} run={run} />
       <FilterDialog ref={filterDialog} viewer={viewer} show={d => show(d)} setError={m => setError(m)} />
       <ImageCalcDialog ref={imageCalc} doc={doc} show={d => show(d)} setError={m => setError(m)} />
-      <ModeDialog ref={modeDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
+      <ModeDialog ref={modeDialog} doc={doc} library={brushLib.current?.library ?? null} fg={fg} bg={bg} show={d => show(d)} setError={m => setError(m)} />
       <ColorDialog ref={colorDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
       <PdfDialog ref={pdfDialog} setError={m => setError(m)} />
       <BatchDialog ref={batchDialog} start={o => void runBatch(o)} />

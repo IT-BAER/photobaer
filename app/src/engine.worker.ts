@@ -53,6 +53,8 @@ let again = false;
 let booted = false;
 let lastState: AutosaveState = 'off';
 let selGen = 0;
+// Image > Mode > Indexed Color: the last conversion's table, for Palette: Previous.
+let previousTable: [number, number, number][] | null = null;
 let strokeOpen = false;
 // The open Liquify dialog's mesh and layer proxy (docs/M5.md section 6).
 let liquify: Liquify | null = null;
@@ -1214,6 +1216,10 @@ const api = {
 
   setColorMode(spec: ModeSpec) {
     const e = need();
+    if (spec.mode === 'indexed' && spec.palette === 'previous') {
+      if (!previousTable) throw new Error('There is no previous Indexed Color palette.');
+      spec = { ...spec, palette: 'custom', table: previousTable };
+    }
     const label = { rgb: 'RGB Color', gray: 'Grayscale', bitmap: 'Bitmap', duotone: 'Duotone', indexed: 'Indexed Color', cmyk: 'CMYK Color', lab: 'Lab Color', multichannel: 'Multichannel' }[spec.mode];
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     const flatten = (spec.mode === 'bitmap' || spec.mode === 'indexed') && (tree.length > 1 || (tree[0] && tree[0].kind !== 'pixel'));
@@ -1222,15 +1228,24 @@ const api = {
     const cur = (JSON.parse(e.vector_json()) as { mode?: ColorMode }).mode?.kind;
     const s = colorSettings;
     const convert = (name: string) => e.convert_to_profile(name, new Uint8Array(), JSON.stringify({ intent: s!.intent, blackPointCompensation: s!.bpc, dither: s!.dither }));
-    return stepIfChanged(label, () => {
+    // A Bitmap output resolution resamples the canvas, so the selection cache resets as with Image Size.
+    const step = spec.mode === 'bitmap' && spec.resolution != null && spec.resolution !== resolution(e) ? canvasEdit : stepIfChanged;
+    return step(label, () => {
       if (s && spec.mode === 'cmyk' && cur !== 'cmyk' && cur !== 'bitmap' && e.depth() !== 32) {
         if (cur) e.set_color_mode(JSON.stringify({ mode: 'rgb' }));
         return convert(s.cmyk ?? CMYK_SPACES[0]) || !!cur;
       }
       if (s && spec.mode === 'rgb' && cur === 'cmyk') return convert(s.rgb);
       if (flatten) flattenImage(e, tree);
-      return e.set_color_mode(JSON.stringify(spec)) || flatten;
+      const changed = e.set_color_mode(JSON.stringify(spec)) || flatten;
+      const mode = (JSON.parse(e.vector_json()) as { mode?: ColorMode }).mode;
+      if (spec.mode === 'indexed' && mode?.kind === 'indexed') previousTable = mode.table;
+      return changed;
     });
+  },
+
+  previousColorTable() {
+    return previousTable;
   },
 
   setColorTable(table: [number, number, number][]) {

@@ -1009,6 +1009,65 @@ test('Image > Mode: Indexed Color flattens in one step, Color Table remaps, Duot
   assert.equal(back.mode, null);
 });
 
+test('Image > Mode > Indexed Color: Custom table as given, Previous reuses the last table, matte fills transparency', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  await call('command', 'fill', 1, 'pixels', [200, 50, 10, 255]);
+  type I = { mode: { kind: string; table?: number[][] } | null };
+  const base = { mode: 'indexed', colors: 256, forced: 'web', transparency: true, dither: 'none', amount: 0.75 };
+  const table = [[255, 0, 0], [0, 0, 0]];
+  const ix = (await call('setColorMode', { ...base, palette: 'custom', table })).result as I;
+  assert.deepEqual(ix.mode?.table, table, 'the custom table exactly');
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [255, 0, 0, 255]);
+  assert.deepEqual((await call('previousColorTable')).result, table);
+  await call('setColorMode', { mode: 'rgb' });
+  await call('command', 'fill', 1, 'pixels', [10, 10, 200, 255]);
+  const prev = (await call('setColorMode', { ...base, palette: 'previous' })).result as I;
+  assert.deepEqual(prev.mode?.table, table, 'Previous reuses the last table');
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [0, 0, 0, 255]);
+  await call('newDoc', 8, 8, 8, null);
+  await call('command', 'fill', 1, 'pixels', [255, 0, 0, 128]);
+  const matte = { ...base, palette: 'custom', table: [[0, 0, 0], [128, 0, 0], [255, 255, 255]], transparency: false, matte: [0, 0, 0] };
+  await call('setColorMode', matte);
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [128, 0, 0, 255], 'half red over the black matte');
+  assert.deepEqual((await call('previousColorTable')).result, matte.table);
+});
+
+test('Image > Mode > Duotone: ink curves and overprint colors reach the mode; spelled-out defaults store as plain inks', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, null);
+  await call('command', 'fill', 1, 'pixels', [128, 128, 128, 255]);
+  await call('setColorMode', { mode: 'gray' });
+  type I = { mode: { kind: string; inks?: number[][]; curves?: (number | null)[][]; overprints?: number[][] } | null; history: { labels: string[] } };
+  const curve = [0, null, null, null, null, null, 20, null, null, null, null, null, 100];
+  const ident = [0, null, null, null, null, null, null, null, null, null, null, null, 100];
+  const spec = { mode: 'duotone', inks: [[255, 0, 0], [0, 0, 255]], curves: [curve, ident], overprints: [[0, 255, 0]] };
+  const d = (await call('setColorMode', spec)).result as I;
+  assert.deepEqual(d.mode, { kind: 'duotone', inks: spec.inks, curves: spec.curves, overprints: spec.overprints });
+  assert.deepEqual(d.history.labels.slice(-1), ['Duotone']);
+  const same = (await call('setColorMode', spec)).result as I;
+  assert.equal(same.history.labels.length, d.history.labels.length, 'same curves and overprints: no step');
+  const plain = (await call('setColorMode', { mode: 'duotone', inks: [[255, 0, 0], [0, 0, 255]], curves: [ident, ident], overprints: [[0, 0, 0]] })).result as I;
+  assert.deepEqual(plain.mode, { kind: 'duotone', inks: [[255, 0, 0], [0, 0, 255]] });
+  assert.match((await call('setColorMode', { ...spec, overprints: [[1, 1, 1], [2, 2, 2]] })).error ?? '', /overprint/);
+});
+
+test('Image > Mode > Bitmap: output resolution resamples in the same step; old method-only specs still work', async () => {
+  await call('init');
+  await call('newDoc', 40, 30, 8, null);
+  await call('command', 'fill', 1, 'pixels', [128, 128, 128, 255]);
+  await call('setColorMode', { mode: 'gray' });
+  type I = { width: number; height: number; resolution: number; mode: { kind: string } | null; history: { labels: string[] } };
+  const spec = { mode: 'bitmap', method: 'halftone', frequency: 8, unit: 'inch', angle: 45, shape: 'round', resolution: 144 };
+  const b = (await call('setColorMode', spec)).result as I;
+  assert.deepEqual([b.width, b.height, b.resolution, b.mode?.kind], [80, 60, 144, 'bitmap']);
+  assert.deepEqual(b.history.labels.slice(-2), ['Grayscale', 'Bitmap']);
+  const u = (await call('undo')).result as I;
+  assert.deepEqual([u.width, u.resolution, u.mode], [40, 72, null]);
+  const old = (await call('setColorMode', { mode: 'bitmap', method: 'diffusion' })).result as I;
+  assert.deepEqual([old.width, old.mode?.kind], [40, 'bitmap']);
+});
+
 test('clearSelected only clears with a selection and labels the step', async () => {
   await call('init');
   const before = (await call('newDoc', 64, 64, 8, null)).result as { version: number };

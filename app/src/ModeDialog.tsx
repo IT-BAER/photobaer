@@ -2,7 +2,9 @@
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { client } from './client.ts';
 import type { DocInfo } from './engine.worker.ts';
-import type { ModeSpec } from './worker/types.ts';
+import type { BitmapMethod, InkCurve, ModeSpec } from './worker/types.ts';
+import type { BrushLibrary } from './brushes/store.ts';
+import { PatternPicker } from './PresetPanels.tsx';
 import { colorTablePreset, TABLE_PRESETS } from './app/colorTable.ts';
 
 type Rgb3 = [number, number, number];
@@ -10,81 +12,223 @@ export type ModeDialogKind = 'bitmap' | 'duotone' | 'indexed' | 'table';
 export interface ModeDialogHandle { open(kind: ModeDialogKind): void }
 
 type Indexed = Extract<ModeSpec, { mode: 'indexed' }>;
+type Halftone = Extract<BitmapMethod, { method: 'halftone' }>;
+const SHAPES: [Halftone['shape'], string][] = [['round', 'Round'], ['ellipse', 'Ellipse'], ['line', 'Line'], ['square', 'Square'], ['cross', 'Cross'], ['diamond', 'Diamond']];
 const INK_TYPES = ['Monotone', 'Duotone', 'Tritone', 'Quadtone'];
 const DEFAULT_INKS: Rgb3[] = [[0, 0, 0], [228, 120, 40], [40, 110, 190], [230, 200, 40]];
 const hex = (c: Rgb3) => `#${c.map(v => v.toString(16).padStart(2, '0')).join('')}`;
 const rgb = (h: string): Rgb3 => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) as Rgb3;
+// Duotone Curve inputs in % ink; the 0 and 100 fields start set, the rest empty (skipped).
+const CURVE_INPUTS = [0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100];
+const IDENTITY: InkCurve = CURVE_INPUTS.map((_, i) => (i === 0 ? 0 : i === 12 ? 100 : null));
+// Indexed Color Matte; Foreground and Background are the swatches, None is no matte.
+const MATTES: [string, string][] = [['none', 'None'], ['foreground', 'Foreground Color'], ['background', 'Background Color'], ['white', 'White'],
+  ['black', 'Black'], ['gray', '50% Gray'], ['netscape', 'Netscape Gray'], ['custom', 'Custom...']];
+const MATTE_RGB: Record<string, Rgb3> = { white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128], netscape: [191, 191, 191] };
 
-export function ModeDialog({ ref, doc, show, setError }: {
-  ref: Ref<ModeDialogHandle>; doc: DocInfo | null; show: (d: DocInfo | null) => void; setError: (msg: string) => void;
+// Color Table grid with its preset select; presets resample to the table length.
+function TableEditor({ table, preset, set }: { table: Rgb3[]; preset: string; set: (table: Rgb3[], preset: string) => void }) {
+  return (<>
+    <label>Table <select aria-label="Table" value={preset} onChange={e => {
+      const p = e.currentTarget.value;
+      set(p === 'custom' ? table : colorTablePreset(p, table.length), p);
+    }}>
+      <option value="custom">Custom</option>
+      {TABLE_PRESETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+    </select></label>
+    <div className="color-table" role="group" aria-label="Colors">
+      {table.map((c, i) => (
+        <label key={i} className="color-table-cell" style={{ background: hex(c) }} title={`${i}: ${c.join(', ')}`}>
+          <input type="color" aria-label={`Color ${i}`} value={hex(c)}
+            onChange={e => { const v = rgb(e.currentTarget.value); set(table.map((x, j) => (j === i ? v : x)), 'custom'); }} />
+        </label>
+      ))}
+    </div>
+  </>);
+}
+
+// Ink indices of the overprint colors in the engine's order: 1+2, 1+3, 2+3, 1+2+3 ...
+function overprintSets(n: number): number[][] {
+  const sets = Array.from({ length: 1 << n }, (_, m) => [...Array(n).keys()].filter(i => m & (1 << i))).filter(s => s.length > 1);
+  return sets.sort((a, b) => { const i = a.findIndex((v, k) => v !== b[k]); return a.length - b.length || a[i] - b[i]; });
+}
+
+// Overprint colors the engine uses when none are set: the inks multiplied.
+const multiplied = (inks: Rgb3[]) =>
+  overprintSets(inks.length).map(s => [0, 1, 2].map(k => Math.round(s.reduce((p, i) => p * inks[i][k] / 255, 1) * 255)) as Rgb3);
+
+function CurveIcon({ curve }: { curve: InkCurve }) {
+  const pts = CURVE_INPUTS.flatMap((x, i) => { const y = curve[i] ?? IDENTITY[i]; return y == null ? [] : [`${x * 0.16},${16 - y * 0.16}`]; });
+  return <svg width={16} height={16} viewBox="0 0 16 16" aria-hidden="true"><polyline points={pts.join(' ')} fill="none" stroke="currentColor" /></svg>;
+}
+
+export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255, 255, 255], show, setError }: {
+  ref: Ref<ModeDialogHandle>; doc: DocInfo | null; library?: BrushLibrary | null; fg?: Rgb3; bg?: Rgb3; show: (d: DocInfo | null) => void; setError: (msg: string) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [kind, setKind] = useState<ModeDialogKind | null>(null);
-  const [method, setMethod] = useState<'threshold' | 'pattern' | 'diffusion'>('diffusion');
+  const [method, setMethod] = useState<BitmapMethod['method']>('diffusion');
+  // Bitmap output in ppi, shown per inch or per cm.
+  const [ppi, setPpi] = useState(72);
+  const [perCm, setPerCm] = useState(false);
+  const [screen, setScreen] = useState<Halftone>({ method: 'halftone', frequency: 53, unit: 'inch', angle: 45, shape: 'round' });
+  const [pattern, setPattern] = useState('');
   const [inks, setInks] = useState<Rgb3[]>(DEFAULT_INKS.slice(0, 1));
+  const [curves, setCurves] = useState<InkCurve[]>([IDENTITY]);
+  // Null: the inks multiplied, as the engine stores no overprints.
+  const [overprints, setOverprints] = useState<Rgb3[] | null>(null);
+  // Duotone Curve or Overprint Colors sub-dialog; its edits apply on its OK.
+  const sub = useRef<HTMLDialogElement>(null);
+  const [edit, setEdit] = useState<{ ink: number; curve: InkCurve } | { over: Rgb3[] } | { table: Rgb3[]; preset: string } | null>(null);
   const [ix, setIx] = useState<Indexed>({ mode: 'indexed', palette: 'adaptive', colors: 256, forced: 'black_white', transparency: true, dither: 'diffusion', amount: 0.75 });
   const [table, setTable] = useState<Rgb3[]>([]);
   const [preset, setPreset] = useState('custom');
+  // Indexed Color: the last conversion's table (Palette: Previous) and the Matte choice.
+  const [previous, setPrevious] = useState<Rgb3[] | null>(null);
+  const [matte, setMatte] = useState('none');
+  const [matteColor, setMatteColor] = useState<Rgb3>([255, 255, 255]);
 
   useImperativeHandle(ref, () => ({
     open(k) {
       setKind(k);
-      if (k === 'duotone') setInks(doc?.mode?.kind === 'duotone' ? doc.mode.inks : DEFAULT_INKS.slice(0, 1));
+      if (k === 'bitmap' && doc) { setPpi(doc.resolution); setPattern(p => (doc.patterns.some(x => x.id === p) ? p : doc.patterns[0]?.id ?? '')); }
+      if (k === 'duotone') {
+        const m = doc?.mode?.kind === 'duotone' ? doc.mode : null;
+        setInks(m?.inks ?? DEFAULT_INKS.slice(0, 1));
+        setCurves(m?.curves ?? Array(m?.inks.length ?? 1).fill(IDENTITY));
+        setOverprints(m?.overprints ?? null);
+      }
       if (k === 'table' && doc?.mode?.kind === 'indexed') { setTable(doc.mode.table); setPreset('custom'); }
+      if (k === 'indexed') {
+        client.call('previousColorTable').then(t => {
+          setPrevious(t);
+          if (!t) setIx(x => (x.palette === 'previous' ? { ...x, palette: 'adaptive' } : x));
+        }, () => setPrevious(null));
+      }
       dialog.current?.showModal();
     },
   }), [doc]);
+
+  function bitmap(): ModeSpec {
+    const m: BitmapMethod = method === 'halftone' ? screen : method === 'custom' ? { method, pattern } : { method };
+    return { mode: 'bitmap', ...m, ...(doc && ppi !== doc.resolution ? { resolution: ppi } : {}) };
+  }
+
+  function indexed(): Indexed {
+    const m = { foreground: fg, background: bg, custom: matteColor, ...MATTE_RGB }[matte] ?? null;
+    return { ...ix, table: ix.palette === 'custom' ? ix.table : undefined, matte: m };
+  }
 
   function ok() {
     dialog.current?.close();
     const run = kind === 'table'
       ? client.call('setColorTable', table)
-      : client.call('setColorMode', kind === 'bitmap' ? { mode: 'bitmap', method } : kind === 'duotone' ? { mode: 'duotone', inks } : ix);
+      : client.call('setColorMode', kind === 'bitmap' ? bitmap() : kind === 'duotone' ? { mode: 'duotone', inks, curves, ...(overprints ? { overprints } : {}) } : indexed());
     run.then(show, e => setError((e as Error).message));
   }
 
   const name = { bitmap: 'Bitmap', duotone: 'Duotone Options', indexed: 'Indexed Color', table: 'Color Table' }[kind ?? 'bitmap'];
-  const fixedCount = ix.palette === 'exact' || ix.palette === 'web';
-  return (
+  const fixedCount = ix.palette !== 'uniform' && ix.palette !== 'adaptive';
+  const ownTable = ix.palette === 'custom' || ix.palette === 'previous';
+  // Custom starts from its last table, the document's table, the previous one, or a gray ramp.
+  const customStart = () => ix.table ?? (doc?.mode?.kind === 'indexed' ? doc.mode.table : null) ?? previous ?? colorTablePreset('grayscale', ix.colors);
+  function openSub(e: { ink: number; curve: InkCurve } | { over: Rgb3[] } | { table: Rgb3[]; preset: string }) {
+    setEdit(e);
+    sub.current?.showModal();
+  }
+
+  function subOk() {
+    if (edit && 'ink' in edit) setCurves(curves.map((c, j) => (j === edit.ink ? edit.curve : c)));
+    else if (edit && 'table' in edit) setIx({ ...ix, palette: 'custom', table: edit.table, colors: edit.table.length });
+    else if (edit) setOverprints(edit.over);
+    sub.current?.close();
+  }
+
+  const subName = edit && 'ink' in edit ? `Duotone Curve: Ink ${edit.ink + 1}` : edit && 'table' in edit ? 'Color Table' : 'Overprint Colors';
+  return (<>
     <dialog ref={dialog} className="mode-dialog" aria-label={name} onClose={() => setKind(null)}>
       {doc && kind && (
         <form onSubmit={e => { e.preventDefault(); ok(); }}>
           <h2>{name}</h2>
-          {kind === 'bitmap' && (
+          {kind === 'bitmap' && <>
+            <label>Input {+(perCm ? doc.resolution / 2.54 : doc.resolution).toFixed(2)} {perCm ? 'Pixels/cm' : 'Pixels/Inch'}</label>
+            <label>Output <input type="number" aria-label="Output" min={0.01} step="any" value={+(perCm ? ppi / 2.54 : ppi).toFixed(2)}
+              onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v) && v > 0) setPpi(perCm ? v * 2.54 : v); }} />
+              <select aria-label="Output unit" value={perCm ? 'cm' : 'inch'} onChange={e => setPerCm(e.currentTarget.value === 'cm')}>
+                <option value="inch">Pixels/Inch</option>
+                <option value="cm">Pixels/cm</option>
+              </select></label>
             <label>Method <select aria-label="Method" value={method} onChange={e => setMethod(e.currentTarget.value as typeof method)}>
               <option value="threshold">50% Threshold</option>
               <option value="pattern">Pattern Dither</option>
               <option value="diffusion">Diffusion Dither</option>
+              <option value="halftone">Halftone Screen</option>
+              <option value="custom">Custom Pattern</option>
             </select></label>
-          )}
+            {method === 'halftone' && <>
+              <label>Frequency <input type="number" aria-label="Frequency" min={1} max={999} step="any" value={screen.frequency}
+                onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setScreen({ ...screen, frequency: Math.min(999, Math.max(1, v)) }); }} />
+                <select aria-label="Frequency unit" value={screen.unit} onChange={e => setScreen({ ...screen, unit: e.currentTarget.value as Halftone['unit'] })}>
+                  <option value="inch">Lines/Inch</option>
+                  <option value="cm">Lines/cm</option>
+                </select></label>
+              <label>Angle <input type="number" aria-label="Angle" min={-180} max={180} value={screen.angle}
+                onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setScreen({ ...screen, angle: Math.min(180, Math.max(-180, v)) }); }} /> °</label>
+              <label>Shape <select aria-label="Shape" value={screen.shape} onChange={e => setScreen({ ...screen, shape: e.currentTarget.value as Halftone['shape'] })}>
+                {SHAPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select></label>
+            </>}
+            {method === 'custom' && (
+              <PatternPicker doc={doc} library={library} value={pattern} set={setPattern} onDoc={d => show(d)} onError={setError} />
+            )}
+          </>}
           {kind === 'duotone' && <>
             <label>Type <select aria-label="Type" value={inks.length} onChange={e => {
               const n = Number(e.currentTarget.value);
               setInks(Array.from({ length: n }, (_, i) => inks[i] ?? DEFAULT_INKS[i]));
+              setCurves(Array.from({ length: n }, (_, i) => curves[i] ?? IDENTITY));
+              setOverprints(null);
             }}>
               {INK_TYPES.map((t, i) => <option key={t} value={i + 1}>{t}</option>)}
             </select></label>
             {inks.map((c, i) => (
-              <label key={i}>Ink {i + 1} <input type="color" aria-label={`Ink ${i + 1}`} value={hex(c)}
-                onChange={e => { const v = rgb(e.currentTarget.value); setInks(inks.map((x, j) => (j === i ? v : x))); }} /></label>
+              <div key={i} className="duotone-ink">
+                <button type="button" aria-label={`Ink ${i + 1} curve`} title="Duotone Curve" onClick={() => openSub({ ink: i, curve: curves[i] ?? IDENTITY })}>
+                  <CurveIcon curve={curves[i] ?? IDENTITY} />
+                </button>
+                <label>Ink {i + 1} <input type="color" aria-label={`Ink ${i + 1}`} value={hex(c)}
+                  onChange={e => { const v = rgb(e.currentTarget.value); setInks(inks.map((x, j) => (j === i ? v : x))); setOverprints(null); }} /></label>
+              </div>
             ))}
+            <button type="button" disabled={inks.length < 2} onClick={() => openSub({ over: overprints ?? multiplied(inks) })}>Overprint Colors…</button>
           </>}
           {kind === 'indexed' && <>
-            <label>Palette <select aria-label="Palette" value={ix.palette} onChange={e => setIx({ ...ix, palette: e.currentTarget.value as Indexed['palette'] })}>
+            <label>Palette <select aria-label="Palette" value={ix.palette} onChange={e => {
+              const p = e.currentTarget.value as Indexed['palette'];
+              if (p === 'custom') openSub({ table: customStart(), preset: 'custom' });
+              else setIx({ ...ix, palette: p, ...(p === 'previous' && previous ? { colors: previous.length } : {}) });
+            }}>
               <option value="exact">Exact</option>
               <option value="web">Web</option>
               <option value="uniform">Uniform</option>
               <option value="adaptive">Local (Adaptive)</option>
+              <option value="custom">Custom...</option>
+              <option value="previous" disabled={!previous}>Previous</option>
             </select></label>
+            {ix.palette === 'custom' && <button type="button" onClick={() => openSub({ table: customStart(), preset: 'custom' })}>Edit Table...</button>}
             <label>Colors <input type="number" aria-label="Colors" min={2} max={256} disabled={fixedCount} value={ix.colors}
               onChange={e => { const v = Math.round(Number(e.currentTarget.value)); if (Number.isFinite(v)) setIx({ ...ix, colors: Math.min(256, Math.max(2, v)) }); }} /></label>
-            <label>Forced <select aria-label="Forced" value={ix.forced} onChange={e => setIx({ ...ix, forced: e.currentTarget.value as Indexed['forced'] })}>
+            <label>Forced <select aria-label="Forced" value={ix.forced} disabled={ownTable} onChange={e => setIx({ ...ix, forced: e.currentTarget.value as Indexed['forced'] })}>
               <option value="none">None</option>
               <option value="black_white">Black and White</option>
               <option value="primaries">Primaries</option>
               <option value="web">Web</option>
             </select></label>
             <label><input type="checkbox" checked={ix.transparency} onChange={e => setIx({ ...ix, transparency: e.currentTarget.checked })} /> Transparency</label>
+            <label>Matte <select aria-label="Matte" value={matte} onChange={e => setMatte(e.currentTarget.value)}>
+              {MATTES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+              {matte === 'custom' && <input type="color" aria-label="Matte color" value={hex(matteColor)} onChange={e => setMatteColor(rgb(e.currentTarget.value))} />}</label>
             <label>Dither <select aria-label="Dither" value={ix.dither} onChange={e => setIx({ ...ix, dither: e.currentTarget.value as Indexed['dither'] })}>
               <option value="none">None</option>
               <option value="diffusion">Diffusion</option>
@@ -94,30 +238,40 @@ export function ModeDialog({ ref, doc, show, setError }: {
             <label>Amount <input type="number" aria-label="Amount" min={0} max={100} disabled={ix.dither === 'none'} value={Math.round(ix.amount * 100)}
               onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setIx({ ...ix, amount: Math.min(100, Math.max(0, v)) / 100 }); }} /> %</label>
           </>}
-          {kind === 'table' && <>
-            <label>Table <select aria-label="Table" value={preset} onChange={e => {
-              const p = e.currentTarget.value;
-              setPreset(p);
-              if (p !== 'custom') setTable(colorTablePreset(p, table.length));
-            }}>
-              <option value="custom">Custom</option>
-              {TABLE_PRESETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select></label>
-            <div className="color-table" role="group" aria-label="Colors">
-              {table.map((c, i) => (
-                <label key={i} className="color-table-cell" style={{ background: hex(c) }} title={`${i}: ${c.join(', ')}`}>
-                  <input type="color" aria-label={`Color ${i}`} value={hex(c)}
-                    onChange={e => { const v = rgb(e.currentTarget.value); setPreset('custom'); setTable(table.map((x, j) => (j === i ? v : x))); }} />
-                </label>
-              ))}
-            </div>
-          </>}
+          {kind === 'table' && <TableEditor table={table} preset={preset} set={(t, p) => { setTable(t); setPreset(p); }} />}
           <div className="actions">
             <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
+            <button type="submit" className="primary" disabled={kind === 'bitmap' && method === 'custom' && !pattern}>OK</button>
+          </div>
+        </form>
+      )}
+    </dialog>
+    <dialog ref={sub} className="mode-dialog" aria-label={subName} onClose={() => setEdit(null)}>
+      {edit && (
+        <form onSubmit={e => { e.preventDefault(); subOk(); }}>
+          <h2>{subName}</h2>
+          {'ink' in edit ? (
+            <div className="duotone-curve">
+              {CURVE_INPUTS.map((x, i) => (
+                <label key={x}>{x}: <input type="number" aria-label={`${x}%`} min={0} max={100} step="any" value={edit.curve[i] ?? ''}
+                  onChange={e => {
+                    const t = e.currentTarget.value, v = Number(t);
+                    if (t === '' || Number.isFinite(v)) setEdit({ ...edit, curve: edit.curve.map((y, j) => (j !== i ? y : t === '' ? null : Math.min(100, Math.max(0, v)))) });
+                  }} /> %</label>
+              ))}
+            </div>
+          ) : 'table' in edit ? (
+            <TableEditor table={edit.table} preset={edit.preset} set={(table, preset) => setEdit({ table, preset })} />
+          ) : overprintSets(inks.length).map((s, i) => (
+            <label key={i}>{s.map(v => v + 1).join(' + ')} <input type="color" aria-label={`Overprint ${s.map(v => v + 1).join('+')}`} value={hex(edit.over[i])}
+              onChange={e => { const v = rgb(e.currentTarget.value); setEdit({ over: edit.over.map((x, j) => (j === i ? v : x)) }); }} /></label>
+          ))}
+          <div className="actions">
+            <button type="button" onClick={() => sub.current?.close()}>Cancel</button>
             <button type="submit" className="primary">OK</button>
           </div>
         </form>
       )}
     </dialog>
-  );
+  </>);
 }

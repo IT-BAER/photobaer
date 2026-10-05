@@ -111,15 +111,27 @@ export interface SavedPathInfo { id: number; name: string; work: boolean; path: 
 // A path-edit target: a shape layer's path, a layer's vector mask path, or a saved path.
 export type PathRole = 'shape' | 'vectorMask' | 'document';
 type Rgb3 = [number, number, number];
+// Duotone Curve: output % at input ink 0, 5, 10, 20 ... 90, 95, 100 %; null fields are skipped.
+export type InkCurve = (number | null)[];
+// Absent curves are linear; absent overprints (1+2, 1+3, 2+3, 1+2+3, ...) multiply the inks.
+export interface Duotone { inks: Rgb3[]; curves?: InkCurve[]; overprints?: Rgb3[] }
 // Image > Mode beyond RGB and Grayscale (null): Bitmap and Duotone also keep `gray`.
-export type ColorMode = { kind: 'bitmap' } | { kind: 'duotone'; inks: Rgb3[] } | { kind: 'indexed'; table: Rgb3[] } | { kind: 'cmyk' } | { kind: 'lab' } | { kind: 'multichannel' };
+export type ColorMode = { kind: 'bitmap' } | ({ kind: 'duotone' } & Duotone) | { kind: 'indexed'; table: Rgb3[] } | { kind: 'cmyk' } | { kind: 'lab' } | { kind: 'multichannel' };
+// Image > Mode > Bitmap screening; Halftone frequency is lines per inch or cm.
+export type BitmapMethod =
+  | { method: 'threshold' | 'pattern' | 'diffusion' }
+  | { method: 'halftone'; frequency: number; unit: 'inch' | 'cm'; angle: number; shape: 'round' | 'ellipse' | 'line' | 'square' | 'cross' | 'diamond' }
+  | { method: 'custom'; pattern: string };
 export type ModeSpec =
   | { mode: 'rgb' | 'gray' | 'cmyk' | 'lab' | 'multichannel' }
-  | { mode: 'bitmap'; method: 'threshold' | 'pattern' | 'diffusion' }
-  | { mode: 'duotone'; inks: Rgb3[] }
+  | ({ mode: 'bitmap'; resolution?: number } & BitmapMethod)
+  | ({ mode: 'duotone' } & Duotone)
   | {
-    mode: 'indexed'; palette: 'exact' | 'uniform' | 'web' | 'adaptive'; colors: number; forced: 'none' | 'black_white' | 'primaries' | 'web';
-    transparency: boolean; dither: 'none' | 'diffusion' | 'pattern' | 'noise'; amount: number;
+    // Custom maps to `table`; Previous to the last Indexed Color table this session. `matte` fills
+    // partly transparent edges, or all transparency without `transparency` (white when absent).
+    mode: 'indexed'; palette: 'exact' | 'uniform' | 'web' | 'adaptive' | 'custom' | 'previous'; table?: Rgb3[]; colors: number;
+    forced: 'none' | 'black_white' | 'primaries' | 'web'; transparency: boolean; dither: 'none' | 'diffusion' | 'pattern' | 'noise'; amount: number;
+    matte?: Rgb3 | null;
   };
 // A spot channel's ink: display color and on-screen solidity 0..1.
 export interface Spot { color: [number, number, number]; solidity: number }
