@@ -13,7 +13,7 @@ import type { GradientEditorHandle } from '../shell/GradientEditor.tsx';
 import { rgbToHex, type Rgb } from '../shell/color.ts';
 import { paintModesFor } from '../shell/tools.ts';
 import { RULER_UNITS, unitToPx, type RulerUnit } from '../shell/units.ts';
-import type { PaintingCursor, Preferences } from '../shell/preferences.ts';
+import type { BrushOutline, PaintingCursor, Preferences } from '../shell/preferences.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo } from '../worker/types.ts';
 import {
   COLOR_RANGE_PRESETS, FILL_CONTENTS, FILL_LAYERS, MODIFY_OPS, selectCreated,
@@ -862,8 +862,10 @@ export function NewGuideDialog({ newGuideDialog, run, doc, rulerUnit }: { newGui
   );
 }
 
-// Edit > Preferences > Cursors (Photoshop): Painting Cursors, Show Crosshair in Brush Tip and Other Cursors.
-export function CursorPrefsDialog({ dialog, prefs, save }: { dialog: DialogRef; prefs: Preferences; save: (p: Pick<Preferences, 'paintingCursor' | 'brushCrosshair' | 'otherCursor'>) => void }) {
+type CursorPrefs = Pick<Preferences, 'paintingCursor' | 'brushOutline' | 'brushCrosshair' | 'crosshairWhilePainting' | 'brushLeash' | 'brushLeashColor' | 'otherCursor' | 'brushPreviewColor'>;
+
+// Edit > Preferences > Cursors, laid out as in Photoshop.
+export function CursorPrefsDialog({ dialog, prefs, save }: { dialog: DialogRef; prefs: Preferences; save: (p: CursorPrefs) => void }) {
   return (
     <dialog ref={dialog}>
       <form onSubmit={e => {
@@ -871,8 +873,10 @@ export function CursorPrefsDialog({ dialog, prefs, save }: { dialog: DialogRef; 
         const f = new FormData(e.currentTarget);
         dialog.current?.close();
         save({
-          paintingCursor: String(f.get('painting')) as PaintingCursor, brushCrosshair: f.get('crosshair') === 'on',
-          otherCursor: f.get('other') === 'precise' ? 'precise' : 'standard',
+          paintingCursor: String(f.get('painting')) as PaintingCursor, brushOutline: String(f.get('outline')) as BrushOutline,
+          brushCrosshair: f.get('crosshair') === 'on', crosshairWhilePainting: f.get('whilePainting') === 'on',
+          brushLeash: f.get('leash') === 'on', brushLeashColor: String(f.get('leashColor')),
+          otherCursor: f.get('other') === 'precise' ? 'precise' : 'standard', brushPreviewColor: String(f.get('previewColor')),
         });
       }}>
         <h2>Cursors</h2>
@@ -881,12 +885,22 @@ export function CursorPrefsDialog({ dialog, prefs, save }: { dialog: DialogRef; 
           {([['standard', 'Standard'], ['precise', 'Precise'], ['normal', 'Normal Brush Tip'], ['full', 'Full Size Brush Tip']] as [PaintingCursor, string][]).map(([v, label]) => (
             <label key={v}><input type="radio" name="painting" value={v} defaultChecked={prefs.paintingCursor === v} /> {label}</label>
           ))}
+          <label>Brush Tip Outline <select name="outline" defaultValue={prefs.brushOutline}>
+            {([['thin', 'Thin'], ['normal', 'Normal'], ['bold', 'Bold'], ['extraBold', 'Extra Bold']] as [BrushOutline, string][]).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          </select></label>
           <label><input type="checkbox" name="crosshair" defaultChecked={prefs.brushCrosshair} /> Show Crosshair in Brush Tip</label>
+          <label><input type="checkbox" name="whilePainting" defaultChecked={prefs.crosshairWhilePainting} /> Show Only Crosshair While Painting</label>
+          <label><input type="checkbox" name="leash" defaultChecked={prefs.brushLeash} /> Show Brush Leash While Smoothing</label>
+          <label>Brush Leash Color <input type="color" name="leashColor" defaultValue={prefs.brushLeashColor} /></label>
         </fieldset>
         <fieldset>
           <legend>Other Cursors</legend>
           <label><input type="radio" name="other" value="standard" defaultChecked={prefs.otherCursor === 'standard'} /> Standard</label>
           <label><input type="radio" name="other" value="precise" defaultChecked={prefs.otherCursor === 'precise'} /> Precise</label>
+        </fieldset>
+        <fieldset>
+          <legend>Brush Preview</legend>
+          <label>Color <input type="color" name="previewColor" defaultValue={prefs.brushPreviewColor} /></label>
         </fieldset>
         <p className="hint">Caps Lock switches between the brush tip and the crosshair, and between the tool icon and the crosshair.</p>
         <div className="actions">

@@ -448,6 +448,7 @@ export interface BrushCursorCtx {
 }
 
 const SAMPLES_WITH_ALT = new Set(['cloneStamp', 'healingBrush']);
+const OUTLINE_PX = { thin: 1, normal: 1.5, bold: 2, extraBold: 3 };
 
 export function useBrushCursor(c: BrushCursorCtx) {
   const { viewer, canvas, overlayRef, tool, redrawOverlay, toolOptionsRef, capsLockRef, prefsRef, docId, patchToolOptions } = c;
@@ -457,7 +458,7 @@ export function useBrushCursor(c: BrushCursorCtx) {
     const v = viewer.current, c = canvas.current;
     overlayRef.current?.setCursor(null);
     if (!v || !c || !(PAINT_TOOLS.has(tool) || tool === 'quickSelection')) { redrawOverlay(); return; }
-    let pos: [number, number] | null = null, shift = false, alt = false;
+    let pos: [number, number] | null = null, shift = false, alt = false, painting = false;
     let drag: { x: number; y: number; size: number; hardness: number } | null = null;
     const local = (e: PointerEvent): [number, number] => {
       const r = c.getBoundingClientRect();
@@ -465,17 +466,21 @@ export function useBrushCursor(c: BrushCursorCtx) {
     };
     const cursorFor = () => {
       // A held view tool or the Alt source target replaces the outline with a system cursor.
-      if (!pos || (v.spring && !drag) || (alt && !drag && SAMPLES_WITH_ALT.has(tool))) return null;
-      const [x, y] = v.screenToDoc(pos[0], pos[1]);
       const o = toolOptionsRef.current, prefs = prefsRef.current;
+      // Standard shows the tool icon as the system cursor (Caps Lock: the crosshair).
+      const icon = prefs.paintingCursor === 'standard' && !capsLockRef.current;
+      if (!pos || (v.spring && !drag) || (alt && !drag && SAMPLES_WITH_ALT.has(tool)) || (icon && !drag)) return null;
+      const [x, y] = v.screenToDoc(pos[0], pos[1]);
       const zoom = v.view.zoom;
       const block = tool === 'eraser' && o.mode === 'block';
       const scale = drag || block ? 1 : outlineScale(prefs.paintingCursor, Number(o.hardness ?? 100), capsLockRef.current);
       const sizeDoc = (block ? 16 / zoom : Number(o.size)) * (scale || 1);
       const mode = tool === 'quickSelection' ? (alt ? 'subtract' : shift ? 'add' : String(o.mode)) : '';
       return {
-        x, y, sizeDoc, shape: block ? 'square' as const : 'round' as const, crosshair: showCrosshair(sizeDoc * zoom, scale === 0),
-        center: prefs.brushCrosshair, mark: mode === 'add' ? '+' as const : mode === 'subtract' ? '-' as const : undefined,
+        x, y, sizeDoc, shape: block ? 'square' as const : 'round' as const,
+        crosshair: showCrosshair(sizeDoc * zoom, scale === 0) || (painting && prefs.crosshairWhilePainting),
+        center: prefs.brushCrosshair || tool === 'backgroundEraser', mark: mode === 'add' ? '+' as const : mode === 'subtract' ? '-' as const : undefined,
+        weight: OUTLINE_PX[prefs.brushOutline] ?? 1.5, preview: drag ? { color: prefs.brushPreviewColor, hardness: Number(o.hardness ?? 100) } : undefined,
       };
     };
     const update = () => { overlayRef.current?.setCursor(cursorFor()); redrawOverlay(); };
@@ -493,13 +498,14 @@ export function useBrushCursor(c: BrushCursorCtx) {
     };
     const leave = () => { if (!drag) { pos = null; update(); } };
     const down = (e: PointerEvent) => {
+      if (e.button === 0) { painting = true; update(); }
       if (e.button !== 2 || !e.ctrlKey || !e.altKey) return;
       e.preventDefault();
       c.setPointerCapture(e.pointerId);
       const o = toolOptionsRef.current;
       drag = { x: e.clientX, y: e.clientY, size: Number(o.size), hardness: Number(o.hardness ?? 100) };
     };
-    const up = () => { drag = null; };
+    const up = () => { drag = null; painting = false; update(); };
     const context = (e: MouseEvent) => { if (e.ctrlKey && e.altKey) e.preventDefault(); };
     // After the shortcut handler has set or cleared a held view tool and read Caps Lock.
     const key = (e: KeyboardEvent) => { shift = e.shiftKey; alt = e.altKey; setTimeout(update, 0); };
@@ -542,8 +548,9 @@ export function useCanvasCursor(c: CanvasCursorCtx) {
     let shift = false, alt = false, grabbing = false, last = '';
     const update = () => {
       const ctx: CursorCtx = {
-        shift, alt, grabbing, mode: String(toolOptionsRef.current.mode ?? 'new'), zoom: v.view.zoom, spring: v.spring,
+        shift, alt, grabbing, mode: String(toolOptionsRef.current.mode ?? 'new'), zoom: v.view.zoom, spring: v.spring, magnetic: !!toolOptionsRef.current.magnetic,
         precise: capsLockRef.current !== (prefsRef.current.otherCursor === 'precise'),
+        paintIcon: prefsRef.current.paintingCursor === 'standard' && !capsLockRef.current,
       };
       const css = toolCursor(tool, window.devicePixelRatio || 1, ctx), over = cursorOverrides(tool, ctx);
       if (css + over === last) return;

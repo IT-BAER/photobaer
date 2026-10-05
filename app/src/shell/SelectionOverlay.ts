@@ -9,8 +9,12 @@ export type Preview =
 
 // Brush cursor (docs/M2.md section 4): x/y and sizeDoc are document-space so the outline scales
 // with zoom; crosshair replaces the outline under 6 screen px or with Caps Lock on.
-// `center` adds a small crosshair inside the outline; `mark` is the Quick Selection add/subtract sign.
-export interface CursorState { x: number; y: number; sizeDoc: number; shape: 'round' | 'square'; crosshair: boolean; center?: boolean; mark?: '+' | '-' }
+// `center` adds a small crosshair inside the outline; `mark` is the Quick Selection add/subtract sign; `weight` the
+// outline width in px (Brush Tip Outline); `preview` fills the tip with the Brush Preview color while resizing.
+export interface CursorState {
+  x: number; y: number; sizeDoc: number; shape: 'round' | 'square'; crosshair: boolean; center?: boolean; mark?: '+' | '-'; weight?: number;
+  preview?: { color: string; hardness: number };
+}
 
 export interface BoxRect { x: number; y: number; w: number; h: number }
 // Pen and path selection tools, doc px: outline polylines [x, y, ...], anchors (6 px squares,
@@ -66,6 +70,7 @@ export class SelectionOverlay {
   #channelInk: { canvas: OffscreenCanvas | HTMLCanvasElement; w: number; h: number; scale: number } | null = null;
   #inkCanvas: HTMLCanvasElement | null;
   #cursor: CursorState | null = null;
+  #leash: { line: [number, number, number, number]; color: string } | null = null;
   #clone: CloneOverlay | null = null;
   #guides: [number, number, number, number][] = [];
   #box: BoxRect | null = null;
@@ -112,6 +117,11 @@ export class SelectionOverlay {
 
   setCursor(c: CursorState | null) {
     this.#cursor = c;
+  }
+
+  // Brush leash while smoothing: pointer to the lagging paint position, doc px.
+  setLeash(line: [number, number, number, number] | null, color = '#ff40ff') {
+    this.#leash = line && { line, color };
   }
 
   // Move/transform smart guides: full-document lines (x0, y0, x1, y1 in doc px) at the locked
@@ -224,6 +234,18 @@ export class SelectionOverlay {
     }
     if (this.#guides.length) this.#drawGuides(view, cssW, cssH, dpr);
     if (this.#clone) this.#drawClone(this.#clone, view, cssW, cssH, dpr);
+    if (this.#leash) {
+      const [a, b, c, d] = this.#leash.line, ctx = this.#ctx;
+      const [x0, y0] = docToScreen(view, a, b, cssW, cssH), [x1, y1] = docToScreen(view, c, d, cssW, cssH);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.setLineDash([]);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = this.#leash.color;
+      ctx.stroke();
+    }
     if (this.#cursor) this.#drawCursor(this.#cursor, view, cssW, cssH, dpr);
   }
 
@@ -262,15 +284,24 @@ export class SelectionOverlay {
       ctx.moveTo(sx, sy - r); ctx.lineTo(sx, sy + r);
     } else {
       const rPx = (cur.sizeDoc / 2) * view.zoom;
+      if (cur.preview && rPx > 0) {
+        const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rPx), c = cur.preview.color;
+        g.addColorStop(0, `${c}80`);
+        g.addColorStop(Math.min(0.999, cur.preview.hardness / 100), `${c}80`);
+        g.addColorStop(1, `${c}00`);
+        ctx.fillStyle = g;
+        ctx.fillRect(sx - rPx, sy - rPx, rPx * 2, rPx * 2);
+      }
       if (cur.shape === 'square') ctx.rect(sx - rPx, sy - rPx, rPx * 2, rPx * 2);
       else ctx.arc(sx, sy, rPx, 0, Math.PI * 2);
       if (cur.center || cur.mark) { ctx.moveTo(sx - 4, sy); ctx.lineTo(sx + 4, sy); }
       if (cur.center || cur.mark === '+') { ctx.moveTo(sx, sy - 4); ctx.lineTo(sx, sy + 4); }
     }
-    ctx.lineWidth = 3;
+    const w = cur.crosshair ? 1 : cur.weight ?? 1;
+    ctx.lineWidth = w + 2;
     ctx.strokeStyle = 'rgba(0,0,0,0.6)';
     ctx.stroke();
-    ctx.lineWidth = 1;
+    ctx.lineWidth = w;
     ctx.strokeStyle = '#fff';
     ctx.stroke();
   }

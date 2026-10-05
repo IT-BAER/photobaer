@@ -1,25 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  Blend, Brush, Circle, Crop, Eraser, Frame, Hand, Hexagon, Lasso, Magnet, Minus, Move, MousePointerClick,
-  DiamondMinus, DiamondPlus, MousePointer2, Navigation, PaintBucket, PenTool, Pencil, Signature, Spline, SplinePointer, Pipette, RectangleHorizontal, RotateCw, Rows3, Shapes, Slash, Square, SquareDashedText, TextCursor, Triangle, Type, TypeOutline, Wand2, ZoomIn, Bandage, Syringe, SquareDashed, Move3d, Eye, Stamp, Grid3x3,
-  History, PaintbrushVertical, Droplet, Focus, Pointer, Sun, Moon, Contrast, Replace, Palette, BrushCleaning, WandSparkles,
-  Crosshair, Ruler, StickyNote, Hash, Slice, SquareMousePointer, LayoutTemplate, Scan,
-} from 'lucide-react';
-import type { ComponentType } from 'react';
 import { RotateCcw, ArrowLeftRight } from 'lucide-react';
 import { SLOTS, TOOLS, cycleTool, type Slot } from './tools.ts';
 import { rgbToHex, type Rgb } from './color.ts';
 import { loadOrder, moveItem, saveOrder } from '../app/panelOrder.ts';
+import { TOOL_ART } from './toolArt.ts';
 
-export const ICONS: Record<string, ComponentType<{ size?: number; strokeWidth?: number }>> = {
-  Move, Square, Circle, Minus, Rows3, Lasso, PenTool, Magnet, MousePointerClick, Wand2, Crop, Frame,
-  Pipette, Brush, Pencil, Eraser, Blend, PaintBucket, Hand, RotateCw, ZoomIn, RectangleHorizontal, Triangle, Hexagon, Slash,
-  Signature, Spline, DiamondPlus, DiamondMinus, SplinePointer, MousePointer2, Navigation, Shapes,
-  Bandage, Syringe, SquareDashed, Move3d, Eye, Stamp, Grid3x3,
-  History, PaintbrushVertical, Droplet, Focus, Pointer, Sun, Moon, Contrast, Replace, Palette, BrushCleaning, WandSparkles,
-  Type, TextCursor, SquareDashedText, TypeOutline,
-  Crosshair, Ruler, StickyNote, Hash, Slice, SquareMousePointer, LayoutTemplate, Scan,
-};
+// A tool's toolbar icon (shell/toolArt.ts); the drawings are static strings from this repo.
+export function ToolIcon({ id, size = 18 }: { id: string; size?: number }) {
+  const a = TOOL_ART[id];
+  if (!a) return null;
+  const html = `<g opacity=".45">${a.d ?? ''}</g>${a.f ?? ''}<g fill="none" stroke="currentColor" stroke-width="1.5">${a.s ?? ''}</g>`;
+  return <svg className="tool-icon" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" dangerouslySetInnerHTML={{ __html: html }} />;
+}
 
 const LONG_PRESS_MS = 350;
 const ORDER_KEY = 'photobaer.toolOrder';
@@ -89,7 +81,6 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
         {slots.map(slot => {
           const toolId = currentOf(slot);
           const tool = TOOLS[toolId];
-          const Icon = ICONS[tool.icon];
           return (
             <div key={slot.id} className={`tool-slot${drop?.id === slot.id ? (drop.after ? ' drop-after' : ' drop-before') : ''}`}
               onDragOver={e => {
@@ -124,7 +115,7 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
                 }}
                 onDragEnd={() => setDrop(null)}
               >
-                <Icon size={18} strokeWidth={1.75} />
+                <ToolIcon id={toolId} />
                 {slot.tools.length > 1 && <span className="corner-mark" />}
               </button>
               {flyout?.id === slot.id && (
@@ -138,11 +129,10 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
                   <ul className="flyout" role="menu" ref={keepInView} style={{ top: flyout.top, left: flyout.left }}>
                     {slot.tools.map(id => {
                       const t = TOOLS[id];
-                      const TIcon = ICONS[t.icon];
                       return (
                         <li key={id}>
                           <button role="menuitem" aria-label={t.label} aria-pressed={active === id} onClick={() => choose(slot, id)}>
-                            <TIcon size={16} strokeWidth={1.75} /><span>{t.label}</span><kbd>{t.key.toUpperCase()}</kbd>
+                            <ToolIcon id={id} size={16} /><span>{t.label}</span><kbd>{t.key.toUpperCase()}</kbd>
                           </button>
                         </li>
                       );

@@ -2178,6 +2178,11 @@ export function App() {
   usePaintTool({
     viewer, tool, toolOptionsRef, currentPreset, selectedPresetRef, brushLib, bgRef, fgRef, active, docRef, strokeCounter, quickMask: selEdit, perfRef,
     setError, lastStrokePoint, run, onStep: strokeStep,
+    leash: line => {
+      if (!prefs.current.brushLeash && line) return;
+      overlayRef.current?.setLeash(line, prefs.current.brushLeashColor);
+      redrawOverlay();
+    },
   });
 
   const retouch = { viewer, canvas, overlayRef, redrawOverlay, tool, active, docRef, toolOptionsRef, run, setError };

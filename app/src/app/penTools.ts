@@ -221,7 +221,9 @@ export function usePenTools(c: PenToolsCtx) {
           const h = t && hitTest(t.path, hover[0], hover[1], tol(), { handles: false, fill: false });
           badge = h?.kind === 'anchor' ? 'subtract' : h?.kind === 'segment' ? 'add' : 'start';
         }
-      } else if (hover && tool === 'curvaturePen') badge = curv.pts.length ? null : 'start';
+      } else if (hover && tool === 'curvaturePen') {
+        badge = !curv.pts.length ? 'start' : curv.pts.length > 2 && Math.hypot(hover[0] - curv.pts[0][0], hover[1] - curv.pts[0][1]) <= tol() ? 'close' : null;
+      }
       if (badge === undefined) cv!.style.removeProperty('--hover-cursor');
       else cv!.style.setProperty('--hover-cursor', namedCursor(tool === 'pen' ? 'pen' : 'curvaturePen', window.devicePixelRatio || 1, badge));
     }

@@ -3,6 +3,7 @@ import type { RulerUnit } from './units.ts';
 
 export type TypeUnit = 'px' | 'pt' | 'mm';
 export type PaintingCursor = 'standard' | 'precise' | 'normal' | 'full';
+export type BrushOutline = 'thin' | 'normal' | 'bold' | 'extraBold';
 
 export interface Preferences {
   rulerUnit: RulerUnit;
@@ -15,10 +16,16 @@ export interface Preferences {
   gridColor: string;
   gridSpacing: number;
   subdivisions: number;
-  // Cursors: Painting Cursors, Show Crosshair in Brush Tip, Other Cursors.
+  // Cursors: Painting Cursors, Brush Tip Outline, Show Crosshair in Brush Tip, Show Only Crosshair While Painting,
+  // Show Brush Leash While Smoothing and its color, Other Cursors and the Brush Preview color.
   paintingCursor: PaintingCursor;
+  brushOutline: BrushOutline;
   brushCrosshair: boolean;
+  crosshairWhilePainting: boolean;
+  brushLeash: boolean;
+  brushLeashColor: string;
   otherCursor: 'standard' | 'precise';
+  brushPreviewColor: string;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -33,8 +40,13 @@ export const DEFAULT_PREFERENCES: Preferences = {
   gridSpacing: 100,
   subdivisions: 4,
   paintingCursor: 'normal',
+  brushOutline: 'normal',
   brushCrosshair: false,
+  crosshairWhilePainting: false,
+  brushLeash: false,
+  brushLeashColor: '#ff40ff',
   otherCursor: 'standard',
+  brushPreviewColor: '#ff0000',
 };
 
 const STORE_KEY = 'photobaer:preferences';

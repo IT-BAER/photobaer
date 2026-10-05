@@ -8,7 +8,7 @@ import {
 import type { AlignMode } from '../worker/types.ts';
 import { ALIGN_ITEMS } from '../app/helpers.ts';
 import { rgbToHex, type Rgb } from './color.ts';
-import { ICONS } from './ToolBar.tsx';
+import { ToolIcon } from './ToolBar.tsx';
 import { PAINT_MODES, paintModesFor, saveToolOptions, type Tool } from './tools.ts';
 
 export type ToolOptions = Record<string, number | string | boolean>;
@@ -201,12 +201,11 @@ export function OptionsBar({ tool, values, setValues, custom = {}, fg = [0, 0, 0
     setValues(next);
     saveToolOptions(tool, next);
   };
-  const ToolIcon = ICONS[tool.icon];
   // Painting tools fold Size and Hardness into the brush tip button.
   const tip = tool.cursor === 'none' && tool.options.some(o => o.id === 'size');
   return (
     <div className="options-bar" role="toolbar" aria-label={`${tool.label} options`}>
-      <span className="options-tool" title={tool.label}>{ToolIcon && <ToolIcon size={16} />}</span>
+      <span className="options-tool" title={tool.label}><ToolIcon id={tool.id} size={16} /></span>
       {tool.options.map(o => {
         if (tip && o.id === 'hardness') return null;
         // The Healing Brush shows its pattern picker only with Source: Pattern.

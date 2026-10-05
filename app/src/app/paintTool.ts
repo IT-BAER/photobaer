@@ -26,12 +26,14 @@ export interface PaintToolCtx {
   lastStrokePoint: RefObject<Record<number, [number, number]>>; run: Run;
   // Called after each painted step of a stroke, for views that follow it live.
   onStep?: () => void;
+  // Brush leash while smoothing: pointer to the painted position (doc px), null when the stroke ends.
+  leash?: (line: [number, number, number, number] | null) => void;
 }
 
 export function usePaintTool(c: PaintToolCtx) {
   const {
     viewer, tool, toolOptionsRef, currentPreset, selectedPresetRef, brushLib, bgRef, fgRef, active, docRef, strokeCounter, quickMask, perfRef,
-    setError, lastStrokePoint, run, onStep,
+    setError, lastStrokePoint, run, onStep, leash,
   } = c;
   // Brush, pencil, eraser and the stamp/heal brushes: pointermove samples are coalesced and sent as
   // one strokeTo per animation frame; the smoother runs on the document-space samples before they are queued.
@@ -157,6 +159,7 @@ export function usePaintTool(c: PaintToolCtx) {
       return tool === 'healingBrush' ? { source, heal: 'healing', diffusion } : { source };
     }
 
+    let pointer: [number, number] | null = null;
     // One animation-frame loop per stroke while build-up or smoothing catch-up needs time-driven samples.
     function startFrames(buildUp: boolean) {
       st.buildUp = buildUp ? new BuildUp(performance.now()) : null;
@@ -165,6 +168,7 @@ export function usePaintTool(c: PaintToolCtx) {
         if (!s || !last) { st.frame = 0; return; }
         const caught = s.catchUp(now);
         if (caught) push(caught, last.slice(2));
+        if (caught && pointer && st.last) leash?.([pointer[0], pointer[1], st.last[0], st.last[1]]);
         const n = st.buildUp?.tick(now) ?? 0;
         for (let i = 0; i < n; i++) st.pending.push(...st.last!);
         if (n) schedule();
@@ -198,6 +202,8 @@ export function usePaintTool(c: PaintToolCtx) {
       if (!st.smoother) return;
       st.buildUp?.moved(e.timeStamp);
       push(st.smoother.move([e.x, e.y], e.timeStamp), inputFields(e, st.stride));
+      pointer = [e.x, e.y];
+      if (st.last) leash?.([e.x, e.y, st.last[0], st.last[1]]);
     }
     async function end(e: ToolPointerEvent) {
       // A quick click releases before strokeBegin has answered; finish the begin first.
@@ -206,6 +212,7 @@ export function usePaintTool(c: PaintToolCtx) {
       push(st.smoother.end([e.x, e.y], e.timeStamp), inputFields(e, st.stride));
       flush();
       stopFrames();
+      leash?.(null);
       st.smoother = null;
       if (st.layerId != null && st.last) lastStrokePoint.current[st.layerId] = [st.last[0], st.last[1]];
       st.layerId = null;

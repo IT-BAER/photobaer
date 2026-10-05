@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Canvas cursors in the Photoshop style for every tool: tool icons with their own hotspot (lasso, wand, eyedropper, bucket, crop, ruler, pen, type, hand, zoom and more); selection tools show the add, subtract and intersect sign from Shift, Alt or the Mode option; the pen shows start, close, add and delete states and the white arrow with Ctrl; Alt shows Zoom Out, the Move copy cursor and the Clone Stamp/Healing Brush source target; held Space and Ctrl+Space show the hand and zoom; Caps Lock switches to the crosshair; Quick Selection shows its brush circle with a plus or minus sign.
 - Edit > Preferences > Cursors: Painting Cursors (Standard, Precise, Normal Brush Tip, Full Size Brush Tip), Show Crosshair in Brush Tip and Other Cursors (Standard, Precise).
+- Toolbar and options bar show Photoshop-style tool icons for every tool.
+- Canvas cursors redrawn from Photoshop references: Move arrow with move badge, Slice, Slice Select, Patch (Source and Destination), Content-Aware Move, Artboard, Freeform Pen (with Magnetic), Curvature Pen (start and close), Rotate View, a larger closed hand, an asterisk for intersect, the black arrow while Direct Selection drags; Painting Cursors = Standard shows the tool icon; Background Eraser shows its sampling cross.
+- Edit > Preferences > Cursors: Brush Tip Outline (Thin, Normal, Bold, Extra Bold), Show Only Crosshair While Painting, Show Brush Leash While Smoothing with its color, and the Brush Preview color for the Ctrl+Alt right-drag size preview.
 - 32-bit documents: the Foreground and Background Color Picker has an Intensity slider (stops, -20 to +20);
   Brush, Pencil and Edit > Fill paint the color times 2^Intensity, so values above 1 can be painted.
 - 32-bit documents: Brush, Fill and Fade keep values above 1 in the 32-bit blend modes (Multiply, Lighten,
