@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Equalize Histogram and Local Adaptation no longer flatten everything above 1.
 - Image > Mode > 16 or 8 Bits/Channel on a 32-bit document opens HDR Toning (live preview, one undo step).
   With several layers it asks first: Merge flattens and tones, Don't Merge converts and clips at 1.
+- 32-bit documents: layers and adjustment layers in Darken, Multiply, Lighten, Linear Dodge, Difference, Hue,
+  Saturation, Color and Luminosity keep values above 1. The Layers panel lists only the blend modes Photoshop
+  offers for 32-bit images.
 
 ### Fixed
 

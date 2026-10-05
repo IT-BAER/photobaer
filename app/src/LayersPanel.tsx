@@ -4,7 +4,7 @@ import {
   PaintBucket, Package, Shapes, SquareDashed, SquarePlus, Trash2, Type as TypeIcon,
 } from 'lucide-react';
 import { client } from './client.ts';
-import { BLEND_MODES, nodeById, dropTarget, type Where } from './layers.ts';
+import { BLEND_MODES, HDR_BLEND_MODES, nodeById, dropTarget, type Where } from './layers.ts';
 import type { DocInfo, LayerNode } from './engine.worker.ts';
 import { effectRows, setEffectEnabled, type EffectKind } from './layerStyle.ts';
 import { pathData } from './app/svgcss.ts';
@@ -388,7 +388,8 @@ export function LayersPanel(props: Props) {
           <div className="props-row">
             <select aria-label="Blend mode" value={node.blend} onChange={e => setProps(node.id, { blend: e.target.value })}>
               {node.kind === 'group' && <option value="pass through">pass through</option>}
-              {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+              {(doc.depth === 32 ? HDR_BLEND_MODES : BLEND_MODES).map(m => <option key={m} value={m}>{m}</option>)}
+              {doc.depth === 32 && node.blend !== 'pass through' && !HDR_BLEND_MODES.includes(node.blend) && <option value={node.blend}>{node.blend}</option>}
             </select>
             <PercentField label="Opacity" value={Math.round(node.opacity * 100)} commit={v => setProps(node.id, { opacity: v / 100 })} />
           </div>

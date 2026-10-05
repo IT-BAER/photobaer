@@ -75,6 +75,7 @@ fn draw(
     }
     let dissolve = mode == Blend::Dissolve;
     let plain = mode.is_passthrough_of_source();
+    let hdr = c.hdr && hdr_mode(mode);
     for y in 0..c.vh {
         for x in 0..c.vw {
             let p = y * TILE + x;
@@ -105,12 +106,11 @@ fn draw(
                 [r, g, b]
             } else {
                 let inv = 1.0 / ab;
-                let cb = [
-                    (dst[o] * inv).clamp(0.0, 1.0),
-                    (dst[o + 1] * inv).clamp(0.0, 1.0),
-                    (dst[o + 2] * inv).clamp(0.0, 1.0),
-                ];
-                let bl = blend_rgb(mode, cb, [r, g, b]);
+                let bl = if hdr {
+                    blend_hdr(mode, std::array::from_fn(|i| (dst[o + i] * inv).max(0.0)), [r, g, b])
+                } else {
+                    blend_rgb(mode, std::array::from_fn(|i| (dst[o + i] * inv).clamp(0.0, 1.0)), [r, g, b])
+                };
                 [
                     (1.0 - ab) * r + ab * bl[0],
                     (1.0 - ab) * g + ab * bl[1],
@@ -167,9 +167,9 @@ fn adjust_step(dst: &mut [f32], s: &Step, data: &[f32], mask: &MaskSrc, clip: Op
                 }
                 k = 1.0;
             }
-            let (orig, r) = if c.hdr && s.mode.is_passthrough_of_source() {
+            let (orig, r) = if c.hdr && hdr_mode(s.mode) {
                 let o = straight_hdr(dst, p);
-                (o, adjust::apply(s.opcode, data, o, dx, dy).map(|v| v.max(0.0)))
+                (o, blend_hdr(s.mode, o, adjust::apply(s.opcode, data, o, dx, dy)))
             } else {
                 let o = straight(dst, p);
                 (o, blend_rgb(s.mode, o, adjust::apply(s.opcode, data, o, dx, dy)))

@@ -7,6 +7,9 @@ export const BLEND_MODES = [
   'color', 'luminosity',
 ];
 
+// Photoshop's blend modes for 32-bit images; only these keep values above 1 in the engine (`blend::hdr_mode`).
+export const HDR_BLEND_MODES = ['normal', 'dissolve', 'darken', 'multiply', 'lighten', 'linear dodge', 'difference', 'hue', 'saturation', 'color', 'luminosity'];
+
 export type Where = 'above' | 'below' | 'into';
 
 // The list holding `id` and its index there; parent 0 is the root.

@@ -1634,6 +1634,38 @@ fn exposure_on_32_bit_documents_keeps_values_above_one() {
     assert!((v - exposed(0.8, 1.0)).abs() < 1e-4, "destructive: {v}");
 }
 
+// Backdrop 2.0 (8-bit: 0.8) under a top layer of `top` in `blend`; the composite red value.
+fn blend_over_two(depth: u8, blend: &str, top: f32) -> f32 {
+    let mut d = if depth == 32 { float_doc(&[2.0]) } else { Document::new(16, 1, 8).unwrap() };
+    let id = d.add_layer("top", 1).unwrap();
+    if depth == 32 {
+        d.set_tile_f32(id, 0, 0, &[[top, top, top, 1.0]; TILE_PIXELS].concat()).unwrap();
+    } else {
+        let q = |v: f32| (v * 255.0).round() as u8;
+        d.set_tile_rgba8(1, 0, 0, &[[204u8, 204, 204, 255]; TILE_PIXELS].concat()).unwrap();
+        d.set_tile_rgba8(id, 0, 0, &[[q(top), q(top), q(top), 255]; TILE_PIXELS].concat()).unwrap();
+    }
+    d.set_props(id, &format!(r#"{{"blend":"{blend}"}}"#)).unwrap();
+    d.flatten_tile_f32(0, 0).unwrap()[0]
+}
+
+#[test]
+fn photoshop_32_bit_blend_modes_keep_values_above_one() {
+    for (blend, top, want) in [("multiply", 0.5, 1.0), ("linear dodge", 1.5, 3.5), ("lighten", 3.0, 3.0), ("darken", 3.0, 2.0),
+        ("difference", 3.0, 1.0), ("luminosity", 2.5, 2.5), ("color", 0.5, 2.0)] {
+        let v = blend_over_two(32, blend, top);
+        assert!((v - want).abs() < 1e-4, "{blend}: {v}, want {want}");
+    }
+    assert!((blend_over_two(32, "screen", 0.5) - 1.0).abs() < 1e-6, "modes Photoshop hides in 32-bit still clamp");
+    assert!((blend_over_two(8, "multiply", 0.5) - 0.4).abs() < 1.0 / 255.0, "8-bit unchanged");
+
+    let mut d = float_doc(&[2.0]);
+    let a = d.add_special(1, &format!(r#"{{ "name": "Exposure", "adjustment": {} }}"#, exposure_json(1.0))).unwrap();
+    d.set_props(a, r#"{"blend":"multiply"}"#).unwrap();
+    let (v, want) = (d.flatten_tile_f32(0, 0).unwrap()[0], 2.0 * exposed(2.0, 1.0));
+    assert!((v - want).abs() < 1e-3, "adjustment layer in Multiply: {v}, want {want}");
+}
+
 fn hdr_json(method: &str) -> String {
     serde_json::json!({ "kind": "hdr_toning", "params": { "method": method, "radius": 16.0, "strength": 0.5, "detail": 30.0,
         "shadow": 0.0, "highlight": 0.0, "exposure": 0.0, "gamma": 1.0, "vibrance": 0.0, "saturation": 0.0 } })

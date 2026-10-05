@@ -159,7 +159,12 @@ pub(crate) fn lum(c: [f32; 3]) -> f32 {
     0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]
 }
 
-fn clip_color(mut c: [f32; 3]) -> [f32; 3] {
+fn clip_color(c: [f32; 3]) -> [f32; 3] {
+    clip_color_to(c, true)
+}
+
+// W3C ClipColor; without `upper` only negative channels are pulled in (32-bit data may exceed 1).
+fn clip_color_to(mut c: [f32; 3], upper: bool) -> [f32; 3] {
     let l = lum(c);
     let n = c[0].min(c[1]).min(c[2]);
     let x = c[0].max(c[1]).max(c[2]);
@@ -168,7 +173,7 @@ fn clip_color(mut c: [f32; 3]) -> [f32; 3] {
             *v = l + (*v - l) * l / (l - n);
         }
     }
-    if x > 1.0 {
+    if upper && x > 1.0 {
         for v in c.iter_mut() {
             *v = l + (*v - l) * (1.0 - l) / (x - l);
         }
@@ -255,6 +260,38 @@ pub fn blend_rgb(mode: Blend, cb: [f32; 3], cs: [f32; 3]) -> [f32; 3] {
         Blend::Luminosity => set_lum(cb, lum(cs)),
     };
     [out[0].clamp(0.0, 1.0), out[1].clamp(0.0, 1.0), out[2].clamp(0.0, 1.0)]
+}
+
+/// The modes Photoshop offers for 32-bit images, plus Pass Through.
+pub fn hdr_mode(mode: Blend) -> bool {
+    use Blend::*;
+    matches!(mode, Normal | Dissolve | PassThrough | Darken | Multiply | Lighten | LinearDodge | Difference | Hue | Saturation | Color | Luminosity)
+}
+
+/// `B(Cb, Cs)` for 32-bit data: `hdr_mode` modes keep values above 1 (floored at 0); the others
+/// clamp the backdrop and the result to 0..1 like `blend_rgb`.
+pub fn blend_hdr(mode: Blend, cb: [f32; 3], cs: [f32; 3]) -> [f32; 3] {
+    if !hdr_mode(mode) {
+        return blend_rgb(mode, cb.map(|v| v.clamp(0.0, 1.0)), cs);
+    }
+    let per = |f: fn(f32, f32) -> f32| [f(cb[0], cs[0]), f(cb[1], cs[1]), f(cb[2], cs[2])];
+    let set_lum = |c: [f32; 3], l: f32| {
+        let d = l - lum(c);
+        clip_color_to([c[0] + d, c[1] + d, c[2] + d], false)
+    };
+    let out = match mode {
+        Blend::Multiply => per(multiply),
+        Blend::Darken => per(|cb, cs| cb.min(cs)),
+        Blend::Lighten => per(|cb, cs| cb.max(cs)),
+        Blend::LinearDodge => per(|cb, cs| cb + cs),
+        Blend::Difference => per(|cb, cs| (cb - cs).abs()),
+        Blend::Hue => set_lum(set_sat(cs, sat(cb)), lum(cb)),
+        Blend::Saturation => set_lum(set_sat(cb, sat(cs)), lum(cb)),
+        Blend::Color => set_lum(cs, lum(cb)),
+        Blend::Luminosity => set_lum(cb, lum(cs)),
+        _ => cs,
+    };
+    out.map(|v| v.max(0.0))
 }
 
 /// Non-separable modes (whole-pixel comparisons/HSL ops) have no single-channel form; texture and

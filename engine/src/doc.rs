@@ -70,7 +70,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::adjust::{self, Adjustment};
 use crate::blend;
-use crate::blend::{blend_channel, blend_rgb, dissolve_hash, paint_mask_value, paint_pixel, Blend, PaintMode};
+use crate::blend::{blend_channel, blend_hdr, blend_rgb, dissolve_hash, hdr_mode, paint_mask_value, paint_pixel, Blend, PaintMode};
 use crate::filters;
 use crate::content::{check_psd, CompLayer, FillContent, Filter, GlobalLight, LayerComp, Link, PatternEntry, Smart, SmartFilter, StackMode, WarpMesh};
 use crate::gradient;
