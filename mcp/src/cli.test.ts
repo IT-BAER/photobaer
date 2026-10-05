@@ -21,3 +21,13 @@ test('the server exits when the agent closes stdin, even with the pairing listen
   if (code === 'timeout') p.kill();
   assert.equal(code, 0);
 });
+
+test('--help prints the usage and exits 0', async () => {
+  const p = spawn(process.execPath, [fileURLToPath(new URL('./cli.ts', import.meta.url)), '--help'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let out = '';
+  p.stdout.on('data', d => { out += d; });
+  const code = await new Promise<number | null>(r => p.on('exit', r));
+  assert.equal(code, 0);
+  assert.match(out, /--url/);
+  assert.match(out, /--no-open/);
+});
