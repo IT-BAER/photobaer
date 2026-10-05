@@ -58,7 +58,7 @@ import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
 import { SLOTS, TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
 import { toolCursor } from './shell/cursors.ts';
 import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
-import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
+import { hexToRgb, intensityOf, rgbToHex, type Rgb } from './shell/color.ts';
 import { grayOf, inGray, rgbOfGray, type Convert } from './shell/colorModes.ts';
 import type { DigitState } from './shell/brushKeys.ts';
 import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
@@ -1346,8 +1346,8 @@ export function App() {
       if (id === undefined) throw new Error('The pattern is not available.');
       return { source: 'pattern', patternId: id, ...base };
     }
-    const rgb = paintColor({ foreground: fg, background: bg, color: f.color, black: [0, 0, 0], gray: [128, 128, 128], white: [255, 255, 255] }[f.contents] as Rgb, paintTarget.current);
-    return { source: 'solid', rgba: [...rgb, 255], ...base };
+    const src = { foreground: fg, background: bg, color: f.color, black: [0, 0, 0], gray: [128, 128, 128], white: [255, 255, 255] }[f.contents] as Rgb;
+    return { source: 'solid', rgba: [...paintColor(src, paintTarget.current), 255], intensity: intensityOf(src), ...base };
   }
 
   // Closing by OK, Cancel or Escape: wait for the last preview rerun, then commit or restore.
@@ -1469,7 +1469,7 @@ export function App() {
   }
 
   // Image > Mode > 8/16 Bits/Channel from 32-bit opens HDR Toning; several layers (or one non-pixel layer)
-  // ask to merge first, and Don't Merge converts without toning.
+  // ask to merge first, and Don't Merge tones each pixel layer with the default Local Adaptation.
   async function convertDepth(depth: 8 | 16 | 32) {
     setMenu(null);
     const layers = doc?.layers ?? [];
@@ -1479,7 +1479,7 @@ export function App() {
       setMergeDepth(depth);
       const c = await new Promise<MergeChoice>(r => { mergeAnswer.current = r; mergeDialog.current?.showModal(); mergeDialog.current?.querySelector<HTMLButtonElement>('.primary')?.focus(); });
       if (c === 'cancel') return;
-      if (c === 'keep') { run('Converting…', () => client.call('convertDepth', depth)); return; }
+      if (c === 'keep') { run('Converting…', () => client.call('convertDepth', depth, { merge: false, params: (defaultDestructive('hdr_toning') as Extract<DestructiveAdjustment, { kind: 'hdr_toning' }>).params })); return; }
     }
     hdrConvert.current = { depth, merge };
     startAdjust(defaultDestructive('hdr_toning'));
@@ -1560,7 +1560,7 @@ export function App() {
 
   function quickFill(rgb: Rgb, label: string) {
     if (!active) return;
-    run(null, () => client.call('fillEx', active.id, editTarget(active), { source: 'solid', rgba: [...paintColor(rgb, paintTarget.current), 255], mode: 'normal', opacity: 1, preserveTransparency: false }, label));
+    run(null, () => client.call('fillEx', active.id, editTarget(active), { source: 'solid', rgba: [...paintColor(rgb, paintTarget.current), 255], intensity: intensityOf(rgb), mode: 'normal', opacity: 1, preserveTransparency: false }, label));
   }
 
   function openModify(op: keyof typeof MODIFY_OPS) {
@@ -2188,7 +2188,7 @@ export function App() {
   });
 
   function openPicker(which: 'fg' | 'bg') {
-    picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v));
+    picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v), { hdr: doc?.depth === 32 });
   }
   // Grayscale documents paint in gray: a color from elsewhere converts through the Gray profile, and a new
   // Gray profile of the same document reconverts the paint colors from their RGB twins, so they look the same.
@@ -2535,7 +2535,7 @@ export function App() {
                 t.store.set({ warp: warpBar(ws) });
               })}
             />
-          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions, measure: measure.bar }} fg={fg} />}
+          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions, measure: measure.bar }} fg={fg} depth={doc?.depth} />}
           {doc && <TabBar doc={doc} switchTo={key => run(null, () => client.call('switchDoc', key))} close={key => void closeTab(key)}
             move={(key, to) => run(null, () => client.call('moveDoc', key, to))} />}
           <DocumentArrangement
@@ -2694,11 +2694,11 @@ export function App() {
       <GradientEditor ref={gradEditor} presets={gradLib.current.list()} fg={fg} bg={bg} pickColor={(rgb, title, commit) => picker.current?.open(rgb, title, commit)} />
       <FillDialog
         fillDialog={fillDialog} endPreviewDialog={endPreviewDialog} previewRef={previewRef} fillForm={fillForm} setFillForm={setFillForm}
-        picker={picker} brushLib={brushLib}
+        picker={picker} brushLib={brushLib} depth={doc?.depth}
       />
       <StrokeDialog
         strokeDialog={strokeDialog} endPreviewDialog={endPreviewDialog} previewRef={previewRef} strokeForm={strokeForm} setStrokeForm={setStrokeForm}
-        picker={picker}
+        picker={picker} depth={doc?.depth}
       />
       <AdjustDialog
         adjustDialog={adjustDialog} adjustForm={adjustForm} endPreviewDialog={endPreviewDialog} previewRef={previewRef} adjustSession={adjustSession}

@@ -252,6 +252,11 @@ impl Engine {
         self.0.targeted(id, Target::Pixels, |d| d.apply_destructive(id, json)).map_err(err)
     }
 
+    /// HDR Toning of layer `id` as a whole for a 32 -> 16/8 bit conversion (selection and pixel lock ignored).
+    pub fn tone_layer(&mut self, id: u32, json: &str) -> Result<(), JsError> {
+        self.0.doc.tone_layer(id, json).map_err(err)
+    }
+
     /// Opens a Liquify session on layer `id` (docs/M5.md section 6): a proxy of at most
     /// `max_side` px and a mesh of `spacing` px, or re-editing Liquify smart filter `filter_id`.
     pub fn liquify_begin(&mut self, id: u32, max_side: u32, spacing: u32, filter_id: Option<u32>) -> Result<liquify::Liquify, JsError> {

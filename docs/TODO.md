@@ -3,10 +3,9 @@
 Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` section 4.
 
 ## M6 Color and photo
-- 32 bits per channel: the paint color is 8-bit (no HDR color picker) and non-Normal paint modes clip at 1.0;
-  layers kept in blend modes outside Photoshop's 32-bit list clip; Blur Gallery is disabled in 32-bit
-  (Photoshop support unverified); 32 -> 16/8 Bits/Channel with Don't Merge clips (Photoshop reportedly applies
-  Local Adaptation per layer, unverified).
+- 32 bits per channel: gradients, shapes and type ignore the Color Picker Intensity; layers kept in blend
+  modes outside Photoshop's 32-bit list clip (what Photoshop does with them on conversion is unverified);
+  Sample "Current Layer" reads wrong values from 16/32-bit layers.
 - Color management rest: Color Settings "Blend RGB colors using gamma"; ColorSync and older-version presets
   (they need Apple RGB, SWOP and similar built-in profiles); the system clipboard and layer drags carry no
   profile; JPEG and WebP exports of Grayscale documents are RGB without the Gray profile; open-time conversion converts pixel layers only (text,

@@ -11,7 +11,7 @@ import type { EngineAssets } from '../brushes/engineAssets.ts';
 import type { ColorPickerHandle } from '../shell/ColorPicker.tsx';
 import type { GradientEditorHandle } from '../shell/GradientEditor.tsx';
 import { rgbToHex, type Rgb } from '../shell/color.ts';
-import { PAINT_MODES } from '../shell/tools.ts';
+import { paintModesFor } from '../shell/tools.ts';
 import { RULER_UNITS, unitToPx, type RulerUnit } from '../shell/units.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo } from '../worker/types.ts';
 import {
@@ -30,9 +30,9 @@ type ColorRange = { preset: string; fuzziness: number; range: number; localized:
 type ColorRangeSample = { rgb: [number, number, number]; x: number; y: number };
 type ColorRangePreview = { w: number; h: number; data: Uint8Array; level: number };
 
-export function FillDialog({ fillDialog, endPreviewDialog, previewRef, fillForm, setFillForm, picker, brushLib }: {
+export function FillDialog({ fillDialog, endPreviewDialog, previewRef, fillForm, setFillForm, picker, brushLib, depth }: {
   fillDialog: DialogRef; endPreviewDialog: () => void; previewRef: PreviewRef; fillForm: FillForm; setFillForm: SetState<FillForm>;
-  picker: RefObject<ColorPickerHandle | null>; brushLib: BrushLibRef;
+  picker: RefObject<ColorPickerHandle | null>; brushLib: BrushLibRef; depth?: number;
 }) {
   return (
     <dialog ref={fillDialog} className="live-preview" aria-label="Fill" onClose={endPreviewDialog}>
@@ -55,7 +55,7 @@ export function FillDialog({ fillDialog, endPreviewDialog, previewRef, fillForm,
           </select></label>
         )}
         <label>Mode <select name="mode" value={fillForm.mode} onChange={e => setFillForm({ ...fillForm, mode: e.currentTarget.value })}>
-          {PAINT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+          {paintModesFor(depth, fillForm.mode).map(m => <option key={m} value={m}>{m}</option>)}
         </select></label>
         <label>Opacity <input name="opacity" type="number" min={0} max={100} value={fillForm.opacity}
           onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillForm({ ...fillForm, opacity: Math.min(100, Math.max(0, v)) }); }} /> %</label>
@@ -88,9 +88,9 @@ export function ContentAwareFillDialog({ dialog, submit }: { dialog: DialogRef; 
   );
 }
 
-export function StrokeDialog({ strokeDialog, endPreviewDialog, previewRef, strokeForm, setStrokeForm, picker }: {
+export function StrokeDialog({ strokeDialog, endPreviewDialog, previewRef, strokeForm, setStrokeForm, picker, depth }: {
   strokeDialog: DialogRef; endPreviewDialog: () => void; previewRef: PreviewRef; strokeForm: StrokeForm; setStrokeForm: SetState<StrokeForm>;
-  picker: RefObject<ColorPickerHandle | null>;
+  picker: RefObject<ColorPickerHandle | null>; depth?: number;
 }) {
   return (
     <dialog ref={strokeDialog} className="live-preview" aria-label="Stroke" onClose={endPreviewDialog}>
@@ -107,7 +107,7 @@ export function StrokeDialog({ strokeDialog, endPreviewDialog, previewRef, strok
           ))}
         </fieldset>
         <label>Mode <select name="mode" value={strokeForm.mode} onChange={e => setStrokeForm({ ...strokeForm, mode: e.currentTarget.value })}>
-          {PAINT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+          {paintModesFor(depth, strokeForm.mode).map(m => <option key={m} value={m}>{m}</option>)}
         </select></label>
         <label>Opacity <input name="opacity" type="number" min={0} max={100} value={strokeForm.opacity}
           onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setStrokeForm({ ...strokeForm, opacity: Math.min(100, Math.max(0, v)) }); }} /> %</label>
@@ -228,7 +228,7 @@ export function MergeDialog({ mergeDialog, depth, choose }: { mergeDialog: Dialo
   return (
     <dialog ref={mergeDialog} onCancel={e => { e.preventDefault(); choose('cancel'); }}>
       <form onSubmit={e => { e.preventDefault(); choose('merge'); }}>
-        <p>Merge layers before converting to {depth} Bits/Channel? Merging allows HDR Toning; without it, values above 1 are clipped.</p>
+        <p>Merge layers before converting to {depth} Bits/Channel? Merging allows HDR Toning options; without it, each layer is toned with Local Adaptation.</p>
         <div className="actions">
           <button type="button" onClick={() => choose('cancel')}>Cancel</button>
           <button type="button" onClick={() => choose('keep')}>Don&apos;t Merge</button>

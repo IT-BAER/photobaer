@@ -1797,6 +1797,15 @@ fn photoshop_32_bit_filters_keep_values_above_one() {
 }
 
 #[test]
+fn paint_modes_of_the_32_bit_list_keep_values_above_one() {
+    for mode in [Blend::Multiply, Blend::Lighten, Blend::Color] {
+        let (mut d, l) = hdr_step_doc();
+        d.fill_ex(l, Target::Pixels, &FillSource::Solid([255, 255, 255, 255]), PaintMode::Blend(mode), 1.0, false).unwrap();
+        assert!(brightest(&d) > 3.9, "{mode:?}: {}", brightest(&d));
+    }
+}
+
+#[test]
 fn destructive_adjustments_store_full_float_in_32_bit() {
     let vs = [0.25, 1.0 + 1e-5, 2.5];
     let mut d = float_doc(&vs);

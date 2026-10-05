@@ -9,7 +9,7 @@ import type { AlignMode } from '../worker/types.ts';
 import { ALIGN_ITEMS } from '../app/helpers.ts';
 import { rgbToHex, type Rgb } from './color.ts';
 import { ICONS } from './ToolBar.tsx';
-import { saveToolOptions, type Tool } from './tools.ts';
+import { PAINT_MODES, paintModesFor, saveToolOptions, type Tool } from './tools.ts';
 
 export type ToolOptions = Record<string, number | string | boolean>;
 
@@ -133,10 +133,10 @@ function BrushTip({ size, hardness, setSize, setHardness }: { size: number; hard
   );
 }
 
-interface ControlProps { option: Tool['options'][number]; value: number | string | boolean; commit: (id: string, v: number | string | boolean) => void; fg: Rgb }
+interface ControlProps { option: Tool['options'][number]; value: number | string | boolean; commit: (id: string, v: number | string | boolean) => void; fg: Rgb; depth?: number }
 
 // Generic control for one option, keyed off its schema kind.
-function Control({ option: { id, kind, label, min, max, step, unit, choices, icon }, value, commit, fg }: ControlProps) {
+function Control({ option: { id, kind, label, min, max, step, unit, choices, icon }, value, commit, fg, depth }: ControlProps) {
   if (kind === 'boolean' && icon) {
     const Icon = OPTION_ICONS[icon];
     return (
@@ -175,7 +175,7 @@ function Control({ option: { id, kind, label, min, max, step, unit, choices, ico
       <label className="opt-select">
         {label}
         <select value={value as string} onChange={e => commit(id, e.currentTarget.value)}>
-          {choices?.map(c => <option key={c} value={c}>{c}</option>)}
+          {(choices === PAINT_MODES ? paintModesFor(depth, value as string) : choices)?.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </label>
     );
@@ -189,9 +189,9 @@ function Control({ option: { id, kind, label, min, max, step, unit, choices, ico
   );
 }
 
-interface Props { tool: Tool; values: ToolOptions; setValues: (v: ToolOptions) => void; custom?: Record<string, ReactNode>; fg?: Rgb }
+interface Props { tool: Tool; values: ToolOptions; setValues: (v: ToolOptions) => void; custom?: Record<string, ReactNode>; fg?: Rgb; depth?: number }
 
-export function OptionsBar({ tool, values, setValues, custom = {}, fg = [0, 0, 0] }: Props) {
+export function OptionsBar({ tool, values, setValues, custom = {}, fg = [0, 0, 0], depth }: Props) {
   // Persists to the tool's localStorage slot on every commit, so options survive a reload.
   const latest = useRef(values);
   latest.current = values;
@@ -213,7 +213,7 @@ export function OptionsBar({ tool, values, setValues, custom = {}, fg = [0, 0, 0
         if (o.id === 'pattern' && values.source === 'sampled') return null;
         const control = tip && o.id === 'size'
           ? <BrushTip size={values.size as number} hardness={values.hardness as number | undefined} setSize={v => commit('size', v)} setHardness={v => commit('hardness', v)} />
-          : o.kind === 'custom' ? <span>{custom[o.id]}</span> : <Control option={o} value={values[o.id]} commit={commit} fg={fg} />;
+          : o.kind === 'custom' ? <span>{custom[o.id]}</span> : <Control option={o} value={values[o.id]} commit={commit} fg={fg} depth={depth} />;
         return (
           <span key={o.id} className="options-item">
             {o.sep && <span className="options-divider" aria-hidden="true" />}

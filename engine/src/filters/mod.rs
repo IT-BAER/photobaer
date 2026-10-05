@@ -186,7 +186,7 @@ impl Spec {
             "render" => self.id != "render.lighting_effects",
             "sharpen" => self.id != "sharpen.sharpen_edges",
             "stylize" => matches!(self.id, "stylize.diffuse" | "stylize.emboss" | "stylize.trace_contour"),
-            "distort" | "pixelate" | "video" | "other" | "adjust" | "warp" | "scale" | "psd" => true,
+            "blurGallery" | "distort" | "pixelate" | "video" | "other" | "adjust" | "warp" | "scale" | "psd" => true,
             _ => false,
         }
     }

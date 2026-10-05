@@ -508,7 +508,7 @@ impl Document {
                     let m = |k: usize| if s > 0.0 { (c[k] * x + o[k] * b) / s } else { 0.0 };
                     [m(0), m(1), m(2), s]
                 } else {
-                    paint_pixel(PaintMode::Blend(mode), o, [c[0], c[1], c[2]], c[3] * d, false)
+                    paint_pixel_hdr(PaintMode::Blend(mode), o, [c[0], c[1], c[2]], c[3] * d, false, self.depth == 32)
                 };
                 v.copy_from_slice(&out);
             }

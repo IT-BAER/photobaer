@@ -234,6 +234,9 @@ struct StrokeIn {
     color: ColorDynIn,
     #[serde(default)]
     noise: f32,
+    /// The 32-bit Color Picker's Intensity in stops: the paint color times 2^intensity in 32-bit documents.
+    #[serde(default)]
+    intensity: f32,
     #[serde(default)]
     pose: PoseIn,
     #[serde(default)]
@@ -285,6 +288,9 @@ struct FillExIn {
     opacity: f32,
     #[serde(default)]
     preserve_transparency: bool,
+    /// As `StrokeIn::intensity`, for a solid fill.
+    #[serde(default)]
+    intensity: f32,
 }
 
 /// `stroke_selection` JSON params (B6 spec v1 Part E2): `location` is "inside", "center" or
@@ -599,6 +605,7 @@ fn parse_stroke(
         target,
         mode,
         rgb: [p.rgba[0] as f32 / 255.0, p.rgba[1] as f32 / 255.0, p.rgba[2] as f32 / 255.0],
+        gain: p.intensity.clamp(-20.0, 20.0).exp2(),
         value: p.rgba[0] as f32 / 255.0,
         keep_alpha,
         opacity: p.opacity.clamp(0.0, 1.0),
@@ -670,6 +677,8 @@ pub struct Stroke {
     pub(super) target: Target,
     pub(super) mode: PaintMode,
     pub(super) rgb: [f32; 3],
+    /// 2^intensity, applied to the paint color in 32-bit documents only.
+    pub(super) gain: f32,
     pub(super) value: f32,
     pub(super) keep_alpha: bool,
     pub(super) opacity: f32,
@@ -889,7 +898,15 @@ impl EngineCore {
         let p: FillExIn = serde_json::from_str(params_json).map_err(|e| format!("bad fill params: {e}"))?;
         let mode = PaintMode::parse(&p.mode)?;
         let src = match p.source.as_str() {
-            "solid" => FillSource::Solid(p.rgba.ok_or("solid fill needs rgba")?),
+            "solid" => {
+                let [r, g, b, a] = p.rgba.ok_or("solid fill needs rgba")?;
+                if self.doc.depth == 32 && p.intensity != 0.0 {
+                    let k = p.intensity.clamp(-20.0, 20.0).exp2() / 255.0;
+                    FillSource::SolidHdr([r as f32 * k, g as f32 * k, b as f32 * k, a as f32 / 255.0])
+                } else {
+                    FillSource::Solid([r, g, b, a])
+                }
+            }
             "pattern" => {
                 let pid = p.pattern_id.ok_or("pattern fill needs patternId")?;
                 FillSource::Pattern(self.patterns.get(&pid).ok_or_else(|| format!("unknown pattern {pid}"))?.clone())

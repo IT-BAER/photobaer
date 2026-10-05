@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 32-bit documents: the Foreground and Background Color Picker has an Intensity slider (stops, -20 to +20);
+  Brush, Pencil and Edit > Fill paint the color times 2^Intensity, so values above 1 can be painted.
+- 32-bit documents: Brush, Fill and Fade keep values above 1 in the 32-bit blend modes (Multiply, Lighten,
+  Color and the others); paint Mode lists show only those modes; Blur Gallery is available.
+- 32 -> 16/8 Bits/Channel with Don't Merge tones every pixel layer with the default Local Adaptation, as
+  Photoshop does, instead of clipping; HDR Toning on conversion ignores the selection and the pixel lock.
 - Tool drags scroll the view while the pointer is outside it (faster farther out), up to the document edge,
   so a marquee or lasso can reach past the visible part of a zoomed-in document.
 - Dock panels and toolbar tools can be reordered: drag a panel header or a tool button to a new place, or

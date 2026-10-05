@@ -88,3 +88,13 @@ export function snapWebSafe([r, g, b]: Rgb): Rgb {
   const snap = (c: number) => clamp(Math.round(c / 51) * 51, 0, 255);
   return [snap(r), snap(g), snap(b)];
 }
+
+// The 32-bit Color Picker's Intensity (stops) of a color array the picker made; any other color has 0,
+// so a swatch or eyedropper color drops it and Swap carries it along with the array.
+const intensities = new WeakMap<Rgb, number>();
+export const intensityOf = (c: Rgb): number => intensities.get(c) ?? 0;
+export function withIntensity(c: Rgb, stops: number): Rgb {
+  const out: Rgb = [c[0], c[1], c[2]];
+  if (stops) intensities.set(out, stops);
+  return out;
+}

@@ -70,7 +70,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::adjust::{self, Adjustment};
 use crate::blend;
-use crate::blend::{blend_channel, blend_hdr, blend_rgb, dissolve_hash, hdr_mode, paint_mask_value, paint_pixel, Blend, PaintMode};
+use crate::blend::{blend_channel, blend_hdr, blend_rgb, dissolve_hash, hdr_mode, paint_mask_value, paint_pixel, paint_pixel_hdr, Blend, PaintMode};
 use crate::filters;
 use crate::content::{check_psd, CompLayer, FillContent, Filter, GlobalLight, LayerComp, Link, PatternEntry, Smart, SmartFilter, StackMode, WarpMesh};
 use crate::gradient;
@@ -427,6 +427,8 @@ pub struct Tile {
 /// `fill_ex`'s color source (B6 spec v1 Part E1).
 pub enum FillSource {
     Solid([u8; 4]),
+    /// A 32-bit solid color (straight RGBA, color values may exceed 1).
+    SolidHdr([f32; 4]),
     Pattern(Arc<Pattern>),
     /// The same layer id's pixel tiles in a history snapshot.
     History(Tiles),
@@ -442,6 +444,7 @@ fn fill_src_sample(src: &FillSource, hist_tile: Option<&Pixels>, p: usize, gx: i
         FillSource::Solid([r, g, b, a]) => {
             ([*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0], *a as f32 / 255.0)
         }
+        FillSource::SolidHdr([r, g, b, a]) => ([*r, *g, *b], *a),
         FillSource::Pattern(pat) => {
             let [r, g, b, a] = pat.sample_rgba(gx, gy, 1.0);
             ([r, g, b], a)
@@ -1495,7 +1498,7 @@ impl Document {
     ) -> Result<bool, String> {
         self.check_pixel_paint(id)?;
         let keep_alpha = preserve_transparency || self.node(id)?.locks.transparency;
-        let depth = self.depth;
+        let (depth, hdr) = (self.depth, self.depth == 32);
         let (w, h) = (self.width as i32, self.height as i32);
         let [rx, ry, rw, rh] = self.selection_bounds().unwrap_or([0, 0, w, h]);
         if rw <= 0 || rh <= 0 {
@@ -1525,7 +1528,7 @@ impl Document {
                         let (src_rgb, src_a) = fill_src_sample(src, hist_tile.as_deref(), p, gx, gy);
                         let u = cov.at(p).clamp(0.0, 1.0);
                         let c = (src_a * u * opacity).clamp(0.0, 1.0);
-                        paint_pixel(mode, old, src_rgb, c, keep_alpha)
+                        paint_pixel_hdr(mode, old, src_rgb, c, keep_alpha, hdr)
                     };
                     any |= new[3] > 0.0;
                     touched |= new != old;
@@ -2085,6 +2088,17 @@ impl Document {
             tiles.put(tx, ty, Some(t));
         }
         Ok(())
+    }
+
+    /// `apply_destructive` on the whole layer, ignoring the selection and the pixel lock: HDR Toning
+    /// when a 32-bit document converts to 16/8 bits.
+    pub fn tone_layer(&mut self, id: u32, json: &str) -> Result<(), String> {
+        let sel = self.selection.take();
+        let locked = std::mem::take(&mut self.node_mut(id)?.locks.pixels);
+        let r = self.apply_destructive(id, json);
+        self.selection = sel;
+        self.node_mut(id)?.locks.pixels = locked;
+        r
     }
 
     /// Destructive apply of a destructive-only kind (docs/M3.md section 3, kinds 17-25). Statistics

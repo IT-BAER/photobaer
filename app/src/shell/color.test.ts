@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rgbToHsb, hsbToRgb, rgbToLab, labToRgb, rgbToHex, hexToRgb, isWebSafe, snapWebSafe } from './color.ts';
+import { rgbToHsb, hsbToRgb, rgbToLab, labToRgb, rgbToHex, hexToRgb, isWebSafe, snapWebSafe, intensityOf, withIntensity } from './color.ts';
 
 const close = (a: number, b: number, eps = 0.5) => assert.ok(Math.abs(a - b) <= eps, `${a} ~ ${b}`);
 
@@ -36,4 +36,11 @@ test('web-safe detection and snapping', () => {
   assert.equal(isWebSafe([0, 51, 255]), true);
   assert.equal(isWebSafe([1, 51, 255]), false);
   assert.deepEqual(snapWebSafe([10, 40, 250]), [0, 51, 255]);
+});
+
+test('Intensity stays with the color array the picker made', () => {
+  const hot = withIntensity([255, 128, 0], 2.5);
+  assert.equal(intensityOf(hot), 2.5);
+  assert.equal(intensityOf([255, 128, 0]), 0, 'an equal color from elsewhere has none');
+  assert.equal(intensityOf(withIntensity(hot, 0)), 0);
 });

@@ -1,4 +1,4 @@
-import { BLEND_MODES } from '../layers.ts';
+import { BLEND_MODES, HDR_BLEND_MODES } from '../layers.ts';
 // 'custom' options are drawn by the host (OptionsBar `custom`); 'segmented' is a button group over `choices`;
 // 'color' holds a '#rrggbb' string, '' meaning the current foreground color.
 export type OptionKind = 'number' | 'percent' | 'select' | 'boolean' | 'segmented' | 'custom' | 'color';
@@ -15,6 +15,13 @@ export interface Tool {
 export interface Slot { id: string; key: string; tools: string[] }
 
 export const PAINT_MODES = [...BLEND_MODES, 'behind', 'clear'];
+
+// A paint Mode select's choices for a document `depth`: 32-bit lists Photoshop's 32-bit modes (and keeps `current`).
+export function paintModesFor(depth: number | undefined, current: string): string[] {
+  if (depth !== 32) return PAINT_MODES;
+  const hdr = [...HDR_BLEND_MODES, 'behind', 'clear'];
+  return hdr.includes(current) ? hdr : [...hdr, current];
+}
 
 const SELECT_COMMON: OptionSchema[] = [
   { id: 'mode', kind: 'select', label: 'Mode', default: 'new', choices: ['new', 'add', 'subtract', 'intersect'] },

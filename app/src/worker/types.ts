@@ -182,6 +182,8 @@ export interface StrokeParams {
   tip?: 'round' | 'square'; aliased?: boolean; wetEdges?: boolean; airbrush?: boolean;
   pressureSize?: boolean; pressureOpacity?: boolean;
   stride?: 3 | 6; seed?: number;
+  // 32-bit documents: the paint color times 2^intensity (Color Picker Intensity, stops).
+  intensity?: number;
   // UI-level flag; strokeBegin resolves it to an actual snapshot id (or omits it) before it reaches the engine.
   eraseToHistory?: boolean;
   historySource?: boolean;
@@ -191,7 +193,7 @@ type Rgba = [number, number, number, number];
 // Engine fill_ex / stroke_selection / gradient params (opacity 0..1); patternId is a worker asset id.
 export interface FillParams {
   source: 'solid' | 'pattern' | 'history'; rgba?: Rgba; patternId?: number;
-  mode: string; opacity: number; preserveTransparency: boolean;
+  mode: string; opacity: number; preserveTransparency: boolean; intensity?: number;
 }
 export interface ContentAwareOpts { mode: string; opacity: number; preserveTransparency: boolean }
 export interface StrokeSelectionParams {

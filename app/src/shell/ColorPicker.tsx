@@ -1,10 +1,11 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { TriangleAlert } from 'lucide-react';
-import { hexToRgb, hsbToRgb, isWebSafe, labToRgb, rgbToHex, rgbToHsb, rgbToLab, snapWebSafe, type Rgb } from './color.ts';
+import { hexToRgb, hsbToRgb, intensityOf, isWebSafe, labToRgb, rgbToHex, rgbToHsb, rgbToLab, snapWebSafe, withIntensity, type Rgb } from './color.ts';
 import { HueStrip, SbField } from './ColorField.tsx';
 import { rgbOfSliders, slidersOf, type Convert } from './colorModes.ts';
 
-export interface ColorPickerHandle { open(rgb: Rgb, title: string, commit: (rgb: Rgb) => void): void }
+// `hdr` (a 32-bit document) adds the Intensity slider in stops; the committed color carries it (`intensityOf`).
+export interface ColorPickerHandle { open(rgb: Rgb, title: string, commit: (rgb: Rgb) => void, opts?: { hdr?: boolean }): void }
 
 // A numeric field bound to one channel of an [a, b, c] tuple, committed on blur/Enter.
 function Field({ label, value, min, max, onCommit }: { label: string; value: number; min: number; max: number; onCommit: (v: number) => void }) {
@@ -29,13 +30,17 @@ export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; con
   const [rgb, setRgb] = useState<Rgb>([0, 0, 0]);
   const original = useRef<Rgb>([0, 0, 0]);
   const commit = useRef<(rgb: Rgb) => void>(() => {});
+  const [hdr, setHdr] = useState(false);
+  const [stops, setStops] = useState(0);
 
   useImperativeHandle(ref, () => ({
-    open(initial, t, onCommit) {
+    open(initial, t, onCommit, opts) {
       original.current = initial;
       commit.current = onCommit;
       setTitle(t);
       setRgb(initial);
+      setHdr(!!opts?.hdr);
+      setStops(opts?.hdr ? intensityOf(initial) : 0);
       dialog.current?.showModal();
     },
   }));
@@ -47,7 +52,7 @@ export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; con
     return () => { live = false; };
   }, [rgb, convert]);
 
-  const apply = (next: Rgb) => { setRgb(next); commit.current(next); };
+  const apply = (next: Rgb, s = stops) => { setRgb(next); setStops(s); commit.current(hdr ? withIntensity(next, s) : next); };
   const applyCmyk = (i: number, v: number) => {
     if (!cmyk || !convert) return;
     rgbOfSliders(cmyk.map((x, k) => (k === i ? v : x)), 'cmyk', false, convert).then(apply, () => {});
@@ -55,7 +60,7 @@ export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; con
   const [h, s, b] = rgbToHsb(rgb);
   const [l, a, bb] = rgbToLab(rgb);
   const websafe = isWebSafe(rgb);
-  const revert = () => apply(original.current);
+  const revert = () => apply(original.current, hdr ? intensityOf(original.current) : 0);
 
   return (
     <dialog ref={dialog} className="color-picker" onCancel={revert}>
@@ -97,6 +102,14 @@ export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; con
           <Field key={label} label={label} value={cmyk[i]} min={0} max={100} onCommit={v => applyCmyk(i, v)} />
         ))}
       </div>
+      {hdr && (
+        <label className="color-intensity">
+          Intensity
+          <input type="range" min={-20} max={20} step={0.01} value={stops} onChange={e => apply(rgb, Number(e.currentTarget.value))} />
+          <input type="number" min={-20} max={20} step={0.01} value={stops} aria-label="Intensity stops"
+            onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) apply(rgb, Math.min(20, Math.max(-20, v))); }} />
+        </label>
+      )}
       <div className="actions">
         <button type="button" onClick={() => { revert(); dialog.current?.close(); }}>Cancel</button>
         <button type="button" className="primary" onClick={() => dialog.current?.close()}>OK</button>

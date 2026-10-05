@@ -8,7 +8,7 @@ import type { EngineAssets } from '../brushes/engineAssets.ts';
 import type { BrushPreset } from '../brushes/preset.ts';
 import type { BrushLibrary } from '../brushes/store.ts';
 import { BuildUp, inputFields, strideFor, strokeSeed, type Stride } from '../brushes/strokeInput.ts';
-import type { Rgb } from '../shell/color.ts';
+import { intensityOf, type Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import { cloneSources } from '../shell/retouch.ts';
 import { Smoother } from '../shell/smoothing.ts';
@@ -80,7 +80,7 @@ export function usePaintTool(c: PaintToolCtx) {
       const pencilParams = async (rgb: Rgb, mode: string) => {
         const preset = presetFor(), lib = brushLib.current;
         if (preset && lib) await lib.assets.prepare(preset);
-        return presetStrokeParams(preset, o, { tool: 'pencil', rgba: [...rgb, 255], mode, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
+        return { ...presetStrokeParams(preset, o, { tool: 'pencil', rgba: [...rgb, 255], mode, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve }), intensity: intensityOf(rgb) };
       };
       if (tool === 'pencil') {
         let rgb = fgRef.current;
@@ -104,6 +104,7 @@ export function usePaintTool(c: PaintToolCtx) {
       }
       const mode = EFFECT_TOOLS.has(tool) ? 'normal' : o.mode as string;
       const out = presetStrokeParams(preset, o, { tool: 'brush', rgba: [...fgRef.current, 255], mode, bg: [...bgRef.current, 255], seed, stride, resolve: lib?.assets.resolve });
+      if (!EFFECT_TOOLS.has(tool)) out.intensity = intensityOf(fgRef.current);
       // Smudge spaces its dabs at most 2 % of the tip.
       if (tool === 'smudge') out.spacing = Math.min(Number(out.spacing ?? 0.25), 0.02);
       return { ...out, ...await retouchParams(x, y, alt) };

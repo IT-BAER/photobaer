@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TOOLS, SLOTS, slotForKey, cycleTool, defaultOptions, loadToolOptions, saveToolOptions, keyToTool, initialLastUsed } from './tools.ts';
+import { TOOLS, SLOTS, slotForKey, cycleTool, defaultOptions, loadToolOptions, saveToolOptions, keyToTool, initialLastUsed, PAINT_MODES, paintModesFor } from './tools.ts';
 
 test('every tool belongs to a slot that lists it and to a key that resolves that slot', () => {
   for (const tool of Object.values(TOOLS)) {
@@ -50,4 +50,11 @@ test('tool options persist through the store and fall back to defaults without o
   assert.equal(loadToolOptions(TOOLS.healingBrush).diffusion, 5);
   assert.equal(loadToolOptions(TOOLS.healingBrush).aligned, true);
   delete (globalThis as { localStorage?: Storage }).localStorage;
+});
+
+test('32-bit documents list only the 32-bit paint modes, plus Behind, Clear and the current mode', () => {
+  assert.equal(paintModesFor(8, 'screen'), PAINT_MODES);
+  const hdr = paintModesFor(32, 'multiply');
+  assert.ok(hdr.includes('behind') && hdr.includes('clear') && hdr.includes('linear dodge') && !hdr.includes('screen'));
+  assert.deepEqual(paintModesFor(32, 'screen'), [...hdr, 'screen']);
 });

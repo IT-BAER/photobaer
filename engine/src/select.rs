@@ -633,6 +633,8 @@ impl Document {
 
     fn stroke_flush_tile(&mut self, st: &Stroke, (tx, ty): (i32, i32), b: [i32; 4]) -> Result<(), String> {
         let t = st.tiles.get(&(tx, ty)).expect("the tile was accumulated");
+        let hdr = self.depth == 32;
+        let gain = if hdr { st.gain } else { 1.0 };
         if st.target == Target::Selection {
             let mut sel = self.selection.take().unwrap_or_default();
             let def = sel.default as f32 / self.max();
@@ -657,7 +659,7 @@ impl Document {
                 let s_val = if st.wet_edges { stroke::wet_edge_remap(t.s[p], st.opacity) } else { t.s[p] };
                 let mut c = (s_val * cov.at(p)).clamp(0.0, 1.0);
                 let old = t.orig.as_ref().map_or([0.0; 4], |o| o.px.rgba_f32(p));
-                let mut rgb = t.rgb.as_ref().map_or(st.rgb, |buf| buf[p]);
+                let mut rgb = t.rgb.as_ref().map_or(st.rgb, |buf| buf[p]).map(|v| v * gain);
                 if let (Some(src), true) = (&st.source, c > 0.0) {
                     let v = src.sample(tx * TILE as i32 + px, ty * TILE as i32 + py);
                     rgb = [v[0], v[1], v[2]];
@@ -676,7 +678,7 @@ impl Document {
                         }
                         out
                     }
-                    None => paint_pixel(st.mode, old, rgb, c, st.keep_alpha),
+                    None => paint_pixel_hdr(st.mode, old, rgb, c, st.keep_alpha, hdr),
                 };
                 data.set_rgba_f32(p, new);
             }
@@ -744,7 +746,7 @@ impl Document {
                     let p = (py * TILE as i32 + px_) as usize;
                     let old = old_tile.as_deref().map_or([0.0; 4], |px| px.rgba_f32(p));
                     let c = (cell(px_, py) * opacity * cov.at(p)).clamp(0.0, 1.0);
-                    let new = paint_pixel(mode, old, rgb, c, keep_alpha);
+                    let new = paint_pixel_hdr(mode, old, rgb, c, keep_alpha, self.depth == 32);
                     any |= new[3] > 0.0;
                     fresh[p * 4..p * 4 + 4].copy_from_slice(&new);
                 }

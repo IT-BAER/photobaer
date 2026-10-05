@@ -916,6 +916,60 @@ test('32 -> 16 Bits/Channel with Merge and HDR Toning keeps values above 1 apart
   assert.equal(u.layers.length, 2);
 });
 
+test("32 -> 16 Bits/Channel with Don't Merge tones every pixel layer whole, one step", async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 32, null);
+  type I = { depth: number; layers: { id: number }[]; history: { labels: string[] } };
+  const exposure = { kind: 'exposure', params: { exposure: 1, offset: 0, gamma: 1 } };
+  const paint = async (id: number) => {
+    await call('command', 'fill', id, 'pixels', [204, 204, 204, 255]);
+    await call('select', { kind: 'rect', x: 4, y: 0, w: 4, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+    await call('command', 'fill', id, 'pixels', [255, 255, 255, 255]);
+    await call('selectCommand', 'deselect');
+    await call('adjust', id, exposure, 'Exposure');
+  };
+  await paint(1);
+  const top = Math.max(...((await call('addLayer', 1)).result as I).layers.map(l => l.id));
+  await paint(top);
+  const before = ((await call('select', { kind: 'rect', x: 0, y: 0, w: 2, h: 2 }, 'new', false, 0, 'Rectangular Marquee')).result as I).history.labels.length;
+  const params = { ...defaultDestructive('hdr_toning').params, method: 'highlight_compression' };
+  const r = (await call('convertDepth', 16, { merge: false, params })).result as I;
+  assert.equal(r.depth, 16);
+  assert.equal(r.layers.length, 2, 'layers kept');
+  assert.equal(r.history.labels.length, before + 1);
+  const apart = async (what: string) => {
+    const left = ((await call('sample', 1, 6, 1, null)).result as number[])[0];
+    const right = ((await call('sample', 6, 6, 1, null)).result as number[])[0];
+    assert.ok(left < right - 5, `${what}: 1.6 and 2.0 stay apart outside the selection: ${left} vs ${right}`);
+  };
+  await apart('top layer');
+  await call('setProps', top, { visible: false });
+  await apart('bottom layer');
+});
+
+test('32-bit Fill and Brush with Intensity paint above 1, 8-bit ignores it', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 32, null);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 16, h: 64 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', { source: 'solid', rgba: [255, 255, 255, 255], intensity: 1, mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
+  await call('select', { kind: 'rect', x: 16, y: 0, w: 16, h: 64 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', { source: 'solid', rgba: [255, 255, 255, 255], mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
+  await call('selectCommand', 'deselect');
+  const stroke = { rgba: [255, 255, 255, 255], mode: 'normal', size: 20, hardness: 1, intensity: 1 };
+  assert.equal((await call('strokeBegin', 1, 'pixels', stroke, 'Brush')).error, undefined);
+  await call('strokeTo', Float64Array.from([48, 10, 1, 48, 54, 1]));
+  await call('strokeEnd');
+  await call('setView', { hdr: { method: 'exposureAndGamma', exposure: -1, gamma: 1 } });
+  const d = new Uint8Array(((await call('displayTile', 0, 0, 0)).result as { data: ArrayBuffer }).data);
+  const side = Math.sqrt(d.length / 4), red = (x: number, y: number) => d[(y * side + x) * 4];
+  assert.ok(red(8, 32) > red(24, 32) + 20, `fill with Intensity 1 is brighter at -1 EV: ${red(8, 32)} vs ${red(24, 32)}`);
+  assert.equal(red(48, 32), red(8, 32), 'brush with Intensity 1 matches the fill');
+  await call('setView', { hdr: { method: 'exposureAndGamma', exposure: 0, gamma: 1 } });
+  await call('newDoc', 8, 8, 8, null);
+  await call('fillEx', 1, 'pixels', { source: 'solid', rgba: [100, 100, 100, 255], intensity: 1, mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
+  assert.equal(((await call('sample', 2, 2, 1, null)).result as number[])[0], 100);
+});
+
 test('Assign Profile previews live without a history step and restores the tag when it ends', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);
