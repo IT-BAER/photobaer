@@ -8,7 +8,7 @@ import { artboardIn, artboardOut, layoutIn, layoutOut } from './psd/layout.ts';
 import { rasterMaskOf, readSavedPaths, shapeIn, shapeOut, vectorMaskIn, vectorMaskOut, writeSavedPaths } from './psd/vector.ts';
 import { textIn, textOut } from './psd/text.ts';
 import { filterIn, filterOut, prepareList, opaqueFilter, readPsdRaw, writePsdRaw, type FilterJson, type RawSoLd, type SmartFilterOut } from './psd/filters.ts';
-import { finishPsd, psdLayerCount, readPsdChannels, type Depth, type PsdChannel } from './psd/depth.ts';
+import { compositeFit, finishPsd, psdLayerCount, readPsdChannels, type Depth, type PsdChannel } from './psd/depth.ts';
 
 export { filterIn };
 
@@ -845,6 +845,9 @@ export function importPsd(bytes: Uint8Array, opts: { psb?: boolean } = {}): { en
   if (!opts.psb && bytes.length >= 6 && bytes[4] === 0 && bytes[5] === 2) throw new Error('PSB files are not supported yet');
   // ag-psd cannot read a 16/32-bit composite with merged transparency; a layered file builds from its layers.
   const wide = bytes.length >= 24 && (bytes[22] << 8 | bytes[23]) > 8;
+  const fit = compositeFit(bytes);
+  if (fit === 'depth') throw new Error(`the PSD image data does not match its ${bytes[22] << 8 | bytes[23]}-bit header`);
+  if (fit === 'truncated' && psdLayerCount(bytes) === 0) throw new Error('PSD file is truncated');
   // ag-psd byte-swaps 16/32-bit raw channel data in its input buffer: wide files read from a copy.
   const { psd, raw } = readPsdRaw(wide ? bytes.slice() : bytes, { useImageData: true, skipThumbnail: true, skipCompositeImageData: wide && psdLayerCount(bytes) !== 0 });
   const paths = readSavedPaths(bytes, psd.width, psd.height);

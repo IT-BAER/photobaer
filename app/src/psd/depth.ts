@@ -21,7 +21,7 @@ export interface Finish {
   psb: boolean; depth: Depth; gray: boolean; width: number; height: number;
   /** Composite planes (gray, or red, green, blue), big-endian samples at `depth`. */
   color: Uint8Array[];
-  /** The composite transparency plane; written when ag-psd found transparency. */
+  /** The composite transparency plane; written when it holds a sample below opaque. */
   alpha: Uint8Array;
   extras: PsdChannel[];
 }
@@ -153,10 +153,18 @@ function displayInfo(extras: PsdChannel[]): Uint8Array {
   return out;
 }
 
+// Whether every sample of a big-endian plane is fully opaque.
+function opaque(p: Uint8Array, depth: Depth): boolean {
+  const v = view(p), s = bytesOf(depth);
+  for (let i = 0; i < p.length; i += s) if (depth === 8 ? p[i] !== 255 : depth === 16 ? v.getUint16(i) !== 65535 : v.getFloat32(i) < 1) return false;
+  return true;
+}
+
 /** Turns ag-psd's RGB/8-bit `b` into the file `f` describes. */
 export function finishPsd(b: Uint8Array, f: Finish): Uint8Array {
   const { v, psb, lm, lmData, image } = sections(b);
-  const transparency = v.getUint16(12) === 4;
+  // ag-psd decides on the 8-bit composite, where alpha from about 0.998 rounds to opaque.
+  const transparency = v.getUint16(12) === 4 || (f.depth !== 8 && !opaque(f.alpha, f.depth));
   const header = b.slice(0, 26);
   const hv = view(header);
   hv.setUint16(12, f.color.length + (transparency ? 1 : 0) + f.extras.length);
@@ -171,7 +179,8 @@ export function finishPsd(b: Uint8Array, f: Finish): Uint8Array {
     if (liLen) {
       const { count, recs } = readLayerInfo(b, v, liAt, liEnd, psb);
       if (f.gray) for (const r of recs) r.channels = r.channels.filter(c => c.id !== LAYER_GREEN && c.id !== LAYER_BLUE);
-      info = writeLayerInfo(count, recs, psb);
+      // A negative count says the first extra composite channel is the merged transparency.
+      info = writeLayerInfo(transparency ? -Math.abs(count) : count, recs, psb);
     }
     const rest = b.subarray(liEnd, image);
     const parts: Uint8Array[] = [];
@@ -193,6 +202,37 @@ export function finishPsd(b: Uint8Array, f: Finish): Uint8Array {
   if (planes.some(p => p.length !== n)) throw new Error('composite planes do not match the document size');
   const out = concat([header, b.subarray(26, lm), layerMask, compositeSection(planes, f.depth, f.width, f.height, psb)]);
   return f.extras.length ? psdWithResource(out, 1077, displayInfo(f.extras)) : out;
+}
+
+// One PackBits row from `p`: its decoded byte count.
+function rowSize(b: Uint8Array, p: number, end: number): number {
+  let n = 0;
+  while (p < end) {
+    const k = (b[p++] << 24) >> 24;
+    if (k >= 0) { n += k + 1; p += k + 1; } else if (k !== -128) { n += 1 - k; p++; }
+  }
+  return n;
+}
+
+/** Whether the composite image data fits the header: `truncated` when the file ends inside it, `depth`
+ * when its RLE rows do not hold the header's sample size (zip data is not checked). */
+export function compositeFit(b: Uint8Array): 'ok' | 'truncated' | 'depth' {
+  const { v, psb, image } = sections(b);
+  const total = v.getUint16(12), h = v.getUint32(14), w = v.getUint32(18), depth = v.getUint16(22);
+  if (image + 2 > b.length) return 'truncated';
+  const comp = v.getUint16(image), p = image + 2, row = Math.ceil(w * depth / 8);
+  if (comp === 0) return p + total * row * h > b.length ? 'truncated' : 'ok';
+  if (comp !== 1) return 'ok';
+  const cw = psb ? 4 : 2;
+  let at = p + total * h * cw;
+  if (at > b.length) return 'truncated';
+  for (let i = 0; i < total * h; i++) {
+    const n = psb ? v.getUint32(p + i * 4) : v.getUint16(p + i * 2);
+    if (at + n > b.length) return 'truncated';
+    if (i < h && rowSize(b, at, at + n) !== row) return 'depth';
+    at += n;
+  }
+  return 'ok';
 }
 
 // Decoded planes of the composite image data, or null for a compression this reader does not know.
@@ -305,6 +345,7 @@ export function readPsdChannels(b: Uint8Array): { channels: PsdChannel[]; depth:
       info.push({ kind: kind <= 2 ? kind : 1, color: color ?? [0, 0, 0], opacity: Math.min(100, v.getUint16(o + 10)) });
     }
   }
+  if (compositeFit(b) !== 'ok') return { ...none, warnings: ['the composite image data is incomplete: alpha and spot channels were not imported'] };
   const planes = compositePlanes(b, image, total, width, height, depth, psb);
   if (!planes) return { ...none, warnings: ['alpha and spot channels with an unknown compression were not imported'] };
   const tail = <T,>(list: T[], i: number) => list[list.length - extras + i];

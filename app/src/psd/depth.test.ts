@@ -5,7 +5,7 @@ import { readPsd } from 'ag-psd';
 import { initSync, Engine } from '../engine-pkg/photobaer_engine.js';
 import { exportPsd, importPsd, psdIcc } from '../psd.ts';
 import { grayFile, psdResources } from '../app/iccFiles.ts';
-import { readPsdChannels } from './depth.ts';
+import { compositeFit, psdLayerCount, readPsdChannels } from './depth.ts';
 
 initSync({ module: readFileSync(new URL('../engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
 
@@ -183,4 +183,43 @@ test('real Photoshop Grayscale 16/32-bit files and alpha channels open', t => {
   const share = (p: Uint8Array, v: number) => { let n = 0; for (const x of p) n += +(x === v); return n / p.length; };
   assert.ok(share(read.channels[0].plane, 255) > 0.99, 'spot planes hold no ink as white');
   assert.ok(share(read.channels[1].plane, 0) > 0.99, 'a Masked Areas alpha holds unselected as black');
+});
+
+test('16-bit transparency that rounds to opaque at 8 bits keeps the transparency plane', () => {
+  const e = new Engine(10, 10, 16);
+  e.set_tile_bytes('pixels', 1, 0, 0, tile16(10, 10, 0, 0, () => [1000, 2000, 3000, 65500]));
+  const { bytes } = exportPsd(e);
+  assert.equal(header(bytes).channels, 4);
+  assert.ok(psdLayerCount(bytes) < 0, 'the fourth channel is the merged transparency');
+  assert.deepEqual(readPsdChannels(bytes).channels, []);
+});
+
+test('a truncated composite opens the layers and warns instead of reading past the end', () => {
+  const e = new Engine(10, 10, 16);
+  e.fill(1, 'pixels', 10, 20, 30, 255);
+  e.new_channel('Alpha 1');
+  const { bytes } = exportPsd(e);
+  const { engine, warnings } = importPsd(bytes.slice(0, bytes.length - 50));
+  assert.deepEqual(warnings, ['the composite image data is incomplete: alpha and spot channels were not imported']);
+  assert.deepEqual(channelsOf(engine), []);
+  assert.ok(nodeNamed(engine, 'Background'));
+});
+
+test('a 16-bit header over 8-bit data is rejected', () => {
+  const e = new Engine(10, 10, 8);
+  e.fill(1, 'pixels', 10, 20, 30, 255);
+  e.put_rgba8(e.add_layer('Top', 1), 2, 2, 2, 1, Uint8Array.of(200, 100, 50, 255, 1, 2, 3, 255));
+  const bytes = exportPsd(e).bytes.slice();
+  bytes[23] = 16;
+  assert.throws(() => importPsd(bytes), /does not match its 16-bit header/);
+});
+
+test('a 1-bit Bitmap composite fits when rows end in a partial byte', () => {
+  // 10x2, mode 0, depth 1, no color data, resources or layers; RLE rows of ceil(10 / 8) = 2 bytes.
+  const b = new Uint8Array(26 + 12 + 2 + 4 + 6);
+  const v = new DataView(b.buffer);
+  v.setUint32(0, 0x38425053); v.setUint16(4, 1); v.setUint16(12, 1); v.setUint32(14, 2); v.setUint32(18, 10); v.setUint16(22, 1);
+  v.setUint16(38, 1); v.setUint16(40, 3); v.setUint16(42, 3);
+  b.set([1, 0xff, 0xc0, 1, 0xff, 0xc0], 44);
+  assert.equal(compositeFit(b), 'ok');
 });
