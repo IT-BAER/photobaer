@@ -1,10 +1,10 @@
 import { Engine } from '../engine-pkg/photobaer_engine.js';
 import { tileIds } from '../project.ts';
-import { importPsd, compositeRgba, isPsdBytes, type PendingSource } from '../psd.ts';
+import { importPsd, compositeRgba, grayIcc, isPsdBytes, type PendingSource } from '../psd.ts';
 import { getHandle } from '../links.ts';
 import { embedIcc } from '../app/iccFiles.ts';
 import { embedInfo, hasInfo, type FileInfo } from '../app/fileInfo.ts';
-import { encodeGif, encodePng8, quantize, type Dither } from '../app/webExport.ts';
+import { encodeGif, encodeGrayPng, encodePng8, quantize, type Dither } from '../app/webExport.ts';
 import { icoSizes, type IcoEntry } from '../formats.ts';
 import type { Box, GlobalLight, LayerNode, SmartInfo, SmartLink, TransformKind, TransformOp } from './types.ts';
 
@@ -80,6 +80,11 @@ async function encodeFlattened(e: Engine, type: 'image/png' | 'image/jpeg' | 'im
     const px = e.flatten_tile_rgba8(tx, ty);
     ctx.putImageData(new ImageData(new Uint8ClampedArray(px.buffer as ArrayBuffer, px.byteOffset, px.length), 256, 256), tx * 256, ty * 256);
   });
+  const gray = type === 'image/png' ? grayIcc(e) : null;
+  if (gray) {
+    const png = await encodeGrayPng(ctx.getImageData(0, 0, w, h).data, w, h);
+    return new Blob([(gray.length ? await embedIcc(png, type, gray) : png) as Uint8Array<ArrayBuffer>], { type });
+  }
   let out: OffscreenCanvas = c;
   if (type === 'image/jpeg') {
     out = new OffscreenCanvas(w, h);
@@ -169,9 +174,11 @@ async function encodeRgba(e: Engine, img: Rgba, o: ExportOptions): Promise<{ blo
     return { blob: new Blob([bytes], { type: `image/${o.format === 'gif' ? 'gif' : 'png'}` }), width, height };
   }
   const type = `image/${o.format}` as 'image/png' | 'image/jpeg' | 'image/webp';
-  const blob = await c.convertToBlob({ type, quality: o.quality });
+  const gray = type === 'image/png' ? grayIcc(e) : null;
+  const blob = gray ? new Blob([await encodeGrayPng(c.getContext('2d')!.getImageData(0, 0, width, height).data, width, height)], { type })
+    : await c.convertToBlob({ type, quality: o.quality });
   if (blob.type !== type) throw new Error(`${type} export is not supported by this browser`);
-  const icc = o.icc ? e.profile_icc() : new Uint8Array();
+  const icc = o.icc ? gray ?? e.profile_icc() : new Uint8Array();
   const info = o.meta && type !== 'image/webp' ? docInfo(e) : null;
   if (!icc.length && !hasInfo(info)) return { blob, width, height };
   let bytes: Uint8Array = new Uint8Array(await blob.arrayBuffer());

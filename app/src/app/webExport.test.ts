@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { inflateSync } from 'node:zlib';
-import { assetSpecs, encodeGif, encodePng8, fileStem, makePdf, pathsSvg, quantize } from './webExport.ts';
+import { assetSpecs, encodeGif, encodeGrayPng, encodePng8, fileStem, makePdf, pathsSvg, quantize } from './webExport.ts';
 
 // 4 x 2: red, green, blue, transparent / white, black, red, red.
 const W = 4, H = 2;
@@ -75,6 +75,27 @@ test('GIF and PNG-8 decode back to the quantized pixels', async () => {
   const raw = inflateSync(chunks.get('IDAT')!);
   assert.deepEqual([...raw], [0, ...q.index.subarray(0, 4), 0, ...q.index.subarray(4)]);
   assert.ok(chunks.has('IEND'));
+});
+
+test('encodeGrayPng writes gray (type 0) or gray with alpha (type 4) from the red channel', async () => {
+  const chunksOf = (png: Uint8Array) => {
+    const m = new Map<string, Uint8Array>();
+    for (let p = 8; p < png.length;) {
+      const n = new DataView(png.buffer, png.byteOffset).getUint32(p);
+      m.set(new TextDecoder().decode(png.subarray(p + 4, p + 8)), png.subarray(p + 8, p + 8 + n));
+      p += 12 + n;
+    }
+    return m;
+  };
+  const opaque = new Uint8ClampedArray([10, 10, 10, 255, 200, 200, 200, 255, 0, 0, 0, 255, 255, 255, 255, 255]);
+  let c = chunksOf(await encodeGrayPng(opaque, 2, 2));
+  assert.deepEqual([...c.get('IHDR')!.subarray(0, 13)], [0, 0, 0, 2, 0, 0, 0, 2, 8, 0, 0, 0, 0]);
+  assert.deepEqual([...inflateSync(c.get('IDAT')!)], [0, 10, 200, 0, 0, 255]);
+  c = chunksOf(await encodeGrayPng(PX, W, H));
+  assert.deepEqual([...c.get('IHDR')!.subarray(8, 10)], [8, 4]);
+  const rows = [0, 1].flatMap(y => [0, ...[0, 1, 2, 3].flatMap(x => [PX[(y * W + x) * 4], PX[(y * W + x) * 4 + 3]])]);
+  assert.deepEqual([...inflateSync(c.get('IDAT')!)], rows);
+  assert.ok(c.has('IEND'));
 });
 
 test('makePdf writes one page per JPEG at its point size', async () => {

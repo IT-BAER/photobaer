@@ -108,9 +108,9 @@ test('a PSB header is rejected before parsing', () => {
   assert.throws(() => importPsd(bytes), /PSB files are not supported yet/);
 });
 
-test('a 16-bit PSD header is rejected', () => {
+test('a PSD of another bit depth than 8, 16 or 32 is rejected', () => {
   const bytes = bytesOf({ width: 4, height: 4, colorMode: 3, bitsPerChannel: 8, children: [] });
-  bytes[22] = 0; bytes[23] = 16;
+  bytes[22] = 0; bytes[23] = 1;
   assert.throws(() => importPsd(bytes));
 });
 
@@ -194,16 +194,17 @@ test('exportPsd composite equals the engine flatten output', () => {
   engine.free();
 });
 
-// ag-psd only carries alpha-channel names (imageResources.alphaChannelNames), not pixel data for
-// extra channels, so a saved selection warns and is dropped rather than round-tripped.
-test('exportPsd warns when the document has a saved selection channel', () => {
+test('a saved selection is stored in the PSD as an alpha channel', () => {
   const psd: Psd = { width: 4, height: 4, colorMode: 3, bitsPerChannel: 8, children: [{ name: 'L', top: 0, left: 0, imageData: solid(4, 4, [1, 2, 3, 255]) }] };
   const { engine } = importPsd(bytesOf(psd));
   engine.select_rect(0, 0, 2, 2, 'new');
   engine.save_selection('Alpha 1');
-  const { warnings } = exportPsd(engine);
-  assert.deepEqual(warnings, ['saved selections are not stored in PSD']);
+  const { bytes, warnings } = exportPsd(engine);
+  assert.deepEqual(warnings, []);
+  const back = importPsd(bytes).engine;
+  assert.deepEqual((JSON.parse(back.manifest()) as { channels: { name: string }[] }).channels.map(c => c.name), ['Alpha 1']);
   engine.free();
+  back.free();
 });
 
 const cmyk = (c: number, m: number, y: number, k: number) => ({ c, m, y, k });

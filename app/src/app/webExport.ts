@@ -146,14 +146,35 @@ const crc32 = (b: Uint8Array) => { let c = ~0; for (const x of b) c = CRC[(c ^ x
 export async function encodePng8(q: Indexed, w: number, h: number): Promise<Uint8Array<ArrayBuffer>> {
   const raw = new Uint8Array((w + 1) * h);
   for (let y = 0; y < h; y++) raw.set(q.index.subarray(y * w, y * w + w), y * (w + 1) + 1);
-  const idat = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
+  const extra: [string, Uint8Array][] = [['PLTE', q.palette]];
+  if (q.transparent >= 0) extra.push(['tRNS', Uint8Array.from({ length: q.transparent + 1 }, (_, i) => (i === q.transparent ? 0 : 255))]);
+  return pngFile(w, h, 3, raw, extra);
+}
+
+/** An 8-bit Grayscale PNG of straight RGBA (gray from red): with alpha (color type 4) only when needed. */
+export async function encodeGrayPng(rgba: Uint8ClampedArray, w: number, h: number): Promise<Uint8Array<ArrayBuffer>> {
+  let alpha = false;
+  for (let i = 3; i < rgba.length; i += 4) if (rgba[i] !== 255) { alpha = true; break; }
+  const n = alpha ? 2 : 1, raw = new Uint8Array((w * n + 1) * h);
+  for (let y = 0, o = 0; y < h; y++) {
+    o++;
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      raw[o++] = rgba[i];
+      if (alpha) raw[o++] = rgba[i + 3];
+    }
+  }
+  return pngFile(w, h, alpha ? 4 : 0, raw, []);
+}
+
+// An 8-bit PNG of filter-0 rows `raw`, with `extra` chunks before the image data.
+async function pngFile(w: number, h: number, colorType: number, raw: Uint8Array, extra: [string, Uint8Array][]): Promise<Uint8Array<ArrayBuffer>> {
+  const idat = new Uint8Array(await new Response(new Blob([raw as Uint8Array<ArrayBuffer>]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
   const ihdr = new Uint8Array(13);
   new DataView(ihdr.buffer).setUint32(0, w);
   new DataView(ihdr.buffer).setUint32(4, h);
-  ihdr.set([8, 3, 0, 0, 0], 8);
-  const chunks: [string, Uint8Array][] = [['IHDR', ihdr], ['PLTE', q.palette]];
-  if (q.transparent >= 0) chunks.push(['tRNS', Uint8Array.from({ length: q.transparent + 1 }, (_, i) => (i === q.transparent ? 0 : 255))]);
-  chunks.push(['IDAT', idat], ['IEND', new Uint8Array()]);
+  ihdr.set([8, colorType, 0, 0, 0], 8);
+  const chunks: [string, Uint8Array][] = [['IHDR', ihdr], ...extra, ['IDAT', idat], ['IEND', new Uint8Array()]];
   const parts: Uint8Array[] = [Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10)];
   for (const [type, data] of chunks) {
     const c = new Uint8Array(12 + data.length), v = new DataView(c.buffer);

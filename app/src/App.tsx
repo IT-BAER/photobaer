@@ -57,6 +57,7 @@ import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
 import { SLOTS, TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
 import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
 import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
+import { inGray, type Convert } from './shell/colorModes.ts';
 import type { DigitState } from './shell/brushKeys.ts';
 import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
 import { Rulers, hitGuide, rulerDragToDoc, type DragGuide } from './shell/rulers.ts';
@@ -234,6 +235,7 @@ export function App() {
   const [menu, setMenu] = useState<string | null>(null);
   const [fg, setFg] = useState<Rgb>(hexToRgb('#e8a23a')!);
   const [bg, setBg] = useState<Rgb>([255, 255, 255]);
+  const convertColor: Convert = useMemo(() => (v, from, to) => client.call('convertColor', v, from, to), []);
   const [tool, setTool] = useState('move');
   const [lastUsed, setLastUsed] = useState(initialLastUsed());
   const [quickMask, setQuickMask] = useState(false);
@@ -2176,6 +2178,15 @@ export function App() {
   function openPicker(which: 'fg' | 'bg') {
     picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v));
   }
+  // Grayscale documents paint in gray: a color from elsewhere converts through the Gray profile.
+  const grayDoc = !!doc?.gray && !doc.mode;
+  useEffect(() => {
+    if (!grayDoc) return;
+    let live = true;
+    inGray(fg, convertColor).then(g => { if (live && g !== fg) setFg(g); }, () => {});
+    inGray(bg, convertColor).then(g => { if (live && g !== bg) setBg(g); }, () => {});
+    return () => { live = false; };
+  }, [grayDoc, fg, bg]);
   const swapColors = () => { setFg(bg); setBg(fg); };
   const resetColors = () => { setFg([0, 0, 0]); setBg([255, 255, 255]); };
 
@@ -2563,7 +2574,7 @@ export function App() {
             <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} disabled={workspace.locked} title="Brush Settings (F5)" onClick={() => guardedSetDockTab('brushSettings')}>Brush Settings</button>
             <button className={`panel-tab${dockTab === 'brushes' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('brushes')}>Brushes</button>
           </div>}>
-          {dockTab === 'color' && <ColorPanel fg={fg} bg={bg} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} />}
+          {dockTab === 'color' && <ColorPanel fg={fg} bg={bg} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} doc={doc} convert={convertColor} />}
           {dockTab === 'swatches' && <SwatchesPanel fg={fg} setFg={setFg} setBg={setBg} />}
           {dockTab === 'brushSettings' && (
             <BrushSettingsPanel
@@ -2652,7 +2663,7 @@ export function App() {
         <span className="shrink">{AUTOSAVE_TEXT[autosave]}</span>
         <span>{renderer}</span>
       </footer>
-      <ColorPicker ref={picker} />
+      <ColorPicker ref={picker} convert={convertColor} />
       <GradientEditor ref={gradEditor} presets={gradLib.current.list()} fg={fg} bg={bg} pickColor={(rgb, title, commit) => picker.current?.open(rgb, title, commit)} />
       <FillDialog
         fillDialog={fillDialog} endPreviewDialog={endPreviewDialog} previewRef={previewRef} fillForm={fillForm} setFillForm={setFillForm}

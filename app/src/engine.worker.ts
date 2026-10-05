@@ -1,9 +1,9 @@
-import init, { Engine, Fonts, HdrMerge, filter_schema, type ImageTiles, fit_path, icc_builtins, icc_describe, live_path, puppet_geometry, vanishing_connected, vanishing_render, type Liquify } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts, HdrMerge, convert_color, filter_schema, type ImageTiles, fit_path, icc_builtins, icc_describe, live_path, puppet_geometry, vanishing_connected, vanishing_render, type Liquify } from './engine-pkg/photobaer_engine.js';
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
 import { tileIds } from './project.ts';
-import { importPsd, exportPsd, compositeRgba, isPsdBytes } from './psd.ts';
+import { importPsd, exportPsd, compositeRgba, grayIcc, isPsdBytes, psdIcc } from './psd.ts';
 import { getHandle, putHandle } from './links.ts';
 import { denormalize, isIdentity } from './transform/matrix.ts';
 import type { Density, Geometry, Grid, Rig } from './transform/puppet.ts';
@@ -20,7 +20,7 @@ import type { TextJson } from './psd/text.ts';
 import type { Spot, AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { boxScale, thumbSize } from './app/navigator.ts';
 import { inkGray } from './app/channels.ts';
-import { CMYK_SPACES, RGB_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
+import { CMYK_SPACES, DEFAULT_COLOR_SETTINGS, RGB_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
 import { openProfileStore, type ProfileStore } from './app/profileStore.ts';
 import { DEFAULT_VIEW, engineView, proofLabel, sanitizeHdr, type ViewState } from './app/proof.ts';
 import { grayFile, psdWithIcc, readIcc } from './app/iccFiles.ts';
@@ -364,7 +364,7 @@ function adopt(e: Engine, n: string, key?: string) {
 // The PSD (or PSB) file of `e` with its color profile and File Info.
 function psdFile(e: Engine, psb = false): { blob: Blob; warnings: string[] } {
   const { bytes, warnings } = exportPsd(e, { psb });
-  const icc = e.profile_icc(), i = docInfo(e);
+  const icc = psdIcc(e), i = docInfo(e);
   let b: Uint8Array = icc.length ? psdWithIcc(bytes, icc) : bytes;
   if (hasInfo(i)) b = embedInfo(b, 'image/vnd.adobe.photoshop', i);
   return { blob: new Blob([b as Uint8Array<ArrayBuffer>], { type: 'image/vnd.adobe.photoshop' }), warnings };
@@ -790,6 +790,21 @@ const api = {
     if (bg) e.fill(BACKGROUND, 'pixels', ...bg);
     if (colorSettings && colorSettings.rgbPolicy !== 'off') e.assign_profile(colorSettings.rgb, profileBytes(colorSettings.rgb));
     return adopt(e, 'Untitled');
+  },
+
+  // Color Picker and Color panel numbers (0..1) between the active document's RGB (CMYK and Lab
+  // documents store sRGB), the working or document CMYK, and the working or document Gray profile.
+  convertColor(values: number[], from: 'rgb' | 'cmyk' | 'gray', to: 'rgb' | 'cmyk' | 'gray') {
+    const s = colorSettings ?? DEFAULT_COLOR_SETTINGS;
+    const kind = eng ? (JSON.parse(eng.vector_json()) as { mode?: ColorMode }).mode?.kind : undefined;
+    const named = (name: string): [string, Uint8Array] => [name, profileBytes(name)];
+    const own = (icc: Uint8Array | null | undefined, fallback: string): [string, Uint8Array] => (icc?.length ? ['', icc] : named(fallback));
+    const side = (space: 'rgb' | 'cmyk' | 'gray') =>
+      space === 'cmyk' ? own(kind === 'cmyk' ? eng?.pixels_profile_icc() : null, s.cmyk)
+        : space === 'gray' ? own(eng ? grayIcc(eng) : null, s.gray)
+          : kind === 'cmyk' || kind === 'lab' ? named(RGB_SPACES[0]) : own(eng?.profile_icc(), s.rgb);
+    const [a, b] = [side(from), side(to)];
+    return [...convert_color(a[0], a[1], b[0], b[1], Float64Array.from(values))];
   },
 
   async setColorSettings(s: ColorSettings | null) {

@@ -1845,3 +1845,45 @@ fn put_rgba8_writes_at_any_offset_past_the_canvas() {
     assert_eq!(d.layer_bounds(1).unwrap(), Some([-10, 0, 300, 256]));
     assert!(d.put_rgba8(1, 0, 0, 2, 2, &[0u8; 4]).is_err());
 }
+
+#[test]
+fn set_tile_bytes_writes_native_pixels_masks_and_channels() {
+    let mut d = Document::new(300, 300, 16).unwrap();
+    let mut px = vec![0u8; TILE_BYTES_U16];
+    px[..8].copy_from_slice(&[0x34, 0x12, 0x78, 0x56, 0xbc, 0x9a, 0xff, 0xff]);
+    d.set_tile_bytes("pixels", 1, 1, 0, &px).unwrap();
+    assert_eq!(d.node(1).unwrap().pixel_tiles().unwrap().get(1, 0).unwrap().px.to_bytes(), px);
+    d.set_tile_bytes("pixels", 1, 1, 0, &vec![0u8; TILE_BYTES_U16]).unwrap();
+    assert!(d.node(1).unwrap().pixel_tiles().unwrap().get(1, 0).is_none(), "a transparent tile is dropped");
+    assert!(d.set_tile_bytes("pixels", 1, 0, 0, &px[..100]).is_err());
+
+    d.add_mask(1, true).unwrap();
+    let white = vec![0xffu8; MASK_BYTES_U16];
+    d.set_tile_bytes("mask", 1, 0, 1, &white).unwrap();
+    assert!(d.node(1).unwrap().mask.as_ref().unwrap().tiles.get(0, 1).is_none(), "the default value needs no tile");
+    let mut m = white.clone();
+    m[..2].copy_from_slice(&0x1234u16.to_le_bytes());
+    d.set_tile_bytes("mask", 1, 0, 1, &m).unwrap();
+    assert_eq!(d.node(1).unwrap().mask.as_ref().unwrap().tiles.get(0, 1).unwrap().px.to_bytes(), m);
+
+    let c = d.new_channel("Alpha 1").unwrap();
+    d.set_tile_bytes("channel", c, 1, 1, &m).unwrap();
+    assert_eq!(d.channels.iter().find(|x| x.id == c).unwrap().mask.tiles.get(1, 1).unwrap().px.to_bytes(), m);
+    assert!(d.set_tile_bytes("channel", 99, 0, 0, &m).is_err());
+    assert!(d.set_tile_bytes("other", 1, 0, 0, &m).is_err());
+    assert!(d.set_tile_bytes("mask", 1, 2, 2, &m).is_err(), "outside the tile grid");
+}
+
+#[test]
+fn set_tile_bytes_takes_floats_in_32_bit_and_bytes_in_8_bit() {
+    let mut d = Document::new(10, 10, 32).unwrap();
+    let mut px = vec![0u8; TILE_PIXELS * 16];
+    for (i, v) in [2.5f32, 0.25, 0.0, 0.5].iter().enumerate() {
+        px[i * 4..i * 4 + 4].copy_from_slice(&v.to_le_bytes());
+    }
+    d.set_tile_bytes("pixels", 1, 0, 0, &px).unwrap();
+    assert_eq!(&d.flatten_tile_f32(0, 0).unwrap()[..4], &[2.5, 0.25, 0.0, 0.5]);
+    let mut d8 = Document::new(10, 10, 8).unwrap();
+    d8.set_tile_bytes("pixels", 1, 0, 0, &rgba(1, 2, 3, 255)).unwrap();
+    assert_eq!(at(&d8, 0, 0), [1, 2, 3, 255]);
+}

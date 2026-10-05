@@ -907,6 +907,18 @@ impl Engine {
         self.0.doc.convert_to_profile(&p, opts).map_err(err)
     }
 
+    /// 32-bit PSD export: ICC bytes of the gamma 1.0 twin of the stored numbers' profile, empty
+    /// when the values are linear already (see `to_linear_f32`).
+    pub fn linear_twin_icc(&self) -> Vec<u8> {
+        self.0.doc.linear_twin().and_then(|p| p.icc()).unwrap_or_default()
+    }
+
+    /// Straight RGBA floats to the linear values of `linear_twin_icc`; unchanged without a twin.
+    pub fn to_linear_f32(&self, mut px: Vec<f32>) -> Vec<f32> {
+        self.0.doc.to_linear_f32(&mut px);
+        px
+    }
+
     /// The profile of the stored numbers as ICC bytes, kept with copied pixels.
     pub fn pixels_profile_icc(&self) -> Vec<u8> {
         self.0.doc.pixels_profile_icc()
@@ -1048,6 +1060,12 @@ impl Engine {
 
     pub fn set_tile_f32(&mut self, id: u32, tx: u32, ty: u32, data: &[f32]) -> Result<(), JsError> {
         self.0.doc.set_tile_f32(id, tx, ty, data).map_err(err)
+    }
+
+    /// One tile in the document's own format (as `tile_bytes` returns it) into pixel layer `id`
+    /// ('pixels'), its mask ('mask') or saved channel `id` ('channel').
+    pub fn set_tile_bytes(&mut self, target: &str, id: u32, tx: u32, ty: u32, bytes: &[u8]) -> Result<(), JsError> {
+        self.0.doc.set_tile_bytes(target, id, tx, ty, bytes).map_err(err)
     }
 
     /// Straight RGBA8 (w x h) written into a pixel layer at (x, y), past the canvas too.
@@ -1496,6 +1514,25 @@ fn profile_arg(name: &str, icc: &[u8]) -> Result<Option<icc::Profile>, JsError> 
         return Ok(None);
     }
     icc::Profile::builtin(name).map(Some).ok_or_else(|| err(format!("unknown profile \"{name}\"")))
+}
+
+/// Colors (`values`, each the source profile's channel count in 0..1; Lab in ICC encoding) from
+/// profile `src` to `dst` (ICC bytes, else a built-in name), relative colorimetric with black point
+/// compensation, unclipped.
+#[wasm_bindgen]
+pub fn convert_color(src_name: &str, src_icc: &[u8], dst_name: &str, dst_icc: &[u8], values: Vec<f64>) -> Result<Vec<f64>, JsError> {
+    let src = profile_arg(src_name, src_icc)?.ok_or_else(|| err("choose a source profile".into()))?;
+    let dst = profile_arg(dst_name, dst_icc)?.ok_or_else(|| err("choose a destination profile".into()))?;
+    let (n, m) = (src.channels(), dst.channels());
+    if values.len() % n != 0 {
+        return Err(err(format!("expected a multiple of {n} values, got {}", values.len())));
+    }
+    let t = icc::Transform::new(&src, &dst, icc::Intent::Relative, true).map_err(err)?;
+    let mut out = vec![0.0; values.len() / n * m];
+    for (c, o) in values.chunks_exact(n).zip(out.chunks_exact_mut(m)) {
+        t.apply(c, o);
+    }
+    Ok(out)
 }
 
 /// `[{ name, space }]` of the built-in profiles; space is 'rgb' | 'gray' | 'lab'.

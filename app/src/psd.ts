@@ -8,6 +8,7 @@ import { artboardIn, artboardOut, layoutIn, layoutOut } from './psd/layout.ts';
 import { rasterMaskOf, readSavedPaths, shapeIn, shapeOut, vectorMaskIn, vectorMaskOut, writeSavedPaths } from './psd/vector.ts';
 import { textIn, textOut } from './psd/text.ts';
 import { filterIn, filterOut, prepareList, opaqueFilter, readPsdRaw, writePsdRaw, type FilterJson, type RawSoLd, type SmartFilterOut } from './psd/filters.ts';
+import { finishPsd, psdLayerCount, readPsdChannels, type Depth, type PsdChannel } from './psd/depth.ts';
 
 export { filterIn };
 
@@ -58,6 +59,8 @@ const CMYK_NAMES = ['reds', 'yellows', 'greens', 'cyans', 'blues', 'magentas', '
 
 function rgbOf(c: Color | undefined, what: string): Rgb {
   if (!c) return [0, 0, 0];
+  // Grayscale colors are ink percent (0 white, 100 black).
+  if ('k' in c && !('c' in c)) { const g = Math.round(255 * (1 - Math.min(100, Math.max(0, c.k)) / 100)); return [g, g, g]; }
   if (!('r' in c)) throw new Error(`${what} is not an RGB color`);
   return [Math.round(c.r), Math.round(c.g), Math.round(c.b)];
 }
@@ -497,22 +500,31 @@ function smartIn(e: Engine, l: Layer, files: Map<string, LinkedFile>, warn: Warn
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // A layer's straight RGBA8 tile, cropped to the document, written into `id`'s tiles.
-export function place(e: Engine, id: number, l: { imageData?: PixelData; left?: number; top?: number }, w: number, h: number) {
+// 16-bit samples as Uint16Array, 32-bit as Float32Array (ag-psd), 8-bit as bytes.
+type Samples = Uint8ClampedArray | Uint8Array | Uint16Array | Float32Array;
+const asBytes = (a: Uint16Array | Float32Array) => new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+const toRgba8 = (d: Samples) =>
+  d instanceof Uint16Array ? Uint8Array.from(d, v => Math.round(v / 257)) : d instanceof Float32Array ? Uint8Array.from(d, v => Math.round(Math.min(1, Math.max(0, v)) * 255)) : d;
+
+// Straight RGBA into layer `id`: 16/32-bit samples as the document's own tiles, unless `rgba8` (text layer caches).
+export function place(e: Engine, id: number, l: { imageData?: PixelData; left?: number; top?: number }, w: number, h: number, rgba8 = false) {
   const img = l.imageData;
   if (!img || img.width === 0 || img.height === 0) return;
+  const src = (rgba8 ? toRgba8(img.data as Samples) : img.data) as Samples;
   const left = l.left ?? 0, top = l.top ?? 0;
   const x0 = Math.max(0, left), x1 = Math.min(w, left + img.width);
   const y0 = Math.max(0, top), y1 = Math.min(h, top + img.height);
   if (x0 >= x1 || y0 >= y1) return;
   for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y1 - 1) / 256); ty++) {
     for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x1 - 1) / 256); tx++) {
-      const buf = new Uint8Array(256 * 256 * 4);
+      const buf = src instanceof Uint16Array ? new Uint16Array(256 * 256 * 4) : src instanceof Float32Array ? new Float32Array(256 * 256 * 4) : new Uint8Array(256 * 256 * 4);
       const cx0 = Math.max(x0, tx * 256), cx1 = Math.min(x1, tx * 256 + 256);
       for (let y = Math.max(y0, ty * 256); y < Math.min(y1, ty * 256 + 256); y++) {
         const s = ((y - top) * img.width + (cx0 - left)) * 4;
-        buf.set(img.data.subarray(s, s + (cx1 - cx0) * 4), ((y - ty * 256) * 256 + (cx0 - tx * 256)) * 4);
+        buf.set(src.subarray(s, s + (cx1 - cx0) * 4), ((y - ty * 256) * 256 + (cx0 - tx * 256)) * 4);
       }
-      e.set_tile_rgba8(id, tx, ty, buf);
+      if (buf instanceof Uint8Array) e.set_tile_rgba8(id, tx, ty, buf);
+      else e.set_tile_bytes('pixels', id, tx, ty, asBytes(buf));
     }
   }
 }
@@ -526,16 +538,21 @@ function placeMask(e: Engine, id: number, m: NonNullable<Layer['mask']>, w: numb
   const x0 = Math.max(0, left), x1 = Math.min(w, left + img.width);
   const y0 = Math.max(0, top), y1 = Math.min(h, top + img.height);
   if (x0 >= x1 || y0 >= y1) return;
+  // 16/32-bit masks (Uint16Array, Float32Array) go in as 16-bit mask tiles.
+  const data = img.data as Samples;
+  const wide = data instanceof Uint16Array || data instanceof Float32Array;
+  const at = (i: number) => (data instanceof Float32Array ? Math.round(Math.min(1, Math.max(0, data[i])) * 65535) : data[i]);
   for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y1 - 1) / 256); ty++) {
     for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x1 - 1) / 256); tx++) {
-      const buf = new Uint8Array(256 * 256).fill(def);
+      const buf = wide ? new Uint16Array(256 * 256).fill(def * 257) : new Uint8Array(256 * 256).fill(def);
       const cx0 = Math.max(x0, tx * 256), cx1 = Math.min(x1, tx * 256 + 256);
       for (let y = Math.max(y0, ty * 256); y < Math.min(y1, ty * 256 + 256); y++) {
         for (let x = cx0; x < cx1; x++) {
-          buf[(y - ty * 256) * 256 + (x - tx * 256)] = img.data[((y - top) * img.width + (x - left)) * 4];
+          buf[(y - ty * 256) * 256 + (x - tx * 256)] = at(((y - top) * img.width + (x - left)) * 4);
         }
       }
-      e.set_mask_tile8(id, tx, ty, buf);
+      if (buf instanceof Uint16Array) e.set_tile_bytes('mask', id, tx, ty, asBytes(buf));
+      else e.set_mask_tile8(id, tx, ty, buf);
     }
   }
 }
@@ -732,7 +749,7 @@ function addNode(c: ImportCtx, l: Layer): number {
     clipping: !!l.clipping, locks: locksOf(l),
   }));
   // Smart object and text layer pixels become their cache (D5); fill and adjustment layers render from their params.
-  if (!shape && (!special || 'smart' in special || 'text' in special)) place(e, id, l, w, h);
+  if (!shape && (!special || 'smart' in special || 'text' in special)) place(e, id, l, w, h, !!special && 'text' in special);
   addMaskIfAny(e, id, l, w, h);
   const vm = shape ? null : vectorMaskIn(l, w, h);
   if (vm) e.set_vector_mask(id, JSON.stringify(vm));
@@ -792,6 +809,32 @@ function importLayerComps(c: ImportCtx, psd: Psd) {
   e.set_document_m3(JSON.stringify({ layer_comps }));
 }
 
+// The composite's alpha and spot channels (CH4). Ours select white, so Selected Areas channels invert.
+function channelsIn(e: Engine, bytes: Uint8Array, warn: Warn) {
+  const { channels, depth, warnings } = readPsdChannels(bytes);
+  warnings.forEach(warn);
+  const w = e.width(), h = e.height();
+  for (const c of channels) {
+    const id = c.kind === 2 ? e.new_spot_channel(c.name, Uint8Array.from(c.color), c.opacity / 100) : e.new_channel(c.name);
+    const v = new DataView(c.plane.buffer, c.plane.byteOffset, c.plane.byteLength);
+    const max = depth === 8 ? 255 : 65535;
+    const at = (i: number) => {
+      const x = depth === 8 ? c.plane[i] : depth === 16 ? v.getUint16(i * 2) : Math.round(Math.min(1, Math.max(0, v.getFloat32(i * 4))) * max);
+      return c.kind === 0 ? max - x : x;
+    };
+    for (let ty = 0; ty * 256 < h; ty++) {
+      for (let tx = 0; tx * 256 < w; tx++) {
+        const buf = depth === 8 ? new Uint8Array(256 * 256) : new Uint16Array(256 * 256);
+        buf.fill(c.kind === 2 ? max : 0);
+        for (let y = ty * 256; y < Math.min(h, ty * 256 + 256); y++) {
+          for (let x = tx * 256; x < Math.min(w, tx * 256 + 256); x++) buf[(y - ty * 256) * 256 + x - tx * 256] = at(y * w + x);
+        }
+        e.set_tile_bytes('channel', id, tx, ty, buf instanceof Uint16Array ? asBytes(buf) : buf);
+      }
+    }
+  }
+}
+
 function isEmptyPlaceholder(l: Layer): boolean {
   return !l.children && !l.name && (!l.imageData || l.imageData.width === 0 || l.imageData.height === 0);
 }
@@ -800,14 +843,16 @@ function isEmptyPlaceholder(l: Layer): boolean {
 export function importPsd(bytes: Uint8Array, opts: { psb?: boolean } = {}): { engine: Engine; warnings: string[]; sources: PendingSource[] } {
   ensureCanvas();
   if (!opts.psb && bytes.length >= 6 && bytes[4] === 0 && bytes[5] === 2) throw new Error('PSB files are not supported yet');
-  // Header depth (offset 22) is checked before decoding, so a large 16-bit file is rejected cheaply.
-  if (bytes.length >= 24 && [16, 32].includes(bytes[22] << 8 | bytes[23])) throw new Error('16-bit and 32-bit PSD files are not supported yet');
-  const { psd, raw } = readPsdRaw(bytes, { useImageData: true, skipThumbnail: true });
+  // ag-psd cannot read a 16/32-bit composite with merged transparency; a layered file builds from its layers.
+  const wide = bytes.length >= 24 && (bytes[22] << 8 | bytes[23]) > 8;
+  // ag-psd byte-swaps 16/32-bit raw channel data in its input buffer: wide files read from a copy.
+  const { psd, raw } = readPsdRaw(wide ? bytes.slice() : bytes, { useImageData: true, skipThumbnail: true, skipCompositeImageData: wide && psdLayerCount(bytes) !== 0 });
   const paths = readSavedPaths(bytes, psd.width, psd.height);
-  if ((psd.bitsPerChannel ?? 8) !== 8) throw new Error('16-bit and 32-bit PSD files are not supported yet');
-  if (psd.colorMode !== undefined && psd.colorMode !== 3 && !psd.imageData) throw new Error('Only RGB PSD files are supported');
+  const depth = psd.bitsPerChannel ?? 8;
+  if (![8, 16, 32].includes(depth)) throw new Error(`${depth}-bit PSD files are not supported`);
+  if (psd.colorMode !== undefined && psd.colorMode !== 3 && psd.colorMode !== 1 && !psd.imageData) throw new Error('Only RGB PSD files are supported');
   const { width: w, height: h } = psd;
-  const e = new Engine(w, h, 8);
+  const e = new Engine(w, h, depth);
   try {
     const warnings: string[] = [];
     const warn = (m: string) => { if (!warnings.includes(m)) warnings.push(m); };
@@ -835,6 +880,7 @@ export function importPsd(bytes: Uint8Array, opts: { psb?: boolean } = {}): { en
       importLayerComps(c, psd);
       e.delete_node(1);
     }
+    channelsIn(e, bytes, warn);
     return { engine: e, warnings, sources };
   } catch (err) {
     e.free();
@@ -889,11 +935,12 @@ function tileBounds(ids: Sparse | undefined, w: number, h: number): Rect | null 
 }
 
 // ag-psd writes a zero-size rect and no channel data for a mask/layer with no imageData (psdWriter.js getLayerChannels/getMaskChannels).
-function maskFields(e: Engine, n: ManifestNode, w: number, h: number) {
+function maskFields(e: Engine, n: ManifestNode, w: number, h: number, hi = false) {
   if (!n.mask) return {};
   const rect = tileBounds(n.mask.tiles, w, h);
   const base = { defaultColor: n.mask.default, disabled: !n.mask.enabled };
-  if (!rect) return { mask: { top: 0, left: 0, ...base } };
+  // `hiLayer` writes 16/32-bit and Grayscale masks itself.
+  if (!rect || hi) return { mask: { top: 0, left: 0, ...base } };
   const map = tileMap(n.mask.tiles);
   const gray = assembleImage((tx, ty) => tileAt(e, map, tx, ty), rect, 1, n.mask.default);
   const rw = rect.right - rect.left, rh = rect.bottom - rect.top;
@@ -913,6 +960,112 @@ interface ExportCtx {
   e: Engine; w: number; h: number; warn: Warn; names: Map<string, string>; files: Map<string, LinkedFile>; comps: LayerCompOut[]; fx: FilterMasks;
   raws: Map<object, Uint8Array>;
   res: number; guides: { id: number; axis: 'x' | 'y'; pos: number }[]; artboardsLocked: boolean;
+  /** Grayscale or 16/32-bit: layer channels are written by `hiLayer`, not by ag-psd. */
+  hi: { depth: Depth; gray: boolean } | null;
+}
+
+// Big-endian planes of interleaved little-endian samples (`size` bytes each, `n` per pixel).
+function planesOf(le: Uint8Array, size: number, n: number): Uint8Array[] {
+  const px = le.length / size / n;
+  const out = Array.from({ length: n }, () => new Uint8Array(px * size));
+  for (let i = 0; i < px; i++) {
+    for (let c = 0; c < n; c++) {
+      const s = (i * n + c) * size, d = i * size;
+      for (let k = 0; k < size; k++) out[c][d + k] = le[s + size - 1 - k];
+    }
+  }
+  return out;
+}
+
+// A layer mask or saved channel (8-bit, or 16-bit in 16/32-bit documents) at the file depth.
+function maskPlane(le: Uint8Array, depth: Depth): Uint8Array {
+  if (depth === 8) return le;
+  const [p] = planesOf(le, 2, 1);
+  if (depth === 16) return p;
+  const out = new Uint8Array(p.length * 2), v = new DataView(out.buffer), s = new DataView(p.buffer);
+  for (let i = 0; i < p.length / 2; i++) v.setFloat32(i * 4, s.getUint16(i * 2) / 65535);
+  return out;
+}
+
+// Layer channels at 16/32 bits or in Grayscale, raw, as ag-psd's `rawData` (its writer copies them):
+// transparency, gray or red/green/blue (linear at 32 bits), then the masks. `rect` is the pixel rect.
+function hiLayer({ e, w, h, hi }: ExportCtx, n: ManifestNode, l: Layer, rect: Rect | null): Layer {
+  const { depth, gray } = hi!;
+  const size = depth / 8;
+  const colors = gray ? [0] : [0, 1, 2];
+  const chan = (id: number, data: Uint8Array = new Uint8Array(0)) => ({ id, compression: 0, data });
+  const channels: ReturnType<typeof chan>[] = [];
+  if (rect) {
+    const map = tileMap(n.tiles);
+    let px = assembleImage((tx, ty) => tileAt(e, map, tx, ty), rect, size * 4, 0);
+    if (depth === 32) px = asBytes(e.to_linear_f32(new Float32Array(px.buffer, px.byteOffset, px.length / 4)));
+    const p = planesOf(px, size, 4);
+    channels.push(chan(-1, p[3]), ...colors.map(c => chan(c, p[c])));
+    Object.assign(l, { top: rect.top, left: rect.left, bottom: rect.bottom, right: rect.right });
+  } else {
+    channels.push(...[-1, ...colors].map(id => chan(id)));
+  }
+  const mr = n.mask && tileBounds(n.mask.tiles, w, h);
+  const raster = n.mask && mr && {
+    rect: mr, data: maskPlane(assembleImage((tx, ty) => tileAt(e, tileMap(n.mask!.tiles), tx, ty), mr, depth === 8 ? 1 : 2, n.mask.default ? 255 : 0), depth),
+  };
+  for (const [key, id] of [['mask', -2], ['realMask', -3]] as const) {
+    const m = l[key];
+    if (!m) continue;
+    const r = m.fromVectorData ? null : raster;
+    delete m.imageData;
+    m.defaultColor = m.defaultColor ? 255 : 0;
+    if (r) {
+      Object.assign(m, { top: r.rect.top, left: r.rect.left, bottom: r.rect.bottom, right: r.rect.right });
+      channels.push(chan(id, r.data));
+    } else {
+      Object.assign(m, { bottom: m.top ?? 0, right: m.left ?? 0 });
+      channels.push(chan(id));
+    }
+  }
+  delete l.imageData;
+  (l as { rawData?: unknown }).rawData = { channels };
+  return l;
+}
+
+// The flattened image as file planes: gray or red/green/blue, and transparency; partly transparent
+// pixels are matted with white, as ag-psd (and Photoshop) write the composite.
+function compositeOut(e: Engine, depth: Depth, gray: boolean, rgba8: Uint8Array): { color: Uint8Array[]; alpha: Uint8Array } {
+  const w = e.width(), h = e.height();
+  let planes: Uint8Array[];
+  if (depth === 8) {
+    const px = rgba8.slice();
+    for (let i = 0; i < px.length; i += 4) {
+      const a = px[i + 3];
+      if (a && a < 255) for (let c = 0; c < 3; c++) px[i + c] = px[i + c] * a / 255 + 255 - a;
+    }
+    planes = planesOf(px, 1, 4);
+  } else {
+    const fl = assembleImage((tx, ty) => asBytes(e.flatten_tile_f32(tx, ty)), fullCanvas(w, h), 16, 0);
+    let f = new Float32Array(fl.buffer, fl.byteOffset, fl.length / 4);
+    if (depth === 32) f = e.to_linear_f32(f);
+    for (let i = 0; i < f.length; i += 4) {
+      const a = f[i + 3];
+      if (a > 0 && a < 1) for (let c = 0; c < 3; c++) f[i + c] = f[i + c] * a + 1 - a;
+    }
+    const le = depth === 32 ? asBytes(f) : asBytes(Uint16Array.from(f, v => Math.round(Math.min(1, Math.max(0, v)) * 65535)));
+    planes = planesOf(le, depth / 8, 4);
+  }
+  return { color: gray ? [planes[0]] : planes.slice(0, 3), alpha: planes[3] };
+}
+
+type ChannelOut = { id: number; name: string; default: number; tiles?: Sparse; spot: { color: [number, number, number]; solidity: number } | null };
+// Saved channels as composite planes: alpha channels as Photoshop's default Masked Areas (white
+// selects), spot channels with their ink color and solidity.
+function channelsOut(e: Engine, list: ChannelOut[], depth: Depth): PsdChannel[] {
+  const w = e.width(), h = e.height();
+  return list.map(c => {
+    const max = e.depth() === 8 ? 255 : 65535;
+    const le = assembleImage((tx, ty) => tileAt(e, tileMap(c.tiles), tx, ty), fullCanvas(w, h), max === 255 ? 1 : 2, c.default >= max ? 255 : 0);
+    return {
+      name: c.name, kind: c.spot ? 2 : 1, color: c.spot?.color ?? [255, 0, 0], opacity: c.spot ? Math.round(c.spot.solidity * 100) : 50, plane: maskPlane(le, depth),
+    };
+  });
 }
 
 // Per-layer `comps.settings`: one entry per comp, `enabled` its captured visibility, `offset` the
@@ -960,7 +1113,8 @@ function smartOut({ e, w, h, warn, files, fx }: ExportCtx, n: ManifestNode): Par
   const rect = sm && tileBounds(sm.tiles, w, h);
   const [txN, tyN] = [Math.ceil(w / 256), Math.ceil(h / 256)];
   if (sm?.tiles?.some(([tx, ty]) => tx < 0 || ty < 0 || tx >= txN || ty >= tyN)) warn('smart filter mask areas outside the canvas are not stored in PSD');
-  if (sm && rect) {
+  if (sm && rect && e.depth() !== 8) warn('smart filter masks of 16-bit and 32-bit documents are not stored in PSD');
+  else if (sm && rect) {
     const data = assembleImage((tx, ty) => tileAt(e, tileMap(sm.tiles), tx, ty), rect, 1, sm.default);
     // Channels: the user mask then the sheet mask, no color channels.
     fx.push({ id, ...rect, depth: 8, channels: [{ compressionMode: 0, data }, undefined] });
@@ -975,7 +1129,8 @@ function exportNode(x: ExportCtx, n: ManifestNode): Layer {
   const { e, w, h, warn } = x;
   if (n.shape && n.vector_mask) warn('vector masks on shape layers are not stored in PSD');
   if ([n.shape, n.vector_mask].some(v => v?.path.fill_rule === 'evenodd')) warn('the even-odd fill rule of shapes and vector masks is not stored in PSD');
-  const masks = n.vector_mask && !n.shape ? vectorMaskOut(n.vector_mask, maskFields(e, n, w, h).mask, w, h) : maskFields(e, n, w, h);
+  const mf = maskFields(e, n, w, h, !!x.hi);
+  const masks = n.vector_mask && !n.shape ? vectorMaskOut(n.vector_mask, mf.mask, w, h) : mf;
   const common = {
     name: n.name, hidden: !n.visible, opacity: n.opacity, fillOpacity: n.fill, blendMode: n.blend as BlendMode, clipping: n.clipping,
     protected: { transparency: n.locks.transparency, composite: n.locks.pixels, position: n.locks.position, ...(n.artboard ? { artboards: x.artboardsLocked } : {}) },
@@ -983,42 +1138,60 @@ function exportNode(x: ExportCtx, n: ManifestNode): Layer {
     // ag-psd needs a layer id on every layer of a document with comps.
     ...(x.comps.length ? { id: n.id, comps: compsOut(n, x.comps, w, h) } : {}),
   };
+  const hi = (l: Layer, rect: Rect | null = null) => (x.hi ? hiLayer(x, n, l, rect) : l);
   if (n.kind === 'group') {
-    return { ...common, ...(n.artboard ? { artboard: artboardOut(n.artboard, x.guides) } : {}), children: (n.children ?? []).map(c => exportNode(x, c)) };
+    return hi({ ...common, ...(n.artboard ? { artboard: artboardOut(n.artboard, x.guides) } : {}), children: (n.children ?? []).map(c => exportNode(x, c)) });
   }
-  if (n.shape) return { ...common, top: 0, left: 0, ...shapeOut(n.shape, x.res, w, h, c => fillOut(c, x.names, warn), warn) };
-  if (n.adjustment) return { ...common, top: 0, left: 0, adjustment: adjustmentOut(e, n.adjustment, warn) };
-  if (n.content) return { ...common, top: 0, left: 0, vectorFill: fillOut(n.content, x.names, warn) };
+  if (n.shape) return hi({ ...common, top: 0, left: 0, ...shapeOut(n.shape, x.res, w, h, c => fillOut(c, x.names, warn), warn) });
+  if (n.adjustment) return hi({ ...common, top: 0, left: 0, adjustment: adjustmentOut(e, n.adjustment, warn) });
+  if (n.content) return hi({ ...common, top: 0, left: 0, vectorFill: fillOut(n.content, x.names, warn) });
   const { rawSoLd, ...placed } = n.smart ? smartOut(x, n) : n.text ? { text: textOut(n.text, x.res, warn) } : ({} as { rawSoLd?: Uint8Array });
   const done = (l: Layer) => { if (rawSoLd) x.raws.set(l.placedLayer!, rawSoLd); return l; };
   const rect = tileBounds(n.tiles, w, h);
-  if (!rect) return done({ ...common, ...placed, top: 0, left: 0 });
+  if (!rect || x.hi) return done(hi({ ...common, ...placed, top: 0, left: 0 }, rect));
   const map = tileMap(n.tiles);
   const data = assembleImage((tx, ty) => tileAt(e, map, tx, ty), rect, 4, 0);
   const rw = rect.right - rect.left, rh = rect.bottom - rect.top;
   return done({ ...common, ...placed, top: rect.top, left: rect.left, imageData: { width: rw, height: rh, data: new Uint8ClampedArray(data.buffer) } });
 }
 
-// ag-psd's typed Psd/ImageResources (node_modules/ag-psd/src/psd.ts) only carry alpha-channel
-// *names* (imageResources.alphaChannelNames/alphaIdentifiers), not pixel data for extra alpha
-// channels; there is no field to round-trip saved-selection channel bitmaps through a PSD.
+const grayDoc = (e: Engine) => {
+  const v = JSON.parse(e.vector_json()) as { gray?: boolean; mode?: unknown };
+  return !!v.gray && !v.mode;
+};
+
+/** The profile to embed in `e`'s PSD: at 32 bits the linear twin the values are written in, in
+ * Grayscale the Gray profile (none when untagged), else the RGB profile. */
+export function psdIcc(e: Engine): Uint8Array {
+  const twin = e.depth() === 32 ? e.linear_twin_icc() : new Uint8Array(0);
+  if (twin.length) return twin;
+  return grayIcc(e) ?? e.profile_icc();
+}
+
+/** The Gray profile of a Grayscale document (empty when untagged); null for other modes. */
+export function grayIcc(e: Engine): Uint8Array | null {
+  if (!grayDoc(e)) return null;
+  return JSON.parse(e.profile_json()) ? e.pixels_profile_icc() : new Uint8Array(0);
+}
+
+// ag-psd writes RGB/8-bit; Grayscale, 16/32 bits and saved channels are finished by psd/depth.ts.
 // `psb` writes the large document format (smart object sources, D5).
 export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uint8Array<ArrayBuffer>; warnings: string[] } {
   ensureCanvas();
-  if (e.depth() !== 8) throw new Error(`${e.depth()}-bit PSD export is not supported yet`);
   const w = e.width(), h = e.height();
+  const depth = e.depth() as Depth, gray = grayDoc(e);
   const manifest = JSON.parse(e.manifest()) as {
     layers: ManifestNode[]; global_light: { angle: number; altitude: number };
     patterns: { id: string; name: string; width: number; height: number; blob: number }[];
     layer_comps: LayerCompOut[];
     resolution: number; guides: ExportCtx['guides']; grid: { spacing_x: number; spacing_y: number };
-    paths: { name: string; work: boolean; path: any }[]; artboards_locked: boolean;
+    paths: { name: string; work: boolean; path: any }[]; artboards_locked: boolean; channels: ChannelOut[];
   };
   const warnings: string[] = [];
   const warn = (m: string) => { if (!warnings.includes(m)) warnings.push(m); };
   const composite = compositeRgba(e);
   const x: ExportCtx = { e, w, h, warn, names: new Map(manifest.patterns.map(p => [p.id, p.name])), files: new Map(), comps: manifest.layer_comps, fx: [], raws: new Map(),
-    res: manifest.resolution, guides: manifest.guides, artboardsLocked: manifest.artboards_locked,
+    res: manifest.resolution, guides: manifest.guides, artboardsLocked: manifest.artboards_locked, hi: gray || depth !== 8 ? { depth, gray } : null,
   };
   const { angle, altitude } = manifest.global_light;
   if (manifest.layer_comps.length) warn('layer comp appearance is not stored in PSD');
@@ -1042,9 +1215,12 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
   if (x.fx.length) psd.filterEffectsMasks = x.fx;
   const artboards = manifest.layers.filter(n => n.artboard).length;
   if (artboards) psd.artboards = { count: artboards };
-  const channels = (JSON.parse(e.channels_json()) as { channels: { id: number; name: string }[] }).channels;
-  if (channels.length) warn('saved selections are not stored in PSD');
+  const extras = channelsOut(e, manifest.channels, depth);
+  if (extras.length) Object.assign(psd.imageResources!, { alphaChannelNames: extras.map(c => c.name), alphaIdentifiers: manifest.channels.map(c => c.id) });
   if (JSON.parse(e.vector_json()).variables) warn('variables and data sets are not stored in PSD');
-  const bytes = new Uint8Array(writePsdRaw(psd, { generateThumbnail: false, psb: !!opts.psb }, x.raws));
+  let bytes: Uint8Array<ArrayBuffer> = new Uint8Array(writePsdRaw(psd, { generateThumbnail: false, psb: !!opts.psb }, x.raws));
+  if (x.hi || extras.length) {
+    bytes = finishPsd(bytes, { psb: !!opts.psb, depth, gray, width: w, height: h, ...compositeOut(e, depth, gray, composite), extras }) as Uint8Array<ArrayBuffer>;
+  }
   return { bytes: manifest.paths.length ? writeSavedPaths(bytes, manifest.paths, w, h) : bytes, warnings };
 }

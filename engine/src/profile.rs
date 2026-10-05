@@ -2,7 +2,7 @@
 //! from the document's profile to the display (sRGB).
 
 use super::*;
-use crate::icc::{Intent, Lut, Profile, SRGB, Space, Transform};
+use crate::icc::{Curve, Intent, Lut, Profile, SRGB, Space, Transform};
 use serde::{Deserialize, Serialize};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -245,6 +245,44 @@ impl Document {
     /// The profile of the stored numbers as ICC bytes, for pixels copied out of this document.
     pub fn pixels_profile_icc(&self) -> Vec<u8> {
         self.source_profile().ok().and_then(|p| p.icc()).unwrap_or_default()
+    }
+
+    /// 32-bit PSD files hold linear values under a gamma 1.0 twin of their profile (Photoshop's
+    /// "Linear RGB Profile"): the twin of the stored numbers' matrix/TRC or gray profile, or None
+    /// when that profile is linear already or LUT-based.
+    pub fn linear_twin(&self) -> Option<Profile> {
+        let p = self.source_profile().ok()?;
+        let linear = |c: &Curve| matches!(c, Curve::Identity) || *c == Curve::Gamma(1.0);
+        let mut t = p.clone();
+        match (p.space, &p.colorants, &p.trc, &p.gray_trc) {
+            (Space::Rgb, Some(_), Some(trc), _) if !trc.iter().all(linear) => {
+                t.trc = Some([Curve::Gamma(1.0), Curve::Gamma(1.0), Curve::Gamma(1.0)]);
+                t.name = format!("{} (Linear RGB Profile)", p.name);
+            }
+            (Space::Gray, _, _, Some(g)) if !linear(g) => {
+                t.gray_trc = Some(Curve::Gamma(1.0));
+                t.name = "Linear Grayscale Profile".into();
+            }
+            _ => return None,
+        }
+        t.icc_bytes = None;
+        Some(t)
+    }
+
+    /// Straight RGBA floats through the stored numbers' tone curve to the values of `linear_twin`;
+    /// unchanged when there is no twin. Alpha is kept.
+    pub fn to_linear_f32(&self, px: &mut [f32]) {
+        let Some(p) = self.linear_twin().and(self.source_profile().ok()) else { return };
+        let curves = match (&p.trc, &p.gray_trc) {
+            (Some(trc), _) if p.space == Space::Rgb => trc.clone(),
+            (_, Some(g)) => [g.clone(), g.clone(), g.clone()],
+            _ => return,
+        };
+        for c in px.chunks_exact_mut(4) {
+            for i in 0..3 {
+                c[i] = curves[i].eval(c[i] as f64) as f32;
+            }
+        }
     }
 
     /// Straight RGBA8 `rgba` whose numbers mean profile `icc` (RGB or Gray), converted to this
@@ -499,5 +537,35 @@ mod tests {
             }
         }
         assert!(vert > 0 && horiz > 0 && vert.abs_diff(horiz) * 4 < vert.max(horiz), "vertical {vert} vs horizontal {horiz} changes");
+    }
+
+    #[test]
+    fn linear_twin_keeps_primaries_with_a_linear_curve() {
+        let mut d = Document::new(4, 4, 32).unwrap();
+        let t = d.linear_twin().expect("untagged RGB stores sRGB numbers");
+        assert_eq!(t.name, "sRGB IEC61966-2.1 (Linear RGB Profile)");
+        let back = Profile::parse(&t.icc().unwrap()).unwrap();
+        assert_eq!(back.trc.as_ref().unwrap()[0].eval(0.5), 0.5);
+        let (a, b) = (back.colorants.unwrap(), Profile::builtin(SRGB).unwrap().colorants.unwrap());
+        assert!((0..9).all(|i| (a[i / 3][i % 3] - b[i / 3][i % 3]).abs() < 1e-4), "{a:?} vs {b:?}");
+        let mut px = [0.5f32, 1.0, 2.0, 0.5];
+        d.to_linear_f32(&mut px);
+        assert!((px[0] - 0.21404).abs() < 1e-4 && px[1] == 1.0 && px[2] > 4.9 && px[3] == 0.5, "{px:?}");
+
+        d.assign_profile(Some(&t)).unwrap();
+        assert!(d.linear_twin().is_none(), "already linear");
+        let mut same = [0.5f32, 0.5, 0.5, 1.0];
+        d.to_linear_f32(&mut same);
+        assert_eq!(same, [0.5, 0.5, 0.5, 1.0]);
+
+        let mut g = Document::new(4, 4, 32).unwrap();
+        g.convert_mode(true).unwrap();
+        g.assign_profile(Some(&Profile::builtin("Dot Gain 20%").unwrap())).unwrap();
+        let t = g.linear_twin().unwrap();
+        assert_eq!((t.name.as_str(), t.space), ("Linear Grayscale Profile", Space::Gray));
+        let mut px = [0.5f32, 0.5, 0.5, 1.0];
+        g.to_linear_f32(&mut px);
+        let want = Profile::builtin("Dot Gain 20%").unwrap().gray_trc.unwrap().eval(0.5) as f32;
+        assert!((px[0] - want).abs() < 1e-6 && px[1] == px[0] && px[2] == px[0], "{px:?}");
     }
 }

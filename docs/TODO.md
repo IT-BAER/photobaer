@@ -11,29 +11,33 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 - User feedback (5 October 2026): the dock sections (Color, Properties, Layers, History, Channels, ...) can be
   reordered freely up and down, the order kept in the browser's local settings; if possible the toolbar tools
   as well.
+- User feedback (5 October 2026): test the MCP server (photobaer-mcp) and the WebMCP tools fully, end to end.
+- User feedback (5 October 2026): live view of agent edits over the MCP: users can watch the document in the
+  browser while an agent edits it through the MCP.
 
 ## M6 Color and photo
 - Image > Mode rest: Duotone data is not read from or written to PSD (the color-mode data is undocumented);
-  the Duotone curve icons draw straight lines between the set points. Modes are flags over RGB storage: color pickers still offer
-  RGB; PSD export stays RGB (also for Grayscale documents).
+  the Duotone curve icons draw straight lines between the set points. Grayscale documents keep a neutral paint
+  color as its gray numbers (no reconversion when the Gray profile changes).
 - 32 bits per channel: the paint color is 8-bit (no HDR color picker) and non-Normal paint modes clip at 1.0;
   layers kept in blend modes outside Photoshop's 32-bit list clip; Blur Gallery is disabled in 32-bit
   (Photoshop support unverified); 32 -> 16/8 Bits/Channel with Don't Merge clips (Photoshop reportedly applies
   Local Adaptation per layer, unverified).
 - Color management rest: Color Settings "Blend RGB colors using gamma"; ColorSync and older-version presets
   (they need Apple RGB, SWOP and similar built-in profiles); the system clipboard and layer drags carry no
-  profile; Gray profiles are not embedded on export; open-time conversion converts pixel layers only (text,
+  profile; JPEG and WebP exports of Grayscale documents are RGB without the Gray profile; open-time conversion converts pixel layers only (text,
   shape and adjustment layers keep their numbers).
 - Camera RAW and DNG open with a develop workspace (Camera Raw Filter is done: Basic sliders and vignette).
 - Lens Correction automatic lens profiles and the grid/straighten tools; Adaptive Wide Angle constraint lines.
 - Auto-Align Layers: Cylindrical, Spherical and Collage projections; Photomerge Vignette Removal and Geometric Distortion Correction; Merge to HDR Pro tone-mapping options and picking files instead of open documents.
-- Channels panel rest: PSD export and import carry no alpha or spot channels; color and saved channels cannot be
+- Channels panel rest: spot and alpha channel colors from color books open as black; color and saved channels cannot be
   targeted together; the color swatches stay in color while one channel is targeted (painting uses the gray);
   further targeted saved channels take a stroke when it ends, not live.
 - Formats rest: Import PDF has no Bleed, Trim, Art or Bounding Box crop and applies mode and bit depth as undo
   steps after opening; Enter in a size field of the Import PDF and Rasterize SVG dialogs commits the field but does
   not press OK; Revert of an SVG renders at its own size; EXR deep files, PIZ and DWA compression, B44 channels
-  with pLinear, and parts after the first; 16/32-bit PSD/PSB export.
+  with pLinear, and parts after the first; 16/32-bit PSD layer and composite data is written uncompressed;
+  smart filter masks of 16/32-bit documents are not stored in PSD (saving warns).
 
 ## M7 AI (local, in the browser)
 - Select > Subject, Object Selection tool, Select > Focus Area.

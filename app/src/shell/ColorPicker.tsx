@@ -1,7 +1,8 @@
-import { useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { hexToRgb, hsbToRgb, isWebSafe, labToRgb, rgbToHex, rgbToHsb, rgbToLab, snapWebSafe, type Rgb } from './color.ts';
 import { HueStrip, SbField } from './ColorField.tsx';
+import { rgbOfSliders, slidersOf, type Convert } from './colorModes.ts';
 
 export interface ColorPickerHandle { open(rgb: Rgb, title: string, commit: (rgb: Rgb) => void): void }
 
@@ -21,7 +22,8 @@ function Field({ label, value, min, max, onCommit }: { label: string; value: num
   );
 }
 
-export function ColorPicker({ ref }: { ref: Ref<ColorPickerHandle> }) {
+// `convert` gives the C, M, Y, K fields (working or document CMYK); without it they are not shown.
+export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; convert?: Convert }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState('Color Picker');
   const [rgb, setRgb] = useState<Rgb>([0, 0, 0]);
@@ -38,7 +40,18 @@ export function ColorPicker({ ref }: { ref: Ref<ColorPickerHandle> }) {
     },
   }));
 
+  const [cmyk, setCmyk] = useState<number[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    if (convert) slidersOf(rgb, 'cmyk', false, convert).then(v => { if (live) setCmyk(v); }, () => { if (live) setCmyk(null); });
+    return () => { live = false; };
+  }, [rgb, convert]);
+
   const apply = (next: Rgb) => { setRgb(next); commit.current(next); };
+  const applyCmyk = (i: number, v: number) => {
+    if (!cmyk || !convert) return;
+    rgbOfSliders(cmyk.map((x, k) => (k === i ? v : x)), 'cmyk', false, convert).then(apply, () => {});
+  };
   const [h, s, b] = rgbToHsb(rgb);
   const [l, a, bb] = rgbToLab(rgb);
   const websafe = isWebSafe(rgb);
@@ -64,12 +77,6 @@ export function ColorPicker({ ref }: { ref: Ref<ColorPickerHandle> }) {
         <Field label="H" value={h} min={0} max={360} onCommit={v => apply(hsbToRgb([v, s, b]))} />
         <Field label="S" value={s} min={0} max={100} onCommit={v => apply(hsbToRgb([h, v, b]))} />
         <Field label="B" value={b} min={0} max={100} onCommit={v => apply(hsbToRgb([h, s, v]))} />
-        <Field label="R" value={rgb[0]} min={0} max={255} onCommit={v => apply([v, rgb[1], rgb[2]])} />
-        <Field label="G" value={rgb[1]} min={0} max={255} onCommit={v => apply([rgb[0], v, rgb[2]])} />
-        <Field label="B" value={rgb[2]} min={0} max={255} onCommit={v => apply([rgb[0], rgb[1], v])} />
-        <Field label="L" value={l} min={0} max={100} onCommit={v => apply(labToRgb([v, a, bb]))} />
-        <Field label="a" value={a} min={-128} max={127} onCommit={v => apply(labToRgb([l, v, bb]))} />
-        <Field label="b" value={bb} min={-128} max={127} onCommit={v => apply(labToRgb([l, a, v]))} />
         <label className="color-field hex">
           #
           <input
@@ -78,6 +85,17 @@ export function ColorPicker({ ref }: { ref: Ref<ColorPickerHandle> }) {
             onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
           />
         </label>
+        <Field label="R" value={rgb[0]} min={0} max={255} onCommit={v => apply([v, rgb[1], rgb[2]])} />
+        <Field label="G" value={rgb[1]} min={0} max={255} onCommit={v => apply([rgb[0], v, rgb[2]])} />
+        <Field label="B" value={rgb[2]} min={0} max={255} onCommit={v => apply([rgb[0], rgb[1], v])} />
+        <span />
+        <Field label="L" value={l} min={0} max={100} onCommit={v => apply(labToRgb([v, a, bb]))} />
+        <Field label="a" value={a} min={-128} max={127} onCommit={v => apply(labToRgb([l, v, bb]))} />
+        <Field label="b" value={bb} min={-128} max={127} onCommit={v => apply(labToRgb([l, a, v]))} />
+        <span />
+        {cmyk && ['C', 'M', 'Y', 'K'].map((label, i) => (
+          <Field key={label} label={label} value={cmyk[i]} min={0} max={100} onCommit={v => applyCmyk(i, v)} />
+        ))}
       </div>
       <div className="actions">
         <button type="button" onClick={() => { revert(); dialog.current?.close(); }}>Cancel</button>

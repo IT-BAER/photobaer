@@ -3971,3 +3971,28 @@ test('R25 Analysis: a measurement scale alone persists; Place Scale Marker adds 
   const u = (await call('undo')).result as Info;
   assert.equal(u.layers.some(l => l.kind === 'group'), false, 'undo removes the marker');
 });
+
+test('convertColor: RGB to the working CMYK and Gray and back; Grayscale documents use their own Gray profile', async () => {
+  await call('init');
+  const s = { rgb: 'sRGB IEC61966-2.1', cmyk: 'Coated Offset CMYK (analytic)', gray: 'Dot Gain 20%', rgbPolicy: 'preserveEmbedded', grayPolicy: 'preserveEmbedded', askWhenOpening: false, askWhenMissing: false, intent: 'relativeColorimetric', bpc: true, dither: false };
+  await call('setColorSettings', s);
+  await call('newDoc', 8, 8, 8, null);
+  const conv = async (v: number[], from: string, to: string) => (await call('convertColor', v, from, to)).result as number[];
+  const cmyk = await conv([0, 0, 1], 'rgb', 'cmyk');
+  assert.equal(cmyk.length, 4);
+  assert.ok(cmyk[0] > 0.5 && cmyk[2] < 0.1, `blue as ink: ${cmyk}`);
+  const mid = [0.5, 0.4, 0.3], back = await conv(await conv(mid, 'rgb', 'cmyk'), 'cmyk', 'rgb');
+  assert.ok(back.every((v, i) => Math.abs(v - mid[i]) < 0.02), `round trip ${back}`);
+  const [white] = await conv([1, 1, 1], 'rgb', 'gray'), [black] = await conv([0, 0, 0], 'rgb', 'gray');
+  assert.ok(white > 0.99 && black < 0.01, `${white} ${black}`);
+  // Dot Gain 20% value 0.5 is Y 0.3, lighter than sRGB 0.5 (Y 0.214): that gray needs a lower value.
+  const [g] = await conv([0.5, 0.5, 0.5], 'rgb', 'gray');
+  assert.ok(g > 0.3 && g < 0.5, `mid gray value ${g}`);
+  const [rg] = await conv([g], 'gray', 'rgb');
+  assert.ok(Math.abs(rg - 0.5) < 0.01, `back ${rg}`);
+  assert.match((await call('convertColor', [0, 0], 'rgb', 'cmyk')).error ?? '', /multiple of 3/);
+  await call('setColorMode', { mode: 'gray' });
+  await call('assignProfile', 'Gray Gamma 2.2');
+  const [own] = await conv([0.5, 0.5, 0.5], 'rgb', 'gray');
+  assert.ok(Math.abs(own - 0.2140 ** (1 / 2.2)) < 0.01, `document Gray Gamma 2.2: ${own}`);
+});

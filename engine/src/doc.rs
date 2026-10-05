@@ -2224,6 +2224,38 @@ impl Document {
         Ok(())
     }
 
+    /// One tile in the document's own format (`tile_bytes` layout): `target` 'pixels' (straight RGBA
+    /// of pixel layer `id`), 'mask' (layer `id`'s mask) or 'channel' (saved channel `id`).
+    pub fn set_tile_bytes(&mut self, target: &str, id: u32, tx: u32, ty: u32, bytes: &[u8]) -> Result<(), String> {
+        self.check_idle()?;
+        self.check_tile_coord(tx, ty)?;
+        let px = Pixels::from_bytes(self.depth, target != "pixels", bytes)?;
+        let (tx, ty) = (tx as i32, ty as i32);
+        if target == "pixels" {
+            self.node(id)?.pixel_tiles()?;
+            let tile = px.any_alpha().then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) });
+            self.node_mut(id)?.pixel_tiles_mut()?.put(tx, ty, tile);
+            return Ok(());
+        }
+        let default = match target {
+            "mask" => self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?.default,
+            "channel" => self.channels.iter().find(|c| c.id == id).ok_or_else(|| format!("unknown channel {id}"))?.mask.default,
+            _ => return Err(format!("unknown tile target {target}")),
+        };
+        let uniform = match &px {
+            Pixels::Mask8(d) => d.iter().all(|v| *v as u32 == default),
+            Pixels::Mask16(d) => d.iter().all(|v| *v as u32 == default),
+            _ => unreachable!("from_bytes made a mask"),
+        };
+        let tile = (!uniform).then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) });
+        let tiles = match target {
+            "mask" => &mut self.node_mut(id)?.mask.as_mut().expect("checked").tiles,
+            _ => &mut self.channels.iter_mut().find(|c| c.id == id).expect("checked").mask.tiles,
+        };
+        tiles.put(tx, ty, tile);
+        Ok(())
+    }
+
     /// Writes straight RGBA8 (w x h) into a pixel layer at (x, y), which may lie past the canvas;
     /// pixels outside the rect are kept.
     pub fn put_rgba8(&mut self, id: u32, x: i32, y: i32, w: u32, h: u32, data: &[u8]) -> Result<(), String> {
