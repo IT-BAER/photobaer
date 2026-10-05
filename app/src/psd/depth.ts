@@ -160,6 +160,15 @@ function opaque(p: Uint8Array, depth: Depth): boolean {
   return true;
 }
 
+/** Photoshop's limit on color, transparency, alpha and spot channels together. */
+export const PSD_MAX_CHANNELS = 56;
+
+/** Whether the PSD of composite `rgba8` (as ag-psd sees it) and file-depth `alpha` gets a transparency channel. */
+export function psdTransparency(rgba8: Uint8Array, alpha: Uint8Array, depth: Depth): boolean {
+  for (let i = 3; i < rgba8.length; i += 4) if (rgba8[i] !== 255) return true;
+  return depth !== 8 && !opaque(alpha, depth);
+}
+
 /** Turns ag-psd's RGB/8-bit `b` into the file `f` describes. */
 export function finishPsd(b: Uint8Array, f: Finish): Uint8Array {
   const { v, psb, lm, lmData, image } = sections(b);

@@ -223,3 +223,17 @@ test('a 1-bit Bitmap composite fits when rows end in a partial byte', () => {
   b.set([1, 0xff, 0xc0, 1, 0xff, 0xc0], 44);
   assert.equal(compositeFit(b), 'ok');
 });
+
+test('alpha and spot channels beyond Photoshop\'s 56-channel limit are left out with a warning', () => {
+  const cases: [Engine, number][] = [[new Engine(10, 10, 8), 53], [new Engine(10, 10, 16), 52]];
+  cases[0][0].fill(1, 'pixels', 10, 20, 30, 255);
+  cases[1][0].set_tile_bytes('pixels', 1, 0, 0, tile16(10, 10, 0, 0, () => [1000, 2000, 3000, 65500]));
+  for (const [e, kept] of cases) {
+    for (let i = 1; i <= 60; i++) e.new_channel(`Alpha ${i}`);
+    const { bytes, warnings } = exportPsd(e);
+    assert.deepEqual(warnings, [`${60 - kept} alpha and spot channels beyond Photoshop's 56-channel limit were not saved`]);
+    assert.equal(header(bytes).channels, 56);
+    const names = readPsdChannels(bytes).channels.map(c => c.name);
+    assert.deepEqual(names, Array.from({ length: kept }, (_, i) => `Alpha ${i + 1}`));
+  }
+});

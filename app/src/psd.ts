@@ -8,7 +8,7 @@ import { artboardIn, artboardOut, layoutIn, layoutOut } from './psd/layout.ts';
 import { rasterMaskOf, readSavedPaths, shapeIn, shapeOut, vectorMaskIn, vectorMaskOut, writeSavedPaths } from './psd/vector.ts';
 import { textIn, textOut } from './psd/text.ts';
 import { filterIn, filterOut, prepareList, opaqueFilter, readPsdRaw, writePsdRaw, type FilterJson, type RawSoLd, type SmartFilterOut } from './psd/filters.ts';
-import { compositeFit, finishPsd, psdLayerCount, readPsdChannels, type Depth, type PsdChannel } from './psd/depth.ts';
+import { compositeFit, finishPsd, PSD_MAX_CHANNELS, psdLayerCount, psdTransparency, readPsdChannels, type Depth, type PsdChannel } from './psd/depth.ts';
 
 export { filterIn };
 
@@ -1218,12 +1218,19 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
   if (x.fx.length) psd.filterEffectsMasks = x.fx;
   const artboards = manifest.layers.filter(n => n.artboard).length;
   if (artboards) psd.artboards = { count: artboards };
-  const extras = channelsOut(e, manifest.channels, depth);
-  if (extras.length) Object.assign(psd.imageResources!, { alphaChannelNames: extras.map(c => c.name), alphaIdentifiers: manifest.channels.map(c => c.id) });
+  const out = x.hi || manifest.channels.length ? compositeOut(e, depth, gray, composite) : null;
+  let saved = manifest.channels;
+  const room = PSD_MAX_CHANNELS - (gray ? 1 : 3) - (out && psdTransparency(composite, out.alpha, depth) ? 1 : 0);
+  if (saved.length > room) {
+    warn(`${saved.length - room} alpha and spot channels beyond Photoshop's ${PSD_MAX_CHANNELS}-channel limit were not saved`);
+    saved = saved.slice(0, room);
+  }
+  const extras = channelsOut(e, saved, depth);
+  if (extras.length) Object.assign(psd.imageResources!, { alphaChannelNames: extras.map(c => c.name), alphaIdentifiers: saved.map(c => c.id) });
   if (JSON.parse(e.vector_json()).variables) warn('variables and data sets are not stored in PSD');
   let bytes: Uint8Array<ArrayBuffer> = new Uint8Array(writePsdRaw(psd, { generateThumbnail: false, psb: !!opts.psb }, x.raws));
-  if (x.hi || extras.length) {
-    bytes = finishPsd(bytes, { psb: !!opts.psb, depth, gray, width: w, height: h, ...compositeOut(e, depth, gray, composite), extras }) as Uint8Array<ArrayBuffer>;
+  if (out) {
+    bytes = finishPsd(bytes, { psb: !!opts.psb, depth, gray, width: w, height: h, ...out, extras }) as Uint8Array<ArrayBuffer>;
   }
   return { bytes: manifest.paths.length ? writeSavedPaths(bytes, manifest.paths, w, h) : bytes, warnings };
 }
