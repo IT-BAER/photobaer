@@ -855,6 +855,31 @@ test('an Exposure layer in a 32-bit document exports values above 1 to EXR', asy
   assert.ok(Math.abs(img.data[0] - want) < 0.01, `linear red ${img.data[0]}, want ${want}`);
 });
 
+test('32 -> 16 Bits/Channel with Merge and HDR Toning keeps values above 1 apart, one step', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 32, null);
+  await call('command', 'fill', 1, 'pixels', [204, 204, 204, 255]);
+  await call('select', { kind: 'rect', x: 4, y: 0, w: 4, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 1, 'pixels', [255, 255, 255, 255]);
+  await call('selectCommand', 'deselect');
+  type I = { depth: number; layers: unknown[]; history: { labels: string[] } };
+  const added = (await call('newAdjustmentLayer', 1, { kind: 'exposure', params: { exposure: 1, offset: 0, gamma: 1 } }, 'Exposure')).result as I;
+  const before = added.history.labels.length;
+  const params = { method: 'highlight_compression', radius: 16, strength: 0.5, detail: 30, shadow: 0, highlight: 0, exposure: 0, gamma: 1, vibrance: 0, saturation: 0 };
+  const r = (await call('convertDepth', 16, { merge: true, params })).result as I;
+  assert.equal(r.depth, 16);
+  assert.equal(r.layers.length, 1, 'merged in the same step');
+  assert.equal(r.history.labels.length, before + 1);
+  assert.deepEqual(r.history.labels.slice(-1), ['16 Bits/Channel']);
+  const left = (await call('sample', 1, 1, 1, null)).result as number[];
+  const right = (await call('sample', 6, 1, 1, null)).result as number[];
+  assert.equal(right[0], 255, 'brightest value maps to white');
+  assert.ok(left[0] < 250, `linear 1.2 vs 2.0 stay apart: ${left[0]} vs ${right[0]}`);
+  const u = (await call('undo')).result as I;
+  assert.equal(u.depth, 32);
+  assert.equal(u.layers.length, 2);
+});
+
 test('Edit > Assign/Convert to Profile: tag only vs. new numbers, one step each', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);

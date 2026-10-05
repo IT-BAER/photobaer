@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and Normal-mode adjustment layers keep them for the next layer and for EXR/HDR export.
 - HDR Toning on 32-bit data reads values above 1: Highlight Compression maps the brightest value to white,
   Equalize Histogram and Local Adaptation no longer flatten everything above 1.
+- Image > Mode > 16 or 8 Bits/Channel on a 32-bit document opens HDR Toning (live preview, one undo step).
+  With several layers it asks first: Merge flattens and tones, Don't Merge converts and clips at 1.
 
 ### Fixed
 

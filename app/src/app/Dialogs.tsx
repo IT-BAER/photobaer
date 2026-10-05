@@ -221,6 +221,24 @@ export function CloseDialog({ closeDialog, name, choose }: { closeDialog: Dialog
   );
 }
 
+export type MergeChoice = 'merge' | 'keep' | 'cancel';
+
+// 32 -> 16/8 Bits/Channel with several layers: Merge allows HDR Toning; Escape cancels.
+export function MergeDialog({ mergeDialog, depth, choose }: { mergeDialog: DialogRef; depth: number; choose: (c: MergeChoice) => void }) {
+  return (
+    <dialog ref={mergeDialog} onCancel={e => { e.preventDefault(); choose('cancel'); }}>
+      <form onSubmit={e => { e.preventDefault(); choose('merge'); }}>
+        <p>Merge layers before converting to {depth} Bits/Channel? Merging allows HDR Toning; without it, values above 1 are clipped.</p>
+        <div className="actions">
+          <button type="button" onClick={() => choose('cancel')}>Cancel</button>
+          <button type="button" onClick={() => choose('keep')}>Don&apos;t Merge</button>
+          <button type="submit" className="primary">Merge</button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
 export function SearchDialog({ menus, close }: { menus: Record<string, Item[]>; close: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');

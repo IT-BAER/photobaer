@@ -115,7 +115,7 @@ import { connectBridge, pairing, toBase64, type Format } from './app/agentBridge
 import { schema, setColorSource, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, type AutomateKind, RotateDialog, SaveSelectionDialog,
+  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, MergeDialog, type MergeChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, type AutomateKind, RotateDialog, SaveSelectionDialog,
   AutomateDialog, ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
 } from './app/Dialogs.tsx';
 
@@ -179,6 +179,11 @@ export function App() {
   const [renameTick, setRenameTick] = useState(0);
   const [closeName, setCloseName] = useState('');
   const closeAnswer = useRef<((c: CloseChoice) => void) | null>(null);
+  const mergeDialog = useRef<HTMLDialogElement>(null);
+  const [mergeDepth, setMergeDepth] = useState(16);
+  const mergeAnswer = useRef<((c: MergeChoice) => void) | null>(null);
+  // Set while the HDR Toning dialog converts out of 32-bit instead of adjusting the layer.
+  const hdrConvert = useRef<{ depth: 8 | 16; merge: boolean } | null>(null);
   const aboutDialog = useRef<HTMLDialogElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const donateDialog = useRef<HTMLDialogElement>(null);
@@ -1315,6 +1320,7 @@ export function App() {
       if (st.commit && adjustForm) adjustPreview(adjustForm);
     }
     st.open = false;
+    hdrConvert.current = null;
     let then: (() => Promise<DocInfo>) | null = null;
     if (previewDialog === 'fill') {
       const { contents, color, pattern, caStructure, caColor } = fillForm;
@@ -1402,16 +1408,41 @@ export function App() {
     setMenu(null);
     if (!active || !node) return;
     if (node.locks.pixels) { setError('Could not use the layer because it is locked.'); return; }
-    const start = (a: Adjustment | DestructiveAdjustment) => {
-      previewRef.current = { open: true, commit: false, pending: Promise.resolve() };
-      setAdjustForm(a);
-      setAdjustSession(n => n + 1);
-      setPreviewDialog('adjust');
-      adjustDialog.current?.showModal();
-    };
+    hdrConvert.current = null;
     // Color Lookup picks its table first (D9); cancelling the picker opens nothing.
-    if (kind === 'color_lookup') pickLookupFile((name, table, format) => start({ kind, params: { name, format, table, interpolation: 'tetrahedral', dither: false } }));
-    else start(kind in DESTRUCTIVE_LABEL ? defaultDestructive(kind as DestructiveKind) : defaultAdjustment(kind as Kind));
+    if (kind === 'color_lookup') pickLookupFile((name, table, format) => startAdjust({ kind, params: { name, format, table, interpolation: 'tetrahedral', dither: false } }));
+    else startAdjust(kind in DESTRUCTIVE_LABEL ? defaultDestructive(kind as DestructiveKind) : defaultAdjustment(kind as Kind));
+  }
+
+  function startAdjust(a: Adjustment | DestructiveAdjustment) {
+    previewRef.current = { open: true, commit: false, pending: Promise.resolve() };
+    setAdjustForm(a);
+    setAdjustSession(n => n + 1);
+    setPreviewDialog('adjust');
+    adjustDialog.current?.showModal();
+  }
+
+  function chooseMerge(c: MergeChoice) {
+    mergeDialog.current?.close();
+    mergeAnswer.current?.(c);
+    mergeAnswer.current = null;
+  }
+
+  // Image > Mode > 8/16 Bits/Channel from 32-bit opens HDR Toning; several layers (or one non-pixel layer)
+  // ask to merge first, and Don't Merge converts without toning.
+  async function convertDepth(depth: 8 | 16 | 32) {
+    setMenu(null);
+    const layers = doc?.layers ?? [];
+    if (doc?.depth !== 32 || depth === 32 || !layers.length) { run('Converting…', () => client.call('convertDepth', depth)); return; }
+    const merge = layers.length > 1 || layers[0].kind !== 'pixel';
+    if (merge) {
+      setMergeDepth(depth);
+      const c = await new Promise<MergeChoice>(r => { mergeAnswer.current = r; mergeDialog.current?.showModal(); mergeDialog.current?.querySelector<HTMLButtonElement>('.primary')?.focus(); });
+      if (c === 'cancel') return;
+      if (c === 'keep') { run('Converting…', () => client.call('convertDepth', depth)); return; }
+    }
+    hdrConvert.current = { depth, merge };
+    startAdjust(defaultDestructive('hdr_toning'));
   }
 
   // Destructive kinds without params apply at once as one undo step.
@@ -1422,9 +1453,9 @@ export function App() {
   }
 
   function adjustPreview(a: Adjustment | DestructiveAdjustment) {
-    const st = previewRef.current, id = activeRef.current?.id;
-    if (!st.open || id === undefined) return;
-    st.pending = client.call('adjust', id, a, COMMAND_LABEL[a.kind], true).then(d => show(d), e => setError((e as Error).message));
+    const st = previewRef.current, id = activeRef.current?.id, h = hdrConvert.current;
+    if (!st.open || (id === undefined && !h)) return;
+    st.pending = (h && a.kind === 'hdr_toning' ? client.call('convertDepth', h.depth, { merge: h.merge, params: a.params }, true) : client.call('adjust', id!, a, COMMAND_LABEL[a.kind], true)).then(d => show(d), e => setError((e as Error).message));
   }
 
   // Levels/Curves eyedroppers: the next canvas click samples the composite (one pixel) instead of
@@ -1694,7 +1725,7 @@ export function App() {
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, applyDestructive, rotateDialog,
+    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, convertDepth, applyDestructive, rotateDialog,
     openImageCalc: calc => { setMenu(null); if (calc) imageCalc.current?.open({ kind: 'calc' }); else if (active) imageCalc.current?.open({ kind: 'apply', id: active.id }); }, trimDialog, imageSizeDialog, canvasSizeDialog,
     openAutomate: kind => { setMenu(null); setAutomate(kind); automateDialog.current?.showModal(); },
     openBatch: () => { setMenu(null); batchDialog.current?.open(); },
@@ -2633,6 +2664,7 @@ export function App() {
         onChange={async e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; for (const f of fs) await open(f); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <CloseDialog closeDialog={closeDialog} name={closeName} choose={chooseClose} />
+      <MergeDialog mergeDialog={mergeDialog} depth={mergeDepth} choose={chooseMerge} />
       <AboutDialog aboutDialog={aboutDialog} />
       {searchOpen && <SearchDialog menus={menus} close={() => setSearchOpen(false)} />}
       <DonateDialog donateDialog={donateDialog} />

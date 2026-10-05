@@ -52,7 +52,7 @@ export interface MenuCtx {
   openAutomate: (kind: AutomateKind) => void; openBatch: () => void; openImageProcessor: () => void; openLoadStack: () => void; browseScript: () => void; scriptRunning: boolean;
   assetsOn: boolean; toggleImageAssets: () => void; packageDoc: () => void; openVariables: (tab: 'define' | 'sets') => void; openApplyDataSet: () => void; openImportSets: () => void; openFileInfo: () => void; openPrint: () => void; printOneCopy: () => void;
   openAnalysis: (kind: 'scale' | 'points' | 'marker') => void; recordMeasurements: () => void; chooseTool: (id: string) => void;
-  openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; openImageCalc: (calc: boolean) => void; openModeDialog: (kind: ModeDialogKind) => void; openColorDialog: (kind: ColorDialogKind) => void; applyDestructive: (kind: DestructiveKind) => void;
+  openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; openImageCalc: (calc: boolean) => void; openModeDialog: (kind: ModeDialogKind) => void; convertDepth: (depth: 8 | 16 | 32) => void; openColorDialog: (kind: ColorDialogKind) => void; applyDestructive: (kind: DestructiveKind) => void;
   rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
   loadSelDialog: DialogRef; saveSelDialog: DialogRef; viewer: RefObject<Viewer | null>;
@@ -74,7 +74,7 @@ export interface MenuCtx {
 }
 
 // Image > Mode: the modes a conversion from the current one allows, the bit depths, and the Color Table.
-function modeItems(doc: DocInfo | null, run: Run, open: (kind: ModeDialogKind) => void): Item[] {
+function modeItems(doc: DocInfo | null, run: Run, open: (kind: ModeDialogKind) => void, convertDepth: (depth: 8 | 16 | 32) => void): Item[] {
   const cur = doc?.mode?.kind ?? (doc?.gray ? 'gray' : 'rgb');
   const deep = doc?.depth === 32, mark = (on: boolean, label: string) => `${on ? '✓ ' : ''}${label}`;
   const to = (mode: 'rgb' | 'gray' | 'cmyk' | 'lab' | 'multichannel') => () => run('Converting…', () => client.call('setColorMode', { mode }));
@@ -88,7 +88,7 @@ function modeItems(doc: DocInfo | null, run: Run, open: (kind: ModeDialogKind) =
     { label: mark(cur === 'lab', 'Lab Color'), run: to('lab'), off: cur === 'bitmap' || deep },
     { label: mark(cur === 'multichannel', 'Multichannel'), run: to('multichannel'), off: cur === 'bitmap' || deep },
     ...([8, 16, 32] as const).map((b, i) => ({
-      label: mark(doc?.depth === b, `${b} Bits/Channel`), sep: i === 0, run: () => run('Converting…', () => client.call('convertDepth', b)),
+      label: mark(doc?.depth === b, `${b} Bits/Channel`), sep: i === 0, run: () => convertDepth(b),
       off: (b === 32 && cur !== 'rgb' && cur !== 'gray') || (b !== 8 && (cur === 'bitmap' || cur === 'indexed')),
     })),
     { label: 'Color Table…', sep: true, run: () => open('table'), off: cur !== 'indexed' },
@@ -124,7 +124,7 @@ export function buildMenus(c: MenuCtx) {
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    openAutomate, openBatch, openImageProcessor, openLoadStack, browseScript, scriptRunning, assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo, openPrint, printOneCopy, openAnalysis, recordMeasurements, chooseTool, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
+    openAutomate, openBatch, openImageProcessor, openLoadStack, browseScript, scriptRunning, assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo, openPrint, printOneCopy, openAnalysis, recordMeasurements, chooseTool, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, convertDepth, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
@@ -364,7 +364,7 @@ export function buildMenus(c: MenuCtx) {
     Type: workspaceTypeItems,
     Image: [
       {
-        label: 'Mode', keys: '›', run: () => {}, off: !has, sub: modeItems(doc, run, openModeDialog),
+        label: 'Mode', keys: '›', run: () => {}, off: !has, sub: modeItems(doc, run, openModeDialog, convertDepth),
       },
       {
         label: 'Adjustments', sep: true, keys: '›', run: () => {}, off: !has || !active, sub: ADJUSTMENT_KINDS.map<Item>(kind => kind === 'invert'

@@ -1196,11 +1196,20 @@ const api = {
 
   // Image > Mode: bit depth, or a color mode with its dialog options; no step when nothing changes.
   // Bitmap and Indexed Color flatten a document of several layers first, in the same step.
-  convertDepth(depth: 8 | 16 | 32) {
+  // From 32-bit, `toning` runs HDR Toning on the one pixel layer first (`merge` flattens before), in
+  // the same step; `preview` keeps the step open for the HDR Toning dialog (see `previewEnd`).
+  convertDepth(depth: 8 | 16 | 32, toning?: { merge: boolean; params: Extract<DestructiveAdjustment, { kind: 'hdr_toning' }>['params'] }, preview = false) {
     const e = need();
     if (e.depth() === depth) return info();
-    history.run(`${depth} Bits/Channel`, () => e.convert_depth(depth));
-    return changed();
+    return edit(`${depth} Bits/Channel`, preview, () => {
+      if (toning && e.depth() === 32) {
+        const tree = JSON.parse(e.layers_json()) as LayerNode[];
+        if (toning.merge && (tree.length > 1 || (tree[0] && tree[0].kind !== 'pixel'))) flattenImage(e, tree);
+        const top = (JSON.parse(e.layers_json()) as LayerNode[])[0];
+        if (top?.kind === 'pixel') e.apply_destructive(top.id, JSON.stringify({ kind: 'hdr_toning', params: toning.params }));
+      }
+      e.convert_depth(depth);
+    });
   },
 
   setColorMode(spec: ModeSpec) {
