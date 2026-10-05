@@ -186,8 +186,10 @@ pub fn lens_flare(p: &mut Plane, f: &Filter, ctx: &Ctx) -> Result<(), String> {
             let a = px[3];
             let na = 1.0 - (1.0 - a) * keep.iter().copied().fold(1.0f64, f64::min) as f32;
             for k in 0..3 {
-                let c = 1.0 - (1.0 - px[k] * a) * keep[k] as f32;
-                px[k] = if na > 0.0 { (c / na).min(1.0) } else { 0.0 };
+                // Screen over the backdrop; a backdrop above 1 (32-bit) is kept.
+                let s = px[k] * a;
+                let c = s + (1.0 - keep[k] as f32) * (1.0 - s).max(0.0);
+                px[k] = if na > 0.0 { c / na } else { 0.0 };
             }
             px[3] = na;
         }

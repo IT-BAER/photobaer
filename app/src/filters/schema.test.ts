@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { defaults, fieldSpecs, menuLabel, previewScale, setColorSource, type FilterSpec } from './schema.ts';
+import { defaults, fieldSpecs, filterOff, menuLabel, previewScale, setColorSource, type FilterSpec } from './schema.ts';
 
-const spec = (params: FilterSpec['params']): FilterSpec => ({ id: 'x.y', label: 'Thing', group: 'noise', params, exec: 'local', alpha: 'kept', preview: true, rgb_only: false });
+const spec = (params: FilterSpec['params']): FilterSpec => ({ id: 'x.y', label: 'Thing', group: 'noise', params, exec: 'local', alpha: 'kept', preview: true, rgb_only: false, hdr: true });
 const p = (key: string, kind: FilterSpec['params'][number]['kind'], extra: Partial<FilterSpec['params'][number]> = {}) =>
   ({ key, label: key, kind, min: 0, max: 10, step: 1, unit: '', default: 1, ...extra });
 
@@ -17,6 +17,13 @@ test('menu label, fields and defaults follow the schema; blob and seed stay hidd
     { type: 'checkbox', label: 'on', path: 'on' },
   ]);
   assert.deepEqual(defaults(s), { radius: 1, mode: 'gaussianBlur', on: true, seed: 1 });
+});
+
+test('filters missing from the Photoshop 32-bit list are off in 32-bit documents only', () => {
+  const off = { ...spec([]), hdr: false };
+  assert.equal(filterOff(off, 32), true);
+  assert.equal(filterOff(off, 16), false);
+  assert.equal(filterOff(spec([]), 32), false);
 });
 
 test('preview proxy scale keeps the visible area at or under 512 x 512', () => {

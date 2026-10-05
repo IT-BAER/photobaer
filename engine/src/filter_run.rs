@@ -70,9 +70,18 @@ impl Src {
     }
 }
 
-fn at(p: &Plane, x: i32, y: i32) -> [f32; 4] {
+// Channel `c` of a filter result kept in range: 0..1, color only floored at 0 when `hdr` (32-bit).
+fn unit(v: f32, c: usize, hdr: bool) -> f32 {
+    if hdr && c < 3 {
+        v.max(0.0)
+    } else {
+        v.clamp(0.0, 1.0)
+    }
+}
+
+fn at(p: &Plane, x: i32, y: i32, hdr: bool) -> [f32; 4] {
     let i = ((y - p.y) as usize * p.w + (x - p.x) as usize) * 4;
-    std::array::from_fn(|c| p.data[i + c].clamp(0.0, 1.0))
+    std::array::from_fn(|c| unit(p.data[i + c], c, hdr))
 }
 
 // A filter result: a full-resolution plane, or a preview proxy sampled back bilinearly.
@@ -82,16 +91,16 @@ enum Res {
 }
 
 impl Res {
-    fn at(&self, x: i32, y: i32) -> [f32; 4] {
+    fn at(&self, x: i32, y: i32, hdr: bool) -> [f32; 4] {
         match self {
-            Res::Full(p) => at(p, x, y),
+            Res::Full(p) => at(p, x, y, hdr),
             Res::Proxy { small, cols, rows, out } => {
                 let ((u0, u1, fu), (v0, v1, fv)) = (cols[(x - out[0]) as usize], rows[(y - out[1]) as usize]);
                 let px = |u: usize, v: usize| &small.data[(v * small.w + u) * 4..][..4];
                 std::array::from_fn(|c| {
                     let top = px(u0, v0)[c] * (1.0 - fu) + px(u1, v0)[c] * fu;
                     let bot = px(u0, v1)[c] * (1.0 - fu) + px(u1, v1)[c] * fu;
-                    (top * (1.0 - fv) + bot * fv).clamp(0.0, 1.0)
+                    unit(top * (1.0 - fv) + bot * fv, c, hdr)
                 })
             }
         }
@@ -156,9 +165,10 @@ fn proxy(src: &Src, f: &Filter, r: [i32; 4], out: [i32; 4], doc: [i32; 4], s: f6
 }
 
 // One preview tile of layer pixels without a selection: `old` (or transparent) with the proxy
-// written over `o`. Rows are interpolated once over the proxy columns the tile needs, clamped and
-// scaled to `max` there, so a pixel costs one lerp and a cast per channel.
-fn preview_tile<T: Copy + Default>(old: Option<&[T]>, o: [i32; 4], at: (i32, i32), res: &Res, keep_alpha: bool, max: f32, cast: impl Fn(f32) -> T, alpha: impl Fn(T) -> f32) -> Box<[T]> {
+// written over `o`. Rows are interpolated once over the proxy columns the tile needs, clamped (`unit`)
+// and scaled to `max` there, so a pixel costs one lerp and a cast per channel.
+#[allow(clippy::too_many_arguments)]
+fn preview_tile<T: Copy + Default>(old: Option<&[T]>, o: [i32; 4], at: (i32, i32), res: &Res, keep_alpha: bool, max: f32, hdr: bool, cast: impl Fn(f32) -> T, alpha: impl Fn(T) -> f32) -> Box<[T]> {
     let Res::Proxy { small, cols, rows, out } = res else { unreachable!("preview tiles come from a proxy") };
     let whole = o[2] == TI && o[3] == TI;
     let mut buf: Box<[T]> = match old {
@@ -172,7 +182,7 @@ fn preview_tile<T: Copy + Default>(old: Option<&[T]>, o: [i32; 4], at: (i32, i32
         let (v0, v1, fv) = rows[(y - out[1]) as usize];
         let (a, b) = (&small.data[(v0 * small.w + lo) * 4..], &small.data[(v1 * small.w + lo) * 4..]);
         for (k, l) in line.iter_mut().enumerate() {
-            *l = (a[k] + (b[k] - a[k]) * fv).clamp(0.0, 1.0) * max + 0.5;
+            *l = unit(a[k] + (b[k] - a[k]) * fv, k % 4, hdr) * max + 0.5;
         }
         let base = ((y - at.1 * TI) * TI + o[0] - at.0 * TI) as usize * 4;
         for (px, &(u0, u1, fu)) in buf[base..base + o[2] as usize * 4].chunks_exact_mut(4).zip(&cols[c0..c1]) {
@@ -210,6 +220,9 @@ impl Document {
         let f = Filter::parse(json)?;
         self.check_blob(f.blob())?;
         let spec = f.spec()?;
+        if self.depth == 32 && !spec.hdr() {
+            return Err(format!("{} is not available for 32-bit images.", spec.label));
+        }
         let doc = [0, 0, self.width as i32, self.height as i32];
         let max = self.max();
         let (src, bounds, refb) = match target {
@@ -281,13 +294,13 @@ impl Document {
                 let old = tiles.get(tx, ty).map(|t| &*t.px);
                 let px = if depth == 8 {
                     let d = if let Some(Pixels::U8(d)) = old { Some(&d[..]) } else { None };
-                    Pixels::U8(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, max, |v| v as u8, |a| a as f32))
+                    Pixels::U8(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, max, false, |v| v as u8, |a| a as f32))
                 } else if depth == 32 {
                     let d = if let Some(Pixels::F32(d)) = old { Some(&d[..]) } else { None };
-                    Pixels::F32(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, 1.0, |v| (v - 0.5).max(0.0), |a| a))
+                    Pixels::F32(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, 1.0, true, |v| (v - 0.5).max(0.0), |a| a))
                 } else {
                     let d = if let Some(Pixels::U16(d)) = old { Some(&d[..]) } else { None };
-                    Pixels::U16(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, max, |v| v as u16, |a| a as f32))
+                    Pixels::U16(preview_tile(d, o, (tx, ty), res, spec.keep_alpha, max, false, |v| v as u16, |a| a as f32))
                 };
                 put.push(((tx, ty), px.any_alpha().then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })));
             }
@@ -323,7 +336,7 @@ impl Document {
                     for y in o[1]..o[1] + o[3] {
                         for x in o[0]..o[0] + o[2] {
                             let p = ((y - ty * TI) * TI + x - tx * TI) as usize;
-                            let (n, c) = (res.at(x, y), c_at(p));
+                            let (n, c) = (res.at(x, y, depth == 32), c_at(p));
                             let old: [f32; 4] = buf[p * 4..p * 4 + 4].try_into().expect("4 channels");
                             let v = if spec.keep_alpha {
                                 [old[0] + (n[0] - old[0]) * c, old[1] + (n[1] - old[1]) * c, old[2] + (n[2] - old[2]) * c, old[3]]
@@ -347,7 +360,7 @@ impl Document {
                     for y in o[1]..o[1] + o[3] {
                         for x in o[0]..o[0] + o[2] {
                             let p = ((y - ty * TI) * TI + x - tx * TI) as usize;
-                            let n = res.at(x, y);
+                            let n = res.at(x, y, false);
                             vals[p] += ((n[0] + n[1] + n[2]) / 3.0 - vals[p]) * c_at(p);
                         }
                     }

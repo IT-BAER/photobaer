@@ -176,6 +176,22 @@ pub struct Filter {
     pub params: Params,
 }
 
+impl Spec {
+    /// On Photoshop's list of filters for 32-bit images. Adjustments, the Edit menu warps and kept
+    /// PSD filters are not Filter menu entries and stay available.
+    pub fn hdr(&self) -> bool {
+        match self.group {
+            "blur" => !matches!(self.id, "blur.lens_blur" | "blur.smart_blur"),
+            "noise" => self.id == "noise.add_noise",
+            "render" => self.id != "render.lighting_effects",
+            "sharpen" => self.id != "sharpen.sharpen_edges",
+            "stylize" => matches!(self.id, "stylize.diffuse" | "stylize.emboss" | "stylize.trace_contour"),
+            "distort" | "pixelate" | "video" | "other" | "adjust" | "warp" | "scale" | "psd" => true,
+            _ => false,
+        }
+    }
+}
+
 impl Filter {
     pub fn parse(json: &str) -> Result<Filter, String> {
         let f: Filter = serde_json::from_str(json).map_err(|e| format!("invalid filter: {e}"))?;
@@ -504,7 +520,7 @@ pub fn schema_json() -> String {
             let mut o = json!({
                 "id": s.id, "label": s.label, "group": s.group, "params": params,
                 "exec": match s.exec { Exec::Point => "point", Exec::Local => "local", Exec::Global => "global" },
-                "alpha": if s.keep_alpha { "kept" } else { "processed" }, "preview": s.preview, "rgb_only": s.rgb_only,
+                "alpha": if s.keep_alpha { "kept" } else { "processed" }, "preview": s.preview, "rgb_only": s.rgb_only, "hdr": s.hdr(),
             });
             if s.adjustment {
                 o["editor"] = "adjustment".into();

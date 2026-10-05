@@ -79,7 +79,7 @@ const param = (key: string, kind: FilterParam['kind'], extra: Partial<FilterPara
 
 test('filters run by id with validated params merged over the defaults', async () => {
   const spec: FilterSpec = {
-    id: 'blur.gaussian', label: 'Gaussian Blur', group: 'blur', exec: 'local', alpha: 'kept', preview: true, rgb_only: false,
+    id: 'blur.gaussian', label: 'Gaussian Blur', group: 'blur', exec: 'local', alpha: 'kept', preview: true, rgb_only: false, hdr: true,
     params: [param('radius', 'number', { unit: 'px' }), param('n', 'int'), param('mode', 'select', { default: 'a', choices: ['a', 'b'] }), param('on', 'bool', { default: false }), param('seed', 'seed', { min: 5, max: 5 }), param('data', 'blob', { default: null })],
   };
   let ran: [string, Record<string, unknown>] | null = null;
