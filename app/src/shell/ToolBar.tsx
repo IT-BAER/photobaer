@@ -9,6 +9,7 @@ import type { ComponentType } from 'react';
 import { RotateCcw, ArrowLeftRight } from 'lucide-react';
 import { SLOTS, TOOLS, cycleTool, type Slot } from './tools.ts';
 import { rgbToHex, type Rgb } from './color.ts';
+import { loadOrder, moveItem, saveOrder } from '../app/panelOrder.ts';
 
 export const ICONS: Record<string, ComponentType<{ size?: number; strokeWidth?: number }>> = {
   Move, Square, Circle, Minus, Rows3, Lasso, PenTool, Magnet, MousePointerClick, Wand2, Crop, Frame,
@@ -21,6 +22,8 @@ export const ICONS: Record<string, ComponentType<{ size?: number; strokeWidth?: 
 };
 
 const LONG_PRESS_MS = 350;
+const ORDER_KEY = 'photobaer.toolOrder';
+const DRAG_TYPE = 'application/x-photobaer-tool';
 
 interface Props {
   active: string; setActive: (id: string) => void;
@@ -40,6 +43,10 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
     if (ul && ul.getBoundingClientRect().bottom > innerHeight - 8) ul.style.top = `${Math.max(8, innerHeight - 8 - ul.offsetHeight)}px`;
   };
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [order, setOrder] = useState(() => loadOrder(ORDER_KEY, SLOTS.map(s => s.id)));
+  const [drop, setDrop] = useState<{ id: string; after: boolean } | null>(null);
+  const move = (id: string, target: string, after: boolean) => setOrder(o => { const next = moveItem(o, id, target, after); saveOrder(ORDER_KEY, next); return next; });
+  const slots = order.map(id => SLOTS.find(s => s.id === id)!);
   // The menubar sits above the scrim, so a press there must close the flyout too.
   useEffect(() => {
     if (!flyout) return;
@@ -69,16 +76,38 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
         const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
         if (i < 0) return;
         e.preventDefault();
+        // Alt+Arrow moves the focused tool slot.
+        if (e.altKey) {
+          const j = i + (e.key === 'ArrowDown' ? 1 : -1);
+          if (j >= 0 && j < buttons.length) move(buttons[i].dataset.slot!, buttons[j].dataset.slot!, j > i);
+          return;
+        }
         buttons[(i + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length].focus();
       }}
     >
       <div className="toolbar-main">
-        {SLOTS.map(slot => {
+        {slots.map(slot => {
           const toolId = currentOf(slot);
           const tool = TOOLS[toolId];
           const Icon = ICONS[tool.icon];
           return (
-            <div key={slot.id} className="tool-slot">
+            <div key={slot.id} className={`tool-slot${drop?.id === slot.id ? (drop.after ? ' drop-after' : ' drop-before') : ''}`}
+              onDragOver={e => {
+                if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+                e.preventDefault();
+                const r = e.currentTarget.getBoundingClientRect();
+                setDrop({ id: slot.id, after: e.clientY > r.top + r.height / 2 });
+              }}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDrop(null); }}
+              onDrop={e => {
+                const from = e.dataTransfer.getData(DRAG_TYPE);
+                const d = drop;
+                setDrop(null);
+                if (!from || !d) return;
+                e.preventDefault();
+                move(from, slot.id, d.after);
+              }}
+            >
               <button
                 className="slot" data-slot={slot.id} aria-label={tool.label} aria-pressed={active === toolId}
                 title={slot.key ? `${tool.label} (${slot.key.toUpperCase()})` : tool.label}
@@ -87,6 +116,13 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
                 onPointerDown={e => { const el = e.currentTarget; timer.current = setTimeout(() => setFlyout(slot.id, el), LONG_PRESS_MS); }}
                 onPointerUp={() => { if (timer.current) clearTimeout(timer.current); }}
                 onPointerLeave={() => { if (timer.current) clearTimeout(timer.current); }}
+                draggable aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                onDragStart={e => {
+                  if (timer.current) clearTimeout(timer.current);
+                  e.dataTransfer.setData(DRAG_TYPE, slot.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragEnd={() => setDrop(null)}
               >
                 <Icon size={18} strokeWidth={1.75} />
                 {slot.tools.length > 1 && <span className="corner-mark" />}

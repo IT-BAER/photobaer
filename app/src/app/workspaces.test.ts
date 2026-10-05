@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { DOCK_DEFAULT_ORDER, DOCK_KEYS,
   BUILTIN_WORKSPACES, DEFAULT_WORKSPACE_SETTINGS, addWorkspace, deleteWorkspace, loadWorkspaces, lockWorkspace,
   DOCK_MAX_HEIGHT, DOCK_MIN_HEIGHT, resetWorkspace, resizeDock, saveWorkspaces, selectWorkspace, toggleDock, type WorkspaceSettings, type WorkspaceStorage,
 } from './workspaces.ts';
@@ -159,4 +159,8 @@ test('dock helpers are pure, clamp, toggle, and clear', () => {
   const state = addWorkspace(loadWorkspaces(storage()), 'D', changed({ dock }));
   selectWorkspace(state, 'D').settings.dock.history!.height = 1;
   assert.equal(selectWorkspace(state, 'D').settings.dock.history!.height, 200, 'snapshots copy the dock deeply');
+});
+
+test('the default dock order lists every dock section once', () => {
+  assert.deepEqual([...DOCK_DEFAULT_ORDER].sort(), [...DOCK_KEYS].sort());
 });

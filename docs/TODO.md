@@ -4,9 +4,6 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 
 ## Not yet placed in a milestone
 - PSD Puppet Warp import: check the vertex space against a Photoshop file (deferred, no sample file).
-- User feedback (5 October 2026): the dock sections (Color, Properties, Layers, History, Channels, ...) can be
-  reordered freely up and down, the order kept in the browser's local settings; if possible the toolbar tools
-  as well.
 - User feedback (5 October 2026): test the MCP server (photobaer-mcp) and the WebMCP tools fully, end to end.
 - User feedback (5 October 2026): live view of agent edits over the MCP: users can watch the document in the
   browser while an agent edits it through the MCP.

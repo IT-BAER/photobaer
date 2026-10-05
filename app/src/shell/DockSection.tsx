@@ -13,15 +13,28 @@ interface Props {
   header?: ReactNode;
   onResize: (id: DockKey, height: number | null) => void;
   onToggle: (id: DockKey) => void;
+  /** Position in the sidebar (CSS order). */
+  order: number;
+  /** Moves `id` before or after `target`: header drag and drop, or Alt+Arrow keys on the header button. */
+  onMove: (id: DockKey, target: DockKey, after: boolean) => void;
   children: ReactNode;
 }
 
 const clamp = (h: number) => Math.round(Math.min(DOCK_MAX_HEIGHT, Math.max(DOCK_MIN_HEIGHT, h)));
 
-export function DockSection({ id, title, entry, locked, edge = 'bottom', header, onResize, onToggle, children }: Props) {
+const DRAG_TYPE = 'application/x-photobaer-dock';
+
+export function DockSection({ id, title, entry, locked, edge = 'bottom', header, onResize, onToggle, order, onMove, children }: Props) {
   const ref = useRef<HTMLElement>(null);
   const drag = useRef<{ y: number; h: number; last: number } | null>(null);
   const [live, setLive] = useState<number | null>(null);
+  const [drop, setDrop] = useState<'before' | 'after' | null>(null);
+  // The visible neighbor in the given direction, by CSS order.
+  const neighbor = (dir: number) => {
+    const all = [...(ref.current?.parentElement?.querySelectorAll<HTMLElement>(':scope > .dock-section') ?? [])]
+      .sort((a, b) => Number(a.style.order) - Number(b.style.order));
+    return all[all.indexOf(ref.current!) + dir]?.dataset.dock as DockKey | undefined;
+  };
   const collapsed = !!entry?.collapsed;
   const height = live ?? entry?.height;
   const sign = edge === 'top' ? -1 : 1;
@@ -60,14 +73,45 @@ export function DockSection({ id, title, entry, locked, edge = 'bottom', header,
   );
   return (
     <section
-      ref={ref} className={`dock-section ds-${id}${collapsed ? ' collapsed' : ''}${height !== undefined && !collapsed ? ' sized' : ''}`}
-      style={height !== undefined && !collapsed ? { height } : undefined} aria-label={title}
+      ref={ref} data-dock={id}
+      className={`dock-section ds-${id}${collapsed ? ' collapsed' : ''}${height !== undefined && !collapsed ? ' sized' : ''}${drop ? ` drop-${drop}` : ''}`}
+      style={{ order, ...(height !== undefined && !collapsed ? { height } : {}) }} aria-label={title}
+      onDragOver={e => {
+        if (locked || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
+        e.preventDefault();
+        const r = e.currentTarget.getBoundingClientRect();
+        setDrop(e.clientY > r.top + r.height / 2 ? 'after' : 'before');
+      }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDrop(null); }}
+      onDrop={e => {
+        const from = e.dataTransfer.getData(DRAG_TYPE) as DockKey;
+        const side = drop;
+        setDrop(null);
+        if (locked || !from || !side) return;
+        e.preventDefault();
+        onMove(from, id, side === 'after');
+      }}
     >
       {edge === 'top' && splitter}
-      <div className="dock-header">
+      <div
+        className="dock-header" draggable={!locked} title={locked ? undefined : 'Drag to move this panel'}
+        onDragStart={e => {
+          if ((e.target as HTMLElement).closest('.dock-tabs button')) { e.preventDefault(); return; }
+          e.dataTransfer.setData(DRAG_TYPE, id);
+          e.dataTransfer.effectAllowed = 'move';
+        }}
+      >
         <button
           type="button" className="dock-toggle" disabled={locked} aria-expanded={!collapsed}
           aria-label={header ? `${collapsed ? 'Expand' : 'Collapse'} ${title}` : undefined} onClick={() => onToggle(id)}
+          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+          onKeyDown={e => {
+            const dir = e.altKey ? (e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0) : 0;
+            if (!dir) return;
+            e.preventDefault();
+            const target = neighbor(dir);
+            if (target) onMove(id, target, dir > 0);
+          }}
         >
           {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
           {!header && <span>{title}</span>}

@@ -9,6 +9,12 @@ export type WorkspaceDockTab = 'color' | 'swatches' | 'brushSettings' | 'brushes
 // Sidebar sections: 'tabs' is the Color/Swatches/Brush group; layers and history are always shown with a document.
 export const DOCK_KEYS = ['tabs', 'layers', 'history', ...PANEL_KEYS] as const;
 export type DockKey = typeof DOCK_KEYS[number];
+// Default top-to-bottom order of the sidebar sections; the user's order is kept per browser.
+export const DOCK_DEFAULT_ORDER: readonly DockKey[] = [
+  'tabs', 'adjustments', 'styles', 'patterns', 'gradients', 'cloneSource', 'navigator', 'histogram', 'info', 'notes', 'measurementLog',
+  'toolPresets', 'shapes', 'properties', 'character', 'paragraph', 'characterStyles', 'paragraphStyles', 'glyphs',
+  'layers', 'history', 'channels', 'layerComps', 'actions', 'paths',
+];
 export interface DockEntry { height?: number; collapsed?: boolean }
 export type DockLayout = Partial<Record<DockKey, DockEntry>>;
 export const DOCK_MIN_HEIGHT = 48;

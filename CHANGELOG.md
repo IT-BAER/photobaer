@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Tool drags scroll the view while the pointer is outside it (faster farther out), up to the document edge,
   so a marquee or lasso can reach past the visible part of a zoomed-in document.
+- Dock panels and toolbar tools can be reordered: drag a panel header or a tool button to a new place, or
+  press Alt+Up/Down on it. The order is kept in the browser; a locked workspace keeps the panel order.
 
 ## [0.3.5] - 2026-10-05
 

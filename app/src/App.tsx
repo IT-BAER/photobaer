@@ -26,7 +26,8 @@ import { ToolPresetsPanel } from './ToolPresetsPanel.tsx';
 import { MeasurementLogPanel, NotesPanel } from './NotesPanels.tsx';
 import { useMeasureTools } from './app/measureTools.tsx';
 import { runScript } from './app/scripting.ts';
-import { PANEL_KEYS, addWorkspace, deleteWorkspace, loadWorkspaces, lockWorkspace, resetWorkspace, resizeDock, saveWorkspaces, selectWorkspace, toggleDock, type DockKey, type WorkspaceSettings, type WorkspaceState } from './app/workspaces.ts';
+import { DOCK_DEFAULT_ORDER, PANEL_KEYS, addWorkspace, deleteWorkspace, loadWorkspaces, lockWorkspace, resetWorkspace, resizeDock, saveWorkspaces, selectWorkspace, toggleDock, type DockKey, type WorkspaceSettings, type WorkspaceState } from './app/workspaces.ts';
+import { loadOrder, moveItem, saveOrder } from './app/panelOrder.ts';
 import { matchDocumentViews, type ArrangeMode, type MatchKind } from './app/arrange.ts';
 import { addToolPreset, applyToolPreset, deleteToolPreset, exportToolPresets, importToolPresets, loadToolPresets, renameToolPreset, saveToolPresets, snapshotToolPreset, validateBrushPresetAssets, validateToolOptionAssets } from './app/toolPresets.ts';
 import type { ActionStep } from './actions.ts';
@@ -315,7 +316,17 @@ export function App() {
   const guardedSetDockTab: typeof setDockTab = value => { if (!workspaceLockedRef.current) setDockTab(value); };
   const dockResize = (id: DockKey, height: number | null) => { if (!workspaceLockedRef.current) setDock(d => resizeDock(d, id, height)); };
   const dockToggle = (id: DockKey) => { if (!workspaceLockedRef.current) setDock(d => toggleDock(d, id)); };
-  const sec = (id: DockKey, title: string) => ({ id, title, entry: dock[id], locked: workspace.locked, onResize: dockResize, onToggle: dockToggle });
+  const [dockOrder, setDockOrder] = useState(() => loadOrder('photobaer.dockOrder', DOCK_DEFAULT_ORDER));
+  const dockMove = (id: DockKey, target: DockKey, after: boolean) => {
+    if (workspaceLockedRef.current) return;
+    setDockOrder(o => { const next = moveItem(o, id, target, after); saveOrder('photobaer.dockOrder', next); return next; });
+  };
+  // Sections above Layers resize from their bottom edge, sections below it from their top edge.
+  const sec = (id: DockKey, title: string) => {
+    const order = dockOrder.indexOf(id), layers = dockOrder.indexOf('layers');
+    const edge = id === 'layers' ? 'none' as const : order < layers ? 'bottom' as const : 'top' as const;
+    return { id, title, entry: dock[id], locked: workspace.locked, onResize: dockResize, onToggle: dockToggle, order, edge, onMove: dockMove };
+  };
   const chooseWorkspace = (name: string) => {
     setMenu(null);
     try { applyWorkspace(selectWorkspace(workspace, name)); } catch (e) { setError((e as Error).message); }
@@ -2638,7 +2649,7 @@ export function App() {
           {doc && typePanels.glyphs && <DockSection {...sec('glyphs', 'Glyphs')}><GlyphsPanel c={typeCtx} faces={pickFaces} /></DockSection>}
           {doc && active && (
             <>
-              <DockSection {...sec('layers', 'Layers')} edge="none"><LayersPanel
+              <DockSection {...sec('layers', 'Layers')}><LayersPanel
                 doc={doc} active={active} setActive={setActive} run={run}
                 selected={selectedNodes.map(n => n.id)} setPicked={setPicked}
                 contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerRowItems(menus, layerContextItems(n, nodes, run, setError))]}
@@ -2647,11 +2658,11 @@ export function App() {
                 openProperties={() => setShowProperties(true)} renameTick={renameTick}
                 openLayerStyle={(id, page) => openLayerStyle(page, id)}
               /></DockSection>
-              <DockSection {...sec('history', 'History')} edge="top"><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>
-              {showChannels && <DockSection {...sec('channels', 'Channels')} edge="top"><ChannelsPanel doc={doc} run={run} live={selEdit ? liveTick : 0} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} /></DockSection>}
-              {showLayerComps && <DockSection {...sec('layerComps', 'Layer Comps')} edge="top"><LayerCompsPanel doc={doc} run={run} /></DockSection>}
-              {showActions && <DockSection {...sec('actions', 'Actions')} edge="top"><ActionsPanel has active={active} run={run} setError={setError} /></DockSection>}
-              {showPaths && <DockSection {...sec('paths', 'Paths')} edge="top"><PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} /></DockSection>}
+              <DockSection {...sec('history', 'History')}><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>
+              {showChannels && <DockSection {...sec('channels', 'Channels')}><ChannelsPanel doc={doc} run={run} live={selEdit ? liveTick : 0} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} /></DockSection>}
+              {showLayerComps && <DockSection {...sec('layerComps', 'Layer Comps')}><LayerCompsPanel doc={doc} run={run} /></DockSection>}
+              {showActions && <DockSection {...sec('actions', 'Actions')}><ActionsPanel has active={active} run={run} setError={setError} /></DockSection>}
+              {showPaths && <DockSection {...sec('paths', 'Paths')}><PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} /></DockSection>}
             </>
           )}
         </aside>
