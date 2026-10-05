@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { client } from './client.ts';
 import { Viewer, type ToolPointerEvent } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
@@ -55,6 +55,7 @@ import { DockSection } from './shell/DockSection.tsx';
 import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
 import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
 import { SLOTS, TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
+import { toolCursor } from './shell/cursors.ts';
 import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
 import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
 import { inGray, type Convert } from './shell/colorModes.ts';
@@ -2516,8 +2517,8 @@ export function App() {
             views={tabState.current} revision={`${doc?.key ?? ''}:${doc?.version ?? 0}:${arrangeRevision}`}
             activate={key => void run(null, () => client.call('switchDoc', key))}
             saveView={saveArrangementView} onError={setError}
-            primary={<div className={`stage${showRulers ? ' with-rulers' : ''}`}>
-            <canvas ref={canvas} style={{ cursor: tool === 'gradient' ? 'crosshair' : undefined, filter: channelFilter }} onContextMenu={e => {
+            primary={<div className={`stage${showRulers ? ' with-rulers' : ''}`} style={{ '--tool-cursor': toolCursor(tool) } as CSSProperties}>
+            <canvas ref={canvas} className="view" style={{ filter: channelFilter }} onContextMenu={e => {
               e.preventDefault();
               if (transformRef.current || (e.ctrlKey && e.altKey) || !has) return;
               setCanvasMenu([e.clientX, e.clientY]);

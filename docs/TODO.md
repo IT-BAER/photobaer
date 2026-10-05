@@ -4,8 +4,6 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 
 ## Not yet placed in a milestone
 - PSD Puppet Warp import: check the vertex space against a Photoshop file (deferred, no sample file).
-- User feedback (5 October 2026): the canvas cursor does not change with the selected tool (each tool should
-  show its own cursor, like Photoshop).
 - User feedback (5 October 2026): marquee and lasso selections stop at the canvas edge; a drag must be able to
   start and continue outside the canvas (the selection is clipped to the document, the pointer is not).
 - User feedback (5 October 2026): the dock sections (Color, Properties, Layers, History, Channels, ...) can be
