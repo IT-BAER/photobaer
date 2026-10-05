@@ -1217,9 +1217,11 @@ const api = {
     const label = { rgb: 'RGB Color', gray: 'Grayscale', bitmap: 'Bitmap', duotone: 'Duotone', indexed: 'Indexed Color', cmyk: 'CMYK Color', lab: 'Lab Color', multichannel: 'Multichannel' }[spec.mode];
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     const flatten = (spec.mode === 'bitmap' || spec.mode === 'indexed') && (tree.length > 1 || (tree[0] && tree[0].kind !== 'pixel'));
-    // With color management on, CMYK separates through the working CMYK and leaving CMYK converts
-    // to the working RGB; other modes are flags over RGB storage, so they go to RGB first.
-    const cur = (JSON.parse(e.vector_json()) as { mode?: ColorMode }).mode?.kind;
+    // With color management on, CMYK separates through the working CMYK, Grayscale from RGB or CMYK
+    // through the working Gray, and RGB from CMYK or Grayscale converts to the working RGB; other modes
+    // are flags over RGB storage, so they go to RGB first. 32-bit documents keep the flag conversions.
+    const vec = JSON.parse(e.vector_json()) as { mode?: ColorMode; gray?: boolean };
+    const cur = vec.mode?.kind;
     const s = colorSettings;
     const convert = (name: string) => e.convert_to_profile(name, new Uint8Array(), JSON.stringify({ intent: s!.intent, blackPointCompensation: s!.bpc, dither: s!.dither }));
     return stepIfChanged(label, () => {
@@ -1227,7 +1229,8 @@ const api = {
         if (cur) e.set_color_mode(JSON.stringify({ mode: 'rgb' }));
         return convert(s.cmyk ?? CMYK_SPACES[0]) || !!cur;
       }
-      if (s && spec.mode === 'rgb' && cur === 'cmyk') return convert(s.rgb);
+      if (s && spec.mode === 'gray' && !vec.gray && (!cur || cur === 'cmyk') && e.depth() !== 32) return convert(s.gray);
+      if (s && spec.mode === 'rgb' && (cur === 'cmyk' || (!cur && vec.gray && e.depth() !== 32))) return convert(s.rgb) || e.set_color_mode(JSON.stringify(spec));
       if (flatten) flattenImage(e, tree);
       return e.set_color_mode(JSON.stringify(spec)) || flatten;
     });

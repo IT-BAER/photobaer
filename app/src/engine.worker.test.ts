@@ -988,6 +988,52 @@ test('Image > Mode > CMYK Color separates with the working CMYK; RGB Color conve
   assert.equal((await call('cmykSeparation')).result, null, 'no CMYK profile: plain formula');
 });
 
+test('Image > Mode > Grayscale converts to the working Gray; RGB Color from Grayscale converts to the working RGB', async () => {
+  await call('init');
+  const s = { rgb: 'sRGB IEC61966-2.1', cmyk: 'Coated Offset CMYK (analytic)', gray: 'Dot Gain 20%', rgbPolicy: 'preserveEmbedded', grayPolicy: 'preserveEmbedded', askWhenOpening: false, askWhenMissing: false, intent: 'relativeColorimetric', bpc: true, dither: false };
+  type I = { gray: boolean; mode: { kind: string } | null; profile: { name: string } | null; layers: unknown[]; history: { labels: string[] } };
+  const px = async () => (await call('sample', 5, 5, 1, null)).result as number[];
+  await call('setColorSettings', null);
+  await call('newDoc', 64, 64, 8, [200, 50, 10, 255]);
+  const plain = (await call('setColorMode', { mode: 'gray' })).result as I;
+  assert.ok(plain.gray && plain.profile === null, 'color management off: luma only');
+  const luma = await px();
+  await call('setColorSettings', s);
+  await call('newDoc', 64, 64, 8, [200, 50, 10, 255]);
+  await call('addLayer', 1);
+  const g = (await call('setColorMode', { mode: 'gray' })).result as I;
+  assert.ok(g.gray && g.mode === null);
+  assert.equal(g.profile?.name, 'Dot Gain 20%');
+  assert.equal(g.layers.length, 2, 'not flattened');
+  assert.deepEqual(g.history.labels.slice(-1), ['Grayscale']);
+  const dg = await px();
+  assert.ok(dg[0] === dg[1] && dg[1] === dg[2] && Math.abs(dg[0] - luma[0]) > 5, `gray from the profile: ${dg} vs luma ${luma}`);
+  const u = (await call('undo')).result as I;
+  assert.ok(!u.gray && u.profile?.name === 'sRGB IEC61966-2.1');
+  assert.deepEqual(await px(), [200, 50, 10, 255]);
+  await call('redo');
+  const r = (await call('setColorMode', { mode: 'rgb' })).result as I;
+  assert.ok(!r.gray && r.mode === null);
+  assert.equal(r.profile?.name, 'sRGB IEC61966-2.1');
+  const back = await px();
+  assert.ok(back[0] === back[1] && back[1] === back[2] && Math.abs(back[0] - dg[0]) > 5, `rendered through Dot Gain 20%: ${back} vs ${dg}`);
+  await call('newDoc', 64, 64, 8, [200, 50, 10, 255]);
+  await call('setColorMode', { mode: 'cmyk' });
+  const fromCmyk = (await call('setColorMode', { mode: 'gray' })).result as I;
+  assert.ok(fromCmyk.gray && fromCmyk.mode === null);
+  assert.equal(fromCmyk.profile?.name, 'Dot Gain 20%');
+  // 32-bit documents keep the flag conversion, as with CMYK.
+  await call('setColorSettings', null);
+  await call('newDoc', 8, 8, 32, [200, 50, 10, 255]);
+  await call('setColorMode', { mode: 'gray' });
+  const hdrOff = await px();
+  await call('setColorSettings', s);
+  await call('newDoc', 8, 8, 32, [200, 50, 10, 255]);
+  assert.ok(((await call('setColorMode', { mode: 'gray' })).result as I).gray);
+  assert.deepEqual(await px(), hdrOff);
+  await call('setColorSettings', null);
+});
+
 test('Image > Mode: Indexed Color flattens in one step, Color Table remaps, Duotone needs Grayscale', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);
