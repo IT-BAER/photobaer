@@ -4,7 +4,9 @@ import type { Active } from '../LayersPanel.tsx';
 import { nodeById } from '../layers.ts';
 import { engineStops, type Method } from '../gradients/gradient.ts';
 import { BUILTIN_GRADIENTS, resolvePreset, type GradientLibrary } from '../gradients/presets.ts';
-import { dragResize, showCrosshair } from '../shell/brushKeys.ts';
+import { dragResize, outlineScale, showCrosshair } from '../shell/brushKeys.ts';
+import { cursorOverrides, toolCursor, type CursorCtx } from '../shell/cursors.ts';
+import type { Preferences } from '../shell/preferences.ts';
 import type { Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import type { SelectionOverlay, TransformImage } from '../shell/SelectionOverlay.ts';
@@ -441,38 +443,46 @@ export function useMoveTool(c: MoveToolCtx) {
 
 export interface BrushCursorCtx {
   viewer: RefObject<Viewer | null>; canvas: RefObject<HTMLCanvasElement | null>; overlayRef: RefObject<SelectionOverlay | null>; tool: string;
-  redrawOverlay: () => void; toolOptionsRef: RefObject<ToolOptions>; capsLockRef: RefObject<boolean>;
+  redrawOverlay: () => void; toolOptionsRef: RefObject<ToolOptions>; capsLockRef: RefObject<boolean>; prefsRef: RefObject<Preferences>; docId?: number;
   patchToolOptions: (toolId: string, patch: Record<string, number | string | boolean>) => void;
 }
 
+const SAMPLES_WITH_ALT = new Set(['cloneStamp', 'healingBrush']);
+
 export function useBrushCursor(c: BrushCursorCtx) {
-  const { viewer, canvas, overlayRef, tool, redrawOverlay, toolOptionsRef, capsLockRef, patchToolOptions } = c;
+  const { viewer, canvas, overlayRef, tool, redrawOverlay, toolOptionsRef, capsLockRef, prefsRef, docId, patchToolOptions } = c;
   // Brush cursor outline (tracks the pointer independent of any drag) and Ctrl+Alt+right-drag
-  // resize/hardness, with the outline doubling as the drag's live preview.
+  // resize/hardness, with the outline doubling as the drag's live preview. The canvas cursor is 'none' meanwhile.
   useEffect(() => {
     const v = viewer.current, c = canvas.current;
     overlayRef.current?.setCursor(null);
-    if (!v || !c || !PAINT_TOOLS.has(tool)) { redrawOverlay(); return; }
-    // The overlay draws the outline or crosshair, so the system pointer would sit on top of it.
-    c.style.cursor = 'none';
-    let pos: [number, number] | null = null;
+    if (!v || !c || !(PAINT_TOOLS.has(tool) || tool === 'quickSelection')) { redrawOverlay(); return; }
+    let pos: [number, number] | null = null, shift = false, alt = false;
     let drag: { x: number; y: number; size: number; hardness: number } | null = null;
     const local = (e: PointerEvent): [number, number] => {
       const r = c.getBoundingClientRect();
       return [e.clientX - r.left, e.clientY - r.top];
     };
     const cursorFor = () => {
-      if (!pos) return null;
+      // A held view tool or the Alt source target replaces the outline with a system cursor.
+      if (!pos || (v.spring && !drag) || (alt && !drag && SAMPLES_WITH_ALT.has(tool))) return null;
       const [x, y] = v.screenToDoc(pos[0], pos[1]);
-      const o = toolOptionsRef.current;
+      const o = toolOptionsRef.current, prefs = prefsRef.current;
       const zoom = v.view.zoom;
       const block = tool === 'eraser' && o.mode === 'block';
-      const sizeDoc = block ? 16 / zoom : Number(o.size);
-      return { x, y, sizeDoc, shape: block ? 'square' as const : 'round' as const, crosshair: showCrosshair(sizeDoc * zoom, capsLockRef.current) };
+      const scale = drag || block ? 1 : outlineScale(prefs.paintingCursor, Number(o.hardness ?? 100), capsLockRef.current);
+      const sizeDoc = (block ? 16 / zoom : Number(o.size)) * (scale || 1);
+      const mode = tool === 'quickSelection' ? (alt ? 'subtract' : shift ? 'add' : String(o.mode)) : '';
+      return {
+        x, y, sizeDoc, shape: block ? 'square' as const : 'round' as const, crosshair: showCrosshair(sizeDoc * zoom, scale === 0),
+        center: prefs.brushCrosshair, mark: mode === 'add' ? '+' as const : mode === 'subtract' ? '-' as const : undefined,
+      };
     };
     const update = () => { overlayRef.current?.setCursor(cursorFor()); redrawOverlay(); };
     const move = (e: PointerEvent) => {
       pos = local(e);
+      shift = e.shiftKey;
+      alt = e.altKey;
       if (drag) {
         const r = dragResize(drag.size, drag.hardness, e.clientX - drag.x, e.clientY - drag.y);
         const patch: Record<string, number> = { size: r.size };
@@ -491,12 +501,16 @@ export function useBrushCursor(c: BrushCursorCtx) {
     };
     const up = () => { drag = null; };
     const context = (e: MouseEvent) => { if (e.ctrlKey && e.altKey) e.preventDefault(); };
+    // After the shortcut handler has set or cleared a held view tool and read Caps Lock.
+    const key = (e: KeyboardEvent) => { shift = e.shiftKey; alt = e.altKey; setTimeout(update, 0); };
     c.addEventListener('pointermove', move);
     c.addEventListener('pointerleave', leave);
     c.addEventListener('pointerdown', down);
     c.addEventListener('pointerup', up);
     c.addEventListener('pointercancel', up);
     c.addEventListener('contextmenu', context);
+    addEventListener('keydown', key);
+    addEventListener('keyup', key);
     return () => {
       c.removeEventListener('pointermove', move);
       c.removeEventListener('pointerleave', leave);
@@ -504,11 +518,64 @@ export function useBrushCursor(c: BrushCursorCtx) {
       c.removeEventListener('pointerup', up);
       c.removeEventListener('pointercancel', up);
       c.removeEventListener('contextmenu', context);
-      c.style.cursor = '';
+      removeEventListener('keydown', key);
+      removeEventListener('keyup', key);
       overlayRef.current?.setCursor(null);
       redrawOverlay();
     };
-  }, [tool]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, docId]);
+}
+
+export interface CanvasCursorCtx {
+  viewer: RefObject<Viewer | null>; canvas: RefObject<HTMLCanvasElement | null>; tool: string; mode: string;
+  toolOptionsRef: RefObject<ToolOptions>; capsLockRef: RefObject<boolean>; prefsRef: RefObject<Preferences>; cursorRev: number; docId?: number;
+}
+
+// The canvas cursor (shell/cursors.ts) from the tool, Shift/Alt, Caps Lock, a held view tool and the Cursors
+// preferences. CSS layers it: --override-cursor, then a tool's own --hover-cursor, then --tool-cursor.
+export function useCanvasCursor(c: CanvasCursorCtx) {
+  const { viewer, canvas, tool, mode, toolOptionsRef, capsLockRef, prefsRef, cursorRev, docId } = c;
+  useEffect(() => {
+    const v = viewer.current, cv = canvas.current;
+    if (!v || !cv) return;
+    let shift = false, alt = false, grabbing = false, last = '';
+    const update = () => {
+      const ctx: CursorCtx = {
+        shift, alt, grabbing, mode: String(toolOptionsRef.current.mode ?? 'new'), zoom: v.view.zoom, spring: v.spring,
+        precise: capsLockRef.current !== (prefsRef.current.otherCursor === 'precise'),
+      };
+      const css = toolCursor(tool, window.devicePixelRatio || 1, ctx), over = cursorOverrides(tool, ctx);
+      if (css + over === last) return;
+      last = css + over;
+      cv.style.setProperty('--tool-cursor', css);
+      if (over) cv.style.setProperty('--override-cursor', css); else cv.style.removeProperty('--override-cursor');
+    };
+    // After the shortcut handler has set or cleared a held view tool and read Caps Lock.
+    const key = (e: KeyboardEvent) => { shift = e.shiftKey; alt = e.altKey; setTimeout(update, 0); };
+    const blur = () => { shift = alt = grabbing = false; update(); };
+    const move = (e: PointerEvent) => { shift = e.shiftKey; alt = e.altKey; update(); };
+    const down = (e: PointerEvent) => { if (e.button === 0) { grabbing = true; update(); } };
+    const up = () => { grabbing = false; update(); };
+    addEventListener('keydown', key);
+    addEventListener('keyup', key);
+    addEventListener('blur', blur);
+    cv.addEventListener('pointermove', move);
+    cv.addEventListener('pointerdown', down);
+    cv.addEventListener('pointerup', up);
+    cv.addEventListener('pointercancel', up);
+    update();
+    return () => {
+      removeEventListener('keydown', key);
+      removeEventListener('keyup', key);
+      removeEventListener('blur', blur);
+      cv.removeEventListener('pointermove', move);
+      cv.removeEventListener('pointerdown', down);
+      cv.removeEventListener('pointerup', up);
+      cv.removeEventListener('pointercancel', up);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, mode, cursorRev, docId]);
 }
 
 export interface EyedropperCtx {

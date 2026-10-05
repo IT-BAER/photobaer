@@ -1,3 +1,4 @@
+import type { PaintingCursor } from './preferences.ts';
 // Pure brush-tool keyboard/drag logic (docs/M2.md section 4 Shortcuts), kept free of the DOM so it
 // is unit-testable; App.tsx wires these into the global key handler and the Ctrl+Alt+right-drag gesture.
 
@@ -32,6 +33,13 @@ export function digitOption(prev: DigitState | null, digit: string, now: number)
 // whenever Caps Lock is on.
 export function showCrosshair(outlineScreenPx: number, capsLock: boolean): boolean {
   return capsLock || outlineScreenPx < 6;
+}
+
+// Preferences > Cursors > Painting Cursors: the outline diameter as a multiple of the brush size, 0 for the
+// crosshair only. Full Size includes the soft skirt (2x at hardness 0); Caps Lock swaps outline and crosshair.
+export function outlineScale(pref: PaintingCursor, hardness: number, capsLock: boolean): number {
+  const outlined = (pref === 'normal' || pref === 'full') !== capsLock;
+  return !outlined ? 0 : pref === 'full' ? 2 - Math.min(100, Math.max(0, hardness)) / 100 : 1;
 }
 
 // Ctrl+Alt+right-drag: horizontal screen px resize 1:1, vertical screen px change hardness 1:1 per

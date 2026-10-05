@@ -155,6 +155,7 @@ export class Viewer {
   setTool(t: ViewerTool) { this.#tool = t; }
   // A spring-loaded key override, e.g. held Space; null restores the active tool's own behavior.
   setSpring(t: ViewerTool) { this.#spring = t; }
+  get spring(): ViewerTool { return this.#spring; }
   screenToDoc(sx: number, sy: number): [number, number] { return screenToDoc(this.view, sx, sy, this.#w, this.#h); }
   docToScreen(dx: number, dy: number): [number, number] { return docToScreen(this.view, dx, dy, this.#w, this.#h); }
   // The document rect on screen (a filter's live preview renders only this).

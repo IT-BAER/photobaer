@@ -9,7 +9,8 @@ export type Preview =
 
 // Brush cursor (docs/M2.md section 4): x/y and sizeDoc are document-space so the outline scales
 // with zoom; crosshair replaces the outline under 6 screen px or with Caps Lock on.
-export interface CursorState { x: number; y: number; sizeDoc: number; shape: 'round' | 'square'; crosshair: boolean }
+// `center` adds a small crosshair inside the outline; `mark` is the Quick Selection add/subtract sign.
+export interface CursorState { x: number; y: number; sizeDoc: number; shape: 'round' | 'square'; crosshair: boolean; center?: boolean; mark?: '+' | '-' }
 
 export interface BoxRect { x: number; y: number; w: number; h: number }
 // Pen and path selection tools, doc px: outline polylines [x, y, ...], anchors (6 px squares,
@@ -263,6 +264,8 @@ export class SelectionOverlay {
       const rPx = (cur.sizeDoc / 2) * view.zoom;
       if (cur.shape === 'square') ctx.rect(sx - rPx, sy - rPx, rPx * 2, rPx * 2);
       else ctx.arc(sx, sy, rPx, 0, Math.PI * 2);
+      if (cur.center || cur.mark) { ctx.moveTo(sx - 4, sy); ctx.lineTo(sx + 4, sy); }
+      if (cur.center || cur.mark === '+') { ctx.moveTo(sx, sy - 4); ctx.lineTo(sx, sy + 4); }
     }
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(0,0,0,0.6)';

@@ -166,7 +166,7 @@ export const TOOLS: Record<string, Tool> = {
     ],
   },
   quickSelection: {
-    id: 'quickSelection', label: 'Quick Selection', slot: 'wand', key: 'w', cursor: 'crosshair', icon: 'MousePointerClick',
+    id: 'quickSelection', label: 'Quick Selection', slot: 'wand', key: 'w', cursor: 'none', icon: 'MousePointerClick',
     options: [
       { id: 'size', kind: 'number', label: 'Brush size', default: 30, min: 1, max: 5000, unit: 'px' },
       { id: 'mode', kind: 'select', label: 'Mode', default: 'add', choices: ['new', 'add', 'subtract'] },

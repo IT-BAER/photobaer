@@ -63,7 +63,7 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 ## M9 Remaining
 - Edit: Toggle Last State (Ctrl+Alt+Z), Paste Outside, Check Spelling, Find and Replace Text, Purge.
 - Edit: Define Brush Preset, Define Pattern, Define Custom Shape; Preset Manager.
-- Edit: Keyboard Shortcuts editor, Menus and Toolbar customization, Preferences pages beyond Units & Rulers and Guides, Grid & Slices.
+- Edit: Keyboard Shortcuts editor, Menus and Toolbar customization, Preferences pages beyond Cursors, Units & Rulers and Guides, Grid & Slices.
 - Image: Duplicate, Trap.
 - Layer: Layer from Background, Frame from Layers, Hide Layers, Lock Layers,
   Link Layers and Select Linked Layers, Arrange > Reverse, layer colors.

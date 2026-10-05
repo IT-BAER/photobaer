@@ -56,14 +56,13 @@ import { DockSection } from './shell/DockSection.tsx';
 import { SwatchesPanel } from './shell/SwatchesPanel.tsx';
 import { ColorPicker, type ColorPickerHandle } from './shell/ColorPicker.tsx';
 import { SLOTS, TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOptions, slotForKey } from './shell/tools.ts';
-import { toolCursor } from './shell/cursors.ts';
 import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
 import { hexToRgb, intensityOf, rgbToHex, type Rgb } from './shell/color.ts';
 import { grayOf, inGray, rgbOfGray, type Convert } from './shell/colorModes.ts';
 import type { DigitState } from './shell/brushKeys.ts';
 import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
 import { Rulers, hitGuide, rulerDragToDoc, type DragGuide } from './shell/rulers.ts';
-import { loadPreferences } from './shell/preferences.ts';
+import { loadPreferences, savePreferences } from './shell/preferences.ts';
 import { setGridShown, setSnapSettings, snapAxis, snapGrid, snapSettings, type AxisLock, type Rect, type SnapSettings } from './shell/snapping.ts';
 import { MODES, TransformBar, TransformBarStore } from './shell/TransformBar.tsx';
 import type { Mat3 } from './transform/matrix.ts';
@@ -95,7 +94,7 @@ import { CharacterPanel, ParagraphPanel, TextStylesPanel, TypeProperties, WarpTe
 import { loadTypePrefs, typeContextItems, typeMenuItems, type TypeCtx, type TypePanel } from './app/typeMenu.ts';
 import { shapeLibrary } from './shell/customShapes.ts';
 import { transformSession, type TSession } from './app/transform.ts';
-import { useBrushCursor, useBucket, useEyedropper, useGradientTool, useMoveTool, useSelectionTools, useShapeTools } from './app/toolEffects.ts';
+import { useBrushCursor, useBucket, useCanvasCursor, useEyedropper, useGradientTool, useMoveTool, useSelectionTools, useShapeTools } from './app/toolEffects.ts';
 import { usePenTools, type PathSel } from './app/penTools.ts';
 import { TYPE_TOOLS, useTypeTools, type TypeApi } from './app/typeTools.ts';
 import { loadFonts, loadLocalFamily, localFontsSupported, localMatches, queryLocalFonts, uploadFont, withLocal, type LocalFont } from './fonts/sources.ts';
@@ -119,7 +118,7 @@ import { connectBridge, pairing, toBase64, type Format } from './app/agentBridge
 import { schema, setColorSource, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, ArtboardDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, MergeDialog, type MergeChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, type AutomateKind, RotateDialog, SaveSelectionDialog,
+  LoadSelectionDialog, ModifyDialog, ArtboardDialog, CursorPrefsDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, MergeDialog, type MergeChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, type AutomateKind, RotateDialog, SaveSelectionDialog,
   AutomateDialog, ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
 } from './app/Dialogs.tsx';
 
@@ -170,6 +169,8 @@ export function App() {
   const prefs = useRef(loadPreferences());
   const dragGuideRef = useRef<DragGuide | null>(null);
   const newGuideDialog = useRef<HTMLDialogElement>(null);
+  const cursorPrefsDialog = useRef<HTMLDialogElement>(null);
+  const [cursorRev, setCursorRev] = useState(0);
   const artboardDialog = useRef<HTMLDialogElement>(null);
   const [artboardMode, setArtboardMode] = useState<ArtboardMode>('new');
   const newGuideLayoutDialog = useRef<HTMLDialogElement>(null);
@@ -1781,7 +1782,7 @@ export function App() {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openVanishingPoint: () => openVanishingPoint(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, cursorPrefsDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openVanishingPoint: () => openVanishingPoint(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems: typeMenuItems(typeCtx),
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
@@ -2184,8 +2185,9 @@ export function App() {
   useCloneOverlay(retouch);
 
   useBrushCursor({
-    viewer, canvas, overlayRef, tool, redrawOverlay, toolOptionsRef, capsLockRef, patchToolOptions,
+    viewer, canvas, overlayRef, tool, redrawOverlay, toolOptionsRef, capsLockRef, prefsRef: prefs, docId: doc?.docId, patchToolOptions,
   });
+  useCanvasCursor({ viewer, canvas, tool, mode: String(toolOptions.mode ?? ''), toolOptionsRef, capsLockRef, prefsRef: prefs, cursorRev, docId: doc?.docId });
 
   function openPicker(which: 'fg' | 'bg') {
     picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v), { hdr: doc?.depth === 32 });
@@ -2543,7 +2545,7 @@ export function App() {
             views={tabState.current} revision={`${doc?.key ?? ''}:${doc?.version ?? 0}:${arrangeRevision}`}
             activate={key => void run(null, () => client.call('switchDoc', key))}
             saveView={saveArrangementView} onError={setError}
-            primary={<div className={`stage${showRulers ? ' with-rulers' : ''}`} style={{ '--tool-cursor': toolCursor(tool, window.devicePixelRatio || 1) } as CSSProperties}>
+            primary={<div className={`stage${showRulers ? ' with-rulers' : ''}`} >
             <canvas ref={canvas} className="view" style={{ filter: channelFilter }} onContextMenu={e => {
               e.preventDefault();
               if (transformRef.current || (e.ctrlKey && e.altKey) || !has) return;
@@ -2747,6 +2749,11 @@ export function App() {
       <ImageSizeDialog imageSizeDialog={imageSizeDialog} doc={doc} run={run} />
       <CanvasSizeDialog canvasSizeDialog={canvasSizeDialog} doc={doc} run={run} fg={fg} bg={bg} />
       <NewGuideDialog newGuideDialog={newGuideDialog} run={run} doc={doc} rulerUnit={prefs.current.rulerUnit} />
+      <CursorPrefsDialog key={cursorRev} dialog={cursorPrefsDialog} prefs={prefs.current} save={p => {
+        prefs.current = { ...prefs.current, ...p };
+        savePreferences(prefs.current);
+        setCursorRev(r => r + 1);
+      }} />
       <NewGuideLayoutDialog newGuideLayoutDialog={newGuideLayoutDialog} run={run} doc={doc} />
       <ArtboardDialog artboardDialog={artboardDialog} mode={artboardMode} run={run} doc={doc} selected={activeArtboard} layer={node?.id ?? null} />
       {doc && styleDialog && nodeById(doc.layers, styleDialog.id) && (

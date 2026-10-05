@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Canvas cursors in the Photoshop style for every tool: tool icons with their own hotspot (lasso, wand, eyedropper, bucket, crop, ruler, pen, type, hand, zoom and more); selection tools show the add, subtract and intersect sign from Shift, Alt or the Mode option; the pen shows start, close, add and delete states and the white arrow with Ctrl; Alt shows Zoom Out, the Move copy cursor and the Clone Stamp/Healing Brush source target; held Space and Ctrl+Space show the hand and zoom; Caps Lock switches to the crosshair; Quick Selection shows its brush circle with a plus or minus sign.
+- Edit > Preferences > Cursors: Painting Cursors (Standard, Precise, Normal Brush Tip, Full Size Brush Tip), Show Crosshair in Brush Tip and Other Cursors (Standard, Precise).
 - 32-bit documents: the Foreground and Background Color Picker has an Intensity slider (stops, -20 to +20);
   Brush, Pencil and Edit > Fill paint the color times 2^Intensity, so values above 1 can be painted.
 - 32-bit documents: Brush, Fill and Fade keep values above 1 in the 32-bit blend modes (Multiply, Lighten,

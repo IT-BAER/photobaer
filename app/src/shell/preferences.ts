@@ -1,7 +1,8 @@
-// Units & Rulers + Guides, Grid & Slices preferences (docs/M4.md section 12): app-wide, not per document.
+// Units & Rulers, Guides, Grid & Slices and Cursors preferences (docs/M4.md section 12): app-wide, not per document.
 import type { RulerUnit } from './units.ts';
 
 export type TypeUnit = 'px' | 'pt' | 'mm';
+export type PaintingCursor = 'standard' | 'precise' | 'normal' | 'full';
 
 export interface Preferences {
   rulerUnit: RulerUnit;
@@ -14,6 +15,10 @@ export interface Preferences {
   gridColor: string;
   gridSpacing: number;
   subdivisions: number;
+  // Cursors: Painting Cursors, Show Crosshair in Brush Tip, Other Cursors.
+  paintingCursor: PaintingCursor;
+  brushCrosshair: boolean;
+  otherCursor: 'standard' | 'precise';
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -27,6 +32,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   gridColor: '#808080',
   gridSpacing: 100,
   subdivisions: 4,
+  paintingCursor: 'normal',
+  brushCrosshair: false,
+  otherCursor: 'standard',
 };
 
 const STORE_KEY = 'photobaer:preferences';

@@ -13,6 +13,7 @@ import type { GradientEditorHandle } from '../shell/GradientEditor.tsx';
 import { rgbToHex, type Rgb } from '../shell/color.ts';
 import { paintModesFor } from '../shell/tools.ts';
 import { RULER_UNITS, unitToPx, type RulerUnit } from '../shell/units.ts';
+import type { PaintingCursor, Preferences } from '../shell/preferences.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo } from '../worker/types.ts';
 import {
   COLOR_RANGE_PRESETS, FILL_CONTENTS, FILL_LAYERS, MODIFY_OPS, selectCreated,
@@ -854,6 +855,42 @@ export function NewGuideDialog({ newGuideDialog, run, doc, rulerUnit }: { newGui
         )}
         <div className="actions">
           <button type="button" onClick={() => newGuideDialog.current?.close()}>Cancel</button>
+          <button type="submit" className="primary">OK</button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+// Edit > Preferences > Cursors (Photoshop): Painting Cursors, Show Crosshair in Brush Tip and Other Cursors.
+export function CursorPrefsDialog({ dialog, prefs, save }: { dialog: DialogRef; prefs: Preferences; save: (p: Pick<Preferences, 'paintingCursor' | 'brushCrosshair' | 'otherCursor'>) => void }) {
+  return (
+    <dialog ref={dialog}>
+      <form onSubmit={e => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        dialog.current?.close();
+        save({
+          paintingCursor: String(f.get('painting')) as PaintingCursor, brushCrosshair: f.get('crosshair') === 'on',
+          otherCursor: f.get('other') === 'precise' ? 'precise' : 'standard',
+        });
+      }}>
+        <h2>Cursors</h2>
+        <fieldset>
+          <legend>Painting Cursors</legend>
+          {([['standard', 'Standard'], ['precise', 'Precise'], ['normal', 'Normal Brush Tip'], ['full', 'Full Size Brush Tip']] as [PaintingCursor, string][]).map(([v, label]) => (
+            <label key={v}><input type="radio" name="painting" value={v} defaultChecked={prefs.paintingCursor === v} /> {label}</label>
+          ))}
+          <label><input type="checkbox" name="crosshair" defaultChecked={prefs.brushCrosshair} /> Show Crosshair in Brush Tip</label>
+        </fieldset>
+        <fieldset>
+          <legend>Other Cursors</legend>
+          <label><input type="radio" name="other" value="standard" defaultChecked={prefs.otherCursor === 'standard'} /> Standard</label>
+          <label><input type="radio" name="other" value="precise" defaultChecked={prefs.otherCursor === 'precise'} /> Precise</label>
+        </fieldset>
+        <p className="hint">Caps Lock switches between the brush tip and the crosshair, and between the tool icon and the crosshair.</p>
+        <div className="actions">
+          <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
           <button type="submit" className="primary">OK</button>
         </div>
       </form>

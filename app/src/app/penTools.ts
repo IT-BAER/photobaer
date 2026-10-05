@@ -9,6 +9,7 @@ import {
   magneticPick, magneticProbes, nudgeAnchors, onePath, PenDraft, penAutoEdit, penTarget, subsIn, translateSubs,
   type Hit, type Mods, type Ref, type Sub, type Target, type XY,
 } from '../shell/pentools.ts';
+import { namedCursor, type Badge } from '../shell/cursors.ts';
 import type { SelectionOverlay } from '../shell/SelectionOverlay.ts';
 import { newStroke } from '../shell/shapetools.ts';
 import type { ToolPointerEvent, Viewer } from '../viewer.ts';
@@ -162,7 +163,7 @@ export function usePenTools(c: PenToolsCtx) {
     let pen = new PenDraft(), curv = new CurvatureDraft(), hover: XY | null = null;
     let free: { pts: XY[]; chain: Promise<void>; layer: number | null } | null = null;
     let conv: { t: Target; hit: Hit; preview: VectorPath | null } | null = null;
-    let tempDirect = false;
+    let tempDirect = false, ctrlHover = false;
     const align = (p: XY): XY => {
       const o = toolOptionsRef.current;
       return tool === 'pen' && o.mode === 'shape' && o.alignEdges ? [Math.round(p[0]), Math.round(p[1])] : p;
@@ -202,18 +203,42 @@ export function usePenTools(c: PenToolsCtx) {
         ov.setPathEdit(path ? { ...editOverlay(path, direct ? selA : [], tool === 'pathSelection' ? selS : [], direct ? 'selected' : 'none'), band: null } : null);
       }
       redrawOverlay();
+      hoverCursor();
     }
     redrawRef.current = draw;
+
+    // Photoshop pen states: x starts a path, o closes it, +/- add or delete an anchor, Ctrl the white arrow.
+    function hoverCursor() {
+      let badge: Badge | undefined;
+      if (hover && ctrlHover && PEN_TOOLS.includes(tool)) {
+        cv!.style.setProperty('--hover-cursor', namedCursor('whiteArrow', window.devicePixelRatio || 1));
+        return;
+      }
+      if (hover && tool === 'pen') {
+        if (pen.points.length) badge = pen.points.length >= 2 && Math.hypot(hover[0] - pen.points[0][0], hover[1] - pen.points[0][1]) <= tol() ? 'close' : null;
+        else {
+          const t = toolOptionsRef.current.autoAddDelete ? target() : null;
+          const h = t && hitTest(t.path, hover[0], hover[1], tol(), { handles: false, fill: false });
+          badge = h?.kind === 'anchor' ? 'subtract' : h?.kind === 'segment' ? 'add' : 'start';
+        }
+      } else if (hover && tool === 'curvaturePen') badge = curv.pts.length ? null : 'start';
+      if (badge === undefined) cv!.style.removeProperty('--hover-cursor');
+      else cv!.style.setProperty('--hover-cursor', namedCursor(tool === 'pen' ? 'pen' : 'curvaturePen', window.devicePixelRatio || 1, badge));
+    }
 
     const onHover = (e: PointerEvent) => {
       if (e.buttons) return;
       const r = cv.getBoundingClientRect();
       hover = v.screenToDoc(e.clientX - r.left, e.clientY - r.top);
-      if ((tool === 'pen' && pen.points.length) || (tool === 'curvaturePen' && curv.pts.length)) draw();
+      ctrlHover = e.ctrlKey || e.metaKey;
+      if ((tool === 'pen' && pen.points.length) || (tool === 'curvaturePen' && curv.pts.length)) draw(); else hoverCursor();
     };
+    const onKey = (e: KeyboardEvent) => { if (ctrlHover !== (e.ctrlKey || e.metaKey)) { ctrlHover = e.ctrlKey || e.metaKey; hoverCursor(); } };
     const onLeave = () => { hover = null; draw(); };
     cv.addEventListener('pointermove', onHover);
     cv.addEventListener('pointerleave', onLeave);
+    addEventListener('keydown', onKey);
+    addEventListener('keyup', onKey);
 
     v.onPointer = e => {
       const p = align([e.x, e.y]), m = mods(e);
@@ -323,6 +348,9 @@ export function usePenTools(c: PenToolsCtx) {
       redrawRef.current = null;
       cv.removeEventListener('pointermove', onHover);
       cv.removeEventListener('pointerleave', onLeave);
+      removeEventListener('keydown', onKey);
+      removeEventListener('keyup', onKey);
+      cv.style.removeProperty('--hover-cursor');
       // Switching tools finishes an open draft; a document switch drops it.
       if (docRef.current?.docId === docId) {
         if (pen.points.length >= 2) finishSub(pen.subpath(), 'Pen');

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { digitOption, dragResize, showCrosshair, stepHardness, stepSize } from './brushKeys.ts';
+import { digitOption, dragResize, outlineScale, showCrosshair, stepHardness, stepSize } from './brushKeys.ts';
 
 test('stepSize steps scale with the current size and never go below 1', () => {
   assert.equal(stepSize(5, true), 6); // small size: step 1
@@ -51,6 +51,16 @@ test('showCrosshair when the outline would draw under 6 screen px or Caps Lock i
   assert.equal(showCrosshair(5.9, false), true);
   assert.equal(showCrosshair(6, false), false);
   assert.equal(showCrosshair(40, true), true);
+});
+
+test('outlineScale: Normal is the brush size, Full Size adds the soft skirt, Precise and Standard draw no outline; Caps Lock swaps', () => {
+  assert.equal(outlineScale('normal', 0, false), 1);
+  assert.equal(outlineScale('full', 0, false), 2);
+  assert.equal(outlineScale('full', 100, false), 1);
+  assert.equal(outlineScale('precise', 50, false), 0);
+  assert.equal(outlineScale('standard', 50, false), 0);
+  assert.equal(outlineScale('full', 50, true), 0);
+  assert.equal(outlineScale('precise', 50, true), 1);
 });
 
 test('dragResize: horizontal drag resizes, vertical drag changes hardness, both clamped', () => {

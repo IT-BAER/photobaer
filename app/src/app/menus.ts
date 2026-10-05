@@ -67,7 +67,7 @@ export interface MenuCtx {
   resetCurrentWorkspace: () => void; toggleWorkspaceLock: () => void;
   arrangeMode: ArrangeMode; chooseArrangement: (mode: ArrangeMode) => void; matchArrangement: (kind: MatchKind) => void;
   snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
-  newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef;
+  newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef; cursorPrefsDialog: DialogRef;
   openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null; selectedNodes: LayerNode[];
   showShapes: boolean; setShowShapes: SetState<boolean>; showCloneSource: boolean; setShowCloneSource: SetState<boolean>; showNavigator: boolean; setShowNavigator: SetState<boolean>; typeItems: Item[]; aboutDialog: DialogRef; agentDialog: DialogRef;
   showHistogram: boolean; setShowHistogram: SetState<boolean>; showInfo: boolean; setShowInfo: SetState<boolean>; showToolPresets: boolean; setShowToolPresets: SetState<boolean>; showNotes: boolean; setShowNotes: SetState<boolean>; showMeasurementLog: boolean; setShowMeasurementLog: SetState<boolean>;
@@ -128,7 +128,7 @@ export function buildMenus(c: MenuCtx) {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, snap, setSnap, openArtboard, activeArtboard,
+    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, cursorPrefsDialog, snap, setSnap, openArtboard, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
     workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
@@ -276,6 +276,7 @@ export function buildMenus(c: MenuCtx) {
       { label: 'Assign Profile…', run: () => openColorDialog('assign'), off: !has || (!!doc?.mode && doc.mode.kind !== 'cmyk') },
       { label: 'Convert to Profile…', run: () => openColorDialog('convert'), off: !has || (!!doc?.mode && doc.mode.kind !== 'cmyk') },
       { label: 'Search…', keys: 'Ctrl+F', sep: true, run: () => { setMenu(null); openSearch(); } },
+      { label: 'Preferences', keys: '›', sep: true, run: () => {}, sub: [{ label: 'Cursors…', run: () => { setMenu(null); cursorPrefsDialog.current?.showModal(); } }] },
     ],
     Layer: [
       { label: 'New Layer', run: newLayer, off: !has },
