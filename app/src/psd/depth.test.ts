@@ -235,5 +235,24 @@ test('alpha and spot channels beyond Photoshop\'s 56-channel limit are left out 
     assert.equal(header(bytes).channels, 56);
     const names = readPsdChannels(bytes).channels.map(c => c.name);
     assert.deepEqual(names, Array.from({ length: kept }, (_, i) => `Alpha ${i + 1}`));
+    assert.equal(channelsOf(importPsd(bytes).engine).length, kept);
+  }
+});
+
+test('PSD files with more than 16 channels open with every alpha and spot channel', () => {
+  for (const depth of [8, 16]) {
+    const e = new Engine(300, 20, depth);
+    if (depth === 8) e.fill(1, 'pixels', 10, 20, 30, 255);
+    else e.set_tile_bytes('pixels', 1, 0, 0, tile16(256, 20, 0, 0, () => [1000, 2000, 3000, 30000]));
+    for (let i = 1; i <= 20; i++) e.new_channel(`Alpha ${i}`);
+    const last = channelsOf(e)[19].id, t = new Uint8Array(256 * 256 * (depth / 8));
+    for (let i = 0; i < 20 * 256 * (depth / 8); i++) t[i] = i % 251;
+    e.set_tile_bytes('channel', last, 0, 0, t);
+    const { bytes } = exportPsd(e);
+    assert.ok(header(bytes).channels > 16);
+    const back = importPsd(bytes).engine;
+    const got = channelsOf(back);
+    assert.deepEqual(got.map(c => c.name), Array.from({ length: 20 }, (_, i) => `Alpha ${i + 1}`));
+    sameTile(tileOf(back, got[19].tiles), tileOf(e, channelsOf(e)[19].tiles), `${depth}-bit last channel`);
   }
 });

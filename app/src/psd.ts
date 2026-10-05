@@ -8,7 +8,7 @@ import { artboardIn, artboardOut, layoutIn, layoutOut } from './psd/layout.ts';
 import { rasterMaskOf, readSavedPaths, shapeIn, shapeOut, vectorMaskIn, vectorMaskOut, writeSavedPaths } from './psd/vector.ts';
 import { textIn, textOut } from './psd/text.ts';
 import { filterIn, filterOut, prepareList, opaqueFilter, readPsdRaw, writePsdRaw, type FilterJson, type RawSoLd, type SmartFilterOut } from './psd/filters.ts';
-import { compositeFit, finishPsd, PSD_MAX_CHANNELS, psdLayerCount, psdTransparency, readPsdChannels, type Depth, type PsdChannel } from './psd/depth.ts';
+import { compositeFit, finishPsd, PSD_MAX_CHANNELS, psdForAgPsd, psdLayerCount, psdTransparency, readPsdChannels, type Depth, type PsdChannel } from './psd/depth.ts';
 
 export { filterIn };
 
@@ -849,7 +849,8 @@ export function importPsd(bytes: Uint8Array, opts: { psb?: boolean } = {}): { en
   if (fit === 'depth') throw new Error(`the PSD image data does not match its ${bytes[22] << 8 | bytes[23]}-bit header`);
   if (fit === 'truncated' && psdLayerCount(bytes) === 0) throw new Error('PSD file is truncated');
   // ag-psd byte-swaps 16/32-bit raw channel data in its input buffer: wide files read from a copy.
-  const { psd, raw } = readPsdRaw(wide ? bytes.slice() : bytes, { useImageData: true, skipThumbnail: true, skipCompositeImageData: wide && psdLayerCount(bytes) !== 0 });
+  const forAg = psdForAgPsd(bytes);
+  const { psd, raw } = readPsdRaw(wide && forAg === bytes ? bytes.slice() : forAg, { useImageData: true, skipThumbnail: true, skipCompositeImageData: wide && psdLayerCount(bytes) !== 0 });
   const paths = readSavedPaths(bytes, psd.width, psd.height);
   const depth = psd.bitsPerChannel ?? 8;
   if (![8, 16, 32].includes(depth)) throw new Error(`${depth}-bit PSD files are not supported`);

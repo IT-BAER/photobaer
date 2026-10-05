@@ -244,6 +244,27 @@ export function compositeFit(b: Uint8Array): 'ok' | 'truncated' | 'depth' {
   return 'ok';
 }
 
+/** `b` cut to its first 16 composite channels, the most ag-psd reads; `readPsdChannels` reads the rest
+ * from the full file. Unchanged when it has 16 or fewer. */
+export function psdForAgPsd(b: Uint8Array): Uint8Array {
+  const { v, psb, image } = sections(b);
+  const total = v.getUint16(12), keep = 16;
+  if (total <= keep) return b;
+  const h = v.getUint32(14), w = v.getUint32(18), depth = v.getUint16(22);
+  const comp = image + 2 <= b.length ? v.getUint16(image) : -1, p = image + 2;
+  let parts = [b.subarray(0, b.length)];
+  if (comp === 0) parts = [b.subarray(0, p + keep * Math.ceil(w * depth / 8) * h)];
+  else if (comp === 1) {
+    const cw = psb ? 4 : 2, data = p + total * h * cw;
+    let n = 0;
+    for (let i = 0; i < keep * h && p + (i + 1) * cw <= b.length; i++) n += psb ? v.getUint32(p + i * cw) : v.getUint16(p + i * cw);
+    parts = [b.subarray(0, p + keep * h * cw), b.subarray(data, data + n)];
+  }
+  const out = concat(parts);
+  view(out).setUint16(12, keep);
+  return out;
+}
+
 // Decoded planes of the composite image data, or null for a compression this reader does not know.
 function compositePlanes(b: Uint8Array, at: number, count: number, w: number, h: number, depth: Depth, psb: boolean): Uint8Array[] | null {
   const v = view(b);
