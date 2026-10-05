@@ -396,6 +396,7 @@ impl Document {
         self.check_idle()?;
         let v: DocVector = serde_json::from_str(json).map_err(|e| format!("invalid document vector data: {e}"))?;
         v.validate()?;
+        v.check_mode(self.depth)?;
         let mut err = Ok(());
         Document::walk_artboards(&self.nodes, &mut |a| {
             if err.is_ok() {

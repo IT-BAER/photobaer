@@ -905,6 +905,20 @@ mod tests {
     }
 
     #[test]
+    fn a_mode_at_32_bits_is_refused_from_vector_data_and_manifests() {
+        let mut duo = Document::new(4, 4, 16).unwrap();
+        duo.set_color_mode(&ModeSpec::Gray).unwrap();
+        duo.set_color_mode(&spec(r#"{"mode":"duotone","inks":[[0,0,0],[255,0,0]]}"#)).unwrap();
+        let mut g = Document::new(4, 4, 32).unwrap();
+        g.set_color_mode(&ModeSpec::Gray).unwrap();
+        assert!(g.set_document_vector(&duo.vector_json()).is_err(), "vector data cannot make a 32-bit Duotone");
+        assert_eq!(g.vector.mode, None);
+        let m = duo.manifest().replacen("\"depth\":16", "\"depth\":32", 1);
+        assert!(m.contains("\"depth\":32"));
+        assert!(Document::from_manifest(&m).is_err(), "a 32-bit Duotone manifest is refused");
+    }
+
+    #[test]
     fn duotone_shows_inks_bakes_them_into_rgb_and_reloads() {
         let mut d = Document::new(32, 32, 8).unwrap();
         fill(&mut d, 1, [128, 128, 128, 255]);

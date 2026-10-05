@@ -346,12 +346,7 @@ impl Document {
                 if probe.version < 7 && !vector.vanishing_planes.is_empty() {
                     return Err("vanishing_planes need manifest v7".into());
                 }
-                if let Some(mode) = &vector.mode {
-                    mode.check()?;
-                    if m.depth == 32 {
-                        return Err("a 32-bit document is RGB or Grayscale".into());
-                    }
-                }
+                vector.check_mode(m.depth)?;
                 Document::build(
                     Head { width: m.width, height: m.height, depth: m.depth, tiles_x: m.tiles_x, tiles_y: m.tiles_y },
                     m.next_id,

@@ -567,6 +567,16 @@ impl DocVector {
         Ok(())
     }
 
+    /// A color mode beyond RGB and Grayscale must be valid and below 32 bits.
+    pub fn check_mode(&self, depth: u8) -> Result<(), String> {
+        let Some(mode) = &self.mode else { return Ok(()) };
+        mode.check()?;
+        if depth == 32 {
+            return Err("a 32-bit document is RGB or Grayscale".into());
+        }
+        Ok(())
+    }
+
     pub fn check_artboard(&self, a: &Artboard) -> Result<(), String> {
         check_bounds(&a.rect, "artboard rect")?;
         match a.guide_ids.iter().find(|id| !self.guides.iter().any(|g| g.id == **id)) {
