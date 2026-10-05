@@ -56,6 +56,8 @@ pub const OP_SELECTIVE_COLOR: u32 = 9;
 pub const OP_GRADIENT_MAP: u32 = 10;
 /// `[n, domain min RGB, domain max RGB, trilinear (0|1), dither, n^3 x RGB]`, red fastest.
 pub const OP_COLOR_LOOKUP: u32 = 11;
+/// `[exposure, offset, gamma]`, unclamped: 32-bit documents only, so the WGSL compositor never sees it.
+pub const OP_EXPOSURE: u32 = 12;
 
 /// Compositor tables have this many entries per channel (docs/M3.md section 2).
 const TABLE_N: usize = 65536;
@@ -193,8 +195,9 @@ impl Adjustment {
         }
     }
 
-    /// The `Adjust` opcode and data, or none when the params are neutral.
-    pub fn compile(&self, blobs: &HashMap<u64, Arc<Vec<u8>>>) -> Result<Option<Compiled>, String> {
+    /// The `Adjust` opcode and data, or none when the params are neutral. `hdr` (a 32-bit
+    /// document) lets Exposure read and write values above 1.
+    pub fn compile(&self, blobs: &HashMap<u64, Arc<Vec<u8>>>, hdr: bool) -> Result<Option<Compiled>, String> {
         let per_pixel = |opcode, data| Ok(Some(Compiled { opcode, data }));
         match self {
             Adjustment::Invert(_) => per_pixel(OP_INVERT, Vec::new()),
@@ -237,6 +240,9 @@ impl Adjustment {
             Adjustment::Exposure(p) => {
                 if p.exposure == 0.0 && p.offset == 0.0 && p.gamma == 1.0 {
                     return Ok(None);
+                }
+                if hdr {
+                    return per_pixel(OP_EXPOSURE, vec![p.exposure, p.offset, p.gamma]);
                 }
                 let f = |x| exposure(x, p);
                 Ok(Some(table(false, [&f, &f, &f])))
@@ -378,8 +384,12 @@ fn level(x: f64, r: &LevelsRecord) -> f64 {
 }
 
 fn exposure(x: f64, p: &Exposure) -> f64 {
-    let v = srgb_to_linear(x as f32) as f64 * (p.exposure as f64).exp2() + p.offset as f64;
-    let v = v.signum() * v.abs().powf(1.0 / (p.gamma as f64).clamp(0.1, 9.99));
+    expose(x, p.exposure, p.offset, p.gamma)
+}
+
+fn expose(x: f64, exposure: f32, offset: f32, gamma: f32) -> f64 {
+    let v = srgb_to_linear(x as f32) as f64 * (exposure as f64).exp2() + offset as f64;
+    let v = v.signum() * v.abs().powf(1.0 / (gamma as f64).clamp(0.1, 9.99));
     linear_to_srgb(v as f32) as f64
 }
 
@@ -460,6 +470,7 @@ pub fn apply(opcode: u32, d: &[f32], c: [f32; 3], x: u32, y: u32) -> [f32; 3] {
     let clamp = |c: [f32; 3]| c.map(|v| v.clamp(0.0, 1.0));
     match opcode {
         OP_INVERT => c.map(|v| 1.0 - v),
+        OP_EXPOSURE => c.map(|v| expose(v as f64, d[0], d[1], d[2]) as f32),
         OP_TABLE => {
             let n = d[1] as usize;
             std::array::from_fn(|ch| {
@@ -1203,7 +1214,7 @@ pub fn destructive(kind: &Destructive, px: &mut [f32], w: usize, h: usize) {
                     Levels { composite, red: r, green: g, blue: b }
                 }
             };
-            if let Ok(Some(t)) = Adjustment::Levels(levels).compile(&HashMap::new()) {
+            if let Ok(Some(t)) = Adjustment::Levels(levels).compile(&HashMap::new(), false) {
                 map_rgb(px, |c| apply(t.opcode, &t.data, c, 0, 0));
             }
         }
@@ -1422,16 +1433,26 @@ fn hdr_toning(p: &HdrToning, px: &mut [f32], w: usize, h: usize) {
                 map_rgb(px, |c| c.map(|v| linear_to_srgb((srgb_to_linear(v) * a).max(0.0).powf(n)).clamp(0.0, 1.0)));
             }
         }
-        // Reinhard with white = the largest luminance acts only above 1, which 8/16-bit data
-        // never reaches: an identity here.
-        HdrMethod::HighlightCompression => {}
+        // Reinhard per channel with white = the brightest value, as View > 32-bit Preview Options;
+        // an identity when nothing exceeds 1 (8/16-bit data).
+        HdrMethod::HighlightCompression => {
+            let max = px.chunks_exact(4).filter(|c| c[3] > 0.0).fold(0f32, |m, c| m.max(c[0]).max(c[1]).max(c[2]));
+            if max > 1.0 {
+                map_rgb(px, |c| c.map(|v| (v * (1.0 + v / (max * max)) / (1.0 + v)).min(1.0)));
+            }
+        }
+        // Bins span 0..max(1, brightest luminance), so 32-bit values above 1 keep their order.
         HdrMethod::EqualizeHistogram => {
-            let hist = histograms(px)[0];
+            let top = px.chunks_exact(4).filter(|c| c[3] > 0.0).fold(1f32, |m, c| m.max(luma(c)));
+            let mut hist = [0u32; 256];
+            for c in px.chunks_exact(4).filter(|c| c[3] > 0.0) {
+                hist[bin(luma(c) / top)] += 1;
+            }
             if hist.iter().any(|&n| n > 0) {
                 let cdf = cumulative(&hist);
                 for c in px.chunks_exact_mut(4) {
-                    let o = luma(c).clamp(0.0, 1.0);
-                    scale_lum(c, o, cdf[bin(o)]);
+                    let o = luma(c).max(0.0);
+                    scale_lum(c, o, cdf[bin(o / top)]);
                 }
             }
         }
@@ -1456,7 +1477,7 @@ fn hdr_toning(p: &HdrToning, px: &mut [f32], w: usize, h: usize) {
                 if p.gamma != 1.0 {
                     f = f.powf(1.0 / p.gamma).clamp(0.0, 1.0);
                 }
-                let o = luma(c).clamp(0.0, 1.0);
+                let o = luma(c).max(0.0);
                 scale_lum(c, o, f);
             }
         }

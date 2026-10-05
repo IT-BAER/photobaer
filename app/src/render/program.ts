@@ -11,6 +11,7 @@ export const OP = {
 export const ADJUST = {
   invert: 1, table: 2, vibrance: 3, hue_saturation: 4, color_balance: 5, black_white: 6,
   photo_filter: 7, channel_mixer: 8, selective_color: 9, gradient_map: 10, color_lookup: 11,
+  exposure: 12, // 32-bit documents only: never in a GPU program
 } as const;
 
 /// Payload kinds: an RGBA8 tile, a mask8 tile, or an `Adjust` data block (f32 LE).

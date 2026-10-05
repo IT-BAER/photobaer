@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and RGB Color from CMYK converts to the working RGB profile.
 - The Cyan, Magenta, Yellow and Black channel views and thumbnails show the ink amounts of the document's
   CMYK profile.
+- 32-bit documents: Exposure (adjustment layer and Image > Adjustments) reads and writes values above 1,
+  and Normal-mode adjustment layers keep them for the next layer and for EXR/HDR export.
+- HDR Toning on 32-bit data reads values above 1: Highlight Compression maps the brightest value to white,
+  Equalize Histogram and Local Adaptation no longer flatten everything above 1.
 
 ### Fixed
 

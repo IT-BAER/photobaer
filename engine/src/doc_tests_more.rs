@@ -1593,3 +1593,64 @@ fn float_tiles_write_and_flatten_with_over_range_kept() {
     assert!(Document::new(8, 8, 8).unwrap().set_tile_f32(1, 0, 0, &t).is_err());
     assert!(d.set_tile_f32(1, 0, 0, &t[..4]).is_err());
 }
+
+// A 32-bit document whose Background holds the straight gray values `vs` in the first pixels.
+fn float_doc(vs: &[f32]) -> Document {
+    let mut d = Document::new(16, 1, 32).unwrap();
+    let mut t = vec![0f32; TILE_PIXELS * 4];
+    for (i, v) in vs.iter().enumerate() {
+        t[i * 4..i * 4 + 4].copy_from_slice(&[*v, *v, *v, 1.0]);
+    }
+    d.set_tile_f32(1, 0, 0, &t).unwrap();
+    d
+}
+
+fn exposure_json(ev: f32) -> String {
+    serde_json::json!({ "kind": "exposure", "params": { "exposure": ev, "offset": 0.0, "gamma": 1.0 } }).to_string()
+}
+
+fn exposed(v: f32, ev: f32) -> f32 {
+    use crate::gradient::{linear_to_srgb, srgb_to_linear};
+    linear_to_srgb(srgb_to_linear(v) * ev.exp2())
+}
+
+#[test]
+fn exposure_on_32_bit_documents_keeps_values_above_one() {
+    let mut d = float_doc(&[0.8, 2.0]);
+    let a = d.add_special(1, &format!(r#"{{ "name": "Exposure", "adjustment": {} }}"#, exposure_json(1.0))).unwrap();
+    let f = d.flatten_tile_f32(0, 0).unwrap();
+    assert!((f[0] - exposed(0.8, 1.0)).abs() < 1e-4 && f[0] > 1.0, "layer: {}", f[0]);
+    assert!((f[4] - exposed(2.0, 1.0)).abs() < 1e-3, "layer reads above 1: {}", f[4]);
+    d.delete_node(a).unwrap();
+    let b = d.add_special(1, &format!(r#"{{ "name": "Exposure", "adjustment": {} }}"#, exposure_json(-1.0))).unwrap();
+    let f = d.flatten_tile_f32(0, 0).unwrap();
+    assert!((f[4] - exposed(2.0, -1.0)).abs() < 1e-3, "darkening reads the stored 2.0: {}", f[4]);
+    d.add_special(b, r#"{ "name": "Invert", "adjustment": { "kind": "invert", "params": {} } }"#).unwrap();
+    assert_eq!(d.flatten_tile_f32(0, 0).unwrap()[4], 0.0, "inverting a value above 1 stops at 0");
+
+    let mut d = float_doc(&[0.8]);
+    d.apply_adjustment(1, Target::Pixels, &exposure_json(1.0)).unwrap();
+    let v = d.flatten_tile_f32(0, 0).unwrap()[0];
+    assert!((v - exposed(0.8, 1.0)).abs() < 1e-4, "destructive: {v}");
+}
+
+fn hdr_json(method: &str) -> String {
+    serde_json::json!({ "kind": "hdr_toning", "params": { "method": method, "radius": 16.0, "strength": 0.5, "detail": 30.0,
+        "shadow": 0.0, "highlight": 0.0, "exposure": 0.0, "gamma": 1.0, "vibrance": 0.0, "saturation": 0.0 } })
+    .to_string()
+}
+
+#[test]
+fn hdr_toning_compresses_32_bit_values_above_one() {
+    let mut d = float_doc(&[0.5, 1.0, 2.0, 4.0]);
+    d.apply_destructive(1, &hdr_json("highlight_compression")).unwrap();
+    let f = d.flatten_tile_f32(0, 0).unwrap();
+    let g: Vec<f32> = (0..4).map(|i| f[i * 4]).collect();
+    assert!((g[3] - 1.0).abs() < 1e-5, "the brightest maps to white: {g:?}");
+    assert!(g[0] < 0.5 && g.windows(2).all(|w| w[0] < w[1]), "monotonic and compressed: {g:?}");
+
+    let mut d = float_doc(&[0.5, 1.5, 3.0]);
+    d.apply_destructive(1, &hdr_json("equalize_histogram")).unwrap();
+    let f = d.flatten_tile_f32(0, 0).unwrap();
+    assert!(f[4] < f[8] && f[8] <= 1.0, "values above 1 keep their order: {} {}", f[4], f[8]);
+}

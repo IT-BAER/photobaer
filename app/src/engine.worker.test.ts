@@ -9,6 +9,7 @@ import { loadEngine } from './worker/helpers.ts';
 import { FakeDir, fs } from './fake-opfs.ts';
 import { engineMesh, identityMesh } from './transform/warp.ts';
 import { croppedSize } from './crop/geometry.ts';
+import { decodeExr, toLinear } from './formats.ts';
 import { ADJUSTMENT_KINDS, DESTRUCTIVE_KINDS, DESTRUCTIVE_LABEL, MENU_LABEL, defaultAdjustment, defaultDestructive } from './adjustments.ts';
 import { defaultBlending, defaultEffect, emptyStyle, type LayerStyle } from './layerStyle.ts';
 import type { LayerNode } from './worker/types.ts';
@@ -841,6 +842,17 @@ test('Image > Mode: depth and grayscale conversions are one step each and show i
   assert.deepEqual(d32.docs.filter(t => t.active).map(t => [t.mode, t.depth]), [['RGB', 32]]);
   assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [200, 50, 10, 255]);
   assert.match((await call('setColorMode', { mode: 'cmyk' })).error ?? '', /RGB or Grayscale only/);
+});
+
+test('an Exposure layer in a 32-bit document exports values above 1 to EXR', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 32, null);
+  await call('command', 'fill', 1, 'pixels', [204, 204, 204, 255]);
+  await call('newAdjustmentLayer', 1, { kind: 'exposure', params: { exposure: 1, offset: 0, gamma: 1 } }, 'Exposure');
+  const { blob } = (await call('saveFormat', 'exr')).result as { blob: Blob };
+  const img = await decodeExr(new Uint8Array(await blob.arrayBuffer()));
+  const want = toLinear(0.8) * 2;
+  assert.ok(Math.abs(img.data[0] - want) < 0.01, `linear red ${img.data[0]}, want ${want}`);
 });
 
 test('Edit > Assign/Convert to Profile: tag only vs. new numbers, one step each', async () => {

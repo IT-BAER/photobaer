@@ -13,7 +13,8 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 - Image > Mode rest: Bitmap Halftone Screen, Custom Pattern and output resolution; Duotone ink curves and
   overprint colors; Indexed Custom/Previous palette and Matte. Modes are flags over RGB storage: CMYK and Lab
   use no profile until Color Settings; color pickers still offer RGB; PSD export stays RGB.
-- 32 bits per channel: edits and filters clip at 1.0; HDR-aware adjustments (Exposure, HDR Toning) still clip.
+- 32 bits per channel: edits, filters, smart filters and adjustment layers in blend modes other than Normal clip
+  at 1.0; destructive results quantize to 16-bit steps; 32 -> 16/8 Bits/Channel clips without an HDR Toning step.
 - Color management rest: with color management off, Image > Mode > CMYK Color only sets the flag and the
   CMYK channel views use a plain formula; Lab, Multichannel and Duotone ignore profiles; WebP export embeds no profile;
   Color Settings Advanced (desaturate monitor colors, blend RGB with gamma) and ColorSync/older-version presets;

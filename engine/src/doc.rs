@@ -2045,7 +2045,7 @@ impl Document {
         if matches!(self.node(id)?.kind, Kind::Smart(_)) {
             return self.apply_as_filter(id, &a);
         }
-        let Some(compiled) = a.compile(&self.blobs)? else { return Ok(()) };
+        let Some(compiled) = a.compile(&self.blobs, self.depth == 32)? else { return Ok(()) };
         let existing = self.node(id)?.pixel_tiles()?.coords();
         let area: Vec<(i32, i32)> = match self.selected_tiles() {
             Some(sel) => sel.into_iter().filter(|c| existing.contains(c)).collect(),

@@ -13,6 +13,8 @@ struct TileCtx {
     oy: u32,
     vw: usize,
     vh: usize,
+    // A 32-bit document: Normal adjustments keep straight color above 1.
+    hdr: bool,
 }
 
 enum MaskSrc<'a> {
@@ -134,6 +136,13 @@ fn straight(buf: &[f32], p: usize) -> [f32; 3] {
     std::array::from_fn(|i| (buf[o + i] / a).clamp(0.0, 1.0))
 }
 
+// `straight` without the upper clamp, for 32-bit documents.
+fn straight_hdr(buf: &[f32], p: usize) -> [f32; 3] {
+    let o = p * 4;
+    let a = buf[o + 3];
+    std::array::from_fn(|i| if a > 0.0 { (buf[o + i] / a).max(0.0) } else { 0.0 })
+}
+
 /// `Adjust` (docs/M3.md section 2) on the premultiplied `dst` in place: on straight color `o`,
 /// `L = o + (blend(mode, o, adjust(o)) - o) * k` with `k = scale * mask * clip`, then blend-if
 /// with "This Layer" = `L` and "Underlying Layer" = `o`. Alpha is never changed.
@@ -158,8 +167,13 @@ fn adjust_step(dst: &mut [f32], s: &Step, data: &[f32], mask: &MaskSrc, clip: Op
                 }
                 k = 1.0;
             }
-            let orig = straight(dst, p);
-            let r = blend_rgb(s.mode, orig, adjust::apply(s.opcode, data, orig, dx, dy));
+            let (orig, r) = if c.hdr && s.mode.is_passthrough_of_source() {
+                let o = straight_hdr(dst, p);
+                (o, adjust::apply(s.opcode, data, o, dx, dy).map(|v| v.max(0.0)))
+            } else {
+                let o = straight(dst, p);
+                (o, blend_rgb(s.mode, o, adjust::apply(s.opcode, data, o, dx, dy)))
+            };
             let l: [f32; 3] = std::array::from_fn(|i| orig[i] + (r[i] - orig[i]) * k);
             let w = blend_if.map_or(1.0, |b| blend_if_weight(b, l, orig));
             for i in 0..3 {
@@ -380,6 +394,7 @@ pub(super) struct Program {
     oy: u32,
     vw: usize,
     vh: usize,
+    hdr: bool,
     pub(super) steps: Vec<Step>,
     pub(super) payloads: Vec<(u64, Arc<Pixels>)>,
     // `Adjust` data blocks, referenced by the step's `src`.
@@ -501,6 +516,8 @@ impl Program {
             oy: u32at(12),
             vw: u32at(16) as usize,
             vh: u32at(20) as usize,
+            // Encoded programs exist only for 8-bit documents.
+            hdr: false,
             steps,
             payloads,
             data,
@@ -852,7 +869,8 @@ impl Document {
     // never change). None when neutral or when its table does not parse (no step either way).
     fn compiled(&self, a: &Adjustment) -> Option<(u32, u64, Arc<Vec<f32>>)> {
         let json = serde_json::to_string(a).expect("adjustment serializes");
-        let mut key = mix(0x0AD7_0000_0000_0001, json.len() as u64);
+        let hdr = self.depth == 32;
+        let mut key = mix(0x0AD7_0000_0000_0001 ^ hdr as u64, json.len() as u64);
         for chunk in json.as_bytes().chunks(8) {
             let mut w = [0u8; 8];
             w[..chunk.len()].copy_from_slice(chunk);
@@ -862,7 +880,7 @@ impl Document {
             return hit.clone();
         }
         // Errors (a missing or bad table) are not cached: a loading blob may still arrive.
-        let compiled = a.compile(&self.blobs).ok()?.map(|c| {
+        let compiled = a.compile(&self.blobs, hdr).ok()?.map(|c| {
             let mut dk = mix(0xDA7A_0000_0000_0002, c.opcode as u64);
             for pair in c.data.chunks(2) {
                 dk = mix(dk, pair[0].to_bits() as u64 | (pair.get(1).map_or(0, |v| v.to_bits() as u64) << 32));
@@ -1302,6 +1320,7 @@ impl Document {
             oy: ty * TILE as u32,
             vw,
             vh,
+            hdr: self.depth == 32,
             steps: Vec::new(),
             payloads: Vec::new(),
             data: Vec::new(),
@@ -1312,7 +1331,7 @@ impl Document {
     pub(super) fn run_program(prog: &Program) -> Vec<f32> {
         let tiles: HashMap<u64, &Pixels> = prog.payloads.iter().map(|(k, p)| (*k, p.as_ref())).collect();
         let data: HashMap<u64, &[f32]> = prog.data.iter().map(|(k, d)| (*k, d.as_slice())).collect();
-        let c = TileCtx { level: prog.level, ox: prog.ox, oy: prog.oy, vw: prog.vw, vh: prog.vh };
+        let c = TileCtx { level: prog.level, ox: prog.ox, oy: prog.oy, vw: prog.vw, vh: prog.vh, hdr: prog.hdr };
         let mut stack: Vec<Vec<f32>> = vec![vec![0f32; TILE_PIXELS * 4]];
         let mut shapes: Vec<Vec<f32>> = Vec::new();
         for s in &prog.steps {

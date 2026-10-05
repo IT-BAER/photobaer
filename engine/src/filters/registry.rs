@@ -18,7 +18,7 @@ const fn adjustment(id: &'static str, label: &'static str) -> Spec {
 // The M3 adjustment kinds run per pixel through their compiled opcode, alpha kept.
 fn apply_adjustment(p: &mut Plane, f: &Filter, ctx: &Ctx) -> Result<(), String> {
     let a = f.adjustment().ok_or_else(|| format!("{} has invalid params", f.kind))?;
-    let Some(k) = a.compile(ctx.blobs)? else { return Ok(()) };
+    let Some(k) = a.compile(ctx.blobs, false)? else { return Ok(()) };
     for (i, px) in p.data.chunks_exact_mut(4).enumerate() {
         let (x, y) = (p.x + (i % p.w) as i32, p.y + (i / p.w) as i32);
         let c = adjust::apply(k.opcode, &k.data, [px[0], px[1], px[2]], x as u32, y as u32);

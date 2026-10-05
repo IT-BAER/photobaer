@@ -229,7 +229,7 @@ impl Document {
                 continue;
             }
             let adj = f.filter.adjustment().expect("every other filter is an adjustment");
-            let Some(k) = adj.compile(&self.blobs)? else { continue };
+            let Some(k) = adj.compile(&self.blobs, self.depth == 32)? else { continue };
             for i in 0..w * h {
                 let (a, alpha) = (weight(i), px[i * 4 + 3]);
                 if a <= 0.0 || alpha <= 0.0 {
