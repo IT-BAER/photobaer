@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dock panels and toolbar tools can be reordered: drag a panel header or a tool button to a new place, or
   press Alt+Up/Down on it. The order is kept in the browser; a locked workspace keeps the panel order.
 - photobaer-mcp: --help (-h) prints the options and exits.
+- Duotone PSD files: Duotone documents save in Photoshop's Duotone mode (one gray channel with the inks,
+  curves and overprint colors) and Duotone PSD files open as Duotone. Color book inks such as PANTONE show
+  through the Lab colors Photoshop stores with them.
+
+### Changed
+
+- The Duotone curve buttons draw the ink curve as the image shows it, not straight lines between the points.
+- In a Grayscale document, Assign or Convert to Profile reconverts the foreground and background colors so
+  they keep their look under the new Gray profile.
 
 ## [0.3.5] - 2026-10-05
 

@@ -8,7 +8,7 @@ import { artboardIn, artboardOut, layoutIn, layoutOut } from './psd/layout.ts';
 import { rasterMaskOf, readSavedPaths, shapeIn, shapeOut, vectorMaskIn, vectorMaskOut, writeSavedPaths } from './psd/vector.ts';
 import { textIn, textOut } from './psd/text.ts';
 import { filterIn, filterOut, prepareList, opaqueFilter, readPsdRaw, writePsdRaw, type FilterJson, type RawSoLd, type SmartFilterOut } from './psd/filters.ts';
-import { compositeFit, finishPsd, PSD_MAX_CHANNELS, psdForAgPsd, psdLayerCount, psdTransparency, readPsdChannels, type Depth, type PsdChannel } from './psd/depth.ts';
+import { compositeFit, duotoneData, finishPsd, PSD_MAX_CHANNELS, psdForAgPsd, psdLayerCount, psdTransparency, readDuotone, readPsdChannels, type Depth, type DuotoneSpec, type PsdChannel } from './psd/depth.ts';
 
 export { filterIn };
 
@@ -662,8 +662,11 @@ function filtersIn(c: ImportCtx, id: number, l: Layer) {
 export const isPsdBytes = (b: Uint8Array) => b.length >= 4 && b[0] === 0x38 && b[1] === 0x42 && b[2] === 0x50 && b[3] === 0x53;
 
 // The flattened composite as straight RGBA8, width x height x 4.
-export function compositeRgba(e: Engine): Uint8Array {
-  return assembleImage((tx, ty) => e.flatten_tile_rgba8(tx, ty), fullCanvas(e.width(), e.height()), 4, 0);
+// `gray`: before a Bitmap, Duotone or Indexed mapping, as their PSD channel stores it.
+export function compositeRgba(e: Engine, gray = false): Uint8Array {
+  if (!gray) return assembleImage((tx, ty) => e.flatten_tile_rgba8(tx, ty), fullCanvas(e.width(), e.height()), 4, 0);
+  const f = assembleImage((tx, ty) => asBytes(e.flatten_tile_gray_f32(tx, ty)), fullCanvas(e.width(), e.height()), 16, 0);
+  return Uint8Array.from(new Float32Array(f.buffer, f.byteOffset, f.length / 4), v => Math.round(Math.min(1, Math.max(0, v)) * 255));
 }
 
 // Source pixels of an imported smart object: PSD/PSB bytes are parsed and flattened now, image
@@ -890,6 +893,11 @@ export function importPsd(bytes: Uint8Array, opts: { psb?: boolean } = {}): { en
       importLayerComps(c, psd);
       e.delete_node(1);
     }
+    const duotone = readDuotone(bytes, warn);
+    if (duotone) {
+      e.convert_mode(true);
+      e.set_color_mode(JSON.stringify({ mode: 'duotone', ...duotone }));
+    }
     channelsIn(e, bytes, warn);
     return { engine: e, warnings, sources };
   } catch (err) {
@@ -1040,7 +1048,7 @@ function hiLayer({ e, w, h, hi }: ExportCtx, n: ManifestNode, l: Layer, rect: Re
 
 // The flattened image as file planes: gray or red/green/blue, and transparency; partly transparent
 // pixels are matted with white, as ag-psd (and Photoshop) write the composite.
-function compositeOut(e: Engine, depth: Depth, gray: boolean, rgba8: Uint8Array): { color: Uint8Array[]; alpha: Uint8Array } {
+function compositeOut(e: Engine, depth: Depth, gray: boolean, rgba8: Uint8Array, plain = false): { color: Uint8Array[]; alpha: Uint8Array } {
   const w = e.width(), h = e.height();
   let planes: Uint8Array[];
   if (depth === 8) {
@@ -1051,7 +1059,7 @@ function compositeOut(e: Engine, depth: Depth, gray: boolean, rgba8: Uint8Array)
     }
     planes = planesOf(px, 1, 4);
   } else {
-    const fl = assembleImage((tx, ty) => asBytes(e.flatten_tile_f32(tx, ty)), fullCanvas(w, h), 16, 0);
+    const fl = assembleImage((tx, ty) => asBytes(plain ? e.flatten_tile_gray_f32(tx, ty) : e.flatten_tile_f32(tx, ty)), fullCanvas(w, h), 16, 0);
     let f = new Float32Array(fl.buffer, fl.byteOffset, fl.length / 4);
     if (depth === 32) f = e.to_linear_f32(f);
     for (let i = 0; i < f.length; i += 4) {
@@ -1169,12 +1177,17 @@ const grayDoc = (e: Engine) => {
   const v = JSON.parse(e.vector_json()) as { gray?: boolean; mode?: unknown };
   return !!v.gray && !v.mode;
 };
+const duotoneOf = (e: Engine): DuotoneSpec | null => {
+  const m = (JSON.parse(e.vector_json()) as { mode?: { kind: string } & DuotoneSpec }).mode;
+  return m?.kind === 'duotone' ? m : null;
+};
 
 /** The profile to embed in `e`'s PSD: at 32 bits the linear twin the values are written in, in
  * Grayscale the Gray profile (none when untagged), else the RGB profile. */
 export function psdIcc(e: Engine): Uint8Array {
   const twin = e.depth() === 32 ? e.linear_twin_icc() : new Uint8Array(0);
   if (twin.length) return twin;
+  if (duotoneOf(e)) return new Uint8Array(0);
   return grayIcc(e) ?? e.profile_icc();
 }
 
@@ -1189,7 +1202,7 @@ export function grayIcc(e: Engine): Uint8Array | null {
 export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uint8Array<ArrayBuffer>; warnings: string[] } {
   ensureCanvas();
   const w = e.width(), h = e.height();
-  const depth = e.depth() as Depth, gray = grayDoc(e);
+  const duotone = duotoneOf(e), depth = e.depth() as Depth, gray = grayDoc(e) || !!duotone;
   const manifest = JSON.parse(e.manifest()) as {
     layers: ManifestNode[]; global_light: { angle: number; altitude: number };
     patterns: { id: string; name: string; width: number; height: number; blob: number }[];
@@ -1199,7 +1212,7 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
   };
   const warnings: string[] = [];
   const warn = (m: string) => { if (!warnings.includes(m)) warnings.push(m); };
-  const composite = compositeRgba(e);
+  const composite = compositeRgba(e, !!duotone);
   const x: ExportCtx = { e, w, h, warn, names: new Map(manifest.patterns.map(p => [p.id, p.name])), files: new Map(), comps: manifest.layer_comps, fx: [], raws: new Map(),
     res: manifest.resolution, guides: manifest.guides, artboardsLocked: manifest.artboards_locked, hi: gray || depth !== 8 ? { depth, gray } : null,
   };
@@ -1225,7 +1238,7 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
   if (x.fx.length) psd.filterEffectsMasks = x.fx;
   const artboards = manifest.layers.filter(n => n.artboard).length;
   if (artboards) psd.artboards = { count: artboards };
-  const out = x.hi || manifest.channels.length ? compositeOut(e, depth, gray, composite) : null;
+  const out = x.hi || manifest.channels.length ? compositeOut(e, depth, gray, composite, !!duotone) : null;
   let saved = manifest.channels;
   const room = PSD_MAX_CHANNELS - (gray ? 1 : 3) - (out && psdTransparency(composite, out.alpha, depth) ? 1 : 0);
   if (saved.length > room) {
@@ -1237,7 +1250,7 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
   if (JSON.parse(e.vector_json()).variables) warn('variables and data sets are not stored in PSD');
   let bytes: Uint8Array<ArrayBuffer> = new Uint8Array(writePsdRaw(psd, { generateThumbnail: false, psb: !!opts.psb }, x.raws));
   if (out) {
-    bytes = finishPsd(bytes, { psb: !!opts.psb, depth, gray, width: w, height: h, ...out, extras }) as Uint8Array<ArrayBuffer>;
+    bytes = finishPsd(bytes, { psb: !!opts.psb, depth, gray, width: w, height: h, ...out, extras, ...(duotone ? { duotone: duotoneData(duotone) } : {}) }) as Uint8Array<ArrayBuffer>;
   }
   return { bytes: manifest.paths.length ? writeSavedPaths(bytes, manifest.paths, w, h) : bytes, warnings };
 }

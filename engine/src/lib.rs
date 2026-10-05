@@ -1156,6 +1156,11 @@ impl Engine {
         self.0.doc.flatten_tile_f32(tx, ty).map_err(err)
     }
 
+    /// The flattened tile before a Bitmap, Duotone or Indexed mapping (gray in Grayscale-based modes).
+    pub fn flatten_tile_gray_f32(&self, tx: u32, ty: u32) -> Result<Vec<f32>, JsError> {
+        self.0.doc.flatten_tile_gray_f32(tx, ty).map_err(err)
+    }
+
     /// Luminosity, R, G, B counts (4 x 256) of a layer's pixels, or of the composite for id 0.
     pub fn histogram(&self, id: u32) -> Result<Vec<u32>, JsError> {
         self.0.doc.histogram(id).map_err(err)

@@ -729,6 +729,20 @@ impl Document {
         Ok(true)
     }
 
+    /// The flattened tile as straight RGBA before a Bitmap, Duotone or Indexed mapping, in gray for a
+    /// Grayscale-based document: the channel a PSD of those modes stores.
+    pub fn flatten_tile_gray_f32(&self, tx: u32, ty: u32) -> Result<Vec<f32>, String> {
+        self.check_tile_coord(tx, ty)?;
+        let mut px = Document::run_program(&self.program(0, tx, ty).expect("level 0 is valid"));
+        for p in px.chunks_exact_mut(4) {
+            let a = p[3];
+            let s = if a > 0.0 { [p[0] / a, p[1] / a, p[2] / a] } else { [0.0; 3] };
+            let out = if self.vector.gray { [luma(s); 3] } else { s };
+            p[..3].copy_from_slice(&out);
+        }
+        Ok(px)
+    }
+
     // Premultiplied composite `v` as the mode displays it; `level` 0 is full size.
     pub(super) fn mode_map(&self, level: u32, mut v: Vec<f32>) -> Vec<f32> {
         let mode = self.vector.mode.as_ref();
@@ -946,6 +960,17 @@ mod tests {
         d.set_color_mode(&ModeSpec::Rgb).unwrap();
         assert_eq!(get_px(&d, 1, 3, 3), [want[0], want[1], want[2], 255], "RGB bakes the inks");
         assert!(!d.manifest().contains("\"mode\""));
+    }
+
+    #[test]
+    fn the_gray_flatten_is_the_composite_before_the_duotone_inks() {
+        let mut d = Document::new(32, 32, 8).unwrap();
+        fill(&mut d, 1, [128, 128, 128, 255]);
+        d.set_color_mode(&ModeSpec::Gray).unwrap();
+        d.set_color_mode(&spec(r#"{"mode":"duotone","inks":[[0,0,0],[255,0,0]]}"#)).unwrap();
+        let g = 128.0 / 255.0;
+        assert_eq!(&d.flatten_tile_gray_f32(0, 0).unwrap()[..4], &[g, g, g, 1.0]);
+        assert_ne!(&d.flatten_tile_f32(0, 0).unwrap()[..4], &[g, g, g, 1.0], "the display shows the inks");
     }
 
     // Each ink multiplies white by its color at density 1 - g.

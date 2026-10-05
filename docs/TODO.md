@@ -3,9 +3,6 @@
 Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` section 4.
 
 ## M6 Color and photo
-- Image > Mode rest: Duotone data is not read from or written to PSD (the color-mode data is undocumented);
-  the Duotone curve icons draw straight lines between the set points. Grayscale documents keep a neutral paint
-  color as its gray numbers (no reconversion when the Gray profile changes).
 - 32 bits per channel: the paint color is 8-bit (no HDR color picker) and non-Normal paint modes clip at 1.0;
   layers kept in blend modes outside Photoshop's 32-bit list clip; Blur Gallery is disabled in 32-bit
   (Photoshop support unverified); 32 -> 16/8 Bits/Channel with Don't Merge clips (Photoshop reportedly applies

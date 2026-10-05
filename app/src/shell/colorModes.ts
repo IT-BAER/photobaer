@@ -43,9 +43,18 @@ export async function rgbOfSliders(values: number[], kind: Sliders, grayDoc: boo
   return to255(await convert(values.map(v => v / 100), 'cmyk', 'rgb'));
 }
 
-/** A paint color in a Grayscale document: neutral colors are the gray already, others convert. */
-export async function inGray(rgb: Rgb, convert: Convert): Promise<Rgb> {
-  if (neutral(rgb)) return rgb;
+/** The gray `rgb` paints in a Grayscale document, through its Gray profile. */
+export async function grayOf(rgb: Rgb, convert: Convert): Promise<Rgb> {
   const [g] = await convert(rgb.map(v => v / 255), 'rgb', 'gray');
   return to255([g, g, g]);
+}
+
+/** A paint color in a Grayscale document: neutral colors are the gray already, others convert. */
+export async function inGray(rgb: Rgb, convert: Convert): Promise<Rgb> {
+  return neutral(rgb) ? rgb : grayOf(rgb, convert);
+}
+
+/** A Grayscale paint color as RGB through the Gray profile: `grayOf` it after a profile change keeps its look. */
+export async function rgbOfGray(gray: Rgb, convert: Convert): Promise<Rgb> {
+  return to255(await convert([gray[0] / 255], 'gray', 'rgb'));
 }

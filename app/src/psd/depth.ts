@@ -2,6 +2,7 @@
 // channel (layers in an Lr16/Lr32 block, as Photoshop writes them), and alpha and spot channels in the
 // composite (names in 1006/1045/1053 through ag-psd, display info 1077 here). Also reads those channels.
 import { concat, psdResources, psdWithResource, view } from '../app/iccFiles.ts';
+import { hsbToRgb, labToRgb } from '../shell/color.ts';
 
 export type Depth = 8 | 16 | 32;
 export type Rgb = [number, number, number];
@@ -24,6 +25,8 @@ export interface Finish {
   /** The composite transparency plane; written when it holds a sample below opaque. */
   alpha: Uint8Array;
   extras: PsdChannel[];
+  /** The Duotone color mode data: the file is written in mode 8 with the gray channel. */
+  duotone?: Uint8Array;
 }
 
 const bytesOf = (d: Depth) => d / 8;
@@ -178,7 +181,8 @@ export function finishPsd(b: Uint8Array, f: Finish): Uint8Array {
   const hv = view(header);
   hv.setUint16(12, f.color.length + (transparency ? 1 : 0) + f.extras.length);
   hv.setUint16(22, f.depth);
-  hv.setUint16(24, f.gray ? 1 : 3);
+  hv.setUint16(24, f.duotone ? 8 : f.gray ? 1 : 3);
+  const modeData = f.duotone ? concat([lenBytes(f.duotone.length, false), f.duotone, b.subarray(30 + v.getUint32(26), lm)]) : b.subarray(26, lm);
 
   let layerMask = b.subarray(lm, image);
   if (f.gray || f.depth !== 8) {
@@ -209,7 +213,7 @@ export function finishPsd(b: Uint8Array, f: Finish): Uint8Array {
   const planes = [...f.color, ...(transparency ? [f.alpha] : []), ...f.extras.map(c => c.plane)];
   const n = f.width * f.height * bytesOf(f.depth);
   if (planes.some(p => p.length !== n)) throw new Error('composite planes do not match the document size');
-  const out = concat([header, b.subarray(26, lm), layerMask, compositeSection(planes, f.depth, f.width, f.height, psb)]);
+  const out = concat([header, modeData, layerMask, compositeSection(planes, f.depth, f.width, f.height, psb)]);
   return f.extras.length ? psdWithResource(out, 1077, displayInfo(f.extras)) : out;
 }
 
@@ -247,6 +251,11 @@ export function compositeFit(b: Uint8Array): 'ok' | 'truncated' | 'depth' {
 /** `b` cut to its first 16 composite channels, the most ag-psd reads; `readPsdChannels` reads the rest
  * from the full file. Unchanged when it has 16 or fewer. */
 export function psdForAgPsd(b: Uint8Array): Uint8Array {
+  // ag-psd refuses Duotone; the gray channel reads as Grayscale and readDuotone reads the inks.
+  if (view(b).getUint16(24) === 8) {
+    b = b.slice();
+    view(b).setUint16(24, 1);
+  }
   const { v, psb, image } = sections(b);
   const total = v.getUint16(12), keep = 16;
   if (total <= keep) return b;
@@ -348,7 +357,7 @@ export function readPsdChannels(b: Uint8Array): { channels: PsdChannel[]; depth:
   const depth = v.getUint16(22) as Depth, mode = v.getUint16(24);
   const warnings: string[] = [];
   const none = { channels: [], depth, width, height, warnings };
-  const colors = mode === 1 ? 1 : mode === 3 ? 3 : mode === 4 ? 4 : 0;
+  const colors = mode === 1 || mode === 8 ? 1 : mode === 3 ? 3 : mode === 4 ? 4 : 0;
   if (!colors || ![8, 16, 32].includes(depth)) return none;
   const extras = total - colors - (psdLayerCount(b) < 0 ? 1 : 0);
   if (extras <= 0) return none;
@@ -385,4 +394,88 @@ export function readPsdChannels(b: Uint8Array): { channels: PsdChannel[]; depth:
     name: tail(names, i) ?? `Alpha ${i + 1}`, ...(tail(info, i) ?? { kind: 1 as const, color: [255, 0, 0] as Rgb, opacity: 50 }), plane,
   }));
   return { channels, depth, width, height, warnings: [...new Set(warnings)] };
+}
+
+// ---------- Duotone ----------
+
+/** Image > Mode > Duotone in PSD terms: 1 to 4 inks, curves (output % at the 13 inputs, null unset), overprints in engine order. */
+export interface DuotoneSpec { inks: Rgb[]; curves?: (number | null)[][]; overprints?: Rgb[] }
+
+// The color mode data (undocumented, as Photoshop writes it): version, ink count, 4 colors, 4 names
+// (64 bytes), 4 curves (13 values in 0.1 %, -1 unset, then a flag), dot gain, 11 overprint colors.
+const DUO_SIZE = 524, DUO_COLORS = 4, DUO_NAMES = 44, DUO_CURVES = 300, DUO_DOT_GAIN = 412, DUO_OVERPRINTS = 414;
+// Overprint slots as ink bit masks: 1+2, 1+3, 2+3, 1+2+3, 1+4, 2+4, 3+4, 1+2+4, 1+3+4, 2+3+4, 1+2+3+4.
+const OVERPRINT_SLOTS = [3, 5, 6, 7, 9, 10, 12, 11, 13, 14, 15];
+const inkBits = (m: number) => [0, 1, 2, 3].filter(i => (m >> i) & 1);
+// The engine's overprint order: by ink count, then by inks (color_mode.rs overprint_sets).
+const overprintMasks = (n: number) => Array.from({ length: 1 << n }, (_, m) => m).filter(m => inkBits(m).length >= 2)
+  .sort((a, b) => inkBits(a).length - inkBits(b).length || inkBits(a).join('').localeCompare(inkBits(b).join('')));
+
+// A 10-byte color structure as sRGB; null when unset or in a color book, whose values are only the book code.
+function structColor(v: DataView, o: number): Rgb | null {
+  const c = [1, 2, 3, 4].map(i => v.getUint16(o + i * 2));
+  switch (v.getInt16(o)) {
+    case 0: return [Math.round(c[0] / 257), Math.round(c[1] / 257), Math.round(c[2] / 257)];
+    case 1: return hsbToRgb([c[0] / 65535 * 360, c[1] / 65535 * 100, c[2] / 65535 * 100]);
+    // CMYK values are inverted: 65535 is no ink.
+    case 2: return [0, 1, 2].map(i => Math.round(255 * c[i] / 65535 * c[3] / 65535)) as Rgb;
+    case 7: return labToRgb([c[0] / 100, v.getInt16(o + 4) / 100, v.getInt16(o + 6) / 100]);
+    default: return null;
+  }
+}
+
+/** The Duotone inks of a mode 8 PSD; null for other modes or data this reader does not know. Ink colors come
+ * from the Lab alternates (resource 1066) when present, as Photoshop displays them. */
+export function readDuotone(b: Uint8Array, warn: (m: string) => void): DuotoneSpec | null {
+  const v = view(b);
+  if (b.length < 30 || v.getUint16(24) !== 8) return null;
+  const count = v.getUint16(32);
+  if (v.getUint32(26) < DUO_SIZE || v.getUint16(30) !== 1 || count < 1 || count > 4) {
+    warn('the Duotone inks could not be read; the file opened in Grayscale');
+    return null;
+  }
+  const d = 30, alt: (Rgb | null)[] = [];
+  for (const [id, , , p, n] of psdResources(b)) {
+    if (id !== 1066 || n < 4 || v.getUint16(p) !== 1) continue;
+    for (let i = 0; i < v.getUint16(p + 2) && 4 + i * 10 + 10 <= n; i++) alt.push(structColor(v, p + 4 + i * 10));
+  }
+  const inks = Array.from({ length: count }, (_, i) => {
+    const c = alt[i] ?? structColor(v, d + DUO_COLORS + i * 10);
+    if (!c) warn('Duotone inks without a color were opened as black');
+    return c ?? [0, 0, 0] as Rgb;
+  });
+  const curves = inks.map((_, i) => Array.from({ length: 13 }, (_, k) => {
+    const x = v.getInt16(d + DUO_CURVES + i * 28 + k * 2);
+    return x >= 0 && x <= 1000 ? x / 10 : null;
+  }));
+  const slot = new Map(OVERPRINT_SLOTS.map((m, j) => [m, structColor(v, d + DUO_OVERPRINTS + j * 10)]));
+  const masks = overprintMasks(count);
+  // Unset overprints multiply the inks, as the engine does without any.
+  const overprints = masks.some(m => slot.get(m)) ? masks.map(m => slot.get(m)
+    ?? [0, 1, 2].map(k => Math.round(inkBits(m).reduce((p, i) => p * inks[i][k] / 255, 255))) as Rgb) : undefined;
+  return { inks, curves, ...(overprints ? { overprints } : {}) };
+}
+
+/** The color mode data of a Duotone PSD: RGB ink colors named Ink 1 to Ink 4, unset end points at 0 and 100 %. */
+export function duotoneData(spec: DuotoneSpec): Uint8Array {
+  const out = new Uint8Array(DUO_SIZE), v = view(out), n = spec.inks.length;
+  const color = (o: number, c: Rgb | undefined) => {
+    if (!c) { v.setInt16(o, -1); return; }
+    c.forEach((x, k) => v.setUint16(o + 2 + k * 2, x * 257));
+  };
+  v.setUint16(0, 1);
+  v.setUint16(2, n);
+  for (let i = 0; i < 4; i++) {
+    color(DUO_COLORS + i * 10, spec.inks[i]);
+    if (i < n) out.set([5, ...new TextEncoder().encode(`Ink ${i + 1}`)], DUO_NAMES + i * 64);
+    const c = spec.curves?.[i];
+    for (let k = 0; k < 13; k++) {
+      const x = c?.[k] ?? (k === 0 ? 0 : k === 12 ? 100 : null);
+      v.setInt16(DUO_CURVES + i * 28 + k * 2, x === null ? -1 : Math.round(x * 10));
+    }
+  }
+  v.setUint16(DUO_DOT_GAIN, 20);
+  const masks = overprintMasks(n);
+  OVERPRINT_SLOTS.forEach((m, j) => color(DUO_OVERPRINTS + j * 10, spec.overprints?.[masks.indexOf(m)]));
+  return out;
 }

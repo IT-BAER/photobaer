@@ -3,6 +3,7 @@ import { useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { client } from './client.ts';
 import type { DocInfo } from './engine.worker.ts';
 import type { BitmapMethod, InkCurve, ModeSpec } from './worker/types.ts';
+import { INK_CURVE_INPUTS, inkCurve } from './app/inkCurve.ts';
 import type { BrushLibrary } from './brushes/store.ts';
 import { PatternPicker } from './PresetPanels.tsx';
 import { colorTablePreset, fitTable, readTableFile, TABLE_PRESETS, writeAct } from './app/colorTable.ts';
@@ -19,7 +20,7 @@ const DEFAULT_INKS: Rgb3[] = [[0, 0, 0], [228, 120, 40], [40, 110, 190], [230, 2
 const hex = (c: Rgb3) => `#${c.map(v => v.toString(16).padStart(2, '0')).join('')}`;
 const rgb = (h: string): Rgb3 => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) as Rgb3;
 // Duotone Curve inputs in % ink; the 0 and 100 fields start set, the rest empty (skipped).
-const CURVE_INPUTS = [0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100];
+const CURVE_INPUTS = INK_CURVE_INPUTS;
 const IDENTITY: InkCurve = CURVE_INPUTS.map((_, i) => (i === 0 ? 0 : i === 12 ? 100 : null));
 // Indexed Color Matte; Foreground and Background are the swatches, None is no matte.
 const MATTES: [string, string][] = [['none', 'None'], ['foreground', 'Foreground Color'], ['background', 'Background Color'], ['white', 'White'],
@@ -83,7 +84,7 @@ const multiplied = (inks: Rgb3[]) =>
   overprintSets(inks.length).map(s => [0, 1, 2].map(k => Math.round(s.reduce((p, i) => p * inks[i][k] / 255, 1) * 255)) as Rgb3);
 
 function CurveIcon({ curve }: { curve: InkCurve }) {
-  const pts = CURVE_INPUTS.flatMap((x, i) => { const y = curve[i] ?? IDENTITY[i]; return y == null ? [] : [`${x * 0.16},${16 - y * 0.16}`]; });
+  const pts = Array.from({ length: 17 }, (_, x) => `${x},${16 - inkCurve(curve, x / 16) * 16}`);
   return <svg width={16} height={16} viewBox="0 0 16 16" aria-hidden="true"><polyline points={pts.join(' ')} fill="none" stroke="currentColor" /></svg>;
 }
 

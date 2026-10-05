@@ -5,7 +5,8 @@ import { readPsd } from 'ag-psd';
 import { initSync, Engine } from '../engine-pkg/photobaer_engine.js';
 import { exportPsd, importPsd, psdIcc } from '../psd.ts';
 import { grayFile, psdResources } from '../app/iccFiles.ts';
-import { compositeFit, psdLayerCount, readPsdChannels } from './depth.ts';
+import { compositeFit, psdForAgPsd, psdLayerCount, readPsdChannels } from './depth.ts';
+import { labToRgb } from '../shell/color.ts';
 
 initSync({ module: readFileSync(new URL('../engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
 
@@ -275,4 +276,50 @@ test('a flat PSD reads its fourth channel as an alpha channel, not as transparen
     const alpha = depth === 8 ? px[3] : new DataView(px.buffer, px.byteOffset).getUint16(6, true);
     assert.equal(alpha, depth === 8 ? 255 : 65535, `${depth}-bit background stays opaque`);
   }
+});
+
+type DuoMode = { kind: string; inks: number[][]; curves?: (number | null)[][]; overprints?: number[][] };
+const modeOf = (e: Engine) => (JSON.parse(e.vector_json()) as { gray?: boolean; mode?: DuoMode });
+
+test('a Duotone document saves as a Duotone PSD (mode 8, one gray channel) and reopens with its inks, curves and overprints', () => {
+  const e = new Engine(20, 10, 8);
+  e.fill(1, 'pixels', 90, 90, 90, 255);
+  e.put_rgba8(1, 3, 2, 2, 1, Uint8Array.of(200, 200, 200, 255, 30, 30, 30, 255));
+  e.convert_mode(true);
+  const curve = [0, null, 12.5, null, null, null, 40, null, null, 70.3, null, null, 100];
+  const spec = { inks: [[0, 0, 0], [200, 30, 40], [20, 120, 200]], curves: [curve, curve, [null, ...curve.slice(1, 12), null]], overprints: [[10, 0, 0], [0, 20, 0], [0, 0, 30], [5, 5, 5]] };
+  assert.ok(e.set_color_mode(JSON.stringify({ mode: 'duotone', ...spec })));
+  const { bytes, warnings } = exportPsd(e);
+  assert.deepEqual(warnings, []);
+  assert.deepEqual(header(bytes), { channels: 1, depth: 8, mode: 8 });
+  const v = new DataView(bytes.buffer, bytes.byteOffset);
+  assert.equal(v.getUint32(26), 524, 'the color mode data is the duotone specification');
+  assert.equal(psdIcc(e).length, 0, 'Photoshop Duotone files carry no profile');
+  const flat = readPsd(psdForAgPsd(bytes), { useImageData: true, skipThumbnail: true, skipLayerImageData: true }).imageData!.data;
+  assert.deepEqual([...flat.slice(0, 4), ...flat.slice((2 * 20 + 3) * 4, (2 * 20 + 3) * 4 + 4)], [90, 90, 90, 255, 200, 200, 200, 255], 'the composite holds the gray, not the inks');
+  const back = importPsd(bytes).engine;
+  const m = modeOf(back);
+  assert.equal(m.gray, true);
+  assert.deepEqual(m.mode, { kind: 'duotone', inks: spec.inks, curves: [curve, curve, [0, ...curve.slice(1, 12), 100]], overprints: spec.overprints });
+  sameTile(tileOf(back, nodeNamed(back, 'Background').tiles), tileOf(e, nodeNamed(e, 'Background').tiles));
+});
+
+test('a real Photoshop Duotone file opens as Duotone: ink colors from its Lab alternates, curves in 0.1 %', t => {
+  const b = fixture('4x4_8bit_duotone.psd');
+  if (!b) { t.skip('psd-tools fixtures are not in tests/corpus/psd-tools-b5'); return; }
+  const { engine, warnings } = importPsd(b);
+  assert.deepEqual(warnings, []);
+  const m = modeOf(engine);
+  assert.equal(m.gray, true);
+  assert.equal(m.mode?.kind, 'duotone');
+  // Black (CMYK K 100 %) and PANTONE 327 CVC (a color book entry) by their Lab 9.53/4.98/4.25 and 45.49/-66/-5.
+  const near = (got: number[], want: number[]) => assert.ok(got.every((x, i) => Math.abs(x - want[i]) <= 1), `${got} vs ${want}`);
+  near(m.mode!.inks[0], labToRgb([9.53, 4.98, 4.25]));
+  near(m.mode!.inks[1], labToRgb([45.49, -66, -5]));
+  const unset = Array(13).fill(null);
+  assert.deepEqual(m.mode!.curves, [
+    Object.assign([...unset], { 0: 0, 6: 40, 12: 100 }),
+    Object.assign([...unset], { 0: 0, 6: 35, 9: 70, 12: 100 }),
+  ]);
+  assert.equal(m.mode!.overprints, undefined, 'unset overprints multiply the inks');
 });

@@ -59,7 +59,7 @@ import { SLOTS, TOOLS, initialLastUsed, keyToTool, loadToolOptions, saveToolOpti
 import { toolCursor } from './shell/cursors.ts';
 import { BrushesPanel, BrushSettingsPanel } from './shell/BrushPanels.tsx';
 import { hexToRgb, rgbToHex, type Rgb } from './shell/color.ts';
-import { inGray, type Convert } from './shell/colorModes.ts';
+import { grayOf, inGray, rgbOfGray, type Convert } from './shell/colorModes.ts';
 import type { DigitState } from './shell/brushKeys.ts';
 import { HANDLE_CURSORS, SelectionOverlay, boxHandles } from './shell/SelectionOverlay.ts';
 import { Rulers, hitGuide, rulerDragToDoc, type DragGuide } from './shell/rulers.ts';
@@ -2190,15 +2190,30 @@ export function App() {
   function openPicker(which: 'fg' | 'bg') {
     picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v));
   }
-  // Grayscale documents paint in gray: a color from elsewhere converts through the Gray profile.
+  // Grayscale documents paint in gray: a color from elsewhere converts through the Gray profile, and a new
+  // Gray profile of the same document reconverts the paint colors from their RGB twins, so they look the same.
   const grayDoc = !!doc?.gray && !doc.mode;
+  const docId = doc?.docId, grayProfile = grayDoc ? doc!.profile?.name ?? '' : null;
+  const paintTwins = useRef<{ docId: number; profile: string; fg: Rgb; bg: Rgb } | null>(null);
   useEffect(() => {
-    if (!grayDoc) return;
+    if (grayProfile === null || docId === undefined) return;
     let live = true;
-    inGray(fg, convertColor).then(g => { if (live && g !== fg) setFg(g); }, () => {});
-    inGray(bg, convertColor).then(g => { if (live && g !== bg) setBg(g); }, () => {});
+    const twins = paintTwins.current;
+    if (twins && twins.docId === docId && twins.profile !== grayProfile) {
+      paintTwins.current = { ...twins, profile: grayProfile };
+      Promise.all([grayOf(twins.fg, convertColor), grayOf(twins.bg, convertColor)]).then(([f, b]) => { if (live) { setFg(f); setBg(b); } }, () => {});
+    } else {
+      Promise.all([inGray(fg, convertColor), inGray(bg, convertColor)]).then(async ([f, b]) => {
+        if (!live) return;
+        if (f !== fg) setFg(f);
+        if (b !== bg) setBg(b);
+        if (f !== fg || b !== bg) return;
+        const t = { docId, profile: grayProfile, fg: await rgbOfGray(fg, convertColor), bg: await rgbOfGray(bg, convertColor) };
+        if (live) paintTwins.current = t;
+      }, () => {});
+    }
     return () => { live = false; };
-  }, [grayDoc, fg, bg]);
+  }, [docId, grayProfile, fg, bg]);
   const swapColors = () => { setFg(bg); setBg(fg); };
   const resetColors = () => { setFg([0, 0, 0]); setBg([255, 255, 255]); };
 
