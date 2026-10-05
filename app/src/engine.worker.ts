@@ -235,6 +235,9 @@ function applyOpenProfile(e: Engine, p: { name: string | null; icc: Uint8Array |
   if (action === 'assign') e.assign_profile(s.rgb, new Uint8Array());
 }
 
+// Grid points per axis of the CMYK separation table the channel views read.
+const SEPARATION_GRID = 17;
+
 // Profiles loaded with Load... this session, by name.
 const loadedProfiles = new Map<string, { info: IccProfile; bytes: Uint8Array }>();
 // Each engine's view state (View menu proofing); engines without an entry show DEFAULT_VIEW.
@@ -1132,6 +1135,7 @@ const api = {
   // transparent areas show white.
   colorChannelMask(mode: 'cmyk' | 'lab', ch: number, level: number) {
     const e = need();
+    const sep = mode === 'cmyk' ? e.cmyk_separation(SEPARATION_GRID) : null;
     return maskAt(e, level, 255, (tx, ty) => {
       const t = e.display_tile(level, tx, ty) as Uint8Array | undefined;
       if (!t) return null;
@@ -1139,11 +1143,17 @@ const api = {
       for (let i = 0; i < out.length; i++) {
         const a = t[i * 4 + 3];
         const s = (v: number) => (a ? Math.min(255, Math.round((v * 255) / a)) : 255);
-        const g = inkGray(mode, ch, s(t[i * 4]), s(t[i * 4 + 1]), s(t[i * 4 + 2]));
+        const g = inkGray(mode, ch, s(t[i * 4]), s(t[i * 4 + 1]), s(t[i * 4 + 2]), sep);
         out[i] = Math.round(g * a / 255 + 255 - a);
       }
       return out;
     });
+  },
+
+  // The CMYK document's separation table for the Channels panel; null without a CMYK profile.
+  cmykSeparation(): Float32Array | null {
+    const sep = need().cmyk_separation(SEPARATION_GRID);
+    return sep.length ? sep : null;
   },
 
   // Image > Apply Image on pixel layer `id`; `preview` reruns inside the dialog's session.
@@ -1198,7 +1208,17 @@ const api = {
     const label = { rgb: 'RGB Color', gray: 'Grayscale', bitmap: 'Bitmap', duotone: 'Duotone', indexed: 'Indexed Color', cmyk: 'CMYK Color', lab: 'Lab Color', multichannel: 'Multichannel' }[spec.mode];
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     const flatten = (spec.mode === 'bitmap' || spec.mode === 'indexed') && (tree.length > 1 || (tree[0] && tree[0].kind !== 'pixel'));
+    // With color management on, CMYK separates through the working CMYK and leaving CMYK converts
+    // to the working RGB; other modes are flags over RGB storage, so they go to RGB first.
+    const cur = (JSON.parse(e.vector_json()) as { mode?: ColorMode }).mode?.kind;
+    const s = colorSettings;
+    const convert = (name: string) => e.convert_to_profile(name, new Uint8Array(), JSON.stringify({ intent: s!.intent, blackPointCompensation: s!.bpc, dither: s!.dither }));
     return stepIfChanged(label, () => {
+      if (s && spec.mode === 'cmyk' && cur !== 'cmyk' && cur !== 'bitmap' && e.depth() !== 32) {
+        if (cur) e.set_color_mode(JSON.stringify({ mode: 'rgb' }));
+        return convert(s.cmyk ?? CMYK_SPACES[0]) || !!cur;
+      }
+      if (s && spec.mode === 'rgb' && cur === 'cmyk') return convert(s.rgb);
       if (flatten) flattenImage(e, tree);
       return e.set_color_mode(JSON.stringify(spec)) || flatten;
     });

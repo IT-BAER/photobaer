@@ -226,6 +226,28 @@ impl Document {
         p.icc().unwrap_or_default()
     }
 
+    /// The ink values (C, M, Y, K in 0..1) of stored sRGB numbers through the CMYK document's
+    /// profile, sampled on `grid`^3 points, red slowest; empty when there is no CMYK profile.
+    pub fn cmyk_separation(&self, grid: usize) -> Vec<f32> {
+        let Some(p) = self.vector.profile.as_ref().and_then(|p| p.resolve().ok()) else { return vec![] };
+        if self.vector.mode != Some(super::color_mode::ColorMode::Cmyk) || p.space != Space::Cmyk || grid < 2 {
+            return vec![];
+        }
+        let Ok(t) = Transform::new(&Profile::builtin(SRGB).expect("built in"), &p, Intent::Relative, true) else { return vec![] };
+        let step = 1.0 / (grid - 1) as f64;
+        let mut out = Vec::with_capacity(grid * grid * grid * 4);
+        let mut o = [0.0f64; 4];
+        for r in 0..grid {
+            for g in 0..grid {
+                for b in 0..grid {
+                    t.apply(&[r as f64 * step, g as f64 * step, b as f64 * step], &mut o);
+                    out.extend(o.map(|v| v.clamp(0.0, 1.0) as f32));
+                }
+            }
+        }
+        out
+    }
+
     /// The display table for this document, when its profile displays differently from sRGB.
     pub(super) fn display_profile(&self) -> Option<Rc<Lut>> {
         use super::color_mode::ColorMode as M;
@@ -313,6 +335,21 @@ mod tests {
         assert!(d.convert_to_profile(&srgb, ConvertOpts::default()).unwrap());
         assert_eq!(d.vector.mode, None);
         assert_eq!(get_px(&d, 1, 0, 0)[..3], blue[..3], "back to RGB keeps the printed look");
+    }
+
+    #[test]
+    fn cmyk_separation_samples_the_document_profile() {
+        let mut d = Document::new(64, 64, 8).unwrap();
+        assert!(d.cmyk_separation(5).is_empty(), "RGB document");
+        d.convert_to_profile(&Profile::builtin(crate::icc::COATED_CMYK).unwrap(), ConvertOpts::default()).unwrap();
+        let t = d.cmyk_separation(5);
+        assert_eq!(t.len(), 5 * 5 * 5 * 4);
+        let at = |r: usize, g: usize, b: usize| &t[((r * 5 + g) * 5 + b) * 4..][..4];
+        assert!(at(4, 4, 4).iter().all(|&v| v < 0.02), "white is paper: {:?}", at(4, 4, 4));
+        let black = at(0, 0, 0);
+        assert!(black[3] > 0.6 && black.iter().sum::<f32>() <= 3.01, "rich black within the ink limit: {black:?}");
+        let cyan = at(0, 4, 4);
+        assert!(cyan[0] > 0.4 && cyan[1] < 0.05 && cyan[2] < cyan[0] / 2.0 && cyan[3] < 0.05, "cyan separates to cyan ink: {cyan:?}");
     }
 
     #[test]

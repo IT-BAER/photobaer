@@ -4,14 +4,18 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 
 ## Not yet placed in a milestone
 - PSD Puppet Warp import: check the vertex space against a Photoshop file (deferred, no sample file).
+- User feedback (5 October 2026): the canvas cursor does not change with the selected tool (each tool should
+  show its own cursor, like Photoshop).
+- User feedback (5 October 2026): marquee and lasso selections stop at the canvas edge; a drag must be able to
+  start and continue outside the canvas (the selection is clipped to the document, the pointer is not).
 
 ## M6 Color and photo
 - Image > Mode rest: Bitmap Halftone Screen, Custom Pattern and output resolution; Duotone ink curves and
   overprint colors; Indexed Custom/Previous palette and Matte. Modes are flags over RGB storage: CMYK and Lab
   use no profile until Color Settings; color pickers still offer RGB; PSD export stays RGB.
 - 32 bits per channel: edits and filters clip at 1.0; HDR-aware adjustments (Exposure, HDR Toning) still clip.
-- Color management rest: Image > Mode > CMYK Color ignores the working CMYK and the CMYK channel views use a
-  plain formula, not the profile; WebP export embeds no profile;
+- Color management rest: with color management off, Image > Mode > CMYK Color only sets the flag and the
+  CMYK channel views use a plain formula; Lab, Multichannel and Duotone ignore profiles; WebP export embeds no profile;
   Color Settings Advanced (desaturate monitor colors, blend RGB with gamma) and ColorSync/older-version presets;
   paste and drag between documents with different profiles; Gray working space for Image > Mode > Grayscale and
   embedded Gray profiles on open; loaded profiles as working spaces; Assign Profile live preview; open-time
@@ -70,10 +74,6 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   paragraph style only, and the type layer keeps its name.
 
 ## M9 Remaining
-- Workspaces: presets, save, delete, lock; Window > Arrange (tile, 2/3/4/6-up, float, match zoom and location).
-- Panels: Histogram, Info, Tool Presets, Actions (M8), Notes, Measurement Log, Timeline (last).
-- Tools: Ruler, Count, Color Sampler, Note, Slice and Slice Select, Artboard tool, Frame tool.
-- Image > Analysis: measurement scale, record measurements, scale marker.
 - Edit: Toggle Last State (Ctrl+Alt+Z), Paste Outside, Check Spelling, Find and Replace Text, Purge.
 - Edit: Define Brush Preset, Define Pattern, Define Custom Shape; Preset Manager.
 - Edit: Keyboard Shortcuts editor, Menus and Toolbar customization, Preferences pages beyond Units & Rulers and Guides, Grid & Slices.
@@ -93,4 +93,4 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   Spanish, Portuguese (BR), Italian, Japanese, Chinese, Korean), with a language picker; menu labels match
   each language's Photoshop terms so users find commands by the names they know.
 - Help: Keyboard Shortcuts reference, System Info.
-- Video layers and timeline last; drop if nobody needs them.
+- Video layers and the Timeline panel last; drop if nobody needs them.

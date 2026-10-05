@@ -64,7 +64,8 @@ function useThumbs(doc: DocInfo, maskId: number | null) {
       const nav = await client.call('navigatorThumb', THUMB * 2);
       const rgba = new Uint8Array(nav.data);
       const ink = inkMode(doc);
-      const chans = ink ? MODE_CHANNELS[ink].map((_, c) => inkThumb(rgba, ink, c)) : [0, 1, 2].map(c => channelThumb(rgba, c));
+      const sep = ink === 'cmyk' ? await client.call('cmykSeparation') : null;
+      const chans = ink ? MODE_CHANNELS[ink].map((_, c) => inkThumb(rgba, ink, c, sep)) : [0, 1, 2].map(c => channelThumb(rgba, c));
       const color = [new Uint8ClampedArray(rgba), ...chans].map(data => ({ w: nav.w, h: nav.h, data }));
       let level = 0;
       while (level < 8 && Math.max(doc.width, doc.height) >> (level + 1) >= THUMB * 2) level++;

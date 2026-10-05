@@ -911,6 +911,12 @@ impl Engine {
         self.0.doc.profile_icc()
     }
 
+    /// C, M, Y, K (0..1) of stored sRGB on a `grid`^3 table, red slowest, for the CMYK channel
+    /// views; empty when the document has no CMYK profile.
+    pub fn cmyk_separation(&self, grid: usize) -> Vec<f32> {
+        self.0.doc.cmyk_separation(grid)
+    }
+
     pub fn new_channel(&mut self, name: &str) -> Result<u32, JsError> {
         self.0.doc.new_channel(name).map_err(err)
     }

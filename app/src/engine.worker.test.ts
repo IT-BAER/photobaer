@@ -916,6 +916,41 @@ test('Color Settings: new documents get the working RGB, PSD saves embed it, ope
   assert.equal(read.version, shown.version);
 });
 
+test('Image > Mode > CMYK Color separates with the working CMYK; RGB Color converts to the working RGB', async () => {
+  await call('init');
+  const s = { rgb: 'sRGB IEC61966-2.1', cmyk: 'Coated Offset CMYK (analytic)', gray: 'Dot Gain 20%', rgbPolicy: 'preserveEmbedded', grayPolicy: 'preserveEmbedded', askWhenOpening: false, askWhenMissing: false, intent: 'relativeColorimetric', bpc: true, dither: false };
+  await call('setColorSettings', s);
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', [0, 0, 255, 255]);
+  await call('addLayer', 1);
+  type I = { mode: { kind: string } | null; profile: { name: string } | null; layers: unknown[]; history: { labels: string[] } };
+  const c = (await call('setColorMode', { mode: 'cmyk' })).result as I;
+  assert.equal(c.mode?.kind, 'cmyk');
+  assert.equal(c.profile?.name, 'Coated Offset CMYK (analytic)');
+  assert.equal(c.layers.length, 2, 'not flattened');
+  assert.deepEqual(c.history.labels.slice(-1), ['CMYK Color']);
+  const blue = (await call('sample', 5, 5, 1, null)).result as number[];
+  assert.ok(blue[2] < 230 && blue[0] > 20, `printed blue: ${blue}`);
+  assert.equal(((await call('cmykSeparation')).result as Float32Array).length, 17 ** 3 * 4);
+  // Black channel of the printed blue: the plain formula would show max(r, g, b).
+  const k = new Uint8Array(((await call('colorChannelMask', 'cmyk', 3, 0)).result as { data: ArrayBuffer }).data)[5 * 64 + 5];
+  assert.ok(Math.abs(k - Math.max(...blue.slice(0, 3))) > 10, `black from the profile: ${k} vs ${blue}`);
+  const u = (await call('undo')).result as I;
+  assert.equal(u.mode, null);
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [0, 0, 255, 255]);
+  await call('redo');
+  const r = (await call('setColorMode', { mode: 'rgb' })).result as I;
+  assert.equal(r.mode, null);
+  assert.equal(r.profile?.name, 'sRGB IEC61966-2.1');
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, blue, 'back to RGB keeps the printed look');
+  await call('setColorSettings', null);
+  await call('newDoc', 64, 64, 8, [0, 0, 255, 255]);
+  const off = (await call('setColorMode', { mode: 'cmyk' })).result as I;
+  assert.equal(off.mode?.kind, 'cmyk');
+  assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [0, 0, 255, 255], 'color management off: flag only');
+  assert.equal((await call('cmykSeparation')).result, null, 'no CMYK profile: plain formula');
+});
+
 test('Image > Mode: Indexed Color flattens in one step, Color Table remaps, Duotone needs Grayscale', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);

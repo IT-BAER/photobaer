@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Image > Mode > CMYK Color separates through the working CMYK profile from Color Settings (one undo step),
+  and RGB Color from CMYK converts to the working RGB profile.
+- The Cyan, Magenta, Yellow and Black channel views and thumbnails show the ink amounts of the document's
+  CMYK profile.
+
 ### Fixed
 
 - The plain text feature page no longer flashes on a white page while the app loads.

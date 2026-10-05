@@ -17,12 +17,28 @@ export const MODE_CHANNELS = { cmyk: ['Cyan', 'Magenta', 'Yellow', 'Black'], lab
 const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
 const labF = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116);
 
-// The gray (0..255) one CMYK or Lab channel shows for sRGB 0..255: CMYK with full black
-// generation and no profile, Lab from sRGB under D65 with a and b offset by 128.
-export function inkGray(mode: 'cmyk' | 'lab', ch: number, r: number, g: number, b: number): number {
+// Ink `ch` (0..1) of sRGB 0..1 from a separation table (n^3 x CMYK, red slowest), trilinear.
+function separate(sep: Float32Array, ch: number, c: [number, number, number]): number {
+  const n = Math.round(Math.cbrt(sep.length / 4)), [i, f] = [[0, 0, 0], [0, 0, 0]];
+  c.forEach((v, k) => { const x = v * (n - 1); i[k] = Math.min(n - 2, Math.floor(x)); f[k] = x - i[k]; });
+  let v = 0;
+  for (let k = 0; k < 8; k++) {
+    const d = [k >> 2, (k >> 1) & 1, k & 1];
+    const w = d.reduce((p, o, j) => p * (o ? f[j] : 1 - f[j]), 1);
+    v += w * sep[(((i[0] + d[0]) * n + i[1] + d[1]) * n + i[2] + d[2]) * 4 + ch];
+  }
+  return v;
+}
+
+// The gray (0..255) one CMYK or Lab channel shows for sRGB 0..255: CMYK through the document's
+// separation table `sep`, without one with full black generation and no profile; Lab from sRGB
+// under D65 with a and b offset by 128.
+export function inkGray(mode: 'cmyk' | 'lab', ch: number, r: number, g: number, b: number, sep?: Float32Array | null): number {
   const [R, G, B] = [r / 255, g / 255, b / 255];
   let v: number;
-  if (mode === 'cmyk') {
+  if (mode === 'cmyk' && sep?.length) {
+    v = 1 - separate(sep, ch, [R, G, B]);
+  } else if (mode === 'cmyk') {
     const max = Math.max(R, G, B);
     v = ch === 3 ? max : max > 0 ? [R, G, B][ch] / max : 1;
   } else {
@@ -36,10 +52,10 @@ export function inkGray(mode: 'cmyk' | 'lab', ch: number, r: number, g: number, 
 }
 
 // One CMYK or Lab channel of a straight RGBA thumbnail as gray RGBA.
-export function inkThumb(rgba: Uint8Array, mode: 'cmyk' | 'lab', ch: number): Uint8ClampedArray<ArrayBuffer> {
+export function inkThumb(rgba: Uint8Array, mode: 'cmyk' | 'lab', ch: number, sep?: Float32Array | null): Uint8ClampedArray<ArrayBuffer> {
   const out = new Uint8ClampedArray(rgba.length);
   for (let i = 0; i < rgba.length; i += 4) {
-    out[i] = out[i + 1] = out[i + 2] = inkGray(mode, ch, rgba[i], rgba[i + 1], rgba[i + 2]);
+    out[i] = out[i + 1] = out[i + 2] = inkGray(mode, ch, rgba[i], rgba[i + 1], rgba[i + 2], sep);
     out[i + 3] = rgba[i + 3];
   }
   return out;

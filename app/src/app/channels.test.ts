@@ -29,3 +29,11 @@ test('inkGray: CMYK with full black generation and Lab from sRGB', () => {
   assert.deepEqual([...inkThumb(new Uint8Array([255, 0, 0, 77]), 'cmyk', 1)], [0, 0, 0, 77]);
   assert.deepEqual(viewState({ rgb: [false, false, false], alpha: [], ink: 2 }).ink, 2);
 });
+
+test('inkGray: CMYK through a separation table, interpolated between grid points', () => {
+  // 2x2x2 table, red slowest: C = 1 - r, M = g, Y = b / 2, K = 0.25.
+  const t = new Float32Array(8 * 4);
+  for (let r = 0; r < 2; r++) for (let g = 0; g < 2; g++) for (let b = 0; b < 2; b++) t.set([1 - r, g, b / 2, 0.25], ((r * 2 + g) * 2 + b) * 4);
+  assert.deepEqual([0, 1, 2, 3].map(c => inkGray('cmyk', c, 51, 102, 255, t)), [51, 153, 128, 191]);
+  assert.deepEqual([...inkThumb(new Uint8Array([255, 0, 0, 77]), 'cmyk', 0, t)], [255, 255, 255, 77]);
+});
