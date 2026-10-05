@@ -2,9 +2,6 @@
 
 Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` section 4.
 
-## Not yet placed in a milestone
-- PSD Puppet Warp import: check the vertex space against a Photoshop file (deferred, no sample file).
-
 ## M6 Color and photo
 - Image > Mode rest: Duotone data is not read from or written to PSD (the color-mode data is undocumented);
   the Duotone curve icons draw straight lines between the set points. Grayscale documents keep a neutral paint
