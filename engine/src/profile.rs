@@ -108,6 +108,23 @@ pub struct ConvertOpts {
     pub dither: bool,
 }
 
+// `dst` (N channels, 0..1) of sRGB sampled on `grid`^3 points, red slowest; empty when no transform.
+fn srgb_grid<const N: usize>(dst: &Profile, grid: usize) -> Vec<f32> {
+    let Ok(t) = Transform::new(&Profile::builtin(SRGB).expect("built in"), dst, Intent::Relative, true) else { return vec![] };
+    let step = 1.0 / (grid - 1) as f64;
+    let mut out = Vec::with_capacity(grid * grid * grid * N);
+    let mut o = [0.0f64; N];
+    for r in 0..grid {
+        for g in 0..grid {
+            for b in 0..grid {
+                t.apply(&[r as f64 * step, g as f64 * step, b as f64 * step], &mut o);
+                out.extend(o.map(|v| v.clamp(0.0, 1.0) as f32));
+            }
+        }
+    }
+    out
+}
+
 impl Document {
     pub fn profile(&self) -> Option<&DocProfile> {
         self.vector.profile.as_ref()
@@ -142,6 +159,10 @@ impl Document {
     pub fn assign_profile(&mut self, p: Option<&Profile>) -> Result<bool, String> {
         self.check_idle()?;
         if let Some(p) = p {
+            use super::color_mode::ColorMode as M;
+            if matches!(self.vector.mode, Some(M::Bitmap | M::Duotone { .. } | M::Multichannel)) {
+                return Err("Bitmap, Duotone and Multichannel documents have no profile".into());
+            }
             if p.space != self.mode_space() {
                 return Err(format!("\"{}\" is not a {} profile", p.name, self.mode_space().label()));
             }
@@ -233,19 +254,17 @@ impl Document {
         if self.vector.mode != Some(super::color_mode::ColorMode::Cmyk) || p.space != Space::Cmyk || grid < 2 {
             return vec![];
         }
-        let Ok(t) = Transform::new(&Profile::builtin(SRGB).expect("built in"), &p, Intent::Relative, true) else { return vec![] };
-        let step = 1.0 / (grid - 1) as f64;
-        let mut out = Vec::with_capacity(grid * grid * grid * 4);
-        let mut o = [0.0f64; 4];
-        for r in 0..grid {
-            for g in 0..grid {
-                for b in 0..grid {
-                    t.apply(&[r as f64 * step, g as f64 * step, b as f64 * step], &mut o);
-                    out.extend(o.map(|v| v.clamp(0.0, 1.0) as f32));
-                }
-            }
+        srgb_grid::<4>(&p, grid)
+    }
+
+    /// L*, a*, b* of the Lab document's stored sRGB numbers in D50 (relative colorimetric), encoded
+    /// as ICC 8-bit Lab (L 0..100 and a, b -128..127 to 0..1) on `grid`^3 points, red slowest;
+    /// empty unless the document is Lab.
+    pub fn lab_table(&self, grid: usize) -> Vec<f32> {
+        if self.vector.mode != Some(super::color_mode::ColorMode::Lab) || grid < 2 {
+            return vec![];
         }
-        out
+        srgb_grid::<3>(&Profile::builtin(crate::icc::LAB).expect("built in"), grid)
     }
 
     /// The display table for this document, when its profile displays differently from sRGB.
@@ -350,6 +369,23 @@ mod tests {
         assert!(black[3] > 0.6 && black.iter().sum::<f32>() <= 3.01, "rich black within the ink limit: {black:?}");
         let cyan = at(0, 4, 4);
         assert!(cyan[0] > 0.4 && cyan[1] < 0.05 && cyan[2] < cyan[0] / 2.0 && cyan[3] < 0.05, "cyan separates to cyan ink: {cyan:?}");
+    }
+
+    #[test]
+    fn lab_table_is_icc_lab_d50_of_the_stored_srgb() {
+        let mut d = Document::new(64, 64, 8).unwrap();
+        assert!(d.lab_table(3).is_empty(), "RGB document");
+        d.set_color_mode(&super::super::color_mode::ModeSpec::Lab).unwrap();
+        let t = d.lab_table(3);
+        assert_eq!(t.len(), 3 * 3 * 3 * 3);
+        let at = |r: usize, g: usize, b: usize| {
+            let v = &t[((r * 3 + g) * 3 + b) * 3..][..3];
+            [v[0] as f64 * 100.0, v[1] as f64 * 255.0 - 128.0, v[2] as f64 * 255.0 - 128.0]
+        };
+        let near = |v: [f64; 3], e: [f64; 3]| v.iter().zip(e).all(|(a, b)| (a - b).abs() < 0.5);
+        assert!(near(at(2, 2, 2), [100.0, 0.0, 0.0]), "white: {:?}", at(2, 2, 2));
+        assert!(near(at(2, 0, 0), [54.29, 80.8, 69.9]), "red: {:?}", at(2, 0, 0));
+        assert!(near(at(0, 0, 0), [0.0, 0.0, 0.0]), "black: {:?}", at(0, 0, 0));
     }
 
     #[test]

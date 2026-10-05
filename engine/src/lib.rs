@@ -917,6 +917,12 @@ impl Engine {
         self.0.doc.cmyk_separation(grid)
     }
 
+    /// L*, a*, b* (ICC 8-bit encoding, 0..1) of stored sRGB in D50 on a `grid`^3 table, red slowest,
+    /// for the Lab channel views; empty unless the document is Lab.
+    pub fn lab_table(&self, grid: usize) -> Vec<f32> {
+        self.0.doc.lab_table(grid)
+    }
+
     pub fn new_channel(&mut self, name: &str) -> Result<u32, JsError> {
         self.0.doc.new_channel(name).map_err(err)
     }

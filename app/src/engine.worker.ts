@@ -20,7 +20,7 @@ import type { TextJson } from './psd/text.ts';
 import type { Spot, AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { boxScale, thumbSize } from './app/navigator.ts';
 import { inkGray } from './app/channels.ts';
-import { CMYK_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
+import { CMYK_SPACES, RGB_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
 import { DEFAULT_VIEW, engineView, sanitizeHdr, type ViewState } from './app/proof.ts';
 import { grayFile, psdWithIcc, readIcc } from './app/iccFiles.ts';
 import { embedInfo, hasInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
@@ -1145,7 +1145,7 @@ const api = {
   // transparent areas show white.
   colorChannelMask(mode: 'cmyk' | 'lab', ch: number, level: number) {
     const e = need();
-    const sep = mode === 'cmyk' ? e.cmyk_separation(SEPARATION_GRID) : null;
+    const sep = mode === 'cmyk' ? e.cmyk_separation(SEPARATION_GRID) : e.lab_table(SEPARATION_GRID);
     return maskAt(e, level, 255, (tx, ty) => {
       const t = e.display_tile(level, tx, ty) as Uint8Array | undefined;
       if (!t) return null;
@@ -1164,6 +1164,12 @@ const api = {
   cmykSeparation(): Float32Array | null {
     const sep = need().cmyk_separation(SEPARATION_GRID);
     return sep.length ? sep : null;
+  },
+
+  // The Lab document's ICC Lab table for the Channels panel; null unless the document is Lab.
+  labTable(): Float32Array | null {
+    const t = need().lab_table(SEPARATION_GRID);
+    return t.length ? t : null;
   },
 
   // Image > Apply Image on pixel layer `id`; `preview` reruns inside the dialog's session.
@@ -1233,7 +1239,10 @@ const api = {
     const flatten = (spec.mode === 'bitmap' || spec.mode === 'indexed') && (tree.length > 1 || (tree[0] && tree[0].kind !== 'pixel'));
     // With color management on, CMYK separates through the working CMYK, Grayscale from RGB or CMYK
     // through the working Gray, and RGB from CMYK or Grayscale converts to the working RGB; other modes
-    // are flags over RGB storage, so they go to RGB first. 32-bit documents keep the flag conversions.
+    // are flags over RGB storage, so they go to RGB first. Lab holds sRGB numbers, so Lab from RGB,
+    // Grayscale or CMYK converts to sRGB and RGB from Lab converts sRGB to the working RGB. Bitmap,
+    // Duotone and Multichannel have no profile; Grayscale from them tags the working Gray. 32-bit
+    // documents keep the flag conversions.
     const vec = JSON.parse(e.vector_json()) as { mode?: ColorMode; gray?: boolean };
     const cur = vec.mode?.kind;
     const s = colorSettings;
@@ -1247,8 +1256,19 @@ const api = {
       }
       if (s && spec.mode === 'gray' && !vec.gray && (!cur || cur === 'cmyk') && e.depth() !== 32) return convert(s.gray);
       if (s && spec.mode === 'rgb' && (cur === 'cmyk' || (!cur && vec.gray && e.depth() !== 32))) return convert(s.rgb) || e.set_color_mode(JSON.stringify(spec));
+      if (s && spec.mode === 'lab' && (!cur || cur === 'cmyk') && e.depth() !== 32) {
+        convert(RGB_SPACES[0]);
+        return e.set_color_mode(JSON.stringify(spec));
+      }
+      if (s && spec.mode === 'rgb' && cur === 'lab') {
+        e.set_color_mode(JSON.stringify(spec));
+        e.assign_profile(RGB_SPACES[0], new Uint8Array());
+        convert(s.rgb);
+        return true;
+      }
       if (flatten) flattenImage(e, tree);
       const changed = e.set_color_mode(JSON.stringify(spec)) || flatten;
+      if (s && spec.mode === 'gray' && (cur === 'bitmap' || cur === 'duotone' || cur === 'multichannel')) e.assign_profile(s.gray, loadedProfiles.get(s.gray)?.bytes ?? new Uint8Array());
       const mode = (JSON.parse(e.vector_json()) as { mode?: ColorMode }).mode;
       if (spec.mode === 'indexed' && mode?.kind === 'indexed') previousTable = mode.table;
       return changed;

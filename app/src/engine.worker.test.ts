@@ -7,6 +7,7 @@ import { concat, crc, embedIcc, psdWithIcc } from './app/iccFiles.ts';
 import { Autosave } from './autosave.ts';
 import { tileIds } from './project.ts';
 import { loadEngine } from './worker/helpers.ts';
+import { inkGray } from './app/channels.ts';
 import { FakeDir, fs } from './fake-opfs.ts';
 import { engineMesh, identityMesh } from './transform/warp.ts';
 import { croppedSize } from './crop/geometry.ts';
@@ -987,6 +988,56 @@ test('Image > Mode > CMYK Color separates with the working CMYK; RGB Color conve
   assert.equal(off.mode?.kind, 'cmyk');
   assert.deepEqual((await call('sample', 5, 5, 1, null)).result, [0, 0, 255, 255], 'color management off: flag only');
   assert.equal((await call('cmykSeparation')).result, null, 'no CMYK profile: plain formula');
+});
+
+test('Image > Mode > Lab Color reads a tagged document as sRGB numbers; RGB Color converts to the working RGB', async () => {
+  await call('init');
+  const s = { rgb: 'Adobe RGB (1998)', cmyk: 'Coated Offset CMYK (analytic)', gray: 'Dot Gain 20%', rgbPolicy: 'preserveEmbedded', grayPolicy: 'preserveEmbedded', askWhenOpening: false, askWhenMissing: false, intent: 'relativeColorimetric', bpc: true, dither: false };
+  type I = { mode: { kind: string } | null; profile: { name: string } | null; history: { labels: string[] } };
+  const px = async () => (await call('sample', 5, 5, 1, null)).result as number[];
+  await call('setColorSettings', s);
+  await call('newDoc', 64, 64, 8, [100, 150, 50, 255]);
+  await call('assignProfile', 'Adobe RGB (1998)');
+  assert.equal((await call('labTable')).result, null, 'RGB document');
+  const lr = await call('setColorMode', { mode: 'lab' });
+  assert.equal(lr.error, undefined);
+  const lab = lr.result as I;
+  assert.equal(lab.mode?.kind, 'lab');
+  assert.deepEqual(lab.history.labels.slice(-1), ['Lab Color']);
+  const srgb = await px();
+  assert.ok(Math.abs(srgb[0] - 100) > 10 && Math.abs(srgb[2] - 50) > 10, `Adobe RGB as sRGB numbers: ${srgb}`);
+  const t = (await call('labTable')).result as Float32Array;
+  assert.equal(t.length, 17 ** 3 * 3);
+  const l = new Uint8Array(((await call('colorChannelMask', 'lab', 0, 0)).result as { data: ArrayBuffer }).data)[5 * 64 + 5];
+  assert.equal(l, inkGray('lab', 0, srgb[0], srgb[1], srgb[2], t));
+  const back = (await call('setColorMode', { mode: 'rgb' })).result as I;
+  assert.equal(back.mode, null);
+  assert.equal(back.profile?.name, 'Adobe RGB (1998)');
+  const rgb = await px();
+  assert.ok(rgb.every((v, i) => Math.abs(v - [100, 150, 50, 255][i]) <= 2), `round trip: ${rgb}`);
+  await call('setColorSettings', null);
+});
+
+test('Duotone, Bitmap and Multichannel drop the profile; Grayscale from them tags the working Gray', async () => {
+  await call('init');
+  const s = { rgb: 'sRGB IEC61966-2.1', cmyk: 'Coated Offset CMYK (analytic)', gray: 'Dot Gain 20%', rgbPolicy: 'preserveEmbedded', grayPolicy: 'preserveEmbedded', askWhenOpening: false, askWhenMissing: false, intent: 'relativeColorimetric', bpc: true, dither: false };
+  type I = { mode: { kind: string } | null; profile: { name: string } | null };
+  await call('setColorSettings', s);
+  await call('newDoc', 64, 64, 8, [200, 50, 10, 255]);
+  assert.equal(((await call('setColorMode', { mode: 'gray' })).result as I).profile?.name, 'Dot Gain 20%');
+  for (const spec of [{ mode: 'duotone', inks: [[0, 0, 0]] }, { mode: 'bitmap', method: 'threshold' }]) {
+    const d = (await call('setColorMode', spec)).result as I;
+    assert.equal(d.mode?.kind, spec.mode);
+    assert.equal(d.profile, null, `${spec.mode} has no profile`);
+    assert.ok((await call('assignProfile', 'Dot Gain 20%')).error, `${spec.mode} refuses a profile`);
+    assert.equal(((await call('setColorMode', { mode: 'gray' })).result as I).profile?.name, 'Dot Gain 20%');
+  }
+  await call('setColorMode', { mode: 'rgb' });
+  assert.equal(((await call('setColorMode', { mode: 'multichannel' })).result as I).profile, null);
+  assert.equal(((await call('setColorMode', { mode: 'gray' })).result as I).profile?.name, 'Dot Gain 20%');
+  await call('setColorSettings', null);
+  await call('setColorMode', { mode: 'duotone', inks: [[0, 0, 0]] });
+  assert.equal(((await call('setColorMode', { mode: 'gray' })).result as I).profile, null, 'color management off: untagged');
 });
 
 test('Image > Mode > Grayscale converts to the working Gray; RGB Color from Grayscale converts to the working RGB', async () => {

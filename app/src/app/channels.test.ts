@@ -37,3 +37,12 @@ test('inkGray: CMYK through a separation table, interpolated between grid points
   assert.deepEqual([0, 1, 2, 3].map(c => inkGray('cmyk', c, 51, 102, 255, t)), [51, 153, 128, 191]);
   assert.deepEqual([...inkThumb(new Uint8Array([255, 0, 0, 77]), 'cmyk', 0, t)], [255, 255, 255, 77]);
 });
+
+test('inkGray: Lab through an ICC Lab table, falling back to the formula without one', () => {
+  // 2x2x2 table, red slowest: L = r, a = g, b = 0.5.
+  const t = new Float32Array(8 * 3);
+  for (let r = 0; r < 2; r++) for (let g = 0; g < 2; g++) for (let b = 0; b < 2; b++) t.set([r, g, 0.5], ((r * 2 + g) * 2 + b) * 3);
+  assert.deepEqual([0, 1, 2].map(c => inkGray('lab', c, 51, 102, 255, t)), [51, 102, 128]);
+  assert.deepEqual([...inkThumb(new Uint8Array([255, 0, 0, 77]), 'lab', 1, t)], [0, 0, 0, 77]);
+  assert.deepEqual([0, 1, 2].map(c => inkGray('lab', c, 255, 0, 0, null)), [136, 208, 195]);
+});

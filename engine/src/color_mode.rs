@@ -665,6 +665,9 @@ impl Document {
             ModeSpec::Multichannel => (false, Some(ColorMode::Multichannel)),
         };
         d.vector.gray = gray;
+        if matches!(mode, Some(ColorMode::Bitmap | ColorMode::Duotone { .. } | ColorMode::Multichannel)) {
+            d.vector.profile = None;
+        }
         d.vector.mode = mode;
         *self = d;
         Ok(true)
@@ -1062,6 +1065,27 @@ mod tests {
         let bad = |t: &str| spec(&format!(r#"{{"mode":"indexed","palette":"custom","table":{t},"colors":256,"transparency":false,"dither":"none","amount":1}}"#));
         assert!(d.clone().set_color_mode(&bad("[]")).is_err(), "a custom table holds 1 to 256 colors");
         assert!(d.clone().set_color_mode(&bad(&format!("[{}]", vec!["[1,2,3]"; 257].join(",")))).is_err());
+    }
+
+    #[test]
+    fn duotone_bitmap_multichannel_carry_no_profile() {
+        let gray = crate::icc::Profile::builtin("Gray Gamma 2.2").unwrap();
+        let mut d = Document::new(16, 16, 8).unwrap();
+        d.set_color_mode(&ModeSpec::Gray).unwrap();
+        d.assign_profile(Some(&gray)).unwrap();
+        let duo = ModeSpec::Duotone { inks: vec![[0, 0, 0]], curves: vec![], overprints: vec![] };
+        for s in [duo, ModeSpec::Bitmap { method: BitmapMethod::Threshold, resolution: None }] {
+            assert!(d.set_color_mode(&s).unwrap());
+            assert!(d.profile().is_none(), "{s:?} drops the tag");
+            assert!(d.assign_profile(Some(&gray)).is_err(), "{s:?} refuses a profile");
+            d.set_color_mode(&ModeSpec::Gray).unwrap();
+            d.assign_profile(Some(&gray)).unwrap();
+        }
+        d.set_color_mode(&ModeSpec::Rgb).unwrap();
+        d.assign_profile(Some(&crate::icc::Profile::builtin(crate::icc::SRGB).unwrap())).unwrap();
+        assert!(d.set_color_mode(&ModeSpec::Multichannel).unwrap());
+        assert!(d.profile().is_none());
+        assert!(d.assign_profile(Some(&gray)).is_err());
     }
 
     #[test]
