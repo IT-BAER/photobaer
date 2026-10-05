@@ -2517,7 +2517,7 @@ export function App() {
             views={tabState.current} revision={`${doc?.key ?? ''}:${doc?.version ?? 0}:${arrangeRevision}`}
             activate={key => void run(null, () => client.call('switchDoc', key))}
             saveView={saveArrangementView} onError={setError}
-            primary={<div className={`stage${showRulers ? ' with-rulers' : ''}`} style={{ '--tool-cursor': toolCursor(tool) } as CSSProperties}>
+            primary={<div className={`stage${showRulers ? ' with-rulers' : ''}`} style={{ '--tool-cursor': toolCursor(tool, window.devicePixelRatio || 1) } as CSSProperties}>
             <canvas ref={canvas} className="view" style={{ filter: channelFilter }} onContextMenu={e => {
               e.preventDefault();
               if (transformRef.current || (e.ctrlKey && e.altKey) || !has) return;
