@@ -1,5 +1,5 @@
 import { FLOATS_PER_INSTANCE, type Renderer } from './render/renderer.ts';
-import { TILE, clipMatrix, docToScreen, fit, invalidateEntries, levelFor, panBy, screenToDoc, visibleRect, visibleTiles, tweenView, zoomAt, type View } from './view.ts';
+import { TILE, clipMatrix, docToScreen, edgeScroll, fit, invalidateEntries, levelFor, panBy, screenToDoc, visibleRect, visibleTiles, tweenView, zoomAt, type View } from './view.ts';
 
 // hand/zoom/rotate drive the viewer itself; any other tool id gets raw pointer events via onPointer.
 export type ViewerTool = 'hand' | 'zoom' | 'zoomOut' | 'rotate' | null;
@@ -356,6 +356,19 @@ export class Viewer {
     const c = this.#canvas;
     let last: [number, number] | null = null;
     let downAt: [number, number] | null = null;
+    let lastMove: PointerEvent | null = null;
+    let scrolling = 0;
+    // While a tool drag holds the pointer outside the viewport, the view scrolls and the tool sees a move each frame.
+    const scrollStep = () => {
+      scrolling = 0;
+      const d = this.#doc;
+      if (!last || !lastMove || !d || !(lastMove.buttons & 1)) return;
+      const [dx, dy] = edgeScroll(this.view, last[0], last[1], this.#w, this.#h, d.width, d.height);
+      if (!dx && !dy) return;
+      this.setView(panBy(this.view, dx, dy));
+      this.#emit(toolEvent('move', lastMove, last));
+      scrolling = requestAnimationFrame(scrollStep);
+    };
     const local = (e: PointerEvent | WheelEvent): [number, number] => {
       const r = c.getBoundingClientRect();
       return [e.clientX - r.left, e.clientY - r.top];
@@ -390,6 +403,8 @@ export class Viewer {
         this.setView(panBy(this.view, p[0] - last[0], p[1] - last[1]));
       } else if (mode !== 'zoom' && mode !== 'zoomOut') {
         this.#emit(toolEvent('move', e, p));
+        lastMove = e;
+        if (!scrolling && (p[0] < 0 || p[1] < 0 || p[0] > this.#w || p[1] > this.#h)) scrolling = requestAnimationFrame(scrollStep);
       }
       last = p;
     }, { signal: this.#inputAbort.signal });
@@ -408,6 +423,9 @@ export class Viewer {
       }
       last = null;
       downAt = null;
+      lastMove = null;
+      cancelAnimationFrame(scrolling);
+      scrolling = 0;
     };
     c.addEventListener('pointerup', end, { signal: this.#inputAbort.signal });
     c.addEventListener('pointercancel', end, { signal: this.#inputAbort.signal });

@@ -39,6 +39,20 @@ export function panBy(v: View, dsx: number, dsy: number): View {
   return { ...v, cx: v.cx - (c * px + s * py), cy: v.cy - (-s * px + c * py) };
 }
 
+// Screen pan [dsx, dsy] for one frame of a tool drag with the pointer at (px, py) outside the viewport:
+// faster farther out, and only while the document's screen bounds extend past that viewport edge.
+export function edgeScroll(v: View, px: number, py: number, w: number, h: number, docW: number, docH: number): [number, number] {
+  const q = [docToScreen(v, 0, 0, w, h), docToScreen(v, docW, 0, w, h), docToScreen(v, docW, docH, w, h), docToScreen(v, 0, docH, w, h)];
+  const axis = (p: number, size: number, lo: number, hi: number) => {
+    const out = p < 0 ? p : p > size ? p - size : 0;
+    if (!out) return 0;
+    const step = Math.min(40, 4 + Math.abs(out) / 4);
+    return out < 0 ? Math.max(0, Math.min(step, -lo)) : -Math.max(0, Math.min(step, hi - size));
+  };
+  const xs = q.map(p => p[0]), ys = q.map(p => p[1]);
+  return [axis(px, w, Math.min(...xs), Math.max(...xs)) + 0, axis(py, h, Math.min(...ys), Math.max(...ys)) + 0];
+}
+
 export function fit(docW: number, docH: number, w: number, h: number): View {
   return { zoom: 0.95 * Math.min(w / docW, h / docH), rot: 0, cx: docW / 2, cy: docH / 2 };
 }

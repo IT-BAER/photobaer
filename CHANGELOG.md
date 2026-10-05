@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Tool drags scroll the view while the pointer is outside it (faster farther out), up to the document edge,
+  so a marquee or lasso can reach past the visible part of a zoomed-in document.
+
 ## [0.3.5] - 2026-10-05
 
 ### Changed

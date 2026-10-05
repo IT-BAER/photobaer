@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { docToScreen, screenToDoc, zoomAt, panBy, fit, levelFor, visibleTiles, clipMatrix, invalidateEntries, visibleRect, tweenView, type View } from './view.ts';
+import { docToScreen, screenToDoc, zoomAt, panBy, fit, levelFor, visibleTiles, clipMatrix, invalidateEntries, visibleRect, tweenView, edgeScroll, type View } from './view.ts';
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 const W = 800, H = 600;
@@ -115,4 +115,21 @@ test('tweenView is exact at the ends, geometric in zoom, and keeps the anchor po
   near(m.zoom, Math.sqrt(a.zoom * b.zoom));
   const [x0, y0] = screenToDoc(a, 700, 100, W, H), [x1, y1] = screenToDoc(m, 700, 100, W, H);
   near(x1, x0); near(y1, y0);
+});
+
+test('edgeScroll pans toward the pointer outside the viewport while the document extends past that edge', () => {
+  const v: View = { zoom: 4, rot: 0, cx: 500, cy: 500 };
+  assert.deepEqual(edgeScroll(v, 400, 300, W, H, 1000, 1000), [0, 0]);
+  const [rx, ry] = edgeScroll(v, W + 40, 300, W, H, 1000, 1000);
+  assert.ok(rx < 0 && ry === 0, 'right of the viewport reveals more on the right');
+  const [lx] = edgeScroll(v, -200, 300, W, H, 1000, 1000);
+  assert.ok(lx > 0 && lx > -rx, 'farther out scrolls faster');
+  const [, uy] = edgeScroll(v, 300, -10, W, H, 1000, 1000);
+  assert.ok(uy > 0);
+  // The whole document is visible: nothing to reveal.
+  assert.deepEqual(edgeScroll(fit(1000, 1000, W, H), W + 40, -40, W, H, 1000, 1000), [0, 0]);
+  // Never scrolls the document edge past the viewport edge.
+  const edge: View = { zoom: 1, rot: 0, cx: 1000 - W / 2 - 2, cy: 500 };
+  const [ex] = edgeScroll(edge, W + 300, 300, W, H, 1000, 1000);
+  near(ex, -2);
 });
