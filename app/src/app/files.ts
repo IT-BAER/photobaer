@@ -1,5 +1,6 @@
 // File > Open / Save / Save As / Revert / Open Recent on the File System Access API (Chromium).
 // Without it (Firefox, Safari) Open uses the file input and saving downloads.
+import { svgAtSize, svgSize } from './rasterSize.ts';
 type Kind = 'psd' | 'image';
 type SaveFormat = 'psd' | 'psb' | 'exr' | 'hdr' | 'ico';
 // The file a tab was opened from or saved as; `warned`: the open reported content the PSD writer cannot store.
@@ -78,17 +79,19 @@ async function writeFile(h: FileSystemFileHandle, blob: Blob) {
   await w.close();
 }
 
-// An SVG file as a PNG File of the same name, rasterized at its own size (workers cannot decode SVG).
-async function rasterSvg(f: File): Promise<File> {
+// An SVG file as a PNG File of the same name, rasterized at `size` px or its own size (workers cannot decode SVG).
+async function rasterSvg(f: File, size?: [number, number]): Promise<File> {
   if (!/\.svg$/i.test(f.name) && f.type !== 'image/svg+xml') return f;
-  const url = URL.createObjectURL(new Blob([f], { type: 'image/svg+xml' }));
+  const text = await f.text(), [w, h] = size ?? svgSize(text).map(v => Math.max(1, Math.round(v)));
+  const url = URL.createObjectURL(new Blob([svgAtSize(text, w, h)], { type: 'image/svg+xml' }));
   try {
     const img = new Image();
     img.src = url;
     await img.decode().catch(() => { throw new Error(`${f.name} is not a valid SVG file.`); });
     const c = document.createElement('canvas');
-    c.width = img.naturalWidth || 300;
-    c.height = img.naturalHeight || 150;
+    if (w > 32767 || h > 32767 || w * h > 268435456) throw new Error(`${f.name} at ${w} x ${h} px is too large for the browser canvas.`);
+    c.width = w;
+    c.height = h;
     c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
     const png = await new Promise<Blob | null>(r => c.toBlob(r, 'image/png'));
     if (!png) throw new Error(`${f.name} could not be rasterized.`);

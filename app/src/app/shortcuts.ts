@@ -25,7 +25,7 @@ export interface ShortcutCtx {
   patchToolOptions: (toolId: string, patch: Record<string, number | string | boolean>) => void;
   flowDigitRef: RefObject<DigitState | null>; opacityDigitRef: RefObject<DigitState | null>;
   moveKeysRef: RefObject<{ nudge: (dx: number, dy: number, alt: boolean) => void } | null>; selectByKey: (key: string, shift: boolean) => boolean;
-  open: (f: File, handle?: FileSystemFileHandle | null) => Promise<void>;
+  open: (f: File, handle?: FileSystemFileHandle | null) => Promise<unknown>;
   // The active pen or path selection tool's keys; true = handled.
   penKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>;
   // An open type edit session's keys; checked first (Esc commits instead of resetting the view rotation).

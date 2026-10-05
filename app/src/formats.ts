@@ -19,10 +19,14 @@ function halfToFloat(h: number) {
   return s * (1 + m / 1024) * 2 ** (e - 15);
 }
 
-// ---------- OpenEXR (scanline; NONE, RLE, ZIPS, ZIP; HALF, FLOAT, UINT) ----------
+// ---------- OpenEXR (scanline and level 0 of tiled, first part; NONE, RLE, ZIPS, ZIP, PXR24, B44, B44A; HALF, FLOAT, UINT) ----------
 
 const EXR_MAGIC = 20000630;
 const COMPRESSIONS = ['NONE', 'RLE', 'ZIPS', 'ZIP', 'PIZ', 'PXR24', 'B44', 'B44A', 'DWAA', 'DWAB'];
+const SUPPORTED = [0, 1, 2, 3, 5, 6, 7];
+const LINES = [1, 1, 1, 16, 32, 16, 32, 32, 32, 256];
+type ExrChannel = { name: string; type: number; linear: boolean };
+const typeSize = (t: number) => t === 1 ? 2 : 4;
 
 // ZIP and RLE store bytes split into even/odd halves, then as differences.
 function unpredict(t: Uint8Array): Uint8Array {
@@ -49,61 +53,141 @@ function unRle(src: Uint8Array, size: number): Uint8Array {
   return out;
 }
 
+// PXR24: per row and channel, byte planes of differences (HALF 16 bits, FLOAT top 24 bits, UINT 32 bits).
+function unPxr24(src: Uint8Array, w: number, rows: number, chans: ExrChannel[]): Uint8Array {
+  const out = new Uint8Array(rows * w * chans.reduce((a, c) => a + typeSize(c.type), 0)), ov = new DataView(out.buffer);
+  let i = 0, o = 0;
+  for (let y = 0; y < rows; y++) for (const c of chans) {
+    const planes = c.type === 1 ? 2 : c.type === 2 ? 3 : 4;
+    if (i + planes * w > src.length) throw new Error('The EXR file is damaged (PXR24 data too short).');
+    let pix = 0;
+    for (let x = 0; x < w; x++) {
+      let d = 0;
+      for (let k = 0; k < planes; k++) d = d * 256 + src[i + k * w + x];
+      if (c.type === 1) { pix = (pix + d) & 0xffff; ov.setUint16(o, pix, true); o += 2; }
+      else { pix = (pix + (c.type === 2 ? d * 256 : d)) >>> 0; ov.setUint32(o, pix, true); o += 4; }
+    }
+    i += planes * w;
+  }
+  return out;
+}
+
+// B44(A): each HALF channel in 4x4 blocks of 14 bytes (3 bytes for a flat B44A block); other types raw.
+function unB44(src: Uint8Array, w: number, rows: number, chans: ExrChannel[]): Uint8Array {
+  const short = () => new Error('The EXR file is damaged (B44 data too short).');
+  const s = new Uint16Array(16);
+  let i = 0;
+  const planes = chans.map(c => {
+    if (c.type !== 1) {
+      const n = w * rows * 4;
+      if (i + n > src.length) throw short();
+      i += n;
+      return src.subarray(i - n, i);
+    }
+    if (c.linear) throw new Error('B44 EXR channels with pLinear set are not supported.');
+    const plane = new Uint8Array(w * rows * 2), pv = new DataView(plane.buffer);
+    for (let y = 0; y < rows; y += 4) for (let x = 0; x < w; x += 4) {
+      if (i + 3 > src.length) throw short();
+      const b = src.subarray(i, i + 14);
+      s[0] = b[0] << 8 | b[1];
+      if (b[2] >= 13 << 2) { s.fill(s[0]); i += 3; } else {
+        if (b.length < 14) throw short();
+        const shift = b[2] >> 2, bias = 0x20 << shift, d = (v: number) => ((v & 0x3f) << shift) - bias;
+        s[4] = s[0] + d(b[2] << 4 | b[3] >> 4); s[8] = s[4] + d(b[3] << 2 | b[4] >> 6); s[12] = s[8] + d(b[4]);
+        s[1] = s[0] + d(b[5] >> 2); s[5] = s[4] + d(b[5] << 4 | b[6] >> 4); s[9] = s[8] + d(b[6] << 2 | b[7] >> 6); s[13] = s[12] + d(b[7]);
+        s[2] = s[1] + d(b[8] >> 2); s[6] = s[5] + d(b[8] << 4 | b[9] >> 4); s[10] = s[9] + d(b[9] << 2 | b[10] >> 6); s[14] = s[13] + d(b[10]);
+        s[3] = s[2] + d(b[11] >> 2); s[7] = s[6] + d(b[11] << 4 | b[12] >> 4); s[11] = s[10] + d(b[12] << 2 | b[13] >> 6); s[15] = s[14] + d(b[13]);
+        i += 14;
+      }
+      for (let k = 0; k < 16; k++) s[k] = s[k] & 0x8000 ? s[k] & 0x7fff : ~s[k];
+      for (let dy = 0; dy < 4 && y + dy < rows; dy++) for (let dx = 0; dx < 4 && x + dx < w; dx++) pv.setUint16(((y + dy) * w + x + dx) * 2, s[dy * 4 + dx], true);
+    }
+    return plane;
+  });
+  const out = new Uint8Array(rows * w * chans.reduce((a, c) => a + typeSize(c.type), 0));
+  let o = 0;
+  for (let y = 0; y < rows; y++) chans.forEach((c, k) => {
+    const n = w * typeSize(c.type);
+    out.set(planes[k].subarray(y * n, y * n + n), o);
+    o += n;
+  });
+  return out;
+}
+
 export async function decodeExr(bytes: Uint8Array): Promise<FloatImage> {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (bytes.length < 8 || v.getInt32(0, true) !== EXR_MAGIC) throw new Error('This is not an OpenEXR file.');
-  const flags = v.getUint32(4, true);
-  if (flags & 0x200) throw new Error('Tiled OpenEXR files are not supported.');
-  if (flags & 0x1800) throw new Error('Deep and multi-part OpenEXR files are not supported.');
+  const flags = v.getUint32(4, true), multi = !!(flags & 0x1000);
+  if (flags & 0x800) throw new Error('Deep OpenEXR files are not supported.');
   let p = 8;
   const str = () => { const e = bytes.indexOf(0, p); if (e < 0) throw new Error('The EXR header is damaged.'); const s = new TextDecoder().decode(bytes.subarray(p, e)); p = e + 1; return s; };
-  const channels: { name: string; type: number }[] = [];
-  let compression = 0, win: number[] | null = null;
-  for (;;) {
-    const name = str();
-    if (!name) break;
-    const type = str(), size = v.getInt32(p, true);
-    p += 4;
-    const end = p + size;
-    if (name === 'channels' && type === 'chlist') {
-      while (bytes[p]) {
-        const n = str();
-        const t = v.getInt32(p, true), xs = v.getInt32(p + 8, true), ys = v.getInt32(p + 12, true);
-        if (xs !== 1 || ys !== 1) throw new Error('Subsampled EXR channels are not supported.');
-        channels.push({ name: n, type: t });
-        p += 16;
-      }
-    } else if (name === 'compression') compression = bytes[p];
-    else if (name === 'dataWindow') win = [0, 4, 8, 12].map(o => v.getInt32(p + o, true));
-    p = end;
-  }
+  const header = () => {
+    const channels: ExrChannel[] = [];
+    let compression = 0, win: number[] | null = null, tiles: number[] | null = null, type = '';
+    for (;;) {
+      const name = str();
+      if (!name) break;
+      const atype = str(), size = v.getInt32(p, true);
+      p += 4;
+      const end = p + size;
+      if (end > bytes.length) throw new Error('The EXR header is damaged.');
+      if (name === 'channels' && atype === 'chlist') {
+        while (bytes[p]) {
+          const n = str();
+          const t = v.getInt32(p, true), xs = v.getInt32(p + 8, true), ys = v.getInt32(p + 12, true);
+          if (xs !== 1 || ys !== 1) throw new Error('Subsampled EXR channels are not supported.');
+          channels.push({ name: n, type: t, linear: !!bytes[p + 4] });
+          p += 16;
+        }
+      } else if (name === 'compression') compression = bytes[p];
+      else if (name === 'dataWindow') win = [0, 4, 8, 12].map(o => v.getInt32(p + o, true));
+      else if (name === 'tiles') tiles = [v.getUint32(p, true), v.getUint32(p + 4, true)];
+      else if (name === 'type') type = new TextDecoder().decode(bytes.subarray(p, end));
+      p = end;
+    }
+    return { channels, compression, win, tiles, type };
+  };
+  // Multi-part: the first part is read; the other headers are skipped up to the empty header.
+  const { channels, compression, win, tiles, type } = header();
+  if (multi) { while (bytes[p]) header(); p++; }
+  if (type.startsWith('deep')) throw new Error('Deep OpenEXR files are not supported.');
+  const tiled = multi ? type.startsWith('tiledimage') : !!(flags & 0x200);
   if (!win) throw new Error('The EXR header has no dataWindow.');
-  if (compression > 3) throw new Error(`EXR compression ${COMPRESSIONS[compression] ?? compression} is not supported (use NONE, RLE, ZIPS or ZIP).`);
+  if (tiled && (!tiles || tiles[0] < 1 || tiles[1] < 1)) throw new Error('The tiled EXR header has no tile size.');
+  if (!SUPPORTED.includes(compression)) throw new Error(`EXR compression ${COMPRESSIONS[compression] ?? compression} is not supported (use NONE, RLE, ZIPS, ZIP, PXR24, B44 or B44A).`);
   const width = win[2] - win[0] + 1, height = win[3] - win[1] + 1;
   if (width < 1 || height < 1 || width > 300000 || height > 300000) throw new Error('The EXR image size is out of range.');
-  const lines = compression === 3 ? 16 : 1;
-  const sizes = channels.map(c => c.type === 1 ? 2 : 4);
-  const rowBytes = sizes.reduce((a, b) => a + b, 0) * width;
+  const sizes = channels.map(c => typeSize(c.type));
+  const pixBytes = sizes.reduce((a, b) => a + b, 0);
   const pick = (n: string) => channels.findIndex(c => c.name === n || c.name.endsWith('.' + n));
   const ix = { r: pick('R'), g: pick('G'), b: pick('B'), a: pick('A'), y: pick('Y') };
   if (ix.r < 0 && ix.y < 0) throw new Error('The EXR file has no R, G, B or Y channel.');
   const data = new Float32Array(width * height * 4);
-  const chunks = Math.ceil(height / lines);
+  // Level 0 comes first in the offset table of ONE_LEVEL, MIPMAP and RIPMAP files; multi-part chunks start with the part number.
+  const [tw, th] = tiled ? tiles! : [width, LINES[compression]];
+  const chunks = Math.ceil(width / tw) * Math.ceil(height / th), head = (multi ? 4 : 0) + (tiled ? 20 : 8);
   for (let c = 0; c < chunks; c++) {
-    const off = Number(v.getBigUint64(p + c * 8, true));
-    if (off + 8 > bytes.length) throw new Error('The EXR file is truncated.');
-    const y0 = v.getInt32(off, true) - win[1], n = v.getInt32(off + 4, true);
-    const rows = Math.min(lines, height - y0), raw = rows * rowBytes;
-    let block = bytes.subarray(off + 8, off + 8 + n);
-    if (n < raw) block = compression === 1 ? unpredict(unRle(block, raw)) : compression >= 2 ? unpredict(await inflate(block)) : block;
+    const off = Number(v.getBigUint64(p + c * 8, true)) + (multi ? 4 : 0);
+    if (off - (multi ? 4 : 0) + head > bytes.length) throw new Error('The EXR file is truncated.');
+    let x0 = 0, y0: number, n: number;
+    if (tiled) {
+      if (v.getInt32(off + 8, true) || v.getInt32(off + 12, true)) throw new Error('The EXR tile table is damaged.');
+      x0 = v.getInt32(off, true) * tw; y0 = v.getInt32(off + 4, true) * th; n = v.getInt32(off + 16, true);
+    } else { y0 = v.getInt32(off, true) - win[1]; n = v.getInt32(off + 4, true); }
+    const w = Math.min(tw, width - x0), rows = Math.min(th, height - y0), raw = rows * w * pixBytes;
+    if (x0 < 0 || y0 < 0 || w < 1 || rows < 1) throw new Error('The EXR chunk table is damaged.');
+    const start = off + (tiled ? 20 : 8);
+    let block = bytes.subarray(start, start + n);
+    if (n < raw) block = compression === 1 ? unpredict(unRle(block, raw)) : compression <= 3 ? unpredict(await inflate(block))
+      : compression === 5 ? unPxr24(await inflate(block), w, rows, channels) : unB44(block, w, rows, channels);
     if (block.length < raw) throw new Error('The EXR file is truncated.');
     const bv = new DataView(block.buffer, block.byteOffset, block.byteLength);
     let q = 0;
     for (let r = 0; r < rows; r++) {
-      const row = (y0 + r) * width * 4;
+      const row = ((y0 + r) * width + x0) * 4;
       for (let k = 0; k < channels.length; k++) {
         const dst = k === ix.r || k === ix.y ? 0 : k === ix.g ? 1 : k === ix.b ? 2 : k === ix.a ? 3 : -1;
-        for (let x = 0; x < width; x++, q += sizes[k]) {
+        for (let x = 0; x < w; x++, q += sizes[k]) {
           if (dst < 0) continue;
           const t = channels[k].type;
           data[row + x * 4 + dst] = t === 1 ? halfToFloat(bv.getUint16(q, true)) : t === 2 ? bv.getFloat32(q, true) : bv.getUint32(q, true);

@@ -35,6 +35,7 @@ import { ImageCalcDialog, type ImageCalcHandle } from './ImageCalcDialog.tsx';
 import { ModeDialog, type ModeDialogHandle } from './ModeDialog.tsx';
 import { ColorDialog, type ColorDialogHandle } from './ColorDialog.tsx';
 import { PdfDialog, type PdfDialogHandle } from './PdfDialog.tsx';
+import { SvgDialog, type SvgDialogHandle } from './SvgDialog.tsx';
 import type { OpenAction } from './app/colorSettings.ts';
 import { COMPOSITE, editChannels, GRAY_MATRIX, paintColor, viewState, type ChannelView } from './app/channels.ts';
 import { PathsPanel } from './PathsPanel.tsx';
@@ -430,6 +431,7 @@ export function App() {
   const modeDialog = useRef<ModeDialogHandle>(null);
   const colorDialog = useRef<ColorDialogHandle>(null);
   const pdfDialog = useRef<PdfDialogHandle>(null);
+  const svgDialog = useRef<SvgDialogHandle>(null);
   const batchDialog = useRef<BatchDialogHandle>(null);
   const imageProcessorDialog = useRef<ScriptDialogHandle>(null);
   const loadStackDialog = useRef<ScriptDialogHandle>(null);
@@ -613,24 +615,36 @@ export function App() {
   const remember = (h: FileSystemFileHandle) => updateRecent(l => addRecent(l, { name: h.name, kind: kindOf(h.name), handle: h, time: Date.now() }));
 
   // `handle`: the file's File System Access handle (picker, drop, launch, Open Recent), kept for Save and Revert.
-  async function open(file: File, handle?: FileSystemFileHandle | null, ppi?: number) {
+  // True when the file opened as the active document.
+  async function open(file: File, handle?: FileSystemFileHandle | null, ppi?: number): Promise<boolean> {
     setMenu(null);
     if (/\.pdf$/i.test(file.name)) {
       // PDF pages open as rasterized documents without the PDF as their file.
       const r = await pdfDialog.current?.ask(file);
-      if (!r) return;
+      if (!r) return false;
       if (handle) remember(handle);
-      for (const p of r.files) await open(p, null, r.ppi);
-      return;
+      for (const p of r.files) {
+        if (!await open(p, null, r.ppi)) continue;
+        try {
+          if (r.mode !== 'rgb') show(await client.call('setColorMode', { mode: r.mode }));
+          if (r.depth !== 8) show(await client.call('convertDepth', r.depth));
+        } catch (e) { setError((e as Error).message); }
+      }
+      return true;
     }
-    let f: File;
-    try { f = await rasterSvg(file); } catch (e) { setError((e as Error).message); return; }
+    let f = file;
+    if (/\.svg$/i.test(file.name) || file.type === 'image/svg+xml') {
+      const r = await svgDialog.current?.ask(file);
+      if (!r) return false;
+      f = r.file;
+      ppi = r.ppi;
+    }
     let action: OpenAction | undefined;
     try {
       const q = await client.call('openProfileQuestion', f);
       if (q.action === 'ask') {
         const a = await colorDialog.current?.ask(f.name, q.embedded, q.space);
-        if (!a) return;
+        if (!a) return false;
         action = a;
       }
     } catch { /* unreadable profile: the policy decides in openFile */ }
@@ -643,8 +657,10 @@ export function App() {
       }
       show(d);
       if (d.warnings.length) setError(`Opened with warnings: ${d.warnings.join('; ')}`);
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     } finally {
       setBusy(null);
     }
@@ -1045,7 +1061,7 @@ export function App() {
   // File > Scripts > Load Files into Stack.
   async function loadStack(files: File[], align: boolean, smart: boolean) {
     await run('Loading layers…', async () => {
-      const d = await client.call('loadStack', await Promise.all(files.map(rasterSvg)), align, smart);
+      const d = await client.call('loadStack', await Promise.all(files.map(f => rasterSvg(f))), align, smart);
       if (d.warnings.length) setError(d.warnings.join('; '));
       return d;
     });
@@ -2709,6 +2725,7 @@ export function App() {
       <ModeDialog ref={modeDialog} doc={doc} library={brushLib.current?.library ?? null} fg={fg} bg={bg} show={d => show(d)} setError={m => setError(m)} />
       <ColorDialog ref={colorDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
       <PdfDialog ref={pdfDialog} setError={m => setError(m)} />
+      <SvgDialog ref={svgDialog} setError={m => setError(m)} />
       <BatchDialog ref={batchDialog} start={o => void runBatch(o)} />
       <ImageProcessorDialog ref={imageProcessorDialog} start={o => void runImageProcessor(o)} />
       <LoadStackDialog ref={loadStackDialog} start={(f, a, sm) => void loadStack(f, a, sm)} />

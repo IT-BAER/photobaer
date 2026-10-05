@@ -30,9 +30,10 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 - Channels panel rest: PSD export and import carry no alpha or spot channels; color and saved channels cannot be
   targeted together; the color swatches stay in color while one channel is targeted (painting uses the gray);
   further targeted saved channels take a stroke when it ends, not live.
-- Formats rest: Import PDF has no Crop To boxes, size fields, mode/bit depth or Images extraction (pages only, ppi); EXR tiled, multi-part, deep and PIZ/PXR24/B44/DWA
-  compression; SVG opens at its own size without a rasterize dialog; 16/32-bit
-  PSD/PSB export.
+- Formats rest: Import PDF has no Bleed, Trim, Art or Bounding Box crop and applies mode and bit depth as undo
+  steps after opening; Enter in a size field of the Import PDF and Rasterize SVG dialogs commits the field but does
+  not press OK; Revert of an SVG renders at its own size; EXR deep files, PIZ and DWA compression, B44 channels
+  with pLinear, and parts after the first; 16/32-bit PSD/PSB export.
 
 ## M7 AI (local, in the browser)
 - Select > Subject, Object Selection tool, Select > Focus Area.

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, icoSizes, toLinear, type FloatImage } from './formats.ts';
 import { FIXTURES } from './formats.fixtures.ts';
+import { EXR_FIXTURES } from './formats.exr.fixtures.ts';
 
 const b64 = (s: string) => Uint8Array.from(Buffer.from(s, 'base64'));
 const expected = (x: number, y: number) => [(x + y) % 2 ? 3 : 0.0625, y * 0.5 + 0.125, x * 0.25, 1];
@@ -17,6 +18,15 @@ function check(img: FloatImage, tol: number) {
 
 test('decodeExr reads NONE, RLE, ZIPS and ZIP files from OpenCV, half and float', async () => {
   for (const k of ['zip_half', 'rle_float', 'zips_half', 'none_float']) check(await decodeExr(b64(FIXTURES[k])), 1e-3);
+});
+
+test('decodeExr reads PXR24, B44, B44A, tiled (level 0 of ONE_LEVEL and MIPMAP) and the first part of multi-part files', async () => {
+  for (const [k, f] of Object.entries(EXR_FIXTURES)) {
+    const img = await decodeExr(b64(f.exr)), ref = new Float32Array(b64(f.ref).buffer);
+    assert.equal(img.width, 37, k);
+    assert.equal(img.height, 21, k);
+    assert.deepEqual(img.data, ref, k);
+  }
 });
 
 test('decodeExr names an unsupported compression', async () => {

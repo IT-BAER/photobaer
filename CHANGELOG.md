@@ -58,6 +58,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Color Settings > Advanced Controls: Desaturate Monitor Colors By (display only).
 - Gamut Warning uses the proof profile's own gamut tag when it has one.
 - EXR and HDR export linearize through the document's profile (curve and primaries) into linear Rec. 709.
+- OpenEXR files with PXR24, B44 and B44A compression, tiled files (the full-resolution level of one-level and
+  mipmap files) and multi-part files (the first part) open.
+- Opening an SVG asks for its width, height and resolution (Rasterize SVG Format) and renders the drawing at that size.
+- Import PDF: Crop To (Crop Box or Media Box), linked width, height and resolution fields, Mode and Bit Depth for
+  the opened documents, and Images to open the images in the file at their own pixel size.
 
 ### Fixed
 
