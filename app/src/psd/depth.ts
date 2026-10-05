@@ -429,8 +429,8 @@ function structColor(v: DataView, o: number): Rgb | null {
 export function readDuotone(b: Uint8Array, warn: (m: string) => void): DuotoneSpec | null {
   const v = view(b);
   if (b.length < 30 || v.getUint16(24) !== 8) return null;
-  const count = v.getUint16(32);
-  if (v.getUint32(26) < DUO_SIZE || v.getUint16(30) !== 1 || count < 1 || count > 4) {
+  const count = b.length < 34 ? 0 : v.getUint16(32);
+  if (b.length < 30 + DUO_SIZE || v.getUint32(26) < DUO_SIZE || v.getUint16(30) !== 1 || count < 1 || count > 4) {
     warn('the Duotone inks could not be read; the file opened in Grayscale');
     return null;
   }
