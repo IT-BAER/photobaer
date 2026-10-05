@@ -1,4 +1,5 @@
 // Edit > Color Settings: working spaces, color management policies and conversion options, kept per browser.
+import { loadedProfileNames } from './profileStore.ts';
 
 export type Policy = 'off' | 'preserveEmbedded' | 'convertToWorking';
 export type Intent = 'perceptual' | 'relativeColorimetric' | 'saturation' | 'absoluteColorimetric';
@@ -14,6 +15,9 @@ export interface ColorSettings {
   intent: Intent;
   bpc: boolean;
   dither: boolean;
+  // Advanced Controls: Desaturate Monitor Colors By `desaturateBy` % (display only).
+  desaturateOn: boolean;
+  desaturateBy: number;
 }
 
 // The engine's built-in profiles by space.
@@ -28,6 +32,7 @@ export const INTENTS: [Intent, string][] = [
 const base: ColorSettings = {
   rgb: RGB_SPACES[0], cmyk: CMYK_SPACES[0], gray: 'Dot Gain 20%', rgbPolicy: 'preserveEmbedded', grayPolicy: 'preserveEmbedded',
   askWhenOpening: false, askWhenMissing: false, intent: 'relativeColorimetric', bpc: true, dither: true,
+  desaturateOn: false, desaturateBy: 20,
 };
 
 export const COLOR_PRESETS: { name: string; description: string; settings: ColorSettings }[] = [
@@ -61,8 +66,9 @@ export function matchPreset(s: ColorSettings): string {
   return COLOR_PRESETS.find(p => keys.every(k => p.settings[k] === s[k]))?.name ?? 'Custom';
 }
 
-// Stored JSON as settings; a field that is missing or invalid takes the default.
-export function parseColorSettings(json: string | null): ColorSettings {
+// Stored JSON as settings; a field that is missing or invalid takes the default. `loaded` names the
+// user's loaded profiles by space, which are working spaces as well.
+export function parseColorSettings(json: string | null, loaded: { rgb?: string[]; cmyk?: string[]; gray?: string[] } = {}): ColorSettings {
   let v: Record<string, unknown> = {};
   try { v = JSON.parse(json ?? '{}') ?? {}; } catch { /* default */ }
   const d = DEFAULT_COLOR_SETTINGS;
@@ -70,9 +76,9 @@ export function parseColorSettings(json: string | null): ColorSettings {
   const policy = (x: unknown) => POLICIES.some(([p]) => p === x);
   const bool = (x: unknown) => typeof x === 'boolean';
   return {
-    rgb: pick('rgb', x => RGB_SPACES.includes(x as string)),
-    cmyk: pick('cmyk', x => CMYK_SPACES.includes(x as string)),
-    gray: pick('gray', x => GRAY_SPACES.includes(x as string)),
+    rgb: pick('rgb', x => [...RGB_SPACES, ...loaded.rgb ?? []].includes(x as string)),
+    cmyk: pick('cmyk', x => [...CMYK_SPACES, ...loaded.cmyk ?? []].includes(x as string)),
+    gray: pick('gray', x => [...GRAY_SPACES, ...loaded.gray ?? []].includes(x as string)),
     rgbPolicy: pick('rgbPolicy', policy),
     grayPolicy: pick('grayPolicy', policy),
     askWhenOpening: pick('askWhenOpening', bool),
@@ -80,13 +86,15 @@ export function parseColorSettings(json: string | null): ColorSettings {
     intent: pick('intent', x => INTENTS.some(([i]) => i === x)),
     bpc: pick('bpc', bool),
     dither: pick('dither', bool),
+    desaturateOn: pick('desaturateOn', bool),
+    desaturateBy: pick('desaturateBy', x => typeof x === 'number' && x >= 1 && x <= 100),
   };
 }
 
 const KEY = 'photobaer.colorSettings';
 
 export function loadColorSettings(): ColorSettings {
-  try { return parseColorSettings(localStorage.getItem(KEY)); } catch { return DEFAULT_COLOR_SETTINGS; }
+  try { return parseColorSettings(localStorage.getItem(KEY), loadedProfileNames()); } catch { return DEFAULT_COLOR_SETTINGS; }
 }
 
 export function saveColorSettings(s: ColorSettings) {

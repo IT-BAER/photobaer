@@ -90,7 +90,7 @@ async function encodeFlattened(e: Engine, type: 'image/png' | 'image/jpeg' | 'im
   }
   const blob = await out.convertToBlob({ type, quality });
   if (blob.type !== type) throw new Error(`${type} export is not supported by this browser`);
-  const icc = type === 'image/webp' ? new Uint8Array() : e.profile_icc();
+  const icc = e.profile_icc();
   return icc.length ? new Blob([await embedIcc(new Uint8Array(await blob.arrayBuffer()), type, icc) as Uint8Array<ArrayBuffer>], { type }) : blob;
 }
 
@@ -171,7 +171,7 @@ async function encodeRgba(e: Engine, img: Rgba, o: ExportOptions): Promise<{ blo
   const type = `image/${o.format}` as 'image/png' | 'image/jpeg' | 'image/webp';
   const blob = await c.convertToBlob({ type, quality: o.quality });
   if (blob.type !== type) throw new Error(`${type} export is not supported by this browser`);
-  const icc = o.icc && type !== 'image/webp' ? e.profile_icc() : new Uint8Array();
+  const icc = o.icc ? e.profile_icc() : new Uint8Array();
   const info = o.meta && type !== 'image/webp' ? docInfo(e) : null;
   if (!icc.length && !hasInfo(info)) return { blob, width, height };
   let bytes: Uint8Array = new Uint8Array(await blob.arrayBuffer());

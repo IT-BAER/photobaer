@@ -128,7 +128,7 @@ export function pngChunk(type: string, data: Uint8Array) {
   return out;
 }
 
-/** `b` (a PNG or JPEG file) with `icc` as its only color profile. */
+/** `b` (a PNG, JPEG or WebP file) with `icc` as its only color profile. */
 export async function embedIcc(b: Uint8Array, mime: string, icc: Uint8Array): Promise<Uint8Array> {
   if (mime === 'image/png' && isPng(b)) {
     const z = await pipe(icc, new CompressionStream('deflate'));
@@ -165,7 +165,47 @@ export async function embedIcc(b: Uint8Array, mime: string, icc: Uint8Array): Pr
     parts.push(b.subarray(at));
     return concat(parts);
   }
+  if (mime === 'image/webp' && isWebp(b)) return webpWithIcc(b, icc);
   return b;
+}
+
+function riffChunk(type: string, data: Uint8Array) {
+  const out = new Uint8Array(8 + data.length + (data.length & 1));
+  for (let i = 0; i < 4; i++) out[i] = type.charCodeAt(i);
+  view(out).setUint32(4, data.length, true);
+  out.set(data, 8);
+  return out;
+}
+
+// An extended WebP: VP8X with the ICC flag (made from the VP8 or VP8L header of a simple file),
+// then `icc` as the only ICCP chunk, then the other chunks.
+function webpWithIcc(b: Uint8Array, icc: Uint8Array): Uint8Array {
+  const chunks: [string, Uint8Array][] = [];
+  for (let o = 12; o + 8 <= b.length;) {
+    const n = view(b).getUint32(o + 4, true);
+    chunks.push([ascii(b, o, 4), b.subarray(o + 8, o + 8 + n)]);
+    o += 8 + n + (n & 1);
+  }
+  let head = chunks.find(c => c[0] === 'VP8X')?.[1].slice();
+  if (!head) {
+    const [type, d] = chunks.find(c => c[0] === 'VP8L' || c[0] === 'VP8 ') ?? [];
+    if (!d) return b;
+    let w: number, h: number, alpha = false;
+    if (type === 'VP8L') {
+      const bits = view(d).getUint32(1, true);
+      [w, h, alpha] = [(bits & 0x3fff) + 1, ((bits >> 14) & 0x3fff) + 1, !!(bits & (1 << 28))];
+    } else [w, h] = [view(d).getUint16(6, true) & 0x3fff, view(d).getUint16(8, true) & 0x3fff];
+    head = new Uint8Array(10);
+    head[0] = alpha ? 0x10 : 0;
+    head.set([(w - 1) & 255, ((w - 1) >> 8) & 255, (w - 1) >> 16, (h - 1) & 255, ((h - 1) >> 8) & 255, (h - 1) >> 16], 4);
+  }
+  head[0] |= 0x20;
+  const rest = chunks.filter(c => c[0] !== 'VP8X' && c[0] !== 'ICCP').map(([t, d]) => riffChunk(t, d));
+  const body = concat([new TextEncoder().encode('WEBP'), riffChunk('VP8X', head), riffChunk('ICCP', icc), ...rest]);
+  const riff = new Uint8Array(8);
+  riff.set(new TextEncoder().encode('RIFF'));
+  view(riff).setUint32(4, body.length, true);
+  return concat([riff, body]);
 }
 
 /** A PSD file with image resource 1039 (ICC profile) set to `icc`. */

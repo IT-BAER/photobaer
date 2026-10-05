@@ -37,6 +37,13 @@ test('stored settings are checked field by field and presets are recognized', ()
   assert.equal(bad.rgb, DEFAULT_COLOR_SETTINGS.rgb);
   assert.equal(bad.intent, DEFAULT_COLOR_SETTINGS.intent);
   assert.equal(bad.bpc, DEFAULT_COLOR_SETTINGS.bpc);
+  const loaded = JSON.stringify({ ...web.settings, rgb: 'Display Q3', gray: 'Display Q3' });
+  assert.equal(parseColorSettings(loaded, { rgb: ['Display Q3'] }).rgb, 'Display Q3', 'a loaded RGB profile is a working space');
+  assert.equal(parseColorSettings(loaded, { rgb: ['Display Q3'] }).gray, DEFAULT_COLOR_SETTINGS.gray, 'but not as Gray');
+  assert.equal(parseColorSettings(loaded).rgb, DEFAULT_COLOR_SETTINGS.rgb);
+  const de = parseColorSettings(JSON.stringify({ ...web.settings, desaturateOn: true, desaturateBy: 35 }));
+  assert.deepEqual([de.desaturateOn, de.desaturateBy], [true, 35]);
+  assert.equal(parseColorSettings(JSON.stringify({ ...web.settings, desaturateBy: 0 })).desaturateBy, DEFAULT_COLOR_SETTINGS.desaturateBy, '1 to 100 %');
   assert.equal(matchPreset(web.settings), web.name);
   assert.equal(matchPreset({ ...web.settings, dither: !web.settings.dither }), 'Custom');
 });

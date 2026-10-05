@@ -106,9 +106,23 @@ pub struct View {
     pub gamut_warning: bool,
     #[serde(default)]
     pub hdr: Hdr,
+    /// Color Settings > Desaturate Monitor Colors By, 0..1 (0: off).
+    #[serde(default)]
+    pub desaturate: f32,
     /// The brightest value of a 32-bit image, measured when the view is set.
     #[serde(skip)]
     pub hdr_max: f32,
+}
+
+// Premultiplied display values moved toward their gray (0.3 R + 0.59 G + 0.11 B) by `d`.
+fn desaturate(mut v: Vec<f32>, d: f32) -> Vec<f32> {
+    if d > 0.0 {
+        for p in v.chunks_exact_mut(4) {
+            let y = 0.3 * p[0] + 0.59 * p[1] + 0.11 * p[2];
+            (0..3).for_each(|i| p[i] += (y - p[i]) * d);
+        }
+    }
+    v
 }
 
 // Gamut Warning paints colors that the proof device misses by more than this Delta E (CIE76).
@@ -202,7 +216,15 @@ impl Document {
                 o.copy_from_slice(&out);
             }))
         };
-        let gamut = if gamut {
+        let tagged = if gamut { Transform::gamut_check(&src, &dev)? } else { None };
+        let gamut = if let Some(t) = tagged {
+            // The profile's own gamut tag: above half flags the color.
+            Some(Lut::from_fn(3, 1, GRID, |c, o| {
+                let mut v = [0.0f64];
+                t.apply(&input(c), &mut v);
+                o[0] = if v[0] > 0.5 { GAMUT_DE as f64 * 2.0 } else { 0.0 };
+            }))
+        } else if gamut {
             let lab = Profile::builtin(LAB).expect("built in");
             let (src_lab, dev_lab) = (Transform::new(&src, &lab, Intent::Relative, false)?, Transform::new(&dev, &lab, Intent::Relative, false)?);
             let to_dev = Transform::new(&src, &dev, s.intent, false)?;
@@ -241,7 +263,7 @@ impl Document {
 
     /// Whether `view` changes how tiles display, so they cannot take the GPU draw path.
     pub fn view_needs_cpu(&self, view: &View) -> bool {
-        view.proof_colors || view.gamut_warning || (self.depth == 32 && !view.hdr.neutral())
+        view.proof_colors || view.gamut_warning || view.desaturate > 0.0 || (self.depth == 32 && !view.hdr.neutral())
     }
 
     /// The brightest color value over every own pixel layer, for Highlight Compression.
@@ -273,7 +295,7 @@ impl Document {
                 }
             }
         }
-        let Some(b) = self.proofing(view)? else { return Ok(quantize_premul(&self.profile_map(v))) };
+        let Some(b) = self.proofing(view)? else { return Ok(quantize_premul(&desaturate(self.profile_map(v), view.desaturate))) };
         let shown = if view.proof_colors { None } else { self.display_profile() };
         for p in v.chunks_exact_mut(4) {
             let a = p[3];
@@ -288,7 +310,7 @@ impl Document {
             };
             (0..3).for_each(|i| p[i] = out[i].clamp(0.0, 1.0) * a);
         }
-        Ok(quantize_premul(&v))
+        Ok(quantize_premul(&desaturate(v, view.desaturate)))
     }
 }
 
@@ -321,6 +343,25 @@ mod tests {
         let p = shown(&d, &on);
         assert!(p[2] < 230 && p[0] > 20, "pure blue prints duller and purpler: {p:?}");
         assert!(d.view_needs_cpu(&on) && !d.view_needs_cpu(&off));
+    }
+
+    #[test]
+    fn desaturate_monitor_colors_moves_the_display_toward_gray() {
+        let d = doc_with([255, 0, 0]);
+        let v = View { desaturate: 0.5, ..Default::default() };
+        // Luma 0.3 * 255 = 76.5; halfway from (255, 0, 0) is (165.75, 38.25, 38.25).
+        assert_eq!(shown(&d, &v), [166, 38, 38]);
+        assert!(d.view_needs_cpu(&v));
+        let gray = doc_with([90, 90, 90]);
+        assert_eq!(shown(&gray, &v), [90, 90, 90], "grays stay");
+    }
+
+    #[test]
+    fn gamut_warning_uses_the_profiles_gamut_tag() {
+        let setup = ProofSetup { kind: ProofKind::Device, icc: Some(crate::icc::gamut_tag_test_profile()), ..Default::default() };
+        let v = View { setup, gamut_warning: true, ..Default::default() };
+        assert_eq!(shown(&doc_with([20, 20, 20]), &v), [128, 128, 128], "the tag flags dark colors");
+        assert_eq!(shown(&doc_with([255, 255, 255]), &v), [255, 255, 255], "white is in gamut");
     }
 
     #[test]

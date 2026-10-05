@@ -17,12 +17,10 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   layers kept in blend modes outside Photoshop's 32-bit list clip; Blur Gallery is disabled in 32-bit
   (Photoshop support unverified); 32 -> 16/8 Bits/Channel with Don't Merge clips (Photoshop reportedly applies
   Local Adaptation per layer, unverified).
-- Color management rest: WebP export embeds no profile;
-  Color Settings Advanced (desaturate monitor colors, blend RGB with gamma) and ColorSync/older-version presets;
-  paste and drag between documents with different profiles; Gray profiles are not embedded on export;
-  loaded profiles as working spaces; Assign Profile live preview; open-time
-  conversion converts pixel layers only (text, shape and adjustment layers keep their numbers).
-- Proofing rest: profile gamut tags are ignored (Delta E test only).
+- Color management rest: Color Settings "Blend RGB colors using gamma"; ColorSync and older-version presets
+  (they need Apple RGB, SWOP and similar built-in profiles); the system clipboard and layer drags carry no
+  profile; Gray profiles are not embedded on export; open-time conversion converts pixel layers only (text,
+  shape and adjustment layers keep their numbers).
 - Camera RAW and DNG open with a develop workspace (Camera Raw Filter is done: Basic sliders and vignette).
 - Lens Correction automatic lens profiles and the grid/straighten tools; Adaptive Wide Angle constraint lines.
 - Auto-Align Layers: Cylindrical, Spherical and Collage projections; Photomerge Vignette Removal and Geometric Distortion Correction; Merge to HDR Pro tone-mapping options and picking files instead of open documents.

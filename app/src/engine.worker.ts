@@ -21,6 +21,7 @@ import type { Spot, AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, Face
 import { boxScale, thumbSize } from './app/navigator.ts';
 import { inkGray } from './app/channels.ts';
 import { CMYK_SPACES, RGB_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
+import { openProfileStore, type ProfileStore } from './app/profileStore.ts';
 import { DEFAULT_VIEW, engineView, proofLabel, sanitizeHdr, type ViewState } from './app/proof.ts';
 import { grayFile, psdWithIcc, readIcc } from './app/iccFiles.ts';
 import { embedInfo, hasInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
@@ -74,8 +75,9 @@ let typeSession: { id: number; isNew: boolean; mask: boolean; changed: boolean; 
 let transformSession: { id: number; kind: TransformKind; hidden: number; refined: TransformOp | null; base: number | null; label: string | null } | null = null;
 // Copy Layer Style's clipboard: the style JSON only (never blending options), kept across documents.
 let styleClipboard: string | null = null;
-// Edit > Copy / Cut / Copy Merged clipboard: straight RGBA8 with its document origin, kept across documents.
-let clipboard: { x: number; y: number; w: number; h: number; rgba: Uint8Array } | null = null;
+// Edit > Copy / Cut / Copy Merged clipboard: straight RGBA8 with its document origin and the profile of
+// its numbers, kept across documents.
+let clipboard: { x: number; y: number; w: number; h: number; rgba: Uint8Array; icc?: Uint8Array } | null = null;
 // Font registry and upload store: app scope, kept across documents; created on first use (after WASM init).
 let fonts: Fonts | null = null;
 const fontReg = () => fonts ??= new Fonts();
@@ -243,8 +245,8 @@ function applyOpenProfile(e: Engine, p: Embedded, action: OpenAction, s: ColorSe
   const builtin = (n: string) => (JSON.parse(icc_builtins()) as IccProfile[]).some(b => b.name === n);
   const working = s[p.space];
   if ((action === 'keep' || action === 'convert') && p.name && p.icc) e.assign_profile(p.name, builtin(p.name) ? new Uint8Array() : p.icc);
-  if (action === 'convert') e.convert_to_profile(working, new Uint8Array(), JSON.stringify({ intent: s.intent, blackPointCompensation: s.bpc, dither: s.dither }));
-  if (action === 'assign') e.assign_profile(working, new Uint8Array());
+  if (action === 'convert') e.convert_to_profile(working, profileBytes(working), JSON.stringify({ intent: s.intent, blackPointCompensation: s.bpc, dither: s.dither }));
+  if (action === 'assign') e.assign_profile(working, profileBytes(working));
 }
 
 // Grid points per axis of the CMYK separation table the channel views read.
@@ -252,14 +254,38 @@ const SEPARATION_GRID = 17;
 
 // Profiles loaded with Load... this session, by name.
 const loadedProfiles = new Map<string, { info: IccProfile; bytes: Uint8Array }>();
+// The bytes of a loaded profile `name`, empty for a built-in one (the engine resolves it by name).
+const profileBytes = (name: string) => loadedProfiles.get(name)?.bytes ?? new Uint8Array();
+// The profiles stored by earlier sessions, read once; settings wait for them.
+let storedProfiles: Promise<void> | null = null;
+function readStoredProfiles() {
+  storedProfiles ??= openProfileStore().then(async store => {
+    profileStore = store;
+    for (const p of (await store?.all().catch(() => [])) ?? []) {
+      try { addProfile(p.bytes); } catch { /* unreadable now: skipped */ }
+    }
+  });
+  return storedProfiles;
+}
+let profileStore: ProfileStore | null = null;
+// The open Assign Profile preview: its engine and the snapshot from before it.
+let assignPreview: { e: Engine; snap: number } | null = null;
+
+function addProfile(bytes: Uint8Array): IccProfile {
+  const d = JSON.parse(icc_describe(bytes)) as { name: string; space: string; class: string };
+  if (d.space !== 'rgb' && d.space !== 'gray' && d.space !== 'cmyk') throw new Error(`"${d.name}" is a ${d.space} profile; only RGB, CMYK and Gray profiles can be used.`);
+  const info = { name: d.name, space: d.space, loaded: true } as IccProfile;
+  loadedProfiles.set(d.name, { info, bytes });
+  return info;
+}
 // Each engine's view state (View menu proofing); engines without an entry show DEFAULT_VIEW.
 const views = new WeakMap<Engine, ViewState>();
 const viewOf = (e: Engine) => views.get(e) ?? DEFAULT_VIEW;
 
 function applyView(e: Engine, v: ViewState) {
-  const json = engineView(v, colorSettings?.cmyk ?? CMYK_SPACES[0]);
-  const loaded = v.setup.id === 'custom' && v.setup.profile ? loadedProfiles.get(v.setup.profile)?.bytes : undefined;
-  e.set_view(JSON.stringify(json), loaded ?? new Uint8Array());
+  const s = colorSettings;
+  const json = { ...engineView(v, s?.cmyk ?? CMYK_SPACES[0]), desaturate: s?.desaturateOn ? s.desaturateBy / 100 : 0 };
+  e.set_view(JSON.stringify(json), json.setup.profile ? profileBytes(json.setup.profile) : new Uint8Array());
 }
 
 function nextCompName(): string {
@@ -329,6 +355,7 @@ function readSource(e: Engine, src: ImageSource) {
 function adopt(e: Engine, n: string, key?: string) {
   stash();
   docs.push({ key: key ?? uuid(), eng: e, history: historyOf(e), name: n, version: 1, parents: [], saved: null });
+  if (colorSettings?.desaturateOn) applyView(e, viewOf(e));
   activate(docs.length - 1);
   if (!key) scheduleSave(0);
   return info()!;
@@ -762,14 +789,15 @@ const api = {
   newDoc(width: number, height: number, depth: number, bg: [number, number, number, number] | null) {
     const e = new Engine(width, height, depth);
     if (bg) e.fill(BACKGROUND, 'pixels', ...bg);
-    if (colorSettings && colorSettings.rgbPolicy !== 'off') e.assign_profile(colorSettings.rgb, new Uint8Array());
+    if (colorSettings && colorSettings.rgbPolicy !== 'off') e.assign_profile(colorSettings.rgb, profileBytes(colorSettings.rgb));
     return adopt(e, 'Untitled');
   },
 
-  setColorSettings(s: ColorSettings | null) {
+  async setColorSettings(s: ColorSettings | null) {
+    await readStoredProfiles();
     colorSettings = s;
     // Proofs to the working CMYK follow it.
-    for (const e of new Set([...docs.map(d => d.eng), ...(eng ? [eng] : [])])) if (views.has(e)) applyView(e, views.get(e)!);
+    for (const e of new Set([...docs.map(d => d.eng), ...(eng ? [eng] : [])])) applyView(e, viewOf(e));
     if (!eng) return null;
     version++;
     return info();
@@ -965,7 +993,7 @@ const api = {
     if (cut && !e.has_selection()) return info();
     const c = copyPixels(e, merged ? null : id);
     if (cut) history.run('Cut', () => e.clear(id, 'pixels'));
-    clipboard = c;
+    clipboard = { ...c, icc: e.pixels_profile_icc() };
     return { ...(cut ? changed() : info())!, clip: { w: c.w, h: c.h, data: c.rgba.slice().buffer } };
   },
 
@@ -1004,13 +1032,17 @@ const api = {
   // image; one sized like the internal clipboard is taken as that (it keeps the origin). `pasted`: false = nothing to paste.
   async paste(above: number, mode: 'paste' | 'inPlace' | 'into', bytes: Uint8Array | null) {
     const e = need();
-    let src: { x: number; y: number; w: number; h: number; rgba: Uint8Array } | null = clipboard;
+    let src: { x: number; y: number; w: number; h: number; rgba: Uint8Array; icc?: Uint8Array } | null = clipboard;
     if (bytes) {
       const d = await decodeSource(bytes);
       if (!src || src.w !== d.w || src.h !== d.h) src = { x: NaN, y: NaN, ...d };
     }
     if (!src) return { ...info()!, created: 0, pasted: false };
-    const c = src;
+    // With color management on, pasted numbers convert from the copied document's profile.
+    const s = colorSettings;
+    const c = s && src.icc?.length
+      ? { ...src, rgba: e.convert_rgba8(src.rgba, src.icc, JSON.stringify({ intent: s.intent, blackPointCompensation: s.bpc, dither: false })) }
+      : src;
     if (mode === 'into' && !e.has_selection()) throw new Error('Paste Into needs a selection.');
     const sb = e.selection_bounds() as Int32Array | null;
     const at = mode === 'into' && sb ? Array.from(sb) : [0, 0, e.width(), e.height()];
@@ -1254,7 +1286,7 @@ const api = {
     const vec = JSON.parse(e.vector_json()) as { mode?: ColorMode; gray?: boolean };
     const cur = vec.mode?.kind;
     const s = colorSettings;
-    const convert = (name: string) => e.convert_to_profile(name, new Uint8Array(), JSON.stringify(s ? { intent: s.intent, blackPointCompensation: s.bpc, dither: s.dither } : { intent: 'relativeColorimetric', blackPointCompensation: true }));
+    const convert = (name: string) => e.convert_to_profile(name, profileBytes(name), JSON.stringify(s ? { intent: s.intent, blackPointCompensation: s.bpc, dither: s.dither } : { intent: 'relativeColorimetric', blackPointCompensation: true }));
     // A Bitmap output resolution resamples the canvas, so the selection cache resets as with Image Size.
     const step = spec.mode === 'bitmap' && spec.resolution != null && spec.resolution !== resolution(e) ? canvasEdit : stepIfChanged;
     return step(label, () => {
@@ -1283,7 +1315,7 @@ const api = {
       }
       if (flatten) flattenImage(e, tree);
       const changed = e.set_color_mode(JSON.stringify(spec)) || flatten;
-      if (s && spec.mode === 'gray' && (cur === 'bitmap' || cur === 'duotone' || cur === 'multichannel')) e.assign_profile(s.gray, loadedProfiles.get(s.gray)?.bytes ?? new Uint8Array());
+      if (s && spec.mode === 'gray' && (cur === 'bitmap' || cur === 'duotone' || cur === 'multichannel')) e.assign_profile(s.gray, profileBytes(s.gray));
       const mode = (JSON.parse(e.vector_json()) as { mode?: ColorMode }).mode;
       if (spec.mode === 'indexed' && mode?.kind === 'indexed') previousTable = mode.table;
       return changed;
@@ -1305,23 +1337,43 @@ const api = {
   },
 
   // Edit > Assign Profile (null: Don't Color Manage) and Convert to Profile; built-in names or a
-  // profile loaded this session. Convert flattens first when asked or when non-pixel layers exist.
-  iccProfiles(): IccProfile[] {
+  // loaded profile. Convert flattens first when asked or when non-pixel layers exist.
+  async iccProfiles(): Promise<IccProfile[]> {
+    await readStoredProfiles();
     const builtin = (JSON.parse(icc_builtins()) as { name: string; space: string }[]).filter((p): p is IccProfile => p.space !== 'lab');
     return [...builtin, ...[...loadedProfiles.values()].map(p => p.info)];
   },
 
-  loadProfile(bytes: Uint8Array): IccProfile {
-    const d = JSON.parse(icc_describe(bytes)) as { name: string; space: string; class: string };
-    if (d.space !== 'rgb' && d.space !== 'gray' && d.space !== 'cmyk') throw new Error(`"${d.name}" is a ${d.space} profile; only RGB, CMYK and Gray profiles can be used.`);
-    const info = { name: d.name, space: d.space, loaded: true } as IccProfile;
-    loadedProfiles.set(d.name, { info, bytes });
+  // A profile file loaded by the user, kept for later sessions where storage allows.
+  async loadProfile(bytes: Uint8Array): Promise<IccProfile> {
+    await readStoredProfiles();
+    const info = addProfile(bytes);
+    await profileStore?.put({ name: info.name, space: info.space as 'rgb' | 'cmyk' | 'gray', bytes }).catch(() => {});
     return info;
+  },
+
+  // Assign Profile's live preview: tags the document with `name` (null: untagged) with no history
+  // step; `end` puts back the document as it was when the preview started.
+  previewAssign(name: string | null, end: boolean) {
+    const e = need();
+    if (assignPreview && assignPreview.e !== e) assignPreview = null;
+    if (end) {
+      if (assignPreview) {
+        e.restore(assignPreview.snap);
+        e.drop_snapshot(assignPreview.snap);
+        assignPreview = null;
+      }
+    } else {
+      assignPreview ??= { e, snap: e.snapshot() };
+      e.assign_profile(name ?? '', profileBytes(name ?? ''));
+    }
+    version++;
+    return info()!;
   },
 
   assignProfile(name: string | null) {
     const e = need();
-    return stepIfChanged('Assign Profile', () => e.assign_profile(name ?? '', loadedProfiles.get(name ?? '')?.bytes ?? new Uint8Array()));
+    return stepIfChanged('Assign Profile', () => e.assign_profile(name ?? '', profileBytes(name ?? '')));
   },
 
   convertToProfile(name: string, opts: { intent: string; blackPointCompensation: boolean; dither: boolean; flatten: boolean }) {
@@ -1332,7 +1384,7 @@ const api = {
     const o = { intent: opts.intent, blackPointCompensation: opts.blackPointCompensation, dither: opts.dither };
     return stepIfChanged('Convert to Profile', () => {
       if (flatten) flattenImage(e, tree);
-      return e.convert_to_profile(name, loadedProfiles.get(name)?.bytes ?? new Uint8Array(), JSON.stringify(o)) || flatten;
+      return e.convert_to_profile(name, profileBytes(name), JSON.stringify(o)) || flatten;
     });
   },
 
@@ -2873,7 +2925,7 @@ const api = {
         try { e.auto_align(Uint32Array.from(ids), false); } catch (err) { warnings.push(`The layers were not aligned: ${(err as Error).message}`); }
       }
       if (smart) toSmart(e, ids, srcs[0].name);
-      if (colorSettings && colorSettings.rgbPolicy !== 'off') e.assign_profile(colorSettings.rgb, new Uint8Array());
+      if (colorSettings && colorSettings.rgbPolicy !== 'off') e.assign_profile(colorSettings.rgb, profileBytes(colorSettings.rgb));
     } catch (err) {
       e.free();
       throw err;

@@ -902,6 +902,26 @@ test('32 -> 16 Bits/Channel with Merge and HDR Toning keeps values above 1 apart
   assert.equal(u.layers.length, 2);
 });
 
+test('Assign Profile previews live without a history step and restores the tag when it ends', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', [200, 50, 10, 255]);
+  await call('assignProfile', 'sRGB IEC61966-2.1');
+  type I = { profile: { name: string } | null; history: { labels: string[] } };
+  const before = ((await call('assignProfile', 'sRGB IEC61966-2.1')).result as I).history.labels.length;
+  const tile = async () => new Uint8Array(((await call('displayTile', 0, 0, 0)).result as { data: ArrayBuffer }).data)[0];
+  const shown = await tile();
+  const p = (await call('previewAssign', 'ProPhoto RGB', false)).result as I;
+  assert.equal(p.profile?.name, 'ProPhoto RGB');
+  assert.equal(p.history.labels.length, before, 'no history step');
+  assert.notEqual(await tile(), shown, 'the display shows the numbers through the previewed profile');
+  assert.equal(((await call('previewAssign', null, false)).result as I).profile, null, "Don't Color Manage previews untagged");
+  const end = (await call('previewAssign', null, true)).result as I;
+  assert.equal(end.profile?.name, 'sRGB IEC61966-2.1');
+  assert.equal(await tile(), shown);
+  assert.equal(end.history.labels.length, before);
+});
+
 test('Edit > Assign/Convert to Profile: tag only vs. new numbers, one step each', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);
@@ -2896,6 +2916,59 @@ test('layerThumbs timing: one 8000x6000 layer at size 52', async () => {
 type Clip = { w: number; h: number; data: ArrayBuffer };
 type Pasted = { created: number; undoLabel: string; selection: unknown; layers: { id: number; name: string; mask: unknown }[] };
 const at1 = async (x: number, y: number, id: number | null) => (await call('sample', x, y, 1, id)).result as number[];
+
+test('Color Settings > Desaturate Monitor Colors changes only the display, for every document', async () => {
+  await call('init');
+  const s = { rgb: 'sRGB IEC61966-2.1', cmyk: 'Coated Offset CMYK (analytic)', gray: 'Dot Gain 20%', rgbPolicy: 'off', grayPolicy: 'off', askWhenOpening: false, askWhenMissing: false, intent: 'relativeColorimetric', bpc: true, dither: false, desaturateOn: true, desaturateBy: 50 };
+  const shown = async () => [...new Uint8Array(((await call('displayTile', 0, 0, 0)).result as { data: ArrayBuffer }).data).subarray(0, 3)];
+  await call('newDoc', 8, 8, 8, [255, 0, 0, 255]);
+  await call('setColorSettings', s);
+  assert.deepEqual(await shown(), [166, 38, 38], 'an open document');
+  await call('newDoc', 8, 8, 8, [255, 0, 0, 255]);
+  assert.deepEqual(await shown(), [166, 38, 38], 'a new document');
+  assert.deepEqual((await call('sample', 1, 1, 1, null)).result, [255, 0, 0, 255], 'the numbers stay');
+  await call('setColorSettings', { ...s, desaturateOn: false });
+  assert.deepEqual(await shown(), [255, 0, 0]);
+  await call('setColorSettings', null);
+});
+
+test('a loaded profile works as the working RGB space', async () => {
+  await call('init');
+  const e = new Engine(4, 4, 8);
+  e.assign_profile('Display P3', new Uint8Array());
+  const q3 = e.pixels_profile_icc().slice();
+  e.free();
+  const at = q3.findIndex((v, i) => v === 0 && q3[i + 1] === 0x50 && q3[i + 2] === 0 && q3[i + 3] === 0x33);
+  q3[at + 1] = 0x51;
+  assert.equal(((await call('loadProfile', q3)).result as { name: string }).name, 'Display Q3');
+  const s = { rgb: 'Display Q3', cmyk: 'Coated Offset CMYK (analytic)', gray: 'Dot Gain 20%', rgbPolicy: 'preserveEmbedded', grayPolicy: 'preserveEmbedded', askWhenOpening: false, askWhenMissing: false, intent: 'relativeColorimetric', bpc: true, dither: false };
+  await call('setColorSettings', s);
+  const d = await call('newDoc', 8, 8, 8, null);
+  assert.equal(d.error, undefined);
+  assert.equal((d.result as { profile: { name: string } | null }).profile?.name, 'Display Q3');
+  await call('setColorMode', { mode: 'gray' });
+  const back = (await call('setColorMode', { mode: 'rgb' })).result as { profile: { name: string } | null };
+  assert.equal(back.profile?.name, 'Display Q3', 'RGB Color converts to the loaded working space');
+  await call('setColorSettings', null);
+});
+
+test('Paste into a document with another profile converts the pixels; the same profile keeps them', async () => {
+  await call('init');
+  const s = { rgb: 'sRGB IEC61966-2.1', cmyk: 'Coated Offset CMYK (analytic)', gray: 'Dot Gain 20%', rgbPolicy: 'preserveEmbedded', grayPolicy: 'preserveEmbedded', askWhenOpening: false, askWhenMissing: false, intent: 'relativeColorimetric', bpc: true, dither: false };
+  await call('setColorSettings', s);
+  await call('newDoc', 16, 16, 8, [100, 150, 50, 255]);
+  await call('convertToProfile', 'Adobe RGB (1998)', { intent: 'relativeColorimetric', blackPointCompensation: true, dither: false, flatten: false });
+  const adobe = await at1(5, 5, null);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('copy', 1, false, false);
+  const same = (await call('paste', 1, 'inPlace', null)).result as Pasted;
+  assert.deepEqual(await at1(1, 1, same.created), adobe, 'same profile: unchanged');
+  await call('newDoc', 16, 16, 8, null);
+  const p = (await call('paste', 1, 'inPlace', null)).result as Pasted;
+  const got = await at1(1, 1, p.created);
+  assert.ok(got.slice(0, 3).every((v, i) => Math.abs(v - [100, 150, 50][i]) <= 1), `back to the sRGB numbers: ${got} (Adobe RGB ${adobe})`);
+  await call('setColorSettings', null);
+});
 
 test('Copy then Paste adds a layer above with the pixels centred; Paste in Place keeps the origin', async () => {
   await call('init');

@@ -413,6 +413,8 @@ pub struct Profile {
     pub gray_trc: Option<Curve>,
     a2b: [Option<Pipe>; 3],
     b2a: [Option<Pipe>; 3],
+    // The 'gamt' tag: PCS -> 0 in gamut, above 0 out of gamut.
+    gamut: Option<Pipe>,
     /// The file this profile came from; built-in profiles have none.
     pub icc_bytes: Option<Vec<u8>>,
 }
@@ -454,6 +456,7 @@ impl Profile {
             gray_trc: None,
             a2b: [None, None, None],
             b2a: [None, None, None],
+            gamut: None,
             icc_bytes: None,
         }
     }
@@ -723,6 +726,21 @@ impl Transform {
         }
         stages.extend(dst.from_pcs(intent)?);
         Ok(Transform { inputs: src.channels(), outputs: dst.channels(), stages })
+    }
+
+    /// Device values of `src` -> the gamut tag of `dev` (0: in gamut); None without the tag.
+    pub fn gamut_check(src: &Profile, dev: &Profile) -> Result<Option<Transform>, String> {
+        let Some(g) = &dev.gamut else { return Ok(None) };
+        let mut stages = src.to_pcs(Intent::Relative)?;
+        if dev.pcs_lab {
+            stages.extend([Stage::XyzToLab, Stage::Matrix(lab_encode(g.legacy_lab))]);
+        } else {
+            stages.push(Stage::Matrix(scale([1.0 / XYZ_ENC; 3])));
+        }
+        stages.push(Stage::Clamp(3));
+        stages.extend(lut_stages(g));
+        stages.push(Stage::Clamp(1));
+        Ok(Some(Transform { inputs: src.channels(), outputs: 1, stages }))
     }
 
     /// The transform without its final clip to 0..1, for sampling into a table that clips later.
@@ -1113,6 +1131,13 @@ impl Profile {
                 p.b2a[i] = Some(read_pipe(b, o, pcs_lab, false)?);
             }
         }
+        if let Some(o) = tag(b"gamt") {
+            let g = read_pipe(b, o, pcs_lab, false)?;
+            if g.outputs != 1 {
+                return Err(perr("the gamut tag needs one output"));
+            }
+            p.gamut = Some(g);
+        }
         for (pipes, ins, outs) in [(&p.a2b, space.channels(), 3), (&p.b2a, 3, space.channels())] {
             for pipe in pipes.iter().flatten() {
                 let first = pipe.elems.iter().find_map(|e| match e {
@@ -1135,6 +1160,39 @@ impl Profile {
 #[cfg(test)]
 fn put_sig(v: &mut Vec<u8>, s: &[u8; 4]) {
     v.extend_from_slice(s);
+}
+
+/// Test only: sRGB as a printer profile whose 'gamt' tag marks every color darker than white out
+/// of gamut (an mft2 grid of 2 giving 1 - encoded Y), so only the tag can flag anything.
+#[cfg(test)]
+pub(crate) fn gamut_tag_test_profile() -> Vec<u8> {
+    let src = Profile::builtin(SRGB).expect("built in").icc().expect("written");
+    let n = u32::from_be_bytes(src[128..132].try_into().unwrap()) as usize;
+    let mut tags: Vec<([u8; 4], Vec<u8>)> = (0..n)
+        .map(|i| {
+            let e = &src[132 + 12 * i..144 + 12 * i];
+            let (o, l) = (u32::from_be_bytes(e[4..8].try_into().unwrap()) as usize, u32::from_be_bytes(e[8..12].try_into().unwrap()) as usize);
+            (e[..4].try_into().unwrap(), src[o..o + l].to_vec())
+        })
+        .filter(|(s, _)| s != b"desc" && s != b"cprt")
+        .collect();
+    let mut mft = vec![];
+    put_sig(&mut mft, b"mft2");
+    mft.extend([0, 0, 0, 0, 3, 1, 2, 0]);
+    for v in [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0] {
+        put_s15(&mut mft, v);
+    }
+    mft.extend(2u16.to_be_bytes());
+    mft.extend(2u16.to_be_bytes());
+    for _ in 0..3 {
+        mft.extend([0, 0, 0xff, 0xff]);
+    }
+    for i in 0..8 {
+        mft.extend(if (i >> 1) & 1 == 0 { [0xff, 0xff] } else { [0, 0] });
+    }
+    mft.extend([0, 0, 0xff, 0xff]);
+    tags.push((*b"gamt", mft));
+    write_profile(b"prtr", b"RGB ", "Gamut tag test", &tags)
 }
 
 fn put_s15(v: &mut Vec<u8>, x: f64) {

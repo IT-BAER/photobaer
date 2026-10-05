@@ -160,7 +160,7 @@ export function ExportPrefsDialog({ ref }: { ref: Ref<ExportDialogHandle> }) {
         </div>
         <label className="radio"><input type="radio" name="xp-ask" checked={p.ask} onChange={() => setP({ ...p, ask: true })} /> Ask where to export each time</label>
         <label className="radio"><input type="radio" name="xp-ask" checked={!p.ask} onChange={() => setP({ ...p, ask: false })} /> Export files to the browser's downloads</label>
-        <label className="radio"><input type="checkbox" checked={p.icc} onChange={e => setP({ ...p, icc: e.currentTarget.checked })} /> Embed the color profile (PNG and JPEG)</label>
+        <label className="radio"><input type="checkbox" checked={p.icc} onChange={e => setP({ ...p, icc: e.currentTarget.checked })} /> Embed the color profile (PNG, JPEG and WebP)</label>
         <label className="radio"><input type="checkbox" checked={p.meta} onChange={e => setP({ ...p, meta: e.currentTarget.checked })} /> Embed File Info: copyright and contact (PNG and JPEG)</label>
         <div className="actions">
           <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>

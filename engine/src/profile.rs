@@ -237,6 +237,33 @@ impl Document {
         Ok(true)
     }
 
+    /// The profile of the stored numbers as ICC bytes, for pixels copied out of this document.
+    pub fn pixels_profile_icc(&self) -> Vec<u8> {
+        self.source_profile().ok().and_then(|p| p.icc()).unwrap_or_default()
+    }
+
+    /// Straight RGBA8 `rgba` whose numbers mean profile `icc` (RGB or Gray), converted to this
+    /// document's stored numbers; unchanged when the profiles match.
+    pub fn convert_rgba8(&self, rgba: &[u8], icc: &[u8], opts: ConvertOpts) -> Result<Vec<u8>, String> {
+        let src = Profile::parse(icc)?;
+        let dst = self.source_profile()?;
+        if src.icc().as_deref() == Some(icc) && dst.icc().as_deref() == Some(icc) {
+            return Ok(rgba.to_vec());
+        }
+        let t = Transform::new(&src, &dst, opts.intent, opts.black_point_compensation)?;
+        let mut out = rgba.to_vec();
+        for p in out.chunks_exact_mut(4) {
+            let c = [0, 1, 2].map(|i| p[i] as f64 / 255.0);
+            let mut o = [0.0f64; 3];
+            t.apply(if src.space == Space::Gray { &c[..1] } else { &c[..] }, &mut o);
+            let o = if dst.space == Space::Gray { [o[0]; 3] } else { o };
+            for i in 0..3 {
+                p[i] = (o[i].clamp(0.0, 1.0) * 255.0).round() as u8;
+            }
+        }
+        Ok(out)
+    }
+
     /// The document profile as ICC bytes for embedding in an export; empty when there is none to
     /// embed (untagged, Lab, or a Gray profile, as exports are RGB).
     pub fn profile_icc(&self) -> Vec<u8> {
@@ -372,6 +399,29 @@ mod tests {
         assert!(cyan[0] > 0.4 && cyan[1] < 0.05 && cyan[2] < cyan[0] / 2.0 && cyan[3] < 0.05, "cyan separates to cyan ink: {cyan:?}");
         d.assign_profile(None).unwrap();
         assert_eq!(d.cmyk_separation(5), t, "an untagged CMYK document separates through the default CMYK");
+    }
+
+    #[test]
+    fn pasted_pixels_convert_from_the_source_documents_profile() {
+        let adobe = Profile::builtin("Adobe RGB (1998)").unwrap();
+        let mut src = Document::new(4, 4, 8).unwrap();
+        src.assign_profile(Some(&adobe)).unwrap();
+        let icc = src.pixels_profile_icc();
+        assert_eq!(Profile::parse(&icc).unwrap().space, Space::Rgb);
+        // The same numbers converted by Convert to Profile are the expected paste.
+        let mut want = src.clone();
+        put_px(&mut want, 1, 0, 0, [100, 150, 50, 255]);
+        want.convert_to_profile(&Profile::builtin(SRGB).unwrap(), ConvertOpts::default()).unwrap();
+        let dst = Document::new(4, 4, 8).unwrap();
+        let got = dst.convert_rgba8(&[100, 150, 50, 255], &icc, ConvertOpts::default()).unwrap();
+        assert_eq!(got, get_px(&want, 1, 0, 0).to_vec());
+        assert_eq!(dst.convert_rgba8(&[100, 150, 50, 77], &dst.pixels_profile_icc(), ConvertOpts::default()).unwrap(), vec![100, 150, 50, 77], "same profile");
+        let mut gray = Document::new(4, 4, 8).unwrap();
+        gray.set_color_mode(&super::super::color_mode::ModeSpec::Gray).unwrap();
+        gray.assign_profile(Some(&Profile::builtin("Dot Gain 20%").unwrap())).unwrap();
+        let g = dst.convert_rgba8(&[128, 128, 128, 255], &gray.pixels_profile_icc(), ConvertOpts::default()).unwrap();
+        // Dot Gain 20% gray 0.5 is linear 0.3; sRGB encodes that as 1.055 * 0.3^(1/2.4) - 0.055 = 0.584.
+        assert_eq!(g, vec![149, 149, 149, 255]);
     }
 
     #[test]

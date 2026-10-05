@@ -907,6 +907,18 @@ impl Engine {
         self.0.doc.convert_to_profile(&p, opts).map_err(err)
     }
 
+    /// The profile of the stored numbers as ICC bytes, kept with copied pixels.
+    pub fn pixels_profile_icc(&self) -> Vec<u8> {
+        self.0.doc.pixels_profile_icc()
+    }
+
+    /// Straight RGBA8 whose numbers mean profile `icc`, converted to this document's numbers with
+    /// Convert to Profile's options.
+    pub fn convert_rgba8(&self, rgba: &[u8], icc: &[u8], opts: &str) -> Result<Vec<u8>, JsError> {
+        let opts: crate::doc::profile::ConvertOpts = serde_json::from_str(opts).map_err(|e| err(format!("invalid options: {e}")))?;
+        self.0.doc.convert_rgba8(rgba, icc, opts).map_err(err)
+    }
+
     /// `{ name, builtin }` of the document's profile, or null when untagged.
     pub fn profile_json(&self) -> String {
         serde_json::to_string(&self.0.doc.profile().map(|p| serde_json::json!({ "name": p.name, "builtin": p.icc.is_none() }))).expect("plain JSON")

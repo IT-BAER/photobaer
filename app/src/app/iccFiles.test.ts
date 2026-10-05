@@ -73,6 +73,49 @@ test('WebP: the ICCP chunk is read', async () => {
   assert.deepEqual(await readIcc(riff), p);
 });
 
+// A RIFF WebP of `chunks` ([fourcc, payload]), padded to even sizes.
+function webp(chunks: [string, number[]][]) {
+  const body = [...new TextEncoder().encode('WEBP')];
+  for (const [t, d] of chunks) body.push(...new TextEncoder().encode(t), d.length & 255, (d.length >> 8) & 255, 0, 0, ...d, ...(d.length & 1 ? [0] : []));
+  const n = body.length;
+  return Uint8Array.from([...new TextEncoder().encode('RIFF'), n & 255, (n >> 8) & 255, 0, 0, ...body]);
+}
+// The fourcc list of a WebP file and its VP8X payload.
+function webpChunks(b: Uint8Array) {
+  const v = new DataView(b.buffer, b.byteOffset), out: string[] = [];
+  let vp8x: number[] = [];
+  for (let o = 12; o + 8 <= b.length;) {
+    const t = String.fromCharCode(...b.subarray(o, o + 4)), n = v.getUint32(o + 4, true);
+    out.push(t);
+    if (t === 'VP8X') vp8x = [...b.subarray(o + 8, o + 18)];
+    o += 8 + n + (n & 1);
+  }
+  return { list: out, vp8x, riff: v.getUint32(4, true) };
+}
+
+test('WebP: the profile goes in an ICCP chunk after a VP8X header made from the image size', async () => {
+  const p = icc(33);
+  // Lossless 300 x 200 with alpha: signature 0x2f, then (w-1) | (h-1) << 14 | alpha << 28.
+  const bits = 299 | (199 << 14) | (1 << 28);
+  const lossless = webp([['VP8L', [0x2f, bits & 255, (bits >> 8) & 255, (bits >> 16) & 255, bits >>> 24, 7, 7]]]);
+  const a = await embedIcc(lossless, 'image/webp', p);
+  const ca = webpChunks(a);
+  assert.deepEqual(ca.list, ['VP8X', 'ICCP', 'VP8L']);
+  assert.deepEqual(ca.vp8x, [0x30, 0, 0, 0, 43, 1, 0, 199, 0, 0], 'ICC and alpha flags, width-1 and height-1 (24-bit)');
+  assert.equal(ca.riff, a.length - 8);
+  assert.deepEqual(await readIcc(a), p);
+  // Lossy 640 x 480: frame tag, start code 9d 01 2a, 14-bit width and height.
+  const lossy = webp([['VP8 ', [0x10, 0x02, 0x00, 0x9d, 0x01, 0x2a, 0x80, 0x02, 0xe0, 0x01, 9]]]);
+  const cb = webpChunks(await embedIcc(lossy, 'image/webp', p));
+  assert.deepEqual([cb.list, cb.vp8x], [['VP8X', 'ICCP', 'VP8 '], [0x20, 0, 0, 0, 127, 2, 0, 223, 1, 0]]);
+  // Extended: the flag is added and an old ICCP replaced.
+  const ext = webp([['VP8X', [0x10, 0, 0, 0, 9, 0, 0, 9, 0, 0]], ['ICCP', [1, 2, 3]], ['ALPH', [5]], ['VP8 ', [6, 6]]]);
+  const c = await embedIcc(ext, 'image/webp', p);
+  const cc = webpChunks(c);
+  assert.deepEqual([cc.list, cc.vp8x[0]], [['VP8X', 'ICCP', 'ALPH', 'VP8 '], 0x30]);
+  assert.deepEqual(await readIcc(c), p);
+});
+
 test('PSD: resource 1039 is inserted, replaced and read', async () => {
   const head = new Uint8Array(26);
   head.set(new TextEncoder().encode('8BPS'));

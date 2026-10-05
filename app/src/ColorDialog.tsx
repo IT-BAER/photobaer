@@ -9,6 +9,7 @@ import {
   type ColorSettings, type Intent, type OpenAction, type Policy,
 } from './app/colorSettings.ts';
 import { DEFAULT_VIEW, HDR_EXPOSURE, HDR_GAMMA, sanitizeHdr, type HdrMethod, type HdrPreview } from './app/proof.ts';
+import { rememberLoadedProfiles } from './app/profileStore.ts';
 
 export type ColorDialogKind = 'settings' | 'assign' | 'convert' | 'proof' | 'hdr';
 export interface ColorDialogHandle {
@@ -40,13 +41,20 @@ export function ColorDialog({ ref, doc, show, setError }: {
   const [proof, setProof] = useState({ preserveNumbers: false, simulatePaper: false, simulateBlackInk: false, preview: true });
   const [hdr, setHdr] = useState<HdrPreview>(DEFAULT_VIEW.hdr);
   const hdrBefore = useRef<HdrPreview | null>(null);
+  // Assign Profile's Preview: whether the document shows the chosen profile now.
+  const [assignPreview, setAssignPreview] = useState(true);
+  const assignOn = useRef(false);
 
   useEffect(() => { client.call('setColorSettings', settings).then(d => { if (d) show(d); }, e => setError((e as Error).message)); }, [settings]);
 
   const gray = !!doc?.gray;
   const cmykDoc = doc?.mode?.kind === 'cmyk';
   const working = cmykDoc ? settings.cmyk : gray ? settings.gray : settings.rgb;
-  const refresh = () => client.call('iccProfiles').then(setProfiles, e => setError((e as Error).message));
+  const refresh = () => client.call('iccProfiles').then(list => {
+    setProfiles(list);
+    rememberLoadedProfiles(list.filter(p => p.loaded));
+  }, e => setError((e as Error).message));
+  const loadedOf = (space: string) => profiles.filter(p => p.loaded && p.space === space).map(p => p.name);
 
   useImperativeHandle(ref, () => ({
     open(k) {
@@ -62,7 +70,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
         setProof({ preserveNumbers: v.setup.preserveNumbers, simulatePaper: v.setup.simulatePaper, simulateBlackInk: v.setup.simulateBlackInk, preview: true });
       }
       if (k === 'hdr') { setHdr(v.hdr); hdrBefore.current = v.hdr; }
-      if (k !== 'settings' && k !== 'hdr') void refresh();
+      if (k !== 'hdr') void refresh();
       dialog.current?.showModal();
     },
     ask(file, embedded, space = 'rgb') {
@@ -76,8 +84,15 @@ export function ColorDialog({ ref, doc, show, setError }: {
     },
   }), [doc, settings, working]);
 
+  function endAssignPreview() {
+    if (!assignOn.current) return;
+    assignOn.current = false;
+    client.call('previewAssign', null, true).then(show, e => setError((e as Error).message));
+  }
+
   function close(a: OpenAction | null) {
     if (hdrBefore.current) { previewHdr(hdrBefore.current); hdrBefore.current = null; }
+    endAssignPreview();
     const r = answer.current;
     answer.current = null;
     dialog.current?.close();
@@ -110,6 +125,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
   function ok() {
     if (kind === 'mismatch' || kind === 'missing') return close(choice as OpenAction);
     hdrBefore.current = null;
+    endAssignPreview();
     dialog.current?.close();
     if (kind === 'settings') { saveColorSettings(draft); setSettings(draft); return; }
     if (kind === 'hdr') return;
@@ -122,10 +138,19 @@ export function ColorDialog({ ref, doc, show, setError }: {
       return;
     }
     const run = kind === 'assign'
-      ? client.call('assignProfile', choice === 'none' ? null : choice === 'working' ? working : profile)
+      ? client.call('assignProfile', assignTarget)
       : client.call('convertToProfile', profile, { intent: opts.intent, blackPointCompensation: opts.bpc, dither: opts.dither, flatten: opts.flatten });
     run.then(show, e => setError((e as Error).message));
   }
+
+  const assignTarget = choice === 'none' ? null : choice === 'working' ? working : profile;
+  useEffect(() => {
+    if (kind !== 'assign') return;
+    if (!assignPreview) { endAssignPreview(); return; }
+    assignOn.current = true;
+    client.call('previewAssign', assignTarget, false).then(show, e => setError((e as Error).message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, assignTarget, assignPreview]);
 
   const own = profiles.filter(p => p.space === (cmykDoc ? 'cmyk' : gray ? 'gray' : 'rgb'));
   // Preserve Numbers needs a device with the document's channels.
@@ -153,7 +178,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
   );
 
   return (
-    <dialog ref={dialog} className="mode-dialog color-dialog" aria-label={kind ? NAMES[kind] : 'Color'} onClose={() => { setKind(null); if (answer.current || hdrBefore.current) close(null); }}>
+    <dialog ref={dialog} className="mode-dialog color-dialog" aria-label={kind ? NAMES[kind] : 'Color'} onClose={() => { setKind(null); if (answer.current || hdrBefore.current || assignOn.current) close(null); }}>
       {kind && (
         <form onSubmit={e => { e.preventDefault(); ok(); }}>
           <h2>{NAMES[kind]}</h2>
@@ -166,9 +191,10 @@ export function ColorDialog({ ref, doc, show, setError }: {
               {COLOR_PRESETS.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
             </select></label>
             <fieldset><legend>Working Spaces</legend>
-              <label>RGB {select('RGB working space', draft.rgb, v => setDraft({ ...draft, rgb: v }), RGB_SPACES)}</label>
-              <label>CMYK {select('CMYK working space', draft.cmyk, v => setDraft({ ...draft, cmyk: v }), CMYK_SPACES)}</label>
-              <label>Gray {select('Gray working space', draft.gray, v => setDraft({ ...draft, gray: v }), GRAY_SPACES)}</label>
+              <label>RGB {select('RGB working space', draft.rgb, v => setDraft({ ...draft, rgb: v }), [...RGB_SPACES, ...loadedOf('rgb')])}</label>
+              <label>CMYK {select('CMYK working space', draft.cmyk, v => setDraft({ ...draft, cmyk: v }), [...CMYK_SPACES, ...loadedOf('cmyk')])}</label>
+              <label>Gray {select('Gray working space', draft.gray, v => setDraft({ ...draft, gray: v }), [...GRAY_SPACES, ...loadedOf('gray')])}</label>
+              <button type="button" onClick={load}>Load…</button>
             </fieldset>
             <fieldset><legend>Color Management Policies</legend>
               {policy('RGB', draft.rgbPolicy, p => setDraft({ ...draft, rgbPolicy: p }), 'RGB')}
@@ -178,6 +204,13 @@ export function ColorDialog({ ref, doc, show, setError }: {
             </fieldset>
             <fieldset><legend>Conversion Options</legend>
               {conversion(draft, p => setDraft({ ...draft, ...p }))}
+            </fieldset>
+            <fieldset><legend>Advanced Controls</legend>
+              <div className="row">
+                <label className="check"><input type="checkbox" checked={draft.desaturateOn} onChange={e => setDraft({ ...draft, desaturateOn: e.currentTarget.checked })} /> Desaturate Monitor Colors By:</label>
+                <input type="number" aria-label="Desaturate by" min={1} max={100} disabled={!draft.desaturateOn} value={draft.desaturateBy}
+                  onChange={e => { const v = Math.round(Number(e.currentTarget.value)); if (v >= 1 && v <= 100) setDraft({ ...draft, desaturateBy: v }); }} /> %
+              </div>
             </fieldset>
             <p className="hint">{COLOR_PRESETS.find(p => p.name === preset)?.description ?? 'Custom settings.'}</p>
           </>}
@@ -189,6 +222,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
               {select('Profile', profile, setProfile, own.map(p => p.name), choice !== 'profile')}
               <button type="button" onClick={load}>Load…</button>
             </div>
+            <label className="check"><input type="checkbox" checked={assignPreview} onChange={e => setAssignPreview(e.currentTarget.checked)} /> Preview</label>
           </>}
           {kind === 'convert' && <>
             <fieldset><legend>Source Space</legend>
