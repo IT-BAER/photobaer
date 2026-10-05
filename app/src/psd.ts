@@ -871,6 +871,12 @@ export function importPsd(bytes: Uint8Array, opts: { psb?: boolean } = {}): { en
       ...JSON.parse(e.vector_json()), ...layout, ...(grid ? { grid } : {}), paths: paths.map((p, i) => ({ id: i + 1, ...p })), artboards_locked: locked,
     }));
     if (flat) {
+      // Without a negative layer count the channels after the color ones are alpha channels, not transparency.
+      const colors = psd.colorMode === 1 ? 1 : 3, data = psd.imageData?.data;
+      if (data && psdLayerCount(bytes) >= 0 && (bytes[12] << 8 | bytes[13]) > colors) {
+        const max = data instanceof Float32Array ? 1 : data instanceof Uint16Array ? 65535 : 255;
+        for (let i = 3; i < data.length; i += 4) data[i] = max;
+      }
       place(e, 1, psd, w, h);
     } else {
       const c: ImportCtx = { e, w, h, warn, files: new Map((psd.linkedFiles ?? []).map(f => [f.id, f])), pats: importDocument(e, psd), comps: new Map(), sources, fx: psd.filterEffectsMasks ?? [], raw,

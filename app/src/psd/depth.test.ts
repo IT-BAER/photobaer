@@ -256,3 +256,23 @@ test('PSD files with more than 16 channels open with every alpha and spot channe
     sameTile(tileOf(back, got[19].tiles), tileOf(e, channelsOf(e)[19].tiles), `${depth}-bit last channel`);
   }
 });
+
+test('a flat PSD reads its fourth channel as an alpha channel, not as transparency', () => {
+  for (const depth of [8, 16]) {
+    const e = new Engine(10, 10, depth);
+    e.fill(1, 'pixels', 10, 20, 30, 255);
+    e.new_channel('Alpha 1');
+    const b = exportPsd(e).bytes;
+    // Drop the layer and mask section: Photoshop's flat files have no layer records.
+    const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    const res = 26 + 4 + v.getUint32(26), lm = res + 4 + v.getUint32(res), image = lm + 4 + v.getUint32(lm);
+    const flat = new Uint8Array([...b.subarray(0, lm), 0, 0, 0, 0, ...b.subarray(image)]);
+    assert.equal(psdLayerCount(flat), 0);
+    const back = importPsd(flat).engine;
+    assert.deepEqual(channelsOf(back).map(c => c.name), ['Alpha 1']);
+    const bg = (JSON.parse(back.manifest()) as { layers: Node[] }).layers[0];
+    const px = tileOf(back, bg.tiles)!;
+    const alpha = depth === 8 ? px[3] : new DataView(px.buffer, px.byteOffset).getUint16(6, true);
+    assert.equal(alpha, depth === 8 ? 255 : 65535, `${depth}-bit background stays opaque`);
+  }
+});

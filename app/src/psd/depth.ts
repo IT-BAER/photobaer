@@ -326,6 +326,8 @@ function displayColor(v: DataView, o: number): Rgb | null {
 export function psdLayerCount(b: Uint8Array): number {
   const { v, psb, lmData, image } = sections(b);
   const L = psb ? 8 : 4;
+  // An empty layer and mask section has no layer info length either.
+  if (image - lmData < L) return 0;
   if (readLen(v, lmData, psb)) return v.getInt16(lmData + L);
   let p = lmData + L;
   p += 4 + v.getUint32(p);

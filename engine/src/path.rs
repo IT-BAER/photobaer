@@ -567,12 +567,16 @@ impl DocVector {
         Ok(())
     }
 
-    /// A color mode beyond RGB and Grayscale must be valid and below 32 bits.
+    /// A color mode beyond RGB and Grayscale must be valid and below 32 bits; Bitmap and Indexed are 8-bit.
     pub fn check_mode(&self, depth: u8) -> Result<(), String> {
+        use crate::doc::color_mode::ColorMode as M;
         let Some(mode) = &self.mode else { return Ok(()) };
         mode.check()?;
         if depth == 32 {
             return Err("a 32-bit document is RGB or Grayscale".into());
+        }
+        if depth != 8 && matches!(mode, M::Bitmap | M::Indexed { .. }) {
+            return Err("Bitmap and Indexed Color documents are 8-bit".into());
         }
         Ok(())
     }

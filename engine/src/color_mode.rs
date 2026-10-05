@@ -905,7 +905,7 @@ mod tests {
     }
 
     #[test]
-    fn a_mode_at_32_bits_is_refused_from_vector_data_and_manifests() {
+    fn modes_at_depths_they_lack_are_refused_from_vector_data_and_manifests() {
         let mut duo = Document::new(4, 4, 16).unwrap();
         duo.set_color_mode(&ModeSpec::Gray).unwrap();
         duo.set_color_mode(&spec(r#"{"mode":"duotone","inks":[[0,0,0],[255,0,0]]}"#)).unwrap();
@@ -916,6 +916,17 @@ mod tests {
         let m = duo.manifest().replacen("\"depth\":16", "\"depth\":32", 1);
         assert!(m.contains("\"depth\":32"));
         assert!(Document::from_manifest(&m).is_err(), "a 32-bit Duotone manifest is refused");
+        for mode in [r#"{"mode":"bitmap","method":"threshold"}"#, r#"{"mode":"indexed","palette":"exact","colors":256,"transparency":false,"dither":"none","amount":1}"#] {
+            let mut eight = Document::new(4, 4, 8).unwrap();
+            eight.set_color_mode(&ModeSpec::Gray).unwrap();
+            eight.set_color_mode(&spec(mode)).unwrap();
+            let mut wide = Document::new(4, 4, 16).unwrap();
+            wide.set_color_mode(&ModeSpec::Gray).unwrap();
+            assert!(wide.set_document_vector(&eight.vector_json()).is_err(), "{mode} vector data at 16 bits");
+            let m = eight.manifest().replacen("\"depth\":8", "\"depth\":16", 1);
+            assert!(m.contains("\"depth\":16"));
+            assert!(Document::from_manifest(&m).is_err(), "{mode} manifest at 16 bits");
+        }
     }
 
     #[test]
