@@ -1680,6 +1680,37 @@ test('a split moved image includes the layer and its effects outside the canvas'
   assert.deepEqual((await call('sample', 1, 3, 1, null)).result, [255, 0, 0, 255], 'the layer is back where it was');
 });
 
+const hugeOnTiny = async (depth: number) => {
+  await call('init');
+  await call('newDoc', 16, 16, depth, [255, 255, 255, 255]);
+  await call('addLayer', 1);
+  await call('command', 'fill', 2, 'pixels', [255, 0, 0, 255]);
+  await call('transformBegin', 2, 'layer', 'Free Transform');
+  await call('transformCommit', [200, 0, -1600, 0, 200, -1600, 0, 0, 1]);
+  await call('setLayerStyle', 2, { ...emptyStyle(), strokes: [blueStroke(1)] }, defaultBlending(), 1, null);
+  await call('moveLayerBegin', 2, false, 'Move');
+  const t = Date.now();
+  const f = (await call('moveFloat', 1, [0, 0, 16, 16])).result as { image: { x: number; y: number; w: number; h: number } } | null;
+  const ms = Date.now() - t;
+  const p = (await call('moveFloatPatch', [-5000, -5000, 10000, 10000], null)).result as { moved: { image: { w: number; h: number } } | null };
+  await call('moveLayerCancel');
+  return { f, ms, p };
+};
+
+test('a split moved image of a layer far larger than a small canvas stays within one canvas around it', { timeout: 60000 }, async () => {
+  const { f, p } = await hugeOnTiny(8);
+  assert.ok(f, 'floats');
+  assert.deepEqual([f.image.x, f.image.y, f.image.w, f.image.h], [-16, -16, 48, 48], 'one canvas size around the canvas');
+  assert.ok(!p.moved || p.moved.image.w * p.moved.image.h <= 48 * 48, `patch ${p.moved?.image.w}x${p.moved?.image.h}`);
+});
+
+test('a split moved image whose off-canvas shifting would cost too much shows only the canvas', { timeout: 60000 }, async () => {
+  const { f, ms } = await hugeOnTiny(32);
+  assert.ok(f, 'floats');
+  assert.deepEqual([f.image.x, f.image.y, f.image.w, f.image.h], [0, 0, 16, 16], 'canvas only');
+  assert.ok(ms < 5000, `moveFloat took ${ms} ms`);
+});
+
 test('the Navigator and the Histogram show the floated layers while the document shows what is below', async () => {
   await call('init');
   await closeAll();

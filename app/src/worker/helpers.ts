@@ -77,7 +77,9 @@ function shiftedRegion(e: Engine, ids: number[], level: number, r: Box) {
   const W = e.width(), H = e.height(), u = 1 << level;
   const inside = intersect(r, [0, 0, W, H]);
   if (!ids.length || !inside || inside.every((v, i) => v === r[i])) return inside && displayRegion(e, level, inside);
-  const cw = Math.max(u, Math.floor(W / u) * u), ch = Math.max(u, Math.floor(H / u) * u);
+  // A canvas narrower than one pyramid unit has no aligned cell inside it: only the canvas part shows.
+  if (W < u || H < u) return displayRegion(e, level, inside);
+  const cw = Math.floor(W / u) * u, ch = Math.floor(H / u) * u;
   const f = 1 / u, x0 = Math.floor(r[0] * f), y0 = Math.floor(r[1] * f);
   const w = Math.ceil((r[0] + r[2]) * f) - x0, h = Math.ceil((r[1] + r[3]) * f) - y0;
   const out = new Uint8ClampedArray(w * h * 4);
@@ -86,12 +88,13 @@ function shiftedRegion(e: Engine, ids: number[], level: number, r: Box) {
     const cell = intersect(r, [i * cw, j * ch, cw, ch]);
     if (!cell) continue;
     const dx = -i * cw, dy = -j * ch;
-    for (const id of ids) if (dx || dy) e.offset_layer(id, dx, dy);
+    const shifted: number[] = [];
     let part: ReturnType<typeof displayRegion>;
     try {
+      for (const id of ids) if (dx || dy) { e.offset_layer(id, dx, dy); shifted.push(id); }
       part = displayRegion(e, level, [cell[0] + dx, cell[1] + dy, cell[2], cell[3]]);
     } finally {
-      for (const id of ids) if (dx || dy) e.offset_layer(id, -dx, -dy);
+      for (const id of shifted) e.offset_layer(id, -dx, -dy);
     }
     if (!part) continue;
     const src = new Uint8Array(part.data), { w: pw, h: ph } = part.image;

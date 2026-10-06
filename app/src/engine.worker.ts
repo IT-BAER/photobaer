@@ -98,7 +98,12 @@ function moveSplit(e: Engine, s: NonNullable<typeof moveSession>, tree: LayerNod
   const ids = collectPixelIds(tree, n.id), pad = e.effect_reach(n.id);
   const ext = ids.map(id => e.layer_bounds(id) as Box | null).reduce<Box | null>((u, b) => !b ? u : !u ? b
     : [Math.min(u[0], b[0]), Math.min(u[1], b[1]), Math.max(u[0] + u[2], b[0] + b[2]) - Math.min(u[0], b[0]), Math.max(u[1] + u[3], b[1] + b[3]) - Math.min(u[1], b[1])], null);
-  const reach: Box = ext ? [ext[0] - pad, ext[1] - pad, ext[2] + 2 * pad, ext[3] + 2 * pad] : [0, 0, W, H];
+  // shortcut: live preview only within one canvas size around the canvas (bounded memory and cells), and
+  // only while shifting the layers per off-canvas cell stays cheap; farther parts appear on drop.
+  const wide = intersect(ext ? [ext[0] - pad, ext[1] - pad, ext[2] + 2 * pad, ext[3] + 2 * pad] : [0, 0, W, H], [-W, -H, 3 * W, 3 * H]) ?? [0, 0, W, H];
+  const area = ids.reduce((a, id) => { const b = e.layer_bounds(id) as Box | null; return a + (b ? b[2] * b[3] : 0); }, 0);
+  const cells = (Math.ceil(wide[2] / W) + 1) * (Math.ceil(wide[3] / H) + 1) - 1;
+  const reach: Box = area * cells * (e.depth() / 8) <= 1 << 28 ? wide : [0, 0, W, H];
   // The view's own tiles are drawn already, so their effects come from the tile cache; patches add the rest.
   const near = view && intersect([0, 0, W, H], view);
   const shown = tree.filter(t => t.visible).map(t => t.id), up = above.filter(t => t.visible).map(t => t.id);

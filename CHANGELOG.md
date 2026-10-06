@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-10-06
+
+### Fixed
+
+- Move tool: dragging a layer with effects that is much larger than a small canvas no longer freezes the tab;
+  the live preview shows the layer up to one canvas width and height around the canvas, or only the canvas
+  when that would take too long; the rest appears on drop.
+
 ## [0.3.7] - 2026-10-06
 
 ### Added
