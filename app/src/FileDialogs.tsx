@@ -3,6 +3,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'reac
 import { client } from './client.ts';
 import { emptyInfo, xmpPacket, type FileInfo } from './app/fileInfo.ts';
 import { PAPERS, printLayout, type PrintSettings } from './app/print.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 
 export interface FileInfoHandle { open(info: FileInfo | null): void }
 
@@ -107,16 +108,16 @@ export function PrintDialog({ ref, settings, start }: { ref: Ref<PrintHandle>; s
               <label>Scaled Print Size <select value={s.sizing} onChange={e => set({ sizing: e.currentTarget.value as PrintSettings['sizing'] })}>
                 <option value="fit">Scale to Fit Media</option><option value="actual">Actual Size</option><option value="custom">Custom</option>
               </select></label>
-              <label>Scale <input type="number" min={1} max={1000} disabled={s.sizing !== 'custom'} value={Math.round(s.scale * 100)} onChange={e => set({ scale: num(e.currentTarget.valueAsNumber, 1, 1000) / 100 })} /> %</label>
+              <label>Scale <NumberInput min={1} max={1000} disabled={s.sizing !== 'custom'} value={Math.round(s.scale * 100)} onValue={v => set({ scale: num(v, 1, 1000) / 100 })} /> %</label>
             </div>
             <div className="row">
-              <label>Margin <input type="number" min={0} max={50} step="any" value={s.marginMm} onChange={e => set({ marginMm: num(e.currentTarget.valueAsNumber, 0, 50) })} /> mm</label>
-              <label>Bleed <input type="number" min={0} max={20} step="any" value={s.bleedMm} onChange={e => set({ bleedMm: num(e.currentTarget.valueAsNumber, 0, 20) })} /> mm</label>
+              <label>Margin <NumberInput min={0} max={50} step="any" value={s.marginMm} onValue={v => set({ marginMm: num(v, 0, 50) })} /> mm</label>
+              <label>Bleed <NumberInput min={0} max={20} step="any" value={s.bleedMm} onValue={v => set({ bleedMm: num(v, 0, 20) })} /> mm</label>
             </div>
             <label className="radio"><input type="checkbox" checked={s.centered} onChange={e => set({ centered: e.currentTarget.checked })} /> Center the image on the page</label>
             {!s.centered && <div className="row">
-              <label>Left <input type="number" step="any" value={s.offsetXMm} onChange={e => set({ offsetXMm: num(e.currentTarget.valueAsNumber, -1000, 1000) })} /> mm</label>
-              <label>Top <input type="number" step="any" value={s.offsetYMm} onChange={e => set({ offsetYMm: num(e.currentTarget.valueAsNumber, -1000, 1000) })} /> mm</label>
+              <label>Left <NumberInput step="any" value={s.offsetXMm} onValue={v => set({ offsetXMm: num(v, -1000, 1000) })} /> mm</label>
+              <label>Top <NumberInput step="any" value={s.offsetYMm} onValue={v => set({ offsetYMm: num(v, -1000, 1000) })} /> mm</label>
             </div>}
             <label className="radio"><input type="checkbox" checked={s.cropMarks} onChange={e => set({ cropMarks: e.currentTarget.checked })} /> Crop marks</label>
             <label className="radio"><input type="checkbox" checked={s.registrationMarks} onChange={e => set({ registrationMarks: e.currentTarget.checked })} /> Registration marks</label>

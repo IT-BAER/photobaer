@@ -87,9 +87,12 @@ impl Hdr {
     fn tone(&self, v: f32, max: f32) -> f32 {
         let v = v.max(0.0);
         match self.method {
-            HdrMethod::HighlightCompression if max > 1.0 => (v * (1.0 + v / (max * max)) / (1.0 + v)).min(1.0),
+            HdrMethod::HighlightCompression if max > 1.0 => crate::gradient::compress_highlight(v, max),
             HdrMethod::HighlightCompression => v.min(1.0),
-            HdrMethod::ExposureAndGamma => (v * self.exposure.exp2()).powf(1.0 / self.gamma).min(1.0),
+            HdrMethod::ExposureAndGamma => {
+                let l = crate::gradient::srgb_to_linear(v) * self.exposure.exp2();
+                crate::gradient::linear_to_srgb(l.powf(1.0 / self.gamma)).min(1.0)
+            }
         }
     }
 }
@@ -417,9 +420,13 @@ mod tests {
     #[test]
     fn hdr_preview_tones_32_bit_values() {
         let h = Hdr { method: HdrMethod::ExposureAndGamma, exposure: -1.0, gamma: 1.0 };
-        assert!((h.tone(1.6, 0.0) - 0.8).abs() < 1e-6);
+        let up = crate::gradient::exposed(0.8, 2.0);
+        assert!((h.tone(up, 0.0) - 0.8).abs() < 1e-5, "exposure works in linear light: {}", h.tone(up, 0.0));
         let c = Hdr { method: HdrMethod::HighlightCompression, ..Default::default() };
         assert!((c.tone(4.0, 4.0) - 1.0).abs() < 1e-6, "the brightest value maps to white");
         assert!(c.tone(0.5, 4.0) < 0.5 && c.tone(2.0, 4.0) < 1.0);
+        let (l, w) = (crate::gradient::srgb_to_linear(0.5), crate::gradient::srgb_to_linear(4.0));
+        let want = crate::gradient::linear_to_srgb(l * (1.0 + l / (w * w)) / (1.0 + l));
+        assert!((c.tone(0.5, 4.0) - want).abs() < 1e-4, "compressed in linear light: {} vs {want}", c.tone(0.5, 4.0));
     }
 }

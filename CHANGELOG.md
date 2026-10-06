@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-10-06
+
+### Added
+
+- File > New: 32-bit documents.
+
+### Fixed
+
+- Number fields accept a minus sign and decimals as you type; "-" or "1." no longer jumps to 0 or loses the sign.
+- Highlight Compression (View > 32-bit Preview Options and Image > Adjustments > HDR Toning) works in linear light.
+- Move tool: the live preview of a layer with effects, or under visible layers, shows its pixels and effects
+  that come in from outside the canvas.
+- Navigator and Histogram keep showing the dragged layers, at their start position, during a Move drag instead of only the layers below.
+- An error message from a failed open no longer stays after the next file opens.
+- View > 32-bit Preview Options: Exposure works in linear light like Image > Adjustments > Exposure, so
+  -2 stops on a color painted with Intensity +2 shows the picked color.
+- The brush outline stays solid while a selection is shown; it took the dashes of the marching ants.
+
 ## [0.3.6] - 2026-10-06
 
 ### Added

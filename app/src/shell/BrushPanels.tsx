@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Grid2x2, Spline } from 'lucide-react';
 import { BLEND_MODES, CONTROLS, defaultDynamics, type BrushPreset, type Dyn, type Dynamics, type Tip, type TipRecord } from '../brushes/preset.ts';
 import { groupPresets, smoothingSettings, type PaintTool } from '../brushes/brushParams.ts';
 import type { AbrReport } from '../brushes/abr.ts';
+import { NumberInput } from './NumberInput.tsx';
 
 type Opts = Record<string, number | string | boolean>;
 export type Preview = (params: Record<string, unknown>, w: number, h: number) => Promise<{ w: number; h: number; data: ArrayBuffer }>;
@@ -75,7 +76,7 @@ function Slider({ label, value, min = 0, max = 100, unit = '%', disabled, onChan
     <label className="param-row">
       <span className="param-label">{label}</span>
       <input type="range" min={min} max={max} step={1} value={v} disabled={disabled} aria-label={label} onChange={e => set(e.currentTarget.valueAsNumber)} />
-      <input type="number" min={min} max={max} value={Math.round(value)} disabled={disabled} aria-label={`${label} value`} onChange={e => set(e.currentTarget.valueAsNumber)} />
+      <NumberInput min={min} max={max} value={Math.round(value)} disabled={disabled} aria-label={`${label} value`} onValue={v => set(v)} />
       <span className="param-unit">{unit}</span>
     </label>
   );
@@ -84,8 +85,8 @@ function NumberRow({ label, value, min, max, unit = '', disabled, onChange }: { 
   return (
     <label className="param-row">
       <span className="param-label">{label}</span>
-      <input type="number" min={min} max={max} value={Math.round(value * 100) / 100} disabled={disabled} aria-label={label}
-        onChange={e => { const n = e.currentTarget.valueAsNumber; if (Number.isFinite(n)) onChange(Math.min(max, Math.max(min, n))); }} />
+      <NumberInput min={min} max={max} value={Math.round(value * 100) / 100} disabled={disabled} aria-label={label}
+        onValue={v => onChange(Math.min(max, Math.max(min, v)))} />
       <span className="param-unit">{unit}</span>
     </label>
   );

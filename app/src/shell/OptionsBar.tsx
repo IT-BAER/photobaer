@@ -10,6 +10,7 @@ import { ALIGN_ITEMS } from '../app/helpers.ts';
 import { rgbToHex, type Rgb } from './color.ts';
 import { ToolIcon } from './ToolBar.tsx';
 import { PAINT_MODES, paintModesFor, saveToolOptions, type Tool } from './tools.ts';
+import { NumberInput } from './NumberInput.tsx';
 
 export type ToolOptions = Record<string, number | string | boolean>;
 
@@ -87,7 +88,7 @@ function NumberField({ label, value, min, max, step = 1, unit, slider, onChange 
   return (
     <span className="opt-number" ref={wrap}>
       <span className="opt-scrub" onPointerDown={scrub}>{label}:</span>
-      <input type="number" aria-label={label} min={min} max={max} step={step} value={value} onChange={e => set(e.currentTarget.valueAsNumber)} />
+      <NumberInput aria-label={label} min={min} max={max} step={step} value={value} onValue={v => set(v)} />
       {unit && <span className="opt-unit">{unit}</span>}
       {slider && (
         <button type="button" className="opt-drop" aria-label={`${label} slider`} aria-expanded={pop.open} onClick={pop.toggle}><ChevronDown size={12} /></button>

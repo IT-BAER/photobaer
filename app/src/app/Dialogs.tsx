@@ -20,6 +20,7 @@ import {
   type FillContentForm, type FillContents, type FillForm, type Item, type Run, type Show, type StrokeForm, type TrimBase,
 } from './helpers.ts';
 import { flattenMenus, searchCommands } from './commandSearch.ts';
+import { NumberInput } from '../shell/NumberInput.tsx';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type DialogRef = RefObject<HTMLDialogElement | null>;
@@ -58,8 +59,8 @@ export function FillDialog({ fillDialog, endPreviewDialog, previewRef, fillForm,
         <label>Mode <select name="mode" value={fillForm.mode} onChange={e => setFillForm({ ...fillForm, mode: e.currentTarget.value })}>
           {paintModesFor(depth, fillForm.mode).map(m => <option key={m} value={m}>{m}</option>)}
         </select></label>
-        <label>Opacity <input name="opacity" type="number" min={0} max={100} value={fillForm.opacity}
-          onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillForm({ ...fillForm, opacity: Math.min(100, Math.max(0, v)) }); }} /> %</label>
+        <label>Opacity <NumberInput name="opacity" min={0} max={100} value={fillForm.opacity}
+          onValue={v => setFillForm({ ...fillForm, opacity: Math.min(100, Math.max(0, v)) })} /> %</label>
         <label><input name="preserve" type="checkbox" checked={fillForm.preserve} onChange={e => setFillForm({ ...fillForm, preserve: e.currentTarget.checked })} /> Preserve Transparency</label>
         <div className="actions">
           <button type="button" onClick={() => fillDialog.current?.close()}>Cancel</button>
@@ -97,8 +98,8 @@ export function StrokeDialog({ strokeDialog, endPreviewDialog, previewRef, strok
     <dialog ref={strokeDialog} className="live-preview" aria-label="Stroke" onClose={endPreviewDialog}>
       <form onSubmit={e => { e.preventDefault(); previewRef.current.commit = true; strokeDialog.current?.close(); }}>
         <h2>Stroke</h2>
-        <label>Width <input name="width" type="number" min={1} max={250} value={strokeForm.width}
-          onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setStrokeForm({ ...strokeForm, width: Math.min(250, Math.max(1, Math.round(v))) }); }} /> px</label>
+        <label>Width <NumberInput name="width" min={1} max={250} value={strokeForm.width}
+          onValue={v => setStrokeForm({ ...strokeForm, width: Math.min(250, Math.max(1, Math.round(v))) })} /> px</label>
         <label>Color <button type="button" className="gradient-swatch" aria-label="Stroke color" style={{ background: rgbToHex(strokeForm.color) }}
           onClick={() => picker.current?.open(strokeForm.color, 'Stroke Color', c => setStrokeForm(f => ({ ...f, color: c })))} /></label>
         <fieldset className="stroke-location">
@@ -110,8 +111,8 @@ export function StrokeDialog({ strokeDialog, endPreviewDialog, previewRef, strok
         <label>Mode <select name="mode" value={strokeForm.mode} onChange={e => setStrokeForm({ ...strokeForm, mode: e.currentTarget.value })}>
           {paintModesFor(depth, strokeForm.mode).map(m => <option key={m} value={m}>{m}</option>)}
         </select></label>
-        <label>Opacity <input name="opacity" type="number" min={0} max={100} value={strokeForm.opacity}
-          onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setStrokeForm({ ...strokeForm, opacity: Math.min(100, Math.max(0, v)) }); }} /> %</label>
+        <label>Opacity <NumberInput name="opacity" min={0} max={100} value={strokeForm.opacity}
+          onValue={v => setStrokeForm({ ...strokeForm, opacity: Math.min(100, Math.max(0, v)) })} /> %</label>
         <label><input name="preserve" type="checkbox" checked={strokeForm.preserve} onChange={e => setStrokeForm({ ...strokeForm, preserve: e.currentTarget.checked })} /> Preserve Transparency</label>
         <div className="actions">
           <button type="button" onClick={() => strokeDialog.current?.close()}>Cancel</button>
@@ -159,8 +160,8 @@ export function FillContentDialog({ fillContentDialog, submitFillContent, fillCo
             <label>Style <select value={fillContentForm.style} onChange={e => setFillContentForm({ ...fillContentForm, style: e.currentTarget.value as FillContentForm['style'] })}>
               {(['linear', 'radial', 'angle', 'reflected', 'diamond'] as const).map(s => <option key={s} value={s}>{s}</option>)}
             </select></label>
-            <label>Angle <input type="number" value={fillContentForm.angle} onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillContentForm({ ...fillContentForm, angle: v }); }} /> °</label>
-            <label>Scale <input type="number" min={10} max={150} value={fillContentForm.scalePct} onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillContentForm({ ...fillContentForm, scalePct: Math.min(150, Math.max(10, v)) }); }} /> %</label>
+            <label>Angle <NumberInput value={fillContentForm.angle} onValue={v => setFillContentForm({ ...fillContentForm, angle: v })} /> °</label>
+            <label>Scale <NumberInput min={10} max={150} value={fillContentForm.scalePct} onValue={v => setFillContentForm({ ...fillContentForm, scalePct: Math.min(150, Math.max(10, v)) })} /> %</label>
             <label><input type="checkbox" checked={fillContentForm.reverse} onChange={e => setFillContentForm({ ...fillContentForm, reverse: e.currentTarget.checked })} /> Reverse</label>
             <label><input type="checkbox" checked={fillContentForm.dither} onChange={e => setFillContentForm({ ...fillContentForm, dither: e.currentTarget.checked })} /> Dither</label>
             <label><input type="checkbox" checked={fillContentForm.alignWithLayer} onChange={e => setFillContentForm({ ...fillContentForm, alignWithLayer: e.currentTarget.checked })} /> Align with layer</label>
@@ -172,8 +173,8 @@ export function FillContentDialog({ fillContentDialog, submitFillContent, fillCo
               <PatternPicker doc={doc} library={brushLib.current?.library ?? null} value={fillContentForm.patternId} onDoc={d => show(d)} onError={setError}
                 set={id => setFillContentForm(f => ({ ...f, patternId: id }))} />
             )}
-            <label>Scale <input type="number" min={1} max={1000} value={fillContentForm.scalePct} onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillContentForm({ ...fillContentForm, scalePct: Math.min(1000, Math.max(1, v)) }); }} /> %</label>
-            <label>Angle <input type="number" value={fillContentForm.angle} onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setFillContentForm({ ...fillContentForm, angle: v }); }} /> °</label>
+            <label>Scale <NumberInput min={1} max={1000} value={fillContentForm.scalePct} onValue={v => setFillContentForm({ ...fillContentForm, scalePct: Math.min(1000, Math.max(1, v)) })} /> %</label>
+            <label>Angle <NumberInput value={fillContentForm.angle} onValue={v => setFillContentForm({ ...fillContentForm, angle: v })} /> °</label>
             <label><input type="checkbox" checked={fillContentForm.linked} onChange={e => setFillContentForm({ ...fillContentForm, linked: e.currentTarget.checked })} /> Link with layer</label>
           </>
         )}
@@ -193,7 +194,7 @@ export function NewImageDialog({ newDialog, createNew }: { newDialog: DialogRef;
         <h2>New image</h2>
         <label>Width <input name="w" type="number" min={1} max={65536} defaultValue={1920} required /> px</label>
         <label>Height <input name="h" type="number" min={1} max={65536} defaultValue={1080} required /> px</label>
-        <label>Bit depth <select name="depth" defaultValue="8"><option value="8">8-bit</option><option value="16">16-bit</option></select></label>
+        <label>Bit depth <select name="depth" defaultValue="8"><option value="8">8-bit</option><option value="16">16-bit</option><option value="32">32-bit</option></select></label>
         <label>Background <select name="bg" defaultValue="white"><option value="white">White</option><option value="black">Black</option><option value="transparent">Transparent</option></select></label>
         <div className="actions">
           <button type="button" onClick={() => newDialog.current?.close()}>Cancel</button>
@@ -710,8 +711,8 @@ export function FilterBlendDialog({ filterBlendDialog, setFilterBlend, filterBle
           <label>Mode <select value={filterBlend.blend} onChange={e => setFilterBlend({ ...filterBlend, blend: e.currentTarget.value })}>
             {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
           </select></label>
-          <label>Opacity <input type="number" min={0} max={100} step={1} value={filterBlend.opacity}
-            onChange={e => { const v = e.currentTarget.valueAsNumber; if (Number.isFinite(v)) setFilterBlend({ ...filterBlend, opacity: Math.min(100, Math.max(0, v)) }); }} /> %</label>
+          <label>Opacity <NumberInput min={0} max={100} step={1} value={filterBlend.opacity}
+            onValue={v => setFilterBlend({ ...filterBlend, opacity: Math.min(100, Math.max(0, v)) })} /> %</label>
           <div className="actions">
             <button type="button" onClick={() => filterBlendDialog.current?.close()}>Cancel</button>
             <button type="submit" className="primary">OK</button>

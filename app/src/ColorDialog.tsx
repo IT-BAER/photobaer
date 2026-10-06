@@ -10,6 +10,7 @@ import {
 } from './app/colorSettings.ts';
 import { DEFAULT_VIEW, HDR_EXPOSURE, HDR_GAMMA, sanitizeHdr, type HdrMethod, type HdrPreview } from './app/proof.ts';
 import { rememberLoadedProfiles } from './app/profileStore.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 
 export type ColorDialogKind = 'settings' | 'assign' | 'convert' | 'proof' | 'hdr';
 export interface ColorDialogHandle {
@@ -208,8 +209,8 @@ export function ColorDialog({ ref, doc, show, setError }: {
             <fieldset><legend>Advanced Controls</legend>
               <div className="row">
                 <label className="check"><input type="checkbox" checked={draft.desaturateOn} onChange={e => setDraft({ ...draft, desaturateOn: e.currentTarget.checked })} /> Desaturate Monitor Colors By:</label>
-                <input type="number" aria-label="Desaturate by" min={1} max={100} disabled={!draft.desaturateOn} value={draft.desaturateBy}
-                  onChange={e => { const v = Math.round(Number(e.currentTarget.value)); if (v >= 1 && v <= 100) setDraft({ ...draft, desaturateBy: v }); }} /> %
+                <NumberInput aria-label="Desaturate by" min={1} max={100} disabled={!draft.desaturateOn} value={draft.desaturateBy}
+                  onValue={n => { const v = Math.round(n); if (v >= 1 && v <= 100) setDraft({ ...draft, desaturateBy: v }); }} /> %
               </div>
             </fieldset>
             <p className="hint">{COLOR_PRESETS.find(p => p.name === preset)?.description ?? 'Custom settings.'}</p>
@@ -265,12 +266,12 @@ export function ColorDialog({ ref, doc, show, setError }: {
             {hdr.method === 'exposureAndGamma' && <>
               <label>Exposure <input type="range" aria-label="Exposure" min={-HDR_EXPOSURE} max={HDR_EXPOSURE} step={0.01} value={hdr.exposure}
                 onChange={e => previewHdr(sanitizeHdr({ ...hdr, exposure: Number(e.currentTarget.value) }))} />
-                <input type="number" aria-label="Exposure value" min={-HDR_EXPOSURE} max={HDR_EXPOSURE} step={0.01} value={hdr.exposure}
-                  onChange={e => previewHdr(sanitizeHdr({ ...hdr, exposure: Number(e.currentTarget.value) }))} /></label>
+                <NumberInput aria-label="Exposure value" min={-HDR_EXPOSURE} max={HDR_EXPOSURE} step={0.01} value={hdr.exposure}
+                  onValue={v => previewHdr(sanitizeHdr({ ...hdr, exposure: v }))} /></label>
               <label>Gamma <input type="range" aria-label="Gamma" min={Math.log10(HDR_GAMMA[0])} max={Math.log10(HDR_GAMMA[1])} step={0.01} value={Math.log10(hdr.gamma)}
                 onChange={e => previewHdr(sanitizeHdr({ ...hdr, gamma: Number((10 ** Number(e.currentTarget.value)).toFixed(2)) }))} />
-                <input type="number" aria-label="Gamma value" min={HDR_GAMMA[0]} max={HDR_GAMMA[1]} step={0.01} value={hdr.gamma}
-                  onChange={e => previewHdr(sanitizeHdr({ ...hdr, gamma: Number(e.currentTarget.value) }))} /></label>
+                <NumberInput aria-label="Gamma value" min={HDR_GAMMA[0]} max={HDR_GAMMA[1]} step={0.01} value={hdr.gamma}
+                  onValue={v => previewHdr(sanitizeHdr({ ...hdr, gamma: v }))} /></label>
             </>}
           </>}
           {kind === 'mismatch' && <>

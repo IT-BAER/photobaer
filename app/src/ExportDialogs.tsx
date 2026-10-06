@@ -3,6 +3,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'reac
 import { client } from './client.ts';
 import type { Dither } from './app/webExport.ts';
 import type { ExportFormat, ExportOptions } from './worker/helpers.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 
 export const FORMAT_LABEL: Record<ExportFormat, string> = { png: 'PNG', png8: 'PNG-8', jpeg: 'JPEG', webp: 'WebP', gif: 'GIF' };
 export const EXT: Record<ExportFormat, string> = { png: 'png', png8: 'png', jpeg: 'jpg', webp: 'webp', gif: 'gif' };
@@ -84,7 +85,7 @@ export function ExportAsDialog({ ref, start }: { ref: Ref<ExportDialogHandle>; s
                     {FORMATS.map(f => <option key={f} value={f}>{FORMAT_LABEL[f]}</option>)}
                   </select></td>
                   <td>{LOSSY(r.format)
-                    ? <input type="number" aria-label="Quality" min={1} max={100} value={r.quality} onChange={ev => set(r.key, { quality: Math.min(100, Math.max(1, Math.round(ev.currentTarget.valueAsNumber) || 1)) })} />
+                    ? <NumberInput aria-label="Quality" min={1} max={100} value={r.quality} onValue={v => set(r.key, { quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} />
                     : <span className="hint">-</span>}</td>
                   <td className="hint">{e == null ? '…' : typeof e === 'string' ? e : `${kb(e.bytes)} · ${e.width}×${e.height}`}</td>
                   <td><button type="button" disabled={rows.length === 1} onClick={() => setRows(rs => rs.filter(x => x.key !== r.key))}>Remove</button></td>
@@ -127,9 +128,9 @@ export function SaveForWebDialog({ ref, size, start }: { ref: Ref<ExportDialogHa
             {[0.25, 0.5, 0.75, 1].map(s => <option key={s} value={s}>{s * 100}%</option>)}
           </select></label>
         </div>
-        {LOSSY(o.format) && <div className="row"><label>Quality <input type="number" min={1} max={100} value={o.quality} onChange={ev => setO({ ...o, quality: Math.min(100, Math.max(1, Math.round(ev.currentTarget.valueAsNumber) || 1)) })} /> %</label></div>}
+        {LOSSY(o.format) && <div className="row"><label>Quality <NumberInput min={1} max={100} value={o.quality} onValue={v => setO({ ...o, quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} /> %</label></div>}
         {INDEXED(o.format) && <div className="row">
-          <label>Colors <input type="number" min={2} max={256} value={o.colors} onChange={ev => setO({ ...o, colors: Math.min(256, Math.max(2, Math.round(ev.currentTarget.valueAsNumber) || 2)) })} /></label>
+          <label>Colors <NumberInput min={2} max={256} value={o.colors} onValue={v => setO({ ...o, colors: Math.min(256, Math.max(2, Math.round(v) || 2)) })} /></label>
           <label>Dither <select value={o.dither} onChange={ev => setO({ ...o, dither: ev.currentTarget.value as Dither })}>
             <option value="none">None</option><option value="diffusion">Diffusion</option><option value="pattern">Pattern</option>
           </select></label>
@@ -156,7 +157,7 @@ export function ExportPrefsDialog({ ref }: { ref: Ref<ExportDialogHandle> }) {
           <label>Quick Export Format <select value={p.format} onChange={e => setP({ ...p, format: e.currentTarget.value as ExportPrefs['format'] })}>
             <option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option>
           </select></label>
-          {p.format !== 'png' && <label>Quality <input type="number" min={1} max={100} value={p.quality} onChange={e => setP({ ...p, quality: Math.min(100, Math.max(1, Math.round(e.currentTarget.valueAsNumber) || 1)) })} /> %</label>}
+          {p.format !== 'png' && <label>Quality <NumberInput min={1} max={100} value={p.quality} onValue={v => setP({ ...p, quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} /> %</label>}
         </div>
         <label className="radio"><input type="radio" name="xp-ask" checked={p.ask} onChange={() => setP({ ...p, ask: true })} /> Ask where to export each time</label>
         <label className="radio"><input type="radio" name="xp-ask" checked={!p.ask} onChange={() => setP({ ...p, ask: false })} /> Export files to the browser's downloads</label>
@@ -211,7 +212,7 @@ export function FilesExportDialog({ ref, start }: { ref: Ref<FilesDialogHandle>;
           {o.kind !== 'pdf' && !sets && <label>Size <select value={o.scale} onChange={e => setO({ ...o, scale: Number(e.currentTarget.value) })}>
             {[0.5, 1, 2, 3].map(s => <option key={s} value={s}>{s * 100}%</option>)}
           </select></label>}
-          {(o.kind === 'pdf' || (sets ? o.setFormat === 'jpeg' : LOSSY(o.format))) && <label>{o.kind === 'pdf' ? 'JPEG Quality' : 'Quality'} <input type="number" min={1} max={100} value={o.quality} onChange={e => setO({ ...o, quality: Math.min(100, Math.max(1, Math.round(e.currentTarget.valueAsNumber) || 1)) })} /> %</label>}
+          {(o.kind === 'pdf' || (sets ? o.setFormat === 'jpeg' : LOSSY(o.format))) && <label>{o.kind === 'pdf' ? 'JPEG Quality' : 'Quality'} <NumberInput min={1} max={100} value={o.quality} onValue={v => setO({ ...o, quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} /> %</label>}
         </div>
         {o.kind === 'layers' && <>
           <label className="radio"><input type="checkbox" checked={o.trim} onChange={e => setO({ ...o, trim: e.currentTarget.checked })} /> Trim to layer pixels</label>

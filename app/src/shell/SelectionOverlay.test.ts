@@ -67,3 +67,28 @@ test('sharpPatch asks for the moved image the view reveals past its sharp image,
   assert.equal(sharpPatch(coarse, over, [2900, 850, 600, 300], view, -1200, 0), null, 'already asked for');
   assert.equal(sharpPatch(coarse, over, null, view, 2500, 0), null, 'nothing of the image on screen');
 });
+
+test('the brush outline stays solid while marching ants are shown', () => {
+  const g = globalThis as { requestAnimationFrame?: unknown };
+  const saved = g.requestAnimationFrame;
+  g.requestAnimationFrame = () => 0;
+  const strokes: number[][] = [];
+  let dash: number[] = [];
+  const ctx = new Proxy({}, {
+    get: (t, k) => k === 'setLineDash' ? (d: number[]) => { dash = d; } : k === 'stroke' ? () => { strokes.push(dash); }
+      : k in t ? (t as Record<string | symbol, unknown>)[k] : () => {},
+    set: (t, k, v) => { (t as Record<string | symbol, unknown>)[k] = v; return true; },
+  });
+  const o = new SelectionOverlay({ width: 0, height: 0, getContext: () => ctx } as unknown as HTMLCanvasElement);
+  try {
+    o.setAnts(Float32Array.of(10, 10, 40, 10), 1);
+    o.setCursor({ x: 50, y: 50, sizeDoc: 20, shape: 'round', crosshair: false });
+    o.draw({ zoom: 1, rot: 0, cx: 50, cy: 50 }, 100, 100, 1);
+    assert.ok(strokes.some(d => d.length), 'the ants are dashed');
+    assert.deepEqual(strokes.slice(-2), [[], []], 'both cursor strokes are solid');
+  } finally {
+    o.setAnts(null, 1);
+    o.setCursor(null);
+    g.requestAnimationFrame = saved;
+  }
+});

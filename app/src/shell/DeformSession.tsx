@@ -10,6 +10,7 @@ import { PerspectiveSession, engineState } from '../transform/pwarp.ts';
 import type { Pt, Rect } from '../transform/matrix.ts';
 import type { Viewer } from '../viewer.ts';
 import type { DocInfo, SmartFilterKind } from '../worker/types.ts';
+import { NumberInput } from './NumberInput.tsx';
 
 export type DeformRequest = { id: number; width: number; height: number } & ({ kind: 'puppet'; mesh: Grid } | { kind: 'perspective'; bounds: Rect });
 type Session = PuppetSession | PerspectiveSession;
@@ -233,8 +234,8 @@ export function DeformSession({ req, viewer, show, setError, onEnd }: {
           </select>
         </label>
         <label>Expansion
-          <input type="number" aria-label="Mesh expansion" min={-50} max={50} step={1} value={s.options.expansion}
-            onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setOptions({ expansion: Math.max(-50, Math.min(50, Math.round(v))) }); }} /> px
+          <NumberInput aria-label="Mesh expansion" min={-50} max={50} step={1} value={s.options.expansion}
+            onValue={v => setOptions({ expansion: Math.max(-50, Math.min(50, Math.round(v))) })} /> px
         </label>
         <label className="opt-bool"><input type="checkbox" checked={s.options.showMesh} onChange={e => setOptions({ showMesh: e.currentTarget.checked })} />Show Mesh</label>
         <span>Pin Depth</span>
@@ -246,8 +247,8 @@ export function DeformSession({ req, viewer, show, setError, onEnd }: {
             <option value="auto">Auto</option><option value="fixed">Fixed</option>
           </select>
         </label>
-        <input type="number" aria-label="Pin rotation angle" disabled={!first?.fixed} step={1} value={first ? deg(s.rotationOf(first)) : 0}
-          onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) pins(p => ({ ...p, fixed: true, rotation: v * Math.PI / 180 })); }} />°
+        <NumberInput aria-label="Pin rotation angle" disabled={!first?.fixed} step={1} value={first ? deg(s.rotationOf(first)) : 0}
+          onValue={v => pins(p => ({ ...p, fixed: true, rotation: v * Math.PI / 180 }))} />°
         <button type="button" disabled={!s.pins.length} onClick={() => { s.reset(); changed(); }}>Remove All Pins</button>
         {note && <span className="deform-hint">{note}</span>}
       </>

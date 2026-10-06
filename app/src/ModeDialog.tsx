@@ -7,6 +7,7 @@ import { INK_CURVE_INPUTS, inkCurve } from './app/inkCurve.ts';
 import type { BrushLibrary } from './brushes/store.ts';
 import { PatternPicker } from './PresetPanels.tsx';
 import { colorTablePreset, fitTable, readTableFile, TABLE_PRESETS, writeAct } from './app/colorTable.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 
 type Rgb3 = [number, number, number];
 export type ModeDialogKind = 'bitmap' | 'duotone' | 'indexed' | 'table';
@@ -183,8 +184,8 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
           <h2>{name}</h2>
           {kind === 'bitmap' && <>
             <label>Input {+(perCm ? doc.resolution / 2.54 : doc.resolution).toFixed(2)} {perCm ? 'Pixels/cm' : 'Pixels/Inch'}</label>
-            <label>Output <input type="number" aria-label="Output" min={0.01} step="any" value={+(perCm ? ppi / 2.54 : ppi).toFixed(2)}
-              onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v) && v > 0) setPpi(perCm ? v * 2.54 : v); }} />
+            <label>Output <NumberInput aria-label="Output" min={0.01} step="any" value={+(perCm ? ppi / 2.54 : ppi).toFixed(2)}
+              onValue={v => { if (v > 0) setPpi(perCm ? v * 2.54 : v); }} />
               <select aria-label="Output unit" value={perCm ? 'cm' : 'inch'} onChange={e => setPerCm(e.currentTarget.value === 'cm')}>
                 <option value="inch">Pixels/Inch</option>
                 <option value="cm">Pixels/cm</option>
@@ -197,14 +198,14 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
               <option value="custom">Custom Pattern</option>
             </select></label>
             {method === 'halftone' && <>
-              <label>Frequency <input type="number" aria-label="Frequency" min={1} max={999} step="any" value={screen.frequency}
-                onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setScreen({ ...screen, frequency: Math.min(999, Math.max(1, v)) }); }} />
+              <label>Frequency <NumberInput aria-label="Frequency" min={1} max={999} step="any" value={screen.frequency}
+                onValue={v => setScreen({ ...screen, frequency: Math.min(999, Math.max(1, v)) })} />
                 <select aria-label="Frequency unit" value={screen.unit} onChange={e => setScreen({ ...screen, unit: e.currentTarget.value as Halftone['unit'] })}>
                   <option value="inch">Lines/Inch</option>
                   <option value="cm">Lines/cm</option>
                 </select></label>
-              <label>Angle <input type="number" aria-label="Angle" min={-180} max={180} value={screen.angle}
-                onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setScreen({ ...screen, angle: Math.min(180, Math.max(-180, v)) }); }} /> °</label>
+              <label>Angle <NumberInput aria-label="Angle" min={-180} max={180} value={screen.angle}
+                onValue={v => setScreen({ ...screen, angle: Math.min(180, Math.max(-180, v)) })} /> °</label>
               <label>Shape <select aria-label="Shape" value={screen.shape} onChange={e => setScreen({ ...screen, shape: e.currentTarget.value as Halftone['shape'] })}>
                 {SHAPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select></label>
@@ -247,8 +248,8 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
               <option value="previous" disabled={!previous}>Previous</option>
             </select></label>
             {ix.palette === 'custom' && <button type="button" onClick={() => void customStart().then(table => openSub({ table, preset: 'custom' }))}>Edit Table...</button>}
-            <label>Colors <input type="number" aria-label="Colors" min={2} max={256} disabled={fixedCount} value={ix.colors}
-              onChange={e => { const v = Math.round(Number(e.currentTarget.value)); if (Number.isFinite(v)) setIx({ ...ix, colors: Math.min(256, Math.max(2, v)) }); }} /></label>
+            <label>Colors <NumberInput aria-label="Colors" min={2} max={256} disabled={fixedCount} value={ix.colors}
+              onValue={n => { const v = Math.round(n); setIx({ ...ix, colors: Math.min(256, Math.max(2, v)) }); }} /></label>
             <label>Forced <select aria-label="Forced" value={ix.forced} disabled={ownTable} onChange={e => setIx({ ...ix, forced: e.currentTarget.value as Indexed['forced'] })}>
               <option value="none">None</option>
               <option value="black_white">Black and White</option>
@@ -266,8 +267,8 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
               <option value="pattern">Pattern</option>
               <option value="noise">Noise</option>
             </select></label>
-            <label>Amount <input type="number" aria-label="Amount" min={0} max={100} disabled={ix.dither === 'none'} value={Math.round(ix.amount * 100)}
-              onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setIx({ ...ix, amount: Math.min(100, Math.max(0, v)) / 100 }); }} /> %</label>
+            <label>Amount <NumberInput aria-label="Amount" min={0} max={100} disabled={ix.dither === 'none'} value={Math.round(ix.amount * 100)}
+              onValue={v => setIx({ ...ix, amount: Math.min(100, Math.max(0, v)) / 100 })} /> %</label>
           </>}
           {kind === 'table' && <TableEditor table={table} preset={preset} fixed set={(t, p) => { setTable(t); setPreset(p); }} onError={setError} />}
           <div className="actions">

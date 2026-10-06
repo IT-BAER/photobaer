@@ -71,14 +71,44 @@ function displayRegion(e: Engine, level: number, r: Box) {
   }
   return any ? { image: { x: x0, y: y0, w, h, f }, data: out.buffer as ArrayBuffer } : null;
 }
-// The display composite as moveFloat's image: the canvas at the finest level from `level` within 2 MP,
-// plus `over` at `level` over doc rect `near` when that is finer; null when it is all transparent.
-function displayTiers(e: Engine, level: number, near: Box | null) {
-  const W = e.width(), H = e.height();
+// displayRegion over doc rect `r` anywhere: the parts outside the canvas render with the layers `ids`
+// shifted onto it in canvas-sized cells (multiples of 2^level, so pyramid tiles stay aligned), then back.
+function shiftedRegion(e: Engine, ids: number[], level: number, r: Box) {
+  const W = e.width(), H = e.height(), u = 1 << level;
+  const inside = intersect(r, [0, 0, W, H]);
+  if (!ids.length || !inside || inside.every((v, i) => v === r[i])) return inside && displayRegion(e, level, inside);
+  const cw = Math.max(u, Math.floor(W / u) * u), ch = Math.max(u, Math.floor(H / u) * u);
+  const f = 1 / u, x0 = Math.floor(r[0] * f), y0 = Math.floor(r[1] * f);
+  const w = Math.ceil((r[0] + r[2]) * f) - x0, h = Math.ceil((r[1] + r[3]) * f) - y0;
+  const out = new Uint8ClampedArray(w * h * 4);
+  let any = false;
+  for (let j = Math.floor(r[1] / ch); j * ch < r[1] + r[3]; j++) for (let i = Math.floor(r[0] / cw); i * cw < r[0] + r[2]; i++) {
+    const cell = intersect(r, [i * cw, j * ch, cw, ch]);
+    if (!cell) continue;
+    const dx = -i * cw, dy = -j * ch;
+    for (const id of ids) if (dx || dy) e.offset_layer(id, dx, dy);
+    let part: ReturnType<typeof displayRegion>;
+    try {
+      part = displayRegion(e, level, [cell[0] + dx, cell[1] + dy, cell[2], cell[3]]);
+    } finally {
+      for (const id of ids) if (dx || dy) e.offset_layer(id, -dx, -dy);
+    }
+    if (!part) continue;
+    const src = new Uint8Array(part.data), { w: pw, h: ph } = part.image;
+    const ox = part.image.x - dx * f - x0, oy = part.image.y - dy * f - y0;
+    for (let y = 0; y < ph; y++) out.set(src.subarray(y * pw * 4, (y + 1) * pw * 4), ((oy + y) * w + ox) * 4);
+    any = true;
+  }
+  return any ? { image: { x: x0, y: y0, w, h, f }, data: out.buffer as ArrayBuffer } : null;
+}
+// The display composite as moveFloat's image: doc rect `r` (the canvas by default; outside it through
+// `ids`, see shiftedRegion) at the finest level from `level` within 2 MP, plus `over` at `level` over
+// doc rect `near` when that is finer; null when it is all transparent.
+function displayTiers(e: Engine, level: number, near: Box | null, r: Box = [0, 0, e.width(), e.height()], ids: number[] = []) {
   let c = level;
-  while (c < e.max_level() && Math.ceil(W / (1 << c)) * Math.ceil(H / (1 << c)) > 1 << 21) c++;
-  const base = displayRegion(e, c, [0, 0, W, H]);
-  return base && { ...base, over: near && c > level ? displayRegion(e, level, near) : null };
+  while (c < e.max_level() && Math.ceil(r[2] / (1 << c)) * Math.ceil(r[3] / (1 << c)) > 1 << 21) c++;
+  const base = shiftedRegion(e, ids, c, r);
+  return base && { ...base, over: near && c > level ? shiftedRegion(e, ids, level, near) : null };
 }
 function intersect(a: Box | null, b: Box | null): Box | null {
   if (!a || !b) return null;
@@ -475,4 +505,4 @@ function smartWarpStart(e: Engine, id: number, maxSide: number) {
   return { bounds, ...lifted, mesh };
 }
 
-export { renderRgba, applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, docPatterns, encodeFlattened, exportAsset, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };
+export { renderRgba, applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, shiftedRegion, docPatterns, encodeFlattened, exportAsset, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };

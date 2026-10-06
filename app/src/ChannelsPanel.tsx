@@ -6,6 +6,7 @@ import type { Spot } from './worker/types.ts';
 import type { Active } from './LayersPanel.tsx';
 import { nodeById } from './layers.ts';
 import { channelThumb, COMPOSITE, inkThumb, MODE_CHANNELS, pickChannel, type ChannelView } from './app/channels.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 
 type Run = (label: string | null, p: () => Promise<DocInfo | null>) => Promise<void>;
 
@@ -207,8 +208,8 @@ export function ChannelsPanel({ doc, run, live = 0, view, setView, setError, act
             <h2>{spotForm.id === null ? 'New Spot Channel' : 'Spot Channel Options'}</h2>
             <label>Name <input aria-label="Name" value={spotForm.name} placeholder="Spot Color" autoFocus onChange={e => setSpotForm({ ...spotForm, name: e.target.value })} /></label>
             <label>Color <input type="color" aria-label="Color" value={spotForm.color} onChange={e => setSpotForm({ ...spotForm, color: e.target.value })} /></label>
-            <label>Solidity <input type="number" aria-label="Solidity" min={0} max={100} step={1} value={spotForm.solidity}
-              onChange={e => setSpotForm({ ...spotForm, solidity: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })} /> %</label>
+            <label>Solidity <NumberInput aria-label="Solidity" min={0} max={100} step={1} value={spotForm.solidity}
+              onValue={v => setSpotForm({ ...spotForm, solidity: Math.min(100, Math.max(0, v)) })} /> %</label>
             <div className="actions">
               <button type="button" onClick={() => spotDialog.current?.close()}>Cancel</button>
               <button type="submit" className="primary">OK</button>

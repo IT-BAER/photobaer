@@ -31,7 +31,7 @@ import { assetSpecs } from './app/webExport.ts';
 import { TILE, levelFor } from './view.ts';
 import { NO_RECORD, decodeCall, encodeCall, hot, newIds, recordable, type ActionStep, type Call, type Layers } from './actions.ts';
 import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, toLinear, type FloatImage } from './formats.ts';
-import { applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, icoEntries, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
+import { applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, shiftedRegion, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, icoEntries, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
@@ -64,11 +64,18 @@ let vp: { data: Uint8Array; w: number; h: number; scale: number } | null = null;
 // Move tool live session: a snapshot taken right after any duplicate, restored and replayed
 // from on every step so the previewed offset never compounds.
 // `pixels`: a selected-pixels session; `floating`: the live document hides the moved pixels (moveFloat).
-// `patch` renders sharp images of an open float over other doc rects (moveFloatPatch).
+// `patch` renders sharp images of an open float over other doc rects (moveFloatPatch); `reveal` shows
+// the layers an open float hides and returns the call that hides them again.
 let moveSession: {
   liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number; pixels: boolean; floating: boolean;
   patch?: (moved: Box | null, above: Box | null) => { moved: ReturnType<typeof liftPreview> | null; above: ReturnType<typeof liftPreview> | null };
+  reveal?: () => () => void;
 } | null = null;
+// Runs `f` on the document as it is without an open layer float (Navigator, Histogram).
+function unfloated<T>(e: Engine, f: () => T): T {
+  const s = moveSession, hide = s?.floating && e === eng ? s.reveal?.() : undefined;
+  try { return f(); } finally { hide?.(); }
+}
 // moveFloat for a top-level layer the plain float cannot show: the moved layer with its effects and the
 // visible layers above come back as display images at the view's level, and the document shows what is
 // below until the next step. Null when the images over that would not look the same: non-normal blends,
@@ -87,6 +94,11 @@ function moveSplit(e: Engine, s: NonNullable<typeof moveSession>, tree: LayerNod
   if (n.clipping || above.slice(0, run < 0 ? above.length : run).some(t => t.visible)) return null;
   if (![n, ...visibleTopDown(n.children ?? []), ...visibleTopDown(above)].every(alone)) return null;
   const W = e.width(), H = e.height(), level = levelFor(scale, 1, e.max_level());
+  // The moved layer's extent with its effects, which may reach outside the canvas.
+  const ids = collectPixelIds(tree, n.id), pad = e.effect_reach(n.id);
+  const ext = ids.map(id => e.layer_bounds(id) as Box | null).reduce<Box | null>((u, b) => !b ? u : !u ? b
+    : [Math.min(u[0], b[0]), Math.min(u[1], b[1]), Math.max(u[0] + u[2], b[0] + b[2]) - Math.min(u[0], b[0]), Math.max(u[1] + u[3], b[1] + b[3]) - Math.min(u[1], b[1])], null);
+  const reach: Box = ext ? [ext[0] - pad, ext[1] - pad, ext[2] + 2 * pad, ext[3] + 2 * pad] : [0, 0, W, H];
   // The view's own tiles are drawn already, so their effects come from the tile cache; patches add the rest.
   const near = view && intersect([0, 0, W, H], view);
   const shown = tree.filter(t => t.visible).map(t => t.id), up = above.filter(t => t.visible).map(t => t.id);
@@ -95,7 +107,7 @@ function moveSplit(e: Engine, s: NonNullable<typeof moveSession>, tree: LayerNod
   let moved: ReturnType<typeof displayTiers>, top: ReturnType<typeof displayTiers> = null;
   try {
     show([n.id]);
-    moved = displayTiers(e, level, near);
+    moved = displayTiers(e, level, near, reach, ids);
     show(up);
     if (up.length) top = displayTiers(e, level, near);
   } catch (err) {
@@ -105,16 +117,17 @@ function moveSplit(e: Engine, s: NonNullable<typeof moveSession>, tree: LayerNod
   show(below);
   if (!moved) { show(shown); return null; }
   s.patch = (mr, ar) => {
-    const m = mr && intersect([0, 0, W, H], mr), a = up.length && ar ? intersect([0, 0, W, H], ar) : null;
+    const m = mr && intersect(reach, mr), a = up.length && ar ? intersect([0, 0, W, H], ar) : null;
     try {
       if (m) show([n.id]);
-      const movedPatch = m && displayRegion(e, level, m);
+      const movedPatch = m && shiftedRegion(e, ids, level, m);
       if (a) show(up);
       return { moved: movedPatch, above: a && displayRegion(e, level, a) };
     } finally {
       show(below);
     }
   };
+  s.reveal = () => { show(shown); return () => show(below); };
   s.floating = true;
   version++;
   return { ...info()!, layers: tree, ...moved, above: top };
@@ -2338,7 +2351,10 @@ const api = {
     const near = view && f < 0.9 * sharp ? intersect(found, [view[0] - view[2] / 2, view[1] - view[3] / 2, view[2] * 2, view[3] * 2]) : null;
     const over = near && liftPreview(e, s.targetId, near.map(Math.round) as Box, s.pixels, Math.ceil(Math.max(near[2], near[3]) * sharp));
     if (s.pixels) { if (!s.duplicated) e.clear(s.targetId, 'pixels'); }
-    else e.set_props(s.targetId, JSON.stringify({ visible: false }));
+    else {
+      e.set_props(s.targetId, JSON.stringify({ visible: false }));
+      s.reveal = () => { e.set_props(s.targetId, JSON.stringify({ visible: true })); return () => e.set_props(s.targetId, JSON.stringify({ visible: false })); };
+    }
     if (!s.pixels && near) s.patch = mr => {
       const b = intersect(found, mr);
       return { moved: b && liftPreview(e, s.targetId, b.map(Math.round) as Box, false, Math.ceil(Math.max(b[2], b[3]) * sharp)), above: null };
@@ -2822,7 +2838,7 @@ const api = {
     if (i < 0) throw new Error('The source document is no longer open.');
     const e = i === active ? need() : docs[i].eng;
     if (layerId !== null && findNode(e, layerId)?.kind !== 'pixel') throw new Error('The histogram source must be a pixel layer.');
-    return { key, version: i === active ? version : docs[i].version, histogram: e.histogram(layerId ?? 0) as Uint32Array };
+    return { key, version: i === active ? version : docs[i].version, histogram: unfloated(e, () => e.histogram(layerId ?? 0) as Uint32Array) };
   },
 
   // Layers panel thumbnails: each layer over the whole canvas, longest side `size` px (never upscaled).
@@ -2861,12 +2877,14 @@ const api = {
     let L = 0;
     while (L < e.max_level() && Math.max(W, H) >> (L + 1) >= size) L++;
     const lw = Math.ceil(W / 2 ** L), lh = Math.ceil(H / 2 ** L), src = new Uint8Array(lw * lh * 4);
-    for (let ty = 0; ty * TILE < lh; ty++) for (let tx = 0; tx * TILE < lw; tx++) {
-      const t = e.display_tile(L, tx, ty) as Uint8Array | undefined;
-      if (!t) continue;
-      const cw = Math.min(TILE, lw - tx * TILE);
-      for (let y = 0; y < Math.min(TILE, lh - ty * TILE); y++) src.set(t.subarray(y * TILE * 4, (y * TILE + cw) * 4), ((ty * TILE + y) * lw + tx * TILE) * 4);
-    }
+    unfloated(e, () => {
+      for (let ty = 0; ty * TILE < lh; ty++) for (let tx = 0; tx * TILE < lw; tx++) {
+        const t = e.display_tile(L, tx, ty) as Uint8Array | undefined;
+        if (!t) continue;
+        const cw = Math.min(TILE, lw - tx * TILE);
+        for (let y = 0; y < Math.min(TILE, lh - ty * TILE); y++) src.set(t.subarray(y * TILE * 4, (y * TILE + cw) * 4), ((ty * TILE + y) * lw + tx * TILE) * 4);
+      }
+    });
     return { docId, version, w, h, data: boxScale(src, lw, lh, w, h).buffer as ArrayBuffer };
   },
 

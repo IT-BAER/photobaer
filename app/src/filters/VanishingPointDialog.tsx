@@ -5,6 +5,7 @@ import { client } from '../client.ts';
 import { apply, homography, invert, type Mat3, type Pt, type Quad } from '../transform/matrix.ts';
 import { convex } from '../transform/pwarp.ts';
 import type { DocInfo, VanishingDab, VanishingPlane, VanishingState } from '../worker/types.ts';
+import { NumberInput } from '../shell/NumberInput.tsx';
 
 export type VanishingPointRequest = { id: number; filterId: number | null; width: number; height: number };
 export interface VanishingPointDialogHandle { open(r: VanishingPointRequest): void }
@@ -275,8 +276,8 @@ export function VanishingPointDialog({ ref, show, setError }: { ref: Ref<Vanishi
   };
   const sw = 1 / zoom;
   const num = (label: string, value: number, min: number, max: number, set: (v: number) => void) => (
-    <label>{label}<input type="number" min={min} max={max} value={value}
-      onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) set(clamp(Math.round(v), min, max)); }} /></label>
+    <label>{label}<NumberInput min={min} max={max} value={value}
+      onValue={v => set(clamp(Math.round(v), min, max))} /></label>
   );
 
   return (

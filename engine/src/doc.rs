@@ -692,6 +692,15 @@ impl Node {
         matches!(self.kind, Kind::Group(_))
     }
 
+    /// Padding in px the effects of this node and its descendants reach beyond their pixels.
+    pub(crate) fn effect_reach(&self) -> u32 {
+        let own = self.style.as_ref().map_or(0, styles::reach);
+        own + match &self.kind {
+            Kind::Group(ch) => ch.iter().map(Node::effect_reach).max().unwrap_or(0),
+            _ => 0,
+        }
+    }
+
     /// Whether this node or a descendant is an artboard.
     fn holds_artboard(&self) -> bool {
         self.artboard.is_some() || matches!(&self.kind, Kind::Group(ch) if ch.iter().any(Node::holds_artboard))

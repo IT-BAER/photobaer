@@ -1639,10 +1639,10 @@ test('moveFloat splits a styled layer under a visible layer: moved and above ima
   await call('selectCommand', 'deselect');
   await call('moveLayerBegin', 2, false, 'Move');
   const f = (await call('moveFloat', 1, [0, 0, 16, 16])).result as Img & { over: Img | null; above: Img | null; layers: LayerNode[] };
-  assert.deepEqual([f.image.x, f.image.y, f.image.w, f.image.h, f.image.f], [0, 0, 16, 16, 1]);
+  assert.deepEqual([f.image.x, f.image.y, f.image.w, f.image.h, f.image.f], [0, 0, 8, 8, 1], 'the layer with its effect reach');
   assert.deepEqual(at(f, 3, 3), [255, 0, 0, 255]);
   assert.deepEqual(at(f, 1, 3).slice(2), [255, 255], 'the moved image has its stroke');
-  assert.equal(at(f, 11, 11)[3], 0);
+  assert.ok(f.image.x + f.image.w <= 11, 'the layer above is not in the moved image');
   assert.equal(f.over, null);
   assert.deepEqual(at(f.above!, 11, 11), [0, 255, 0, 128], 'the above image is straight alpha');
   assert.equal(at(f.above!, 3, 3)[3], 0);
@@ -1652,6 +1652,55 @@ test('moveFloat splits a styled layer under a visible layer: moved and above ima
   assert.notEqual(((await call('moveLayerCommit')).result as { undoLabel: string | null }).undoLabel, 'Move');
   assert.deepEqual(await comp(3, 3), [255, 0, 0, 255]);
   assert.equal((await comp(11, 11))[1], 255);
+});
+
+test('a split moved image includes the layer and its effects outside the canvas', async () => {
+  type Img = { image: { x: number; y: number; w: number; h: number; f: number }; data: ArrayBuffer };
+  const at = (m: Img, x: number, y: number) => [...new Uint8Array(m.data).slice(((y - m.image.y) * m.image.w + x - m.image.x) * 4, ((y - m.image.y) * m.image.w + x - m.image.x) * 4 + 4)];
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  await call('addLayer', 1);
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 2, 'pixels', [255, 0, 0, 255]);
+  await call('selectCommand', 'deselect');
+  await call('moveLayerBegin', 2, false, 'Move');
+  await call('moveLayerStep', -4, 0);
+  await call('moveLayerCommit');
+  await call('setLayerStyle', 2, { ...emptyStyle(), strokes: [blueStroke(1)] }, defaultBlending(), 1, null);
+  await call('addLayer', 2);
+  await call('moveLayerBegin', 2, false, 'Move');
+  const f = (await call('moveFloat', 1, [0, 0, 16, 16])).result as Img & { above: Img | null };
+  assert.ok(f.image.x <= -3, `the moved image starts left of the canvas: ${f.image.x}`);
+  assert.deepEqual(at(f, -1, 3), [255, 0, 0, 255], 'pixels outside the canvas');
+  assert.deepEqual(at(f, -3, 3).slice(2), [255, 255], 'the stroke outside the canvas');
+  assert.deepEqual(at(f, 1, 3), [255, 0, 0, 255], 'pixels inside the canvas');
+  const p = (await call('moveFloatPatch', [-3, 0, 4, 8], null)).result as { moved: Img };
+  assert.deepEqual(at(p.moved, -1, 3), [255, 0, 0, 255], 'a patch outside the canvas');
+  await call('moveLayerCancel');
+  assert.deepEqual((await call('sample', 1, 3, 1, null)).result, [255, 0, 0, 255], 'the layer is back where it was');
+});
+
+test('the Navigator and the Histogram show the floated layers while the document shows what is below', async () => {
+  await call('init');
+  await closeAll();
+  const { key } = await res(call('newDoc', 16, 16, 8, [0, 0, 0, 255]));
+  await call('addLayer', 1);
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 2, 'pixels', [255, 0, 0, 255]);
+  await call('selectCommand', 'deselect');
+  for (const styled of [true, false]) {
+    if (styled) await call('setLayerStyle', 2, { ...emptyStyle(), strokes: [blueStroke(1)] }, defaultBlending(), 1, null);
+    else await call('setLayerStyle', 2, null, defaultBlending(), 1, null);
+    await call('moveLayerBegin', 2, false, 'Move');
+    assert.ok((await call('moveFloat', 1, [0, 0, 16, 16])).result, `floats (styled ${styled})`);
+    assert.deepEqual((await call('sample', 3, 3, 1, null)).result, [0, 0, 0, 255], 'the document shows what is below');
+    const nav = (await call('navigatorThumb', 16)).result as { w: number; data: ArrayBuffer };
+    assert.deepEqual([...new Uint8Array(nav.data).slice((3 * nav.w + 3) * 4, (3 * nav.w + 3) * 4 + 3)], [255, 0, 0], `navigator (styled ${styled})`);
+    const h = ((await call('documentHistogram', key, null)).result as { histogram: Uint32Array }).histogram;
+    assert.equal(h[256 + 255], 16, `histogram red (styled ${styled})`);
+    assert.deepEqual((await call('sample', 3, 3, 1, null)).result, [0, 0, 0, 255], 'still floating');
+    await call('moveLayerCancel');
+  }
 });
 
 test('moveFloatPatch returns sharp images of the moved layer and the layers above over other rects', async () => {

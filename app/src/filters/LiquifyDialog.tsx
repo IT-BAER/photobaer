@@ -3,6 +3,7 @@
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { client } from '../client.ts';
 import type { DocInfo, Guide, LiquifyOp } from '../worker/types.ts';
+import { NumberInput } from '../shell/NumberInput.tsx';
 
 type View = { data: ArrayBuffer; w: number; h: number; scale: number; cols: number; rows: number; spacing: number; disp: Float32Array | null; frozen: Float32Array | null };
 export type LiquifyRequest = { id: number; filterId: number | null; width: number; height: number; guides: Guide[]; layers: { id: number; name: string }[] };
@@ -261,8 +262,8 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
   }
 
   const num = (label: string, key: 'size' | 'density' | 'pressure' | 'rate', min: number, max: number) => (
-    <label>{label}<input type="number" min={min} max={max} step={1} value={prefs[key]}
-      onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) setPrefs({ [key]: Math.min(max, Math.max(min, Math.round(v))) }); }} /></label>
+    <label>{label}<NumberInput min={min} max={max} step={1} value={prefs[key]}
+      onValue={v => setPrefs({ [key]: Math.min(max, Math.max(min, Math.round(v))) })} /></label>
   );
   const check = (label: string, key: 'showImage' | 'showMesh' | 'showMask' | 'showGuides' | 'showBackdrop', after?: (on: boolean) => void) => (
     <label className="adjustment-check"><input type="checkbox" checked={prefs[key]} onChange={e => { const on = e.currentTarget.checked; setPrefs({ [key]: on }); after?.(on); }} /> {label}</label>
@@ -310,7 +311,7 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
             </div>
             {amount !== null && (
               <div className="liquify-row">
-                <label>Amount<input type="number" min={0} max={100} value={amount} onChange={e => setAmount(Math.min(100, Math.max(0, Number(e.currentTarget.value) || 0)))} /></label>
+                <label>Amount<NumberInput min={0} max={100} value={amount} onValue={v => setAmount(Math.min(100, Math.max(0, v || 0)))} /></label>
                 <button type="button" onClick={() => { send({ op: 'reconstruct', amount }); setAmount(null); }}>Apply</button>
               </div>
             )}
@@ -348,8 +349,8 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
             <label>Mode<select value={prefs.backdropMode} onChange={e => setPrefs({ backdropMode: e.currentTarget.value })}>
               <option value="front">In Front</option><option value="behind">Behind</option>
             </select></label>
-            <label>Opacity<input type="number" min={0} max={100} value={prefs.backdropOpacity}
-              onChange={e => setPrefs({ backdropOpacity: Math.min(100, Math.max(0, Number(e.currentTarget.value) || 0)) })} /></label>
+            <label>Opacity<NumberInput min={0} max={100} value={prefs.backdropOpacity}
+              onValue={v => setPrefs({ backdropOpacity: Math.min(100, Math.max(0, v || 0)) })} /></label>
           </div>
         </div>
         <div className="actions">

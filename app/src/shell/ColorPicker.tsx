@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react';
 import { hexToRgb, hsbToRgb, intensityOf, isWebSafe, labToRgb, rgbToHex, rgbToHsb, rgbToLab, snapWebSafe, withIntensity, type Rgb } from './color.ts';
 import { HueStrip, SbField } from './ColorField.tsx';
 import { rgbOfSliders, slidersOf, type Convert } from './colorModes.ts';
+import { NumberInput } from './NumberInput.tsx';
 
 // `hdr` (a 32-bit document) adds the Intensity slider in stops; the committed color carries it (`intensityOf`).
 export interface ColorPickerHandle { open(rgb: Rgb, title: string, commit: (rgb: Rgb) => void, opts?: { hdr?: boolean }): void }
@@ -106,8 +107,8 @@ export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; con
         <label className="color-intensity">
           Intensity
           <input type="range" min={-20} max={20} step={0.01} value={stops} onChange={e => apply(rgb, Number(e.currentTarget.value))} />
-          <input type="number" min={-20} max={20} step={0.01} value={stops} aria-label="Intensity stops"
-            onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) apply(rgb, Math.min(20, Math.max(-20, v))); }} />
+          <NumberInput min={-20} max={20} step={0.01} value={stops} aria-label="Intensity stops"
+            onValue={v => apply(rgb, Math.min(20, Math.max(-20, v)))} />
         </label>
       )}
       <div className="actions">

@@ -317,6 +317,7 @@ pub struct Sample {
     pub dir: f32,
 }
 
+#[cfg(test)]
 impl Sample {
     pub fn new(x: f64, y: f64, p: f32) -> Sample {
         Sample { x, y, p, tilt_x: 0.0, tilt_y: 0.0, twist: 0.0, dir: 0.0 }

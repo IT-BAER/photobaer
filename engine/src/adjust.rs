@@ -1433,12 +1433,12 @@ fn hdr_toning(p: &HdrToning, px: &mut [f32], w: usize, h: usize) {
                 map_rgb(px, |c| c.map(|v| linear_to_srgb((srgb_to_linear(v) * a).max(0.0).powf(n)).clamp(0.0, 1.0)));
             }
         }
-        // Reinhard per channel with white = the brightest value, as View > 32-bit Preview Options;
+        // Reinhard per channel in linear light, white = the brightest value, as View > 32-bit Preview Options;
         // an identity when nothing exceeds 1 (8/16-bit data).
         HdrMethod::HighlightCompression => {
             let max = px.chunks_exact(4).filter(|c| c[3] > 0.0).fold(0f32, |m, c| m.max(c[0]).max(c[1]).max(c[2]));
             if max > 1.0 {
-                map_rgb(px, |c| c.map(|v| (v * (1.0 + v / (max * max)) / (1.0 + v)).min(1.0)));
+                map_rgb(px, |c| c.map(|v| crate::gradient::compress_highlight(v, max)));
             }
         }
         // Bins span 0..max(1, brightest luminance), so 32-bit values above 1 keep their order.

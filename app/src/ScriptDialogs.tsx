@@ -1,6 +1,7 @@
 // File > Scripts > Image Processor and Load Files into Stack.
 import { useImperativeHandle, useRef, useState, useSyncExternalStore, type Ref } from 'react';
 import { actions } from './app/actionsStore.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 
 const ACCEPT = 'image/*,.psd,.psb,.exr,.hdr,.svg,.ico';
 type DirPicker = { showDirectoryPicker?: (o: object) => Promise<FileSystemDirectoryHandle> };
@@ -27,8 +28,8 @@ function FitFields({ fit, set, label }: { fit: Fit; set: (f: Fit) => void; label
   return (
     <div className="row">
       <label className="radio"><input type="checkbox" checked={fit.on} onChange={e => set({ ...fit, on: e.currentTarget.checked })} /> Resize to Fit</label>
-      <label>W <input type="number" aria-label={`${label} width`} min={1} max={300000} value={fit.w} disabled={!fit.on} onChange={e => set({ ...fit, w: Math.max(1, e.currentTarget.valueAsNumber || 1) })} /> px</label>
-      <label>H <input type="number" aria-label={`${label} height`} min={1} max={300000} value={fit.h} disabled={!fit.on} onChange={e => set({ ...fit, h: Math.max(1, e.currentTarget.valueAsNumber || 1) })} /> px</label>
+      <label>W <NumberInput aria-label={`${label} width`} min={1} max={300000} value={fit.w} disabled={!fit.on} onValue={v => set({ ...fit, w: Math.max(1, v || 1) })} /> px</label>
+      <label>H <NumberInput aria-label={`${label} height`} min={1} max={300000} value={fit.h} disabled={!fit.on} onValue={v => set({ ...fit, h: Math.max(1, v || 1) })} /> px</label>
     </div>
   );
 }
@@ -88,7 +89,7 @@ export function ImageProcessorDialog({ ref, start }: { ref: Ref<ScriptDialogHand
           <legend>File Type</legend>
           <div className="row">
             <label className="radio"><input type="checkbox" checked={o.jpeg.on} onChange={e => setO({ ...o, jpeg: { ...o.jpeg, on: e.currentTarget.checked } })} /> Save as JPEG</label>
-            <label>Quality <input type="number" aria-label="JPEG quality" min={0} max={12} value={o.jpeg.quality} onChange={e => setO({ ...o, jpeg: { ...o.jpeg, quality: Math.min(12, Math.max(0, Math.round(e.currentTarget.valueAsNumber) || 0)) } })} /></label>
+            <label>Quality <NumberInput aria-label="JPEG quality" min={0} max={12} value={o.jpeg.quality} onValue={v => setO({ ...o, jpeg: { ...o.jpeg, quality: Math.min(12, Math.max(0, Math.round(v) || 0)) } })} /></label>
             <label className="radio"><input type="checkbox" checked={o.jpeg.srgb} onChange={e => setO({ ...o, jpeg: { ...o.jpeg, srgb: e.currentTarget.checked } })} /> Convert Profile to sRGB</label>
           </div>
           <FitFields label="JPEG" fit={o.jpeg.fit} set={f => setO({ ...o, jpeg: { ...o.jpeg, fit: f } })} />

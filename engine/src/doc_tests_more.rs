@@ -1730,6 +1730,13 @@ fn hdr_json(method: &str) -> String {
     .to_string()
 }
 
+// Extended Reinhard on the linear value with white = the linear brightest, back to encoded.
+fn reinhard_linear(v: f32, max: f32) -> f32 {
+    use crate::gradient::{linear_to_srgb, srgb_to_linear};
+    let (l, w) = (srgb_to_linear(v), srgb_to_linear(max));
+    linear_to_srgb(l * (1.0 + l / (w * w)) / (1.0 + l))
+}
+
 #[test]
 fn hdr_toning_compresses_32_bit_values_above_one() {
     let mut d = float_doc(&[0.5, 1.0, 2.0, 4.0]);
@@ -1738,6 +1745,7 @@ fn hdr_toning_compresses_32_bit_values_above_one() {
     let g: Vec<f32> = (0..4).map(|i| f[i * 4]).collect();
     assert!((g[3] - 1.0).abs() < 1e-5, "the brightest maps to white: {g:?}");
     assert!(g[0] < 0.5 && g.windows(2).all(|w| w[0] < w[1]), "monotonic and compressed: {g:?}");
+    assert!((g[0] - reinhard_linear(0.5, 4.0)).abs() < 1e-4, "compressed in linear light: {g:?}");
 
     let mut d = float_doc(&[0.5, 1.5, 3.0]);
     d.apply_destructive(1, &hdr_json("equalize_histogram")).unwrap();

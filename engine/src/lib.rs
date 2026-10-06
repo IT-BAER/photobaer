@@ -496,6 +496,11 @@ impl Engine {
         Ok(rect_js(self.0.doc.layer_bounds(id).map_err(err)?))
     }
 
+    /// Padding in px the layer's effects (and its descendants') reach beyond its pixels.
+    pub fn effect_reach(&self, id: u32) -> Result<u32, JsError> {
+        Ok(self.0.doc.node(id).map_err(err)?.effect_reach())
+    }
+
     // ---------- selection ----------
 
     /// `mode` is "new", "add", "subtract" or "intersect".

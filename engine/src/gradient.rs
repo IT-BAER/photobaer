@@ -166,6 +166,13 @@ pub(crate) fn exposed(c: f32, gain: f32) -> f32 {
     linear_to_srgb(srgb_to_linear(c) * gain)
 }
 
+/// Extended Reinhard in linear light with white = `max` (both encoded): `max` maps to 1
+/// (32-bit Highlight Compression).
+pub(crate) fn compress_highlight(v: f32, max: f32) -> f32 {
+    let (l, w) = (srgb_to_linear(v.max(0.0)), srgb_to_linear(max));
+    linear_to_srgb(l * (1.0 + l / (w * w)) / (1.0 + l)).min(1.0)
+}
+
 fn oklab_from_linear(rgb: [f32; 3]) -> [f32; 3] {
     let [r, g, b] = rgb;
     let l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;

@@ -378,9 +378,7 @@ pub fn smooth(mask: &[f32], w: u32, h: u32, r: u32, apply_at_canvas_bounds: bool
 
 // ---------- Color Range (docs/M2.md section 3) ----------
 
-fn srgb_to_linear(c: f32) -> f32 {
-    if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
-}
+use crate::gradient::srgb_to_linear;
 
 // sRGB (D65) to CIE Lab, used only to measure a perceptual color distance.
 fn rgb_to_lab(rgb: [u8; 3]) -> [f32; 3] {

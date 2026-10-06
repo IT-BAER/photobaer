@@ -6,6 +6,7 @@ import { client } from './client.ts';
 import { BLEND_MODES } from './layers.ts';
 import type { CalcOpts, DocInfo, ImageSource } from './engine.worker.ts';
 import type { LayerNode } from './worker/types.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 
 export type ImageCalcRequest = { kind: 'apply'; id: number } | { kind: 'calc' };
 export interface ImageCalcHandle { open(r: ImageCalcRequest): void }
@@ -17,7 +18,7 @@ type Form = {
 
 const SCALED = new Set(['add', 'subtract']);
 const opts = (f: Form): CalcOpts => ({ mode: f.mode, opacity: f.opacity / 100, scale: f.scale, offset: f.offset, mask: f.useMask ? f.mask : null });
-const clampNum = (v: string, lo: number, hi: number, fallback: number) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback; };
+const clampNum = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 const title = (s: string) => s.replace(/(^| )\w/g, c => c.toUpperCase());
 const pixelLayers = (nodes: LayerNode[]): LayerNode[] =>
@@ -150,13 +151,13 @@ export function ImageCalcDialog({ ref, doc, show, setError }: {
           <label>Blending <select aria-label="Blending" value={form.mode} onChange={e => setForm({ ...form, mode: e.currentTarget.value })}>
             {[...BLEND_MODES.filter(m => m !== 'dissolve'), 'add'].map(m => <option key={m} value={m}>{title(m)}</option>)}
           </select></label>
-          <label>Opacity <input type="number" min={0} max={100} value={form.opacity}
-            onChange={e => setForm({ ...form, opacity: clampNum(e.currentTarget.value, 0, 100, form.opacity) })} /> %</label>
+          <label>Opacity <NumberInput min={0} max={100} value={form.opacity}
+            onValue={v => setForm({ ...form, opacity: clampNum(v, 0, 100) })} /> %</label>
           {SCALED.has(form.mode) && <>
-            <label>Scale <input type="number" min={1} max={2} step={0.001} value={form.scale}
-              onChange={e => setForm({ ...form, scale: clampNum(e.currentTarget.value, 1, 2, form.scale) })} /></label>
-            <label>Offset <input type="number" min={-255} max={255} value={form.offset}
-              onChange={e => setForm({ ...form, offset: clampNum(e.currentTarget.value, -255, 255, form.offset) })} /></label>
+            <label>Scale <NumberInput min={1} max={2} step={0.001} value={form.scale}
+              onValue={v => setForm({ ...form, scale: clampNum(v, 1, 2) })} /></label>
+            <label>Offset <NumberInput min={-255} max={255} value={form.offset}
+              onValue={v => setForm({ ...form, offset: clampNum(v, -255, 255) })} /></label>
           </>}
           <label><input type="checkbox" checked={form.useMask} onChange={e => setForm({ ...form, useMask: e.currentTarget.checked })} /> Mask</label>
           {form.useMask && <SourceFields label="Mask" doc={doc} value={form.mask} set={mask => setForm({ ...form, mask })} calc />}

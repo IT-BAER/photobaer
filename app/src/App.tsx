@@ -589,7 +589,7 @@ export function App() {
     for (const k of origins.current.keys()) if (!d?.docs.some(t => t.key === k)) origins.current.delete(k);
     const saved = switched ? tabState.current.get(d.key) : undefined;
     // An error belongs to the document it came from.
-    if (switched || (prev && !d)) setError(null);
+    if (prev?.key !== d?.key) setError(null);
     setDoc(d);
     docRef.current = d;
     setArrangeRevision(n => n + 1);

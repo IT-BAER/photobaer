@@ -316,6 +316,7 @@ export class SelectionOverlay {
       if (cur.center || cur.mark === '+') { ctx.moveTo(sx, sy - 4); ctx.lineTo(sx, sy + 4); }
     }
     const w = cur.crosshair ? 1 : cur.weight ?? 1;
+    ctx.setLineDash([]);
     ctx.lineWidth = w + 2;
     ctx.strokeStyle = 'rgba(0,0,0,0.6)';
     ctx.stroke();

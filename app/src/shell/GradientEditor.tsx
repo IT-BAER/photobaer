@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { rgbToHex, type Rgb } from './color.ts';
 import { clamp01, defaultNoise, evaluate, largestGapMid, normalize, rampCss, resolveStops, type Gradient, type Method, type NoiseParams } from '../gradients/gradient.ts';
 import { resolvePreset, type GradientPreset } from '../gradients/presets.ts';
+import { NumberInput } from './NumberInput.tsx';
 
 export interface GradientEditorHandle { open(g: Gradient, onOk: (g: Gradient) => void): void }
 type Rail = 'stops' | 'opacityStops';
@@ -19,8 +20,8 @@ const sortedIdx = (r: { position: number }[]) => r.map((_, i) => i).sort((a, b) 
 function Percent({ label, value, min = 0, max = 100, set }: { label: string; value: number; min?: number; max?: number; set: (v: number) => void }) {
   return (
     <label>{label}
-      <input type="number" min={min} max={max} value={pct(value)}
-        onChange={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) set(Math.min(max, Math.max(min, v)) / 100); }} />%
+      <NumberInput min={min} max={max} value={pct(value)}
+        onValue={v => set(Math.min(max, Math.max(min, v)) / 100)} />%
     </label>
   );
 }

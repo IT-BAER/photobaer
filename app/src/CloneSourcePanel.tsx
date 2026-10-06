@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import { Link2, Link2Off, RotateCcw, Stamp } from 'lucide-react';
 import { cloneSources, SLOT_COUNT, type CloneSlot, type OverlayMode } from './shell/retouch.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 
 const ICON = { size: 16, strokeWidth: 1.75 };
 const MODES: OverlayMode[] = ['normal', 'darken', 'lighten', 'difference'];
@@ -13,8 +14,8 @@ function Num({ label, value, unit, min, max, step = 1, disabled, set }: {
   return (
     <label className="clone-field">
       <span>{label}</span>
-      <input type="number" aria-label={label} value={Math.round(value * 100) / 100} min={min} max={max} step={step} disabled={disabled}
-        onChange={e => { const v = Number(e.currentTarget.value); if (e.currentTarget.value.trim() && Number.isFinite(v)) set(Math.max(min, Math.min(max, v))); }} />
+      <NumberInput aria-label={label} value={Math.round(value * 100) / 100} min={min} max={max} step={step} disabled={disabled}
+        onValue={v => set(Math.max(min, Math.min(max, v)))} />
       <span>{unit}</span>
     </label>
   );
