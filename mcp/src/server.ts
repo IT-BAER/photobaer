@@ -53,7 +53,7 @@ const fail = (message: string): CallToolResult => ({ content: [{ type: 'text', t
 // open: null leaves the browser to the user; connect then returns the link first and waits on the next call.
 export function createServer({ url = DEFAULT_URL, open = launch }: { url?: string; open?: ((url: string) => void) | null } = {}) {
   const origins = new Set([...ORIGINS, new URL(url).origin]);
-  const server = new Server({ name: 'photobaer', version: '0.1.1' }, { capabilities: { tools: { listChanged: true } } });
+  const server = new Server({ name: 'photobaer', version: '0.1.2' }, { capabilities: { tools: { listChanged: true } } });
   let wss: WebSocketServer | null = null, port = 0, token = '';
   let tab: WebSocket | null = null, tabTools: Tool[] = [];
   const waiting: (() => void)[] = [];

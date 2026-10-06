@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-10-06
+
 ### Added
 
 - Canvas cursors in the Photoshop style for every tool: tool icons with their own hotspot (lasso, wand, eyedropper, bucket, crop, ruler, pen, type, hand, zoom and more); selection tools show the add, subtract and intersect sign from Shift, Alt or the Mode option; the pen shows start, close, add and delete states and the white arrow with Ctrl; Alt shows Zoom Out, the Move copy cursor and the Clone Stamp/Healing Brush source target; held Space and Ctrl+Space show the hand and zoom; Caps Lock switches to the crosshair; Quick Selection shows its brush circle with a plus or minus sign.
@@ -15,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Canvas cursors redrawn from Photoshop references: Move arrow with move badge, Slice, Slice Select, Patch (Source and Destination), Content-Aware Move, Artboard, Freeform Pen (with Magnetic), Curvature Pen (start and close), Rotate View, a larger closed hand, an asterisk for intersect, the black arrow while Direct Selection drags; Painting Cursors = Standard shows the tool icon; Background Eraser shows its sampling cross.
 - Edit > Preferences > Cursors: Brush Tip Outline (Thin, Normal, Bold, Extra Bold), Show Only Crosshair While Painting, Show Brush Leash While Smoothing with its color, and the Brush Preview color for the Ctrl+Alt right-drag size preview.
 - 32-bit documents: the Foreground and Background Color Picker has an Intensity slider (stops, -20 to +20);
-  Brush, Pencil and Edit > Fill paint the color times 2^Intensity, so values above 1 can be painted.
+  Brush, Pencil and Edit > Fill paint the color times 2^Intensity in linear light (like exposure stops),
+  so values above 1 can be painted and an Exposure of -Intensity shows the picked color again.
 - 32-bit documents: Brush, Fill and Fade keep values above 1 in the 32-bit blend modes (Multiply, Lighten,
   Color and the others); paint Mode lists show only those modes; Blur Gallery is available.
 - 32 -> 16/8 Bits/Channel with Don't Merge tones every pixel layer with the default Local Adaptation, as
@@ -46,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Layers panel: effect rows show the eye and the effect name on one line again.
+- PSD export: 8-bit Grayscale, Duotone and RGB documents with alpha or spot channels no longer fail to save,
+  or save a file that does not reopen, when an image row compresses to more bytes than its width.
 
 ## [0.3.5] - 2026-10-05
 
@@ -364,6 +369,7 @@ First public release.
 - Welcome screen and Help > About dialog.
 
 [unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.5...HEAD
+[0.3.6]: https://github.com/IT-BAER/photobaer/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/IT-BAER/photobaer/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/IT-BAER/photobaer/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/IT-BAER/photobaer/compare/v0.3.2...v0.3.3

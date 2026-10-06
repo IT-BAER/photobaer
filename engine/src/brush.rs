@@ -901,8 +901,9 @@ impl EngineCore {
             "solid" => {
                 let [r, g, b, a] = p.rgba.ok_or("solid fill needs rgba")?;
                 if self.doc.depth == 32 && p.intensity != 0.0 {
-                    let k = p.intensity.clamp(-20.0, 20.0).exp2() / 255.0;
-                    FillSource::SolidHdr([r as f32 * k, g as f32 * k, b as f32 * k, a as f32 / 255.0])
+                    let k = p.intensity.clamp(-20.0, 20.0).exp2();
+                    let e = |c: u8| crate::gradient::exposed(c as f32 / 255.0, k);
+                    FillSource::SolidHdr([e(r), e(g), e(b), a as f32 / 255.0])
                 } else {
                     FillSource::Solid([r, g, b, a])
                 }

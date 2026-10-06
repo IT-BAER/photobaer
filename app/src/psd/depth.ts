@@ -102,7 +102,7 @@ function writeLayerInfo(count: number, recs: Rec[], psb: boolean): Uint8Array {
 /** PackBits rows of one plane, as PSD RLE: the per-row byte counts and the data. */
 function packRows(plane: Uint8Array, w: number, h: number): { counts: number[]; data: Uint8Array[] } {
   const counts: number[] = [], data: Uint8Array[] = [];
-  const out = new Uint8Array(w + Math.ceil(w / 128) + 2);
+  const out = new Uint8Array(2 * w + 2); // a 1-pixel literal costs 2 bytes, so 2 per pixel bounds any row
   for (let y = 0; y < h; y++) {
     const row = plane.subarray(y * w, y * w + w);
     let o = 0, i = 0;

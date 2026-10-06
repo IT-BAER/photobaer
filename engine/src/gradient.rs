@@ -161,6 +161,11 @@ pub(crate) fn linear_to_srgb(c: f32) -> f32 {
     }
 }
 
+/// An encoded value scaled by `gain` in linear light (32-bit Intensity, as exposure stops).
+pub(crate) fn exposed(c: f32, gain: f32) -> f32 {
+    linear_to_srgb(srgb_to_linear(c) * gain)
+}
+
 fn oklab_from_linear(rgb: [f32; 3]) -> [f32; 3] {
     let [r, g, b] = rgb;
     let l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;

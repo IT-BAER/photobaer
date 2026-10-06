@@ -659,7 +659,10 @@ impl Document {
                 let s_val = if st.wet_edges { stroke::wet_edge_remap(t.s[p], st.opacity) } else { t.s[p] };
                 let mut c = (s_val * cov.at(p)).clamp(0.0, 1.0);
                 let old = t.orig.as_ref().map_or([0.0; 4], |o| o.px.rgba_f32(p));
-                let mut rgb = t.rgb.as_ref().map_or(st.rgb, |buf| buf[p]).map(|v| v * gain);
+                let mut rgb = t.rgb.as_ref().map_or(st.rgb, |buf| buf[p]);
+                if gain != 1.0 {
+                    rgb = rgb.map(|v| crate::gradient::exposed(v, gain));
+                }
                 if let (Some(src), true) = (&st.source, c > 0.0) {
                     let v = src.sample(tx * TILE as i32 + px, ty * TILE as i32 + py);
                     rgb = [v[0], v[1], v[2]];

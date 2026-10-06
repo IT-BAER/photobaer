@@ -964,7 +964,19 @@ test('32-bit Fill and Brush with Intensity paint above 1, 8-bit ignores it', asy
   const side = Math.sqrt(d.length / 4), red = (x: number, y: number) => d[(y * side + x) * 4];
   assert.ok(red(8, 32) > red(24, 32) + 20, `fill with Intensity 1 is brighter at -1 EV: ${red(8, 32)} vs ${red(24, 32)}`);
   assert.equal(red(48, 32), red(8, 32), 'brush with Intensity 1 matches the fill');
+  // Intensity is exposure in linear light: +2 then -2 EV shows the picked color again.
+  const orange = [232, 162, 58];
+  await call('fillEx', 1, 'pixels', { source: 'solid', rgba: [...orange, 255], intensity: 2, mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
+  await call('strokeBegin', 1, 'pixels', { ...stroke, rgba: [...orange, 255], intensity: 2 }, 'Brush');
+  await call('strokeTo', Float64Array.from([48, 10, 1, 48, 54, 1]));
+  await call('strokeEnd');
   await call('setView', { hdr: { method: 'exposureAndGamma', exposure: 0, gamma: 1 } });
+  await call('newAdjustmentLayer', 1, { kind: 'exposure', params: { exposure: -2, offset: 0, gamma: 1 } }, 'Exposure');
+  const e = new Uint8Array(((await call('displayTile', 0, 0, 0)).result as { data: ArrayBuffer }).data);
+  for (const x of [8, 48]) {
+    const got = [...e.subarray((32 * side + x) * 4, (32 * side + x) * 4 + 3)];
+    assert.ok(got.every((v, i) => Math.abs(v - orange[i]) <= 2), `x ${x}: ${got} vs ${orange}`);
+  }
   await call('newDoc', 8, 8, 8, null);
   await call('fillEx', 1, 'pixels', { source: 'solid', rgba: [100, 100, 100, 255], intensity: 1, mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
   assert.equal(((await call('sample', 2, 2, 1, null)).result as number[])[0], 100);

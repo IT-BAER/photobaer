@@ -69,6 +69,16 @@ test('a Grayscale document saves as a Grayscale PSD with one color channel per l
   assert.equal(nodeNamed(back, 'Top').mask?.default, 255);
 });
 
+test('an 8-bit Grayscale row that PackBits grows past its width saves and reopens', () => {
+  const w = 300, e = new Engine(w, 2, 8);
+  const px = new Uint8Array(w * 2 * 4);
+  for (let i = 0; i < w * 2; i++) { const v = i % 3 === 2 ? 200 : 50; px.set([v, v, v, 255], i * 4); }
+  e.put_rgba8(1, 0, 0, w, 2, px);
+  e.convert_mode(true);
+  const back = importPsd(exportPsd(e).bytes).engine;
+  sameTile(tileOf(back, nodeNamed(back, 'Background').tiles), tileOf(e, nodeNamed(e, 'Background').tiles));
+});
+
 test('16-bit documents save in an Lr16 block and reopen with exact values, masks and channels', () => {
   const [w, h] = [300, 20];
   const e = new Engine(w, h, 16);
