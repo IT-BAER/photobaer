@@ -28,10 +28,10 @@ import { embedInfo, hasInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
 import { emptyAnnotations, framePath, rotationAbout, type Annotations } from './app/measure.ts';
 import { emptyVariables, planDataSet, replaceText, type Variables } from './app/variables.ts';
 import { assetSpecs } from './app/webExport.ts';
-import { TILE } from './view.ts';
+import { TILE, levelFor } from './view.ts';
 import { NO_RECORD, decodeCall, encodeCall, hot, newIds, recordable, type ActionStep, type Call, type Layers } from './actions.ts';
 import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, toLinear, type FloatImage } from './formats.ts';
-import { applyTransform, collectPixelIds, decodeSource, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, icoEntries, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
+import { applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, icoEntries, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
@@ -64,7 +64,61 @@ let vp: { data: Uint8Array; w: number; h: number; scale: number } | null = null;
 // Move tool live session: a snapshot taken right after any duplicate, restored and replayed
 // from on every step so the previewed offset never compounds.
 // `pixels`: a selected-pixels session; `floating`: the live document hides the moved pixels (moveFloat).
-let moveSession: { liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number; pixels: boolean; floating: boolean } | null = null;
+// `patch` renders sharp images of an open float over other doc rects (moveFloatPatch).
+let moveSession: {
+  liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number; pixels: boolean; floating: boolean;
+  patch?: (moved: Box | null, above: Box | null) => { moved: ReturnType<typeof liftPreview> | null; above: ReturnType<typeof liftPreview> | null };
+} | null = null;
+// moveFloat for a top-level layer the plain float cannot show: the moved layer with its effects and the
+// visible layers above come back as display images at the view's level, and the document shows what is
+// below until the next step. Null when the images over that would not look the same: non-normal blends,
+// adjustments, clipping onto the layer, Blend If, knockout, or a shadow or outer glow whose blend mixes
+// with what is below (exact alone only as normal, black multiply or white screen).
+function moveSplit(e: Engine, s: NonNullable<typeof moveSession>, tree: LayerNode[], i: number, scale: number, view: Box | null) {
+  const n = tree[i], above = tree.slice(i + 1), plainIf = JSON.stringify(defaultBlending().blend_if);
+  const exact = (e: { present: boolean; enabled: boolean; blend: string }, c: number[] | null) =>
+    !e.present || !e.enabled || e.blend === 'normal' || (e.blend === 'multiply' && !!c?.every(v => v === 0)) || (e.blend === 'screen' && !!c?.every(v => v === 255));
+  const behind = (st: LayerStyle | null) => !st?.enabled || (st.drop_shadows.every(d => exact(d, d.color))
+    && (!st.outer_glow || exact(st.outer_glow, st.outer_glow.fill.type === 'color' ? st.outer_glow.fill.color : null)));
+  const alone = (m: LayerNode) => m.kind !== 'adjustment' && (m.blend === 'normal' || (m.kind === 'group' && m.blend === 'pass through'))
+    && m.blending.knockout === 'none' && m.blending.channels.every(Boolean) && JSON.stringify(m.blending.blend_if) === plainIf && behind(m.style);
+  // Layers that clip onto the moved one (the run of clipped layers right above, hidden ones included).
+  const run = above.findIndex(t => !t.clipping);
+  if (n.clipping || above.slice(0, run < 0 ? above.length : run).some(t => t.visible)) return null;
+  if (![n, ...visibleTopDown(n.children ?? []), ...visibleTopDown(above)].every(alone)) return null;
+  const W = e.width(), H = e.height(), level = levelFor(scale, 1, e.max_level());
+  // The view's own tiles are drawn already, so their effects come from the tile cache; patches add the rest.
+  const near = view && intersect([0, 0, W, H], view);
+  const shown = tree.filter(t => t.visible).map(t => t.id), up = above.filter(t => t.visible).map(t => t.id);
+  const show = (ids: number[]) => { for (const id of shown) e.set_props(id, JSON.stringify({ visible: ids.includes(id) })); };
+  const below = shown.filter(id => id !== n.id && !up.includes(id));
+  let moved: ReturnType<typeof displayTiers>, top: ReturnType<typeof displayTiers> = null;
+  try {
+    show([n.id]);
+    moved = displayTiers(e, level, near);
+    show(up);
+    if (up.length) top = displayTiers(e, level, near);
+  } catch (err) {
+    show(shown);
+    throw err;
+  }
+  show(below);
+  if (!moved) { show(shown); return null; }
+  s.patch = (mr, ar) => {
+    const m = mr && intersect([0, 0, W, H], mr), a = up.length && ar ? intersect([0, 0, W, H], ar) : null;
+    try {
+      if (m) show([n.id]);
+      const movedPatch = m && displayRegion(e, level, m);
+      if (a) show(up);
+      return { moved: movedPatch, above: a && displayRegion(e, level, a) };
+    } finally {
+      show(below);
+    }
+  };
+  s.floating = true;
+  version++;
+  return { ...info()!, layers: tree, ...moved, above: top };
+}
 // Free transform / Transform Selection / Warp session: one open history step. `hidden` is the document
 // with the source removed (the UI previews it), `refined` the matrix or warp mesh JSON last rendered for
 // real, `base` the snapshot a warp applies to after a baked matrix (null: the step's start), `label` the
@@ -2272,8 +2326,10 @@ const api = {
     if (!s || s.lastDx || s.lastDy) return null;
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     const i = tree.findIndex(n => n.id === s.targetId), n = tree[i];
-    if (!n || n.kind !== 'pixel' || !n.visible || n.blend !== 'normal' || n.opacity !== 1 || n.fill !== 1) return null;
-    if (n.clipping || n.mask || n.vector_mask || n.style || visibleTopDown(tree.slice(i + 1)).length) return null;
+    if (!n || !n.visible) return null;
+    if (n.kind !== 'pixel' || n.blend !== 'normal' || n.opacity !== 1 || n.fill !== 1 || n.clipping || n.mask || n.vector_mask || n.style || visibleTopDown(tree.slice(i + 1)).length) {
+      return s.pixels ? null : moveSplit(e, s, tree, i, scale, view);
+    }
     const sel = s.pixels ? (JSON.parse(e.channels_json()) as { selection: { bounds: Box | null } | null }).selection?.bounds ?? null : null;
     const found = s.pixels ? intersect(sel, e.layer_bounds(s.targetId) as Box | null) : e.layer_bounds(s.targetId) as Box | null;
     if (!found) return null;
@@ -2283,9 +2339,20 @@ const api = {
     const over = near && liftPreview(e, s.targetId, near.map(Math.round) as Box, s.pixels, Math.ceil(Math.max(near[2], near[3]) * sharp));
     if (s.pixels) { if (!s.duplicated) e.clear(s.targetId, 'pixels'); }
     else e.set_props(s.targetId, JSON.stringify({ visible: false }));
+    if (!s.pixels && near) s.patch = mr => {
+      const b = intersect(found, mr);
+      return { moved: b && liftPreview(e, s.targetId, b.map(Math.round) as Box, false, Math.ceil(Math.max(b[2], b[3]) * sharp)), above: null };
+    };
     s.floating = true;
     version++;
-    return { ...info()!, image, data, over };
+    return { ...info()!, image, data, over, above: null };
+  },
+
+  // Sharp images of the open float over doc rects `moved` (the moved pixels where they started) and
+  // `above` (the layers above), for a drag that reaches past the sharp images moveFloat returned.
+  moveFloatPatch(moved: Box | null, above: Box | null) {
+    const s = moveSession;
+    return s?.floating && s.patch ? s.patch(moved, above) : null;
   },
 
   // Opens a transform session on the layer, its selected pixels or the selection. The preview
@@ -3688,8 +3755,9 @@ function liquifyView(overlays: boolean) {
 async function handle(id: number, op: keyof Api, args: unknown[]) {
   try {
     const result = await (api[op] as (...a: unknown[]) => unknown)(...args);
-    const r = result as { data?: unknown; over?: { data?: unknown } | null } | null;
-    postMessage({ id, result, docId }, { transfer: [r?.data, r?.over?.data].filter(d => d instanceof ArrayBuffer) });
+    type Img = { data?: unknown; over?: { data?: unknown } | null };
+    const r = result as (Img & { above?: Img | null; moved?: Img | null }) | null;
+    postMessage({ id, result, docId }, { transfer: [r?.data, r?.over?.data, r?.above?.data, r?.above?.over?.data, r?.moved?.data].filter(d => d instanceof ArrayBuffer) });
   } catch (err) {
     postMessage({ id, error: err instanceof Error ? err.message : String(err), docId });
   }
@@ -3700,7 +3768,7 @@ const STROKE_OPS = new Set<keyof Api>(['cloneSample', 'strokeBegin', 'strokeTo',
 const PREVIEW_OPS = new Set<keyof Api>(['applyImage', 'cloneSample', 'fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels',
   'layerThumbs', 'navigatorThumb', 'histogram', 'documentHistogram', 'documentSample', 'channelMask', 'layerMask']);
 // An open move session commits before any other op, so history never sees a half move; panel refreshes only read.
-const MOVE_OPS = new Set<keyof Api>(['cloneSample', 'moveFloat', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels',
+const MOVE_OPS = new Set<keyof Api>(['cloneSample', 'moveFloat', 'moveFloatPatch', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels',
   'layerThumbs', 'navigatorThumb', 'histogram']);
 // App-scope font calls: never refused for a stale document id and never close an open session.
 const FONT_OPS = new Set<keyof Api>(['fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing', 'glyphCells', 'glyphAlternates', 'fontCovers']);

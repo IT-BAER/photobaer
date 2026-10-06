@@ -2727,7 +2727,7 @@ impl Document {
                         layer_mask: mask.as_ref(),
                         vector_mask: vector.as_ref(),
                     };
-                    let r = styles::render_layer(&style, &layer, &cx);
+                    let r = styles::render_padded(&style, &layer, &cx, pad as usize);
                     let p = pad as usize;
                     let crop = |v: &[[f32; 4]]| {
                         let f: Vec<f32> = (0..TILE).flat_map(|y| v[(y + p) * n + p..(y + p) * n + p + TILE].iter().flatten().copied()).collect();

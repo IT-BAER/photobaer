@@ -6,6 +6,7 @@ import { embedIcc } from '../app/iccFiles.ts';
 import { embedInfo, hasInfo, type FileInfo } from '../app/fileInfo.ts';
 import { encodeGif, encodeGrayPng, encodePng8, quantize, type Dither } from '../app/webExport.ts';
 import { icoSizes, type IcoEntry } from '../formats.ts';
+import { TILE } from '../view.ts';
 import type { Box, GlobalLight, LayerNode, SmartInfo, SmartLink, TransformKind, TransformOp } from './types.ts';
 
 // Global Light: angle mod 360, altitude clamped to 0..90.
@@ -48,6 +49,36 @@ function liftPreview(e: Engine, id: number, bounds: Box, selected: boolean, maxS
   const w = Math.ceil((bounds[0] + bounds[2]) * f) - x0, h = Math.ceil((bounds[1] + bounds[3]) * f) - y0;
   const data = e.transform_preview(id, Float64Array.of(1, 0, 0, 0, 1, 0, 0, 0, 1), f, selected, x0, y0, w, h).buffer as ArrayBuffer;
   return { image: { x: x0, y: y0, w, h, f }, data };
+}
+// Straight RGBA8 of the display composite at pyramid `level` over doc rect `r` (inside the canvas), in
+// liftPreview's shape with f = 2^-level; null when every pixel is transparent.
+function displayRegion(e: Engine, level: number, r: Box) {
+  const f = 1 / (1 << level), x0 = Math.floor(r[0] * f), y0 = Math.floor(r[1] * f);
+  const w = Math.ceil((r[0] + r[2]) * f) - x0, h = Math.ceil((r[1] + r[3]) * f) - y0;
+  const out = new Uint8ClampedArray(w * h * 4);
+  let any = false;
+  for (let ty = Math.floor(y0 / TILE); ty <= Math.floor((y0 + h - 1) / TILE); ty++) for (let tx = Math.floor(x0 / TILE); tx <= Math.floor((x0 + w - 1) / TILE); tx++) {
+    const t = e.display_tile(level, tx, ty) as Uint8Array | null | undefined;
+    if (!t) continue;
+    const ax = Math.max(x0, tx * TILE), bx = Math.min(x0 + w, tx * TILE + TILE), by = Math.min(y0 + h, ty * TILE + TILE);
+    for (let y = Math.max(y0, ty * TILE); y < by; y++) for (let x = ax; x < bx; x++) {
+      const i = ((y - ty * TILE) * TILE + x - tx * TILE) * 4, a = t[i + 3];
+      if (!a) continue;
+      const o = ((y - y0) * w + x - x0) * 4;
+      out[o] = (t[i] * 255) / a; out[o + 1] = (t[i + 1] * 255) / a; out[o + 2] = (t[i + 2] * 255) / a; out[o + 3] = a;
+      any = true;
+    }
+  }
+  return any ? { image: { x: x0, y: y0, w, h, f }, data: out.buffer as ArrayBuffer } : null;
+}
+// The display composite as moveFloat's image: the canvas at the finest level from `level` within 2 MP,
+// plus `over` at `level` over doc rect `near` when that is finer; null when it is all transparent.
+function displayTiers(e: Engine, level: number, near: Box | null) {
+  const W = e.width(), H = e.height();
+  let c = level;
+  while (c < e.max_level() && Math.ceil(W / (1 << c)) * Math.ceil(H / (1 << c)) > 1 << 21) c++;
+  const base = displayRegion(e, c, [0, 0, W, H]);
+  return base && { ...base, over: near && c > level ? displayRegion(e, level, near) : null };
 }
 function intersect(a: Box | null, b: Box | null): Box | null {
   if (!a || !b) return null;
@@ -444,4 +475,4 @@ function smartWarpStart(e: Engine, id: number, maxSide: number) {
   return { bounds, ...lifted, mesh };
 }
 
-export { renderRgba, applyTransform, collectPixelIds, decodeSource, docPatterns, encodeFlattened, exportAsset, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };
+export { renderRgba, applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, docPatterns, encodeFlattened, exportAsset, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };

@@ -591,11 +591,13 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .layer-row .layer-fx-badge { flex: 0 0 auto; padding: 0 4px; font: italic 600 11px/16px serif; color: var(--text); background: none; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
 .layer-row .layer-fx-badge.disabled { opacity: 0.4; }
 .layer-effects-list { margin: 0 0 2px 28px; }
-.layer-effect-row { display: flex; align-items: center; gap: 4px; min-height: 22px; font-size: 12px; color: var(--dim); }
+.layers-tree .layer-effect-row { display: flex; flex-direction: row; align-items: center; gap: 4px; min-height: 22px; font-size: 12px; color: var(--dim); }
 .layer-effect-row.instance { padding-left: 16px; }
 .layer-effect-row.disabled .name { opacity: 0.5; }
-.layer-effect-row .visibility { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; background: none; border: 0; color: var(--dim); cursor: pointer; }
+.layer-effect-row .visibility { display: grid; place-items: center; flex: 0 0 auto; width: 24px; height: 22px; padding: 0; background: none; border: 0; color: var(--dim); cursor: pointer; }
 .layer-effect-row button.name { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.layer-effect-row .visibility:hover, .layer-effect-row button.name:hover { color: var(--text); }
+.layer-effect-row .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .breadcrumb { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .menubar-end { margin-left: auto; display: flex; flex: none; gap: 2px; }
 .breadcrumb + .menubar-end { margin-left: 12px; }

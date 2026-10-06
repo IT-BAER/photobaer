@@ -34,6 +34,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Duotone curve buttons draw the ink curve as the image shows it, not straight lines between the points.
 - In a Grayscale document, Assign or Convert to Profile reconverts the foreground and background colors so
   they keep their look under the new Gray profile.
+- Layer styles render several times faster: large drop shadows and glows blur in constant time per pixel,
+  and strokes, overlays and other interior effects work only on the area they reach, not on the shadow's.
+- The Move tool drags layers with effects, or with visible layers above them, live at full screen quality:
+  the layer with its effects moves over the layers below and under the layers above, and a drag past the
+  first sharp area loads sharp pixels for what comes into view. Shadows and glows in blend modes that mix
+  with the layers below (other than black Multiply or white Screen) still move step by step.
+- A dragged layer lands on whole screen pixels and keeps its exact scale, so it no longer looks soft
+  while moving.
+
+### Fixed
+
+- Layers panel: effect rows show the eye and the effect name on one line again.
 
 ## [0.3.5] - 2026-10-05
 

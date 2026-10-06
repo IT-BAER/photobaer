@@ -1611,13 +1611,122 @@ test('panel refreshes during a floated move (thumbnails, navigator, histogram) l
   assert.equal(((await call('moveLayerCommit')).result as { undoLabel: string }).undoLabel, 'Move');
 });
 
-test('moveFloat refuses a layer with a visible layer above it and leaves the document as is', async () => {
+test('moveFloat splits a styled layer under a visible layer: moved and above images, the document shows what is below', async () => {
+  type Img = { image: { x: number; y: number; w: number; h: number; f: number }; data: ArrayBuffer };
+  const at = (m: Img, x: number, y: number) => [...new Uint8Array(m.data).slice(((y - m.image.y) * m.image.w + x - m.image.x) * 4, ((y - m.image.y) * m.image.w + x - m.image.x) * 4 + 4)];
+  await call('init');
+  const comp = async (x: number, y: number) => (await call('sample', x, y, 1, null)).result as number[];
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  await call('addLayer', 1);
+  await call('select', { kind: 'rect', x: 2, y: 2, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 2, 'pixels', [255, 0, 0, 255]);
+  await call('setLayerStyle', 2, { ...emptyStyle(), strokes: [blueStroke(1)] }, defaultBlending(), 1, null);
+  await call('addLayer', 2);
+  await call('select', { kind: 'rect', x: 10, y: 10, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 3, 'pixels', [0, 255, 0, 128]);
+  await call('selectCommand', 'deselect');
+  await call('moveLayerBegin', 2, false, 'Move');
+  const f = (await call('moveFloat', 1, [0, 0, 16, 16])).result as Img & { over: Img | null; above: Img | null; layers: LayerNode[] };
+  assert.deepEqual([f.image.x, f.image.y, f.image.w, f.image.h, f.image.f], [0, 0, 16, 16, 1]);
+  assert.deepEqual(at(f, 3, 3), [255, 0, 0, 255]);
+  assert.deepEqual(at(f, 1, 3).slice(2), [255, 255], 'the moved image has its stroke');
+  assert.equal(at(f, 11, 11)[3], 0);
+  assert.equal(f.over, null);
+  assert.deepEqual(at(f.above!, 11, 11), [0, 255, 0, 128], 'the above image is straight alpha');
+  assert.equal(at(f.above!, 3, 3)[3], 0);
+  assert.ok(f.layers.every(n => n.visible), 'the Layers panel keeps its eyes');
+  assert.deepEqual(await comp(3, 3), [255, 255, 255, 255], 'the document shows only the background');
+  assert.deepEqual(await comp(11, 11), [255, 255, 255, 255]);
+  assert.notEqual(((await call('moveLayerCommit')).result as { undoLabel: string | null }).undoLabel, 'Move');
+  assert.deepEqual(await comp(3, 3), [255, 0, 0, 255]);
+  assert.equal((await comp(11, 11))[1], 255);
+});
+
+test('moveFloatPatch returns sharp images of the moved layer and the layers above over other rects', async () => {
+  type Img = { image: { x: number; y: number; w: number; h: number; f: number }; data: ArrayBuffer };
+  await call('init');
+  await call('newDoc', 4096, 2048, 8, [255, 0, 0, 255]);
+  await call('addLayer', 1);
+  await call('fillEx', 2, 'pixels', solid([0, 0, 255, 255]), 'Fill');
+  await call('setProps', 2, { opacity: 0.5 });
+  await call('moveLayerBegin', 1, false, 'Move');
+  await call('moveFloat', 1, [1000, 500, 400, 200]);
+  const p = (await call('moveFloatPatch', [3000, 1500, 400, 200], [3900, 1900, 400, 400])).result as { moved: Img; above: Img };
+  assert.deepEqual([p.moved.image.x, p.moved.image.y, p.moved.image.w, p.moved.image.h, p.moved.image.f], [3000, 1500, 400, 200, 1]);
+  assert.deepEqual([...new Uint8Array(p.moved.data).slice(0, 4)], [255, 0, 0, 255]);
+  assert.deepEqual([p.above.image.x, p.above.image.y, p.above.image.w, p.above.image.h], [3900, 1900, 196, 148], 'clipped to the canvas');
+  assert.deepEqual([...new Uint8Array(p.above.data).slice(0, 4)], [0, 0, 255, 128]);
+  assert.deepEqual((await call('sample', 3100, 1600, 1, null)).result, [0, 0, 0, 0], 'the document still shows only what is below');
+  await call('moveLayerStep', 1, 0);
+  assert.equal((await call('moveFloatPatch', [0, 0, 10, 10], null)).result, null, 'no patch once a step landed');
+  await call('moveLayerCancel');
+});
+
+test('moveFloatPatch on a plain floated layer lifts its hidden pixels at the sharp scale', async () => {
+  type Img = { image: { x: number; y: number; w: number; h: number; f: number }; data: ArrayBuffer };
+  await call('init');
+  await call('newDoc', 4096, 2048, 8, [0, 255, 0, 255]);
+  await call('moveLayerBegin', 1, false, 'Move');
+  await call('moveFloat', 1, [1000, 500, 400, 200]);
+  const p = (await call('moveFloatPatch', [3000, 1500, 400, 200], null)).result as { moved: Img; above: null };
+  assert.deepEqual([p.moved.image.x, p.moved.image.y, p.moved.image.w, p.moved.image.h, p.moved.image.f], [3000, 1500, 400, 200, 1]);
+  assert.deepEqual([...new Uint8Array(p.moved.data).slice(0, 4)], [0, 255, 0, 255]);
+  assert.equal(p.above, null);
+  await call('moveLayerCancel');
+});
+
+test('moveFloat splits only when shadows blend exactly alone: black multiply yes, red multiply no', async () => {
+  const shadow = (color: number[]) => ({ ...emptyStyle(), drop_shadows: [{ ...defaultEffect('drop_shadows'), color }] });
+  for (const [color, split] of [[[0, 0, 0], true], [[255, 0, 0], false]] as const) {
+    await call('init');
+    await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+    await call('addLayer', 1);
+    await call('fillEx', 2, 'pixels', solid([0, 0, 255, 255]), 'Fill');
+    await call('setLayerStyle', 2, shadow([...color]), defaultBlending(), 1, null);
+    await call('moveLayerBegin', 2, false, 'Move');
+    assert.equal((await call('moveFloat', 1, [0, 0, 16, 16])).result !== null, split, `shadow ${color}`);
+    await call('moveLayerCancel');
+  }
+});
+
+test('moveFloat refuses a split when a visible layer clips onto the moved one behind a hidden clipped layer', async () => {
+  await call('init');
+  await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);
+  await call('addLayer', 1);
+  await call('fillEx', 2, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  await call('addLayer', 2);
+  await call('addLayer', 3);
+  await call('fillEx', 4, 'pixels', solid([0, 0, 255, 255]), 'Fill');
+  await call('setProps', 3, { clipping: true, visible: false });
+  await call('setProps', 4, { clipping: true });
+  await call('moveLayerBegin', 2, false, 'Move');
+  assert.equal((await call('moveFloat', 1, [0, 0, 16, 16])).result, null);
+  await call('moveLayerCancel');
+});
+
+test('moveFloat refuses a layer under a visible adjustment layer and leaves the document as is', async () => {
   await call('init');
   await call('newDoc', 16, 16, 8, [255, 0, 0, 255]);
-  await call('addLayer', 0);
+  await call('newAdjustmentLayer', 1, invertAdj, 'Invert');
   await call('moveLayerBegin', 1, false, 'Move');
   assert.equal((await call('moveFloat')).result, null);
   assert.deepEqual(await px(5, 5), [255, 0, 0, 255]);
+  await call('moveLayerCancel');
+});
+
+test('moveFloat split on a big document: whole-document images within 2 MP plus sharp images of the view', async () => {
+  type Img = { image: { x: number; y: number; w: number; h: number; f: number }; data: ArrayBuffer };
+  await call('init');
+  await call('newDoc', 4096, 2048, 8, [255, 0, 0, 255]);
+  await call('addLayer', 1);
+  await call('fillEx', 2, 'pixels', solid([0, 0, 255, 255]), 'Fill');
+  await call('setProps', 2, { opacity: 0.5 });
+  await call('moveLayerBegin', 1, false, 'Move');
+  const f = (await call('moveFloat', 1, [1000, 500, 400, 200])).result as Img & { over: Img | null; above: Img & { over: Img | null } };
+  assert.deepEqual([f.image.w, f.image.h, f.image.f], [2048, 1024, 0.5]);
+  assert.deepEqual([f.over!.image.x, f.over!.image.y, f.over!.image.w, f.over!.image.h, f.over!.image.f], [1000, 500, 400, 200, 1]);
+  assert.deepEqual([f.above.image.w, f.above.over!.image.w], [2048, 400]);
+  assert.deepEqual([...new Uint8Array(f.above.over!.data).slice(0, 4)], [0, 0, 255, 128]);
   await call('moveLayerCancel');
 });
 

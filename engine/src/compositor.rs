@@ -1238,7 +1238,7 @@ impl Document {
                 layer_mask: mask.as_ref(),
                 vector_mask: vector.as_ref(),
             };
-            let r = styles::render_layer(&style, &layer, &cx);
+            let r = styles::render_padded(&style, &layer, &cx, pad);
             debug_assert!(r.behind.iter().map(|b| (b.blend, b.opacity)).eq(behind.iter().copied()));
             let crop = |p: &[[f32; 4]]| {
                 let v: Vec<f32> = (0..TILE).flat_map(|y| p[(y + pad) * n + pad..(y + pad) * n + pad + TILE].iter().flatten().copied()).collect();

@@ -498,9 +498,37 @@ pub fn box_blur(p: &Plane, radius: f32) -> Plane {
     if r <= 0.0 {
         return p.clone();
     }
-    let n = 2 * r as usize + 1;
-    let k = vec![1.0 / n as f32; n];
-    convolve(&convolve(p, &k, true), &k, false)
+    box_pass(&box_pass(p, r as usize, true), r as usize, false)
+}
+
+// A running mean of window 2r + 1 along rows (or columns), edges replicate; the sum runs in f64. The
+// vertical pass keeps one sum per column and walks whole rows, so it reads memory in order.
+fn box_pass(p: &Plane, r: usize, horizontal: bool) -> Plane {
+    let (w, h) = (p.w, p.h);
+    let mut out = Plane::new(w, h);
+    let (inv, r) = (1.0 / (2 * r + 1) as f64, r as isize);
+    if horizontal {
+        for (src, dst) in p.v.chunks_exact(w).zip(out.v.chunks_exact_mut(w)) {
+            let at = |k: isize| src[k.clamp(0, w as isize - 1) as usize] as f64;
+            let mut sum: f64 = (-r..=r).map(at).sum();
+            for (x, o) in dst.iter_mut().enumerate() {
+                *o = (sum * inv) as f32;
+                sum += at(x as isize + r + 1) - at(x as isize - r);
+            }
+        }
+        return out;
+    }
+    let row = |k: isize| &p.v[k.clamp(0, h as isize - 1) as usize * w..][..w];
+    let mut sum = vec![0.0f64; w];
+    for k in -r..=r {
+        sum.iter_mut().zip(row(k)).for_each(|(s, &v)| *s += v as f64);
+    }
+    for (y, dst) in out.v.chunks_exact_mut(w).enumerate() {
+        dst.iter_mut().zip(&sum).for_each(|(o, &s)| *o = (s * inv) as f32);
+        let (add, sub) = (row(y as isize + r + 1), row(y as isize - r));
+        sum.iter_mut().zip(add).zip(sub).for_each(|((s, &a), &b)| *s += a as f64 - b as f64);
+    }
+    out
 }
 
 // Box radii of the three-pass Gaussian approximation for `sigma` ("boxes for Gauss", n = 3).
@@ -542,14 +570,16 @@ pub fn offset(angle: f32, d: f32) -> (f64, f64) {
 
 /// The plane moved by (dx, dy) px, bilinear for fractions, edges replicate.
 pub fn shift(p: &Plane, dx: f64, dy: f64) -> Plane {
+    // Every pixel reads from the same whole offset and fractions.
     let snap = |v: f64| if (v - v.round()).abs() < 1e-6 { v.round() } else { v };
+    let (sx, sy) = (snap(-dx), snap(-dy));
+    let (ix, iy) = (sx.floor(), sy.floor());
+    let (fx, fy) = ((sx - ix) as f32, (sy - iy) as f32);
+    let (ix, iy) = (ix as isize, iy as isize);
     let mut out = Plane::new(p.w, p.h);
     for y in 0..p.h {
         for x in 0..p.w {
-            let (sx, sy) = (snap(x as f64 - dx), snap(y as f64 - dy));
-            let (x0, y0) = (sx.floor(), sy.floor());
-            let (fx, fy) = ((sx - x0) as f32, (sy - y0) as f32);
-            let (x0, y0) = (x0 as isize, y0 as isize);
+            let (x0, y0) = (x as isize + ix, y as isize + iy);
             let top = p.at(x0, y0) * (1.0 - fx) + p.at(x0 + 1, y0) * fx;
             let bottom = p.at(x0, y0 + 1) * (1.0 - fx) + p.at(x0 + 1, y0 + 1) * fx;
             out.v[y * p.w + x] = top * (1.0 - fy) + bottom * fy;
@@ -1027,6 +1057,35 @@ pub fn render_layer(style: &Style, layer: &Layer, cx: &Ctx) -> Rendered {
     Rendered { behind, content }
 }
 
+/// `render_layer` for a plane padded by `pad` (`reach(style)`) whose caller keeps only the centre:
+/// drop shadows and outer glow render on the whole plane, the content effects on the centre grown by
+/// their own reach, so a wide shadow does not spread strokes and overlays over its plane. The centre
+/// matches `render_layer`; the content outside it is the layer's own.
+pub fn render_padded(style: &Style, layer: &Layer, cx: &Ctx, pad: usize) -> Rendered {
+    let inner = Style { drop_shadows: vec![], outer_glow: None, ..style.clone() };
+    let d = pad.saturating_sub(reach(&inner) as usize).min(layer.w / 2).min(layer.h / 2);
+    if d == 0 {
+        return render_layer(style, layer, cx);
+    }
+    let outer = Style {
+        inner_shadows: vec![], color_overlays: vec![], gradient_overlays: vec![], pattern_overlays: vec![], strokes: vec![],
+        inner_glow: None, bevel: None, satin: None, ..style.clone()
+    };
+    let behind = render_layer(&outer, layer, cx).behind;
+    let (n, w, h) = (layer.w, layer.w - 2 * d, layer.h - 2 * d);
+    let rows = |y: usize| (y + d) * n + d..(y + d) * n + d + w;
+    let crop = |v: &[f32]| Plane { w, h, v: (0..h).flat_map(|y| v[rows(y)].iter().copied()).collect() };
+    let content: Vec<[f32; 4]> = (0..h).flat_map(|y| layer.content[rows(y)].iter().copied()).collect();
+    let (layer_mask, vector_mask) = (layer.layer_mask.map(|m| crop(&m.v)), layer.vector_mask.map(|m| crop(&m.v)));
+    let small = Layer { w, h, content: &content, layer_mask: layer_mask.as_ref(), vector_mask: vector_mask.as_ref(), ..*layer };
+    let r = render_layer(&inner, &small, &Ctx { origin: [cx.origin[0] + d as i32, cx.origin[1] + d as i32], ..*cx });
+    let mut full = layer.content.to_vec();
+    for y in 0..h {
+        full[rows(y)].copy_from_slice(&r.content[y * w..(y + 1) * w]);
+    }
+    Rendered { behind, content: full }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1443,5 +1502,50 @@ mod tests {
         let out = with_cx([0, 0], |cx| render_layer(&st, &l, cx));
         close(&out.content[15 * W + 15], &[1.0, 0.5, 0.5, 1.0], 1e-6);
         close(&out.content[20 * W + 8], &[0.0, 1.0, 0.0, 0.75], 1e-6);
+    }
+
+    #[test]
+    fn render_padded_matches_render_layer_in_the_centre() {
+        // A wide drop shadow and outer glow over small interior effects, on a soft disc that runs
+        // past the centre square; masks and a canvas edge inside the plane.
+        let stroke = Stroke {
+            present: true, enabled: true, size: 2.0, position: StrokePosition::Center, blend: Blend::Normal,
+            opacity: 0.9, overprint: false, fill: FillContent::Solid(SolidFill { color: [0, 255, 0] }),
+        };
+        let st = Style {
+            drop_shadows: vec![Shadow { distance: 9.0, size: 30.0, spread: 0.2, ..shadow() }],
+            outer_glow: Some(glow(GlowTechnique::Softer, GlowSource::Edge, 24.0, 0.1, 0.5)),
+            inner_shadows: vec![Shadow { distance: 2.0, size: 3.0, knocks_out: false, ..shadow() }],
+            inner_glow: Some(glow(GlowTechnique::Precise, GlowSource::Center, 4.0, 0.0, 0.5)),
+            satin: Some(Satin { present: true, enabled: true, blend: Blend::Multiply, opacity: 0.5, color: [20, 40, 200], angle: 30.0, distance: 2.0, size: 3.0, contour: linear(), invert: false }),
+            bevel: Some(Bevel { size: 2.0, soften: 1.0, ..bevel(BevelTechnique::ChiselSoft) }),
+            color_overlays: vec![ColorOverlay { present: true, enabled: true, blend: Blend::Overlay, opacity: 0.4, color: [255, 128, 0] }],
+            strokes: vec![stroke],
+            ..style()
+        };
+        let pad = reach(&st) as usize;
+        let (tile, n) = (24, 24 + 2 * reach(&st) as usize);
+        let content: Vec<[f32; 4]> = (0..n * n)
+            .map(|i| {
+                let (x, y) = ((i % n) as f32 - n as f32 / 2.0, (i / n) as f32 - n as f32 / 2.0 + 8.0);
+                [0.8, 0.3, 0.1, (16.0 - (x * x + y * y).sqrt()).clamp(0.0, 1.0)]
+            })
+            .collect();
+        let mut mask = Plane::new(n, n);
+        mask.v.iter_mut().enumerate().for_each(|(i, v)| *v = if i % n < n / 2 + 3 { 1.0 } else { 0.4 });
+        let blending = Blending { layer_mask_hides_effects: true, ..Blending::default() };
+        let l = Layer { w: n, h: n, content: &content, blend: Blend::Normal, fill: 0.7, blending: &blending, layer_mask: Some(&mask), vector_mask: None };
+        let (light, blobs) = (GlobalLight::default(), HashMap::new());
+        let o = -(pad as i32) + 3;
+        let cx = Ctx { origin: [o, o], level: 0, scale: 1.0, light: &light, patterns: &[], blobs: &blobs, bounds: [0.0, 0.0, 40.0, 40.0], doc: [40.0, 40.0], hdr: false };
+        let (a, b) = (render_layer(&st, &l, &cx), render_padded(&st, &l, &cx, pad));
+        let centre = |v: &[[f32; 4]]| -> Vec<f32> { (0..tile).flat_map(|y| v[(y + pad) * n + pad..(y + pad) * n + pad + tile].iter().flatten().copied().collect::<Vec<_>>()).collect() };
+        assert_eq!(a.behind.len(), b.behind.len());
+        for (x, y) in a.behind.iter().zip(&b.behind) {
+            close(&centre(&y.rgba), &centre(&x.rgba), 1e-5);
+            assert_eq!((x.blend, x.opacity), (y.blend, y.opacity));
+        }
+        close(&centre(&b.content), &centre(&a.content), 1e-5);
+        assert!(centre(&a.content).iter().skip(3).step_by(4).any(|&v| v > 0.5), "the centre has content");
     }
 }

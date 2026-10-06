@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SelectionOverlay } from './SelectionOverlay.ts';
+import { SelectionOverlay, sharpPatch } from './SelectionOverlay.ts';
 
 // A 2D context stub: every method is a no-op except clearRect, which counts redraws.
 function stubCanvas() {
@@ -33,4 +33,37 @@ test('preview changes redraw on the next animation frame, once per frame', () =>
     o.setPreview(null);
     g.requestAnimationFrame = saved;
   }
+});
+
+test('a moved float lands on whole device pixels, nearest from 200 % view zoom like the stage, the above image last', () => {
+  const calls: { m: number[]; smooth: unknown; src: unknown }[] = [];
+  let m: number[] = [];
+  const ctx: Record<string, unknown> = { canvas: null };
+  const canvas = { width: 0, height: 0, getContext: () => proxy } as unknown as HTMLCanvasElement;
+  const proxy = new Proxy(ctx, {
+    get: (t, k) => k === 'setTransform' ? (...a: number[]) => { m = a; } : k === 'drawImage' ? (src: unknown) => calls.push({ m, smooth: t.imageSmoothingEnabled, src }) : k in t ? t[k as string] : () => {},
+    set: (t, k, v) => { t[k as string] = v; return true; },
+  });
+  const o = new SelectionOverlay(canvas);
+  const img = (source: string, f: number) => ({ source: source as unknown as CanvasImageSource, x: 0, y: 0, w: 8, h: 8, f, m: [1, 0, 0, 0, 1, 0, 0, 0, 1] });
+  o.setImage({ ...img('moved', 1), m: [1, 0, 3, 0, 1, 0, 0, 0, 1], above: img('above', 0.5) });
+  o.draw({ zoom: 1.3, rot: 0, cx: 50, cy: 50 }, 100, 100, 1);
+  assert.deepEqual(calls.map(c => c.src), ['moved', 'above']);
+  for (const c of calls) assert.ok(Number.isInteger(c.m[4]) && Number.isInteger(c.m[5]), `origin ${c.m[4]}, ${c.m[5]}`);
+  assert.deepEqual(calls.map(c => c.m.slice(0, 4).map(v => +v.toFixed(6))), [[1.3, 0, 0, 1.3], [2.6, 0, 0, 2.6]], 'the scale stays exact');
+  assert.deepEqual(calls.map(c => c.smooth), [true, true], 'smooth below 200 %, also for the coarser image');
+  calls.length = 0;
+  o.draw({ zoom: 2.5, rot: 0, cx: 50, cy: 50 }, 100, 100, 1);
+  assert.deepEqual(calls.map(c => c.smooth), [false, false]);
+});
+
+test('sharpPatch asks for the moved image the view reveals past its sharp image, once', () => {
+  const img = (x: number, y: number, w: number, h: number, f: number) => ({ source: null as unknown as CanvasImageSource, x, y, w, h, f, m: [1, 0, 0, 0, 1, 0, 0, 0, 1] });
+  const coarse = img(0, 0, 1000, 500, 0.25), over = img(800, 400, 800, 400, 0.5);
+  const view: [number, number, number, number] = [1800, 900, 400, 200];
+  assert.equal(sharpPatch(coarse, over, null, view, 0, 0), null, 'the view lies inside the sharp image');
+  assert.equal(sharpPatch(coarse, undefined, null, view, -2000, 0), null, 'a sharp image alone needs no patch');
+  assert.deepEqual(sharpPatch(coarse, over, null, view, -1200, 0), [2900, 850, 600, 300], 'the moved pixels now on screen, plus a quarter view');
+  assert.equal(sharpPatch(coarse, over, [2900, 850, 600, 300], view, -1200, 0), null, 'already asked for');
+  assert.equal(sharpPatch(coarse, over, null, view, 2500, 0), null, 'nothing of the image on screen');
 });

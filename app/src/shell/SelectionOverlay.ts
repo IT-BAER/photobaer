@@ -38,7 +38,23 @@ export interface TransformBox { handles: [number, number][]; ref: [number, numbe
 // Preview source: image pixel (i, j) sits at document ((x + i) / f, (y + j) / f) before the
 // row-major 3x3 matrix `m` maps it; `map` (a warp) replaces the matrix when set.
 // `clip` limits the drawn image to a document rect [x, y, w, h] (the canvas).
-export interface TransformImage { source: CanvasImageSource; x: number; y: number; w: number; h: number; f: number; m: number[]; map?: (x: number, y: number) => [number, number]; clip?: number[]; over?: TransformImage }
+export interface TransformImage { source: CanvasImageSource; x: number; y: number; w: number; h: number; f: number; m: number[]; map?: (x: number, y: number) => [number, number]; clip?: number[]; over?: TransformImage; above?: TransformImage }
+
+type Box4 = [number, number, number, number];
+const docBox = (i: TransformImage): Box4 => [i.x / i.f, i.y / i.f, i.w / i.f, i.h / i.f];
+const holds = (a: Box4, b: Box4) => a[0] <= b[0] && a[1] <= b[1] && a[0] + a[2] >= b[0] + b[2] && a[1] + a[3] >= b[1] + b[3];
+/** The doc rect a floated image `img` (sharp in part: `over`) needs sharp next: what `view` shows of it
+ * drawn at offset (dx, dy), grown by a quarter view each side; null when `over` or the rect `asked`
+ * last time holds that, or when `img` is sharp itself. */
+export function sharpPatch(img: TransformImage, over: TransformImage | undefined, asked: Box4 | null, view: Box4, dx: number, dy: number): Box4 | null {
+  if (!over) return null;
+  const a = docBox(img), x0 = Math.max(a[0], view[0] - dx), y0 = Math.max(a[1], view[1] - dy);
+  const x1 = Math.min(a[0] + a[2], view[0] - dx + view[2]), y1 = Math.min(a[1] + a[3], view[1] - dy + view[3]);
+  if (x1 <= x0 || y1 <= y0) return null;
+  const need: Box4 = [x0, y0, x1 - x0, y1 - y0];
+  if (holds(docBox(over), need) || (asked && holds(asked, need))) return null;
+  return [x0 - view[2] / 4, y0 - view[3] / 4, need[2] + view[2] / 2, need[3] + view[3] / 2];
+}
 // Warp overlay: a (3 cols + 1) x (3 rows + 1) row-major grid of Bezier control points in document px.
 export interface WarpGrid { cols: number; rows: number; points: [number, number][] }
 // Crop tool: the box and the canvas (both document px), guide lines inside the box, the size
@@ -212,6 +228,8 @@ export class SelectionOverlay {
       }
       this.#drawImage(this.#image, view, cssW, cssH, dpr);
       if (this.#image.over) this.#drawImage({ ...this.#image.over, m: this.#image.m }, view, cssW, cssH, dpr);
+      const a = this.#image.above;
+      if (a) { this.#drawImage(a, view, cssW, cssH, dpr); if (a.over) this.#drawImage({ ...a.over, m: a.m }, view, cssW, cssH, dpr); }
       ctx.restore();
     }
     if (this.#crop) this.#drawCrop(this.#crop, view, cssW, cssH, dpr);
@@ -478,7 +496,13 @@ export class SelectionOverlay {
     ctx.imageSmoothingQuality = 'low';
     if (!img.map && m[6] === 0 && m[7] === 0) {
       const p0 = toDevice(0, 0), px = toDevice(1, 0), py = toDevice(0, 1);
-      ctx.setTransform(px[0] - p0[0], px[1] - p0[1], py[0] - p0[0], py[1] - p0[1], p0[0], p0[1]);
+      let [ox, oy] = p0;
+      // Axis aligned: lands on whole device pixels, nearest from 2 device px per document px like the stage.
+      if (Math.abs(px[1] - p0[1]) < 1e-6 && Math.abs(py[0] - p0[0]) < 1e-6) {
+        ctx.imageSmoothingEnabled = Math.hypot(a, b) < 2;
+        [ox, oy] = [Math.round(ox), Math.round(oy)];
+      }
+      ctx.setTransform(px[0] - p0[0], px[1] - p0[1], py[0] - p0[0], py[1] - p0[1], ox, oy);
       ctx.drawImage(img.source, 0, 0);
       return;
     }
