@@ -54,7 +54,8 @@ const version = /^## \[(\d+\.\d+\.\d+)\]/m.exec(readFileSync(new URL('./CHANGELO
 export default defineConfig({
   root: 'app',
   base: './',
-  plugins: [react(), lingui({ macroTransform: true }), notices(), precache()],
+  // descriptorFields 'message': production descriptors keep the English source text, the stable id of menu items.
+  plugins: [react(), lingui({ macroTransform: { macro: { descriptorFields: 'message' } } }), notices(), precache()],
   define: { __APP_VERSION__: JSON.stringify(version) },
   server: { headers },
   preview: { headers },

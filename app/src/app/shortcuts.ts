@@ -3,7 +3,7 @@ import { digitOption, stepHardness, stepSize, type DigitState } from '../shell/b
 import type { Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import type { Viewer } from '../viewer.ts';
-import { PAINT_TOOLS, type Item } from './helpers.ts';
+import { findMenuItem, itemId, PAINT_TOOLS, type Item } from './helpers.ts';
 import { COMPOSITE, type ChannelView } from './channels.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
@@ -39,7 +39,7 @@ export function useShortcuts(c: ShortcutCtx) {
     toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef, setChannelView,
   } = c;
   useEffect(() => {
-    const find = (pred: (label: string) => boolean) => Object.values(menusRef.current).flat().flatMap(i => [i, ...(i.sub ?? [])]).find(i => pred(i.label));
+    const find = (pred: (id: string) => boolean) => findMenuItem(menusRef.current, pred);
     const trigger = (label: string, e: KeyboardEvent) => {
       const it = find(l => l.startsWith(label));
       e.preventDefault();
@@ -51,14 +51,14 @@ export function useShortcuts(c: ShortcutCtx) {
       if (it && !it.off) it.run();
     };
     const triggerLayer = (label: string, e: KeyboardEvent) => {
-      const it = menusRef.current.Layer.find(i => i.label === label || i.label.startsWith(label));
+      const it = menusRef.current.Layer.find(i => itemId(i).startsWith(label));
       e.preventDefault();
       if (it && !it.off) it.run();
     };
     // Image > Adjustments items only: Layer > New Adjustment Layer carries the same kind names.
     const adjustment = (label: string, e: KeyboardEvent) => {
-      const sub = menusRef.current.Image.find(i => i.label === 'Adjustments');
-      const it = sub?.sub?.find(i => i.label === label);
+      const sub = menusRef.current.Image.find(i => itemId(i) === 'Adjustments');
+      const it = sub?.sub?.find(i => itemId(i) === label);
       e.preventDefault();
       if (it && !sub!.off && !it.off) it.run();
     };

@@ -82,7 +82,7 @@ import { rampCss, type Method } from './gradients/gradient.ts';
 import { BUILTIN_GRADIENTS, GradientLibrary, resolvePreset, type GradientPreset } from './gradients/presets.ts';
 import {
   AUTOSAVE_TEXT, FILL_KEY, FILL_LAYERS, MODIFY_OPS, PAINT_TOOLS, SELECT_TOOLS, STROKE_DEFAULT, VIEWER_TOOL, fallbackActive,
-  fillContentFromForm, formFromFillContent, loadFillForm, pickPlaceFile, saveBlob, selectAfterDelete, selectCreated,
+  fillContentFromForm, formFromFillContent, itemId, loadFillForm, pickPlaceFile, saveBlob, selectAfterDelete, selectCreated,
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
 import { buildMenus, type ExportKind } from './app/menus.ts';
@@ -2426,7 +2426,7 @@ export function App() {
     </span>
   );
   const menuItems = (items: Item[]): ReactNode => items.map(i => (
-    <Fragment key={i.label}>
+    <Fragment key={itemId(i)}>
       {i.sep && <li role="separator" className="menu-sep" />}
       <li className={i.sub ? 'has-sub' : undefined} onMouseEnter={i.sub ? e => placeSubmenu(e.currentTarget) : undefined} onFocus={i.sub ? e => placeSubmenu(e.currentTarget) : undefined}>
         <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={() => { if (!i.sub) setMenu(null); i.run(); }}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
@@ -2481,7 +2481,7 @@ export function App() {
                 { label: 'Apply', run: () => endTransform(true) },
                 { label: 'Cancel', run: () => endTransform(false) },
               ] as { label: string; run: () => void; off?: boolean }[]).map(i => (
-                <li key={i.label}><button role="menuitem" disabled={i.off} onClick={i.run}><span>{i.label}</span></button></li>
+                <li key={itemId(i)}><button role="menuitem" disabled={i.off} onClick={i.run}><span>{i.label}</span></button></li>
               ))}
             </ul>
           </div>
@@ -2497,7 +2497,7 @@ export function App() {
             }}>
               <ul role="menu" aria-label="Canvas">
                 {items.map(i => (
-                  <Fragment key={i.label}>
+                  <Fragment key={itemId(i)}>
                     {i.sep && <li role="separator" className="menu-sep" />}
                     <li><button role="menuitem" disabled={i.off} onClick={() => { setCanvasMenu(null); i.run(); }}><span>{i.label}</span></button></li>
                   </Fragment>

@@ -15,7 +15,7 @@ export const PAGE_TOOLS = [
   {
     "name": "list_commands",
     "title": "List menu commands",
-    "description": "Lists menu commands as paths like \"Image > Adjustments > Invert\", whether each is enabled now, and checked: true for active toggles. Pass query to filter by a case-insensitive substring of the path.",
+    "description": "Lists menu commands as English paths like \"Image > Adjustments > Invert\", whether each is enabled now, and checked: true for active toggles. When the UI language is not English, label holds the path as the user sees it. Pass query to filter by a case-insensitive substring of the path or label.",
     "inputSchema": {
       "type": "object",
       "properties": {

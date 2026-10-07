@@ -8,7 +8,7 @@ import { BLEND_MODES, HDR_BLEND_MODES, nodeById, dropTarget, type Where } from '
 import type { DocInfo, LayerNode } from './engine.worker.ts';
 import { effectRows, setEffectEnabled, type EffectKind } from './layerStyle.ts';
 import { pathData } from './app/svgcss.ts';
-import type { Item } from './app/helpers.ts';
+import { itemId, type Item } from './app/helpers.ts';
 import { filterLayers, KIND_FILTERS, type KindFilter } from './app/layerFilter.ts';
 
 export type Active = { id: number; target: 'pixels' | 'mask' };
@@ -428,7 +428,7 @@ export function LayersPanel(props: Props) {
           }}>
             <ul role="menu" aria-label="Layer">
               {props.contextItems(context.n, context.nodes).map(i => (
-                <Fragment key={i.label}>
+                <Fragment key={itemId(i)}>
                   {i.sep && <li role="separator" className="menu-sep" />}
                   <li><button role="menuitem" disabled={i.off} onClick={() => { setContext(null); i.run(); }}><span>{i.label}</span></button></li>
                 </Fragment>

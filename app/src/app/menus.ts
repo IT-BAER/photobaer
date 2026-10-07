@@ -15,7 +15,7 @@ import type { SnapSettings } from '../shell/snapping.ts';
 import type { ArtboardMode, AutomateKind } from './Dialogs.tsx';
 import { exportPrefs, FORMAT_LABEL, type FilesKind } from '../ExportDialogs.tsx';
 export type ExportKind = 'as' | 'web' | 'prefs' | FilesKind;
-import { ALIGN_ITEMS, STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
+import { ALIGN_ITEMS, itemId, STACK_MODES, selectCreated, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
 import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.ts';
 import { copy, paste } from './clipboard.ts';
 import { stepTab } from './tabs.ts';
@@ -134,7 +134,7 @@ export function buildMenus(c: MenuCtx) {
     workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
     arrangeMode, chooseArrangement, matchArrangement,
   } = c;
-  const workspaceTypeItems = typeItems.map(item => item.label === 'Panels'
+  const workspaceTypeItems = typeItems.map(item => itemId(item) === 'Panels'
     ? { ...item, sub: item.sub?.map(panel => ({ ...panel, off: workspace.locked })) }
     : item);
   const smartItems: Item[] = [

@@ -224,10 +224,10 @@ export function convertDrag(base: VectorPath, hit: Hit, cur: XY): VectorPath {
 export const hasHandles = (p: PathAnchor) => p[2] !== p[0] || p[3] !== p[1] || p[4] !== p[0] || p[5] !== p[1];
 
 // With no draft and Auto Add/Delete: a click on an anchor deletes it, on a segment adds one.
-export function penAutoEdit(path: VectorPath, x: number, y: number, tol: number): { label: string; path: VectorPath } | null {
+export function penAutoEdit(path: VectorPath, x: number, y: number, tol: number): { kind: 'add' | 'delete'; label: string; path: VectorPath } | null {
   const h = hitTest(path, x, y, tol, { handles: false, fill: false });
-  if (h?.kind === 'anchor') return { label: 'Delete Anchor Point', path: deleteAnchor(path, h.s, h.i) };
-  if (h?.kind === 'segment') return { label: 'Add Anchor Point', path: withSub(path, h.s, addAnchor(path.subpaths[h.s], h.seg, h.t)) };
+  if (h?.kind === 'anchor') return { kind: 'delete', label: 'Delete Anchor Point', path: deleteAnchor(path, h.s, h.i) };
+  if (h?.kind === 'segment') return { kind: 'add', label: 'Add Anchor Point', path: withSub(path, h.s, addAnchor(path.subpaths[h.s], h.seg, h.t)) };
   return null;
 }
 

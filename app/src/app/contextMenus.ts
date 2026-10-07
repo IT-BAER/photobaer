@@ -1,11 +1,11 @@
 // Right-click menus (layer row, canvas): flat picks from the menus buildMenus produced, so labels, handlers and
 // disabled states stay those of the menu bar.
-import type { Item } from './helpers.ts';
+import { itemId, type Item } from './helpers.ts';
 
 type Menus = Record<string, Item[]>;
 
 /**
- * `Menu/Label|Other Label` or `Menu/Submenu/Label`, optionally `=Shown` to rename. `Menu/Label>` expands the
+ * `Menu/Id|Other Id` or `Menu/Submenu/Id` (item ids, the English labels), optionally `=Shown` to rename. `Menu/Label>` expands the
  * enabled entries of a submenu. Missing entries drop out.
  */
 function find(menus: Menus, spec: string): Item[] {
@@ -14,11 +14,11 @@ function find(menus: Menus, spec: string): Item[] {
   const last = rest.at(-1)!;
   const expand = last.endsWith('>');
   let items: Item[] | undefined = menus[menu];
-  for (const seg of rest.slice(0, -1)) items = items?.find(i => i.label === seg)?.sub;
+  for (const seg of rest.slice(0, -1)) items = items?.find(i => itemId(i) === seg)?.sub;
   const names = last.replace(/>$/, '').split('|');
-  const item = items?.find(i => names.includes(i.label));
+  const item = items?.find(i => names.includes(itemId(i)));
   if (!item) return [];
-  if (expand) return (item.sub ?? []).filter(i => !i.off).map(i => ({ ...i, label: `${item.label} ${i.label}` }));
+  if (expand) return (item.sub ?? []).filter(i => !i.off).map(i => ({ ...i, id: `${itemId(item)} ${itemId(i)}`, label: `${item.label} ${i.label}` }));
   return [shown ? { ...item, label: shown } : item];
 }
 

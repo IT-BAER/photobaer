@@ -302,7 +302,7 @@ export function usePenTools(c: PenToolsCtx) {
       if (tool === 'addAnchor' || tool === 'deleteAnchor') {
         if (e.type !== 'down' || !t) return;
         const r = penAutoEdit(t.path, e.x, e.y, tol());
-        if (r && r.label === (tool === 'addAnchor' ? 'Add Anchor Point' : 'Delete Anchor Point')) void commit(t, r.path, r.label);
+        if (r && r.kind === (tool === 'addAnchor' ? 'add' : 'delete')) void commit(t, r.path, r.label);
         return;
       }
       if (e.type === 'down') {

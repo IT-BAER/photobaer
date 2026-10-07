@@ -94,8 +94,15 @@ function formFromFillContent(c: FillContent, fallbackColor: Rgb, fallbackPattern
 }
 type CreateResult = DocInfo & { created: number };
 type SelectAfter = (d: DocInfo) => Active;
-// `sep` draws a separator line above the item.
-interface Item { label: string; keys?: string; run: () => void; off?: boolean; sub?: Item[]; sep?: boolean }
+// `sep` draws a separator line above the item. `id` is the English label: shortcuts, context menus, command
+// search and WebMCP find items by it, so a translated `label` does not break them.
+interface Item { id?: string; label: string; keys?: string; run: () => void; off?: boolean; sub?: Item[]; sep?: boolean }
+export const itemId = (i: Item) => i.id ?? i.label;
+
+/** The first item of any menu or its direct submenus whose id matches, in menu order. */
+export function findMenuItem(menus: Record<string, Item[]>, pred: (id: string) => boolean): Item | undefined {
+  return Object.values(menus).flat().flatMap(i => [i, ...(i.sub ?? [])]).find(i => pred(itemId(i)));
+}
 
 // Default and undo/redo fallback: the topmost root layer, pixels target.
 function fallbackActive(d: DocInfo): Active {

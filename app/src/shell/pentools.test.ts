@@ -49,9 +49,11 @@ test('with no draft a click on a target segment adds an anchor and on an anchor 
   const path = open([[0, 0], [20, 0], [20, 20]]);
   const add = penAutoEdit(path, 10, 1, 4)!;
   assert.equal(add.label, 'Add Anchor Point');
+  assert.equal(add.kind, 'add');
   assert.deepEqual(add.path.subpaths[0].points.map(p => [p[0], p[1]]), [[0, 0], [10, 0], [20, 0], [20, 20]]);
   const del = penAutoEdit(path, 20, 1, 4)!;
   assert.equal(del.label, 'Delete Anchor Point');
+  assert.equal(del.kind, 'delete');
   assert.deepEqual(del.path.subpaths[0].points, [corner(0, 0), corner(20, 20)]);
   assert.equal(penAutoEdit(path, 50, 50, 4), null);
 });

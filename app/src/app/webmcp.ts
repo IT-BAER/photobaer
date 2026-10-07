@@ -1,6 +1,6 @@
 // WebMCP (W3C CG draft): exposes document info and the menu commands to in-browser agents.
 import type { DocInfo, LayerNode } from '../worker/types.ts';
-import type { Item } from './helpers.ts';
+import { itemId, type Item } from './helpers.ts';
 import { locate } from '../layers.ts';
 import { defaults, visibleParams, type FilterParam, type FilterSpec } from '../filters/schema.ts';
 import type { ParamValue } from '../filters/lastFilter.ts';
@@ -26,7 +26,7 @@ export interface WebMcpCtx {
   preview: (maxSide: number) => Promise<{ mimeType: string; data: string; width: number; height: number }>;
 }
 type Layer = { id: number; name: string; kind: LayerNode['kind']; visible: boolean; children?: Layer[] };
-type Command = { path: string; enabled: boolean; checked?: true; item: Item };
+type Command = { path: string; label: string; enabled: boolean; checked?: true; item: Item };
 
 const SEP = ' > ';
 const MAX_SIDE = 65536;
@@ -40,14 +40,16 @@ function summary(ctx: WebMcpCtx) {
   return d && { name: d.name, width: d.width, height: d.height, depth: d.depth, resolution: d.resolution, activeLayer: ctx.active(), layers: layerTree(d.layers) };
 }
 
-// Toggle items carry a leading checkmark in their label; the path drops it so it stays stable.
-function leaves(items: Item[], prefix: string, off = false): Command[] {
+// Paths are built from item ids (English in every UI language); `label` is the displayed path. Toggle items
+// carry a leading checkmark in their label; both drop it so they stay stable.
+const unchecked = (s: string) => (s.startsWith(CHECK) ? s.slice(CHECK.length) : s);
+function leaves(items: Item[], prefix: string, shown: string, off = false): Command[] {
   return items.flatMap(i => {
-    const checked = i.label.startsWith(CHECK), path = prefix + (checked ? i.label.slice(CHECK.length) : i.label), disabled = off || !!i.off;
-    return i.sub ? leaves(i.sub, path + SEP, disabled) : [{ path, enabled: !disabled, ...(checked ? { checked: true as const } : {}), item: i }];
+    const checked = i.label.startsWith(CHECK), path = prefix + unchecked(itemId(i)), label = shown + unchecked(i.label), disabled = off || !!i.off;
+    return i.sub ? leaves(i.sub, path + SEP, label + SEP, disabled) : [{ path, label, enabled: !disabled, ...(checked ? { checked: true as const } : {}), item: i }];
   });
 }
-const commands = (ctx: WebMcpCtx) => Object.entries(ctx.menus()).flatMap(([menu, items]) => leaves(items, menu + SEP));
+const commands = (ctx: WebMcpCtx) => Object.entries(ctx.menus()).flatMap(([menu, items]) => leaves(items, menu + SEP, menu + SEP));
 
 function side(v: unknown, name: string, min = 1, max = MAX_SIDE) {
   if (!Number.isInteger(v) || (v as number) < min || (v as number) > max) throw new Error(`${name} must be an integer from ${min} to ${max}`);
@@ -117,11 +119,13 @@ export function agentTools(ctx: WebMcpCtx): ToolDef[] {
     },
     {
       name: 'list_commands', title: 'List menu commands',
-      description: `Lists menu commands as paths like "Image${SEP}Adjustments${SEP}Invert", whether each is enabled now, and checked: true for active toggles. Pass query to filter by a case-insensitive substring of the path.`,
+      description: `Lists menu commands as English paths like "Image${SEP}Adjustments${SEP}Invert", whether each is enabled now, and checked: true for active toggles. `
+        + 'When the UI language is not English, label holds the path as the user sees it. Pass query to filter by a case-insensitive substring of the path or label.',
       inputSchema: { type: 'object', properties: { query: { type: 'string' } } }, annotations: { readOnlyHint: true },
       execute: async ({ query }) => {
         const q = typeof query === 'string' ? query.toLowerCase() : '';
-        return commands(ctx).filter(c => c.path.toLowerCase().includes(q)).map(({ item: _, ...c }) => c);
+        return commands(ctx).filter(c => c.path.toLowerCase().includes(q) || c.label.toLowerCase().includes(q))
+          .map(({ item: _, label, ...c }) => (label === c.path ? c : { ...c, label }));
       },
     },
     {
