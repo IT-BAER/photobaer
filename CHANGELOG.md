@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-07
+
+### Fixed
+
+- photobaer no longer hangs at "Starting…" with "Autosave unavailable in this browser": the image engine failed to
+  load in 0.4.0 because its translated messages were not compiled into the engine worker.
+
 ## [0.4.0] - 2026-10-07
 
 ### Added
@@ -420,7 +427,8 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/IT-BAER/photobaer/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/IT-BAER/photobaer/compare/v0.3.8...v0.4.0
 [0.3.6]: https://github.com/IT-BAER/photobaer/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/IT-BAER/photobaer/compare/v0.3.4...v0.3.5
