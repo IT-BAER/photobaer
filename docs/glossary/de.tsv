@@ -1,0 +1,390 @@
+english	translation	source
+File	Datei	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/create-adjustment-layers.html
+Edit	Bearbeiten	https://helpx.adobe.com/de/photoshop/desktop/get-started/settings-and-preferences/view-keyboard-shortcuts.html
+Image	Bild	https://helpx.adobe.com/de/photoshop/desktop/crop-resize-transform/resize-adjust-resolution/set-image-size-and-resolution.html
+Layer	Ebene	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/transform-manipulate-layers/group-and-ungroup-layers.html
+Type	Schrift	?
+Select	Auswahl	?
+Filter	Filter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+View	Ansicht	https://helpx.adobe.com/de/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Window	Fenster	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/add-layer-styles.html
+Help	Hilfe	?
+Adjustments	Korrekturen	?
+Mode	Modus	https://helpx.adobe.com/de/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Image Size	Bildgröße	https://helpx.adobe.com/de/photoshop/desktop/crop-resize-transform/resize-adjust-resolution/set-image-size-and-resolution.html
+Canvas Size	Arbeitsfläche	?
+Image Rotation	Arbeitsfläche drehen	?
+Transform	Transformieren	https://helpx.adobe.com/de/photoshop/desktop/crop-resize-transform/transform-manipulate-reshape/apply-transformations.html
+Free Transform	Frei transformieren	https://helpx.adobe.com/de/photoshop/desktop/crop-resize-transform/transform-manipulate-reshape/apply-transformations.html
+Content-Aware Fill	Inhaltsbasiert füllen	?
+Content-Aware Scale	Inhaltsbasiert skalieren	?
+Fill	Fläche füllen	?
+Stroke	Kontur füllen	?
+Fade	Verblassen	?
+Place Embedded	Platzieren und einbetten	?
+Place Linked	Platzieren und verknüpfen	?
+Export As	Exportieren als	?
+Save As	Speichern unter	?
+Save a Copy	Kopie speichern	?
+Open Recent	Letzte Dateien öffnen	?
+File Info	Dateiinformationen	?
+Automate	Automatisieren	?
+Scripts	Skripten	?
+Batch	Stapelverarbeitung	?
+Photomerge	Photomerge	?
+Image Processor	Bildprozessor	?
+Color Settings	Farbeinstellungen	https://helpx.adobe.com/de/photoshop/using/color-settings.html
+Assign Profile	Profil zuweisen	?
+Convert to Profile	In Profil konvertieren	https://helpx.adobe.com/de/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Proof Setup	Proof einrichten	?
+Proof Colors	Proof-Farben	https://helpx.adobe.com/de/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Gamut Warning	Farbumfang-Warnung	?
+Apply Image	Bildberechnungen	https://helpx.adobe.com/de/photoshop/using/channel-calculations.html
+Calculations	Kanalberechnungen	https://helpx.adobe.com/de/photoshop/using/channel-calculations.html
+Trim	Beschneiden	?
+Reveal All	Alles einblenden	?
+Rasterize	Rastern	?
+Smart Object	Smartobjekt	https://helpx.adobe.com/de/photoshop/desktop/get-started/settings-and-preferences/view-keyboard-shortcuts.html
+Smart Objects	Smartobjekte	https://helpx.adobe.com/de/photoshop/desktop/get-started/settings-and-preferences/view-keyboard-shortcuts.html
+Smart Filter	Smartfilter	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Edit Contents	Inhalt bearbeiten	?
+Replace Contents	Inhalt ersetzen	?
+Layer Style	Ebenenstil	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Blending Options	Fülloptionen	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+New Adjustment Layer	Neue Einstellungsebene	?
+New Fill Layer	Neue Füllebene	?
+Layer Mask	Ebenenmaske	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Vector Mask	Vektormaske	?
+Clipping Mask	Schnittmaske	?
+Create Clipping Mask	Schnittmaske erstellen	?
+Merge Down	Auf darunterliegende Ebene reduzieren	?
+Merge Visible	Sichtbare auf eine Ebene reduzieren	?
+Flatten Image	Auf Hintergrundebene reduzieren	?
+Group Layers	Ebenen gruppieren	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/transform-manipulate-layers/group-and-ungroup-layers.html
+Ungroup Layers	Ebenengruppierung aufheben	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/transform-manipulate-layers/group-and-ungroup-layers.html
+Arrange	Anordnen	?
+Align	Ausrichten	?
+Distribute	Verteilen	?
+Lock	Fixieren	?
+Artboard	Zeichenfläche	https://helpx.adobe.com/de/photoshop/desktop/get-started/settings-and-preferences/view-keyboard-shortcuts.html
+Inverse	Auswahl umkehren	https://helpx.adobe.com/de/photoshop/desktop/get-started/settings-and-preferences/view-keyboard-shortcuts.html
+Feather	Weiche Kante	?
+Grow	Auswahl vergrößern	?
+Similar	Ähnliches auswählen	?
+Color Range	Farbbereich	https://helpx.adobe.com/de/photoshop/desktop/make-selections/freehand-selections/select-a-color-range-in-photoshop.html
+Focus Area	Fokusbereich	?
+Select and Mask	Auswählen und maskieren	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Load Selection	Auswahl laden	?
+Save Selection	Auswahl speichern	?
+Transform Selection	Auswahl transformieren	?
+Border	Rand	?
+Smooth	Glätten	?
+Expand	Erweitern	?
+Contract	Verkleinern	?
+Rulers	Lineale	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Guides	Hilfslinien	https://helpx.adobe.com/de/photoshop/desktop/get-started/settings-and-preferences/view-keyboard-shortcuts.html
+New Guide	Neue Hilfslinie	?
+Smart Guides	Intelligente Hilfslinien	?
+Snap To	Einrasten in	?
+Fit on Screen	Ganzes Bild	?
+Pixel Grid	Pixelraster	?
+Workspace	Arbeitsbereich	https://helpx.adobe.com/de/photoshop/desktop/get-started/learn-the-basics/workspace-overview.html
+Extras	Extras	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Last Filter	Letzter Filter	?
+Filter Gallery	Filtergalerie	https://helpx.adobe.com/de/photoshop/desktop/get-started/settings-and-preferences/view-keyboard-shortcuts.html
+Camera Raw Filter	Camera Raw-Filter	?
+Lens Correction	Objektivkorrektur	?
+Liquify	Verflüssigen	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Vanishing Point	Fluchtpunkt	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Adaptive Wide Angle	Adaptiver Weitwinkel	?
+Global Light	Globales Licht	?
+Bitmap	Bitmap	https://helpx.adobe.com/de/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Grayscale	Graustufen	https://helpx.adobe.com/de/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Duotone	Duplex	https://helpx.adobe.com/de/photoshop/using/duotones.html
+Indexed Color	Indizierte Farbe	https://helpx.adobe.com/de/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+RGB Color	RGB-Farbe	https://helpx.adobe.com/de/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+CMYK Color	CMYK-Farbe	https://helpx.adobe.com/de/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Lab Color	Lab-Farbe	?
+Multichannel	Mehrkanal	?
+Color Table	Farbtabelle	?
+Layers	Ebenen	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/add-layer-styles.html
+Channels	Kanäle	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Paths	Pfade	?
+History	Protokoll	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Actions	Aktionen	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Properties	Eigenschaften	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/create-adjustment-layers.html
+Swatches	Farbfelder	?
+Color	Farbe	?
+Gradients	Verläufe	?
+Patterns	Muster	?
+Styles	Formatvorlagen	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/add-layer-styles.html
+Shapes	Formen	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Brushes	Pinsel	?
+Brush Settings	Pinseleinstellungen	https://helpx.adobe.com/de/photoshop/desktop/apply-painting-techniques/brushes-presets/display-brush-panel-brush-options.html
+Character	Zeichen	?
+Paragraph	Absatz	?
+Glyphs	Glyphen	https://helpx.adobe.com/de/photoshop/desktop/get-started/settings-and-preferences/view-keyboard-shortcuts.html
+Navigator	Navigator	?
+Histogram	Histogramm	?
+Info	Info	?
+Notes	Anmerkungen	https://helpx.adobe.com/de/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Layer Comps	Ebenenkompositionen	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Tool Presets	Werkzeug-Presets	https://helpx.adobe.com/de/photoshop/desktop/get-started/settings-and-preferences/view-keyboard-shortcuts.html
+Clone Source	Kopierquelle	?
+Measurement Log	Messprotokoll	?
+Options Bar	Optionsleiste	https://helpx.adobe.com/de/photoshop/desktop/get-started/learn-the-basics/workspace-overview.html
+Tools	Werkzeuge	?
+Move Tool	Verschieben-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Rectangular Marquee Tool	Auswahlrechteck-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Elliptical Marquee Tool	Auswahlellipse-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Single Row Marquee Tool	Auswahlwerkzeug „Einzelne Zeile“	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Single Column Marquee Tool	Auswahlwerkzeug „Einzelne Spalte“	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Lasso Tool	Lasso-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Polygonal Lasso Tool	Polygon-Lasso-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Magnetic Lasso Tool	Magnetisches-Lasso-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Quick Selection Tool	Schnellauswahlwerkzeug	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Magic Wand Tool	Zauberstab-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Object Selection Tool	Objektauswahl-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Crop Tool	Freistellungswerkzeug	https://helpx.adobe.com/de/photoshop/desktop/crop-resize-transform/crop-straighten/crop-tool-options.html
+Perspective Crop Tool	Perspektivisches Freistellungswerkzeug	?
+Slice Tool	Slice-Werkzeug	?
+Slice Select Tool	Slice-Auswahlwerkzeug	?
+Frame Tool	Rahmenwerkzeug	?
+Eyedropper Tool	Pipette-Werkzeug	?
+Color Sampler Tool	Farbaufnahme-Werkzeug	?
+Ruler Tool	Linealwerkzeug	https://helpx.adobe.com/de/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Note Tool	Anmerkungen-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Count Tool	Zählungswerkzeug	https://helpx.adobe.com/de/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Spot Healing Brush Tool	Bereichsreparatur-Pinsel	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Healing Brush Tool	Reparaturpinsel-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Patch Tool	Ausbessern-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Content-Aware Move Tool	Mit-Inhalt-verschieben-Werkzeug	?
+Red Eye Tool	Rote-Augen-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Brush Tool	Pinsel-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Pencil Tool	Buntstift-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Color Replacement Tool	Farbe-ersetzen-Werkzeug	?
+Mixer Brush Tool	Mischpinsel-Werkzeug	?
+Clone Stamp Tool	Kopierstempel-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Pattern Stamp Tool	Musterstempel-Werkzeug	?
+History Brush Tool	Protokollpinsel-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Art History Brush Tool	Kunstprotokollpinsel-Werkzeug	?
+Eraser Tool	Radiergummi-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Background Eraser Tool	Hintergrund-Radiergummi-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Magic Eraser Tool	Magischer Radiergummi	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Gradient Tool	Verlaufswerkzeug	?
+Paint Bucket Tool	Farbeimerwerkzeug	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Blur Tool	Weichzeichner-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Sharpen Tool	Scharfzeichner-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Smudge Tool	Wischfinger-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Dodge Tool	Abwedler-Werkzeug	?
+Burn Tool	Nachbelichter-Werkzeug	?
+Sponge Tool	Schwamm-Werkzeug	?
+Pen Tool	Zeichenstift-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Freeform Pen Tool	Freiform-Zeichenstift-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Curvature Pen Tool	Rundungszeichenstift-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Add Anchor Point Tool	Ankerpunkt-hinzufügen-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Delete Anchor Point Tool	Ankerpunkt-löschen-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Convert Point Tool	Punkt-umwandeln-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Horizontal Type Tool	Horizontales Textwerkzeug	?
+Vertical Type Tool	Vertikales Textwerkzeug	?
+Horizontal Type Mask Tool	Horizontales Textmaskierungswerkzeug	?
+Vertical Type Mask Tool	Vertikales Textmaskierungswerkzeug	?
+Path Selection Tool	Pfadauswahl-Werkzeug	?
+Direct Selection Tool	Direktauswahl-Werkzeug	?
+Rectangle Tool	Rechteck-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Ellipse Tool	Ellipse-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Triangle Tool	Dreiecks-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Polygon Tool	Polygon-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Line Tool	Linienzeichner-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Custom Shape Tool	Eigene-Form-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Hand Tool	Hand-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Rotate View Tool	Ansichtdrehung-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Zoom Tool	Zoom-Werkzeug	https://helpx.adobe.com/de/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Opacity	Deckkraft	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Flow	Fluss	?
+Hardness	Härte	https://helpx.adobe.com/de/photoshop/desktop/apply-painting-techniques/brushes-presets/display-brush-panel-brush-options.html
+Size	Größe	https://helpx.adobe.com/de/photoshop/desktop/apply-painting-techniques/brushes-presets/display-brush-panel-brush-options.html
+Spacing	Abstand	https://helpx.adobe.com/de/photoshop/desktop/apply-painting-techniques/brushes-presets/display-brush-panel-brush-options.html
+Tolerance	Toleranz	?
+Anti-alias	Glätten	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Contiguous	Benachbart	?
+Sample All Layers	Alle Ebenen aufnehmen	?
+Airbrush	Airbrush	?
+Smoothing	Glättung	?
+Exposure	Belichtung	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Strength	Stärke	?
+Range	Bereich	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Shadows	Tiefen	?
+Midtones	Mitteltöne	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Highlights	Lichter	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Protect Tones	Tonwerte schützen	?
+Vibrance	Dynamik	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Aligned	Ausgerichtet	?
+Fixed Ratio	Festes Seitenverhältnis	?
+Fixed Size	Feste Größe	?
+Delete Cropped Pixels	Außerhalb liegende Pixel löschen	https://helpx.adobe.com/de/photoshop/desktop/crop-resize-transform/crop-straighten/crop-tool-options.html
+Straighten	Gerade ausrichten	?
+Auto-Select	Automatisch auswählen	?
+Show Transform Controls	Transformationssteuerung einblenden	?
+Foreground Color	Vordergrundfarbe	https://helpx.adobe.com/de/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Background Color	Hintergrundfarbe	?
+Anchor Point	Ankerpunkt	https://helpx.adobe.com/de/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Path Operations	Pfadoperationen	?
+Combine Shapes	Formen kombinieren	?
+Subtract Front Shape	Vordere Form abziehen	?
+Intersect Shape Areas	Formbereiche schneiden	?
+Exclude Overlapping Shapes	Überlappende Formbereiche ausschließen	?
+Normal	Normal	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Dissolve	Sprenkeln	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Behind	Dahinter auftragen	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Clear	Löschen	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Darken	Abdunkeln	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Multiply	Multiplizieren	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Color Burn	Farbig nachbelichten	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Linear Burn	Linear nachbelichten	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Darker Color	Dunklere Farbe	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Lighten	Aufhellen	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Screen	Negativ multiplizieren	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Color Dodge	Farbig abwedeln	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Linear Dodge (Add)	Linear abwedeln (Addieren)	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Lighter Color	Hellere Farbe	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Overlay	Ineinanderkopieren	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Soft Light	Weiches Licht	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Hard Light	Hartes Licht	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Vivid Light	Strahlendes Licht	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Linear Light	Lineares Licht	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Pin Light	Lichtpunkt	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Hard Mix	Hart mischen	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Difference	Differenz	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Exclusion	Ausschluss	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Subtract	Subtrahieren	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Divide	Dividieren	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Hue	Farbton	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Saturation	Sättigung	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Luminosity	Luminanz	https://helpx.adobe.com/de/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Pass Through	Hindurchwirken	?
+Brightness/Contrast	Helligkeit/Kontrast	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Levels	Tonwertkorrektur	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Curves	Gradationskurven	?
+Hue/Saturation	Farbton/Sättigung	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Color Balance	Farbbalance	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Black & White	Schwarzweiß	?
+Photo Filter	Fotofilter	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Channel Mixer	Kanalmixer	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Color Lookup	Color Lookup	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Invert	Umkehren	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Posterize	Tontrennung	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Threshold	Schwellenwert	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Gradient Map	Verlaufsumsetzung	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Selective Color	Selektive Farbkorrektur	?
+Shadows/Highlights	Tiefen/Lichter	?
+HDR Toning	HDR-Tonung	?
+Desaturate	Sättigung verringern	?
+Match Color	Farbe abgleichen	?
+Replace Color	Farbe ersetzen	?
+Equalize	Tonwerte angleichen	?
+Solid Color	Farbfläche	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Gradient	Verlauf	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Pattern	Muster	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Preserve Luminosity	Luminanz erhalten	?
+Colorize	Färben	?
+Blur	Weichzeichnungsfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Blur Gallery	Weichzeichnergalerie	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Distort	Verzerrungsfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Noise	Rauschfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Pixelate	Vergröberungsfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Render	Renderfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Sharpen	Scharfzeichnungsfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Stylize	Stilisierungsfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Other	Sonstige Filter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Artistic	Kunstfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Brush Strokes	Malfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Sketch	Zeichenfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Texture	Strukturierungsfilter	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Gaussian Blur	Gaußscher Weichzeichner	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Motion Blur	Bewegungsunschärfe	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Radial Blur	Radialer Weichzeichner	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Lens Blur	Tiefenschärfe abmildern	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Surface Blur	Matter machen	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Smart Blur	Selektiver Weichzeichner	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Box Blur	Feld weichzeichnen	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Shape Blur	Form weichzeichnen	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Field Blur	Feld-Weichzeichnung	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Iris Blur	Iris-Weichzeichnung	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Tilt-Shift	Tilt-Shift	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Path Blur	Pfadweichzeichnung	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Spin Blur	Kreisförmige Weichzeichnung	https://helpx.adobe.com/de/photoshop/using/blur-gallery.html
+Unsharp Mask	Unscharf maskieren	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Smart Sharpen	Selektiver Scharfzeichner	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+High Pass	Hochpass	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Add Noise	Rauschen hinzufügen	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Reduce Noise	Rauschen reduzieren	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Despeckle	Rauschen entfernen	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Dust & Scratches	Staub und Kratzer	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Median	Median	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Displace	Versetzen	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Pinch	Distorsion	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Polar Coordinates	Polarkoordinaten	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Ripple	Kräuseln	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Shear	Verbiegen	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Spherize	Wölben	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Twirl	Strudel	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Wave	Schwingungen	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+ZigZag	Wellen	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Clouds	Wolken	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Difference Clouds	Differenz-Wolken	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Lens Flare	Blendenflecke	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Lighting Effects	Beleuchtungseffekte	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Fibers	Fasern	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Color Halftone	Farbraster	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Crystallize	Kristallisieren	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Mosaic	Mosaikeffekt	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Pointillize	Punktieren	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Mezzotint	Mezzotint	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Emboss	Relief	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Find Edges	Konturen finden	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Solarize	Solarisation	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Wind	Windeffekt	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Oil Paint	Ölfarbe	?
+Maximum	Helle Bereiche vergrößern	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Minimum	Dunkle Bereiche vergrößern	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Offset	Verschiebung	https://helpx.adobe.com/de/photoshop/using/filter-effects-reference.html
+Bevel & Emboss	Abgeflachte Kante und Relief	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Inner Shadow	Schatten nach innen	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Inner Glow	Schein nach innen	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Satin	Glanz	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Color Overlay	Farbüberlagerung	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Gradient Overlay	Verlaufsüberlagerung	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Pattern Overlay	Musterüberlagerung	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Outer Glow	Schein nach außen	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Drop Shadow	Schlagschatten	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Contour	Kontur	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Knockout	Aussparung	https://helpx.adobe.com/de/photoshop/using/knockout-reveal-content-layers.html
+Blend If	Farbbereich	?
+Use Global Light	Globalen Lichteinfall verwenden	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Angle	Winkel	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Distance	Distanz	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Spread	Überfüllen	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Choke	Unterfüllen	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Depth	Tiefe	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Soften	Weichzeichnen	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Fill Opacity	Flächendeckkraft	?
+Background	Hintergrund	?
+Selection	Auswahl	?
+Mask	Maske	?
+Channel	Kanal	?
+Path	Pfad	?
+Swatch	Farbfeld	?
+Brush	Pinsel	?
+Preset	Preset	https://helpx.adobe.com/de/photoshop/desktop/get-started/set-up-toolbars-panels/customize-the-toolbar.html
+Document	Dokument	?
+Canvas	Arbeitsfläche	?
+Resolution	Auflösung	https://helpx.adobe.com/de/photoshop/desktop/crop-resize-transform/resize-adjust-resolution/set-image-size-and-resolution.html
+Pixel	Pixel	?
+Adjustment Layer	Einstellungsebene	https://helpx.adobe.com/de/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/create-adjustment-layers.html
+Fill Layer	Füllebene	?
+Shape Layer	Formebene	?
+Type Layer	Textebene	?
+Group	Gruppe	?
+Linked	Verknüpft	?
+Embedded	Eingebettet	?
