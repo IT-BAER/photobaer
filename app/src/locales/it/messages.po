@@ -10335,11 +10335,11 @@ msgstr "Selezionare la posizione in cui salvare le immagini elaborate"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
-msgstr "Selezionare le immagini da elaborare"
+msgstr "Selezionare l'area da riempire."
 
 #: app/src/ScriptDialogs.tsx
 msgid "Select the images to process"
-msgstr "Selezionare l'area da riempire."
+msgstr "Selezionare le immagini da elaborare"
 
 #: app/src/App.tsx
 msgid "Select the layer pixels to use Content-Aware Fill."

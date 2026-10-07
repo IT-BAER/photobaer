@@ -9,11 +9,11 @@ msgstr ""
 
 #: app/src/MissingFonts.tsx
 msgid "“{docName}” uses fonts that could not be loaded. Choose replacements for the selected text. Text layout may change."
-msgstr "“{docName}” belgesi yüklenemeyen yazı tipleri kullanıyor. Seçili metin için yedek yazı tipleri seçin. Metin düzeni değişebilir."
+msgstr "“{docName}” belgesi yüklenemeyen yazı tipleri kullanıyor. Seçili metin için yedek yazı tipleri seç. Metin düzeni değişebilir."
 
 #: app/src/MissingFonts.tsx
 msgid "“{docName}” uses fonts that could not be loaded. Choose replacements for the whole document. Text layout may change."
-msgstr "“{docName}” belgesi yüklenemeyen yazı tipleri kullanıyor. Tüm belge için yedek yazı tipleri seçin. Metin düzeni değişebilir."
+msgstr "“{docName}” belgesi yüklenemeyen yazı tipleri kullanıyor. Tüm belge için yedek yazı tipleri seç. Metin düzeni değişebilir."
 
 #: app/src/i18n/errors.ts
 msgid "\"{name}\" is already a smart object."
@@ -110,7 +110,7 @@ msgstr "{fam} yazı tipinde {subsetName} için glif yok."
 
 #: app/src/MissingFonts.tsx
 msgid "{family} does not contain every character used by {source}. Choose another font."
-msgstr "{family} yazı tipi, {source} tarafından kullanılan tüm karakterleri içermiyor. Başka bir yazı tipi seçin."
+msgstr "{family} yazı tipi, {source} tarafından kullanılan tüm karakterleri içermiyor. Başka bir yazı tipi seç."
 
 #. placeholder {0}: handleName(cls, i === outer)
 #: app/src/LayerStyleDialog.tsx
@@ -176,7 +176,7 @@ msgstr "{label}: Özellikler panelinde kullanılabilir"
 
 #: app/src/LevelsCurvesBody.tsx
 msgid "{label}: click the image to set it"
-msgstr "{label}: ayarlamak için görüntüye tıklayın"
+msgstr "{label}: ayarlamak için görüntüye tıkla"
 
 #: app/src/ChannelsPanel.tsx
 msgid "{maskName} Mask"
@@ -207,7 +207,7 @@ msgstr "{name}\\n{width} x {height} px, {depth} bit"
 
 #: app/src/ShapesPanel.tsx
 msgid "{name} armed. Drag on the canvas to draw it."
-msgstr "{name} hazır. Çizmek için tuval üzerinde sürükleyin."
+msgstr "{name} hazır. Çizmek için tuval üzerinde sürükle."
 
 #: app/src/filters/GalleryStack.tsx
 msgid "{name} enabled"
@@ -304,7 +304,7 @@ msgstr "{title} durduruldu."
 
 #: app/src/App.tsx
 msgid "{toolName}: drag to use, Space to pan, wheel to zoom"
-msgstr "{toolName}: kullanmak için sürükleyin, kaydırmak için Boşluk, yakınlaştırmak için tekerlek"
+msgstr "{toolName}: kullanmak için sürükle, kaydırmak için Boşluk, yakınlaştırmak için tekerlek"
 
 #: app/src/i18n/errors.ts
 msgid "{type} export is not supported by this browser"
@@ -324,7 +324,7 @@ msgstr "1:1"
 
 #: app/src/app/Dialogs.tsx
 msgid "1. Add the photobaer MCP server to your agent"
-msgstr "1. photobaer MCP sunucusunu ajanınıza ekleyin"
+msgstr "1. photobaer MCP sunucusunu ajanına ekle"
 
 #: app/src/app/menus.ts
 msgid "100%"
@@ -364,7 +364,7 @@ msgstr "2:3"
 
 #: app/src/app/Dialogs.tsx
 msgid "2. Start with this prompt"
-msgstr "2. Bu istemle başlayın"
+msgstr "2. Bu istemle başla"
 
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
@@ -531,7 +531,7 @@ msgstr "Ön plan rengini ekle"
 
 #: app/src/app/measureTools.tsx
 msgid "Add guides inside the canvas first."
-msgstr "Önce tuvalin içine kılavuzlar ekleyin."
+msgstr "Önce tuvalin içine kılavuzlar ekle."
 
 #: app/src/App.tsx
 #: app/src/LayersPanel.tsx
@@ -705,27 +705,27 @@ msgstr "Alt"
 
 #: app/src/app/paintTool.ts
 msgid "Alt-click to set a clone source first."
-msgstr "Önce bir klonlama kaynağı ayarlamak için Alt tuşuyla tıklayın."
+msgstr "Önce bir klonlama kaynağı ayarlamak için Alt tuşuyla tıkla."
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Alt-click to set a clone source, then paint inside a plane."
-msgstr "Bir klonlama kaynağı ayarlamak için Alt tuşuyla tıklayın, sonra bir düzlem içinde boyayın."
+msgstr "Bir klonlama kaynağı ayarlamak için Alt tuşuyla tıkla, sonra bir düzlem içinde boya."
 
 #: app/src/app/paintTool.ts
 msgid "Alt-click to set a source for the Healing Brush."
-msgstr "Düzeltme Fırçası için bir kaynak ayarlamak üzere Alt tuşuyla tıklayın."
+msgstr "Düzeltme Fırçası için bir kaynak ayarlamak üzere Alt tuşuyla tıkla."
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Alt-click to set the clone source, then paint inside a plane."
-msgstr "Klonlama kaynağını ayarlamak için Alt tuşuyla tıklayın, sonra bir düzlem içinde boyayın."
+msgstr "Klonlama kaynağını ayarlamak için Alt tuşuyla tıkla, sonra bir düzlem içinde boya."
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Alt-click with the Clone Stamp to set a source."
-msgstr "Kaynak ayarlamak için Klonlama Damgası ile Alt tuşuyla tıklayın."
+msgstr "Kaynak ayarlamak için Klonlama Damgası ile Alt tuşuyla tıkla."
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Alt-drag a handle to split it."
-msgstr "Bir tutamacı bölmek için Alt tuşuyla sürükleyin."
+msgstr "Bir tutamacı bölmek için Alt tuşuyla sürükle."
 
 #: app/src/GlyphsPanel.tsx
 msgid "Alternates for {altName}"
@@ -760,7 +760,7 @@ msgstr "Genlik Min."
 
 #: app/src/App.tsx
 msgid "An AI agent controls this tab. Click to disconnect."
-msgstr "Bu sekmeyi bir yapay zeka ajanı denetliyor. Bağlantıyı kesmek için tıklayın."
+msgstr "Bu sekmeyi bir yapay zeka ajanı denetliyor. Bağlantıyı kesmek için tıkla."
 
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/menus.ts
@@ -1955,7 +1955,7 @@ msgstr "Kodlanamıyor: {reason}"
 
 #: app/src/i18n/errors.ts
 msgid "Cannot save linked .{ext} contents. Use Save As to keep your edits."
-msgstr "Bağlantılı .{ext} içeriği kaydedilemiyor. Düzenlemelerinizi korumak için Farklı Kaydet komutunu kullanın."
+msgstr "Bağlantılı .{ext} içeriği kaydedilemiyor. Düzenlemelerini korumak için Farklı Kaydet komutunu kullan."
 
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -2115,15 +2115,15 @@ msgstr "Boğ"
 
 #: app/src/App.tsx
 msgid "Choose a .psd, .psb, .exr, .hdr or .ico file name, not {name}."
-msgstr "{name} değil, bir .psd, .psb, .exr, .hdr veya .ico dosya adı seçin."
+msgstr "{name} değil, bir .psd, .psb, .exr, .hdr veya .ico dosya adı seç."
 
 #: app/src/app/paintTool.ts
 msgid "Choose a pattern first."
-msgstr "Önce bir desen seçin."
+msgstr "Önce bir desen seç."
 
 #: app/src/i18n/errors.ts
 msgid "Choose at least one file."
-msgstr "En az bir dosya seçin."
+msgstr "En az bir dosya seç."
 
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
@@ -2222,17 +2222,17 @@ msgstr "Temizleniyor…"
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Click four corners to define a perspective plane."
-msgstr "Bir perspektif düzlemi tanımlamak için dört köşeye tıklayın."
+msgstr "Bir perspektif düzlemi tanımlamak için dört köşeye tıkla."
 
 #: app/src/App.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
 msgid "Click to edit the gradient"
-msgstr "Degradeyi düzenlemek için tıklayın"
+msgstr "Degradeyi düzenlemek için tıkla"
 
 #: app/src/NotesPanels.tsx
 msgid "Click with the Note tool to add a note."
-msgstr "Not eklemek için Not aracıyla tıklayın."
+msgstr "Not eklemek için Not aracıyla tıkla."
 
 #: app/src/ShapesPanel.tsx
 msgid "Clicking a shape arms the Custom Shape tool."
@@ -2297,7 +2297,7 @@ msgstr "Alternatifleri kapat"
 
 #: app/src/i18n/errors.ts
 msgid "Close Edit Contents before reverting."
-msgstr "Geri dönmeden önce İçeriği Düzenle penceresini kapatın."
+msgstr "Geri dönmeden önce İçeriği Düzenle penceresini kapat."
 
 #: app/src/app/menus.ts
 msgid "Close Others"
@@ -2351,7 +2351,7 @@ msgstr "Kod, <0>AGPL-3.0</0> kapsamında lisanslanmıştır."
 
 #: app/src/app/Dialogs.tsx
 msgid "Coding agents such as Claude Code and Codex can open images from your disk in photobaer, run filters and menu commands, look at the result and save it."
-msgstr "Claude Code ve Codex gibi kodlama ajanları, diskinizdeki görüntüleri photobaer içinde açabilir, filtreleri ve menü komutlarını çalıştırabilir, sonuca bakabilir ve kaydedebilir."
+msgstr "Claude Code ve Codex gibi kodlama ajanları, diskindeki görüntüleri photobaer içinde açabilir, filtreleri ve menü komutlarını çalıştırabilir, sonuca bakabilir ve kaydedebilir."
 
 #: app/src/LayersPanel.tsx
 msgid "Collapse {name}"
@@ -2803,7 +2803,7 @@ msgstr "Çalışma {space} alanına dönüştür"
 
 #: app/src/App.tsx
 msgid "Convert type and shape layers to Smart Objects, or rasterize them, before warping."
-msgstr "Çarpıtmadan önce yazı ve şekil katmanlarını Akıllı Nesnelere dönüştürün veya rasterleştirin."
+msgstr "Çarpıtmadan önce yazı ve şekil katmanlarını Akıllı Nesnelere dönüştür veya rasterleştir."
 
 #: app/src/App.tsx
 msgid "Converting to linked…"
@@ -2826,7 +2826,7 @@ msgstr "Kopyala"
 
 #: app/src/i18n/errors.ts
 msgid "Copy a layer style first."
-msgstr "Önce bir katman stili kopyalayın."
+msgstr "Önce bir katman stili kopyala."
 
 #: app/src/app/vectorCommands.ts
 msgid "Copy CSS"
@@ -2896,7 +2896,7 @@ msgstr "Aşağıda birleştirilemedi: aynı grupta altta katman yok."
 
 #: app/src/i18n/errors.ts
 msgid "Could not merge layers: select at least two layers."
-msgstr "Katmanlar birleştirilemedi: en az iki katman seçin."
+msgstr "Katmanlar birleştirilemedi: en az iki katman seç."
 
 #: app/src/i18n/errors.ts
 msgid "Could not merge layers: the layers must be in the same group."
@@ -3109,7 +3109,7 @@ msgstr "Ctrl+tıklama vektörel maskeyi seçim olarak yükler"
 
 #: app/src/ChannelsPanel.tsx
 msgid "Ctrl+click to load as a selection"
-msgstr "Seçim olarak yüklemek için Ctrl+tıklayın"
+msgstr "Seçim olarak yüklemek için Ctrl+tıkla"
 
 #: app/src/GlyphsPanel.tsx
 msgid "Currency"
@@ -3371,7 +3371,7 @@ msgstr "Tanımla"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Define a variable on the Define tab first."
-msgstr "Önce Tanımla sekmesinde bir değişken tanımlayın."
+msgstr "Önce Tanımla sekmesinde bir değişken tanımla."
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -3807,7 +3807,7 @@ msgstr "Bağış Yap"
 
 #: app/src/app/Dialogs.tsx
 msgid "Donate any amount"
-msgstr "İstediğiniz tutarda bağış yapın"
+msgstr "İstediğin tutarda bağış yap"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Dot"
@@ -3837,27 +3837,27 @@ msgstr "Taslak"
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Drag a corner to adjust the plane, or drag inside a plane to move it."
-msgstr "Düzlemi ayarlamak için bir köşeyi sürükleyin veya taşımak için düzlemin içinde sürükleyin."
+msgstr "Düzlemi ayarlamak için bir köşeyi sürükle veya taşımak için düzlemin içinde sürükle."
 
 #: app/src/shell/DeformSession.tsx
 msgid "Drag pins. Shift-click an edge to straighten and lock it."
-msgstr "Raptiyeleri sürükleyin. Bir kenarı düzleştirmek ve kilitlemek için kenara Shift+tıklayın."
+msgstr "Raptiyeleri sürükle. Bir kenarı düzleştirmek ve kilitlemek için kenara Shift+tıkla."
 
 #: app/src/LayersPanel.tsx
 msgid "Drag to move effects; Alt or Ctrl drag to copy"
-msgstr "Efektleri taşımak için sürükleyin; kopyalamak için Alt veya Ctrl ile sürükleyin"
+msgstr "Efektleri taşımak için sürükle; kopyalamak için Alt veya Ctrl ile sürükle"
 
 #: app/src/shell/DockSection.tsx
 msgid "Drag to move this panel"
-msgstr "Bu paneli taşımak için sürükleyin"
+msgstr "Bu paneli taşımak için sürükle"
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Drag to scroll the preview."
-msgstr "Önizlemeyi kaydırmak için sürükleyin."
+msgstr "Önizlemeyi kaydırmak için sürükle."
 
 #: app/src/App.tsx
 msgid "drag to select, Shift add, Alt subtract"
-msgstr "seçmek için sürükleyin, Shift ekler, Alt çıkarır"
+msgstr "seçmek için sürükle, Shift ekler, Alt çıkarır"
 
 #: app/src/AnalysisDialogs.tsx
 msgid "Draw a ruler line first to measure a known length."
@@ -3865,15 +3865,15 @@ msgstr "Bilinen bir uzunluğu ölçmek için önce bir cetvel çizgisi çizin."
 
 #: app/src/app/measureTools.tsx
 msgid "Draw a ruler line, place counts or make a selection first."
-msgstr "Önce bir cetvel çizgisi çizin, sayım yerleştirin veya bir seçim yapın."
+msgstr "Önce bir cetvel çizgisi çizin, sayım yerleştir veya bir seçim yap."
 
 #: app/src/shell/DeformSession.tsx
 msgid "Draw planes over the image. Join corners to link planes."
-msgstr "Görüntü üzerine düzlemler çizin. Düzlemleri bağlamak için köşeleri birleştirin."
+msgstr "Görüntü üzerine düzlemler çizin. Düzlemleri bağlamak için köşeleri birleştir."
 
 #: app/src/App.tsx
 msgid "Drop an image here"
-msgstr "Görüntüyü buraya bırakın"
+msgstr "Görüntüyü buraya bırak"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -4162,24 +4162,24 @@ msgstr "Büyütülmüş"
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a number."
-msgstr "Bir sayı girin."
+msgstr "Bir sayı gir."
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value from {lo} to {hi}."
-msgstr "{lo} ile {hi} arasında bir değer girin."
+msgstr "{lo} ile {hi} arasında bir değer gir."
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value of at least {lo}."
-msgstr "En az {lo} olan bir değer girin."
+msgstr "En az {lo} olan bir değer gir."
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value of at most {hi}."
-msgstr "En fazla {hi} olan bir değer girin."
+msgstr "En fazla {hi} olan bir değer gir."
 
 #. placeholder {0}: formatNumber(Number(step ?? 1), digits)
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value that fits the step of {0}."
-msgstr "{0} adımına uyan bir değer girin."
+msgstr "{0} adımına uyan bir değer gir."
 
 #: app/src/app/helpers.ts
 msgid "Entropy"
@@ -5818,7 +5818,7 @@ msgstr "Görüntü Varlıkları oluşturma açık; her kayıtta çalışır."
 
 #: app/src/App.tsx
 msgid "Image Assets: no folder was chosen. Turn File > Generate > Image Assets off and on to choose one."
-msgstr "Görüntü Varlıkları: klasör seçilmedi. Seçmek için Dosya > Oluştur > Görüntü Varlıkları seçeneğini kapatıp açın."
+msgstr "Görüntü Varlıkları: klasör seçilmedi. Seçmek için Dosya > Oluştur > Görüntü Varlıkları seçeneğini kapatıp aç."
 
 #: app/src/filters/labels.ts
 msgid "Image Balance"
@@ -5827,7 +5827,7 @@ msgstr "Görüntü Dengesi"
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
 msgid "Image editing in your browser"
-msgstr "Tarayıcınızda görüntü düzenleme"
+msgstr "Tarayıcında görüntü düzenleme"
 
 #: app/src/App.tsx
 #: app/src/ScriptDialogs.tsx
@@ -6140,7 +6140,7 @@ msgstr "Tümünü Ters Çevir"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Invert has no parameters. Use opacity or blend mode to moderate the result."
-msgstr "Ters Çevir parametre içermez. Sonucu hafifletmek için opaklığı veya karıştırma modunu kullanın."
+msgstr "Ters Çevir parametre içermez. Sonucu hafifletmek için opaklığı veya karıştırma modunu kullan."
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Invert Selection"
@@ -6988,15 +6988,15 @@ msgstr "Manyetik Kement"
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/errors.ts
 msgid "Make a selection first."
-msgstr "Önce bir seçim yapın."
+msgstr "Önce bir seçim yap."
 
 #: app/src/i18n/errors.ts
 msgid "Make a selection to crop to."
-msgstr "Kırpılacak bir seçim yapın."
+msgstr "Kırpılacak bir seçim yap."
 
 #: app/src/i18n/errors.ts
 msgid "Make a selection to stroke."
-msgstr "Kontur çizilecek bir seçim yapın."
+msgstr "Kontur çizilecek bir seçim yap."
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Make Default"
@@ -7768,11 +7768,11 @@ msgstr "Sonraki not"
 
 #: app/src/ActionsPanel.tsx
 msgid "No action sets. Record an action or load a set."
-msgstr "Eylem kümesi yok. Bir eylem kaydedin veya bir küme yükleyin."
+msgstr "Eylem kümesi yok. Bir eylem kaydet veya bir küme yükle."
 
 #: app/src/ActionsPanel.tsx
 msgid "No actions. Record one or load a set."
-msgstr "Eylem yok. Bir tane kaydedin veya bir küme yükleyin."
+msgstr "Eylem yok. Bir tane kaydet veya bir küme yükle."
 
 #: app/src/App.tsx
 msgid "No active layer"
@@ -7792,7 +7792,7 @@ msgstr "Yazar yok"
 
 #: app/src/MissingFonts.tsx
 msgid "No available default font can display this text. Choose Manage to select a replacement."
-msgstr "Bu metni görüntüleyebilecek varsayılan yazı tipi yok. Bir yedek seçmek için Yönet düğmesini seçin."
+msgstr "Bu metni görüntüleyebilecek varsayılan yazı tipi yok. Bir yedek seçmek için Yönet düğmesini seç."
 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brush matches “{query}”."
@@ -7800,7 +7800,7 @@ msgstr "“{query}” ile eşleşen fırça yok."
 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brush preset selected: pick one in Brushes to edit dynamics. The tip applies to the active tool."
-msgstr "Fırça hazır ayarı seçilmedi: dinamikleri düzenlemek için Fırçalar içinde birini seçin. Uç, etkin araca uygulanır."
+msgstr "Fırça hazır ayarı seçilmedi: dinamikleri düzenlemek için Fırçalar içinde birini seç. Uç, etkin araca uygulanır."
 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
@@ -7845,7 +7845,7 @@ msgstr "Hiçbir katmanda düzleştirilecek efekt yok."
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
-msgstr "Hiçbir katman adı varlığa benzemiyor (bir katmana \"banner.png\" adını vermeyi deneyin)."
+msgstr "Hiçbir katman adı varlığa benzemiyor (bir katmana \"banner.png\" adını vermeyi dene)."
 
 #: app/src/i18n/errors.ts
 msgid "No Liquify session is open."
@@ -7987,7 +7987,7 @@ msgstr "Kuzey Amerika Web/İnternet"
 
 #: app/src/shell/ColorPicker.tsx
 msgid "Not web-safe: click to snap"
-msgstr "Web için güvenli değil: yaslamak için tıklayın"
+msgstr "Web için güvenli değil: yaslamak için tıkla"
 
 #: app/src/shell/tools.ts
 msgid "Note"
@@ -8085,7 +8085,7 @@ msgstr "Açık"
 
 #: app/src/app/Dialogs.tsx
 msgid "On the first connect, Chrome and Edge ask to allow access to apps on this device. Allow it, or the agent cannot reach the tab."
-msgstr "İlk bağlantıda Chrome ve Edge, bu aygıttaki uygulamalara erişime izin vermenizi ister. İzin verin, aksi halde ajan sekmeye ulaşamaz."
+msgstr "İlk bağlantıda Chrome ve Edge, bu aygıttaki uygulamalara erişime izin vermeni ister. İzin ver, aksi halde ajan sekmeye ulaşamaz."
 
 #: app/src/i18n/choices.ts
 msgid "Once"
@@ -8136,11 +8136,11 @@ msgstr "Opaklık durakları"
 
 #: app/src/ActionsPanel.tsx
 msgid "Open a document to play an action."
-msgstr "Eylemi oynatmak için bir belge açın."
+msgstr "Eylemi oynatmak için bir belge aç."
 
 #: app/src/i18n/errors.ts
 msgid "Open a document to record an action."
-msgstr "Eylem kaydetmek için bir belge açın."
+msgstr "Eylem kaydetmek için bir belge aç."
 
 #: app/src/TabBar.tsx
 msgid "Open documents"
@@ -8627,7 +8627,7 @@ msgstr "Fotoğraf Filtresi"
 
 #: app/src/app/Dialogs.tsx
 msgid "photobaer is free and open source. Your support helps keep it alive and maintained."
-msgstr "photobaer ücretsiz ve açık kaynaklıdır. Desteğiniz onu canlı ve bakımlı tutmaya yardımcı olur."
+msgstr "photobaer ücretsiz ve açık kaynaklıdır. Desteğin onu canlı ve bakımlı tutmaya yardımcı olur."
 
 #: app/src/App.tsx
 msgid "photobaer on GitHub"
@@ -8660,7 +8660,7 @@ msgstr "Photoshop Filtresi"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Pick a filter to start a stack."
-msgstr "Bir yığın başlatmak için bir filtre seçin."
+msgstr "Bir yığın başlatmak için bir filtre seç."
 
 #: app/src/filters/labels.ts
 msgid "Picture Frame"
@@ -8754,7 +8754,7 @@ msgstr "Bağlantılı Yerleştir…"
 
 #: app/src/shell/DeformSession.tsx
 msgid "Place pins inside the mesh, away from existing pins."
-msgstr "Raptiyeleri ağın içine, mevcut raptiyelerden uzağa yerleştirin."
+msgstr "Raptiyeleri ağın içine, mevcut raptiyelerden uzağa yerleştir."
 
 #: app/src/i18n/history.ts
 msgid "Place Scale Marker"
@@ -9268,7 +9268,7 @@ msgstr "Yeniden Oluştur…"
 
 #: app/src/BatchDialog.tsx
 msgid "Record an action in Window › Actions first."
-msgstr "Önce Pencere › Eylemler bölümünde bir eylem kaydedin."
+msgstr "Önce Pencere › Eylemler bölümünde bir eylem kaydet."
 
 #: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
@@ -9771,7 +9771,7 @@ msgstr "Sağdan Sola"
 
 #: app/src/GlyphsPanel.tsx
 msgid "Right-click a glyph to list its OpenType alternates."
-msgstr "Bir glifin OpenType alternatiflerini listelemek için üzerine sağ tıklayın."
+msgstr "Bir glifin OpenType alternatiflerini listelemek için üzerine sağ tıkla."
 
 #: app/src/TypePanels.tsx
 msgid "Right-to-Left"
@@ -9951,7 +9951,7 @@ msgstr "Eğri noktasını örnekle: Özellikler panelinde kullanılabilir"
 
 #: app/src/LevelsCurvesBody.tsx
 msgid "Sample curve point: click the image to add a point at its value"
-msgstr "Eğri noktasını örnekle: değerinde bir nokta eklemek için görüntüye tıklayın"
+msgstr "Eğri noktasını örnekle: değerinde bir nokta eklemek için görüntüye tıkla"
 
 #: app/src/shell/tools.ts
 msgid "Sample size"
@@ -10083,7 +10083,7 @@ msgstr "Çalışma Alanını Kaydet"
 
 #: app/src/TypePanels.tsx
 msgid "Save your text formatting as a named style to reuse it."
-msgstr "Yazı biçimlendirmenizi yeniden kullanmak için adlandırılmış bir stil olarak kaydedin."
+msgstr "Yazı biçimlendirmeni yeniden kullanmak için adlandırılmış bir stil olarak kaydet."
 
 #: app/src/ModeDialog.tsx
 msgid "Save..."
@@ -10246,44 +10246,44 @@ msgstr "Seç"
 
 #: app/src/i18n/errors.ts
 msgid "Select a group to convert to an artboard."
-msgstr "Çalışma yüzeyine dönüştürmek için bir grup seçin."
+msgstr "Çalışma yüzeyine dönüştürmek için bir grup seç."
 
 #: app/src/i18n/errors.ts
 msgid "Select a layer to convert."
-msgstr "Dönüştürmek için bir katman seçin."
+msgstr "Dönüştürmek için bir katman seç."
 
 #: app/src/NotesPanels.tsx
 msgid "Select a note with the Note tool or the arrows."
-msgstr "Not aracıyla veya oklarla bir not seçin."
+msgstr "Not aracıyla veya oklarla bir not seç."
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/actionsStore.ts
 msgid "Select a set to save."
-msgstr "Kaydedilecek bir küme seçin."
+msgstr "Kaydedilecek bir küme seç."
 
 #: app/src/i18n/errors.ts
 msgid "Select a shape layer first."
-msgstr "Önce bir şekil katmanı seçin."
+msgstr "Önce bir şekil katmanı seç."
 
 #: app/src/i18n/errors.ts
 msgid "Select a smart object first."
-msgstr "Önce bir akıllı nesne seçin."
+msgstr "Önce bir akıllı nesne seç."
 
 #: app/src/TypePanels.tsx
 msgid "Select a text layer to save or apply a style."
-msgstr "Bir stili kaydetmek veya uygulamak için bir yazı katmanı seçin."
+msgstr "Bir stili kaydetmek veya uygulamak için bir yazı katmanı seç."
 
 #: app/src/TypePanels.tsx
 msgid "Select a type layer or start typing to edit its characters."
-msgstr "Karakterlerini düzenlemek için bir yazı katmanı seçin veya yazmaya başlayın."
+msgstr "Karakterlerini düzenlemek için bir yazı katmanı seç veya yazmaya başla."
 
 #: app/src/TypePanels.tsx
 msgid "Select a type layer or start typing to edit its paragraphs."
-msgstr "Paragraflarını düzenlemek için bir yazı katmanı seçin veya yazmaya başlayın."
+msgstr "Paragraflarını düzenlemek için bir yazı katmanı seç veya yazmaya başla."
 
 #: app/src/GlyphsPanel.tsx
 msgid "Select a type layer, or click into one with the Type tool, then click a glyph."
-msgstr "Bir yazı katmanı seçin veya Yazı aracıyla birine tıklayın, ardından bir glife tıklayın."
+msgstr "Bir yazı katmanı seç veya Yazı aracıyla birine tıkla, ardından bir glife tıkla."
 
 #: app/src/app/contextMenus.ts
 #: app/src/i18n/history.ts
@@ -10294,23 +10294,23 @@ msgstr "Tümünü Seç"
 
 #: app/src/app/actionsStore.ts
 msgid "Select an action first."
-msgstr "Önce bir eylem seçin."
+msgstr "Önce bir eylem seç."
 
 #: app/src/ActionsPanel.tsx
 msgid "Select an action to play."
-msgstr "Oynatılacak bir eylem seçin."
+msgstr "Oynatılacak bir eylem seç."
 
 #: app/src/app/actionsStore.ts
 msgid "Select an action to record into."
-msgstr "Kaydın yapılacağı bir eylem seçin."
+msgstr "Kaydın yapılacağı bir eylem seç."
 
 #: app/src/App.tsx
 msgid "Select an unlocked layer with pixels to warp."
-msgstr "Eğriltilecek, kilitli olmayan ve piksel içeren bir katman seçin."
+msgstr "Eğriltilecek, kilitli olmayan ve piksel içeren bir katman seç."
 
 #: app/src/i18n/errors.ts
 msgid "Select at least two pixel layers to align."
-msgstr "Hizalamak için en az iki piksel katmanı seçin."
+msgstr "Hizalamak için en az iki piksel katmanı seç."
 
 #: app/src/AnalysisDialogs.tsx
 msgid "Select Data Points"
@@ -10327,27 +10327,27 @@ msgstr "Seçimi Ters Çevir"
 
 #: app/src/i18n/errors.ts
 msgid "Select layers at the same level to convert them."
-msgstr "Dönüştürmek için aynı düzeydeki katmanları seçin."
+msgstr "Dönüştürmek için aynı düzeydeki katmanları seç."
 
 #: app/src/ScriptDialogs.tsx
 msgid "Select location to save processed images"
-msgstr "İşlenen görüntülerin kaydedileceği konumu seçin"
+msgstr "İşlenen görüntülerin kaydedileceği konumu seç"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
-msgstr "Doldurulacak alanı seçin."
+msgstr "Doldurulacak alanı seç."
 
 #: app/src/ScriptDialogs.tsx
 msgid "Select the images to process"
-msgstr "İşlenecek görüntüleri seçin"
+msgstr "İşlenecek görüntüleri seç"
 
 #: app/src/App.tsx
 msgid "Select the layer pixels to use Content-Aware Fill."
-msgstr "İçeriğe Uygun Dolgu kullanmak için katman piksellerini seçin."
+msgstr "İçeriğe Uygun Dolgu kullanmak için katman piksellerini seç."
 
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
-msgstr "Birleştirmek için iki veya daha fazla şekil katmanı seçin."
+msgstr "Birleştirmek için iki veya daha fazla şekil katmanı seç."
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -10362,7 +10362,7 @@ msgstr "Seçmeli Renk"
 
 #: app/src/app/Dialogs.tsx
 msgid "Send a coffee"
-msgstr "Bir kahve gönderin"
+msgstr "Bir kahve gönder"
 
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
@@ -10376,7 +10376,7 @@ msgstr "Arkaya Gönder"
 
 #: app/src/FileDialogs.tsx
 msgid "Separate keywords with commas or semicolons."
-msgstr "Anahtar sözcükleri virgül veya noktalı virgülle ayırın."
+msgstr "Anahtar sözcükleri virgül veya noktalı virgülle ayır."
 
 #: app/src/BatchDialog.tsx
 #: app/src/ScriptDialogs.tsx
@@ -10390,7 +10390,7 @@ msgstr "Küme {next}"
 
 #: app/src/i18n/errors.ts
 msgid "Set a history state as the source in the History panel."
-msgstr "Geçmiş panelinde bir geçmiş durumunu kaynak olarak ayarlayın."
+msgstr "Geçmiş panelinde bir geçmiş durumunu kaynak olarak ayarla."
 
 #: app/src/i18n/history.ts
 msgid "Set Measurement Scale"
@@ -11299,7 +11299,7 @@ msgstr "Kaydı durdur"
 #: app/src/ActionsPanel.tsx
 #: app/src/app/actionsStore.ts
 msgid "Stop recording first."
-msgstr "Önce kaydı durdurun."
+msgstr "Önce kaydı durdur."
 
 #: app/src/app/menus.ts
 msgid "Stop Script"
@@ -11578,7 +11578,7 @@ msgstr "Üst Simge"
 
 #: app/src/app/Dialogs.tsx
 msgid "Support photobaer"
-msgstr "photobaer'ı Destekleyin"
+msgstr "photobaer'ı Destekle"
 
 #: app/src/filters/labels.ts
 msgid "Surface Blur"
@@ -11692,7 +11692,7 @@ msgstr "Dokulandırıcı"
 
 #: app/src/app/Dialogs.tsx
 msgid "Thank you for thinking about supporting it. It means a lot!"
-msgstr "Desteklemeyi düşündüğünüz için teşekkür ederiz. Çok değerli!"
+msgstr "Desteklemeyi düşündüğün için teşekkür ederiz. Çok değerli!"
 
 #: app/src/i18n/errors.ts
 msgid "That document is not open."
@@ -11740,7 +11740,7 @@ msgstr "Fırça kitaplığı kullanılamıyor."
 
 #: app/src/app/paintTool.ts
 msgid "The clone source is in another document. Alt-click to set a new source."
-msgstr "Klonlama kaynağı başka bir belgede. Yeni bir kaynak ayarlamak için Alt tuşuyla tıklayın."
+msgstr "Klonlama kaynağı başka bir belgede. Yeni bir kaynak ayarlamak için Alt tuşuyla tıkla."
 
 #: app/src/App.tsx
 msgid "The contents were not written back."
@@ -11772,7 +11772,7 @@ msgstr "Geri alınacak belge artık etkin değil."
 
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
-msgstr "Düzenleme bu tarayıcı sekmesinde çalışır; photobaer-mcp bilgisayarınızda çalışır ve aracıyı yalnızca sekmeye bağlar."
+msgstr "Düzenleme bu tarayıcı sekmesinde çalışır; photobaer-mcp bilgisayarında çalışır ve aracıyı yalnızca sekmeye bağlar."
 
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
@@ -11796,7 +11796,7 @@ msgstr "Katmanda piksel yok."
 
 #: app/src/i18n/errors.ts
 msgid "The linked source is unavailable: {name}. Relink the Smart Object to an existing file."
-msgstr "Bağlı kaynak kullanılamıyor: {name}. Akıllı Nesneyi mevcut bir dosyaya yeniden bağlayın."
+msgstr "Bağlı kaynak kullanılamıyor: {name}. Akıllı Nesneyi mevcut bir dosyaya yeniden bağla."
 
 #: app/src/app/measureTools.tsx
 msgid "The measured line is already straight."
@@ -11808,7 +11808,7 @@ msgstr "Yeni araç hazır ayarı kimliği geçersiz veya zaten var."
 
 #: app/src/i18n/errors.ts
 msgid "The original Smart Object was removed or replaced. Use Save As to keep these contents."
-msgstr "Özgün Akıllı Nesne kaldırıldı veya değiştirildi. Bu içeriği korumak için Farklı Kaydet'i kullanın."
+msgstr "Özgün Akıllı Nesne kaldırıldı veya değiştirildi. Bu içeriği korumak için Farklı Kaydet'i kullan."
 
 #. placeholder {0}: file.name
 #: app/src/PdfDialog.tsx
@@ -11953,7 +11953,7 @@ msgstr "Bu Katman"
 
 #: app/src/i18n/errors.ts
 msgid "This Smart Object has no embedded source file. Use Replace Contents or reopen the original PSD."
-msgstr "Bu Akıllı Nesnenin gömülü kaynak dosyası yok. İçeriği Değiştir'i kullanın veya özgün PSD'yi yeniden açın."
+msgstr "Bu Akıllı Nesnenin gömülü kaynak dosyası yok. İçeriği Değiştir'i kullan veya özgün PSD'yi yeniden aç."
 
 #: app/src/i18n/errors.ts
 msgid "This smart object has no smart filters."
@@ -11961,7 +11961,7 @@ msgstr "Bu akıllı nesnenin akıllı filtresi yok."
 
 #: app/src/i18n/errors.ts
 msgid "This Smart Object has no source file to export. Reopen the original PSD or use Replace Contents."
-msgstr "Bu Akıllı Nesnenin dışa aktarılacak kaynak dosyası yok. Özgün PSD'yi yeniden açın veya İçeriği Değiştir'i kullanın."
+msgstr "Bu Akıllı Nesnenin dışa aktarılacak kaynak dosyası yok. Özgün PSD'yi yeniden aç veya İçeriği Değiştir'i kullan."
 
 #: app/src/i18n/errors.ts
 msgid "This Smart Object has no source file to link."
@@ -12075,7 +12075,7 @@ msgstr "Başlık Alternatifleri"
 
 #: app/src/MissingFonts.tsx
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
-msgstr "Metni şimdi düzenlemek için eksik yazı tipini varsayılanla değiştirin. Tüm belgenizdeki eksik yazı tiplerini de yönetebilirsiniz."
+msgstr "Metni şimdi düzenlemek için eksik yazı tipini varsayılanla değiştir. Tüm belgendeki eksik yazı tiplerini de yönetebilirsin."
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"
@@ -12438,7 +12438,7 @@ msgstr "Kılavuzların Kilidini Aç"
 
 #: app/src/i18n/errors.ts
 msgid "Unlock the group before converting it to an artboard."
-msgstr "Bir çalışma yüzeyine dönüştürmeden önce grubun kilidini açın."
+msgstr "Bir çalışma yüzeyine dönüştürmeden önce grubun kilidini aç."
 
 #: app/src/GlyphsPanel.tsx
 msgid "unmapped"
@@ -12446,7 +12446,7 @@ msgstr "eşlenmemiş"
 
 #: app/src/MissingFonts.tsx
 msgid "Unresolved fonts keep their current rendering until the text is edited. Original font names are kept; choose permanent replacements now or later from the Type menu."
-msgstr "Çözümlenmemiş yazı tipleri, metin düzenlenene kadar mevcut görünümlerini korur. Özgün yazı tipi adları saklanır; kalıcı değişiklikleri şimdi veya daha sonra Yazı menüsünden seçin."
+msgstr "Çözümlenmemiş yazı tipleri, metin düzenlenene kadar mevcut görünümlerini korur. Özgün yazı tipi adları saklanır; kalıcı değişiklikleri şimdi veya daha sonra Yazı menüsünden seç."
 
 #: app/src/filters/labels.ts
 msgid "Unsharp Mask"
@@ -12553,7 +12553,7 @@ msgstr "Veri kümesi adları için ilk sütunu kullan"
 
 #: app/src/app/Dialogs.tsx
 msgid "Use with AI agents"
-msgstr "Yapay zeka aracılarıyla kullanın"
+msgstr "Yapay zeka aracılarıyla kullan"
 
 #: app/src/app/menus.ts
 msgid "Use with AI Agents…"
@@ -12762,7 +12762,7 @@ msgstr "Eğriltme"
 
 #: app/src/i18n/errors.ts
 msgid "Warp bends a whole layer; deselect to warp it."
-msgstr "Eğriltme bütün bir katmanı bükür; eğriltmek için seçimi kaldırın."
+msgstr "Eğriltme bütün bir katmanı bükür; eğriltmek için seçimi kaldır."
 
 #: app/src/i18n/errors.ts
 msgid "Warp bends layer pixels, not the selection outline."

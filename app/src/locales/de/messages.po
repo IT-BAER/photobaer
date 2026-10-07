@@ -9,11 +9,11 @@ msgstr ""
 
 #: app/src/MissingFonts.tsx
 msgid "“{docName}” uses fonts that could not be loaded. Choose replacements for the selected text. Text layout may change."
-msgstr "„{docName}“ verwendet Schriften, die nicht geladen werden konnten. Wählen Sie Ersatzschriften für den ausgewählten Text. Das Textlayout kann sich ändern."
+msgstr "„{docName}“ verwendet Schriften, die nicht geladen werden konnten. Wähle Ersatzschriften für den ausgewählten Text. Das Textlayout kann sich ändern."
 
 #: app/src/MissingFonts.tsx
 msgid "“{docName}” uses fonts that could not be loaded. Choose replacements for the whole document. Text layout may change."
-msgstr "„{docName}“ verwendet Schriften, die nicht geladen werden konnten. Wählen Sie Ersatzschriften für das gesamte Dokument. Das Textlayout kann sich ändern."
+msgstr "„{docName}“ verwendet Schriften, die nicht geladen werden konnten. Wähle Ersatzschriften für das gesamte Dokument. Das Textlayout kann sich ändern."
 
 #: app/src/i18n/errors.ts
 msgid "\"{name}\" is already a smart object."
@@ -110,7 +110,7 @@ msgstr "{fam} enthält keine Glyphen in {subsetName}."
 
 #: app/src/MissingFonts.tsx
 msgid "{family} does not contain every character used by {source}. Choose another font."
-msgstr "{family} enthält nicht alle von {source} verwendeten Zeichen. Wählen Sie eine andere Schrift."
+msgstr "{family} enthält nicht alle von {source} verwendeten Zeichen. Wähle eine andere Schrift."
 
 #. placeholder {0}: handleName(cls, i === outer)
 #: app/src/LayerStyleDialog.tsx
@@ -207,7 +207,7 @@ msgstr "{name}\\n{width} x {height} px, {depth} Bit"
 
 #: app/src/ShapesPanel.tsx
 msgid "{name} armed. Drag on the canvas to draw it."
-msgstr "{name} ist bereit. Ziehen Sie auf der Arbeitsfläche, um sie zu zeichnen."
+msgstr "{name} ist bereit. Ziehe auf der Arbeitsfläche, um sie zu zeichnen."
 
 #: app/src/filters/GalleryStack.tsx
 msgid "{name} enabled"
@@ -324,7 +324,7 @@ msgstr "1:1"
 
 #: app/src/app/Dialogs.tsx
 msgid "1. Add the photobaer MCP server to your agent"
-msgstr "1. Fügen Sie den photobaer-MCP-Server zu Ihrem Agenten hinzu"
+msgstr "1. Füge den photobaer-MCP-Server zu deinem Agenten hinzu"
 
 #: app/src/app/menus.ts
 msgid "100%"
@@ -364,7 +364,7 @@ msgstr "2:3"
 
 #: app/src/app/Dialogs.tsx
 msgid "2. Start with this prompt"
-msgstr "2. Beginnen Sie mit diesem Prompt"
+msgstr "2. Beginne mit diesem Prompt"
 
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
@@ -531,7 +531,7 @@ msgstr "Vordergrundfarbe hinzufügen"
 
 #: app/src/app/measureTools.tsx
 msgid "Add guides inside the canvas first."
-msgstr "Fügen Sie zuerst Hilfslinien innerhalb der Arbeitsfläche hinzu."
+msgstr "Füge zuerst Hilfslinien innerhalb der Arbeitsfläche hinzu."
 
 #: app/src/App.tsx
 #: app/src/LayersPanel.tsx
@@ -692,7 +692,7 @@ msgstr "Alle Ebenen"
 
 #: app/src/ExportDialogs.tsx
 msgid "All sizes are written into one folder, chosen next."
-msgstr "Alle Größen werden in einen Ordner geschrieben, den Sie als Nächstes auswählen."
+msgstr "Alle Größen werden in einen Ordner geschrieben, den du als Nächstes auswählst."
 
 #: app/src/ActionsPanel.tsx
 msgid "Allow Continue? (OK = playback can continue, Cancel = playback ends here)"
@@ -1955,7 +1955,7 @@ msgstr "Codierung nicht möglich: {reason}"
 
 #: app/src/i18n/errors.ts
 msgid "Cannot save linked .{ext} contents. Use Save As to keep your edits."
-msgstr "Der Inhalt der verknüpften .{ext}-Datei kann nicht gespeichert werden. Verwenden Sie „Speichern unter“, um Ihre Änderungen zu behalten."
+msgstr "Der Inhalt der verknüpften .{ext}-Datei kann nicht gespeichert werden. Verwende „Speichern unter“, um deine Änderungen zu behalten."
 
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -1978,7 +1978,7 @@ msgstr "Arbeitsfläche…"
 
 #: app/src/app/Dialogs.tsx
 msgid "Caps Lock switches between the brush tip and the crosshair, and between the tool icon and the crosshair."
-msgstr "Mit der Feststelltaste wechseln Sie zwischen Pinselspitze und Fadenkreuz sowie zwischen Werkzeugsymbol und Fadenkreuz."
+msgstr "Mit der Feststelltaste wechselst du zwischen Pinselspitze und Fadenkreuz sowie zwischen Werkzeugsymbol und Fadenkreuz."
 
 #: app/src/app/toolPresets.ts
 #: app/src/shell/BrushPanels.tsx
@@ -2115,15 +2115,15 @@ msgstr "Unterfüllen"
 
 #: app/src/App.tsx
 msgid "Choose a .psd, .psb, .exr, .hdr or .ico file name, not {name}."
-msgstr "Wählen Sie einen Dateinamen mit .psd, .psb, .exr, .hdr oder .ico, nicht {name}."
+msgstr "Wähle einen Dateinamen mit .psd, .psb, .exr, .hdr oder .ico, nicht {name}."
 
 #: app/src/app/paintTool.ts
 msgid "Choose a pattern first."
-msgstr "Wählen Sie zuerst ein Muster."
+msgstr "Wähle zuerst ein Muster."
 
 #: app/src/i18n/errors.ts
 msgid "Choose at least one file."
-msgstr "Wählen Sie mindestens eine Datei aus."
+msgstr "Wähle mindestens eine Datei aus."
 
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
@@ -2222,7 +2222,7 @@ msgstr "Löschen…"
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Click four corners to define a perspective plane."
-msgstr "Klicken Sie auf vier Ecken, um eine Perspektivebene festzulegen."
+msgstr "Klicke auf vier Ecken, um eine Perspektivebene festzulegen."
 
 #: app/src/App.tsx
 #: app/src/LayerStyleDialog.tsx
@@ -2232,7 +2232,7 @@ msgstr "Zum Bearbeiten des Verlaufs klicken"
 
 #: app/src/NotesPanels.tsx
 msgid "Click with the Note tool to add a note."
-msgstr "Klicken Sie mit dem Anmerkungen-Werkzeug, um eine Anmerkung hinzuzufügen."
+msgstr "Klicke mit dem Anmerkungen-Werkzeug, um eine Anmerkung hinzuzufügen."
 
 #: app/src/ShapesPanel.tsx
 msgid "Clicking a shape arms the Custom Shape tool."
@@ -2297,7 +2297,7 @@ msgstr "Alternativen schließen"
 
 #: app/src/i18n/errors.ts
 msgid "Close Edit Contents before reverting."
-msgstr "Schließen Sie „Inhalt bearbeiten“ vor dem Zurücksetzen."
+msgstr "Schließe „Inhalt bearbeiten“ vor dem Zurücksetzen."
 
 #: app/src/app/menus.ts
 msgid "Close Others"
@@ -2351,7 +2351,7 @@ msgstr "Der Code steht unter der Lizenz <0>AGPL-3.0</0>."
 
 #: app/src/app/Dialogs.tsx
 msgid "Coding agents such as Claude Code and Codex can open images from your disk in photobaer, run filters and menu commands, look at the result and save it."
-msgstr "Coding-Agenten wie Claude Code und Codex können Bilder von Ihrer Festplatte in photobaer öffnen, Filter und Menübefehle ausführen, das Ergebnis betrachten und speichern."
+msgstr "Coding-Agenten wie Claude Code und Codex können Bilder von deiner Festplatte in photobaer öffnen, Filter und Menübefehle ausführen, das Ergebnis betrachten und speichern."
 
 #: app/src/LayersPanel.tsx
 msgid "Collapse {name}"
@@ -2803,7 +2803,7 @@ msgstr "In Arbeitsfarbraum {space} konvertieren"
 
 #: app/src/App.tsx
 msgid "Convert type and shape layers to Smart Objects, or rasterize them, before warping."
-msgstr "Konvertieren Sie Text- und Formebenen in Smartobjekte oder rastern Sie sie, bevor Sie sie verkrümmen."
+msgstr "Konvertiere Text- und Formebenen in Smartobjekte oder rastere sie, bevor du sie verkrümmst."
 
 #: app/src/App.tsx
 msgid "Converting to linked…"
@@ -2826,7 +2826,7 @@ msgstr "Kopieren"
 
 #: app/src/i18n/errors.ts
 msgid "Copy a layer style first."
-msgstr "Kopieren Sie zuerst einen Ebenenstil."
+msgstr "Kopiere zuerst einen Ebenenstil."
 
 #: app/src/app/vectorCommands.ts
 msgid "Copy CSS"
@@ -2896,7 +2896,7 @@ msgstr "Auf darunterliegende Ebene reduzieren nicht möglich: In derselben Grupp
 
 #: app/src/i18n/errors.ts
 msgid "Could not merge layers: select at least two layers."
-msgstr "Ebenen konnten nicht zusammengefügt werden: Wählen Sie mindestens zwei Ebenen aus."
+msgstr "Ebenen konnten nicht zusammengefügt werden: Wähle mindestens zwei Ebenen aus."
 
 #: app/src/i18n/errors.ts
 msgid "Could not merge layers: the layers must be in the same group."
@@ -3371,7 +3371,7 @@ msgstr "Definieren"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Define a variable on the Define tab first."
-msgstr "Definieren Sie zuerst auf der Registerkarte „Definieren“ eine Variable."
+msgstr "Definiere zuerst auf der Registerkarte „Definieren“ eine Variable."
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -3837,11 +3837,11 @@ msgstr "Entwurf"
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Drag a corner to adjust the plane, or drag inside a plane to move it."
-msgstr "Ziehen Sie eine Ecke, um die Ebene anzupassen, oder ziehen Sie innerhalb einer Ebene, um sie zu verschieben."
+msgstr "Ziehe eine Ecke, um die Ebene anzupassen, oder ziehe innerhalb einer Ebene, um sie zu verschieben."
 
 #: app/src/shell/DeformSession.tsx
 msgid "Drag pins. Shift-click an edge to straighten and lock it."
-msgstr "Ziehen Sie die Pins. Mit Umschalt-Klick auf eine Kante wird sie gerade ausgerichtet und fixiert."
+msgstr "Ziehe die Pins. Mit Umschalt-Klick auf eine Kante wird sie gerade ausgerichtet und fixiert."
 
 #: app/src/LayersPanel.tsx
 msgid "Drag to move effects; Alt or Ctrl drag to copy"
@@ -3861,15 +3861,15 @@ msgstr "Ziehen zum Auswählen, Umschalt addiert, Alt subtrahiert"
 
 #: app/src/AnalysisDialogs.tsx
 msgid "Draw a ruler line first to measure a known length."
-msgstr "Zeichnen Sie zuerst eine Linealline, um eine bekannte Länge zu messen."
+msgstr "Zeichne zuerst eine Linealline, um eine bekannte Länge zu messen."
 
 #: app/src/app/measureTools.tsx
 msgid "Draw a ruler line, place counts or make a selection first."
-msgstr "Zeichnen Sie zuerst eine Linealline, setzen Sie Zählungen oder erstellen Sie eine Auswahl."
+msgstr "Zeichne zuerst eine Linealline, setze Zählungen oder erstelle eine Auswahl."
 
 #: app/src/shell/DeformSession.tsx
 msgid "Draw planes over the image. Join corners to link planes."
-msgstr "Zeichnen Sie Ebenen über das Bild. Verbinden Sie Ecken, um Ebenen zu verknüpfen."
+msgstr "Zeichne Ebenen über das Bild. Verbinde Ecken, um Ebenen zu verknüpfen."
 
 #: app/src/App.tsx
 msgid "Drop an image here"
@@ -4162,24 +4162,24 @@ msgstr "Vergrößert"
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a number."
-msgstr "Geben Sie eine Zahl ein."
+msgstr "Gib eine Zahl ein."
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value from {lo} to {hi}."
-msgstr "Geben Sie einen Wert von {lo} bis {hi} ein."
+msgstr "Gib einen Wert von {lo} bis {hi} ein."
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value of at least {lo}."
-msgstr "Geben Sie einen Wert von mindestens {lo} ein."
+msgstr "Gib einen Wert von mindestens {lo} ein."
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value of at most {hi}."
-msgstr "Geben Sie einen Wert von höchstens {hi} ein."
+msgstr "Gib einen Wert von höchstens {hi} ein."
 
 #. placeholder {0}: formatNumber(Number(step ?? 1), digits)
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value that fits the step of {0}."
-msgstr "Geben Sie einen Wert ein, der zur Schrittweite von {0} passt."
+msgstr "Gib einen Wert ein, der zur Schrittweite von {0} passt."
 
 #: app/src/app/helpers.ts
 msgid "Entropy"
@@ -5818,7 +5818,7 @@ msgstr "Die Generierung von Bild-Assets ist ein; sie läuft bei jedem Speichern.
 
 #: app/src/App.tsx
 msgid "Image Assets: no folder was chosen. Turn File > Generate > Image Assets off and on to choose one."
-msgstr "Bild-Assets: Es wurde kein Ordner ausgewählt. Schalten Sie Datei > Generieren > Bild-Assets aus und wieder ein, um einen auszuwählen."
+msgstr "Bild-Assets: Es wurde kein Ordner ausgewählt. Schalte Datei > Generieren > Bild-Assets aus und wieder ein, um einen auszuwählen."
 
 #: app/src/filters/labels.ts
 msgid "Image Balance"
@@ -5827,7 +5827,7 @@ msgstr "Bildbalance"
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
 msgid "Image editing in your browser"
-msgstr "Bildbearbeitung in Ihrem Browser"
+msgstr "Bildbearbeitung in deinem Browser"
 
 #: app/src/App.tsx
 #: app/src/ScriptDialogs.tsx
@@ -6140,7 +6140,7 @@ msgstr "Alle umkehren"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Invert has no parameters. Use opacity or blend mode to moderate the result."
-msgstr "„Umkehren“ hat keine Parameter. Verwenden Sie Deckkraft oder Füllmethode, um das Ergebnis abzuschwächen."
+msgstr "„Umkehren“ hat keine Parameter. Verwende Deckkraft oder Füllmethode, um das Ergebnis abzuschwächen."
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Invert Selection"
@@ -6988,15 +6988,15 @@ msgstr "Magnetisches Lasso"
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/errors.ts
 msgid "Make a selection first."
-msgstr "Erstellen Sie zuerst eine Auswahl."
+msgstr "Erstelle zuerst eine Auswahl."
 
 #: app/src/i18n/errors.ts
 msgid "Make a selection to crop to."
-msgstr "Erstellen Sie eine Auswahl, auf die zugeschnitten werden soll."
+msgstr "Erstelle eine Auswahl, auf die zugeschnitten werden soll."
 
 #: app/src/i18n/errors.ts
 msgid "Make a selection to stroke."
-msgstr "Erstellen Sie eine Auswahl, die konturiert werden soll."
+msgstr "Erstelle eine Auswahl, die konturiert werden soll."
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Make Default"
@@ -7768,11 +7768,11 @@ msgstr "Nächste Anmerkung"
 
 #: app/src/ActionsPanel.tsx
 msgid "No action sets. Record an action or load a set."
-msgstr "Keine Aktionssätze. Zeichnen Sie eine Aktion auf oder laden Sie einen Satz."
+msgstr "Keine Aktionssätze. Zeichne eine Aktion auf oder lade einen Satz."
 
 #: app/src/ActionsPanel.tsx
 msgid "No actions. Record one or load a set."
-msgstr "Keine Aktionen. Zeichnen Sie eine auf oder laden Sie einen Satz."
+msgstr "Keine Aktionen. Zeichne eine auf oder lade einen Satz."
 
 #: app/src/App.tsx
 msgid "No active layer"
@@ -7792,7 +7792,7 @@ msgstr "Kein Autor"
 
 #: app/src/MissingFonts.tsx
 msgid "No available default font can display this text. Choose Manage to select a replacement."
-msgstr "Keine verfügbare Standardschrift kann diesen Text darstellen. Wählen Sie „Verwalten“, um eine Ersatzschrift auszuwählen."
+msgstr "Keine verfügbare Standardschrift kann diesen Text darstellen. Wähle „Verwalten“, um eine Ersatzschrift auszuwählen."
 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brush matches “{query}”."
@@ -7800,7 +7800,7 @@ msgstr "Kein Pinsel entspricht „{query}“."
 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brush preset selected: pick one in Brushes to edit dynamics. The tip applies to the active tool."
-msgstr "Kein Pinsel-Preset ausgewählt: Wählen Sie unter „Pinsel“ eines aus, um die Dynamik zu bearbeiten. Die Spitze gilt für das aktive Werkzeug."
+msgstr "Kein Pinsel-Preset ausgewählt: Wähle unter „Pinsel“ eines aus, um die Dynamik zu bearbeiten. Die Spitze gilt für das aktive Werkzeug."
 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
@@ -7845,7 +7845,7 @@ msgstr "Keine Ebene hat einen Effekt, der reduziert werden kann."
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
-msgstr "Kein Ebenenname sieht wie ein Asset aus (benennen Sie z. B. eine Ebene „banner.png“)."
+msgstr "Kein Ebenenname sieht wie ein Asset aus (benenne z. B. eine Ebene „banner.png“)."
 
 #: app/src/i18n/errors.ts
 msgid "No Liquify session is open."
@@ -8085,7 +8085,7 @@ msgstr "Ein"
 
 #: app/src/app/Dialogs.tsx
 msgid "On the first connect, Chrome and Edge ask to allow access to apps on this device. Allow it, or the agent cannot reach the tab."
-msgstr "Beim ersten Verbinden fragen Chrome und Edge, ob der Zugriff auf Apps auf diesem Gerät erlaubt werden soll. Erlauben Sie ihn, sonst kann der Agent den Tab nicht erreichen."
+msgstr "Beim ersten Verbinden fragen Chrome und Edge, ob der Zugriff auf Apps auf diesem Gerät erlaubt werden soll. Erlaube ihn, sonst kann der Agent den Tab nicht erreichen."
 
 #: app/src/i18n/choices.ts
 msgid "Once"
@@ -8136,11 +8136,11 @@ msgstr "Deckkraftstopps"
 
 #: app/src/ActionsPanel.tsx
 msgid "Open a document to play an action."
-msgstr "Öffnen Sie ein Dokument, um eine Aktion abzuspielen."
+msgstr "Öffne ein Dokument, um eine Aktion abzuspielen."
 
 #: app/src/i18n/errors.ts
 msgid "Open a document to record an action."
-msgstr "Öffnen Sie ein Dokument, um eine Aktion aufzuzeichnen."
+msgstr "Öffne ein Dokument, um eine Aktion aufzuzeichnen."
 
 #: app/src/TabBar.tsx
 msgid "Open documents"
@@ -8627,7 +8627,7 @@ msgstr "Fotofilter"
 
 #: app/src/app/Dialogs.tsx
 msgid "photobaer is free and open source. Your support helps keep it alive and maintained."
-msgstr "photobaer ist kostenlos und quelloffen. Ihre Unterstützung hilft, es am Leben zu erhalten und zu pflegen."
+msgstr "photobaer ist kostenlos und quelloffen. Deine Unterstützung hilft, es am Leben zu erhalten und zu pflegen."
 
 #: app/src/App.tsx
 msgid "photobaer on GitHub"
@@ -8660,7 +8660,7 @@ msgstr "Photoshop-Filter"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Pick a filter to start a stack."
-msgstr "Wählen Sie einen Filter, um einen Stapel zu beginnen."
+msgstr "Wähle einen Filter, um einen Stapel zu beginnen."
 
 #: app/src/filters/labels.ts
 msgid "Picture Frame"
@@ -8754,7 +8754,7 @@ msgstr "Verknüpft platzieren…"
 
 #: app/src/shell/DeformSession.tsx
 msgid "Place pins inside the mesh, away from existing pins."
-msgstr "Platzieren Sie Pins innerhalb des Gitters, abseits vorhandener Pins."
+msgstr "Platziere Pins innerhalb des Gitters, abseits vorhandener Pins."
 
 #: app/src/i18n/history.ts
 msgid "Place Scale Marker"
@@ -9008,7 +9008,7 @@ msgstr "Drucken…"
 
 #: app/src/FileDialogs.tsx
 msgid "Printer, copies and \"Save as PDF\" are chosen in the browser's print dialog, which opens next."
-msgstr "Drucker, Kopien und „Als PDF speichern“ wählen Sie im Druckdialog des Browsers, der als Nächstes geöffnet wird."
+msgstr "Drucker, Kopien und „Als PDF speichern“ wähle im Druckdialog des Browsers, der als Nächstes geöffnet wird."
 
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -9268,7 +9268,7 @@ msgstr "Rekonstruieren…"
 
 #: app/src/BatchDialog.tsx
 msgid "Record an action in Window › Actions first."
-msgstr "Zeichnen Sie zuerst unter „Fenster › Aktionen“ eine Aktion auf."
+msgstr "Zeichne zuerst unter „Fenster › Aktionen“ eine Aktion auf."
 
 #: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
@@ -9771,7 +9771,7 @@ msgstr "Von rechts nach links"
 
 #: app/src/GlyphsPanel.tsx
 msgid "Right-click a glyph to list its OpenType alternates."
-msgstr "Klicken Sie mit der rechten Maustaste auf eine Glyphe, um deren OpenType-Alternativen aufzulisten."
+msgstr "Klicke mit der rechten Maustaste auf eine Glyphe, um deren OpenType-Alternativen aufzulisten."
 
 #: app/src/TypePanels.tsx
 msgid "Right-to-Left"
@@ -9951,7 +9951,7 @@ msgstr "Kurvenpunkt aufnehmen: im Bedienfeld „Eigenschaften“ verfügbar"
 
 #: app/src/LevelsCurvesBody.tsx
 msgid "Sample curve point: click the image to add a point at its value"
-msgstr "Kurvenpunkt aufnehmen: Klicken Sie ins Bild, um einen Punkt an dessen Wert hinzuzufügen"
+msgstr "Kurvenpunkt aufnehmen: Klicke ins Bild, um einen Punkt an dessen Wert hinzuzufügen"
 
 #: app/src/shell/tools.ts
 msgid "Sample size"
@@ -10083,7 +10083,7 @@ msgstr "Arbeitsbereich speichern"
 
 #: app/src/TypePanels.tsx
 msgid "Save your text formatting as a named style to reuse it."
-msgstr "Speichern Sie Ihre Textformatierung als benannten Stil, um sie wiederzuverwenden."
+msgstr "Speichere deine Textformatierung als benannten Stil, um sie wiederzuverwenden."
 
 #: app/src/ModeDialog.tsx
 msgid "Save..."
@@ -10246,44 +10246,44 @@ msgstr "Auswahl"
 
 #: app/src/i18n/errors.ts
 msgid "Select a group to convert to an artboard."
-msgstr "Wählen Sie eine Gruppe aus, die in eine Zeichenfläche umgewandelt werden soll."
+msgstr "Wähle eine Gruppe aus, die in eine Zeichenfläche umgewandelt werden soll."
 
 #: app/src/i18n/errors.ts
 msgid "Select a layer to convert."
-msgstr "Wählen Sie eine Ebene zum Umwandeln aus."
+msgstr "Wähle eine Ebene zum Umwandeln aus."
 
 #: app/src/NotesPanels.tsx
 msgid "Select a note with the Note tool or the arrows."
-msgstr "Wählen Sie eine Anmerkung mit dem Anmerkungen-Werkzeug oder den Pfeilen aus."
+msgstr "Wähle eine Anmerkung mit dem Anmerkungen-Werkzeug oder den Pfeilen aus."
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/actionsStore.ts
 msgid "Select a set to save."
-msgstr "Wählen Sie einen Satz zum Speichern aus."
+msgstr "Wähle einen Satz zum Speichern aus."
 
 #: app/src/i18n/errors.ts
 msgid "Select a shape layer first."
-msgstr "Wählen Sie zuerst eine Formebene aus."
+msgstr "Wähle zuerst eine Formebene aus."
 
 #: app/src/i18n/errors.ts
 msgid "Select a smart object first."
-msgstr "Wählen Sie zuerst ein Smartobjekt aus."
+msgstr "Wähle zuerst ein Smartobjekt aus."
 
 #: app/src/TypePanels.tsx
 msgid "Select a text layer to save or apply a style."
-msgstr "Wählen Sie eine Textebene aus, um einen Stil zu speichern oder anzuwenden."
+msgstr "Wähle eine Textebene aus, um einen Stil zu speichern oder anzuwenden."
 
 #: app/src/TypePanels.tsx
 msgid "Select a type layer or start typing to edit its characters."
-msgstr "Wählen Sie eine Textebene aus oder beginnen Sie zu tippen, um deren Zeichen zu bearbeiten."
+msgstr "Wähle eine Textebene aus oder beginne zu tippen, um deren Zeichen zu bearbeiten."
 
 #: app/src/TypePanels.tsx
 msgid "Select a type layer or start typing to edit its paragraphs."
-msgstr "Wählen Sie eine Textebene aus oder beginnen Sie zu tippen, um deren Absätze zu bearbeiten."
+msgstr "Wähle eine Textebene aus oder beginne zu tippen, um deren Absätze zu bearbeiten."
 
 #: app/src/GlyphsPanel.tsx
 msgid "Select a type layer, or click into one with the Type tool, then click a glyph."
-msgstr "Wählen Sie eine Textebene aus oder klicken Sie mit dem Textwerkzeug hinein und klicken Sie dann auf eine Glyphe."
+msgstr "Wähle eine Textebene aus oder klicke mit dem Textwerkzeug hinein und klicke dann auf eine Glyphe."
 
 #: app/src/app/contextMenus.ts
 #: app/src/i18n/history.ts
@@ -10294,23 +10294,23 @@ msgstr "Alles auswählen"
 
 #: app/src/app/actionsStore.ts
 msgid "Select an action first."
-msgstr "Wählen Sie zuerst eine Aktion aus."
+msgstr "Wähle zuerst eine Aktion aus."
 
 #: app/src/ActionsPanel.tsx
 msgid "Select an action to play."
-msgstr "Wählen Sie eine Aktion zum Abspielen aus."
+msgstr "Wähle eine Aktion zum Abspielen aus."
 
 #: app/src/app/actionsStore.ts
 msgid "Select an action to record into."
-msgstr "Wählen Sie eine Aktion zum Aufzeichnen aus."
+msgstr "Wähle eine Aktion zum Aufzeichnen aus."
 
 #: app/src/App.tsx
 msgid "Select an unlocked layer with pixels to warp."
-msgstr "Wählen Sie eine nicht fixierte Ebene mit Pixeln zum Verformen aus."
+msgstr "Wähle eine nicht fixierte Ebene mit Pixeln zum Verformen aus."
 
 #: app/src/i18n/errors.ts
 msgid "Select at least two pixel layers to align."
-msgstr "Wählen Sie mindestens zwei Pixelebenen zum Ausrichten aus."
+msgstr "Wähle mindestens zwei Pixelebenen zum Ausrichten aus."
 
 #: app/src/AnalysisDialogs.tsx
 msgid "Select Data Points"
@@ -10327,7 +10327,7 @@ msgstr "Auswahl umkehren"
 
 #: app/src/i18n/errors.ts
 msgid "Select layers at the same level to convert them."
-msgstr "Wählen Sie Ebenen derselben Ebene aus, um sie umzuwandeln."
+msgstr "Wähle Ebenen derselben Ebene aus, um sie umzuwandeln."
 
 #: app/src/ScriptDialogs.tsx
 msgid "Select location to save processed images"
@@ -10335,7 +10335,7 @@ msgstr "Speicherort für verarbeitete Bilder auswählen"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
-msgstr "Wählen Sie den zu füllenden Bereich aus."
+msgstr "Wähle den zu füllenden Bereich aus."
 
 #: app/src/ScriptDialogs.tsx
 msgid "Select the images to process"
@@ -10343,11 +10343,11 @@ msgstr "Zu verarbeitende Bilder auswählen"
 
 #: app/src/App.tsx
 msgid "Select the layer pixels to use Content-Aware Fill."
-msgstr "Wählen Sie die Ebenenpixel aus, um „Inhaltsbasiert füllen“ zu verwenden."
+msgstr "Wähle die Ebenenpixel aus, um „Inhaltsbasiert füllen“ zu verwenden."
 
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
-msgstr "Wählen Sie zwei oder mehr Formebenen aus, um sie zu kombinieren."
+msgstr "Wähle zwei oder mehr Formebenen aus, um sie zu kombinieren."
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -10390,7 +10390,7 @@ msgstr "Satz {next}"
 
 #: app/src/i18n/errors.ts
 msgid "Set a history state as the source in the History panel."
-msgstr "Legen Sie im Bedienfeld „Protokoll“ einen Protokollstatus als Quelle fest."
+msgstr "Lege im Bedienfeld „Protokoll“ einen Protokollstatus als Quelle fest."
 
 #: app/src/i18n/history.ts
 msgid "Set Measurement Scale"
@@ -11299,7 +11299,7 @@ msgstr "Aufzeichnung beenden"
 #: app/src/ActionsPanel.tsx
 #: app/src/app/actionsStore.ts
 msgid "Stop recording first."
-msgstr "Beenden Sie zuerst die Aufzeichnung."
+msgstr "Beende zuerst die Aufzeichnung."
 
 #: app/src/app/menus.ts
 msgid "Stop Script"
@@ -11692,7 +11692,7 @@ msgstr "Strukturierer"
 
 #: app/src/app/Dialogs.tsx
 msgid "Thank you for thinking about supporting it. It means a lot!"
-msgstr "Danke, dass Sie über eine Unterstützung nachdenken. Das bedeutet uns viel!"
+msgstr "Danke, dass du über eine Unterstützung nachdenkst. Das bedeutet uns viel!"
 
 #: app/src/i18n/errors.ts
 msgid "That document is not open."
@@ -11740,7 +11740,7 @@ msgstr "Die Pinselbibliothek ist nicht verfügbar."
 
 #: app/src/app/paintTool.ts
 msgid "The clone source is in another document. Alt-click to set a new source."
-msgstr "Die Kopierquelle befindet sich in einem anderen Dokument. Klicken Sie mit gedrückter Alt-Taste, um eine neue Quelle festzulegen."
+msgstr "Die Kopierquelle befindet sich in einem anderen Dokument. Klicke mit gedrückter Alt-Taste, um eine neue Quelle festzulegen."
 
 #: app/src/App.tsx
 msgid "The contents were not written back."
@@ -11772,7 +11772,7 @@ msgstr "Das Dokument, auf das zurückgekehrt werden soll, ist nicht mehr aktiv."
 
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
-msgstr "Die Bearbeitung läuft in diesem Browser-Tab; photobaer-mcp läuft auf Ihrem Computer und verbindet den Agenten nur mit dem Tab."
+msgstr "Die Bearbeitung läuft in diesem Browser-Tab; photobaer-mcp läuft auf deinem Computer und verbindet den Agenten nur mit dem Tab."
 
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
@@ -11796,7 +11796,7 @@ msgstr "Die Ebene hat keine Pixel."
 
 #: app/src/i18n/errors.ts
 msgid "The linked source is unavailable: {name}. Relink the Smart Object to an existing file."
-msgstr "Die verknüpfte Quelle ist nicht verfügbar: {name}. Verknüpfen Sie das Smartobjekt mit einer vorhandenen Datei neu."
+msgstr "Die verknüpfte Quelle ist nicht verfügbar: {name}. Verknüpfe das Smartobjekt mit einer vorhandenen Datei neu."
 
 #: app/src/app/measureTools.tsx
 msgid "The measured line is already straight."
@@ -11808,7 +11808,7 @@ msgstr "Die ID des neuen Werkzeug-Presets ist ungültig oder existiert bereits."
 
 #: app/src/i18n/errors.ts
 msgid "The original Smart Object was removed or replaced. Use Save As to keep these contents."
-msgstr "Das ursprüngliche Smartobjekt wurde entfernt oder ersetzt. Verwenden Sie „Speichern unter“, um diesen Inhalt zu behalten."
+msgstr "Das ursprüngliche Smartobjekt wurde entfernt oder ersetzt. Verwende „Speichern unter“, um diesen Inhalt zu behalten."
 
 #. placeholder {0}: file.name
 #: app/src/PdfDialog.tsx
@@ -11953,7 +11953,7 @@ msgstr "Diese Ebene"
 
 #: app/src/i18n/errors.ts
 msgid "This Smart Object has no embedded source file. Use Replace Contents or reopen the original PSD."
-msgstr "Dieses Smartobjekt hat keine eingebettete Quelldatei. Verwenden Sie „Inhalt ersetzen“ oder öffnen Sie die ursprüngliche PSD erneut."
+msgstr "Dieses Smartobjekt hat keine eingebettete Quelldatei. Verwende „Inhalt ersetzen“ oder öffne die ursprüngliche PSD erneut."
 
 #: app/src/i18n/errors.ts
 msgid "This smart object has no smart filters."
@@ -11961,7 +11961,7 @@ msgstr "Dieses Smartobjekt hat keine Smartfilter."
 
 #: app/src/i18n/errors.ts
 msgid "This Smart Object has no source file to export. Reopen the original PSD or use Replace Contents."
-msgstr "Dieses Smartobjekt hat keine Quelldatei zum Exportieren. Öffnen Sie die ursprüngliche PSD erneut oder verwenden Sie „Inhalt ersetzen“."
+msgstr "Dieses Smartobjekt hat keine Quelldatei zum Exportieren. Öffne die ursprüngliche PSD erneut oder verwende „Inhalt ersetzen“."
 
 #: app/src/i18n/errors.ts
 msgid "This Smart Object has no source file to link."
@@ -12075,7 +12075,7 @@ msgstr "Titelalternativen"
 
 #: app/src/MissingFonts.tsx
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
-msgstr "Um den Text jetzt zu bearbeiten, ersetzen Sie die fehlende Schrift durch die Standardschrift. Sie können fehlende Schriften auch für das gesamte Dokument verwalten."
+msgstr "Um den Text jetzt zu bearbeiten, ersetze die fehlende Schrift durch die Standardschrift. Du kannst fehlende Schriften auch für das gesamte Dokument verwalten."
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"
@@ -12438,7 +12438,7 @@ msgstr "Hilfslinien entsperren"
 
 #: app/src/i18n/errors.ts
 msgid "Unlock the group before converting it to an artboard."
-msgstr "Geben Sie die Gruppe frei, bevor Sie sie in eine Zeichenfläche umwandeln."
+msgstr "Gib die Gruppe frei, bevor du sie in eine Zeichenfläche umwandelst."
 
 #: app/src/GlyphsPanel.tsx
 msgid "unmapped"
@@ -12446,7 +12446,7 @@ msgstr "nicht zugeordnet"
 
 #: app/src/MissingFonts.tsx
 msgid "Unresolved fonts keep their current rendering until the text is edited. Original font names are kept; choose permanent replacements now or later from the Type menu."
-msgstr "Nicht aufgelöste Schriften behalten ihre aktuelle Darstellung, bis der Text bearbeitet wird. Die ursprünglichen Schriftnamen bleiben erhalten; wählen Sie dauerhafte Ersetzungen jetzt oder später im Menü „Schrift“."
+msgstr "Nicht aufgelöste Schriften behalten ihre aktuelle Darstellung, bis der Text bearbeitet wird. Die ursprünglichen Schriftnamen bleiben erhalten; wähle dauerhafte Ersetzungen jetzt oder später im Menü „Schrift“."
 
 #: app/src/filters/labels.ts
 msgid "Unsharp Mask"
@@ -12762,7 +12762,7 @@ msgstr "Verformen"
 
 #: app/src/i18n/errors.ts
 msgid "Warp bends a whole layer; deselect to warp it."
-msgstr "„Verformen“ biegt eine ganze Ebene; heben Sie die Auswahl auf, um sie zu verformen."
+msgstr "„Verformen“ biegt eine ganze Ebene; hebe die Auswahl auf, um sie zu verformen."
 
 #: app/src/i18n/errors.ts
 msgid "Warp bends layer pixels, not the selection outline."

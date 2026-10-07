@@ -9,11 +9,11 @@ msgstr ""
 
 #: app/src/MissingFonts.tsx
 msgid "“{docName}” uses fonts that could not be loaded. Choose replacements for the selected text. Text layout may change."
-msgstr "«{docName}» использует шрифты, которые не удалось загрузить. Выберите замену для выделенного текста. Расположение текста может измениться."
+msgstr "«{docName}» использует шрифты, которые не удалось загрузить. Выбери замену для выделенного текста. Расположение текста может измениться."
 
 #: app/src/MissingFonts.tsx
 msgid "“{docName}” uses fonts that could not be loaded. Choose replacements for the whole document. Text layout may change."
-msgstr "«{docName}» использует шрифты, которые не удалось загрузить. Выберите замену для всего документа. Расположение текста может измениться."
+msgstr "«{docName}» использует шрифты, которые не удалось загрузить. Выбери замену для всего документа. Расположение текста может измениться."
 
 #: app/src/i18n/errors.ts
 msgid "\"{name}\" is already a smart object."
@@ -110,7 +110,7 @@ msgstr "В шрифте {fam} нет глифов в наборе {subsetName}."
 
 #: app/src/MissingFonts.tsx
 msgid "{family} does not contain every character used by {source}. Choose another font."
-msgstr "{family} не содержит всех символов, используемых в {source}. Выберите другой шрифт."
+msgstr "{family} не содержит всех символов, используемых в {source}. Выбери другой шрифт."
 
 #. placeholder {0}: handleName(cls, i === outer)
 #: app/src/LayerStyleDialog.tsx
@@ -176,7 +176,7 @@ msgstr "{label}: доступно на панели «Свойства»"
 
 #: app/src/LevelsCurvesBody.tsx
 msgid "{label}: click the image to set it"
-msgstr "{label}: щелкните изображение, чтобы задать значение"
+msgstr "{label}: щелкни изображение, чтобы задать значение"
 
 #: app/src/ChannelsPanel.tsx
 msgid "{maskName} Mask"
@@ -210,7 +210,7 @@ msgstr "{name}\n"
 
 #: app/src/ShapesPanel.tsx
 msgid "{name} armed. Drag on the canvas to draw it."
-msgstr "{name}: готово к рисованию. Перетащите по холсту, чтобы нарисовать."
+msgstr "{name}: готово к рисованию. Перетащи по холсту, чтобы нарисовать."
 
 #: app/src/filters/GalleryStack.tsx
 msgid "{name} enabled"
@@ -327,7 +327,7 @@ msgstr "1:1"
 
 #: app/src/app/Dialogs.tsx
 msgid "1. Add the photobaer MCP server to your agent"
-msgstr "1. Добавьте MCP-сервер photobaer в своего агента"
+msgstr "1. Добавь MCP-сервер photobaer в своего агента"
 
 #: app/src/app/menus.ts
 msgid "100%"
@@ -367,7 +367,7 @@ msgstr "2:3"
 
 #: app/src/app/Dialogs.tsx
 msgid "2. Start with this prompt"
-msgstr "2. Начните с этого запроса"
+msgstr "2. Начни с этого запроса"
 
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
@@ -534,7 +534,7 @@ msgstr "Добавить основной цвет"
 
 #: app/src/app/measureTools.tsx
 msgid "Add guides inside the canvas first."
-msgstr "Сначала добавьте направляющие внутри холста."
+msgstr "Сначала добавь направляющие внутри холста."
 
 #: app/src/App.tsx
 #: app/src/LayersPanel.tsx
@@ -695,7 +695,7 @@ msgstr "Все слои"
 
 #: app/src/ExportDialogs.tsx
 msgid "All sizes are written into one folder, chosen next."
-msgstr "Все размеры записываются в одну папку, которую вы выберете далее."
+msgstr "Все размеры записываются в одну папку, которую ты выберешь далее."
 
 #: app/src/ActionsPanel.tsx
 msgid "Allow Continue? (OK = playback can continue, Cancel = playback ends here)"
@@ -708,27 +708,27 @@ msgstr "Alt"
 
 #: app/src/app/paintTool.ts
 msgid "Alt-click to set a clone source first."
-msgstr "Сначала щелкните с нажатой клавишей Alt, чтобы задать источник клонирования."
+msgstr "Сначала щелкни с нажатой клавишей Alt, чтобы задать источник клонирования."
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Alt-click to set a clone source, then paint inside a plane."
-msgstr "Щелкните с нажатой клавишей Alt, чтобы задать источник клонирования, затем рисуйте внутри плоскости."
+msgstr "Щелкни с нажатой клавишей Alt, чтобы задать источник клонирования, затем рисуй внутри плоскости."
 
 #: app/src/app/paintTool.ts
 msgid "Alt-click to set a source for the Healing Brush."
-msgstr "Щелкните с нажатой клавишей Alt, чтобы задать источник для инструмента «Восстанавливающая кисть»."
+msgstr "Щелкни с нажатой клавишей Alt, чтобы задать источник для инструмента «Восстанавливающая кисть»."
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Alt-click to set the clone source, then paint inside a plane."
-msgstr "Щелкните с нажатой клавишей Alt, чтобы задать источник клонирования, затем рисуйте внутри плоскости."
+msgstr "Щелкни с нажатой клавишей Alt, чтобы задать источник клонирования, затем рисуй внутри плоскости."
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Alt-click with the Clone Stamp to set a source."
-msgstr "Щелкните с нажатой клавишей Alt инструментом «Штамп», чтобы задать источник."
+msgstr "Щелкни с нажатой клавишей Alt инструментом «Штамп», чтобы задать источник."
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Alt-drag a handle to split it."
-msgstr "Перетащите маркер с нажатой клавишей Alt, чтобы разделить его."
+msgstr "Перетащи маркер с нажатой клавишей Alt, чтобы разделить его."
 
 #: app/src/GlyphsPanel.tsx
 msgid "Alternates for {altName}"
@@ -763,7 +763,7 @@ msgstr "Мин. амплитуда"
 
 #: app/src/App.tsx
 msgid "An AI agent controls this tab. Click to disconnect."
-msgstr "ИИ-агент управляет этой вкладкой. Щелкните, чтобы отключить."
+msgstr "ИИ-агент управляет этой вкладкой. Щелкни, чтобы отключить."
 
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/menus.ts
@@ -1958,7 +1958,7 @@ msgstr "Не удалось закодировать: {reason}"
 
 #: app/src/i18n/errors.ts
 msgid "Cannot save linked .{ext} contents. Use Save As to keep your edits."
-msgstr "Нельзя сохранить содержимое связанного файла .{ext}. Используйте «Сохранить как», чтобы сохранить изменения."
+msgstr "Нельзя сохранить содержимое связанного файла .{ext}. Используй «Сохранить как», чтобы сохранить изменения."
 
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -2118,15 +2118,15 @@ msgstr "Стягивание"
 
 #: app/src/App.tsx
 msgid "Choose a .psd, .psb, .exr, .hdr or .ico file name, not {name}."
-msgstr "Выберите имя файла .psd, .psb, .exr, .hdr или .ico, а не {name}."
+msgstr "Выбери имя файла .psd, .psb, .exr, .hdr или .ico, а не {name}."
 
 #: app/src/app/paintTool.ts
 msgid "Choose a pattern first."
-msgstr "Сначала выберите узор."
+msgstr "Сначала выбери узор."
 
 #: app/src/i18n/errors.ts
 msgid "Choose at least one file."
-msgstr "Выберите хотя бы один файл."
+msgstr "Выбери хотя бы один файл."
 
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
@@ -2225,17 +2225,17 @@ msgstr "Очистка…"
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Click four corners to define a perspective plane."
-msgstr "Щелкните четыре угла, чтобы задать плоскость перспективы."
+msgstr "Щелкни четыре угла, чтобы задать плоскость перспективы."
 
 #: app/src/App.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
 msgid "Click to edit the gradient"
-msgstr "Щелкните, чтобы изменить градиент"
+msgstr "Щелкни, чтобы изменить градиент"
 
 #: app/src/NotesPanels.tsx
 msgid "Click with the Note tool to add a note."
-msgstr "Щелкните инструментом «Заметка», чтобы добавить заметку."
+msgstr "Щелкни инструментом «Заметка», чтобы добавить заметку."
 
 #: app/src/ShapesPanel.tsx
 msgid "Clicking a shape arms the Custom Shape tool."
@@ -2300,7 +2300,7 @@ msgstr "Закрыть варианты"
 
 #: app/src/i18n/errors.ts
 msgid "Close Edit Contents before reverting."
-msgstr "Закройте редактирование содержимого перед восстановлением."
+msgstr "Закрой редактирование содержимого перед восстановлением."
 
 #: app/src/app/menus.ts
 msgid "Close Others"
@@ -2806,7 +2806,7 @@ msgstr "Преобразовать в рабочее {space}"
 
 #: app/src/App.tsx
 msgid "Convert type and shape layers to Smart Objects, or rasterize them, before warping."
-msgstr "Перед деформацией преобразуйте текстовые слои и слои-фигуры в смарт-объекты или растрируйте их."
+msgstr "Перед деформацией преобразуй текстовые слои и слои-фигуры в смарт-объекты или растрируй их."
 
 #: app/src/App.tsx
 msgid "Converting to linked…"
@@ -2829,7 +2829,7 @@ msgstr "Копировать"
 
 #: app/src/i18n/errors.ts
 msgid "Copy a layer style first."
-msgstr "Сначала скопируйте стиль слоя."
+msgstr "Сначала скопируй стиль слоя."
 
 #: app/src/app/vectorCommands.ts
 msgid "Copy CSS"
@@ -2899,7 +2899,7 @@ msgstr "Не удалось выполнить объединение: ниже 
 
 #: app/src/i18n/errors.ts
 msgid "Could not merge layers: select at least two layers."
-msgstr "Не удалось объединить слои: выберите не менее двух слоев."
+msgstr "Не удалось объединить слои: выбери не менее двух слоев."
 
 #: app/src/i18n/errors.ts
 msgid "Could not merge layers: the layers must be in the same group."
@@ -3374,7 +3374,7 @@ msgstr "Определить"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Define a variable on the Define tab first."
-msgstr "Сначала определите переменную на вкладке «Определить»."
+msgstr "Сначала определи переменную на вкладке «Определить»."
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -3840,43 +3840,43 @@ msgstr "Черновик"
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Drag a corner to adjust the plane, or drag inside a plane to move it."
-msgstr "Перетащите угол, чтобы изменить плоскость, или перетащите внутри плоскости, чтобы переместить ее."
+msgstr "Перетащи угол, чтобы изменить плоскость, или перетащи внутри плоскости, чтобы переместить ее."
 
 #: app/src/shell/DeformSession.tsx
 msgid "Drag pins. Shift-click an edge to straighten and lock it."
-msgstr "Перетаскивайте булавки. Щелкните край с нажатой клавишей Shift, чтобы выпрямить и зафиксировать его."
+msgstr "Перетаскивай булавки. Щелкни край с нажатой клавишей Shift, чтобы выпрямить и зафиксировать его."
 
 #: app/src/LayersPanel.tsx
 msgid "Drag to move effects; Alt or Ctrl drag to copy"
-msgstr "Перетащите, чтобы переместить эффекты; перетащите с нажатой клавишей Alt или Ctrl, чтобы скопировать"
+msgstr "Перетащи, чтобы переместить эффекты; перетащи с нажатой клавишей Alt или Ctrl, чтобы скопировать"
 
 #: app/src/shell/DockSection.tsx
 msgid "Drag to move this panel"
-msgstr "Перетащите, чтобы переместить эту панель"
+msgstr "Перетащи, чтобы переместить эту панель"
 
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Drag to scroll the preview."
-msgstr "Перетащите, чтобы прокрутить просмотр."
+msgstr "Перетащи, чтобы прокрутить просмотр."
 
 #: app/src/App.tsx
 msgid "drag to select, Shift add, Alt subtract"
-msgstr "перетащите для выбора, Shift — добавить, Alt — вычесть"
+msgstr "перетащи для выбора, Shift — добавить, Alt — вычесть"
 
 #: app/src/AnalysisDialogs.tsx
 msgid "Draw a ruler line first to measure a known length."
-msgstr "Сначала проведите линию линейкой, чтобы измерить известную длину."
+msgstr "Сначала проведи линию линейкой, чтобы измерить известную длину."
 
 #: app/src/app/measureTools.tsx
 msgid "Draw a ruler line, place counts or make a selection first."
-msgstr "Сначала проведите линию линейкой, расставьте отметки счетчика или создайте выделенную область."
+msgstr "Сначала проведи линию линейкой, расставь отметки счетчика или создай выделенную область."
 
 #: app/src/shell/DeformSession.tsx
 msgid "Draw planes over the image. Join corners to link planes."
-msgstr "Рисуйте плоскости поверх изображения. Соединяйте углы, чтобы связать плоскости."
+msgstr "Рисуй плоскости поверх изображения. Соединяй углы, чтобы связать плоскости."
 
 #: app/src/App.tsx
 msgid "Drop an image here"
-msgstr "Перетащите сюда изображение"
+msgstr "Перетащи сюда изображение"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -4165,24 +4165,24 @@ msgstr "Увеличенный"
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a number."
-msgstr "Введите число."
+msgstr "Введи число."
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value from {lo} to {hi}."
-msgstr "Введите значение от {lo} до {hi}."
+msgstr "Введи значение от {lo} до {hi}."
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value of at least {lo}."
-msgstr "Введите значение не менее {lo}."
+msgstr "Введи значение не менее {lo}."
 
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value of at most {hi}."
-msgstr "Введите значение не более {hi}."
+msgstr "Введи значение не более {hi}."
 
 #. placeholder {0}: formatNumber(Number(step ?? 1), digits)
 #: app/src/shell/NumberInput.tsx
 msgid "Enter a value that fits the step of {0}."
-msgstr "Введите значение, кратное шагу {0}."
+msgstr "Введи значение, кратное шагу {0}."
 
 #: app/src/app/helpers.ts
 msgid "Entropy"
@@ -5821,7 +5821,7 @@ msgstr "Создание ресурсов изображения включен�
 
 #: app/src/App.tsx
 msgid "Image Assets: no folder was chosen. Turn File > Generate > Image Assets off and on to choose one."
-msgstr "Ресурсы изображения: папка не выбрана. Выключите и снова включите «Файл > Создать > Ресурсы изображения», чтобы выбрать папку."
+msgstr "Ресурсы изображения: папка не выбрана. Выключи и снова включи «Файл > Создать > Ресурсы изображения», чтобы выбрать папку."
 
 #: app/src/filters/labels.ts
 msgid "Image Balance"
@@ -6143,7 +6143,7 @@ msgstr "Инвертировать все"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Invert has no parameters. Use opacity or blend mode to moderate the result."
-msgstr "У команды «Инверсия» нет параметров. Используйте непрозрачность или режим наложения, чтобы смягчить результат."
+msgstr "У команды «Инверсия» нет параметров. Используй непрозрачность или режим наложения, чтобы смягчить результат."
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Invert Selection"
@@ -6991,15 +6991,15 @@ msgstr "Магнитное лассо"
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/errors.ts
 msgid "Make a selection first."
-msgstr "Сначала создайте выделенную область."
+msgstr "Сначала создай выделенную область."
 
 #: app/src/i18n/errors.ts
 msgid "Make a selection to crop to."
-msgstr "Создайте выделенную область для кадрирования."
+msgstr "Создай выделенную область для кадрирования."
 
 #: app/src/i18n/errors.ts
 msgid "Make a selection to stroke."
-msgstr "Создайте выделенную область для обводки."
+msgstr "Создай выделенную область для обводки."
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Make Default"
@@ -7771,11 +7771,11 @@ msgstr "Следующая заметка"
 
 #: app/src/ActionsPanel.tsx
 msgid "No action sets. Record an action or load a set."
-msgstr "Нет наборов операций. Запишите операцию или загрузите набор."
+msgstr "Нет наборов операций. Запиши операцию или загрузи набор."
 
 #: app/src/ActionsPanel.tsx
 msgid "No actions. Record one or load a set."
-msgstr "Нет операций. Запишите операцию или загрузите набор."
+msgstr "Нет операций. Запиши операцию или загрузи набор."
 
 #: app/src/App.tsx
 msgid "No active layer"
@@ -7795,7 +7795,7 @@ msgstr "Нет автора"
 
 #: app/src/MissingFonts.tsx
 msgid "No available default font can display this text. Choose Manage to select a replacement."
-msgstr "Ни один доступный шрифт по умолчанию не может отобразить этот текст. Нажмите «Управление», чтобы выбрать замену."
+msgstr "Ни один доступный шрифт по умолчанию не может отобразить этот текст. Нажми «Управление», чтобы выбрать замену."
 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brush matches “{query}”."
@@ -7803,7 +7803,7 @@ msgstr "Нет кистей, соответствующих запросу «{qu
 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brush preset selected: pick one in Brushes to edit dynamics. The tip applies to the active tool."
-msgstr "Набор кисти не выбран: выберите его в разделе «Кисти», чтобы изменить динамику. Отпечаток применяется к активному инструменту."
+msgstr "Набор кисти не выбран: выбери его в разделе «Кисти», чтобы изменить динамику. Отпечаток применяется к активному инструменту."
 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
@@ -7848,7 +7848,7 @@ msgstr "Ни у одного слоя нет эффекта для сведен�
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
-msgstr "Названия слоев не похожи на ресурсы (попробуйте назвать слой «banner.png»)."
+msgstr "Названия слоев не похожи на ресурсы (попробуй назвать слой «banner.png»)."
 
 #: app/src/i18n/errors.ts
 msgid "No Liquify session is open."
@@ -7990,7 +7990,7 @@ msgstr "Северная Америка, веб/Интернет"
 
 #: app/src/shell/ColorPicker.tsx
 msgid "Not web-safe: click to snap"
-msgstr "Не веб-безопасный: щелкните для привязки"
+msgstr "Не веб-безопасный: щелкни для привязки"
 
 #: app/src/shell/tools.ts
 msgid "Note"
@@ -8088,7 +8088,7 @@ msgstr "Вкл."
 
 #: app/src/app/Dialogs.tsx
 msgid "On the first connect, Chrome and Edge ask to allow access to apps on this device. Allow it, or the agent cannot reach the tab."
-msgstr "При первом подключении Chrome и Edge запрашивают разрешение на доступ к приложениям на этом устройстве. Разрешите доступ, иначе агент не сможет подключиться к вкладке."
+msgstr "При первом подключении Chrome и Edge запрашивают разрешение на доступ к приложениям на этом устройстве. Разреши доступ, иначе агент не сможет подключиться к вкладке."
 
 #: app/src/i18n/choices.ts
 msgid "Once"
@@ -8139,11 +8139,11 @@ msgstr "Контрольные точки непрозрачности"
 
 #: app/src/ActionsPanel.tsx
 msgid "Open a document to play an action."
-msgstr "Откройте документ, чтобы воспроизвести операцию."
+msgstr "Открой документ, чтобы воспроизвести операцию."
 
 #: app/src/i18n/errors.ts
 msgid "Open a document to record an action."
-msgstr "Откройте документ, чтобы записать операцию."
+msgstr "Открой документ, чтобы записать операцию."
 
 #: app/src/TabBar.tsx
 msgid "Open documents"
@@ -8663,7 +8663,7 @@ msgstr "Фильтр Photoshop"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Pick a filter to start a stack."
-msgstr "Выберите фильтр, чтобы начать стек."
+msgstr "Выбери фильтр, чтобы начать стек."
 
 #: app/src/filters/labels.ts
 msgid "Picture Frame"
@@ -8757,7 +8757,7 @@ msgstr "Поместить связанные…"
 
 #: app/src/shell/DeformSession.tsx
 msgid "Place pins inside the mesh, away from existing pins."
-msgstr "Разместите булавки внутри сетки, вдали от существующих булавок."
+msgstr "Размести булавки внутри сетки, вдали от существующих булавок."
 
 #: app/src/i18n/history.ts
 msgid "Place Scale Marker"
@@ -9271,7 +9271,7 @@ msgstr "Восстановить…"
 
 #: app/src/BatchDialog.tsx
 msgid "Record an action in Window › Actions first."
-msgstr "Сначала запишите операцию через меню «Окно» › «Операции»."
+msgstr "Сначала запиши операцию через меню «Окно» › «Операции»."
 
 #: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
@@ -9774,7 +9774,7 @@ msgstr "Справа налево"
 
 #: app/src/GlyphsPanel.tsx
 msgid "Right-click a glyph to list its OpenType alternates."
-msgstr "Щелкните глиф правой кнопкой мыши, чтобы увидеть его альтернативы OpenType."
+msgstr "Щелкни глиф правой кнопкой мыши, чтобы увидеть его альтернативы OpenType."
 
 #: app/src/TypePanels.tsx
 msgid "Right-to-Left"
@@ -9954,7 +9954,7 @@ msgstr "Образец точки кривой: доступен на панел
 
 #: app/src/LevelsCurvesBody.tsx
 msgid "Sample curve point: click the image to add a point at its value"
-msgstr "Образец точки кривой: щелкните изображение, чтобы добавить точку с его значением"
+msgstr "Образец точки кривой: щелкни изображение, чтобы добавить точку с его значением"
 
 #: app/src/shell/tools.ts
 msgid "Sample size"
@@ -10086,7 +10086,7 @@ msgstr "Сохранить рабочую среду"
 
 #: app/src/TypePanels.tsx
 msgid "Save your text formatting as a named style to reuse it."
-msgstr "Сохраните форматирование текста как именованный стиль, чтобы использовать его повторно."
+msgstr "Сохрани форматирование текста как именованный стиль, чтобы использовать его повторно."
 
 #: app/src/ModeDialog.tsx
 msgid "Save..."
@@ -10249,44 +10249,44 @@ msgstr "Выделение"
 
 #: app/src/i18n/errors.ts
 msgid "Select a group to convert to an artboard."
-msgstr "Выберите группу для преобразования в монтажную область."
+msgstr "Выбери группу для преобразования в монтажную область."
 
 #: app/src/i18n/errors.ts
 msgid "Select a layer to convert."
-msgstr "Выберите слой для преобразования."
+msgstr "Выбери слой для преобразования."
 
 #: app/src/NotesPanels.tsx
 msgid "Select a note with the Note tool or the arrows."
-msgstr "Выберите заметку с помощью инструмента «Заметка» или стрелок."
+msgstr "Выбери заметку с помощью инструмента «Заметка» или стрелок."
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/actionsStore.ts
 msgid "Select a set to save."
-msgstr "Выберите набор для сохранения."
+msgstr "Выбери набор для сохранения."
 
 #: app/src/i18n/errors.ts
 msgid "Select a shape layer first."
-msgstr "Сначала выберите слой-фигуру."
+msgstr "Сначала выбери слой-фигуру."
 
 #: app/src/i18n/errors.ts
 msgid "Select a smart object first."
-msgstr "Сначала выберите смарт-объект."
+msgstr "Сначала выбери смарт-объект."
 
 #: app/src/TypePanels.tsx
 msgid "Select a text layer to save or apply a style."
-msgstr "Выберите текстовый слой, чтобы сохранить или применить стиль."
+msgstr "Выбери текстовый слой, чтобы сохранить или применить стиль."
 
 #: app/src/TypePanels.tsx
 msgid "Select a type layer or start typing to edit its characters."
-msgstr "Выберите текстовый слой или начните вводить текст, чтобы изменить его символы."
+msgstr "Выбери текстовый слой или начни вводить текст, чтобы изменить его символы."
 
 #: app/src/TypePanels.tsx
 msgid "Select a type layer or start typing to edit its paragraphs."
-msgstr "Выберите текстовый слой или начните вводить текст, чтобы изменить его абзацы."
+msgstr "Выбери текстовый слой или начни вводить текст, чтобы изменить его абзацы."
 
 #: app/src/GlyphsPanel.tsx
 msgid "Select a type layer, or click into one with the Type tool, then click a glyph."
-msgstr "Выберите текстовый слой или щелкните его инструментом «Текст», затем щелкните глиф."
+msgstr "Выбери текстовый слой или щелкни его инструментом «Текст», затем щелкни глиф."
 
 #: app/src/app/contextMenus.ts
 #: app/src/i18n/history.ts
@@ -10297,23 +10297,23 @@ msgstr "Выделить все"
 
 #: app/src/app/actionsStore.ts
 msgid "Select an action first."
-msgstr "Сначала выберите операцию."
+msgstr "Сначала выбери операцию."
 
 #: app/src/ActionsPanel.tsx
 msgid "Select an action to play."
-msgstr "Выберите операцию для воспроизведения."
+msgstr "Выбери операцию для воспроизведения."
 
 #: app/src/app/actionsStore.ts
 msgid "Select an action to record into."
-msgstr "Выберите операцию для записи."
+msgstr "Выбери операцию для записи."
 
 #: app/src/App.tsx
 msgid "Select an unlocked layer with pixels to warp."
-msgstr "Выберите незакрепленный слой с пикселами для деформации."
+msgstr "Выбери незакрепленный слой с пикселами для деформации."
 
 #: app/src/i18n/errors.ts
 msgid "Select at least two pixel layers to align."
-msgstr "Выберите не менее двух растровых слоев для выравнивания."
+msgstr "Выбери не менее двух растровых слоев для выравнивания."
 
 #: app/src/AnalysisDialogs.tsx
 msgid "Select Data Points"
@@ -10330,27 +10330,27 @@ msgstr "Инверсия"
 
 #: app/src/i18n/errors.ts
 msgid "Select layers at the same level to convert them."
-msgstr "Выберите слои одного уровня для преобразования."
+msgstr "Выбери слои одного уровня для преобразования."
 
 #: app/src/ScriptDialogs.tsx
 msgid "Select location to save processed images"
-msgstr "Выберите папку для сохранения обработанных изображений"
+msgstr "Выбери папку для сохранения обработанных изображений"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
-msgstr "Выберите изображения для обработки"
+msgstr "Выбери область для заливки."
 
 #: app/src/ScriptDialogs.tsx
 msgid "Select the images to process"
-msgstr "Выберите область для заливки."
+msgstr "Выбери изображения для обработки"
 
 #: app/src/App.tsx
 msgid "Select the layer pixels to use Content-Aware Fill."
-msgstr "Выберите пикселы слоя для заливки с учетом содержимого."
+msgstr "Выбери пикселы слоя для заливки с учетом содержимого."
 
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
-msgstr "Выберите два или несколько слоев-фигур, чтобы объединить их."
+msgstr "Выбери два или несколько слоев-фигур, чтобы объединить их."
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -10379,7 +10379,7 @@ msgstr "На задний план"
 
 #: app/src/FileDialogs.tsx
 msgid "Separate keywords with commas or semicolons."
-msgstr "Разделяйте ключевые слова запятыми или точками с запятой."
+msgstr "Разделяй ключевые слова запятыми или точками с запятой."
 
 #: app/src/BatchDialog.tsx
 #: app/src/ScriptDialogs.tsx
@@ -10393,7 +10393,7 @@ msgstr "Набор {next}"
 
 #: app/src/i18n/errors.ts
 msgid "Set a history state as the source in the History panel."
-msgstr "Задайте состояние истории в качестве источника на панели «История»."
+msgstr "Задай состояние истории в качестве источника на панели «История»."
 
 #: app/src/i18n/history.ts
 msgid "Set Measurement Scale"
@@ -11302,7 +11302,7 @@ msgstr "Остановить запись"
 #: app/src/ActionsPanel.tsx
 #: app/src/app/actionsStore.ts
 msgid "Stop recording first."
-msgstr "Сначала остановите запись."
+msgstr "Сначала останови запись."
 
 #: app/src/app/menus.ts
 msgid "Stop Script"
@@ -11743,7 +11743,7 @@ msgstr "Библиотека кистей недоступна."
 
 #: app/src/app/paintTool.ts
 msgid "The clone source is in another document. Alt-click to set a new source."
-msgstr "Источник клонирования находится в другом документе. Щелкните с нажатой клавишей Alt, чтобы задать новый источник."
+msgstr "Источник клонирования находится в другом документе. Щелкни с нажатой клавишей Alt, чтобы задать новый источник."
 
 #: app/src/App.tsx
 msgid "The contents were not written back."
@@ -11799,7 +11799,7 @@ msgstr "В слое нет пикселов."
 
 #: app/src/i18n/errors.ts
 msgid "The linked source is unavailable: {name}. Relink the Smart Object to an existing file."
-msgstr "Связанный источник недоступен: {name}. Восстановите связь смарт-объекта с существующим файлом."
+msgstr "Связанный источник недоступен: {name}. Восстанови связь смарт-объекта с существующим файлом."
 
 #: app/src/app/measureTools.tsx
 msgid "The measured line is already straight."
@@ -11811,7 +11811,7 @@ msgstr "Идентификатор нового набора инструмен�
 
 #: app/src/i18n/errors.ts
 msgid "The original Smart Object was removed or replaced. Use Save As to keep these contents."
-msgstr "Исходный смарт-объект был удален или заменен. Чтобы сохранить это содержимое, используйте «Сохранить как»."
+msgstr "Исходный смарт-объект был удален или заменен. Чтобы сохранить это содержимое, используй «Сохранить как»."
 
 #. placeholder {0}: file.name
 #: app/src/PdfDialog.tsx
@@ -11956,7 +11956,7 @@ msgstr "Этот слой"
 
 #: app/src/i18n/errors.ts
 msgid "This Smart Object has no embedded source file. Use Replace Contents or reopen the original PSD."
-msgstr "У этого смарт-объекта нет встроенного исходного файла. Используйте «Заменить содержимое» или заново откройте исходный PSD."
+msgstr "У этого смарт-объекта нет встроенного исходного файла. Используй «Заменить содержимое» или заново открой исходный PSD."
 
 #: app/src/i18n/errors.ts
 msgid "This smart object has no smart filters."
@@ -11964,7 +11964,7 @@ msgstr "У этого смарт-объекта нет смарт-фильтро
 
 #: app/src/i18n/errors.ts
 msgid "This Smart Object has no source file to export. Reopen the original PSD or use Replace Contents."
-msgstr "У этого смарт-объекта нет исходного файла для экспорта. Заново откройте исходный PSD или используйте «Заменить содержимое»."
+msgstr "У этого смарт-объекта нет исходного файла для экспорта. Заново открой исходный PSD или используй «Заменить содержимое»."
 
 #: app/src/i18n/errors.ts
 msgid "This Smart Object has no source file to link."
@@ -12078,7 +12078,7 @@ msgstr "Заголовочные варианты"
 
 #: app/src/MissingFonts.tsx
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
-msgstr "Чтобы изменить текст сейчас, замените отсутствующий шрифт шрифтом по умолчанию. Вы также можете управлять отсутствующими шрифтами для всего документа."
+msgstr "Чтобы изменить текст сейчас, замени отсутствующий шрифт шрифтом по умолчанию. Ты также можешь управлять отсутствующими шрифтами для всего документа."
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"
@@ -12441,7 +12441,7 @@ msgstr "Разблокировать направляющие"
 
 #: app/src/i18n/errors.ts
 msgid "Unlock the group before converting it to an artboard."
-msgstr "Разблокируйте группу, прежде чем преобразовывать ее в монтажную область."
+msgstr "Разблокируй группу, прежде чем преобразовывать ее в монтажную область."
 
 #: app/src/GlyphsPanel.tsx
 msgid "unmapped"
@@ -12449,7 +12449,7 @@ msgstr "не сопоставлен"
 
 #: app/src/MissingFonts.tsx
 msgid "Unresolved fonts keep their current rendering until the text is edited. Original font names are kept; choose permanent replacements now or later from the Type menu."
-msgstr "Нераспознанные шрифты сохраняют текущее начертание, пока текст не будет изменен. Исходные названия шрифтов сохраняются; выберите постоянную замену сейчас или позже в меню «Текст»."
+msgstr "Нераспознанные шрифты сохраняют текущее начертание, пока текст не будет изменен. Исходные названия шрифтов сохраняются; выбери постоянную замену сейчас или позже в меню «Текст»."
 
 #: app/src/filters/labels.ts
 msgid "Unsharp Mask"
@@ -12765,7 +12765,7 @@ msgstr "Деформация"
 
 #: app/src/i18n/errors.ts
 msgid "Warp bends a whole layer; deselect to warp it."
-msgstr "Деформация изгибает слой целиком; снимите выделение, чтобы деформировать слой."
+msgstr "Деформация изгибает слой целиком; сними выделение, чтобы деформировать слой."
 
 #: app/src/i18n/errors.ts
 msgid "Warp bends layer pixels, not the selection outline."
