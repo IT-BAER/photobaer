@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-07
+
+### Changed
+
+- The German, French, Spanish, Russian and Turkish interfaces address you informally (du, tu, tú, ты, sen) in
+  hints, dialogs and messages, like the Polish one already did. Menu commands and buttons keep Photoshop's wording.
+
+### Fixed
+
+- Russian and Italian showed the messages "Select the area to fill." and "Select the images to process" swapped.
+
 ## [0.4.1] - 2026-10-07
 
 ### Fixed
