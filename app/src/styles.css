@@ -24,6 +24,10 @@
   color-scheme: dark;
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
+/* CJK share code points but not glyph shapes: <html lang> picks each language's UI fonts before the generic fallback. */
+:root:lang(ja) { font-family: system-ui, -apple-system, "Segoe UI", "Yu Gothic UI", Meiryo, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+:root:lang(ko) { font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+:root:lang(zh-Hans) { font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; }
 
 * { box-sizing: border-box; }
 /* Chromium ignores ::-webkit-scrollbar once scrollbar-width/color are set, and its thin bar keeps arrows. */
@@ -166,7 +170,7 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .color-wells .well.active { outline: 2px solid var(--accent); }
 .color-wells button:not(.well) { background: none; border: 0; color: var(--dim); cursor: pointer; }
 .color-body { display: flex; gap: 8px; }
-.color-sliders-kind { margin-left: auto; font: inherit; font-size: 11px; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+.color-sliders-kind { margin-left: auto; min-width: 0; font: inherit; font-size: 11px; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
 .color-sliders { display: grid; gap: 4px; margin-top: 8px; }
 .color-sliders label { display: grid; grid-template-columns: 14px 1fr 38px; align-items: center; gap: 6px; }
 .color-sliders output { text-align: right; font-variant-numeric: tabular-nums; color: var(--dim); }
@@ -239,7 +243,7 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .panel-tabs { display: flex; gap: 2px; margin-bottom: 6px; }
 .panel-tab { padding: 3px 10px; border-radius: 6px; background: var(--panel-hi); font-weight: 600; }
 .layer-props { display: flex; flex-direction: column; gap: 6px; }
-.props-row { display: flex; align-items: center; gap: 8px; }
+.props-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .props-row select { flex: 1; min-width: 0; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
 .percent-field { display: flex; align-items: center; gap: 4px; margin-left: auto; padding-left: 8px; border-left: 1px solid var(--line); color: var(--dim); }
 .percent-field input { width: 46px; font: 12px ui-monospace, Consolas, monospace; color: var(--text); text-align: right; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 4px; }
@@ -553,7 +557,7 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 /* Layer > Layer Style dialog. */
 .layer-style-dialog { width: 860px; max-width: 95vw; height: 520px; max-height: 90vh; display: flex; flex-direction: column; }
 .layer-style-dialog:not([open]) { display: none; }
-.layer-style-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 240px 1fr 120px; gap: 12px; }
+.layer-style-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 280px 1fr 120px; gap: 12px; }
 .layer-style-list { margin: 0; padding: 0 8px 0 0; list-style: none; overflow-y: auto; border-right: 1px solid var(--line); }
 .layer-style-row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 4px; }
 .layer-style-row.sub { padding-left: 22px; }

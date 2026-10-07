@@ -5,7 +5,9 @@ import { formatter } from '@lingui/format-po';
 export default defineConfig({
   sourceLocale: 'en',
   locales: ['en', 'de', 'fr', 'es', 'pt-BR', 'ja', 'ko', 'zh-Hans', 'ru', 'tr', 'pl', 'it', 'pseudo'],
-  pseudoLocale: 'pseudo',
+  // +40% length and [brackets] show truncation and concatenated fragments (German runs ~30% longer).
+  // Visible pad character: HTML collapses the default space padding.
+  pseudoLocale: { locale: 'pseudo', extend: 0.4, extendCharacter: '~', prepend: '[', append: ']' },
   // File origins without line numbers: moving code does not rewrite every catalog.
   format: formatter({ lineNumbers: false }),
   fallbackLocales: { default: 'en' },

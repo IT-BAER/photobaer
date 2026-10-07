@@ -442,7 +442,7 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
     return (
       <li key={`${kind}.${index}`} className={`layer-style-row${sub ? ' sub' : ''}${isPage(kind, index) ? ' active' : ''}`}>
         <input type="checkbox" aria-label={t`Enable ${label}`} checked={!!e && e.present && e.enabled} onChange={ev => toggle(kind, index, ev.currentTarget.checked)} />
-        <button type="button" className="layer-style-name" onClick={() => choose(kind, index)}>{label}</button>
+        <button type="button" className="layer-style-name" title={label} onClick={() => choose(kind, index)}>{label}</button>
         {multi && <button type="button" aria-label={t`Add ${effectName}`} title={t`Add ${effectName}`} disabled={count >= MAX_INSTANCES} onClick={() => add(kind, count ? index : -1)}><Plus size={12} /></button>}
         {multi && count > 0 && isPage(kind, index) && (
           <>
@@ -460,8 +460,8 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
       <h2><Trans>Layer Style</Trans></h2>
       <div className="layer-style-grid">
         <ul className="layer-style-list" aria-label={t`Effects`}>
-          <li className={`layer-style-row${page === 'styles' ? ' active' : ''}`}><button type="button" className="layer-style-name" onClick={() => setPage('styles')}><Trans>Styles</Trans></button></li>
-          <li className={`layer-style-row${page === 'blending' ? ' active' : ''}`}><button type="button" className="layer-style-name" onClick={() => setPage('blending')}><Trans>Blending Options</Trans></button></li>
+          <li className={`layer-style-row${page === 'styles' ? ' active' : ''}`}><button type="button" className="layer-style-name" title={t`Styles`} onClick={() => setPage('styles')}><Trans>Styles</Trans></button></li>
+          <li className={`layer-style-row${page === 'blending' ? ' active' : ''}`}><button type="button" className="layer-style-name" title={t`Blending Options`} onClick={() => setPage('blending')}><Trans>Blending Options</Trans></button></li>
           {EFFECT_KINDS.flatMap(kind => {
             const count = instances(style, kind).length;
             return MULTI.includes(kind) && count > 0 ? Array.from({ length: count }, (_, i) => listRow(kind, i, count)) : [listRow(kind, 0, count)];
