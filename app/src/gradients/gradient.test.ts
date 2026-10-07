@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultNoise, evaluate, largestGapMid, noiseStops, normalize, prng, reverse, type Gradient } from './gradient.ts';
+import { defaultNoise, engineStops, evaluate, largestGapMid, noiseStops, normalize, prng, reverse, type Gradient } from './gradient.ts';
+import { withIntensity } from '../shell/color.ts';
 
 const g = (over: Partial<Gradient>): Gradient => ({ stops: [], opacityStops: [], kind: 'solid', interpolation: 'classic', ...over });
 
@@ -61,4 +62,11 @@ test('the widest gap wins for a new stop, including the ends', () => {
   assert.equal(largestGapMid([0, 1]), 0.5);
   assert.equal(largestGapMid([0, 0.2, 1]), 0.6);
   assert.equal(largestGapMid([0.5, 1]), 0.25);
+});
+
+test('engineStops sends the 32-bit Color Picker Intensity of a stop color, none for plain colors', () => {
+  const hot = withIntensity([232, 162, 58], 2);
+  const s = engineStops(g({ stops: [{ position: 0, color: hot, midpoint: 0.5 }, { position: 1, color: [1, 2, 3], midpoint: 0.5 }] })).stops;
+  assert.equal(s[0].intensity, 2);
+  assert.equal('intensity' in s[1], false);
 });

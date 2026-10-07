@@ -3,9 +3,10 @@
 Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` section 4.
 
 ## M6 Color and photo
-- 32 bits per channel: gradients, shapes and type ignore the Color Picker Intensity; layers kept in blend
-  modes outside Photoshop's 32-bit list clip (what Photoshop does with them on conversion is unverified);
-  Sample "Current Layer" reads wrong values from 16/32-bit layers.
+- 32 bits per channel: shapes and type ignore the Color Picker Intensity (it must be stored with the layer;
+  the PSD encoding is unverified without a Photoshop 32-bit sample); Gradient Editor stops have no Intensity,
+  only Foreground/Background stops carry it; layers kept in blend
+  modes outside Photoshop's 32-bit list clip (what Photoshop does with them on conversion is unverified).
 - Color management rest: Color Settings "Blend RGB colors using gamma"; ColorSync and older-version presets
   (they need Apple RGB, SWOP and similar built-in profiles); the system clipboard and layer drags carry no
   profile; JPEG and WebP exports of Grayscale documents are RGB without the Gray profile; open-time conversion converts pixel layers only (text,

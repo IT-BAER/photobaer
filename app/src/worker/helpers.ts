@@ -292,10 +292,15 @@ function nodeTiles(e: Engine, id: number): Sparse | undefined {
   return walk((JSON.parse(e.manifest()) as { layers: TileNode[] }).layers);
 }
 
-// A tile's raw RGBA8 bytes, or null (transparent) for a missing tile id.
+// A tile as straight RGBA8 (16/32-bit stored values scaled and clamped), or null (transparent) for a missing tile id.
 function layerTile(e: Engine, ids: Sparse | undefined, tx: number, ty: number): Uint8Array | null {
   const id = ids?.find(t => t[0] === tx && t[1] === ty)?.[2];
-  return id ? e.tile_bytes(BigInt(id)) : null;
+  if (!id) return null;
+  const b = e.tile_bytes(BigInt(id)), depth = e.depth();
+  if (depth === 8) return b;
+  const v = depth === 16 ? new Uint16Array(b.buffer, b.byteOffset, b.byteLength / 2) : new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4);
+  const k = depth === 16 ? 255 / 65535 : 255;
+  return new Uint8Array(Uint8ClampedArray.from(v, x => x * k).buffer);
 }
 
 // Straight RGBA8 (w x h) of a layer's stored tiles over the canvas (W x H), by alpha-weighted box sampling;

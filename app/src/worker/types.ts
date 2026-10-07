@@ -200,7 +200,7 @@ export interface StrokeSelectionParams {
   width: number; rgba: Rgba; location: 'inside' | 'center' | 'outside'; mode: string; opacity: number; preserveTransparency: boolean;
 }
 export interface GradientParams {
-  stops: { position: number; rgb: [number, number, number]; midpoint: number }[];
+  stops: { position: number; rgb: [number, number, number]; midpoint: number; intensity?: number }[];
   opacityStops: { position: number; opacity: number; midpoint: number }[];
   method: 'perceptual' | 'linear' | 'classic'; style: 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond';
   start: { x: number; y: number }; end: { x: number; y: number };

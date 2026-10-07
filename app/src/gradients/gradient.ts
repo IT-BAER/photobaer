@@ -1,4 +1,4 @@
-import { hsbToRgb, labToRgb, type Rgb } from '../shell/color.ts';
+import { hsbToRgb, intensityOf, labToRgb, type Rgb } from '../shell/color.ts';
 
 export type Method = 'perceptual' | 'linear' | 'classic';
 export interface ColorStop { position: number; color: Rgb; midpoint: number }
@@ -157,11 +157,14 @@ export function largestGapMid(positions: number[]): number {
   return (lo + hi) / 2;
 }
 
-// Engine `gradient` op stop shapes.
+// Engine `gradient` op stop shapes; a stop color from the 32-bit Color Picker carries its Intensity.
 export function engineStops(g: Gradient) {
   const r = resolveStops(g);
   return {
-    stops: r.stops.map(s => ({ position: s.position, rgb: s.color.map(c => Math.round(c)) as Rgb, midpoint: s.midpoint })),
+    stops: r.stops.map(s => {
+      const intensity = intensityOf(s.color);
+      return { position: s.position, rgb: s.color.map(c => Math.round(c)) as Rgb, midpoint: s.midpoint, ...(intensity ? { intensity } : {}) };
+    }),
     opacityStops: r.opacityStops.map(s => ({ position: s.position, opacity: s.opacity, midpoint: s.midpoint })),
   };
 }

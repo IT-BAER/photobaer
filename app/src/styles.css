@@ -47,7 +47,7 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-.app { display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); height: 100%; }
+.app { display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); height: 100%; user-select: none; }
 
 .menubar { display: flex; align-items: center; gap: 2px; padding: 0 8px; min-height: 32px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--line) transparent; background: var(--panel); border-bottom: 1px solid var(--line); position: relative; z-index: 20; }
 /* The bear's ink centers over the 48px tool column (1px right border) at x 23.5: menubar padding

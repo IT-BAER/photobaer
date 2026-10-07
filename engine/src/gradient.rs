@@ -212,7 +212,9 @@ fn mix_colors(a: [f32; 3], b: [f32; 3], u: f32, method: Method) -> [f32; 3] {
         Method::Perceptual => {
             let (oa, ob) = (oklab_from_linear(a.map(srgb_to_linear)), oklab_from_linear(b.map(srgb_to_linear)));
             let mixed: [f32; 3] = std::array::from_fn(|i| oa[i] + (ob[i] - oa[i]) * u);
-            linear_from_oklab(mixed).map(|c| linear_to_srgb(c.clamp(0.0, 1.0)))
+            // Clamped to the brightest stop channel, at least 1: 32-bit stops above 1 keep their level.
+            let top = srgb_to_linear(a.iter().chain(&b).fold(1f32, |m, &v| m.max(v)));
+            linear_from_oklab(mixed).map(|c| linear_to_srgb(c.clamp(0.0, top)))
         }
     }
 }

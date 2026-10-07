@@ -340,6 +340,9 @@ struct ColorStopIn {
     rgb: [u8; 3],
     #[serde(default = "half")]
     midpoint: f32,
+    /// As `StrokeIn::intensity`, for this stop's color.
+    #[serde(default)]
+    intensity: f32,
 }
 
 #[derive(Deserialize)]
@@ -954,13 +957,14 @@ impl EngineCore {
         let p: GradientIn = serde_json::from_str(params_json).map_err(|e| format!("bad gradient params: {e}"))?;
         let method = gradient::Method::parse(&p.method)?;
         let style = gradient::Style::parse(&p.style)?;
+        let hdr = self.doc.depth == 32;
         let color_stops: Vec<_> = p
             .stops
             .into_iter()
-            .map(|s| gradient::ColorStop {
-                position: s.position,
-                rgb: [s.rgb[0] as f32 / 255.0, s.rgb[1] as f32 / 255.0, s.rgb[2] as f32 / 255.0],
-                midpoint: s.midpoint,
+            .map(|s| {
+                let k = if hdr && s.intensity != 0.0 { s.intensity.clamp(-20.0, 20.0).exp2() } else { 1.0 };
+                let rgb = s.rgb.map(|c| c as f32 / 255.0).map(|c| if k == 1.0 { c } else { gradient::exposed(c, k) });
+                gradient::ColorStop { position: s.position, rgb, midpoint: s.midpoint }
             })
             .collect();
         let opacity_stops: Vec<_> = p

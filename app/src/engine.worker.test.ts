@@ -982,6 +982,26 @@ test('32-bit Fill and Brush with Intensity paint above 1, 8-bit ignores it', asy
   assert.equal(((await call('sample', 2, 2, 1, null)).result as number[])[0], 100);
 });
 
+test('32-bit Gradient stops with Intensity paint above 1 in every method, 8-bit ignores it', async () => {
+  const orange = [232, 162, 58] as const;
+  const grad = (method: string) => ({
+    stops: [{ position: 0, rgb: orange, midpoint: 0.5, intensity: 2 }, { position: 1, rgb: orange, midpoint: 0.5, intensity: 2 }],
+    opacityStops: [], method, style: 'linear', start: { x: 0, y: 0 }, end: { x: 16, y: 0 }, reverse: false, dither: false, transparency: true, opacity: 1,
+  });
+  for (const method of ['classic', 'linear', 'perceptual']) {
+    await call('init');
+    await call('newDoc', 16, 16, 32, null);
+    assert.equal((await call('gradient', 1, 'pixels', grad(method))).error, undefined);
+    await call('newAdjustmentLayer', 1, { kind: 'exposure', params: { exposure: -2, offset: 0, gamma: 1 } }, 'Exposure');
+    const d = new Uint8Array(((await call('displayTile', 0, 0, 0)).result as { data: ArrayBuffer }).data);
+    const side = Math.sqrt(d.length / 4), got = [...d.subarray((8 * side + 8) * 4, (8 * side + 8) * 4 + 3)];
+    assert.ok(got.every((v, i) => Math.abs(v - orange[i]) <= 2), `${method}: ${got} vs ${orange}`);
+  }
+  await call('newDoc', 16, 16, 8, null);
+  await call('gradient', 1, 'pixels', grad('perceptual'));
+  assert.deepEqual(((await call('sample', 8, 8, 1, null)).result as number[]).slice(0, 3), [...orange]);
+});
+
 test('Assign Profile previews live without a history step and restores the tag when it ends', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);
@@ -1919,6 +1939,20 @@ test('hitTestLayer picks the topmost visible layer with a pixel under the point,
   await call('moveNode', 1, groupId, 0);
   assert.equal((await call('hitTestLayer', 2, 2, false)).result, 1);
   assert.equal((await call('hitTestLayer', 2, 2, true)).result, groupId);
+});
+
+test('layer pixel reads (Eyedropper current layer, Move auto-select, magnetic pen) see 16 and 32-bit layers as 8-bit', async () => {
+  for (const depth of [8, 16, 32]) {
+    await call('init');
+    await call('newDoc', 8, 8, depth, null);
+    await call('select', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+    await call('fillEx', 1, 'pixels', solid([200, 100, 50, 255]), 'Fill');
+    assert.deepEqual((await call('sample', 2, 2, 1, 1)).result, [200, 100, 50, 255], `${depth}-bit sample`);
+    assert.deepEqual((await call('sample', 6, 6, 1, 1)).result, [0, 0, 0, 0], `${depth}-bit empty sample`);
+    assert.equal((await call('hitTestLayer', 6, 6, false)).result, null, `${depth}-bit hit test`);
+    const [lum] = (await call('luminance', 1, [2, 2])).result as number[];
+    assert.ok(Math.abs(lum - 124.5) < 1, `${depth}-bit luminance ${lum}`);
+  }
 });
 
 test('snapTargets gives document bounds plus every other visible layer, excluding the moving one', async () => {

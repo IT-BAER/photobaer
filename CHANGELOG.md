@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 32-bit: the Gradient tool paints the Color Picker Intensity of the Foreground and Background colors, above 1
+  in every interpolation method.
+
+### Changed
+
+- English footer and About links say "Legal Notice" instead of "Impressum"; German text keeps "Impressum".
+
+### Fixed
+
+- A drag that starts on the status bar or another empty part of the window no longer selects the panel text.
+- 16 and 32-bit documents: Eyedropper with Sample "Current Layer", Move tool Auto-Select and the magnetic Freeform
+  Pen read the layer's real colors (they read the stored bytes as 8-bit).
+
 ## [0.3.8] - 2026-10-06
 
 ### Fixed

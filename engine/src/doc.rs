@@ -1785,6 +1785,7 @@ impl Document {
         }
         let lut = gradient::build_lut(&color_stops, &opacity_stops, method);
         let opacity = opacity.clamp(0.0, 1.0);
+        let top = if self.depth == 32 { f32::MAX } else { 1.0 };
         let (dx, dy) = (end.0 - start.0, end.1 - start.1);
         let l2 = dx * dx + dy * dy;
         let sample = |gx: i32, gy: i32| -> [f32; 4] {
@@ -1793,9 +1794,9 @@ impl Document {
             let [mut r, mut g, mut b, mut a] = gradient::lut_lookup(&lut, t);
             if dither {
                 let d = gradient::dither_delta(gx, gy);
-                r = (r + d).clamp(0.0, 1.0);
-                g = (g + d).clamp(0.0, 1.0);
-                b = (b + d).clamp(0.0, 1.0);
+                r = (r + d).clamp(0.0, top);
+                g = (g + d).clamp(0.0, top);
+                b = (b + d).clamp(0.0, top);
             }
             if !transparency {
                 a = 1.0;
@@ -1854,7 +1855,7 @@ impl Document {
                         let [r, g, b, a] = sample(gx, gy);
                         let u = cov.at(p).clamp(0.0, 1.0);
                         let c = (a * u * opacity).clamp(0.0, 1.0);
-                        paint_pixel(PaintMode::Blend(Blend::Normal), old, [r, g, b], c, keep_alpha)
+                        paint_pixel_hdr(PaintMode::Blend(Blend::Normal), old, [r, g, b], c, keep_alpha, depth == 32)
                     };
                     any |= new[3] > 0.0;
                     fresh[p * 4..p * 4 + 4].copy_from_slice(&new);
