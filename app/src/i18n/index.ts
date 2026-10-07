@@ -7,8 +7,8 @@ export { i18n };
 export const LOCALES = ['en', 'de', 'fr', 'es', 'pt-BR', 'ja', 'ko', 'zh-Hans', 'ru', 'tr', 'pl', 'it'] as const;
 export type Locale = (typeof LOCALES)[number];
 export const SOURCE_LOCALE: Locale = 'en';
-// Languages users can get: a locale joins once its translation is reviewed (docs/I18N.md waves).
-export const RELEASED: readonly Locale[] = ['en'];
+// Languages users can get; all ship as unreviewed drafts until native review (docs/I18N.md).
+export const RELEASED: readonly Locale[] = LOCALES;
 
 const STORE_KEY = 'photobaer:language';
 

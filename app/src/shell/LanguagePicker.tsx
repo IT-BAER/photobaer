@@ -77,7 +77,7 @@ export function Flag({ locale }: { locale: Locale }) {
 
 const nameOf = (l: Locale) => new Intl.DisplayNames([l], { type: 'language' }).of(l) ?? l;
 
-// Dev shows every language for testing; a build offers only reviewed ones and hides the picker while that is English alone.
+// Dev shows every language for testing; a build offers RELEASED and hides the picker while that is English alone.
 export function LanguagePicker() {
   const list = useRef<HTMLDivElement>(null);
   const shown = import.meta.env.DEV ? LOCALES : RELEASED;
