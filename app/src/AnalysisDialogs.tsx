@@ -5,7 +5,7 @@ import { msg, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { i18n } from './i18n/index.ts';
 import { DATA_POINTS, DEFAULT_SCALE, markerRect, type MeasureScale } from './app/analysis.ts';
-import { LOG_COLUMNS, type Annotations, type MeasureRow } from './app/measure.ts';
+import { columnTitle, LOG_COLUMNS, type Annotations, type MeasureRow } from './app/measure.ts';
 import { newText } from './shell/typesession.ts';
 import type { TextJson } from './psd/text.ts';
 
@@ -97,7 +97,7 @@ export function AnalysisDialogs({ ref, annotations, size, rulerLength, points, s
           {LOG_COLUMNS.filter(([k]) => DATA_POINTS.includes(k)).map(([k, label]) => <label key={k}><input type="checkbox" checked={chosen.has(k)} onChange={e => {
             const on = e.currentTarget.checked;
             setChosen(c => { const n = new Set(c); if (on) n.add(k); else n.delete(k); return n; });
-          }} /> {label}</label>)}
+          }} /> {columnTitle(k, label)}</label>)}
         </fieldset>}
         {kind === 'marker' && <>
           {field(t`Length:`, length, setLength, scale.units)}

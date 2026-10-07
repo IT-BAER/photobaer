@@ -41,9 +41,6 @@ interface Props {
 }
 
 const ICON = { size: 16, strokeWidth: 1.75 };
-const KIND_LABEL: Record<KindFilter, MessageDescriptor> = {
-  pixel: msg`Pixel layers`, adjustment: msg`Adjustment and fill layers`, type: msg`Type layers`, shape: msg`Shape layers`, smart: msg`Smart objects`,
-};
 const KIND_ICONS: Record<KindFilter, ReactNode> = {
   pixel: <ImageIcon size={14} strokeWidth={1.75} />, adjustment: <Contrast size={14} strokeWidth={1.75} />, type: <TypeIcon size={14} strokeWidth={1.75} />,
   shape: <Shapes size={14} strokeWidth={1.75} />, smart: <Package size={14} strokeWidth={1.75} />,
@@ -425,7 +422,7 @@ export function LayersPanel(props: Props) {
       )}
       <div className="layer-filter" role="group" aria-label={t`Filter layers by kind`}>
         {KIND_FILTERS.map(f => (
-          <button key={f.kind} aria-label={i18n._(KIND_LABEL[f.kind])} aria-pressed={kinds.has(f.kind)} title={i18n._(KIND_LABEL[f.kind])} onClick={() => toggleKind(f.kind)}>{KIND_ICONS[f.kind]}</button>
+          <button key={f.kind} aria-label={i18n._(f.label)} aria-pressed={kinds.has(f.kind)} title={i18n._(f.label)} onClick={() => toggleKind(f.kind)}>{KIND_ICONS[f.kind]}</button>
         ))}
         <button className="layer-filter-switch" aria-label={t`Layer filter`} aria-pressed={filterOn} title={t`Turn the layer filter on or off`} onClick={() => setFilterOn(v => !v)}><Trans>Filter</Trans></button>
       </div>

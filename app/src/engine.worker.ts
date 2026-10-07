@@ -360,12 +360,19 @@ function applyView(e: Engine, v: ViewState) {
   e.set_view(JSON.stringify(json), json.setup.profile ? profileBytes(json.setup.profile) : new Uint8Array());
 }
 
+// Base names of generated layers ("Layer 1", "Group 1"): the app passes the UI language's words to init;
+// the counting below runs on whatever base is set.
+let nameBases: Record<string, string> = {};
+const baseName = (prefix: string) => nameBases[prefix] ?? prefix;
+
 function nextCompName(): string {
+  const base = baseName('Layer Comp');
   const used = new Set((JSON.parse(need().channels_json()) as { layer_comps: { name: string }[] }).layer_comps.map(c => c.name));
-  for (let i = 1; ; i++) if (!used.has(`Layer Comp ${i}`)) return `Layer Comp ${i}`;
+  for (let i = 1; ; i++) if (!used.has(`${base} ${i}`)) return `${base} ${i}`;
 }
 
 function nextName(prefix: string): string {
+  prefix = baseName(prefix);
   const used = new Set<string>();
   const walk = (nodes: LayerNode[]) => { for (const n of nodes) { used.add(n.name); if (n.children) walk(n.children); } };
   walk(JSON.parse(need().layers_json()));
@@ -821,7 +828,8 @@ async function decodeFile(file: File): Promise<{ e: Engine; name: string; warnin
 }
 
 const api = {
-  async init() {
+  async init(names?: Record<string, string>) {
+    if (names) nameBases = names;
     // A UI hot reload calls init again; the engine and the autosave lock are already ours.
     if (booted) { emit(lastState); return info(); }
     booted = true;
@@ -3004,7 +3012,7 @@ const api = {
     const used = new Set<string>();
     const walk = (ns: LayerNode[]) => { for (const n of ns) { used.add(n.name); if (n.children) walk(n.children); } };
     walk(JSON.parse(e.layers_json()));
-    const name = nodes.length === 1 ? nodes[0]!.name : used.has('Group') ? nextName('Group') : 'Group';
+    const name = nodes.length === 1 ? nodes[0]!.name : used.has(baseName('Group')) ? nextName('Group') : baseName('Group');
     let created = 0;
     history.run('Convert to Smart Object', () => { created = toSmart(e, ids, name); });
     return { ...changed(), created };

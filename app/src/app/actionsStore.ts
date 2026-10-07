@@ -1,4 +1,6 @@
 // Actions panel state: sets of recorded actions, the selection and the recording target, kept in IndexedDB.
+import { t } from '@lingui/core/macro';
+import '../i18n/index.ts'; // activates English before `t` runs outside the app (node tests)
 import { fromJson, toJson, type Action, type ActionSet, type ActionStep } from '../actions.ts';
 
 export interface Selection { set?: string; action?: string; step?: string }
@@ -61,9 +63,11 @@ export class ActionsStore {
     return set;
   }
 
+  #nextSetName() { const next = this.sets.length + 1; return t`Set ${next}`; }
+
   // In the selected set, or a new "Set 1" when there is none.
   newAction(name: string) {
-    const set = this.set ?? this.newSet(`Set ${this.sets.length + 1}`);
+    const set = this.set ?? this.newSet(this.#nextSetName());
     const action: Action = { id: uid(), name, steps: [] };
     set.actions = [...set.actions, action];
     this.sel = { set: set.id, action: action.id };
@@ -74,7 +78,7 @@ export class ActionsStore {
 
   startRecording() {
     const a = this.action;
-    if (!a) throw new Error('Select an action to record into.');
+    if (!a) throw new Error(t`Select an action to record into.`);
     this.recording = { set: this.sel.set!, action: a.id };
     this.#emit(false);
   }
@@ -93,7 +97,7 @@ export class ActionsStore {
   addStep(step: ActionStep) { if (this.recording) this.#insert(step, this.recording.action); }
   insertStop(message: string, allowContinue: boolean) {
     const a = this.action;
-    if (!a) throw new Error('Select an action first.');
+    if (!a) throw new Error(t`Select an action first.`);
     this.#insert({ id: uid(), label: 'Stop', enabled: true, calls: [], stop: { message, allowContinue } }, a.id);
   }
 
@@ -117,7 +121,7 @@ export class ActionsStore {
   // Deletes the selected step, else action, else set.
   deleteSelected() {
     const { set, action, step } = this.sel;
-    if (this.recording && (this.recording.action === action || (!action && this.recording.set === set))) throw new Error('Stop recording first.');
+    if (this.recording && (this.recording.action === action || (!action && this.recording.set === set))) throw new Error(t`Stop recording first.`);
     const s = this.set, a = this.action;
     if (step && a) { a.steps = a.steps.filter(x => x.id !== step); this.sel = { set, action }; }
     else if (action && s) { s.actions = s.actions.filter(x => x.id !== action); this.sel = { set }; }
@@ -135,16 +139,16 @@ export class ActionsStore {
 
   exportSet(setId: string): string {
     const set = this.sets.find(s => s.id === setId);
-    if (!set) throw new Error('Select a set to save.');
+    if (!set) throw new Error(t`Select a set to save.`);
     return toJson({ [FILE_TAG]: 1, set });
   }
 
   // A loaded set gets new ids, so loading the same file twice keeps both copies apart.
   importSet(text: string) {
     let v: { [FILE_TAG]?: number; set?: ActionSet };
-    try { v = fromJson(text); } catch { throw new Error('This is not a photobaer actions file.'); }
+    try { v = fromJson(text); } catch { throw new Error(t`This is not a photobaer actions file.`); }
     const set = v?.set;
-    if (v?.[FILE_TAG] !== 1 || !set || typeof set.name !== 'string' || !Array.isArray(set.actions)) throw new Error('This is not a photobaer actions file.');
+    if (v?.[FILE_TAG] !== 1 || !set || typeof set.name !== 'string' || !Array.isArray(set.actions)) throw new Error(t`This is not a photobaer actions file.`);
     const fresh: ActionSet = {
       id: uid(), name: set.name,
       actions: set.actions.map(a => ({

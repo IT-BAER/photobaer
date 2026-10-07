@@ -15,8 +15,21 @@ msgstr ""
 msgid "“{docName}” uses fonts that could not be loaded. Choose replacements for the whole document. Text layout may change."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "\"{name}\" is already a smart object."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "\"{op}\" cannot run in an action."
+msgstr ""
+
 #: app/src/VariablesDialogs.tsx
 msgid "(unchanged)"
+msgstr ""
+
+#. placeholder {0}: log.length
+#: app/src/App.tsx
+msgid "{0, plural, one {{title} finished with # error; see {file}.} other {{title} finished with # errors; see {file}.}}"
 msgstr ""
 
 #. placeholder {0}: o.files.length
@@ -73,6 +86,18 @@ msgstr ""
 
 #: app/src/PresetPanels.tsx
 msgid "{count, plural, one {# pattern imported} other {# patterns imported}}"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "{depth} Bits/Channel"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "{docWidth} × {docHeight} px, {docDepth}-bit"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "{embedded, plural, one {Packaged {file} with # linked file embedded.} other {Packaged {file} with # linked files embedded.}}"
 msgstr ""
 
 #: app/src/GlyphsPanel.tsx
@@ -196,6 +221,14 @@ msgstr ""
 msgid "{name} is locked and can't be moved."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "{name} is not a shape layer."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "{name} is not a type layer."
+msgstr ""
+
 #: app/src/LayersPanel.tsx
 msgid "{name} mask"
 msgstr ""
@@ -255,6 +288,26 @@ msgstr ""
 
 #: app/src/ExportDialogs.tsx
 msgid "{size1} · {dims} · {pct}% of the uncompressed image"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "{step} (uses a file, not recorded)"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "{title} {step} of {total}: {name}…"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "{title} stopped."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "{toolName}: drag to use, Space to pan, wheel to zoom"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "{type} export is not supported by this browser"
 msgstr ""
 
 #: app/src/ShapesPanel.tsx
@@ -379,10 +432,12 @@ msgid "8-bit"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "90° Clockwise"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "90° Counter Clockwise"
 msgstr ""
 
@@ -410,6 +465,14 @@ msgstr ""
 msgid "About photobaer…"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Absolute"
+msgstr ""
+
+#: app/src/app/colorSettings.ts
+msgid "Absolute Colorimetric"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Accented Edges"
 msgstr ""
@@ -420,10 +483,15 @@ msgid "Action"
 msgstr ""
 
 #: app/src/ActionsPanel.tsx
+msgid "Action {next}"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
 msgid "Action name"
 msgstr ""
 
 #: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 msgid "Actions"
 msgstr ""
 
@@ -471,6 +539,7 @@ msgid "Add layer mask"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Add Layer Mask"
 msgstr ""
 
@@ -480,6 +549,10 @@ msgstr ""
 
 #: app/src/shell/GradientEditor.tsx
 msgid "Add opacity stop"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Add Path Component"
 msgstr ""
 
 #: app/src/ExportDialogs.tsx
@@ -508,8 +581,20 @@ msgstr ""
 msgid "Adjustment"
 msgstr ""
 
-#: app/src/LayersPanel.tsx
+#: app/src/app/layerFilter.ts
 msgid "Adjustment and fill layers"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Adjustment Clipping"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Adjustment layers do not support layer styles."
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Adjustment Visibility"
 msgstr ""
 
 #: app/src/PropertiesPanel.tsx
@@ -517,6 +602,7 @@ msgid "Adjustment visible"
 msgstr ""
 
 #: app/src/AdjustmentsPanel.tsx
+#: app/src/App.tsx
 #: app/src/app/menus.ts
 msgid "Adjustments"
 msgstr ""
@@ -547,6 +633,7 @@ msgstr ""
 msgid "Align"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/OptionsBar.tsx
 msgid "Align {edges}"
 msgstr ""
@@ -575,6 +662,7 @@ msgstr ""
 msgid "Aligning…"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 #: app/src/TypePanels.tsx
 msgid "Alignment"
@@ -719,6 +807,7 @@ msgid "Anchor top right"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/app/measure.ts
 #: app/src/app/toolPresets.ts
 #: app/src/filters/labels.ts
 #: app/src/filters/VanishingPointDialog.tsx
@@ -781,8 +870,17 @@ msgstr ""
 msgid "Apply"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Apply {style}"
+msgstr ""
+
+#: app/src/i18n/history.ts
 #: app/src/VariablesDialogs.tsx
 msgid "Apply Data Set"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Apply Data Set: {list}"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -793,12 +891,17 @@ msgstr ""
 msgid "Apply effect at canvas bounds"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/ImageCalcDialog.tsx
 msgid "Apply Image"
 msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Apply Image…"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Apply Layer Comp"
 msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
@@ -836,6 +939,7 @@ msgstr ""
 msgid "Arch"
 msgstr ""
 
+#: app/src/app/measure.ts
 #: app/src/shell/tools.ts
 msgid "Area"
 msgstr ""
@@ -857,6 +961,7 @@ msgid "Arrows"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Art History Brush"
 msgstr ""
@@ -875,7 +980,12 @@ msgstr ""
 msgid "Artboard background"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Artboard Background"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Artboard from Group"
 msgstr ""
 
@@ -884,11 +994,28 @@ msgid "Artboard from Group…"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Artboard from Layers"
 msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Artboard from Layers…"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Artboard H"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Artboard W"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Artboard X"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Artboard Y"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -897,6 +1024,14 @@ msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Artboards"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Artboards cannot be nested."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Artboards cannot contain other artboards."
 msgstr ""
 
 #: app/src/ExportDialogs.tsx
@@ -928,6 +1063,7 @@ msgid "Aspect"
 msgstr ""
 
 #: app/src/ColorDialog.tsx
+#: app/src/i18n/history.ts
 msgid "Assign Profile"
 msgstr ""
 
@@ -961,6 +1097,7 @@ msgstr ""
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Auto Color"
 msgstr ""
 
@@ -970,6 +1107,7 @@ msgstr ""
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Auto Contrast"
 msgstr ""
 
@@ -987,10 +1125,12 @@ msgstr ""
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Auto Tone"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Auto-Align Layers"
 msgstr ""
 
@@ -999,6 +1139,7 @@ msgid "Auto-Align Layers…"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Auto-Blend Layers"
 msgstr ""
 
@@ -1062,6 +1203,16 @@ msgstr ""
 msgid "Axis"
 msgstr ""
 
+#: app/src/shell/ColorPicker.tsx
+msgctxt "color picker blue field"
+msgid "B"
+msgstr ""
+
+#: app/src/shell/ColorPicker.tsx
+msgctxt "color picker brightness field"
+msgid "B"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/labels.ts
@@ -1076,12 +1227,14 @@ msgstr ""
 msgid "Background color"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/app/helpers.ts
 #: app/src/ModeDialog.tsx
 msgid "Background Color"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Background Eraser"
 msgstr ""
@@ -1118,6 +1271,7 @@ msgstr ""
 msgid "Baseline"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Baseline Shift"
 msgstr ""
@@ -1130,6 +1284,7 @@ msgstr ""
 msgid "Basic Latin"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/BatchDialog.tsx
 msgid "Batch"
 msgstr ""
@@ -1171,6 +1326,7 @@ msgstr ""
 msgid "Bevel"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 msgid "Bevel & Emboss"
 msgstr ""
@@ -1208,8 +1364,21 @@ msgid "Bit Depth"
 msgstr ""
 
 #: app/src/ChannelsPanel.tsx
+#: app/src/i18n/history.ts
 #: app/src/ModeDialog.tsx
 msgid "Bitmap"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Bitmap and Indexed Color documents are 8-bit"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Bitmap, Duotone and Indexed Color display as CPU tiles"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Bitmap, Duotone and Multichannel documents have no profile"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -1236,6 +1405,14 @@ msgstr ""
 msgid "Black and White"
 msgstr ""
 
+#: app/src/app/colorTable.ts
+msgid "Black Body"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Black Clip %"
+msgstr ""
+
 #: app/src/LayerStyleDialog.tsx
 msgid "black inner"
 msgstr ""
@@ -1258,6 +1435,22 @@ msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Blacks"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blacks C"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blacks K"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blacks M"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blacks Y"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -1296,6 +1489,7 @@ msgstr ""
 msgid "Blend mode"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Mode"
 msgstr ""
@@ -1336,16 +1530,61 @@ msgstr ""
 #: app/src/ImageCalcDialog.tsx
 #: app/src/InspectionPanels.tsx
 #: app/src/LayerStyleDialog.tsx
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Blue"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blue B"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blue Const"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blue G"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blue R"
 msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Blue Strength"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Blues"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blues C"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blues Hue"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blues K"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blues Lightness"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blues M"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blues Saturation"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Blues Y"
 msgstr ""
 
 #: app/src/app/helpers.ts
@@ -1400,6 +1639,11 @@ msgstr ""
 msgid "Border"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Border"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
 msgid "Border Selection"
 msgstr ""
@@ -1427,6 +1671,7 @@ msgid "Bottom"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 msgid "Bottom Edges"
 msgstr ""
 
@@ -1470,11 +1715,13 @@ msgstr ""
 msgid "Brick"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 #: app/src/shell/BrushPanels.tsx
 msgid "Brightness"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/PropertiesPanel.tsx
 msgid "Brightness / Contrast"
 msgstr ""
@@ -1485,10 +1732,12 @@ msgid "Brightness/Contrast"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Bring Forward"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Bring to Front"
 msgstr ""
 
@@ -1507,6 +1756,11 @@ msgstr ""
 msgid "Brush"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Brush"
+msgstr ""
+
 #: app/src/app/toolPresets.ts
 msgid "Brush {kind} asset \"{id}\" is unavailable."
 msgstr ""
@@ -1521,6 +1775,10 @@ msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Brush preset \"{presetId}\" is unavailable."
 msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
@@ -1612,6 +1870,7 @@ msgid "Burlap"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Burn"
 msgstr ""
@@ -1624,8 +1883,13 @@ msgstr ""
 msgid "Button mode"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/ImageCalcDialog.tsx
 msgid "Calculations"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Calculations needs a single channel, not RGB"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -1672,12 +1936,20 @@ msgstr ""
 msgid "Cancel type edit"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Cancel Type Edit"
+msgstr ""
+
 #: app/src/filters/GalleryStack.tsx
 msgid "Candle"
 msgstr ""
 
 #: app/src/ExportDialogs.tsx
 msgid "Cannot encode: {reason}"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Cannot save linked .{ext} contents. Use Save As to keep your edits."
 msgstr ""
 
 #: app/src/App.tsx
@@ -1691,6 +1963,7 @@ msgid "Canvas extension color"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Canvas Size"
 msgstr ""
 
@@ -1740,6 +2013,10 @@ msgstr ""
 msgid "Chalk Area"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Changes will stay in this session: {reason}"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/InspectionPanels.tsx
@@ -1772,14 +2049,24 @@ msgstr ""
 msgid "Channel name"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Channel Options"
+msgstr ""
+
+#: app/src/App.tsx
 #: app/src/ChannelsPanel.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Channels"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/app/typeMenu.ts
 #: app/src/TypePanels.tsx
 msgid "Character"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Character Formatting"
 msgstr ""
 
 #: app/src/TypePanels.tsx
@@ -1790,6 +2077,7 @@ msgstr ""
 msgid "Character styles"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/app/typeMenu.ts
 #: app/src/TypePanels.tsx
 msgid "Character Styles"
@@ -1820,8 +2108,16 @@ msgstr ""
 msgid "Choke"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Choose a .psd, .psb, .exr, .hdr or .ico file name, not {name}."
+msgstr ""
+
 #: app/src/app/paintTool.ts
 msgid "Choose a pattern first."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Choose at least one file."
 msgstr ""
 
 #: app/src/BatchDialog.tsx
@@ -1857,6 +2153,11 @@ msgstr ""
 msgid "Clear"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Clear"
+msgstr ""
+
 #: app/src/app/measureTools.tsx
 #: app/src/PresetPanels.tsx
 msgctxt "verb"
@@ -1875,15 +2176,25 @@ msgstr ""
 msgid "Clear Canvas Guides"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Clear Color Samplers"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Clear Count"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
 msgid "Clear existing guides"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Clear Guides"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Clear Layer Style"
 msgstr ""
 
@@ -1896,6 +2207,7 @@ msgid "Clear Selected Artboard Guides"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Clear Smart Filters"
 msgstr ""
 
@@ -1941,6 +2253,7 @@ msgstr ""
 msgid "clockwise"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/CloneSourcePanel.tsx
 msgid "Clone Source"
 msgstr ""
@@ -1954,6 +2267,7 @@ msgid "Clone sources"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Clone Stamp"
 msgstr ""
@@ -1976,8 +2290,16 @@ msgstr ""
 msgid "Close alternates"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Close Edit Contents before reverting."
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Close Others"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Close without saving the contents?"
 msgstr ""
 
 #: app/src/App.tsx
@@ -1997,6 +2319,7 @@ msgid "CMYK"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 #: app/src/PdfDialog.tsx
 msgid "CMYK Color"
 msgstr ""
@@ -2056,6 +2379,10 @@ msgid "Color Adaptation"
 msgstr ""
 
 #: app/src/adjustments.ts
+msgid "Color B"
+msgstr ""
+
+#: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 msgid "Color Balance"
 msgstr ""
@@ -2072,6 +2399,10 @@ msgstr ""
 msgid "Color Burn"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Color Correction"
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "Color Dodge"
 msgstr ""
@@ -2080,13 +2411,25 @@ msgstr ""
 msgid "Color Dynamics"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Color G"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Color Halftone"
 msgstr ""
 
 #: app/src/adjustments.ts
+msgid "Color Intensity"
+msgstr ""
+
+#: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 msgid "Color Lookup"
+msgstr ""
+
+#: app/src/app/colorSettings.ts
+msgid "Color management off: document numbers go to the display unchanged. For screen work without an ICC workflow."
 msgstr ""
 
 #: app/src/ColorDialog.tsx
@@ -2097,15 +2440,25 @@ msgstr ""
 msgid "Color model"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 msgid "Color Overlay"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Color panels"
 msgstr ""
 
 #: app/src/shell/ColorPicker.tsx
 msgid "Color Picker"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Color R"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Color Range"
 msgstr ""
 
@@ -2114,10 +2467,12 @@ msgid "Color Range…"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Color Replacement"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Color Sampler"
 msgstr ""
@@ -2142,8 +2497,13 @@ msgstr ""
 msgid "Color stops"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/ModeDialog.tsx
 msgid "Color Table"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Color Table needs an Indexed Color document"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -2156,6 +2516,22 @@ msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Colored Pencil"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Colorize"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Colorize Hue"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Colorize Lightness"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Colorize Saturation"
 msgstr ""
 
 #: app/src/ExportDialogs.tsx
@@ -2204,6 +2580,14 @@ msgstr ""
 msgid "Composite"
 msgstr ""
 
+#: app/src/layerStyle.ts
+msgid "Cone"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Cone - Inverted"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Consolidate All to Tabs"
 msgstr ""
@@ -2234,19 +2618,37 @@ msgid "Content-Aware Color"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Content-Aware Fill"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Content-Aware Fill has no fill source."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Content-Aware Fill needs a pixel layer."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Content-Aware Fill produced no pixels."
 msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Content-Aware Fill…"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Content-Aware Move"
 msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Content-Aware Scale"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Content-Aware Scale needs an unlocked pixel layer."
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -2274,12 +2676,18 @@ msgstr ""
 msgid "Continuous"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 #: app/src/LayerStyleDialog.tsx
 msgid "Contour"
 msgstr ""
 
 #: app/src/app/helpers.ts
+msgid "Contract"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Contract"
 msgstr ""
 
@@ -2291,6 +2699,7 @@ msgstr ""
 msgid "Contract…"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/tools.ts
@@ -2314,6 +2723,7 @@ msgid "Convert document's colors to the working space"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Convert for Smart Filters"
 msgstr ""
 
@@ -2321,6 +2731,11 @@ msgstr ""
 msgid "Convert path to shape"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Convert Path to Shape"
+msgstr ""
+
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Convert Point"
 msgstr ""
@@ -2330,7 +2745,12 @@ msgid "Convert Profile to sRGB"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Convert to Embedded"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Convert to Linked"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -2346,7 +2766,12 @@ msgid "Convert to Point Text"
 msgstr ""
 
 #: app/src/ColorDialog.tsx
+#: app/src/i18n/history.ts
 msgid "Convert to Profile"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Convert to Profile needs an RGB, CMYK or Grayscale document"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -2354,11 +2779,21 @@ msgid "Convert to Profile…"
 msgstr ""
 
 #: app/src/app/typeMenu.ts
+#: app/src/i18n/history.ts
 msgid "Convert to Shape"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Convert to Smart Object"
+msgstr ""
+
+#: app/src/app/colorSettings.ts
+msgid "Convert to Working {space}"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Convert type and shape layers to Smart Objects, or rasterize them, before warping."
 msgstr ""
 
 #: app/src/App.tsx
@@ -2380,11 +2815,16 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Copy a layer style first."
+msgstr ""
+
 #: app/src/app/vectorCommands.ts
 msgid "Copy CSS"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Copy Layer Style"
 msgstr ""
 
@@ -2412,12 +2852,25 @@ msgstr ""
 msgid "Corner radius"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Corner Radius"
 msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Correction"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Cosine"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Could not copy: the layer is not a pixel layer."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Could not copy: the selected area is empty."
 msgstr ""
 
 #: app/src/ActionsPanel.tsx
@@ -2428,8 +2881,25 @@ msgstr ""
 msgid "Could not load {fileName}: {reason}"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Could not merge down: there is no layer below in the same group."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Could not merge layers: select at least two layers."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Could not merge layers: the layers must be in the same group."
+msgstr ""
+
+#: app/src/App.tsx
 #: app/src/PdfDialog.tsx
 msgid "Could not open {name}: {reason}"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Could not read {name}: {reason}"
 msgstr ""
 
 #: app/src/PdfDialog.tsx
@@ -2440,17 +2910,40 @@ msgstr ""
 msgid "Could not read the media boxes: {reason}"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Could not save {name}: {reason}"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Could not save the linked source file."
+msgstr ""
+
+#: app/src/App.tsx
 #: app/src/app/toolEffects.ts
 msgid "Could not use the layer because it is locked."
 msgstr ""
 
+#: app/src/layerStyle.ts
+msgid "Could not use the layer style because the layer is fully locked."
+msgstr ""
+
+#: app/src/app/measure.ts
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/tools.ts
 msgid "Count"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Count"
+msgstr ""
+
 #: app/src/shell/tools.ts
 msgid "Count Group"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Count Group Visibility"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -2459,6 +2952,14 @@ msgstr ""
 
 #: app/src/app/measureTools.tsx
 msgid "Count: {markCount}"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Cove - Deep"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Cove - Shallow"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -2486,6 +2987,7 @@ msgid "Create"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Create Clipping Mask"
 msgstr ""
 
@@ -2494,7 +2996,12 @@ msgid "Create connected plane"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Create Layers"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Create Layers does not work inside a clipping group"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -2514,6 +3021,7 @@ msgid "Create Texture"
 msgstr ""
 
 #: app/src/app/typeMenu.ts
+#: app/src/i18n/history.ts
 msgid "Create Work Path"
 msgstr ""
 
@@ -2532,6 +3040,11 @@ msgstr ""
 
 #: app/src/app/menus.ts
 #: app/src/shell/tools.ts
+msgid "Crop"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Crop"
 msgstr ""
 
@@ -2620,8 +3133,16 @@ msgstr ""
 msgid "Cursors…"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Curvature Path"
+msgstr ""
+
 #: app/src/shell/tools.ts
 msgid "Curvature Pen"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Curvature Shape"
 msgstr ""
 
 #: app/src/LevelsCurvesBody.tsx
@@ -2644,7 +3165,7 @@ msgstr ""
 #: app/src/ColorDialog.tsx
 #: app/src/FileDialogs.tsx
 #: app/src/filters/labels.ts
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 #: app/src/ModeDialog.tsx
 #: app/src/shell/TransformBar.tsx
 msgid "Custom"
@@ -2690,6 +3211,11 @@ msgstr ""
 msgid "Cut"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Cut"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Cutout"
 msgstr ""
@@ -2698,8 +3224,37 @@ msgstr ""
 msgid "Cyan"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Cyans"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Cyans C"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Cyans Hue"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Cyans K"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Cyans Lightness"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Cyans M"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Cyans Saturation"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Cyans Y"
 msgstr ""
 
 #: app/src/GlyphsPanel.tsx
@@ -2734,7 +3289,7 @@ msgstr ""
 msgid "Darken Only"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Darker"
 msgstr ""
 
@@ -2774,6 +3329,10 @@ msgstr ""
 msgid "Data Sets…"
 msgstr ""
 
+#: app/src/app/measure.ts
+msgid "Date and Time"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "De-Interlace"
 msgstr ""
@@ -2783,7 +3342,7 @@ msgid "Deep"
 msgstr ""
 
 #: app/src/AnalysisDialogs.tsx
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 #: app/src/shell/TransformBar.tsx
 msgid "Default"
 msgstr ""
@@ -2837,18 +3396,25 @@ msgid "Delete {styleName}"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Delete All Empty Layers"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Delete All Notes"
 msgstr ""
 
 #: app/src/PresetPanels.tsx
 msgid "Delete all saved styles?"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Delete Anchor Point"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Delete and Fill Selection"
 msgstr ""
 
@@ -2860,12 +3426,29 @@ msgstr ""
 msgid "Delete channel"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Delete Channel"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Delete Color Sampler"
+msgstr ""
+
 #: app/src/shell/tools.ts
 msgid "Delete cropped pixels"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Delete Filter Mask"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Delete Guide"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Delete Hidden Layers"
 msgstr ""
 
 #: app/src/App.tsx
@@ -2874,6 +3457,7 @@ msgid "Delete layer"
 msgstr ""
 
 #: app/src/app/contextMenus.ts
+#: app/src/i18n/history.ts
 msgid "Delete Layer"
 msgstr ""
 
@@ -2881,11 +3465,16 @@ msgstr ""
 msgid "Delete layer comp"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Delete Layer Comp"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Delete layer mask"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Delete Layer Mask"
 msgstr ""
 
@@ -2893,8 +3482,20 @@ msgstr ""
 msgid "Delete Mask"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Delete Note"
+msgstr ""
+
 #: app/src/PathsPanel.tsx
 msgid "Delete path"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Delete Path"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Delete Path Component"
 msgstr ""
 
 #: app/src/filters/VanishingPointDialog.tsx
@@ -2902,6 +3503,7 @@ msgid "Delete Plane"
 msgstr ""
 
 #: app/src/app/measureTools.tsx
+#: app/src/i18n/history.ts
 msgid "Delete Slice"
 msgstr ""
 
@@ -2914,6 +3516,10 @@ msgstr ""
 msgid "Delete the selected step, action or set"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Delete Vector Mask"
+msgstr ""
+
 #: app/src/WorkspaceDialog.tsx
 msgid "Delete Workspace"
 msgstr ""
@@ -2922,6 +3528,7 @@ msgstr ""
 msgid "Delete Workspace…"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/PropertiesPanel.tsx
@@ -2938,6 +3545,7 @@ msgstr ""
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
 #: app/src/i18n/choices.ts
+#: app/src/i18n/history.ts
 msgid "Desaturate"
 msgstr ""
 
@@ -2954,6 +3562,7 @@ msgid "Description"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Deselect"
 msgstr ""
 
@@ -2979,6 +3588,7 @@ msgstr ""
 msgid "Destination Space"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 msgid "Detail"
 msgstr ""
@@ -3052,6 +3662,7 @@ msgid "Disable Filter Mask"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Disable Layer Mask"
 msgstr ""
 
@@ -3122,6 +3733,7 @@ msgstr ""
 msgid "Distribute"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/OptionsBar.tsx
 msgid "Distribute {edges}"
 msgstr ""
@@ -3143,6 +3755,7 @@ msgstr ""
 msgid "Divide"
 msgstr ""
 
+#: app/src/app/measure.ts
 #: app/src/ImageCalcDialog.tsx
 #: app/src/InspectionPanels.tsx
 msgid "Document"
@@ -3157,6 +3770,7 @@ msgid "Document Title"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Dodge"
 msgstr ""
@@ -3223,6 +3837,10 @@ msgstr ""
 msgid "Drag to scroll the preview."
 msgstr ""
 
+#: app/src/App.tsx
+msgid "drag to select, Shift add, Alt subtract"
+msgstr ""
+
 #: app/src/AnalysisDialogs.tsx
 msgid "Draw a ruler line first to measure a known length."
 msgstr ""
@@ -3239,6 +3857,7 @@ msgstr ""
 msgid "Drop an image here"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 msgid "Drop Shadow"
 msgstr ""
@@ -3252,6 +3871,7 @@ msgid "Dual Brush"
 msgstr ""
 
 #: app/src/ChannelsPanel.tsx
+#: app/src/i18n/history.ts
 #: app/src/ModeDialog.tsx
 msgid "Duotone"
 msgstr ""
@@ -3276,12 +3896,21 @@ msgstr ""
 msgid "Duplicate channel"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Duplicate Channel"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Duplicate layer"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Duplicate Layer"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Duplicate Path Component"
 msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
@@ -3342,10 +3971,6 @@ msgstr ""
 msgid "Edit"
 msgstr ""
 
-#: app/src/LayerStyleDialog.tsx
-msgid "Edit {lowerLabel}"
-msgstr ""
-
 #: app/src/app/menus.ts
 msgid "Edit Contents"
 msgstr ""
@@ -3355,6 +3980,7 @@ msgid "Edit effects for {name}"
 msgstr ""
 
 #: app/src/App.tsx
+#: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
 msgid "Edit gradient"
 msgstr ""
@@ -3375,6 +4001,14 @@ msgstr ""
 msgid "Edit in Vanishing Point…"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Edit Note"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Edit Path"
+msgstr ""
+
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Edit Plane"
 msgstr ""
@@ -3385,6 +4019,10 @@ msgstr ""
 
 #: app/src/ModeDialog.tsx
 msgid "Edit Table..."
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Edit Type Layer"
 msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
@@ -3414,6 +4052,7 @@ msgstr ""
 msgid "Ellipse"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Elliptical Marquee"
 msgstr ""
@@ -3457,6 +4096,7 @@ msgid "Enable Filter Mask"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Enable Layer Mask"
 msgstr ""
 
@@ -3469,6 +4109,7 @@ msgid "Enable this step"
 msgstr ""
 
 #: app/src/app/vectorCommands.ts
+#: app/src/i18n/history.ts
 msgid "Enable Vector Mask"
 msgstr ""
 
@@ -3484,15 +4125,15 @@ msgstr ""
 msgid "End Point Speed (start)"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Enhance Brightness and Contrast"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Enhance Monochromatic Contrast"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Enhance Per Channel Contrast"
 msgstr ""
 
@@ -3506,7 +4147,12 @@ msgstr ""
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Equalize"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Equalize Histogram"
 msgstr ""
 
 #: app/src/shell/tools.ts
@@ -3515,6 +4161,11 @@ msgstr ""
 
 #: app/src/app/helpers.ts
 #: app/src/shell/tools.ts
+msgid "Eraser"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Eraser"
 msgstr ""
 
@@ -3538,8 +4189,16 @@ msgstr ""
 msgid "Even Fields"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Every font this document uses is installed."
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "Every-line Composer"
+msgstr ""
+
+#: app/src/app/colorSettings.ts
+msgid "Everything ends up as sRGB, because an untagged image on the web is assumed to be sRGB. Gray is gamma 2.2 for the same reason."
 msgstr ""
 
 #: app/src/ModeDialog.tsx
@@ -3550,6 +4209,7 @@ msgstr ""
 msgid "Exclude"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/shapetools.ts
 msgid "Exclude Overlapping Shapes"
 msgstr ""
@@ -3563,6 +4223,11 @@ msgid "Exit Quick Mask Mode"
 msgstr ""
 
 #: app/src/app/helpers.ts
+msgid "Expand"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Expand"
 msgstr ""
 
@@ -3656,6 +4321,7 @@ msgstr ""
 msgid "Exposure"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/ColorDialog.tsx
 msgid "Exposure and Gamma"
 msgstr ""
@@ -3696,12 +4362,26 @@ msgstr ""
 msgid "Facet"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/shell/BrushPanels.tsx
+msgid "Fade"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Fade"
 msgstr ""
 
 #: app/src/filters/FilterDialog.tsx
 msgid "Fade {step}"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Fade needs a pixel layer."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Fade opacity must be in 0..=100"
 msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
@@ -3712,10 +4392,12 @@ msgstr ""
 msgid "Fade…"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Faux Bold"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Faux Italic"
 msgstr ""
@@ -3760,7 +4442,12 @@ msgid "File"
 msgstr ""
 
 #: app/src/FileDialogs.tsx
+#: app/src/i18n/history.ts
 msgid "File Info"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "File Info fields are limited to 64 KiB, keywords to 1000 of 1 KiB"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -3783,6 +4470,11 @@ msgstr ""
 
 #: app/src/app/Dialogs.tsx
 msgctxt "command"
+msgid "Fill"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Fill"
 msgstr ""
 
@@ -3828,12 +4520,25 @@ msgstr ""
 msgid "Fill layer"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Fill needs a pixel layer."
+msgstr ""
+
+#: app/src/i18n/history.ts
 #: app/src/LayerStyleDialog.tsx
 msgid "Fill Opacity"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Fill Path"
+msgstr ""
+
 #: app/src/PathsPanel.tsx
 msgid "Fill path with foreground color"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Fill Shape"
 msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
@@ -3841,10 +4546,12 @@ msgid "Fill Type"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Fill with Background Color"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Fill with Foreground Color"
 msgstr ""
 
@@ -3879,7 +4586,7 @@ msgstr ""
 msgid "Filter layers by kind"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
 msgstr ""
 
@@ -3981,14 +4688,17 @@ msgid "Flare Center"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Flatten All Layer Effects"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Flatten All Masks"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Flatten Image"
 msgstr ""
 
@@ -3997,10 +4707,12 @@ msgid "Flatten Image to Preserve Appearance"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Flip Canvas Horizontal"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Flip Canvas Vertical"
 msgstr ""
 
@@ -4081,10 +4793,15 @@ msgstr ""
 msgid "Font Family"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Font files over 64 MB are not supported."
+msgstr ""
+
 #: app/src/app/typeMenu.ts
 msgid "Font Preview Size"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Font Size"
 msgstr ""
@@ -4121,6 +4838,7 @@ msgstr ""
 msgid "Foreground color"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/app/helpers.ts
 #: app/src/ModeDialog.tsx
 msgid "Foreground Color"
@@ -4151,6 +4869,7 @@ msgstr ""
 msgid "Fragment"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/filters/labels.ts
 #: app/src/shell/tools.ts
 msgid "Frame"
@@ -4169,12 +4888,25 @@ msgid "Free"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/TransformBar.tsx
 msgid "Free Transform"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Free Transform and Warp"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Freeform Path"
+msgstr ""
+
 #: app/src/shell/tools.ts
 msgid "Freeform Pen"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Freeform Shape"
 msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
@@ -4222,10 +4954,17 @@ msgstr ""
 msgid "Fullscreen"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Fuzziness"
 msgstr ""
 
+#: app/src/shell/ColorPicker.tsx
+msgctxt "color picker green field"
+msgid "G"
+msgstr ""
+
+#: app/src/adjustments.ts
 #: app/src/ColorDialog.tsx
 #: app/src/LevelsCurvesBody.tsx
 msgid "Gamma"
@@ -4240,6 +4979,7 @@ msgid "Gamut Warning"
 msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/layerStyle.ts
 msgid "Gaussian"
 msgstr ""
 
@@ -4248,8 +4988,24 @@ msgstr ""
 msgid "Gaussian Blur"
 msgstr ""
 
+#: app/src/app/colorSettings.ts
+msgid "General-purpose settings for screen and print. sRGB working space; embedded profiles are kept and mismatches are handled without asking."
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Generate"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Generated {count} asset(s) into {folder}."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Generated {count} asset(s); {failed} failed: {list}"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Generated {count} asset(s)."
 msgstr ""
 
 #: app/src/GlyphsPanel.tsx
@@ -4265,6 +5021,7 @@ msgid "Glass"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Global Light"
 msgstr ""
 
@@ -4304,6 +5061,7 @@ msgstr ""
 msgid "Glyph Scaling Minimum %"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/app/typeMenu.ts
 #: app/src/GlyphsPanel.tsx
 msgid "Glyphs"
@@ -4328,6 +5086,11 @@ msgstr ""
 msgid "Gradient"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Gradient"
+msgstr ""
+
 #: app/src/shell/GradientEditor.tsx
 msgid "Gradient Editor"
 msgstr ""
@@ -4341,6 +5104,7 @@ msgstr ""
 msgid "Gradient Map"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 msgid "Gradient Overlay"
 msgstr ""
@@ -4349,6 +5113,7 @@ msgstr ""
 msgid "Gradient…"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/PresetPanels.tsx
 msgid "Gradients"
 msgstr ""
@@ -4397,16 +5162,34 @@ msgstr ""
 msgid "Gray"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Gray B"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Gray Const"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Gray G"
+msgstr ""
+
 #: app/src/LevelsCurvesBody.tsx
 msgid "Gray point"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Gray R"
 msgstr ""
 
 #: app/src/ColorDialog.tsx
 msgid "Gray working space"
 msgstr ""
 
+#: app/src/app/colorTable.ts
 #: app/src/app/menus.ts
 #: app/src/ColorDialog.tsx
+#: app/src/i18n/history.ts
 #: app/src/PdfDialog.tsx
 msgid "Grayscale"
 msgstr ""
@@ -4425,16 +5208,61 @@ msgstr ""
 #: app/src/ImageCalcDialog.tsx
 #: app/src/InspectionPanels.tsx
 #: app/src/LayerStyleDialog.tsx
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Green"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Green B"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Green Const"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Green G"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Green R"
 msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Green Strength"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Greens"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Greens C"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Greens Hue"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Greens K"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Greens Lightness"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Greens M"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Greens Saturation"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Greens Y"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -4447,6 +5275,11 @@ msgstr ""
 msgid "Grid divisions"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Grid Spacing"
+msgstr ""
+
+#: app/src/App.tsx
 #: app/src/i18n/choices.ts
 msgid "Group"
 msgstr ""
@@ -4460,6 +5293,7 @@ msgid "Group layers"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Group Layers"
 msgstr ""
 
@@ -4471,6 +5305,11 @@ msgstr ""
 msgid "Grow"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Grow"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Guides"
 msgstr ""
@@ -4478,6 +5317,11 @@ msgstr ""
 #: app/src/PropertiesPanel.tsx
 #: app/src/ScriptDialogs.tsx
 #: app/src/shell/tools.ts
+msgid "H"
+msgstr ""
+
+#: app/src/shell/ColorPicker.tsx
+msgctxt "color picker hue field"
 msgid "H"
 msgstr ""
 
@@ -4493,6 +5337,10 @@ msgstr ""
 
 #: app/src/shell/TransformBar.tsx
 msgid "H skew"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Half Round"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -4526,6 +5374,7 @@ msgid "Hardness"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "HDR Toning"
 msgstr ""
 
@@ -4534,6 +5383,7 @@ msgid "HDR Toning…"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Healing Brush"
 msgstr ""
@@ -4543,6 +5393,7 @@ msgid "Hebrew"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/app/measure.ts
 #: app/src/filters/labels.ts
 #: app/src/filters/RenderEditors.tsx
 msgid "Height"
@@ -4572,6 +5423,10 @@ msgstr ""
 msgid "Hidden Layers"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Hide {effect}"
+msgstr ""
+
 #: app/src/LayersPanel.tsx
 msgid "Hide {effectName} of {name}"
 msgstr ""
@@ -4597,6 +5452,7 @@ msgid "Hide All"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Hide All Effects"
 msgstr ""
 
@@ -4632,8 +5488,16 @@ msgstr ""
 msgid "Hide Info"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Hide Layer"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Hide Layer Comps"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Hide Layer Effects"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -4692,6 +5556,10 @@ msgstr ""
 msgid "High Pass"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Highlight"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Highlight Area"
 msgstr ""
@@ -4700,6 +5568,7 @@ msgstr ""
 msgid "Highlight Color"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/ColorDialog.tsx
 msgid "Highlight Compression"
 msgstr ""
@@ -4734,6 +5603,31 @@ msgstr ""
 msgid "Highlights"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Highlights Amount"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Highlights Cyan-Red"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Highlights Magenta-Green"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Highlights Radius"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Highlights Tone"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Highlights Yellow-Blue"
+msgstr ""
+
+#: app/src/App.tsx
 #: app/src/InspectionPanels.tsx
 #: app/src/LevelsCurvesBody.tsx
 msgid "Histogram"
@@ -4747,11 +5641,14 @@ msgstr ""
 msgid "Histogram pixel count exceeds the source document area."
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/app/helpers.ts
+#: app/src/HistoryPanel.tsx
 msgid "History"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "History Brush"
 msgstr ""
@@ -4766,6 +5663,7 @@ msgid "Horizontal"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 msgid "Horizontal Centers"
 msgstr ""
 
@@ -4813,12 +5711,14 @@ msgstr ""
 msgid "Hsl"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/i18n/choices.ts
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/ColorField.tsx
 msgid "Hue"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/PropertiesPanel.tsx
 msgid "Hue / Saturation"
 msgstr ""
@@ -4864,6 +5764,18 @@ msgstr ""
 msgid "Image Assets"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Image Assets generation is off."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Image Assets generation is on; it runs on every save."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Image Assets: no folder was chosen. Turn File > Generate > Image Assets off and on to choose one."
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Image Balance"
 msgstr ""
@@ -4873,6 +5785,7 @@ msgstr ""
 msgid "Image editing in your browser"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "Image Processor"
 msgstr ""
@@ -4886,6 +5799,7 @@ msgid "Image Rotation"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Image Size"
 msgstr ""
 
@@ -4914,6 +5828,7 @@ msgstr ""
 msgid "Import ACO/ASE"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/VariablesDialogs.tsx
 msgid "Import Data Sets"
 msgstr ""
@@ -4962,19 +5877,19 @@ msgstr ""
 msgid "Include layers inside groups"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Increase Contrast"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Increase Contrast 1"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Increase Contrast 2"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Increase Contrast 3"
 msgstr ""
 
@@ -5002,8 +5917,13 @@ msgstr ""
 msgid "Index"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/ModeDialog.tsx
 msgid "Indexed Color"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Indexed Color needs an 8-bit RGB or Grayscale document"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -5019,12 +5939,17 @@ msgstr ""
 msgid "Inflate"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/InspectionPanels.tsx
 msgid "Info"
 msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Initial Direction"
+msgstr ""
+
+#: app/src/HistoryPanel.tsx
+msgid "Initial state"
 msgstr ""
 
 #: app/src/ModeDialog.tsx
@@ -5043,10 +5968,12 @@ msgstr ""
 msgid "Inner Bevel"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 msgid "Inner Glow"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 msgid "Inner Shadow"
 msgstr ""
@@ -5074,6 +6001,10 @@ msgstr ""
 
 #: app/src/LevelsCurvesBody.tsx
 msgid "Input white"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Insert Glyph"
 msgstr ""
 
 #: app/src/ActionsPanel.tsx
@@ -5116,6 +6047,7 @@ msgstr ""
 msgid "Intersect"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/shapetools.ts
 msgid "Intersect Shape Areas"
 msgstr ""
@@ -5172,6 +6104,10 @@ msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Invert Texture"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Invert Vector Mask"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -5251,12 +6187,17 @@ msgid "Kurtosis"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 #: app/src/PdfDialog.tsx
 msgid "Lab Color"
 msgstr ""
 
 #: app/src/shell/ColorPanel.tsx
 msgid "Lab Sliders"
+msgstr ""
+
+#: app/src/app/measure.ts
+msgid "Label"
 msgstr ""
 
 #: app/src/FileDialogs.tsx
@@ -5285,6 +6226,7 @@ msgstr ""
 msgid "Large"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Lasso"
 msgstr ""
@@ -5314,6 +6256,15 @@ msgstr ""
 msgid "Layer"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Layer Comp"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Layer Comp Options"
+msgstr ""
+
+#: app/src/App.tsx
 #: app/src/LayerCompsPanel.tsx
 msgid "Layer Comps"
 msgstr ""
@@ -5330,12 +6281,20 @@ msgstr ""
 msgid "Layer Comps to Files (WebP)…"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Layer Content Options"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Layer Content Options…"
 msgstr ""
 
 #: app/src/LayersPanel.tsx
 msgid "Layer filter"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Layer has no exportable pixels."
 msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
@@ -5350,19 +6309,35 @@ msgstr ""
 msgid "Layer Mask Hides Effects"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Layer not found: {id}"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Layer Order"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Layer Properties"
+msgstr ""
+
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 #: app/src/LayerStyleDialog.tsx
 msgid "Layer Style"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Layer via Copy"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Layer via Cut"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/app/menus.ts
 #: app/src/LayersPanel.tsx
 msgid "Layers"
@@ -5378,6 +6353,10 @@ msgstr ""
 
 #: app/src/shell/DeformSession.tsx
 msgid "Layout"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Leading"
 msgstr ""
 
 #: app/src/TypePanels.tsx
@@ -5418,6 +6397,7 @@ msgid "Left Diagonal"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 msgid "Left Edges"
 msgstr ""
 
@@ -5434,6 +6414,7 @@ msgstr ""
 msgid "Legal Notice"
 msgstr ""
 
+#: app/src/app/measure.ts
 #: app/src/filters/labels.ts
 msgid "Length"
 msgstr ""
@@ -5479,6 +6460,7 @@ msgstr ""
 msgid "Letterlike Symbols"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/labels.ts
 msgid "Level"
@@ -5559,11 +6541,11 @@ msgstr ""
 msgid "Lighten Only"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Lighten Shadows"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Lighter"
 msgstr ""
 
@@ -5575,6 +6557,7 @@ msgstr ""
 msgid "Lighting Effects"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/ChannelsPanel.tsx
 msgid "Lightness"
 msgstr ""
@@ -5595,6 +6578,7 @@ msgid "Line"
 msgstr ""
 
 #: app/src/i18n/choices.ts
+#: app/src/layerStyle.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/shell/GradientEditor.tsx
 msgid "Linear"
@@ -5634,6 +6618,7 @@ msgid "Link dimensions"
 msgstr ""
 
 #: app/src/app/vectorCommands.ts
+#: app/src/i18n/history.ts
 msgid "Link Vector Mask"
 msgstr ""
 
@@ -5649,6 +6634,10 @@ msgstr ""
 msgid "Linked"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Linking needs a browser with file system access."
+msgstr ""
+
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Liquify"
@@ -5656,6 +6645,10 @@ msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Liquify tools"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Liquify works on layer pixels, not on a mask."
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -5703,6 +6696,7 @@ msgid "Load color table"
 msgstr ""
 
 #: app/src/app/typeMenu.ts
+#: app/src/i18n/history.ts
 msgid "Load Default Type Styles"
 msgstr ""
 
@@ -5719,6 +6713,7 @@ msgid "Load path as a selection"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Load Selection"
 msgstr ""
 
@@ -5764,6 +6759,11 @@ msgstr ""
 msgid "Local (Adaptive)"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Local Adaptation"
+msgstr ""
+
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Localized color clusters"
 msgstr ""
@@ -5778,11 +6778,17 @@ msgid "Lock all"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Lock All Layers in Group"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Lock Guides"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Lock Layer"
 msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
@@ -5869,6 +6875,7 @@ msgstr ""
 msgid "Lower Shell"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/filters/GalleryStack.tsx
 msgid "Luminance"
 msgstr ""
@@ -5882,14 +6889,45 @@ msgstr ""
 msgid "Magenta"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Magentas"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Magentas C"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Magentas Hue"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Magentas K"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Magentas Lightness"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Magentas M"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Magentas Saturation"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Magentas Y"
+msgstr ""
+
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Magic Eraser"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Magic Wand"
 msgstr ""
@@ -5898,12 +6936,22 @@ msgstr ""
 msgid "Magnetic"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Magnetic Lasso"
 msgstr ""
 
 #: app/src/ChannelsPanel.tsx
+#: app/src/i18n/errors.ts
 msgid "Make a selection first."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Make a selection to crop to."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Make a selection to stroke."
 msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
@@ -5914,8 +6962,20 @@ msgstr ""
 msgid "Make Selection"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Make Selection from Path"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Make Selection from Vector Mask"
+msgstr ""
+
 #: app/src/PathsPanel.tsx
 msgid "Make work path from selection"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Make Work Path from Selection"
 msgstr ""
 
 #: app/src/MissingFonts.tsx
@@ -5959,11 +7019,24 @@ msgstr ""
 msgid "Mask Options"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Master Hue"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Master Lightness"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Master Saturation"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Match All"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Match Color"
 msgstr ""
 
@@ -5987,7 +7060,7 @@ msgstr ""
 msgid "Mathematical Operators"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 #: app/src/ModeDialog.tsx
 msgid "Matte"
 msgstr ""
@@ -6026,6 +7099,7 @@ msgstr ""
 msgid "Measurement"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/NotesPanels.tsx
 msgid "Measurement Log"
 msgstr ""
@@ -6035,6 +7109,7 @@ msgid "Measurement Scale"
 msgstr ""
 
 #: app/src/AnalysisDialogs.tsx
+#: app/src/App.tsx
 msgid "Measurement Scale Marker"
 msgstr ""
 
@@ -6075,6 +7150,7 @@ msgid "Merge"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Merge Down"
 msgstr ""
 
@@ -6083,6 +7159,7 @@ msgid "Merge Group"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Merge Layers"
 msgstr ""
 
@@ -6091,6 +7168,7 @@ msgid "Merge layers before converting to {depth} Bits/Channel? Merging allows HD
 msgstr ""
 
 #: app/src/app/vectorCommands.ts
+#: app/src/i18n/history.ts
 msgid "Merge Shape Components"
 msgstr ""
 
@@ -6098,11 +7176,20 @@ msgstr ""
 msgid "Merge to HDR Pro"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Merge to HDR Pro needs at least two open documents, one per exposure."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Merge to HDR Pro needs every exposure at the same pixel size."
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Merge to HDR Pro…"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Merge Visible"
 msgstr ""
 
@@ -6142,6 +7229,7 @@ msgstr ""
 msgid "Message shown when playback reaches this stop"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/ColorDialog.tsx
 #: app/src/filters/labels.ts
@@ -6172,17 +7260,33 @@ msgstr ""
 msgid "Midpoint {0}%"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Midtone Contrast"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/choices.ts
 msgid "Midtones"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Midtones Brighter"
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/adjustments.ts
+msgid "Midtones Cyan-Red"
+msgstr ""
+
+#: app/src/levelsCurves.ts
 msgid "Midtones Darker"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Midtones Magenta-Green"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Midtones Yellow-Blue"
 msgstr ""
 
 #: app/src/app/helpers.ts
@@ -6219,10 +7323,12 @@ msgid "Mix"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Mixer Brush"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
 #: app/src/filters/FilterDialog.tsx
@@ -6244,12 +7350,20 @@ msgctxt "color mode"
 msgid "Mode"
 msgstr ""
 
+#: app/src/app/colorSettings.ts
+msgid "Monitor Color"
+msgstr ""
+
 #: app/src/app/proof.ts
 msgid "Monitor RGB"
 msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Monochromatic"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Monochrome"
 msgstr ""
 
 #: app/src/ModeDialog.tsx
@@ -6282,6 +7396,11 @@ msgstr ""
 msgid "Move"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Move"
+msgstr ""
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Move {label} down"
 msgstr ""
@@ -6290,8 +7409,40 @@ msgstr ""
 msgid "Move {label} up"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Move Anchor"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Move Artboard"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Move Copy"
+msgstr ""
+
 #: app/src/filters/GalleryStack.tsx
 msgid "Move Down"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Move Guide"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Move Layer Style"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Move Path"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Move Selection"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Move Selection Copy"
 msgstr ""
 
 #: app/src/shell/DeformSession.tsx
@@ -6312,6 +7463,7 @@ msgstr ""
 
 #: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
+#: app/src/i18n/history.ts
 msgid "Multichannel"
 msgstr ""
 
@@ -6345,6 +7497,7 @@ msgstr ""
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/NavigatorPanel.tsx
 msgid "Navigator"
 msgstr ""
@@ -6357,7 +7510,7 @@ msgstr ""
 msgid "Needs Node.js 20 or newer."
 msgstr ""
 
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Negative"
 msgstr ""
 
@@ -6367,6 +7520,26 @@ msgstr ""
 
 #: app/src/ModeDialog.tsx
 msgid "Netscape Gray"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Neutralize"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Neutrals C"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Neutrals K"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Neutrals M"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Neutrals Y"
 msgstr ""
 
 #: app/src/i18n/choices.ts
@@ -6386,6 +7559,7 @@ msgstr ""
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "New Artboard"
 msgstr ""
 
@@ -6394,6 +7568,7 @@ msgstr ""
 msgid "New channel"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/ImageCalcDialog.tsx
 msgid "New Channel"
 msgstr ""
@@ -6410,20 +7585,27 @@ msgstr ""
 msgid "New Fill Layer"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "New Frame"
+msgstr ""
+
 #: app/src/App.tsx
 #: app/src/LayersPanel.tsx
 msgid "New group"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "New Group"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "New Guide"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "New Guide Layout"
 msgstr ""
 
@@ -6450,6 +7632,7 @@ msgid "New layer"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "New Layer"
 msgstr ""
 
@@ -6457,8 +7640,20 @@ msgstr ""
 msgid "New layer comp"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "New Layer Comp"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "New Note"
+msgstr ""
+
 #: app/src/PathsPanel.tsx
 msgid "New path"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "New Path"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
@@ -6473,7 +7668,12 @@ msgstr ""
 msgid "New size: {newSize}"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "New Slice"
+msgstr ""
+
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "New Smart Object via Copy"
 msgstr ""
 
@@ -6482,6 +7682,7 @@ msgid "New spot channel"
 msgstr ""
 
 #: app/src/ChannelsPanel.tsx
+#: app/src/i18n/history.ts
 msgid "New Spot Channel"
 msgstr ""
 
@@ -6495,6 +7696,10 @@ msgstr ""
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "New tool preset name"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "New Type Layer"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -6525,8 +7730,16 @@ msgstr ""
 msgid "No actions. Record one or load a set."
 msgstr ""
 
+#: app/src/App.tsx
+msgid "No active layer"
+msgstr ""
+
 #: app/src/GlyphsPanel.tsx
 msgid "No alternates in this font."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "No artboard lies on the canvas."
 msgstr ""
 
 #: app/src/NotesPanels.tsx
@@ -6553,6 +7766,10 @@ msgstr ""
 msgid "No default type styles have been saved yet."
 msgstr ""
 
+#: app/src/App.tsx
+msgid "No document"
+msgstr ""
+
 #: app/src/InspectionPanels.tsx
 #: app/src/NotesPanels.tsx
 msgid "No document open."
@@ -6568,6 +7785,26 @@ msgstr ""
 
 #: app/src/MissingFonts.tsx
 msgid "No installed fonts are available for replacement."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "No layer could be aligned."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "No layer has a mask to apply."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "No layer has an effect to flatten."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "No layer names look like assets (try naming a layer \"banner.png\")."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "No Liquify session is open."
 msgstr ""
 
 #: app/src/PropertiesPanel.tsx
@@ -6626,8 +7863,20 @@ msgstr ""
 msgid "No smart filters."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "No smart object contents are open."
+msgstr ""
+
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "No type edit is open."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "No Vanishing Point session is open."
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -6680,6 +7929,18 @@ msgstr ""
 msgid "Normal Brush Tip"
 msgstr ""
 
+#: app/src/app/colorSettings.ts
+msgid "North America General Purpose 2"
+msgstr ""
+
+#: app/src/app/colorSettings.ts
+msgid "North America Prepress 2"
+msgstr ""
+
+#: app/src/app/colorSettings.ts
+msgid "North America Web/Internet"
+msgstr ""
+
 #: app/src/shell/ColorPicker.tsx
 msgid "Not web-safe: click to snap"
 msgstr ""
@@ -6696,6 +7957,7 @@ msgstr ""
 msgid "Note text"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/NotesPanels.tsx
 #: app/src/shell/tools.ts
 msgid "Notes"
@@ -6729,10 +7991,12 @@ msgstr ""
 msgid "Odd Fields"
 msgstr ""
 
+#: app/src/app/colorSettings.ts
 #: app/src/shell/BrushPanels.tsx
 msgid "Off"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/CloneSourcePanel.tsx
 #: app/src/filters/labels.ts
 #: app/src/ImageCalcDialog.tsx
@@ -6795,6 +8059,10 @@ msgstr ""
 msgid "One page per artboard, at the document resolution."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Only pixel layers and smart objects can be warped."
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
 #: app/src/app/toolPresets.ts
 #: app/src/CloneSourcePanel.tsx
@@ -6826,6 +8094,10 @@ msgstr ""
 msgid "Open a document to play an action."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Open a document to record an action."
+msgstr ""
+
 #: app/src/TabBar.tsx
 msgid "Open documents"
 msgstr ""
@@ -6844,6 +8116,10 @@ msgstr ""
 
 #: app/src/BatchDialog.tsx
 msgid "Opened Files"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Opened with warnings: {list}"
 msgstr ""
 
 #. placeholder {0}: f.name
@@ -6914,6 +8190,7 @@ msgstr ""
 msgid "Outer Bevel"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 msgid "Outer Glow"
 msgstr ""
@@ -6995,6 +8272,10 @@ msgstr ""
 msgid "Override Tilt"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Overwrite {name} anyway?"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Package…"
 msgstr ""
@@ -7003,6 +8284,7 @@ msgstr ""
 msgid "Pages"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Paint Bucket"
 msgstr ""
@@ -7043,9 +8325,14 @@ msgstr ""
 msgid "Paper Brightness"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/app/typeMenu.ts
 #: app/src/TypePanels.tsx
 msgid "Paragraph"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Paragraph Formatting"
 msgstr ""
 
 #: app/src/TypePanels.tsx
@@ -7056,6 +8343,7 @@ msgstr ""
 msgid "Paragraph styles"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/app/typeMenu.ts
 #: app/src/TypePanels.tsx
 msgid "Paragraph Styles"
@@ -7073,23 +8361,36 @@ msgstr ""
 msgid "Paste"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Paste"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Paste in Place"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Paste Into"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Paste Into needs a selection."
+msgstr ""
+
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Paste Layer Style"
 msgstr ""
 
 #: app/src/app/typeMenu.ts
+#: app/src/i18n/history.ts
 msgid "Paste Lorem Ipsum"
 msgstr ""
 
 #: app/src/app/vectorCommands.ts
+#: app/src/i18n/history.ts
 msgid "Paste Shape Attributes"
 msgstr ""
 
@@ -7098,6 +8399,11 @@ msgid "Paste Special"
 msgstr ""
 
 #: app/src/shell/tools.ts
+msgid "Patch"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Patch"
 msgstr ""
 
@@ -7130,6 +8436,7 @@ msgstr ""
 msgid "Pathfinder"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/filters/labels.ts
 #: app/src/PathsPanel.tsx
 msgid "Paths"
@@ -7152,6 +8459,11 @@ msgstr ""
 msgid "Pattern"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Pattern"
+msgstr ""
+
 #: app/src/ModeDialog.tsx
 msgid "Pattern Dither"
 msgstr ""
@@ -7160,11 +8472,13 @@ msgstr ""
 msgid "Pattern Fill"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 msgid "Pattern Overlay"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Pattern Stamp"
 msgstr ""
@@ -7177,6 +8491,7 @@ msgstr ""
 msgid "Pattern…"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/PresetPanels.tsx
 msgid "Patterns"
 msgstr ""
@@ -7189,8 +8504,16 @@ msgstr ""
 msgid "Pen"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Pen Path"
+msgstr ""
+
 #: app/src/shell/BrushPanels.tsx
 msgid "Pen Pressure"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Pen Shape"
 msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
@@ -7201,6 +8524,11 @@ msgstr ""
 #: app/src/i18n/choices.ts
 #: app/src/LevelsCurvesBody.tsx
 #: app/src/shell/tools.ts
+msgid "Pencil"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Pencil"
 msgstr ""
 
@@ -7216,10 +8544,19 @@ msgstr ""
 msgid "Percent"
 msgstr ""
 
+#: app/src/app/colorSettings.ts
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/shell/GradientEditor.tsx
 msgid "Perceptual"
+msgstr ""
+
+#: app/src/app/measure.ts
+msgid "Perimeter"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "permission denied"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
@@ -7228,6 +8565,7 @@ msgstr ""
 msgid "Perspective"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Perspective Crop"
 msgstr ""
@@ -7260,7 +8598,12 @@ msgid "Photography"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Photomerge"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Photomerge needs at least two pixel layers."
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -7315,7 +8658,7 @@ msgstr ""
 msgid "Pins"
 msgstr ""
 
-#: app/src/LayersPanel.tsx
+#: app/src/app/layerFilter.ts
 msgid "Pixel layers"
 msgstr ""
 
@@ -7345,8 +8688,20 @@ msgstr ""
 msgid "Pixels/Inch"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Place Embedded"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Place Embedded…"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Place Linked"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Place Linked needs a file from the file picker."
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -7355,6 +8710,10 @@ msgstr ""
 
 #: app/src/shell/DeformSession.tsx
 msgid "Place pins inside the mesh, away from existing pins."
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Place Scale Marker"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -7436,6 +8795,15 @@ msgstr ""
 msgid "Polygon"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Polygon Sides"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Polygon Star Ratio"
+msgstr ""
+
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Polygonal Lasso"
 msgstr ""
@@ -7490,6 +8858,14 @@ msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Preserve Details"
+msgstr ""
+
+#: app/src/app/colorSettings.ts
+msgid "Preserve Embedded Profiles"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Preserve luminosity"
 msgstr ""
 
 #: app/src/ColorDialog.tsx
@@ -7578,6 +8954,10 @@ msgstr ""
 msgid "Print preview"
 msgstr ""
 
+#: app/src/app/colorSettings.ts
+msgid "Print production. The wider Adobe RGB working space keeps colors a press can print but sRGB cannot, and every mismatch is asked about."
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Print…"
 msgstr ""
@@ -7620,6 +9000,7 @@ msgstr ""
 msgid "Proof Setup"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/TypePanels.tsx
 msgid "Properties"
@@ -7714,8 +9095,14 @@ msgstr ""
 msgid "Quick mask"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Quick Selection"
+msgstr ""
+
+#: app/src/shell/ColorPicker.tsx
+msgctxt "color picker red field"
+msgid "R"
 msgstr ""
 
 #: app/src/i18n/choices.ts
@@ -7727,6 +9114,7 @@ msgstr ""
 msgid "Radial Blur"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/labels.ts
 msgid "Radius"
@@ -7745,6 +9133,7 @@ msgstr ""
 msgid "Randomize Shapes"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
 #: app/src/LayerStyleDialog.tsx
@@ -7756,11 +9145,21 @@ msgstr ""
 msgid "Rasterize"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Rasterize"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Rasterize Fill Content"
+msgstr ""
+
 #: app/src/SvgDialog.tsx
 msgid "Rasterize SVG Format"
 msgstr ""
 
 #: app/src/app/typeMenu.ts
+#: app/src/i18n/history.ts
 msgid "Rasterize Type Layer"
 msgstr ""
 
@@ -7845,6 +9244,7 @@ msgstr ""
 msgid "Rectangle"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Rectangular Marquee"
 msgstr ""
@@ -7855,12 +9255,32 @@ msgstr ""
 #: app/src/ImageCalcDialog.tsx
 #: app/src/InspectionPanels.tsx
 #: app/src/LayerStyleDialog.tsx
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "Red"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Red B"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Red Const"
 msgstr ""
 
 #: app/src/shell/tools.ts
 msgid "Red Eye"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Red Eye Correction"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Red G"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Red R"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -7876,13 +9296,41 @@ msgstr ""
 msgid "Redo (Shift+Ctrl+Z)"
 msgstr ""
 
-#. placeholder {0}: doc.redoLabel
 #: app/src/app/menus.ts
-msgid "Redo {0}"
+msgid "Redo {step}"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Reds"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Reds C"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Reds Hue"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Reds K"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Reds Lightness"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Reds M"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Reds Saturation"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Reds Y"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -7918,11 +9366,17 @@ msgstr ""
 msgid "Regular"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Relative"
 msgstr ""
 
+#: app/src/app/colorSettings.ts
+msgid "Relative Colorimetric"
+msgstr ""
+
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Release Clipping Mask"
 msgstr ""
 
@@ -7930,8 +9384,16 @@ msgstr ""
 msgid "Relief"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Relink Smart Object"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Relink to File…"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Relinking needs a browser with file system access."
 msgstr ""
 
 #: app/src/ExportDialogs.tsx
@@ -7971,8 +9433,17 @@ msgstr ""
 msgid "Rename"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Rename Channel"
+msgstr ""
+
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Rename Layer"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Rename Path"
 msgstr ""
 
 #: app/src/ToolPresetsPanel.tsx
@@ -7998,16 +9469,22 @@ msgid "Replace"
 msgstr ""
 
 #: app/src/app/typeMenu.ts
+#: app/src/i18n/history.ts
 #: app/src/MissingFonts.tsx
 msgid "Replace All Missing Fonts"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Replace Color"
 msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Replace Color…"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Replace Contents"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -8020,6 +9497,10 @@ msgstr ""
 
 #: app/src/MissingFonts.tsx
 msgid "Replace Fonts"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Replace Missing Fonts"
 msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
@@ -8064,6 +9545,7 @@ msgid "Resample"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Reselect"
 msgstr ""
 
@@ -8106,6 +9588,7 @@ msgstr ""
 msgid "Reset Transform"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/PropertiesPanel.tsx
 msgid "Reset Vector Mask Properties"
 msgstr ""
@@ -8127,6 +9610,7 @@ msgid "Resolution (ppi)"
 msgstr ""
 
 #: app/src/app/typeMenu.ts
+#: app/src/i18n/history.ts
 #: app/src/MissingFonts.tsx
 msgid "Resolve Missing Fonts"
 msgstr ""
@@ -8149,6 +9633,7 @@ msgstr ""
 
 #: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
+#: app/src/i18n/history.ts
 msgid "Reveal All"
 msgstr ""
 
@@ -8169,6 +9654,10 @@ msgid "Revert"
 msgstr ""
 
 #: app/src/App.tsx
+msgid "Revert to the saved version of {name}?"
+msgstr ""
+
+#: app/src/App.tsx
 msgid "Reverting…"
 msgstr ""
 
@@ -8177,11 +9666,12 @@ msgid "Rgb"
 msgstr ""
 
 #: app/src/ColorDialog.tsx
-#: app/src/LevelsCurvesBody.tsx
+#: app/src/levelsCurves.ts
 msgid "RGB"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 #: app/src/PdfDialog.tsx
 msgid "RGB Color"
 msgstr ""
@@ -8223,6 +9713,7 @@ msgid "Right Diagonal"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 msgid "Right Edges"
 msgstr ""
 
@@ -8244,7 +9735,12 @@ msgid "Rigid"
 msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/layerStyle.ts
 msgid "Ring"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Ring - Double"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -8262,6 +9758,10 @@ msgstr ""
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
 msgid "Rise"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Rolling Slope - Descending"
 msgstr ""
 
 #: app/src/TypePanels.tsx
@@ -8295,6 +9795,7 @@ msgid "Rotate 90° CW"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Rotate Canvas"
 msgstr ""
 
@@ -8323,6 +9824,10 @@ msgstr ""
 #: app/src/ModeDialog.tsx
 #: app/src/PropertiesPanel.tsx
 msgid "Round"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Rounded Steps"
 msgstr ""
 
 #: app/src/app/toolPresets.ts
@@ -8363,6 +9868,11 @@ msgstr ""
 
 #: app/src/ScriptDialogs.tsx
 msgid "Run Action"
+msgstr ""
+
+#: app/src/shell/ColorPicker.tsx
+msgctxt "color picker saturation field"
+msgid "S"
 msgstr ""
 
 #: app/src/shell/ColorField.tsx
@@ -8416,6 +9926,7 @@ msgstr ""
 msgid "Sandstone"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 msgid "Satin"
 msgstr ""
@@ -8424,6 +9935,8 @@ msgstr ""
 msgid "Saturate"
 msgstr ""
 
+#: app/src/adjustments.ts
+#: app/src/app/colorSettings.ts
 #: app/src/filters/labels.ts
 #: app/src/i18n/choices.ts
 #: app/src/shell/BrushPanels.tsx
@@ -8491,7 +10004,12 @@ msgstr ""
 msgid "Save path"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Save Path"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Save Selection"
 msgstr ""
 
@@ -8532,6 +10050,10 @@ msgstr ""
 msgid "Saved styles"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Saved with warnings: {list}"
+msgstr ""
+
 #. placeholder {0}: h.name
 #: app/src/App.tsx
 msgid "Saving {0}…"
@@ -8546,7 +10068,16 @@ msgstr ""
 msgid "Saving…"
 msgstr ""
 
+#: app/src/layerStyle.ts
+msgid "Sawtooth 1"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Sawtooth 2"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
+#: app/src/app/measure.ts
 #: app/src/ExportDialogs.tsx
 #: app/src/FileDialogs.tsx
 #: app/src/filters/labels.ts
@@ -8555,6 +10086,10 @@ msgstr ""
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/TransformBar.tsx
 msgid "Scale"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Scale Effects"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -8661,12 +10196,29 @@ msgctxt "menu"
 msgid "Select"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Select a group to convert to an artboard."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Select a layer to convert."
+msgstr ""
+
 #: app/src/NotesPanels.tsx
 msgid "Select a note with the Note tool or the arrows."
 msgstr ""
 
 #: app/src/ActionsPanel.tsx
+#: app/src/app/actionsStore.ts
 msgid "Select a set to save."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Select a shape layer first."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Select a smart object first."
 msgstr ""
 
 #: app/src/TypePanels.tsx
@@ -8686,13 +10238,30 @@ msgid "Select a type layer, or click into one with the Type tool, then click a g
 msgstr ""
 
 #: app/src/app/contextMenus.ts
+#: app/src/i18n/history.ts
 #: app/src/NotesPanels.tsx
 #: app/src/PdfDialog.tsx
 msgid "Select All"
 msgstr ""
 
+#: app/src/app/actionsStore.ts
+msgid "Select an action first."
+msgstr ""
+
 #: app/src/ActionsPanel.tsx
 msgid "Select an action to play."
+msgstr ""
+
+#: app/src/app/actionsStore.ts
+msgid "Select an action to record into."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Select an unlocked layer with pixels to warp."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Select at least two pixel layers to align."
 msgstr ""
 
 #: app/src/AnalysisDialogs.tsx
@@ -8704,15 +10273,32 @@ msgid "Select Data Points…"
 msgstr ""
 
 #: app/src/app/contextMenus.ts
+#: app/src/i18n/history.ts
 msgid "Select Inverse"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Select layers at the same level to convert them."
 msgstr ""
 
 #: app/src/ScriptDialogs.tsx
 msgid "Select location to save processed images"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Select the area to fill."
+msgstr ""
+
 #: app/src/ScriptDialogs.tsx
 msgid "Select the images to process"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Select the layer pixels to use Content-Aware Fill."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Select two or more shape layers to combine them."
 msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
@@ -8731,10 +10317,12 @@ msgid "Send a coffee"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Send Backward"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Send to Back"
 msgstr ""
 
@@ -8745,6 +10333,19 @@ msgstr ""
 #: app/src/BatchDialog.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "Set"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+#: app/src/app/actionsStore.ts
+msgid "Set {next}"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Set a history state as the source in the History panel."
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Set Measurement Scale"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -8761,6 +10362,10 @@ msgstr ""
 
 #: app/src/ColorDialog.tsx
 msgid "Settings"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Shadow"
 msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
@@ -8797,7 +10402,32 @@ msgstr ""
 msgid "Shadows"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Shadows Amount"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Shadows Cyan-Red"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Shadows Magenta-Green"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Shadows Radius"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Shadows Tone"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Shadows Yellow-Blue"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 msgid "Shadows/Highlights"
 msgstr ""
 
@@ -8807,6 +10437,10 @@ msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Shallow"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Shallow Slope - Valley"
 msgstr ""
 
 #: app/src/App.tsx
@@ -8826,10 +10460,27 @@ msgstr ""
 msgid "Shape Dynamics"
 msgstr ""
 
-#: app/src/LayersPanel.tsx
+#: app/src/i18n/history.ts
+msgid "Shape Fill"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Shape Layer"
+msgstr ""
+
+#: app/src/app/layerFilter.ts
 msgid "Shape layers"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Shape Path"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Shape Stroke"
+msgstr ""
+
+#: app/src/App.tsx
 #: app/src/ShapesPanel.tsx
 msgid "Shapes"
 msgstr ""
@@ -8892,6 +10543,10 @@ msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Short Strokes"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Show {effect}"
 msgstr ""
 
 #: app/src/LayersPanel.tsx
@@ -8968,8 +10623,16 @@ msgstr ""
 msgid "Show Info"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Show Layer"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Show Layer Comps"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Show Layer Effects"
 msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
@@ -9054,6 +10717,11 @@ msgstr ""
 msgid "Similar"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Similar"
+msgstr ""
+
 #: app/src/filters/GalleryStack.tsx
 msgid "Simple"
 msgstr ""
@@ -9070,10 +10738,12 @@ msgstr ""
 msgid "Sine"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Single Column Marquee"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Single Row Marquee"
 msgstr ""
@@ -9116,8 +10786,16 @@ msgstr ""
 msgid "Skip for Now"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Skipped {count} of {total}: {list}"
+msgstr ""
+
 #: app/src/shell/tools.ts
 msgid "Slice"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Slice Options"
 msgstr ""
 
 #: app/src/shell/tools.ts
@@ -9129,7 +10807,12 @@ msgid "Slices"
 msgstr ""
 
 #: app/src/app/measureTools.tsx
+#: app/src/i18n/history.ts
 msgid "Slices From Guides"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Sloping Frame"
 msgstr ""
 
 #: app/src/app/typeMenu.ts
@@ -9137,6 +10820,7 @@ msgstr ""
 msgid "Small"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Small Caps"
 msgstr ""
@@ -9161,11 +10845,16 @@ msgstr ""
 msgid "Smart Object"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Smart Object"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Smart object contents"
 msgstr ""
 
-#: app/src/LayersPanel.tsx
+#: app/src/app/layerFilter.ts
 msgid "Smart objects"
 msgstr ""
 
@@ -9189,6 +10878,11 @@ msgctxt "anti-alias"
 msgid "Smooth"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Smooth"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
 msgid "Smooth Selection"
 msgstr ""
@@ -9208,6 +10902,7 @@ msgid "Smoothness"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Smudge"
 msgstr ""
@@ -9257,6 +10952,7 @@ msgstr ""
 
 #: app/src/AdjustmentsPanel.tsx
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 msgid "Solid Color"
 msgstr ""
 
@@ -9272,6 +10968,7 @@ msgstr ""
 msgid "Solidity"
 msgstr ""
 
+#: app/src/app/measure.ts
 #: app/src/BatchDialog.tsx
 #: app/src/filters/labels.ts
 #: app/src/i18n/choices.ts
@@ -9333,6 +11030,10 @@ msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Speckle"
+msgstr ""
+
+#: app/src/app/colorTable.ts
+msgid "Spectrum"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -9398,6 +11099,7 @@ msgid "Spot Color"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Spot Healing Brush"
 msgstr ""
@@ -9442,6 +11144,7 @@ msgid "Stack Images"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Stack Mode"
 msgstr ""
 
@@ -9463,6 +11166,7 @@ msgid "Stamp"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Stamp Visible"
 msgstr ""
 
@@ -9502,6 +11206,10 @@ msgstr ""
 msgid "Std Dev"
 msgstr ""
 
+#: app/src/layerStyle.ts
+msgid "Steps"
+msgstr ""
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Stiff"
 msgstr ""
@@ -9511,6 +11219,11 @@ msgid "Stippled"
 msgstr ""
 
 #: app/src/shell/GradientEditor.tsx
+msgid "Stop"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Stop"
 msgstr ""
 
@@ -9531,6 +11244,7 @@ msgid "Stop recording"
 msgstr ""
 
 #: app/src/ActionsPanel.tsx
+#: app/src/app/actionsStore.ts
 msgid "Stop recording first."
 msgstr ""
 
@@ -9555,6 +11269,7 @@ msgid "Straighten Horizontal"
 msgstr ""
 
 #: app/src/app/measureTools.tsx
+#: app/src/i18n/history.ts
 msgid "Straighten Layer"
 msgstr ""
 
@@ -9562,6 +11277,7 @@ msgstr ""
 msgid "Straighten Vertical"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 #: app/src/shell/tools.ts
 msgid "Strength"
@@ -9571,6 +11287,7 @@ msgstr ""
 msgid "Stretch To Fit"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Strikethrough"
 msgstr ""
@@ -9585,6 +11302,11 @@ msgstr ""
 
 #: app/src/app/Dialogs.tsx
 msgctxt "command"
+msgid "Stroke"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Stroke"
 msgstr ""
 
@@ -9605,6 +11327,10 @@ msgstr ""
 
 #: app/src/PropertiesPanel.tsx
 msgid "Stroke cap"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Stroke Cap"
 msgstr ""
 
 #: app/src/app/toolPresets.ts
@@ -9637,6 +11363,10 @@ msgstr ""
 msgid "Stroke join"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Stroke Join"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Stroke Length"
 msgstr ""
@@ -9645,8 +11375,16 @@ msgstr ""
 msgid "Stroke path"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Stroke Path"
+msgstr ""
+
 #: app/src/PropertiesPanel.tsx
 msgid "Stroke placement"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Stroke Placement"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -9661,12 +11399,20 @@ msgstr ""
 msgid "Stroke previews"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Stroke produced no pixels."
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Stroke Size"
 msgstr ""
 
 #: app/src/PropertiesPanel.tsx
 msgid "Stroke style"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Stroke Style"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -9705,6 +11451,7 @@ msgstr ""
 msgid "Style name"
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PresetPanels.tsx
 msgid "Styles"
@@ -9731,6 +11478,7 @@ msgstr ""
 msgid "Stylus Wheel"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Subscript"
 msgstr ""
@@ -9753,6 +11501,7 @@ msgstr ""
 msgid "Subtract from Selection"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/shapetools.ts
 msgid "Subtract Front Shape"
 msgstr ""
@@ -9769,6 +11518,7 @@ msgstr ""
 msgid "Summation"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Superscript"
 msgstr ""
@@ -9810,6 +11560,10 @@ msgstr ""
 msgid "Symmetric Distortion"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "System fonts are not available: {reason}"
+msgstr ""
+
 #: app/src/ModeDialog.tsx
 msgid "Table"
 msgstr ""
@@ -9843,6 +11597,7 @@ msgstr ""
 msgid "Text color"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Text Color"
 msgstr ""
@@ -9886,8 +11641,24 @@ msgstr ""
 msgid "Thank you for thinking about supporting it. It means a lot!"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "That document is not open."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "That file has no pixels to place."
+msgstr ""
+
 #: app/src/GlyphsPanel.tsx
 msgid "That glyph has no code point — it is an OpenType alternate, reachable only through a feature."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "That smart filter already has a mask."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "That smart filter is not Liquify."
 msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
@@ -9906,16 +11677,44 @@ msgstr ""
 msgid "The action has no enabled steps."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "The artboard is outside the canvas."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "The brush library is not available."
+msgstr ""
+
 #: app/src/app/paintTool.ts
 msgid "The clone source is in another document. Alt-click to set a new source."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "The contents were not written back."
 msgstr ""
 
 #: app/src/ColorDialog.tsx
 msgid "The document “{askFile}” has an embedded color profile that does not match the current {askSpace} working space."
 msgstr ""
 
+#: app/src/App.tsx
+msgid "The document could not be printed: {reason}"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The document has no data sets."
+msgstr ""
+
 #: app/src/VariablesDialogs.tsx
 msgid "The document has no layer to bind."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "The document is not open."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The document to revert is no longer active."
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
@@ -9930,8 +11729,20 @@ msgstr ""
 msgid "The filter stack is empty."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "The histogram source must be a pixel layer."
+msgstr ""
+
 #: app/src/FileDialogs.tsx
 msgid "The image extends past the margins."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The layer has no pixels."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The linked source is unavailable: {name}. Relink the Smart Object to an existing file."
 msgstr ""
 
 #: app/src/app/measureTools.tsx
@@ -9942,9 +11753,17 @@ msgstr ""
 msgid "The new tool preset id is invalid or already exists."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "The original Smart Object was removed or replaced. Use Save As to keep these contents."
+msgstr ""
+
 #. placeholder {0}: file.name
 #: app/src/PdfDialog.tsx
 msgid "The password is wrong. {0} is protected."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "The pattern is not available."
 msgstr ""
 
 #: app/src/PresetPanels.tsx
@@ -9959,8 +11778,92 @@ msgstr ""
 msgid "The photobaer name and logo are not covered by the code license."
 msgstr ""
 
+#: app/src/app/print.ts
+msgid "The print frame could not be created."
+msgstr ""
+
+#: app/src/app/print.ts
+msgid "The print image could not be loaded."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The sample coordinate is outside the document."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The sample size must be 1, 3, or 5."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The sample source must be a pixel layer."
+msgstr ""
+
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The source document is no longer open."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The source document must have the same pixel size."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "The source file cannot store:"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The straighten angle must be a number."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The transform was cancelled."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The type layer has no text."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The warped image exceeds the rendering limit."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "There are no data sets to apply."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "There are no linked smart objects."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "There are no pixels to transform."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "There are no pixels to warp."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "There is no path to convert."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "There is no previous Indexed Color palette."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "There is no work path to save."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "There is nothing to fade."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "There were no empty layers."
 msgstr ""
 
 #: app/src/MissingFonts.tsx
@@ -9975,12 +11878,56 @@ msgstr ""
 msgid "This browser also has WebMCP enabled, so in-browser agents can use the same tools on this tab."
 msgstr ""
 
+#: app/src/App.tsx
+msgid "This browser cannot link files, so the file was placed embedded."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "This cannot be undone."
+msgstr ""
+
 #: app/src/filters/GalleryStack.tsx
 msgid "This filter has no options."
 msgstr ""
 
+#: app/src/app/actionsStore.ts
+msgid "This is not a photobaer actions file."
+msgstr ""
+
 #: app/src/LayerStyleDialog.tsx
 msgid "This Layer"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "This Smart Object has no embedded source file. Use Replace Contents or reopen the original PSD."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "This smart object has no smart filters."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "This Smart Object has no source file to export. Reopen the original PSD or use Replace Contents."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "This Smart Object has no source file to link."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "This Smart Object is already embedded."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "This Smart Object is already linked."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "This smart object must be rasterized before its pixels can be edited."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "This type layer has no outline."
 msgstr ""
 
 #: app/src/adjustments.ts
@@ -10040,8 +11987,21 @@ msgstr ""
 msgid "Tilt-Shift"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 msgid "Tint"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Tint B"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Tint G"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Tint R"
 msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
@@ -10121,8 +12081,17 @@ msgstr ""
 msgid "Tool preset tool is invalid."
 msgstr ""
 
+#: app/src/App.tsx
 #: app/src/ToolPresetsPanel.tsx
 msgid "Tool Presets"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Tool presets could not be loaded."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Tool presets could not be saved: {reason}"
 msgstr ""
 
 #: app/src/shell/ToolBar.tsx
@@ -10137,6 +12106,7 @@ msgid "Top"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 msgid "Top Edges"
 msgstr ""
 
@@ -10168,6 +12138,7 @@ msgstr ""
 msgid "Trace Contour"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Tracking"
 msgstr ""
@@ -10179,6 +12150,14 @@ msgstr ""
 #: app/src/App.tsx
 #: app/src/app/menus.ts
 msgid "Transform"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Transform Again"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Transform Again changed nothing."
 msgstr ""
 
 #: app/src/shell/TransformBar.tsx
@@ -10194,6 +12173,7 @@ msgid "Transform options"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Transform Selection"
 msgstr ""
 
@@ -10234,6 +12214,11 @@ msgid "Trilinear"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+msgid "Trim"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
 msgid "Trim"
 msgstr ""
 
@@ -10300,8 +12285,12 @@ msgctxt "menu"
 msgid "Type"
 msgstr ""
 
-#: app/src/LayersPanel.tsx
+#: app/src/app/layerFilter.ts
 msgid "Type layers"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Type Mask"
 msgstr ""
 
 #: app/src/TypePanels.tsx
@@ -10316,6 +12305,7 @@ msgstr ""
 msgid "Undefined Areas"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Underline"
 msgstr ""
@@ -10337,9 +12327,8 @@ msgstr ""
 msgid "Undo (Ctrl+Z)"
 msgstr ""
 
-#. placeholder {0}: doc.undoLabel
 #: app/src/app/menus.ts
-msgid "Undo {0}"
+msgid "Undo {step}"
 msgstr ""
 
 #: app/src/App.tsx
@@ -10347,6 +12336,7 @@ msgid "Ungroup layers"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Ungroup Layers"
 msgstr ""
 
@@ -10359,8 +12349,13 @@ msgstr ""
 msgid "Unit"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/shell/shapetools.ts
 msgid "Unite Shapes"
+msgstr ""
+
+#: app/src/app/measure.ts
+msgid "Units"
 msgstr ""
 
 #: app/src/app/toolPresets.ts
@@ -10384,7 +12379,12 @@ msgid "Unlock"
 msgstr ""
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
 msgid "Unlock Guides"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Unlock the group before converting it to an artboard."
 msgstr ""
 
 #: app/src/GlyphsPanel.tsx
@@ -10416,11 +12416,20 @@ msgid "Update All Modified Content"
 msgstr ""
 
 #: app/src/app/typeMenu.ts
+#: app/src/i18n/history.ts
 msgid "Update All Text Layers"
 msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Update Modified Content"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Update Modified Content works on linked smart objects."
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Update Smart Object Contents"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -10444,6 +12453,7 @@ msgstr ""
 msgid "Upper Shell"
 msgstr ""
 
+#: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Uppercase"
 msgstr ""
@@ -10466,6 +12476,10 @@ msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Use Global Light"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Use legacy"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
@@ -10504,13 +12518,25 @@ msgstr ""
 msgid "V skew"
 msgstr ""
 
+#: app/src/layerStyle.ts
+msgid "Valley - Low"
+msgstr ""
+
 #: app/src/filters/labels.ts
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Vanishing Point"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Vanishing Point Planes"
+msgstr ""
+
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Vanishing Point tools"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Vanishing Point works on layer pixels, not on a mask."
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -10526,6 +12552,15 @@ msgstr ""
 msgid "Variables"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Variables"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Variables are limited to 1000 bindings and 10000 data sets"
+msgstr ""
+
 #: app/src/VariablesDialogs.tsx
 msgid "Variables without a column: {missing}."
 msgstr ""
@@ -10537,8 +12572,17 @@ msgstr ""
 
 #: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
+#: app/src/i18n/history.ts
 #: app/src/PropertiesPanel.tsx
 msgid "Vector Mask"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Vector Mask Density"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgid "Vector Mask Feather"
 msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
@@ -10555,6 +12599,7 @@ msgid "Vertical"
 msgstr ""
 
 #: app/src/app/helpers.ts
+#: app/src/i18n/history.ts
 msgid "Vertical Centers"
 msgstr ""
 
@@ -10648,9 +12693,26 @@ msgstr ""
 msgid "Walnut"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Warnings: {list}"
+msgstr ""
+
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/TransformBar.tsx
 msgid "Warp"
+msgstr ""
+
+#: app/src/i18n/history.ts
+msgctxt "history step"
+msgid "Warp"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Warp bends a whole layer; deselect to warp it."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Warp bends layer pixels, not the selection outline."
 msgstr ""
 
 #: app/src/shell/TransformBar.tsx
@@ -10723,6 +12785,10 @@ msgstr ""
 msgid "White"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "White Clip %"
+msgstr ""
+
 #: app/src/LayerStyleDialog.tsx
 msgid "white inner"
 msgstr ""
@@ -10743,6 +12809,22 @@ msgstr ""
 msgid "Whites"
 msgstr ""
 
+#: app/src/adjustments.ts
+msgid "Whites C"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Whites K"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Whites M"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Whites Y"
+msgstr ""
+
 #: app/src/filters/GalleryStack.tsx
 msgid "Wide Blurry"
 msgstr ""
@@ -10752,6 +12834,7 @@ msgid "Wide Sharp"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
+#: app/src/app/measure.ts
 #: app/src/filters/labels.ts
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
@@ -10840,8 +12923,20 @@ msgstr ""
 msgid "Workspace"
 msgstr ""
 
+#: app/src/App.tsx
+msgid "Workspace settings could not be loaded."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Workspace settings could not be saved: {reason}"
+msgstr ""
+
 #: app/src/filters/GalleryStack.tsx
 msgid "Wrap Around"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Write the contents back anyway?"
 msgstr ""
 
 #: app/src/PropertiesPanel.tsx
@@ -10866,8 +12961,37 @@ msgstr ""
 msgid "Yellow"
 msgstr ""
 
+#: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Yellows"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Yellows C"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Yellows Hue"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Yellows K"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Yellows Lightness"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Yellows M"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Yellows Saturation"
+msgstr ""
+
+#: app/src/adjustments.ts
+msgid "Yellows Y"
 msgstr ""
 
 #: app/src/filters/labels.ts

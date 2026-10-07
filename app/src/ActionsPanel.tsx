@@ -8,6 +8,7 @@ import type { DocInfo } from './engine.worker.ts';
 import type { Active } from './LayersPanel.tsx';
 import type { ActionStep } from './actions.ts';
 import { actions } from './app/actionsStore.ts';
+import { historyLabel } from './i18n/history.ts';
 
 type Run = (label: string | null, p: () => Promise<DocInfo | null>) => Promise<void>;
 
@@ -40,10 +41,12 @@ export function ActionsPanel({ has, active, run, setError }: { has: boolean; act
   const { sets, sel, recording } = actions;
   const attempt = (f: () => unknown) => { try { f(); } catch (e) { setError((e as Error).message); } };
 
+  function defaultActionName() { const next = sets.reduce((n, s) => n + s.actions.length, 0) + 1; return t`Action ${next}`; }
+
   async function record() {
     if (recording) return;
     if (!actions.action) {
-      const name = prompt(t`Action name`, `Action ${sets.reduce((n, s) => n + s.actions.length, 0) + 1}`);
+      const name = prompt(t`Action name`, defaultActionName());
       if (!name) return;
       actions.newAction(name);
     }
@@ -71,11 +74,12 @@ export function ActionsPanel({ has, active, run, setError }: { has: boolean; act
     });
   }
   function newSet() {
-    const name = prompt(t`Set name`, `Set ${sets.length + 1}`);
+    const next = sets.length + 1;
+    const name = prompt(t`Set name`, t`Set ${next}`);
     if (name) actions.newSet(name);
   }
   function newAction() {
-    const name = prompt(t`Action name`, `Action ${sets.reduce((n, s) => n + s.actions.length, 0) + 1}`);
+    const name = prompt(t`Action name`, defaultActionName());
     if (name) { actions.newAction(name); void record(); }
   }
   function insertStop() {
@@ -144,7 +148,7 @@ export function ActionsPanel({ has, active, run, setError }: { has: boolean; act
                       <div key={st.id} className={`action-row indent2${sel.step === st.id ? ' selected' : ''}${st.enabled ? '' : ' off'}`} onClick={() => actions.select({ set: s.id, action: a.id, step: st.id })} title={st.stop?.message ?? st.calls.map(c => c.op).join(', ')}>
                         <button className="action-eye" aria-label={t`Enable this step`} onClick={e => { e.stopPropagation(); actions.toggleStep(st.id); }}>{st.enabled ? <Eye size={14} /> : <EyeOff size={14} />}</button>
                         {st.stop && <OctagonPause size={13} />}
-                        <span className="action-name">{st.label}</span>
+                        <span className="action-name">{historyLabel(st.label)}</span>
                       </div>
                     ))}
                   </div>

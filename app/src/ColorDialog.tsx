@@ -171,7 +171,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
   );
   const conversion = (o: { intent: Intent; bpc: boolean; dither: boolean }, set: (p: Partial<typeof o>) => void) => <>
     <label><Trans>Intent</Trans> <select aria-label={t`Intent`} value={o.intent} onChange={e => set({ intent: e.currentTarget.value as Intent })}>
-      {INTENTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      {INTENTS.map(([v, l]) => <option key={v} value={v}>{i18n._(l)}</option>)}
     </select></label>
     <label className="check"><input type="checkbox" checked={o.bpc} onChange={e => set({ bpc: e.currentTarget.checked })} /> <Trans>Use Black Point Compensation</Trans></label>
     <label className="check"><input type="checkbox" checked={o.dither} onChange={e => set({ dither: e.currentTarget.checked })} /> <Trans>Use Dither (8-bit/channel images)</Trans></label>
@@ -179,7 +179,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
   const preset = matchPreset(draft);
   const policy = (label: string, value: Policy, set: (p: Policy) => void, space: string) => (
     <label>{label} <select aria-label={t`${label} policy`} value={value} onChange={e => set(e.currentTarget.value as Policy)}>
-      {POLICIES.map(([v, l]) => <option key={v} value={v}>{l.replace('RGB', space)}</option>)}
+      {POLICIES.map(([v, l]) => <option key={v} value={v}>{i18n._({ ...l, values: { space } })}</option>)}
     </select></label>
   );
 
@@ -204,7 +204,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
               if (p) setDraft(p.settings);
             }}>
               {preset === 'Custom' && <option value="Custom">{t`Custom`}</option>}
-              {COLOR_PRESETS.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+              {COLOR_PRESETS.map(p => <option key={p.name} value={p.name}>{i18n._(p.label)}</option>)}
             </select></label>
             <fieldset><legend><Trans>Working Spaces</Trans></legend>
               <label><Trans>RGB</Trans> {select(t`RGB working space`, draft.rgb, v => setDraft({ ...draft, rgb: v }), [...RGB_SPACES, ...loadedOf('rgb')])}</label>
@@ -213,8 +213,8 @@ export function ColorDialog({ ref, doc, show, setError }: {
               <button type="button" onClick={load}><Trans>Load…</Trans></button>
             </fieldset>
             <fieldset><legend><Trans>Color Management Policies</Trans></legend>
-              {policy(t`RGB`, draft.rgbPolicy, p => setDraft({ ...draft, rgbPolicy: p }), 'RGB')}
-              {policy(t`Gray`, draft.grayPolicy, p => setDraft({ ...draft, grayPolicy: p }), 'Gray')}
+              {policy(t`RGB`, draft.rgbPolicy, p => setDraft({ ...draft, rgbPolicy: p }), t`RGB`)}
+              {policy(t`Gray`, draft.grayPolicy, p => setDraft({ ...draft, grayPolicy: p }), t`Gray`)}
               <label className="check"><input type="checkbox" checked={draft.askWhenOpening} onChange={e => setDraft({ ...draft, askWhenOpening: e.currentTarget.checked })} /> <Trans>Profile Mismatches: Ask When Opening</Trans></label>
               <label className="check"><input type="checkbox" checked={draft.askWhenMissing} onChange={e => setDraft({ ...draft, askWhenMissing: e.currentTarget.checked })} /> <Trans>Missing Profiles: Ask When Opening</Trans></label>
             </fieldset>
@@ -228,7 +228,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
                   onValue={n => { const v = Math.round(n); if (v >= 1 && v <= 100) setDraft({ ...draft, desaturateBy: v }); }} /> %
               </div>
             </fieldset>
-            <p className="hint">{COLOR_PRESETS.find(p => p.name === preset)?.description ?? t`Custom settings.`}</p>
+            <p className="hint">{i18n._(COLOR_PRESETS.find(p => p.name === preset)?.description ?? msg`Custom settings.`)}</p>
           </>}
           {kind === 'assign' && <>
             {radio('none', t`Don't Color Manage This Document`)}
@@ -264,7 +264,7 @@ export function ColorDialog({ ref, doc, show, setError }: {
               onChange={e => setProof({ ...proof, preserveNumbers: e.currentTarget.checked })} /> <Trans>Preserve Numbers</Trans></label>
             <label><Trans>Rendering Intent</Trans> <select aria-label={t`Rendering Intent`} value={opts.intent} disabled={proof.preserveNumbers && sameKind}
               onChange={e => setOpts({ ...opts, intent: e.currentTarget.value as Intent })}>
-              {INTENTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              {INTENTS.map(([v, l]) => <option key={v} value={v}>{i18n._(l)}</option>)}
             </select></label>
             <label className="check"><input type="checkbox" checked={opts.bpc} onChange={e => setOpts({ ...opts, bpc: e.currentTarget.checked })} /> <Trans>Black Point Compensation</Trans></label>
             <fieldset><legend><Trans>Display Options (On-Screen)</Trans></legend>

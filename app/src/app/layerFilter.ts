@@ -1,9 +1,11 @@
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 import type { LayerNode } from '../engine.worker.ts';
 
 export type KindFilter = 'pixel' | 'adjustment' | 'type' | 'shape' | 'smart';
-export const KIND_FILTERS: { kind: KindFilter; label: string }[] = [
-  { kind: 'pixel', label: 'Pixel layers' }, { kind: 'adjustment', label: 'Adjustment and fill layers' },
-  { kind: 'type', label: 'Type layers' }, { kind: 'shape', label: 'Shape layers' }, { kind: 'smart', label: 'Smart objects' },
+export const KIND_FILTERS: { kind: KindFilter; label: MessageDescriptor }[] = [
+  { kind: 'pixel', label: msg`Pixel layers` }, { kind: 'adjustment', label: msg`Adjustment and fill layers` },
+  { kind: 'type', label: msg`Type layers` }, { kind: 'shape', label: msg`Shape layers` }, { kind: 'smart', label: msg`Smart objects` },
 ];
 
 const kindOf = (n: LayerNode): KindFilter | null =>

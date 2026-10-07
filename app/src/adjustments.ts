@@ -2,6 +2,9 @@
 // neutral defaults and the generic per-field renderer's field lists (m3-inv-a.md section 7 ranges).
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
+// The worker reaches this module: the @lingui/core singleton keeps the catalog loader (i18n/index.ts) out of it.
+import { i18n } from '@lingui/core';
+import { engineLabel } from './filters/labels.ts';
 import type { Adjustment, DestructiveAdjustment, GradientDef, HueRange } from './engine.worker.ts';
 import type { Gradient } from './gradients/gradient.ts';
 
@@ -106,6 +109,7 @@ export type FieldSpec =
 
 const num = (label: string, path: string, min: number, max: number, step = 1): FieldSpec => ({ type: 'number', label, path, min, max, step });
 const check = (label: string, path: string): FieldSpec => ({ type: 'checkbox', label, path });
+const select = (label: string, path: string, options: [string, string][]): FieldSpec => ({ type: 'select', label, path, options });
 const quad = (prefix: string, path: string, min: number, max: number): FieldSpec[] =>
   (['C', 'M', 'Y', 'K'] as const).map((ch, i) => num(`${prefix} ${ch}`, `${path}.${i}`, min, max));
 const row4 = (label: string, path: string): FieldSpec[] => [0, 1, 2, 3].map(i => num(`${label} ${['R', 'G', 'B', 'Const'][i]}`, `${path}.${i}`, -200, 200));
@@ -140,7 +144,7 @@ export const FIELD_SPECS: Partial<Record<AnyKind, FieldSpec[]>> = {
   posterize: [num('Levels', 'levels', 2, 255)],
   threshold: [num('Level', 'level', 1, 255)],
   selective_color: [
-    { type: 'select', label: 'Mode', path: 'mode', options: [['relative', 'Relative'], ['absolute', 'Absolute']] },
+    select('Mode', 'mode', [['relative', 'Relative'], ['absolute', 'Absolute']]),
     ...quad('Reds', 'reds', -100, 100), ...quad('Yellows', 'yellows', -100, 100), ...quad('Greens', 'greens', -100, 100), ...quad('Cyans', 'cyans', -100, 100),
     ...quad('Blues', 'blues', -100, 100), ...quad('Magentas', 'magentas', -100, 100), ...quad('Whites', 'whites', -100, 100), ...quad('Neutrals', 'neutrals', -100, 100), ...quad('Blacks', 'blacks', -100, 100),
   ],  shadows_highlights: [
@@ -150,7 +154,7 @@ export const FIELD_SPECS: Partial<Record<AnyKind, FieldSpec[]>> = {
     num('Black Clip %', 'black_clip', 0, 50, 0.01), num('White Clip %', 'white_clip', 0, 50, 0.01),
   ],
   hdr_toning: [
-    { type: 'select', label: 'Method', path: 'method', options: [['local_adaptation', 'Local Adaptation'], ['exposure_gamma', 'Exposure and Gamma'], ['highlight_compression', 'Highlight Compression'], ['equalize_histogram', 'Equalize Histogram']] },
+    select('Method', 'method', [['local_adaptation', 'Local Adaptation'], ['exposure_gamma', 'Exposure and Gamma'], ['highlight_compression', 'Highlight Compression'], ['equalize_histogram', 'Equalize Histogram']]),
     num('Radius', 'radius', 1, 500), num('Strength', 'strength', 0, 1, 0.01), num('Detail', 'detail', -100, 300),
     num('Shadow', 'shadow', -100, 100), num('Highlight', 'highlight', -100, 100),
     num('Exposure', 'exposure', -20, 20, 0.01), num('Gamma', 'gamma', 0.1, 9.99, 0.01),
@@ -163,6 +167,58 @@ export const FIELD_SPECS: Partial<Record<AnyKind, FieldSpec[]>> = {
     num('Hue', 'hue', -180, 180), num('Saturation', 'saturation', -100, 100), num('Lightness', 'lightness', -100, 100),
   ],
 };
+
+// Display text of the FIELD_SPECS labels and option names by their English text, which the specs keep.
+export const FIELD_LABELS: Record<string, MessageDescriptor> = {
+  Brightness: msg`Brightness`, Contrast: msg`Contrast`, 'Use legacy': msg`Use legacy`, Exposure: msg`Exposure`,
+  Offset: msg`Offset`, Gamma: msg`Gamma`, Vibrance: msg`Vibrance`, Saturation: msg`Saturation`,
+  'Master Hue': msg`Master Hue`, 'Master Saturation': msg`Master Saturation`,
+  'Master Lightness': msg`Master Lightness`, Colorize: msg`Colorize`, 'Colorize Hue': msg`Colorize Hue`,
+  'Colorize Saturation': msg`Colorize Saturation`, 'Colorize Lightness': msg`Colorize Lightness`,
+  'Reds Hue': msg`Reds Hue`, 'Reds Saturation': msg`Reds Saturation`, 'Reds Lightness': msg`Reds Lightness`,
+  'Yellows Hue': msg`Yellows Hue`, 'Yellows Saturation': msg`Yellows Saturation`,
+  'Yellows Lightness': msg`Yellows Lightness`, 'Greens Hue': msg`Greens Hue`,
+  'Greens Saturation': msg`Greens Saturation`, 'Greens Lightness': msg`Greens Lightness`, 'Cyans Hue': msg`Cyans Hue`,
+  'Cyans Saturation': msg`Cyans Saturation`, 'Cyans Lightness': msg`Cyans Lightness`, 'Blues Hue': msg`Blues Hue`,
+  'Blues Saturation': msg`Blues Saturation`, 'Blues Lightness': msg`Blues Lightness`,
+  'Magentas Hue': msg`Magentas Hue`, 'Magentas Saturation': msg`Magentas Saturation`,
+  'Magentas Lightness': msg`Magentas Lightness`, 'Shadows Cyan-Red': msg`Shadows Cyan-Red`,
+  'Shadows Magenta-Green': msg`Shadows Magenta-Green`, 'Shadows Yellow-Blue': msg`Shadows Yellow-Blue`,
+  'Midtones Cyan-Red': msg`Midtones Cyan-Red`, 'Midtones Magenta-Green': msg`Midtones Magenta-Green`,
+  'Midtones Yellow-Blue': msg`Midtones Yellow-Blue`, 'Highlights Cyan-Red': msg`Highlights Cyan-Red`,
+  'Highlights Magenta-Green': msg`Highlights Magenta-Green`, 'Highlights Yellow-Blue': msg`Highlights Yellow-Blue`,
+  'Preserve luminosity': msg`Preserve luminosity`, Reds: msg`Reds`, Yellows: msg`Yellows`, Greens: msg`Greens`,
+  Cyans: msg`Cyans`, Blues: msg`Blues`, Magentas: msg`Magentas`, Tint: msg`Tint`, 'Tint R': msg`Tint R`,
+  'Tint G': msg`Tint G`, 'Tint B': msg`Tint B`, 'Color R': msg`Color R`, 'Color G': msg`Color G`,
+  'Color B': msg`Color B`, Density: msg`Density`, 'Red R': msg`Red R`, 'Red G': msg`Red G`, 'Red B': msg`Red B`,
+  'Red Const': msg`Red Const`, 'Green R': msg`Green R`, 'Green G': msg`Green G`, 'Green B': msg`Green B`,
+  'Green Const': msg`Green Const`, 'Blue R': msg`Blue R`, 'Blue G': msg`Blue G`, 'Blue B': msg`Blue B`,
+  'Blue Const': msg`Blue Const`, 'Gray R': msg`Gray R`, 'Gray G': msg`Gray G`, 'Gray B': msg`Gray B`,
+  'Gray Const': msg`Gray Const`, Monochrome: msg`Monochrome`, Levels: msg`Levels`, Level: msg`Level`, Mode: msg`Mode`,
+  Relative: msg`Relative`, Absolute: msg`Absolute`, 'Reds C': msg`Reds C`, 'Reds M': msg`Reds M`,
+  'Reds Y': msg`Reds Y`, 'Reds K': msg`Reds K`, 'Yellows C': msg`Yellows C`, 'Yellows M': msg`Yellows M`,
+  'Yellows Y': msg`Yellows Y`, 'Yellows K': msg`Yellows K`, 'Greens C': msg`Greens C`, 'Greens M': msg`Greens M`,
+  'Greens Y': msg`Greens Y`, 'Greens K': msg`Greens K`, 'Cyans C': msg`Cyans C`, 'Cyans M': msg`Cyans M`,
+  'Cyans Y': msg`Cyans Y`, 'Cyans K': msg`Cyans K`, 'Blues C': msg`Blues C`, 'Blues M': msg`Blues M`,
+  'Blues Y': msg`Blues Y`, 'Blues K': msg`Blues K`, 'Magentas C': msg`Magentas C`, 'Magentas M': msg`Magentas M`,
+  'Magentas Y': msg`Magentas Y`, 'Magentas K': msg`Magentas K`, 'Whites C': msg`Whites C`, 'Whites M': msg`Whites M`,
+  'Whites Y': msg`Whites Y`, 'Whites K': msg`Whites K`, 'Neutrals C': msg`Neutrals C`, 'Neutrals M': msg`Neutrals M`,
+  'Neutrals Y': msg`Neutrals Y`, 'Neutrals K': msg`Neutrals K`, 'Blacks C': msg`Blacks C`, 'Blacks M': msg`Blacks M`,
+  'Blacks Y': msg`Blacks Y`, 'Blacks K': msg`Blacks K`, 'Shadows Amount': msg`Shadows Amount`,
+  'Shadows Tone': msg`Shadows Tone`, 'Shadows Radius': msg`Shadows Radius`,
+  'Highlights Amount': msg`Highlights Amount`, 'Highlights Tone': msg`Highlights Tone`,
+  'Highlights Radius': msg`Highlights Radius`, 'Color Correction': msg`Color Correction`,
+  'Midtone Contrast': msg`Midtone Contrast`, 'Black Clip %': msg`Black Clip %`, 'White Clip %': msg`White Clip %`,
+  Method: msg`Method`, 'Local Adaptation': msg`Local Adaptation`, 'Exposure and Gamma': msg`Exposure and Gamma`,
+  'Highlight Compression': msg`Highlight Compression`, 'Equalize Histogram': msg`Equalize Histogram`,
+  Radius: msg`Radius`, Strength: msg`Strength`, Detail: msg`Detail`, Shadow: msg`Shadow`, Highlight: msg`Highlight`,
+  Luminance: msg`Luminance`, 'Color Intensity': msg`Color Intensity`, Fade: msg`Fade`, Neutralize: msg`Neutralize`,
+  Fuzziness: msg`Fuzziness`, 'Localized color clusters': msg`Localized color clusters`, Range: msg`Range`,
+  Hue: msg`Hue`, Lightness: msg`Lightness`,
+};
+
+/** A field label or option name in the UI language: adjustment fields, then engine filter text, else as is. */
+export const fieldLabel = (text: string) => (Object.hasOwn(FIELD_LABELS, text) ? i18n._(FIELD_LABELS[text]) : engineLabel(text));
 
 /** Reads a dot path (numeric segments index arrays) out of an adjustment's params. */
 export function getPath(params: object, path: string): unknown {

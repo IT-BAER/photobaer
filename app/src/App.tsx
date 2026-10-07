@@ -1,9 +1,11 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import type { MessageDescriptor } from '@lingui/core';
-import { msg, t } from '@lingui/core/macro';
+import { msg, plural, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { LanguagePicker } from './shell/LanguagePicker.tsx';
 import { i18n } from './i18n/index.ts';
+import { historyLabel } from './i18n/history.ts';
+import { errorLabel, errorText, warningList } from './i18n/errors.ts';
 import { client } from './client.ts';
 import { Viewer, type ToolPointerEvent } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
@@ -131,6 +133,8 @@ import {
 declare const __APP_VERSION__: string;
 // The SEO title from index.html, shown while no document is open.
 const PAGE_TITLE = document.title;
+// Words for generated layer names ("Layer 1"), sent to the worker once at init.
+const layerNameBases = () => ({ Layer: t`Layer`, Group: t`Group`, 'Layer Comp': t`Layer Comp`, Frame: t`Frame`, 'Measurement Scale Marker': t`Measurement Scale Marker` });
 // Menu bar titles: the menus record keys stay English (shortcuts, WebMCP paths); only the shown title is translated.
 const MENU_TITLE: Record<string, MessageDescriptor> = {
   File: msg`File`, Edit: msg`Edit`, Layer: msg`Layer`, Type: msg({ message: 'Type', context: 'menu' }), Image: msg`Image`,
@@ -228,18 +232,20 @@ export function App() {
   const [workspaceStart] = useState(() => {
     try { return { state: loadWorkspaces(), error: null }; }
     catch (e) {
+      const reason = errorText(e);
       return {
         state: loadWorkspaces({ getItem: () => null, setItem: () => {} }),
-        error: `Workspace settings could not be loaded. Changes will stay in this session: ${(e as Error).message}`,
+        error: `${t`Workspace settings could not be loaded.`} ${t`Changes will stay in this session: ${reason}`}`,
       };
     }
   });
   const [toolPresetStart] = useState(() => {
     try { return { library: loadToolPresets(), error: null }; }
     catch (e) {
+      const reason = errorText(e);
       return {
         library: loadToolPresets({ getItem: () => null, setItem: () => {} }),
-        error: `Tool presets could not be loaded. Changes will stay in this session: ${(e as Error).message}`,
+        error: `${t`Tool presets could not be loaded.`} ${t`Changes will stay in this session: ${reason}`}`,
       };
     }
   });
@@ -313,7 +319,7 @@ export function App() {
   const storeWorkspace = (next: WorkspaceState) => {
     setWorkspace(next);
     if (workspaceStart.error) { setError(workspaceStart.error); return; }
-    try { saveWorkspaces(localStorage, next); } catch (e) { setError(`Workspace settings could not be saved: ${(e as Error).message}`); }
+    try { saveWorkspaces(localStorage, next); } catch (e) { const reason = errorText(e); setError(t`Workspace settings could not be saved: ${reason}`); }
   };
   const applyWorkspace = (next: WorkspaceState) => {
     storeWorkspace(next);
@@ -333,10 +339,10 @@ export function App() {
     setDockOrder(o => { const next = moveItem(o, id, target, after); saveOrder('photobaer.dockOrder', next); return next; });
   };
   // Sections above Layers resize from their bottom edge, sections below it from their top edge.
-  const sec = (id: DockKey, title: string) => {
+  const sec = (id: DockKey, title: MessageDescriptor) => {
     const order = dockOrder.indexOf(id), layers = dockOrder.indexOf('layers');
     const edge = id === 'layers' ? 'none' as const : order < layers ? 'bottom' as const : 'top' as const;
-    return { id, title, entry: dock[id], locked: workspace.locked, onResize: dockResize, onToggle: dockToggle, order, edge, onMove: dockMove };
+    return { id, title: i18n._(title), entry: dock[id], locked: workspace.locked, onResize: dockResize, onToggle: dockToggle, order, edge, onMove: dockMove };
   };
   const chooseWorkspace = (name: string) => {
     setMenu(null);
@@ -681,7 +687,7 @@ export function App() {
         remember(handle);
       }
       show(d);
-      if (d.warnings.length) setError(`Opened with warnings: ${d.warnings.join('; ')}`);
+      if (d.warnings.length) { const list = warningList(d.warnings); setError(t`Opened with warnings: ${list}`); }
       return true;
     } catch (e) {
       setError((e as Error).message);
@@ -707,11 +713,12 @@ export function App() {
     setMenu(null);
     let f: File;
     try {
-      if (!await permit(r.handle, 'read')) throw new Error('permission denied');
+      if (!await permit(r.handle, 'read')) throw new Error(t`permission denied`);
       f = await r.handle.getFile();
     } catch (e) {
       updateRecent(l => l.filter(x => x !== r));
-      setError(`Could not open ${r.name}: ${(e as Error).message}`);
+      const name = r.name, reason = errorText(e);
+      setError(t`Could not open ${name}: ${reason}`);
       return;
     }
     await open(f, r.handle);
@@ -719,7 +726,7 @@ export function App() {
 
   // Edit Contents write-back: PSD export warnings (settings the source cannot store) need a confirm;
   // a close that cannot write back offers to close without saving.
-  const lost = (warnings: string[]) => `The source file cannot store:\n- ${warnings.join('\n- ')}`;
+  const lost = (warnings: string[]) => `${t`The source file cannot store:`}\n- ${warnings.map(errorLabel).join('\n- ')}`;
   async function editContents(id: number) {
     let warnings: string[] = [];
     await run(t`Opening contents…`, async () => {
@@ -727,12 +734,12 @@ export function App() {
       warnings = d.warnings;
       return d;
     });
-    if (warnings.length) setError(`Opened with warnings: ${warnings.join('; ')}`);
+    if (warnings.length) { const list = warningList(warnings); setError(t`Opened with warnings: ${list}`); }
   }
   async function saveContents() {
     await run(t`Saving contents…`, async () => {
       const d = await client.call('smartEditSave');
-      return d.written || !confirm(`${lost(d.warnings)}\n\nWrite the contents back anyway?`) ? d : client.call('smartEditSave', true);
+      return d.written || !confirm(`${lost(d.warnings)}\n\n${t`Write the contents back anyway?`}`) ? d : client.call('smartEditSave', true);
     });
   }
   function chooseClose(c: CloseChoice) {
@@ -774,8 +781,8 @@ export function App() {
   async function closeContents() {
     await run(t`Closing contents…`, async () => {
       let d = await client.call('smartEditClose');
-      if (!d.closed && !d.error && confirm(`${lost(d.warnings)}\n\nWrite the contents back anyway?`)) d = await client.call('smartEditClose', 'accept');
-      if (!d.closed && confirm(`${d.error ?? 'The contents were not written back.'}\n\nClose without saving the contents?`)) d = await client.call('smartEditClose', 'discard');
+      if (!d.closed && !d.error && confirm(`${lost(d.warnings)}\n\n${t`Write the contents back anyway?`}`)) d = await client.call('smartEditClose', 'accept');
+      if (!d.closed && confirm(`${d.error ? errorLabel(d.error) : t`The contents were not written back.`}\n\n${t`Close without saving the contents?`}`)) d = await client.call('smartEditClose', 'discard');
       return d;
     });
   }
@@ -877,10 +884,10 @@ export function App() {
           const { blob } = await client.call('exportAsset', assetOptions(o.format, o.scale, o.quality, target));
           await saveOut(o.dest, o.folder, `${fileStem(node.name, used)}.${EXT[o.format]}`, blob);
         } catch (e) {
-          skipped.push(`${node.name} (${(e as Error).message})`);
+          skipped.push(`${node.name} (${errorText(e)})`);
         }
       }
-      if (skipped.length) setError(`Skipped ${skipped.length} of ${nodes.length}: ${skipped.join(', ')}`);
+      if (skipped.length) { const count = skipped.length, total = nodes.length, list = skipped.join(', '); setError(t`Skipped ${count} of ${total}: ${list}`); }
     });
   }
   // File > Package: a PSD copy with every linked Smart Object embedded.
@@ -888,7 +895,9 @@ export function App() {
     void exporting(async d => {
       const { blob, warnings, embedded } = await client.call('packagePsd');
       if (!await saveBlob(blob, `${d.name}.psd`, 'image/vnd.adobe.photoshop', 'psd')) return;
-      setError(`Packaged ${d.name}.psd with ${embedded} linked file${embedded === 1 ? '' : 's'} embedded.${warnings.length ? ` Warnings: ${warnings.join('; ')}` : ''}`);
+      const file = `${d.name}.psd`, list = warningList(warnings);
+      const done = plural(embedded, { one: `Packaged ${file} with # linked file embedded.`, other: `Packaged ${file} with # linked files embedded.` });
+      setError(warnings.length ? `${done} ${t`Warnings: ${list}`}` : done);
     });
   }
 
@@ -899,19 +908,19 @@ export function App() {
     const on = !assetsOn;
     setAssetsOn(on);
     try { localStorage.setItem(ASSETS_KEY, on ? '1' : '0'); } catch { /* storage blocked: on for this session */ }
-    if (!on) setError('Image Assets generation is off.');
+    if (!on) setError(t`Image Assets generation is off.`);
     else if (docRef.current) void generateAssets();
-    else setError('Image Assets generation is on; it runs on every save.');
+    else setError(t`Image Assets generation is on; it runs on every save.`);
   }
   // `quiet` (after a save) skips the toast for a document without asset-named layers.
   async function generateAssets(quiet = false) {
     const d = docRef.current;
     if (!d) return;
-    if (!flatNodes(d.layers).some(n => assetSpecs(n.name).length)) { if (!quiet) setError('No layer names look like assets (try naming a layer "banner.png").'); return; }
+    if (!flatNodes(d.layers).some(n => assetSpecs(n.name).length)) { if (!quiet) setError(t`No layer names look like assets (try naming a layer "banner.png").`); return; }
     let dir = assetDirs.current.get(d.key) ?? null;
     if (!dir && canFolder()) {
       try { dir = await (window as unknown as { showDirectoryPicker(o: object): Promise<FileSystemDirectoryHandle> }).showDirectoryPicker({ mode: 'readwrite' }); }
-      catch { setError('Image Assets: no folder was chosen. Turn File > Generate > Image Assets off and on to choose one.'); return; }
+      catch { setError(t`Image Assets: no folder was chosen. Turn File > Generate > Image Assets off and on to choose one.`); return; }
       assetDirs.current.set(d.key, dir);
     }
     await exporting(async () => {
@@ -919,7 +928,8 @@ export function App() {
       const folder = `${fileStem(d.name, new Set())}-assets`;
       const out = dir ? await dir.getDirectoryHandle(folder, { create: true }) : null;
       for (const f of files) await saveOut(out ? 'folder' : 'download', out, f.name, f.blob);
-      setError(errors.length ? `Generated ${files.length} asset(s); ${errors.length} failed: ${errors.join('; ')}` : `Generated ${files.length} asset(s)${out ? ` into ${folder}` : ''}.`);
+      const count = files.length, failed = errors.length, list = errors.map(errorLabel).join('; ');
+      setError(errors.length ? t`Generated ${count} asset(s); ${failed} failed: ${list}` : out ? t`Generated ${count} asset(s) into ${folder}.` : t`Generated ${count} asset(s).`);
     });
   }
 
@@ -931,13 +941,13 @@ export function App() {
     try { f(await client.call('variables'), d); } catch (e) { setError((e as Error).message); }
   }
   const openVariables = (tab: 'define' | 'sets') => void withVariables((m, d) => variablesDialog.current?.open(tab, m, d.layers, active?.id ?? null));
-  const openApplyDataSet = () => void withVariables(m => m.data_sets.length ? applySetDialog.current?.open(m) : setError('There are no data sets to apply.'));
+  const openApplyDataSet = () => void withVariables(m => m.data_sets.length ? applySetDialog.current?.open(m) : setError(t`There are no data sets to apply.`));
   const importInto = (m: Variables, done: (m: Variables, report: string) => void) => importSetsDialog.current?.open(m, done);
   const openImportSets = () => void withVariables(m => importInto(m, (n, report) =>
     void run(null, () => client.call('setVariables', n, 'Import Data Sets')).then(() => setError(report))));
   async function applySet(name: string) {
     const r = await client.call('applyDataSet', name);
-    if (r.errors.length) setError(`Apply Data Set: ${r.errors.join(' ')}`);
+    if (r.errors.length) { const list = r.errors.map(errorLabel).join(' '); setError(t`Apply Data Set: ${list}`); }
     return r.doc;
   }
   const commitVariables = (m: Variables, apply: string | null) =>
@@ -972,7 +982,8 @@ export function App() {
       setBusy(null);
       await printPage(printHtml(l, s, url, d.name));
     } catch (e) {
-      setError(`The document could not be printed: ${(e as Error).message}`);
+      const reason = errorText(e);
+      setError(t`The document could not be printed: ${reason}`);
     } finally {
       setBusy(null);
       if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -1000,27 +1011,29 @@ export function App() {
     const log: string[] = [];
     let n = 0;
     for (const it of items) {
-      setBusy(`${title} ${++n} of ${items.length}: ${it.name}…`);
+      const step = ++n, total = items.length, name = it.name;
+      setBusy(t`${title} ${step} of ${total}: ${name}…`);
       let opened: string | null = null;
       try {
         const d: DocInfo | null = it.key ? await client.call('switchDoc', it.key) : await client.call('openFile', await rasterSvg(it.file!));
-        if (!d) throw new Error('The document is not open.');
+        if (!d) throw new Error(t`The document is not open.`);
         if (!it.key) opened = d.key;
         show(d);
         const go = await body(d);
         if (opened) { show(await client.call('closeDoc', opened)); opened = null; }
         if (!go) break;
       } catch (e) {
-        const m = `${it.name}: ${(e as Error).message}`;
+        const m = `${it.name}: ${errorText(e)}`;
         if (opened) show(await client.call('closeDoc', opened).catch(() => docRef.current));
-        if (stop) { setBusy(null); setError(`${title} stopped. ${m}`); return; }
+        if (stop) { setBusy(null); setError(`${t`${title} stopped.`} ${m}`); return; }
         log.push(m);
       }
     }
     setBusy(null);
     if (log.length) {
       downloadBlob(new Blob([`${title} errors\n\n${log.join('\n')}\n`], { type: 'text/plain' }), `${title} errors.txt`);
-      setError(`${title} finished with ${log.length} error${log.length > 1 ? 's' : ''}; see ${title} errors.txt.`);
+      const file = `${title} errors.txt`;
+      setError(plural(log.length, { one: `${title} finished with # error; see ${file}.`, other: `${title} finished with # errors; see ${file}.` }));
     }
   }
   // Plays an action on the active document `d` with its top layer as the target; false when a stop ended it.
@@ -1038,7 +1051,7 @@ export function App() {
   async function runBatch(o: BatchOptions) {
     const steps = enabledSteps(o.setId, o.actionId);
     const ext = o.format === 'jpeg' ? 'jpg' : o.format, mime = o.format === 'psd' ? 'image/vnd.adobe.photoshop' : `image/${o.format}`;
-    await eachDoc('Batch', o.source, o.files, o.errors === 'stop', async d => {
+    await eachDoc(t`Batch`, o.source, o.files, o.errors === 'stop', async d => {
       if (!await playOn(d, steps)) return false;
       if (o.dest === 'none') return true;
       let blob: Blob;
@@ -1056,7 +1069,7 @@ export function App() {
     const types = [['JPEG', 'jpg', o.jpeg], ['PSD', 'psd', o.psd], ['PNG', 'png', o.png]] as const;
     const dirs = new Map<string, FileSystemDirectoryHandle>();
     for (const [name, , t] of types) if (t.on && o.dest === 'folder') dirs.set(name, await o.folder!.getDirectoryHandle(name, { create: true }));
-    await eachDoc('Image Processor', o.source, o.files, false, async d => {
+    await eachDoc(t`Image Processor`, o.source, o.files, false, async d => {
       if (steps.length && !await playOn(d, steps)) return false;
       for (const [name, ext, t] of types) {
         if (!t.on) continue;
@@ -1115,7 +1128,7 @@ export function App() {
           download: async (name, type, quality) => downloadBlob(await client.call('exportImage', type as 'image/png', quality), name),
         }, stop.signal);
       } catch (e) {
-        setError(`${f.name}: ${(e as Error).message}`);
+        setError(`${f.name}: ${errorText(e)}`);
       } finally {
         setScript(null);
       }
@@ -1147,17 +1160,19 @@ export function App() {
   async function writeDoc(h: FileSystemFileHandle, how: 'save' | 'as' | 'copy') {
     setBusy(t`Saving ${h.name}…`);
     let encoded = false, saved = false;
+    const name = h.name;
     try {
-      if (!await permit(h, 'readwrite')) throw new Error('permission denied');
+      if (!await permit(h, 'readwrite')) throw new Error(t`permission denied`);
       const { blob, warnings } = await encode(saveFormat(h.name) ?? 'psd');
       encoded = true;
-      if (how !== 'save' || !warnings.length || confirm(`${lost(warnings)}\n\nOverwrite ${h.name} anyway?`)) {
+      if (how !== 'save' || !warnings.length || confirm(`${lost(warnings)}\n\n${t`Overwrite ${name} anyway?`}`)) {
         await writeFile(h, blob);
         saved = true;
-        if (warnings.length) setError(`Saved with warnings: ${warnings.join('; ')}`);
+        if (warnings.length) { const list = warningList(warnings); setError(t`Saved with warnings: ${list}`); }
       }
     } catch (e) {
-      setError(`Could not save ${h.name}: ${(e as Error).message}`);
+      const reason = errorText(e);
+      setError(t`Could not save ${name}: ${reason}`);
     } finally {
       setBusy(null);
     }
@@ -1176,7 +1191,7 @@ export function App() {
       const { blob, warnings } = await encode();
       encoded = true;
       saved = await saveBlob(blob, `${d.name}.psd`, 'image/vnd.adobe.photoshop', 'psd');
-      if (warnings.length) setError(`Saved with warnings: ${warnings.join('; ')}`);
+      if (warnings.length) { const list = warningList(warnings); setError(t`Saved with warnings: ${list}`); }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -1216,7 +1231,7 @@ export function App() {
     }
     if (!h) return false;
     const format = saveFormat(h.name);
-    if (!format) { setError(`Choose a .psd, .psb, .exr, .hdr or .ico file name, not ${h.name}.`); return false; }
+    if (!format) { { const name = h.name; setError(t`Choose a .psd, .psb, .exr, .hdr or .ico file name, not ${name}.`); }; return false; }
     // EXR, HDR and ICO are flattened copies: the tab keeps its file and dirty state.
     const flat = format !== 'psd' && format !== 'psb';
     if (!await writeDoc(h, copy || flat ? 'copy' : 'as')) return false;
@@ -1237,12 +1252,14 @@ export function App() {
     const d = docRef.current, o = d && origins.current.get(d.key);
     if (!d || !o) return;
     try {
-      if (!await permit(o.handle, 'read')) throw new Error('permission denied');
+      if (!await permit(o.handle, 'read')) throw new Error(t`permission denied`);
     } catch (e) {
-      setError(`Could not read ${o.handle.name}: ${(e as Error).message}`);
+      const name = o.handle.name, reason = errorText(e);
+      setError(t`Could not read ${name}: ${reason}`);
       return;
     }
-    if (!confirm(`Revert to the saved version of ${o.handle.name}? This cannot be undone.`)) return;
+    const name = o.handle.name;
+    if (!confirm(`${t`Revert to the saved version of ${name}?`} ${t`This cannot be undone.`}`)) return;
     let warnings: string[] = [];
     await run(t`Reverting…`, async () => {
       const r = await client.call('revertDoc', await rasterSvg(await o.handle.getFile()), d.key);
@@ -1250,7 +1267,7 @@ export function App() {
       warnings = r.warnings;
       return r;
     });
-    if (warnings.length) setError(`Opened with warnings: ${warnings.join('; ')}`);
+    if (warnings.length) { const list = warningList(warnings); setError(t`Opened with warnings: ${list}`); }
   }
 
   // A picked saved channel is painted through the selection target, as in quick mask.
@@ -1319,7 +1336,7 @@ export function App() {
   function openPreviewDialog(which: 'fill' | 'stroke') {
     setMenu(null);
     if (!active || !node) return;
-    if (node.locks.pixels) { setError('Could not use the layer because it is locked.'); return; }
+    if (node.locks.pixels) { setError(t`Could not use the layer because it is locked.`); return; }
     if (which === 'fill') setFillForm(loadFillForm());
     else setStrokeForm(f => ({ ...f, mode: 'normal', opacity: 100, preserve: false }));
     previewRef.current = { open: true, commit: false, pending: Promise.resolve() };
@@ -1329,8 +1346,8 @@ export function App() {
 
   // Edit > Content-Aware Fill, Delete and Fill Selection and the Fill dialog's Content-Aware contents.
   function contentAwareRefusal(): string | null {
-    if (active?.target === 'mask') return 'Select the layer pixels to use Content-Aware Fill.';
-    return doc?.selection?.bounds ? null : 'Select the area to fill.';
+    if (active?.target === 'mask') return t`Select the layer pixels to use Content-Aware Fill.`;
+    return doc?.selection?.bounds ? null : t`Select the area to fill.`;
   }
 
   function contentAwareCall(id: number, structure: number, color: number, opts: ContentAwareOpts | null, deselect: boolean, label: string) {
@@ -1350,12 +1367,12 @@ export function App() {
   async function fillParams(f: FillForm): Promise<FillParams> {
     const base = { mode: f.mode, opacity: f.opacity / 100, preserveTransparency: f.preserve };
     if (f.contents === 'history') return { source: 'history', ...base };
-    if (f.contents === 'contentAware') throw new Error('Content-Aware Fill has no fill source.');
+    if (f.contents === 'contentAware') throw new Error(t`Content-Aware Fill has no fill source.`);
     if (f.contents === 'pattern') {
       const lib = brushLib.current;
       const ref = f.pattern || lib?.library.patterns()[0]?.id;
       const id = ref && lib ? await lib.assets.pattern(ref) : undefined;
-      if (id === undefined) throw new Error('The pattern is not available.');
+      if (id === undefined) throw new Error(t`The pattern is not available.`);
       return { source: 'pattern', patternId: id, ...base };
     }
     const src = { foreground: fg, background: bg, color: f.color, black: [0, 0, 0], gray: [128, 128, 128], white: [255, 255, 255] }[f.contents] as Rgb;
@@ -1400,7 +1417,7 @@ export function App() {
     setMenu(null);
     if (!active || !doc) return;
     if (transformRef.current) endTransform(false);
-    if (editTarget(active) !== 'pixels') { setError('Liquify works on layer pixels, not on a mask.'); return; }
+    if (editTarget(active) !== 'pixels') { setError(t`Liquify works on layer pixels, not on a mask.`); return; }
     const layers = flatNodes(doc.layers).filter(n => n.kind === 'pixel' || n.kind === 'smart').map(n => ({ id: n.id, name: n.name }));
     liquifyDialog.current?.open({ id: active.id, filterId, width: doc.width, height: doc.height, guides: doc.guides, layers });
   }
@@ -1410,7 +1427,7 @@ export function App() {
     setMenu(null);
     if (!active || !doc) return;
     if (transformRef.current) endTransform(false);
-    if (editTarget(active) !== 'pixels') { setError('Vanishing Point works on layer pixels, not on a mask.'); return; }
+    if (editTarget(active) !== 'pixels') { setError(t`Vanishing Point works on layer pixels, not on a mask.`); return; }
     vpDialog.current?.open({ id: active.id, filterId, width: doc.width, height: doc.height });
   }
 
@@ -1419,7 +1436,7 @@ export function App() {
     setMenu(null);
     const spec = filterSpecs.find(s => s.id === 'content_aware_scale'), n = active && doc ? nodeById(doc.layers, active.id) : null;
     if (!spec || !active) return;
-    if (n?.kind !== 'pixel' || editTarget(active) !== 'pixels' || n.locks.pixels || n.locks.position) { setError('Content-Aware Scale needs an unlocked pixel layer.'); return; }
+    if (n?.kind !== 'pixel' || editTarget(active) !== 'pixels' || n.locks.pixels || n.locks.position) { setError(t`Content-Aware Scale needs an unlocked pixel layer.`); return; }
     openFilter(spec);
   }
 
@@ -1428,8 +1445,8 @@ export function App() {
     setMenu(null);
     if (!active || !doc || deform) return;
     if (transformRef.current) endTransform(false);
-    const n = nodeById(doc.layers, active.id), empty = 'Select an unlocked layer with pixels to warp.';
-    if (n?.kind === 'text' || n?.kind === 'shape') { setError('Convert type and shape layers to Smart Objects, or rasterize them, before warping.'); return; }
+    const n = nodeById(doc.layers, active.id), empty = t`Select an unlocked layer with pixels to warp.`;
+    if (n?.kind === 'text' || n?.kind === 'shape') { setError(t`Convert type and shape layers to Smart Objects, or rasterize them, before warping.`); return; }
     if (!n || (n.kind !== 'pixel' && n.kind !== 'smart') || editTarget(active) !== 'pixels' || n.locks.pixels || n.locks.position) { setError(empty); return; }
     const base = { id: active.id, width: doc.width, height: doc.height };
     try {
@@ -1459,7 +1476,7 @@ export function App() {
   function openAdjust(kind: Kind | DestructiveKind) {
     setMenu(null);
     if (!active || !node) return;
-    if (node.locks.pixels) { setError('Could not use the layer because it is locked.'); return; }
+    if (node.locks.pixels) { setError(t`Could not use the layer because it is locked.`); return; }
     hdrConvert.current = null;
     // Color Lookup picks its table first (D9); cancelling the picker opens nothing.
     if (kind === 'color_lookup') pickLookupFile((name, table, format) => startAdjust({ kind, params: { name, format, table, interpolation: 'tetrahedral', dither: false } }));
@@ -1501,7 +1518,7 @@ export function App() {
   function applyDestructive(kind: DestructiveKind) {
     setMenu(null);
     if (!active) return;
-    run(`${DESTRUCTIVE_LABEL[kind]}…`,() => client.call('adjust', active.id, defaultDestructive(kind), DESTRUCTIVE_LABEL[kind]));
+    run(`${historyLabel(DESTRUCTIVE_LABEL[kind])}…`,() => client.call('adjust', active.id, defaultDestructive(kind), DESTRUCTIVE_LABEL[kind]));
   }
 
   function adjustPreview(a: Adjustment | DestructiveAdjustment) {
@@ -1652,7 +1669,7 @@ export function App() {
     if (!picked) return;
     const link = linked && !!picked.handle;
     await run(t`Placing ${picked.file.name}…`, () => client.call('placeSmart', a.id, picked.file, link, link ? picked.handle : null), selectCreated);
-    if (linked && !link) setError('This browser cannot link files, so the file was placed embedded.');
+    if (linked && !link) setError(t`This browser cannot link files, so the file was placed embedded.`);
   }
   async function replaceContents(relink: boolean) {
     setMenu(null);
@@ -1661,7 +1678,7 @@ export function App() {
     let picked;
     try { picked = await pickPlaceFile(); } catch (e) { setError((e as Error).message); return; }
     if (!picked) return;
-    if (relink && !picked.handle) { setError('Relinking needs a browser with file system access.'); return; }
+    if (relink && !picked.handle) { setError(t`Relinking needs a browser with file system access.`); return; }
     await run(t`Replacing contents…`, () => relink ? client.call('relinkToFile', n.id, picked.file, picked.handle!) : client.call('replaceContents', n.id, picked.file));
   }
   async function exportContents() {
@@ -1680,7 +1697,7 @@ export function App() {
     const n = node;
     const picker = (window as unknown as { showSaveFilePicker?: (o: object) => Promise<FileSystemFileHandle> }).showSaveFilePicker;
     if (!n) return;
-    if (!picker) { setError('Linking needs a browser with file system access.'); return; }
+    if (!picker) { setError(t`Linking needs a browser with file system access.`); return; }
     let h: FileSystemFileHandle;
     try { h = await picker({ suggestedName: `${n.name}.psb` }); } catch (e) { if ((e as Error).name !== 'AbortError') setError((e as Error).message); return; }
     await run(t`Converting to linked…`, () => client.call('convertToLinked', n.id, h));
@@ -1734,12 +1751,12 @@ export function App() {
   }
   async function loadSystemFonts() {
     setMenu(null);
-    try { setLocalFonts(await queryLocalFonts()); } catch (e) { setError(`System fonts are not available: ${(e as Error).message}`); }
+    try { setLocalFonts(await queryLocalFonts()); } catch (e) { { const reason = errorText(e); setError(t`System fonts are not available: ${reason}`); }; }
   }
   async function openFontDialog(kind: 'resolve' | 'replace') {
     setMenu(null);
     const rows = await missingFonts();
-    if (!rows.length) { setError('Every font this document uses is installed.'); return; }
+    if (!rows.length) { setError(t`Every font this document uses is installed.`); return; }
     setFontDialog({ kind, rows });
   }
   const typeCtx: TypeCtx = {
@@ -1815,7 +1832,7 @@ export function App() {
   const agentOps = {
     runFilter(id: string, params: Record<string, ParamValue>) {
       const a = activeRef.current;
-      if (!a) return Promise.reject(new Error('No active layer'));
+      if (!a) return Promise.reject(new Error(t`No active layer`));
       if (transformRef.current) endTransform(false);
       return applyFilter(async f => show(await client.call('applyFilter', a.id, editTarget(a), { kind: f.kind, params: f.params }, f.label)),
         { kind: id, params, label: filterSpecs.find(s => s.id === id)?.label ?? id });
@@ -1897,7 +1914,7 @@ export function App() {
         viewer.current = v;
         perfRef.current = perfTestHook(v);
         (window as unknown as { photobaer: unknown }).photobaer = { viewer: v, client, ...gpuTestHook(client, r), ...(perfRef.current ? { perf: perfRef.current } : {}) };
-        show(await client.call('init'));
+        show(await client.call('init', layerNameBases()));
         client.call('filterSchema').then(f => { setSchema(f as FilterSpec[]); setFilterSpecs(f as FilterSpec[]); }, err => setError((err as Error).message));
         loadFonts(client).then(f => { if (alive) setFaces(f); }, err => setError((err as Error).message));
         // A granted permission lists system fonts without a click; otherwise Type > Load System Fonts asks.
@@ -2206,7 +2223,7 @@ export function App() {
   useCanvasCursor({ viewer, canvas, tool, mode: String(toolOptions.mode ?? ''), toolOptionsRef, capsLockRef, prefsRef: prefs, cursorRev, docId: doc?.docId });
 
   function openPicker(which: 'fg' | 'bg') {
-    picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? 'Foreground Color' : 'Background Color', v => (which === 'fg' ? setFg : setBg)(v), { hdr: doc?.depth === 32 });
+    picker.current?.open(which === 'fg' ? fg : bg, which === 'fg' ? t`Foreground Color` : t`Background Color`, v => (which === 'fg' ? setFg : setBg)(v), { hdr: doc?.depth === 32 });
   }
   // Grayscale documents paint in gray: a color from elsewhere converts through the Gray profile, and a new
   // Gray profile of the same document reconverts the paint colors from their RGB twins, so they look the same.
@@ -2299,7 +2316,7 @@ export function App() {
     setToolPresetLibrary(next);
     if (toolPresetStart.error) { setError(toolPresetStart.error); return; }
     try { saveToolPresets(localStorage, next); }
-    catch (e) { setError(`Tool presets could not be saved: ${(e as Error).message}`); }
+    catch (e) { const reason = errorText(e); setError(t`Tool presets could not be saved: ${reason}`); }
   }
   function createToolPreset(name: string, includeColors: boolean) {
     try {
@@ -2324,8 +2341,9 @@ export function App() {
         pattern: id => brushLib.current?.library.patterns().find(p => p.id === id),
       });
       if (next.brushPresetId !== null) {
+        const presetId = next.brushPresetId;
         const lib = brushLib.current, preset = lib?.library.list().find(item => item.id === next.brushPresetId);
-        if (!lib || !preset) throw new Error(`Brush preset "${next.brushPresetId}" is unavailable.`);
+        if (!lib || !preset) throw new Error(t`Brush preset "${presetId}" is unavailable.`);
         validateBrushPresetAssets(preset, lib.library);
         // The saved brush uses its own texture, not one carried over by Protect Texture.
         protectedTexture.current = null;
@@ -2357,14 +2375,15 @@ export function App() {
   }
   async function importAbr(f: File) {
     const lib = brushLib.current;
-    if (!lib) return { error: 'The brush library is not available.' };
+    if (!lib) return { error: t`The brush library is not available.` };
     try {
       const r = await parseAbrOffThread(await f.arrayBuffer());
       const { added, warnings } = lib.library.import(r);
       bumpLib();
       return { added, name: f.name, report: { ...r.report, warnings: [...r.report.warnings, ...warnings] } };
     } catch (e) {
-      return { error: `Could not read ${f.name}: ${(e as Error).message}` };
+      const name = f.name, reason = errorText(e);
+      return { error: t`Could not read ${name}: ${reason}` };
     }
   }
   const preview = useRef((params: Record<string, unknown>, w: number, h: number) => client.call('brushPreview', params, w, h)).current;
@@ -2444,6 +2463,9 @@ export function App() {
       </li>
     </Fragment>
   ));
+  const docWidth = doc?.width ?? 0, docHeight = doc?.height ?? 0, docDepth = doc?.depth ?? 0, toolName = i18n._(activeTool.label);
+  const sizeText = t`${docWidth} × ${docHeight} px, ${docDepth}-bit`;
+  const hintText = SELECT_TOOLS.includes(tool) ? t`drag to select, Shift add, Alt subtract` : t`${toolName}: drag to use, Space to pan, wheel to zoom`;
   return (
     <div className="app">
       <header className="menubar">
@@ -2609,12 +2631,12 @@ export function App() {
               </div>
             )}
             {busy && <div className="busy">{busy}</div>}
-            {error && <div className="error" role="alert" onClick={() => setError(null)}>{error}</div>}
+            {error && <div className="error" role="alert" onClick={() => setError(null)}>{errorLabel(error)}</div>}
           </div>}
           />
         </div>
         <aside className="sidebar">
-          <DockSection {...sec('tabs', 'Color panels')} header={<div className="panel-tabs dock-tabs">
+          <DockSection {...sec('tabs', msg`Color panels`)} header={<div className="panel-tabs dock-tabs">
             <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('color')}><Trans>Color</Trans></button>
             <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('swatches')}><Trans>Swatches</Trans></button>
             <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} disabled={workspace.locked} title={t`Brush Settings (F5)`} onClick={() => guardedSetDockTab('brushSettings')}><Trans>Brush Settings</Trans></button>
@@ -2638,27 +2660,27 @@ export function App() {
             />
           )}
           </DockSection>
-          {doc && active && showAdjustments && <DockSection {...sec('adjustments', 'Adjustments')}><AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} /></DockSection>}
-          {doc && showStyles && <DockSection {...sec('styles', 'Styles')}><StylesPanel styles={styleLib.current} node={node ?? null} apply={applySavedStyle} /></DockSection>}
+          {doc && active && showAdjustments && <DockSection {...sec('adjustments', msg`Adjustments`)}><AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} /></DockSection>}
+          {doc && showStyles && <DockSection {...sec('styles', msg`Styles`)}><StylesPanel styles={styleLib.current} node={node ?? null} apply={applySavedStyle} /></DockSection>}
           {doc && active && showPatterns && (
-            <DockSection {...sec('patterns', 'Patterns')}><PatternsPanel doc={doc} library={brushLib.current?.library ?? null} onDoc={d => show(d)} onError={setError}
+            <DockSection {...sec('patterns', msg`Patterns`)}><PatternsPanel doc={doc} library={brushLib.current?.library ?? null} onDoc={d => show(d)} onError={setError}
               fill={id => panelFillLayer({ type: 'pattern', pattern_id: id, scale: 1, angle: 0, linked: true, offset: [0, 0] })} /></DockSection>
           )}
-          {doc && active && showGradients && <DockSection {...sec('gradients', 'Gradients')}><GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} /></DockSection>}
-          {doc && showCloneSource && <DockSection {...sec('cloneSource', 'Clone Source')}><CloneSourcePanel docKey={doc.key} /></DockSection>}
-          {doc && showNavigator && <DockSection {...sec('navigator', 'Navigator')}><NavigatorPanel doc={doc} viewer={viewer.current} view={fullView} /></DockSection>}
-          {showHistogram && <DockSection {...sec('histogram', 'Histogram')}><HistogramPanel doc={doc} /></DockSection>}
-          {showInfo && <DockSection {...sec('info', 'Info')}><InfoPanel doc={doc} canvas={canvas} viewer={viewer} /></DockSection>}
-          {showNotes && <DockSection {...sec('notes', 'Notes')}><NotesPanel doc={doc} selected={measure.selectedNote} select={measure.setSelectedNote} commit={(a, label) => void measure.commit(a, label)} /></DockSection>}
-          {showMeasurementLog && <DockSection {...sec('measurementLog', 'Measurement Log')}><MeasurementLogPanel rows={measure.log} setRows={measure.setLog} record={() => void measure.record()} canRecord={!!doc} download={downloadBlob} points={measure.points} /></DockSection>}
-          {showToolPresets && <DockSection {...sec('toolPresets', 'Tool Presets')}><ToolPresetsPanel library={toolPresetLibrary} currentTool={tool}
+          {doc && active && showGradients && <DockSection {...sec('gradients', msg`Gradients`)}><GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} /></DockSection>}
+          {doc && showCloneSource && <DockSection {...sec('cloneSource', msg`Clone Source`)}><CloneSourcePanel docKey={doc.key} /></DockSection>}
+          {doc && showNavigator && <DockSection {...sec('navigator', msg`Navigator`)}><NavigatorPanel doc={doc} viewer={viewer.current} view={fullView} /></DockSection>}
+          {showHistogram && <DockSection {...sec('histogram', msg`Histogram`)}><HistogramPanel doc={doc} /></DockSection>}
+          {showInfo && <DockSection {...sec('info', msg`Info`)}><InfoPanel doc={doc} canvas={canvas} viewer={viewer} /></DockSection>}
+          {showNotes && <DockSection {...sec('notes', msg`Notes`)}><NotesPanel doc={doc} selected={measure.selectedNote} select={measure.setSelectedNote} commit={(a, label) => void measure.commit(a, label)} /></DockSection>}
+          {showMeasurementLog && <DockSection {...sec('measurementLog', msg`Measurement Log`)}><MeasurementLogPanel rows={measure.log} setRows={measure.setLog} record={() => void measure.record()} canRecord={!!doc} download={downloadBlob} points={measure.points} /></DockSection>}
+          {showToolPresets && <DockSection {...sec('toolPresets', msg`Tool Presets`)}><ToolPresetsPanel library={toolPresetLibrary} currentTool={tool}
             create={createToolPreset} rename={renameSavedToolPreset} apply={applySavedToolPreset} remove={deleteSavedToolPreset}
             importJson={importSavedToolPresets} exportJson={() => exportToolPresets(toolPresetLibrary)} onError={setError} /></DockSection>}
           {doc && showShapes && (
-            <DockSection {...sec('shapes', 'Shapes')}><ShapesPanel selected={String((optionsByTool.customShape ?? loadToolOptions(TOOLS.customShape)).customShape ?? '')} arm={armShape} /></DockSection>
+            <DockSection {...sec('shapes', msg`Shapes`)}><ShapesPanel selected={String((optionsByTool.customShape ?? loadToolOptions(TOOLS.customShape)).customShape ?? '')} arm={armShape} /></DockSection>
           )}
           {doc && showProperties && (
-            <DockSection {...sec('properties', 'Properties')}>
+            <DockSection {...sec('properties', msg`Properties`)}>
               {node?.kind === 'adjustment' && node.adjustment && (
                 <PropertiesPanel doc={doc} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} />
               )}
@@ -2674,16 +2696,16 @@ export function App() {
             </DockSection>
           )}
           {doc && typePanels.character && (
-            <DockSection {...sec('character', 'Character')}><CharacterPanel c={typeCtx} faces={pickFaces} eastAsian={typePrefs.language === 'eastAsian'}
+            <DockSection {...sec('character', msg`Character`)}><CharacterPanel c={typeCtx} faces={pickFaces} eastAsian={typePrefs.language === 'eastAsian'}
               toolOptions={optionsByTool[typeTool] ?? loadToolOptions(TOOLS[typeTool])} setToolOption={(k, v) => patchToolOptions(typeTool, { [k]: v as string | number })} /></DockSection>
           )}
-          {doc && typePanels.paragraph && <DockSection {...sec('paragraph', 'Paragraph')}><ParagraphPanel c={typeCtx} /></DockSection>}
-          {doc && typePanels.characterStyles && <DockSection {...sec('characterStyles', 'Character Styles')}><TextStylesPanel kind="character" c={typeCtx} /></DockSection>}
-          {doc && typePanels.paragraphStyles && <DockSection {...sec('paragraphStyles', 'Paragraph Styles')}><TextStylesPanel kind="paragraph" c={typeCtx} /></DockSection>}
-          {doc && typePanels.glyphs && <DockSection {...sec('glyphs', 'Glyphs')}><GlyphsPanel c={typeCtx} faces={pickFaces} /></DockSection>}
+          {doc && typePanels.paragraph && <DockSection {...sec('paragraph', msg`Paragraph`)}><ParagraphPanel c={typeCtx} /></DockSection>}
+          {doc && typePanels.characterStyles && <DockSection {...sec('characterStyles', msg`Character Styles`)}><TextStylesPanel kind="character" c={typeCtx} /></DockSection>}
+          {doc && typePanels.paragraphStyles && <DockSection {...sec('paragraphStyles', msg`Paragraph Styles`)}><TextStylesPanel kind="paragraph" c={typeCtx} /></DockSection>}
+          {doc && typePanels.glyphs && <DockSection {...sec('glyphs', msg`Glyphs`)}><GlyphsPanel c={typeCtx} faces={pickFaces} /></DockSection>}
           {doc && active && (
             <>
-              <DockSection {...sec('layers', 'Layers')}><LayersPanel
+              <DockSection {...sec('layers', msg`Layers`)}><LayersPanel
                 doc={doc} active={active} setActive={setActive} run={run}
                 selected={selectedNodes.map(n => n.id)} setPicked={setPicked}
                 contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerRowItems(menus, layerContextItems(n, nodes, run, setError))]}
@@ -2692,20 +2714,20 @@ export function App() {
                 openProperties={() => setShowProperties(true)} renameTick={renameTick}
                 openLayerStyle={(id, page) => openLayerStyle(page, id)}
               /></DockSection>
-              <DockSection {...sec('history', 'History')}><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>
-              {showChannels && <DockSection {...sec('channels', 'Channels')}><ChannelsPanel doc={doc} run={run} live={selEdit ? liveTick : 0} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} /></DockSection>}
-              {showLayerComps && <DockSection {...sec('layerComps', 'Layer Comps')}><LayerCompsPanel doc={doc} run={run} /></DockSection>}
-              {showActions && <DockSection {...sec('actions', 'Actions')}><ActionsPanel has active={active} run={run} setError={setError} /></DockSection>}
-              {showPaths && <DockSection {...sec('paths', 'Paths')}><PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} /></DockSection>}
+              <DockSection {...sec('history', msg`History`)}><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>
+              {showChannels && <DockSection {...sec('channels', msg`Channels`)}><ChannelsPanel doc={doc} run={run} live={selEdit ? liveTick : 0} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} /></DockSection>}
+              {showLayerComps && <DockSection {...sec('layerComps', msg`Layer Comps`)}><LayerCompsPanel doc={doc} run={run} /></DockSection>}
+              {showActions && <DockSection {...sec('actions', msg`Actions`)}><ActionsPanel has active={active} run={run} setError={setError} /></DockSection>}
+              {showPaths && <DockSection {...sec('paths', msg`Paths`)}><PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} /></DockSection>}
             </>
           )}
         </aside>
       </main>
       <footer className="status">
-        <span>{doc ? `${doc.width} × ${doc.height} px, ${doc.depth}-bit` : 'No document'}</span>
+        <span>{doc ? sizeText : t`No document`}</span>
         <span>{Math.round(view.zoom * 1000) / 10}%</span>
         <span>{deg ? `${deg}°` : ''}</span>
-        <span className="grow">{doc ? (SELECT_TOOLS.includes(tool) ? 'drag to select, Shift add, Alt subtract' : `${i18n._(activeTool.label)}: drag to use, Space to pan, wheel to zoom`) : ''}</span>
+        <span className="grow">{doc ? hintText : ''}</span>
         <span className="shrink">{i18n._(AUTOSAVE_TEXT[autosave])}</span>
         <span>{renderer}</span>
       </footer>

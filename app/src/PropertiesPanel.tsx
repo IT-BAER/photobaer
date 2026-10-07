@@ -14,13 +14,13 @@ import { locate } from './layers.ts';
 import { i18n } from './i18n/index.ts';
 import { selectCreated, type SelectAfter } from './app/helpers.ts';
 import {
-  EDIT_LABEL, FIELD_SPECS, MENU_LABEL, defaultAdjustment, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
+  EDIT_LABEL, FIELD_SPECS, MENU_LABEL, defaultAdjustment, fieldLabel, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
 } from './adjustments.ts';
 import { rampCss, type Gradient } from './gradients/gradient.ts';
 import { LevelsCurvesBody, type SampleCanvas } from './LevelsCurvesBody.tsx';
-import { GalleryStack } from './filters/GalleryStack.tsx';
+import { GalleryStack, localFields } from './filters/GalleryStack.tsx';
 import type { GalleryLayer, ParamValue } from './filters/lastFilter.ts';
-import { fieldSpecs, specOf } from './filters/schema.ts';
+import { specOf } from './filters/schema.ts';
 import { engineLabel } from './filters/labels.ts';
 import { choiceLabel } from './i18n/choices.ts';
 
@@ -44,7 +44,7 @@ function NumberField({ spec, value, set }: { spec: Extract<FieldSpec, { type: 'n
     setDragged(null);
     if (dragged !== null) set(dragged, false);
   };
-  const label = engineLabel(spec.label);
+  const label = fieldLabel(spec.label);
   return (
     <div className="adjustment-field">
       <span>{label}</span>
@@ -69,13 +69,13 @@ function NumberField({ spec, value, set }: { spec: Extract<FieldSpec, { type: 'n
 export function Field({ spec, params, onChange }: { spec: FieldSpec; params: object; onChange: (path: string, v: unknown, live: boolean) => void }) {
   const value = getPath(params, spec.path);
   if (spec.type === 'checkbox') {
-    return <label className="adjustment-check"><input type="checkbox" checked={!!value} onChange={e => onChange(spec.path, e.currentTarget.checked, false)} /> {engineLabel(spec.label)}</label>;
+    return <label className="adjustment-check"><input type="checkbox" checked={!!value} onChange={e => onChange(spec.path, e.currentTarget.checked, false)} /> {fieldLabel(spec.label)}</label>;
   }
   if (spec.type === 'select') {
     return (
-      <label className="adjustment-field"><span>{engineLabel(spec.label)}</span>
+      <label className="adjustment-field"><span>{fieldLabel(spec.label)}</span>
         <select value={String(value)} onChange={e => onChange(spec.path, e.currentTarget.value, false)}>
-          {spec.options.map(([v, l]) => <option key={v} value={v}>{engineLabel(l)}</option>)}
+          {spec.options.map(([v, l]) => <option key={v} value={v}>{fieldLabel(l)}</option>)}
         </select>
       </label>
     );
@@ -224,7 +224,7 @@ export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFil
             ? <GalleryStack key={current.id} value={(current.filter.params as Record<string, ParamValue>).stack as GalleryLayer[]}
                 onChange={v => set(current.id, { filter: { kind: spec.id, params: { ...current.filter.params, stack: v } } as SmartFilterKind }, false)} />
             : spec && spec.editor !== 'adjustment'
-            ? fieldSpecs(spec).map(fs => <Field key={fs.path} spec={fs} params={current.filter.params}
+            ? localFields(spec).map(fs => <Field key={fs.path} spec={fs} params={current.filter.params}
                 onChange={(path, v, live) => set(current.id, { filter: { kind: spec.id, params: { ...current.filter.params, [path]: v } } as SmartFilterKind }, live)} />)
             : <AdjustmentBody key={current.id} adjustment={current.filter as Adjustment} onChange={(a, live) => set(current.id, { filter: a as Adjustment }, live)}
                 openGradientEditor={openGradientEditor} pickLookupFile={pickLookupFile} histogramId={node.id} sampleCanvas={sampleCanvas} />}

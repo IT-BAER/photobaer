@@ -82,9 +82,9 @@ export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; con
         </div>
       </div>
       <div className="picker-fields">
-        <Field label="H" value={h} min={0} max={360} onCommit={v => apply(hsbToRgb([v, s, b]))} />
-        <Field label="S" value={s} min={0} max={100} onCommit={v => apply(hsbToRgb([h, v, b]))} />
-        <Field label="B" value={b} min={0} max={100} onCommit={v => apply(hsbToRgb([h, s, v]))} />
+        <Field label={t({ message: 'H', context: 'color picker hue field' })} value={h} min={0} max={360} onCommit={v => apply(hsbToRgb([v, s, b]))} />
+        <Field label={t({ message: 'S', context: 'color picker saturation field' })} value={s} min={0} max={100} onCommit={v => apply(hsbToRgb([h, v, b]))} />
+        <Field label={t({ message: 'B', context: 'color picker brightness field' })} value={b} min={0} max={100} onCommit={v => apply(hsbToRgb([h, s, v]))} />
         <label className="color-field hex">
           #
           <input
@@ -93,9 +93,9 @@ export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; con
             onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
           />
         </label>
-        <Field label="R" value={rgb[0]} min={0} max={255} onCommit={v => apply([v, rgb[1], rgb[2]])} />
-        <Field label="G" value={rgb[1]} min={0} max={255} onCommit={v => apply([rgb[0], v, rgb[2]])} />
-        <Field label="B" value={rgb[2]} min={0} max={255} onCommit={v => apply([rgb[0], rgb[1], v])} />
+        <Field label={t({ message: 'R', context: 'color picker red field' })} value={rgb[0]} min={0} max={255} onCommit={v => apply([v, rgb[1], rgb[2]])} />
+        <Field label={t({ message: 'G', context: 'color picker green field' })} value={rgb[1]} min={0} max={255} onCommit={v => apply([rgb[0], v, rgb[2]])} />
+        <Field label={t({ message: 'B', context: 'color picker blue field' })} value={rgb[2]} min={0} max={255} onCommit={v => apply([rgb[0], rgb[1], v])} />
         <span />
         <Field label="L" value={l} min={0} max={100} onCommit={v => apply(labToRgb([v, a, bb]))} />
         <Field label="a" value={a} min={-128} max={127} onCommit={v => apply(labToRgb([l, v, bb]))} />

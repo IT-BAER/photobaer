@@ -1,8 +1,10 @@
 // Image > Mode > Color Table presets, sampled to the current table length.
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 import { parseAco } from '../shell/swatches.ts';
 type Rgb3 = [number, number, number];
 
-export const TABLE_PRESETS: [string, string][] = [['black_body', 'Black Body'], ['grayscale', 'Grayscale'], ['spectrum', 'Spectrum']];
+export const TABLE_PRESETS: [string, MessageDescriptor][] = [['black_body', msg`Black Body`], ['grayscale', msg`Grayscale`], ['spectrum', msg`Spectrum`]];
 
 const lerp = (stops: Rgb3[], t: number): Rgb3 => {
   const f = t * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(f)), k = f - i;

@@ -17,7 +17,7 @@ import { choiceLabel } from './i18n/choices.ts';
 import { rampCss } from './gradients/gradient.ts';
 import { rgbToHex, type Rgb } from './shell/color.ts';
 import {
-  CONTOUR_PRESETS, EFFECT_KINDS, EFFECT_LABEL, MAX_INSTANCES, MULTI, defaultGradientParams, effectDefault, emptyStyle, instances,
+  CONTOUR_PRESETS, EFFECT_KINDS, contourLabel, EFFECT_LABEL, MAX_INSTANCES, MULTI, defaultGradientParams, effectDefault, emptyStyle, instances,
   saveEffectDefault, setIn, withInstances, type BlendRange, type Blending, type Contour, type EffectKind, type LayerStyle, type Quad, type StyleLibrary,
 } from './layerStyle.ts';
 
@@ -104,7 +104,7 @@ function ContourGrid({ value, set }: { value: Contour; set: (c: Contour) => void
   return (
     <div className="contour-grid" role="group" aria-label={t`Contour`}>
       {CONTOUR_PRESETS.map(c => (
-        <button key={c.name} type="button" title={c.name} aria-label={c.name} aria-pressed={c.name === value.name}
+        <button key={c.name} type="button" title={contourLabel(c.name)} aria-label={contourLabel(c.name)} aria-pressed={c.name === value.name}
           className={c.name === value.name ? 'active' : ''} onClick={() => set({ ...structuredClone(c), anti_alias: value.anti_alias })}>
           <svg viewBox="0 0 32 24" width={32} height={24}><path d={contourPath(c)} fill="none" stroke="currentColor" strokeWidth={1.5} /></svg>
         </button>
@@ -345,10 +345,9 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
         );
       case 'gradient': {
         const g = gradientDefToUi(value as Parameters<typeof gradientDefToUi>[0]);
-        const lowerLabel = spec.label.toLowerCase();
         return (
           <label key={spec.path} className="adjustment-field"><span>{spec.label}</span>
-            <button type="button" className="gradient-ramp-button" aria-label={t`Edit ${lowerLabel}`} title={t`Click to edit the gradient`}
+            <button type="button" className="gradient-ramp-button" aria-label={t`Edit gradient`} title={t`Click to edit the gradient`}
               style={{ backgroundImage: `${rampCss(g, g.interpolation)}, var(--checker)` }}
               onClick={() => openGradientEditor(g, next => set(spec.path, uiToGradientDef(next)))} />
           </label>

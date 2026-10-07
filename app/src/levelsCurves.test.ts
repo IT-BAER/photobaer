@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CURVES_PRESETS, LEVELS_PRESETS, MAX_POINTS, addPoint, autoLevels, curveSamples, draggedOut, levelsEyedropper,
+  AUTO_METHODS, CHANNELS, CURVES_PRESETS, LEVELS_PRESETS, NAME_LABELS, nameLabel, MAX_POINTS, addPoint, autoLevels, curveSamples, draggedOut, levelsEyedropper,
   movePoint, pencilDraw, pencilToPoints, pointsToPencil, removePoint, setLevelsInput,
 } from './levelsCurves.ts';
 
@@ -144,4 +144,14 @@ test('pencil drawing fills the inputs between two positions linearly', () => {
   assert.deepEqual(d.slice(10, 15).map(p => p[1]), [100, 90, 80, 70, 60]);
   assert.deepEqual(d[9], [9, 9]);
   assert.equal(s[10][1], 10, 'the input is not mutated');
+});
+
+test('every channel, Auto method and preset name has a message with its English text', () => {
+  const presetNames = [...LEVELS_PRESETS, ...CURVES_PRESETS].map(([n]) => n);
+  const texts = new Set([...CHANNELS.map(([, n]) => n), ...AUTO_METHODS.map(([, n]) => n), ...presetNames, 'Default', 'Custom']);
+  assert.deepEqual([...texts].filter(t => !Object.hasOwn(NAME_LABELS, t)), []);
+  assert.deepEqual(Object.keys(NAME_LABELS).filter(t => !texts.has(t)), []);
+  for (const [text, d] of Object.entries(NAME_LABELS)) assert.equal(d.message, text);
+  assert.equal(nameLabel('Midtones Darker'), 'Midtones Darker');
+  assert.equal(nameLabel('My Preset'), 'My Preset');
 });

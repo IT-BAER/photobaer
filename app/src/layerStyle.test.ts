@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CONTOUR_PRESETS, StyleLibrary, defaultBlending, defaultEffect, effectRows, emptyStyle, patternChoices, patternRefs, setEffectEnabled, setIn, type LayerStyle } from './layerStyle.ts';
+import './i18n/index.ts';
+import { CONTOUR_LABEL, CONTOUR_PRESETS, StyleLibrary, contourLabel, defaultBlending, defaultEffect, effectRows, emptyStyle, patternChoices, patternRefs, setEffectEnabled, setIn, type LayerStyle } from './layerStyle.ts';
 
 test('18 contour presets on whole 0..255 levels, three in pencil mode, starting at Linear', () => {
   assert.equal(CONTOUR_PRESETS.length, 18);
@@ -87,4 +88,12 @@ test('pattern choices list document patterns, then presets the document lacks, f
   ]);
   assert.deepEqual(patternChoices(doc, presets, ' HATCH ').map(c => c.id), ['p2', 'p3']);
   assert.deepEqual(patternChoices([], [], 'x'), []);
+});
+
+test('every contour preset has a message with its English name; other names show as is', () => {
+  assert.deepEqual(CONTOUR_PRESETS.map(c => c.name).filter(n => !Object.hasOwn(CONTOUR_LABEL, n)), []);
+  assert.deepEqual(Object.keys(CONTOUR_LABEL).filter(n => !CONTOUR_PRESETS.some(c => c.name === n)), []);
+  for (const [name, d] of Object.entries(CONTOUR_LABEL)) assert.equal(d.message, name);
+  assert.equal(contourLabel('Cone - Inverted'), 'Cone - Inverted');
+  assert.equal(contourLabel('My Contour'), 'My Contour');
 });

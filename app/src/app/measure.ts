@@ -4,6 +4,10 @@ import { contour } from '../shell/selecttools.ts';
 import type { Mat3 } from '../transform/matrix.ts';
 import type { Guide, VectorPath } from '../worker/types.ts';
 import type { MeasureScale } from './analysis.ts';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+// The worker reaches this module: the @lingui/core singleton keeps the catalog loader (i18n/index.ts) out of it.
+import { i18n } from '@lingui/core';
 
 export type Pt = [number, number];
 export type Bounds = [number, number, number, number];
@@ -131,6 +135,13 @@ export const LOG_COLUMNS: [keyof MeasureRow, string][] = [
   ['label', 'Label'], ['date', 'Date and Time'], ['document', 'Document'], ['source', 'Source'], ['count', 'Count'],
   ['area', 'Area'], ['perimeter', 'Perimeter'], ['width', 'Width'], ['height', 'Height'], ['length', 'Length'], ['angle', 'Angle'],
 ];
+
+// Shown column headers; the English names above stay the CSV header.
+const COLUMN_TITLES: Record<string, MessageDescriptor> = {
+  label: msg`Label`, date: msg`Date and Time`, document: msg`Document`, source: msg`Source`, scale: msg`Scale`, units: msg`Units`, count: msg`Count`,
+  area: msg`Area`, perimeter: msg`Perimeter`, width: msg`Width`, height: msg`Height`, length: msg`Length`, angle: msg`Angle`,
+};
+export const columnTitle = (key: string, english: string) => (COLUMN_TITLES[key] ? i18n._(COLUMN_TITLES[key]) : english);
 
 export const formatValue = (v: unknown) => typeof v === 'number' ? String(Math.round(v * 1000) / 1000) : v === undefined ? '' : String(v);
 

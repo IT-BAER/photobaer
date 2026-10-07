@@ -1,7 +1,9 @@
 // Layer styles and blending options (docs/M3.md section 5): engine JSON types (field names verbatim),
 // per-effect defaults, the 18 contour presets and the effect catalogue the dialog and Layers panel share.
 import type { MessageDescriptor } from '@lingui/core';
-import { msg } from '@lingui/core/macro';
+import { msg, t } from '@lingui/core/macro';
+// The worker reaches this module: the @lingui/core singleton keeps the catalog loader (i18n/index.ts) out of it.
+import { i18n } from '@lingui/core';
 import type { FillContent, GradientDef } from './engine.worker.ts';
 
 type Rgb = [number, number, number];
@@ -70,6 +72,16 @@ const PRESET_POINTS: [string, number[][], ('pencil')?][] = [
 export const CONTOUR_PRESETS: Contour[] = PRESET_POINTS.map(([name, pts, mode]) => ({
   name, points: pts.map(([x, y]) => [Math.round(x * 255), Math.round(y * 255)]), mode: mode ?? 'point', anti_alias: false,
 }));
+// Display text of the preset names; `Contour.name` stays English (compared and saved in the style).
+export const CONTOUR_LABEL: Record<string, MessageDescriptor> = {
+  Linear: msg`Linear`, Cosine: msg`Cosine`, Cone: msg`Cone`, 'Cone - Inverted': msg`Cone - Inverted`, 'Cove - Deep': msg`Cove - Deep`,
+  'Cove - Shallow': msg`Cove - Shallow`, Gaussian: msg`Gaussian`, 'Half Round': msg`Half Round`, Ring: msg`Ring`,
+  'Ring - Double': msg`Ring - Double`, 'Rolling Slope - Descending': msg`Rolling Slope - Descending`, 'Rounded Steps': msg`Rounded Steps`,
+  'Sawtooth 1': msg`Sawtooth 1`, 'Sawtooth 2': msg`Sawtooth 2`, 'Shallow Slope - Valley': msg`Shallow Slope - Valley`,
+  'Sloping Frame': msg`Sloping Frame`, Steps: msg`Steps`, 'Valley - Low': msg`Valley - Low`,
+};
+/** A contour's name in the UI language; a name from a file is shown as is. */
+export const contourLabel = (name: string) => (Object.hasOwn(CONTOUR_LABEL, name) ? i18n._(CONTOUR_LABEL[name]) : name);
 export const contour = (name = 'Linear', antiAlias = false): Contour => ({ ...structuredClone(CONTOUR_PRESETS.find(c => c.name === name) ?? CONTOUR_PRESETS[0]), anti_alias: antiAlias });
 
 const BLACK_WHITE: GradientDef = {
@@ -196,8 +208,8 @@ export function saveEffectDefault(kind: EffectKind, effect: AnyEffect) {
 
 /** Why a layer cannot take a layer style, or null. */
 export function styleRefusal(n: { kind: string; locks: { transparency: boolean; pixels: boolean; position: boolean } }): string | null {
-  if (n.kind === 'adjustment') return 'Adjustment layers do not support layer styles.';
-  if (n.locks.transparency && n.locks.pixels && n.locks.position) return 'Could not use the layer style because the layer is fully locked.';
+  if (n.kind === 'adjustment') return t`Adjustment layers do not support layer styles.`;
+  if (n.locks.transparency && n.locks.pixels && n.locks.position) return t`Could not use the layer style because the layer is fully locked.`;
   return null;
 }
 

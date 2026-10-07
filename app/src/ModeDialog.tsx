@@ -65,7 +65,7 @@ function TableEditor({ table, preset, fixed = false, set, onError }: {
       set(p === 'custom' ? table : colorTablePreset(p, table.length), p);
     }}>
       <option value="custom">{t`Custom`}</option>
-      {TABLE_PRESETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      {TABLE_PRESETS.map(([v, l]) => <option key={v} value={v}>{i18n._(l)}</option>)}
     </select></label>
     <div className="color-table" role="group" aria-label={t`Colors`}>
       {table.map((c, i) => (

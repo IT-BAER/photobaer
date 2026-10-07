@@ -2,7 +2,8 @@
 // the app shows them in the UI language. labels.test.ts keeps this list equal to the engine schema.
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
-import { i18n } from '../i18n/index.ts';
+// The worker reaches this module: the @lingui/core singleton keeps the catalog loader (i18n/index.ts) out of it.
+import { i18n } from '@lingui/core';
 
 export const ENGINE_LABELS: Record<string, MessageDescriptor> = {
   // Filter names
@@ -387,4 +388,4 @@ export const ENGINE_LABELS: Record<string, MessageDescriptor> = {
   Width: msg`Width`,
 };
 
-export const engineLabel = (text: string) => (ENGINE_LABELS[text] ? i18n._(ENGINE_LABELS[text]) : text);
+export const engineLabel = (text: string) => (Object.hasOwn(ENGINE_LABELS, text) ? i18n._(ENGINE_LABELS[text]) : text);

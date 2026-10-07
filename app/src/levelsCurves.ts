@@ -1,5 +1,8 @@
 // Levels and Curves body logic (docs/M3.md section 3 kinds 2 and 3, items 23-25 for Auto): Auto
 // methods on a 4 x 256 histogram (luminosity, R, G, B), eyedroppers, presets, curve point rules.
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { i18n } from './i18n/index.ts';
 import type { Adjustment, LevelsRecord } from './engine.worker.ts';
 
 export type LevelsParams = Extract<Adjustment, { kind: 'levels' }>['params'];
@@ -105,6 +108,19 @@ export const CURVES_PRESETS: [string, Point[]][] = [
   ['Matte', [[0, 24], [64, 68], [192, 196], [255, 242]]],
   ['Negative', [[0, 255], [255, 0]]],
 ];
+
+// Display text of the channel, Auto method and preset names; the English names stay the compared select values.
+export const NAME_LABELS: Record<string, MessageDescriptor> = {
+  RGB: msg`RGB`, Red: msg`Red`, Green: msg`Green`, Blue: msg`Blue`,
+  'Enhance Monochromatic Contrast': msg`Enhance Monochromatic Contrast`, 'Enhance Per Channel Contrast': msg`Enhance Per Channel Contrast`,
+  'Find Dark & Light Colors': msg`Find Dark & Light Colors`, 'Enhance Brightness and Contrast': msg`Enhance Brightness and Contrast`,
+  Default: msg`Default`, Custom: msg`Custom`, Darker: msg`Darker`, Lighter: msg`Lighter`,
+  'Increase Contrast': msg`Increase Contrast`, 'Increase Contrast 1': msg`Increase Contrast 1`, 'Increase Contrast 2': msg`Increase Contrast 2`,
+  'Increase Contrast 3': msg`Increase Contrast 3`, 'Lighten Shadows': msg`Lighten Shadows`, 'Midtones Brighter': msg`Midtones Brighter`,
+  'Midtones Darker': msg`Midtones Darker`, Matte: msg`Matte`, Negative: msg`Negative`,
+};
+/** A channel, Auto method or preset name in the UI language; an unknown name is shown as is. */
+export const nameLabel = (name: string) => (Object.hasOwn(NAME_LABELS, name) ? i18n._(NAME_LABELS[name]) : name);
 
 /** A click at (input, output): the index of an existing point within `tol` input units, else a new
  * sorted point; index -1 when 16 points already exist. */

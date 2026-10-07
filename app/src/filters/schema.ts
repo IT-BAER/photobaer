@@ -63,8 +63,8 @@ export function fieldSpecs(s: FilterSpec): FieldSpec[] {
     if (p.kind === 'bool') return [{ type: 'checkbox', label: p.label, path: p.key }];
     if (p.kind === 'select') return [{ type: 'select', label: p.label, path: p.key, options: (p.choices ?? []).map(c => [c, words(c)]) }];
     if (p.kind === 'curve' || p.kind === 'lights' || p.kind === 'path' || p.kind === 'paths' || p.kind === 'pins' || p.kind === 'stack' || p.kind === 'rig' || p.kind === 'quads' || p.kind === 'stamps') return [];
-    if (p.kind === 'kernel') return Array.from({ length: 25 }, (_, i) => ({ type: 'number', label: `${p.label} ${Math.floor(i / 5) + 1},${(i % 5) + 1}`, path: `${p.key}.${i}`, min: p.min, max: p.max, step: p.step }));
-    if (p.kind === 'point') return (['x', 'y'] as const).map(k => ({ type: 'number', label: `${p.label} ${k.toUpperCase()}`, path: `${p.key}.${k}`, min: p.min, max: p.max, step: p.step }));
+    if (p.kind === 'kernel') return Array.from({ length: 25 }, (_, i) => ({ type: 'number', label: `${engineLabel(p.label)} ${Math.floor(i / 5) + 1},${(i % 5) + 1}`, path: `${p.key}.${i}`, min: p.min, max: p.max, step: p.step }));
+    if (p.kind === 'point') return (['x', 'y'] as const).map(k => ({ type: 'number', label: `${engineLabel(p.label)} ${k.toUpperCase()}`, path: `${p.key}.${k}`, min: p.min, max: p.max, step: p.step }));
     return [{ type: 'number', label: withUnit(p), path: p.key, min: p.min, max: p.max, step: p.step }];
   });
 }

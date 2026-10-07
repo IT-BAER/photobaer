@@ -1,4 +1,6 @@
 // Edit > Color Settings: working spaces, color management policies and conversion options, kept per browser.
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 import { loadedProfileNames } from './profileStore.ts';
 
 export type Policy = 'off' | 'preserveEmbedded' | 'convertToWorking';
@@ -24,9 +26,12 @@ export interface ColorSettings {
 export const RGB_SPACES = ['sRGB IEC61966-2.1', 'Adobe RGB (1998)', 'Display P3', 'ProPhoto RGB', 'Rec. 2020'];
 export const CMYK_SPACES = ['Coated Offset CMYK (analytic)', 'Uncoated Offset CMYK (analytic)'];
 export const GRAY_SPACES = ['Gray Gamma 2.2', 'Gray Gamma 1.8', 'Dot Gain 15%', 'Dot Gain 20%', 'Dot Gain 25%', 'Dot Gain 30%'];
-export const POLICIES: [Policy, string][] = [['off', 'Off'], ['preserveEmbedded', 'Preserve Embedded Profiles'], ['convertToWorking', 'Convert to Working RGB']];
-export const INTENTS: [Intent, string][] = [
-  ['perceptual', 'Perceptual'], ['relativeColorimetric', 'Relative Colorimetric'], ['saturation', 'Saturation'], ['absoluteColorimetric', 'Absolute Colorimetric'],
+// Display text takes `space` (RGB or Gray) in the Convert policy.
+export const POLICIES: [Policy, MessageDescriptor][] = [
+  ['off', msg`Off`], ['preserveEmbedded', msg`Preserve Embedded Profiles`], ['convertToWorking', msg({ message: 'Convert to Working {space}' })],
+];
+export const INTENTS: [Intent, MessageDescriptor][] = [
+  ['perceptual', msg`Perceptual`], ['relativeColorimetric', msg`Relative Colorimetric`], ['saturation', msg`Saturation`], ['absoluteColorimetric', msg`Absolute Colorimetric`],
 ];
 
 const base: ColorSettings = {
@@ -35,25 +40,30 @@ const base: ColorSettings = {
   desaturateOn: false, desaturateBy: 20,
 };
 
-export const COLOR_PRESETS: { name: string; description: string; settings: ColorSettings }[] = [
+// `name` is compared and stays English; `label` is the shown name.
+export const COLOR_PRESETS: { name: string; label: MessageDescriptor; description: MessageDescriptor; settings: ColorSettings }[] = [
   {
     name: 'North America General Purpose 2',
-    description: 'General-purpose settings for screen and print. sRGB working space; embedded profiles are kept and mismatches are handled without asking.',
+    label: msg`North America General Purpose 2`,
+    description: msg`General-purpose settings for screen and print. sRGB working space; embedded profiles are kept and mismatches are handled without asking.`,
     settings: base,
   },
   {
     name: 'North America Prepress 2',
-    description: 'Print production. The wider Adobe RGB working space keeps colors a press can print but sRGB cannot, and every mismatch is asked about.',
+    label: msg`North America Prepress 2`,
+    description: msg`Print production. The wider Adobe RGB working space keeps colors a press can print but sRGB cannot, and every mismatch is asked about.`,
     settings: { ...base, rgb: 'Adobe RGB (1998)', rgbPolicy: 'convertToWorking', grayPolicy: 'convertToWorking', askWhenOpening: true, askWhenMissing: true },
   },
   {
     name: 'North America Web/Internet',
-    description: 'Everything ends up as sRGB, because an untagged image on the web is assumed to be sRGB. Gray is gamma 2.2 for the same reason.',
+    label: msg`North America Web/Internet`,
+    description: msg`Everything ends up as sRGB, because an untagged image on the web is assumed to be sRGB. Gray is gamma 2.2 for the same reason.`,
     settings: { ...base, gray: 'Gray Gamma 2.2', rgbPolicy: 'convertToWorking', grayPolicy: 'convertToWorking' },
   },
   {
     name: 'Monitor Color',
-    description: 'Color management off: document numbers go to the display unchanged. For screen work without an ICC workflow.',
+    label: msg`Monitor Color`,
+    description: msg`Color management off: document numbers go to the display unchanged. For screen work without an ICC workflow.`,
     settings: { ...base, gray: 'Gray Gamma 2.2', rgbPolicy: 'off', grayPolicy: 'off' },
   },
 ];

@@ -10,7 +10,7 @@ import { i18n } from './i18n/index.ts';
 import type { Adjustment, LevelsRecord } from './engine.worker.ts';
 import {
   AUTO_METHODS, CHANNELS, CURVES_PRESETS, LEVELS_PRESETS, addPoint, autoLevels, channelBins, channelValue, curveSamples,
-  draggedOut, levelsEyedropper, levelsRecord, movePoint, neutralRecord, pencilDraw, pencilToPoints, pointsToPencil,
+  draggedOut, levelsEyedropper, levelsRecord, movePoint, nameLabel, neutralRecord, pencilDraw, pencilToPoints, pointsToPencil,
   removePoint, setLevelsInput, type AutoMethod, type Channel, type CurvesParams, type LevelsParams, type Point,
 } from './levelsCurves.ts';
 
@@ -20,18 +20,11 @@ export type SampleCanvas = (onSample: ((rgb: Rgb) => void) | null) => void;
 type OnChange = (a: Adjustment, live: boolean) => void;
 interface BodyProps<P> { params: P; onChange: (p: P, live: boolean) => void; histogramId: number; sampleCanvas?: SampleCanvas }
 
-// Display text of the engine-side English names (preset names are also the select values).
+// Display text of the Curves display options; channel and preset names come from nameLabel.
 const WORDS: Record<string, MessageDescriptor> = {
-  RGB: msg`RGB`, Red: msg`Red`, Green: msg`Green`, Blue: msg`Blue`,
-  'Enhance Monochromatic Contrast': msg`Enhance Monochromatic Contrast`, 'Enhance Per Channel Contrast': msg`Enhance Per Channel Contrast`,
-  'Find Dark & Light Colors': msg`Find Dark & Light Colors`, 'Enhance Brightness and Contrast': msg`Enhance Brightness and Contrast`,
-  Default: msg`Default`, Custom: msg`Custom`, Darker: msg`Darker`, Lighter: msg`Lighter`,
-  'Increase Contrast': msg`Increase Contrast`, 'Increase Contrast 1': msg`Increase Contrast 1`, 'Increase Contrast 2': msg`Increase Contrast 2`,
-  'Increase Contrast 3': msg`Increase Contrast 3`, 'Lighten Shadows': msg`Lighten Shadows`, 'Midtones Brighter': msg`Midtones Brighter`,
-  'Midtones Darker': msg`Midtones Darker`, Matte: msg`Matte`, Negative: msg`Negative`,
   Histogram: msg`Histogram`, Overlays: msg`Overlays`, Baseline: msg`Baseline`, Intersection: msg`Intersection`, Clipping: msg`Clipping`,
 };
-const word = (text: string) => (Object.hasOwn(WORDS, text) ? i18n._(WORDS[text]) : text);
+const word = (text: string) => (Object.hasOwn(WORDS, text) ? i18n._(WORDS[text]) : nameLabel(text));
 const AUTO_KEY = 'photobaer.levels-auto-method.v1';
 const LINE: Record<Channel, string> = { composite: 'currentColor', red: '#e5484d', green: '#30a46c', blue: '#3e8ef7' };
 

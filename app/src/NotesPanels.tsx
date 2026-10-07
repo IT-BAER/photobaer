@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { plural, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { pickColumns } from './app/analysis.ts';
-import { formatValue, toCsv, type Annotations, type MeasureRow } from './app/measure.ts';
+import { columnTitle, formatValue, toCsv, type Annotations, type MeasureRow } from './app/measure.ts';
 import type { DocInfo } from './worker/types.ts';
 
 interface NotesProps {
@@ -58,7 +58,7 @@ export function MeasurementLogPanel({ rows, setRows, record, canRecord, download
         <button type="button" disabled={!rows.length} onClick={() => download(new Blob([toCsv(picked.size ? rows.filter((_, i) => picked.has(i)) : rows, cols)], { type: 'text/csv' }), 'measurements.csv')}><Trans>Export…</Trans></button>
       </div>
       {rows.length ? <div className="measure-log-scroll"><table className="measure-log">
-        <thead><tr>{used.map(([, h]) => <th key={h}>{h}</th>)}</tr></thead>
+        <thead><tr>{used.map(([k, h]) => <th key={h}>{columnTitle(k, h)}</th>)}</tr></thead>
         <tbody>{rows.map((r, i) => <tr key={i} className={picked.has(i) ? 'picked' : undefined} onClick={() => toggle(i)}>
           {used.map(([k]) => <td key={k}>{formatValue(r[k])}</td>)}
         </tr>)}</tbody>

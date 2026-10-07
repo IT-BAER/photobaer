@@ -1,5 +1,6 @@
 // File > Print: page layout in mm and the page printed from a hidden frame (printer, copies and
 // "Save as PDF" are chosen in the browser's print dialog).
+import { t } from '@lingui/core/macro';
 
 export const PAPERS = [
   { id: 'letter', label: 'US Letter', widthMm: 215.9, heightMm: 279.4 },
@@ -78,13 +79,13 @@ export function printPage(html: string): Promise<void> {
     document.body.appendChild(f);
     const done = (err?: unknown) => { setTimeout(() => f.remove(), 1000); if (err) reject(err); else resolve(); };
     const d = f.contentDocument, w = f.contentWindow;
-    if (!d || !w) { f.remove(); reject(new Error('The print frame could not be created.')); return; }
+    if (!d || !w) { f.remove(); reject(new Error(t`The print frame could not be created.`)); return; }
     d.open();
     d.write(html);
     d.close();
     const img = d.querySelector('img');
     const go = () => { try { w.focus(); w.print(); done(); } catch (e) { done(e); } };
     if (!img || img.complete) go();
-    else { img.onload = go; img.onerror = () => done(new Error('The print image could not be loaded.')); }
+    else { img.onload = go; img.onerror = () => done(new Error(t`The print image could not be loaded.`)); }
   });
 }

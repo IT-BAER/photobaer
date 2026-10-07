@@ -2,6 +2,7 @@ import type { Dispatch, RefObject, SetStateAction } from 'react';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg, t } from '@lingui/core/macro';
 import { i18n } from '../i18n/index.ts';
+import { historyLabel } from '../i18n/history.ts';
 import { client } from '../client.ts';
 import { flatNodes, locate } from '../layers.ts';
 import type { Active } from '../LayersPanel.tsx';
@@ -35,6 +36,9 @@ type Mime = 'image/png' | 'image/jpeg' | 'image/webp';
 // A translated menu text and its English id (`tl`).
 type Label = { id: string; label: string };
 const mark = (on: boolean, label: string) => `${on ? '✓ ' : ''}${label}`;
+// Edit > Undo/Redo: the id keeps the worker's English step label, the shown text translates it.
+const undoText = (label: string) => { const step = historyLabel(label); return t`Undo ${step}`; };
+const redoText = (label: string) => { const step = historyLabel(label); return t`Redo ${step}`; };
 
 export interface MenuCtx {
   setMenu: SetState<string | null>; newDialog: DialogRef; openFiles: () => Promise<void>; placeFile: (linked: boolean) => Promise<void>;
@@ -243,8 +247,8 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Close Others`), run: () => void closeTabs('others'), off: (doc?.docs.length ?? 0) < 2 },
     ],
     Edit: [
-      { ...(doc?.undoLabel ? { id: `Undo ${doc.undoLabel}`, label: t`Undo ${doc.undoLabel}` } : tl(msg`Undo`)), keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
-      { ...(doc?.redoLabel ? { id: `Redo ${doc.redoLabel}`, label: t`Redo ${doc.redoLabel}` } : tl(msg`Redo`)), keys: 'Shift+Ctrl+Z', run: () => run(null, () => client.call('redo')), off: !doc?.redoLabel },
+      { ...(doc?.undoLabel ? { id: `Undo ${doc.undoLabel}`, label: undoText(doc.undoLabel) } : tl(msg`Undo`)), keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
+      { ...(doc?.redoLabel ? { id: `Redo ${doc.redoLabel}`, label: redoText(doc.redoLabel) } : tl(msg`Redo`)), keys: 'Shift+Ctrl+Z', run: () => run(null, () => client.call('redo')), off: !doc?.redoLabel },
       { ...tl(msg`Fade…`), keys: 'Shift+Ctrl+F', run: openFade, off: !doc?.undoLabel || !active || node?.kind !== 'pixel' },
       { ...tl(msg`Cut`), keys: 'Ctrl+X', sep: true, run: () => active && copy(run, active, false, true), off: !doc?.selection || node?.kind !== 'pixel' },
       { ...tl(msg`Copy`), keys: 'Ctrl+C', run: () => active && copy(run, active, false, false), off: !has || !active },
