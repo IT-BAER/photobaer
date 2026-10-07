@@ -698,6 +698,11 @@ msgstr "Alle Größen werden in einen Ordner geschrieben, den Sie als Nächstes 
 msgid "Allow Continue? (OK = playback can continue, Cancel = playback ends here)"
 msgstr "Fortfahren zulassen? (OK = Wiedergabe kann fortgesetzt werden, Abbrechen = Wiedergabe endet hier)"
 
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Alt"
+msgstr "Alt"
+
 #: app/src/app/paintTool.ts
 msgid "Alt-click to set a clone source first."
 msgstr "Alt-Klick, um zuerst eine Kopierquelle festzulegen."
@@ -3088,6 +3093,11 @@ msgstr "Kreuzschraffur"
 #: app/src/filters/labels.ts
 msgid "Crystallize"
 msgstr "Kristallisieren"
+
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Ctrl"
+msgstr "Strg"
 
 #: app/src/PathsPanel.tsx
 msgid "Ctrl-click: load as selection (Shift add, Alt subtract, Shift+Alt intersect)"
@@ -10570,6 +10580,11 @@ msgstr "Muschel unten"
 #: app/src/TypePanels.tsx
 msgid "Shell Upper"
 msgstr "Muschel oben"
+
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Shift"
+msgstr "Umschalt"
 
 #: app/src/filters/labels.ts
 msgid "Shine"

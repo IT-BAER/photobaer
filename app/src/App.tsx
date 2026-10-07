@@ -6,6 +6,7 @@ import { LanguagePicker } from './shell/LanguagePicker.tsx';
 import { i18n } from './i18n/index.ts';
 import { formatPercent } from './i18n/numbers.ts';
 import { historyLabel } from './i18n/history.ts';
+import { keysLabel } from './i18n/keys.ts';
 import { errorLabel, errorText, warningList } from './i18n/errors.ts';
 import { client } from './client.ts';
 import { Viewer, type ToolPointerEvent } from './viewer.ts';
@@ -2459,7 +2460,7 @@ export function App() {
     <Fragment key={itemId(i)}>
       {i.sep && <li role="separator" className="menu-sep" />}
       <li className={i.sub ? 'has-sub' : undefined} onMouseEnter={i.sub ? e => placeSubmenu(e.currentTarget) : undefined} onFocus={i.sub ? e => placeSubmenu(e.currentTarget) : undefined}>
-        <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={() => { if (!i.sub) setMenu(null); i.run(); }}><span>{i.label}</span><kbd>{i.keys}</kbd></button>
+        <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={() => { if (!i.sub) setMenu(null); i.run(); }}><span>{i.label}</span><kbd>{keysLabel(i.keys)}</kbd></button>
         {i.sub && !i.off && <ul role="menu" aria-label={i.label}>{menuItems(i.sub)}</ul>}
       </li>
     </Fragment>

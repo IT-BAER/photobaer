@@ -12,6 +12,7 @@ import { MENU_LABEL, type AnyKind, type Kind } from '../adjustments.ts';
 import { choiceLabel } from '../i18n/choices.ts';
 import { engineLabel } from '../filters/labels.ts';
 import { i18n } from '../i18n/index.ts';
+import { keysLabel } from '../i18n/keys.ts';
 import type { BrushLibrary } from '../brushes/store.ts';
 import type { EngineAssets } from '../brushes/engineAssets.ts';
 import type { ColorPickerHandle } from '../shell/ColorPicker.tsx';
@@ -295,7 +296,7 @@ export function SearchDialog({ menus, close }: { menus: Record<string, Item[]>; 
           <li key={i} id={`search-option-${i}`} role="option" aria-selected={i === index} aria-disabled={c.off || undefined}
             className={c.off ? 'off' : undefined} onMouseMove={() => setIndex(i)} onClick={() => pick(i)}>
             <span>{c.label}<small>{c.path}</small></span>
-            {c.keys && c.keys !== '›' && <kbd>{c.keys}</kbd>}
+            {c.keys && c.keys !== '›' && <kbd>{keysLabel(c.keys)}</kbd>}
           </li>
         ))}
         {!results.length && <li className="empty"><Trans>No matching commands</Trans></li>}

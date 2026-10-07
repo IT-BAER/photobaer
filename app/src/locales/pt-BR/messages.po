@@ -701,6 +701,11 @@ msgstr "Todos os tamanhos são gravados em uma pasta, escolhida a seguir."
 msgid "Allow Continue? (OK = playback can continue, Cancel = playback ends here)"
 msgstr "Permitir continuar? (OK = a reprodução pode continuar, Cancelar = a reprodução termina aqui)"
 
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Alt"
+msgstr "Alt"
+
 #: app/src/app/paintTool.ts
 msgid "Alt-click to set a clone source first."
 msgstr "Alt+clique para definir primeiro uma origem do clone."
@@ -3091,6 +3096,11 @@ msgstr "Hachura cruzada"
 #: app/src/filters/labels.ts
 msgid "Crystallize"
 msgstr "Cristalizar"
+
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Ctrl"
+msgstr "Ctrl"
 
 #: app/src/PathsPanel.tsx
 msgid "Ctrl-click: load as selection (Shift add, Alt subtract, Shift+Alt intersect)"
@@ -10573,6 +10583,11 @@ msgstr "Concha inferior"
 #: app/src/TypePanels.tsx
 msgid "Shell Upper"
 msgstr "Concha superior"
+
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Shift"
+msgstr "Shift"
 
 #: app/src/filters/labels.ts
 msgid "Shine"

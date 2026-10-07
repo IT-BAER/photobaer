@@ -5,6 +5,7 @@ import { msg, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
 import { i18n } from './i18n/index.ts';
+import { keysLabel } from './i18n/keys.ts';
 import type { DocInfo } from './engine.worker.ts';
 import type { Spot } from './worker/types.ts';
 import type { Active } from './LayersPanel.tsx';
@@ -161,7 +162,7 @@ export function ChannelsPanel({ doc, run, live = 0, view, setView, setError, act
         />
       ) : <span className="channel-name">{shown}</span>}
       {extra?.spot && <span className="channel-swatch" title={t`Spot color`} style={{ background: hex(extra.spot.color) }} />}
-      {keys && <span className="channel-keys">{keys}</span>}
+      {keys && <span className="channel-keys">{keysLabel(keys)}</span>}
     </div>
     );
   };

@@ -698,6 +698,11 @@ msgstr ""
 msgid "Allow Continue? (OK = playback can continue, Cancel = playback ends here)"
 msgstr ""
 
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Alt"
+msgstr ""
+
 #: app/src/app/paintTool.ts
 msgid "Alt-click to set a clone source first."
 msgstr ""
@@ -3087,6 +3092,11 @@ msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Crystallize"
+msgstr ""
+
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Ctrl"
 msgstr ""
 
 #: app/src/PathsPanel.tsx
@@ -10569,6 +10579,11 @@ msgstr ""
 
 #: app/src/TypePanels.tsx
 msgid "Shell Upper"
+msgstr ""
+
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Shift"
 msgstr ""
 
 #: app/src/filters/labels.ts

@@ -701,6 +701,11 @@ msgstr "Todos los tamaños se escriben en una carpeta que se elegirá a continua
 msgid "Allow Continue? (OK = playback can continue, Cancel = playback ends here)"
 msgstr "¿Permitir continuar? (Aceptar = la reproducción puede continuar, Cancelar = la reproducción termina aquí)"
 
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Alt"
+msgstr "Alt"
+
 #: app/src/app/paintTool.ts
 msgid "Alt-click to set a clone source first."
 msgstr "Haga clic con Alt para establecer primero un origen de clonación."
@@ -3091,6 +3096,11 @@ msgstr "Sombreado cruzado"
 #: app/src/filters/labels.ts
 msgid "Crystallize"
 msgstr "Cristalizar"
+
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Ctrl"
+msgstr "Ctrl"
 
 #: app/src/PathsPanel.tsx
 msgid "Ctrl-click: load as selection (Shift add, Alt subtract, Shift+Alt intersect)"
@@ -10573,6 +10583,11 @@ msgstr "Concha inferior"
 #: app/src/TypePanels.tsx
 msgid "Shell Upper"
 msgstr "Concha superior"
+
+#: app/src/i18n/keys.ts
+msgctxt "keyboard modifier"
+msgid "Shift"
+msgstr "Mayús"
 
 #: app/src/filters/labels.ts
 msgid "Shine"
