@@ -138,7 +138,7 @@ const PAGE_TITLE = document.title;
 const layerNameBases = () => ({ Layer: t`Layer`, Group: t`Group`, 'Layer Comp': t`Layer Comp`, Frame: t`Frame`, 'Measurement Scale Marker': t`Measurement Scale Marker` });
 // Menu bar titles: the menus record keys stay English (shortcuts, WebMCP paths); only the shown title is translated.
 const MENU_TITLE: Record<string, MessageDescriptor> = {
-  File: msg`File`, Edit: msg`Edit`, Layer: msg`Layer`, Type: msg({ message: 'Type', context: 'menu' }), Image: msg`Image`,
+  File: msg`File`, Edit: msg({ message: 'Edit', context: 'menu' }), Layer: msg`Layer`, Type: msg({ message: 'Type', context: 'menu' }), Image: msg`Image`,
   Select: msg({ message: 'Select', context: 'menu' }), Filter: msg`Filter`, View: msg`View`, Window: msg`Window`, Help: msg`Help`,
 };
 // File > Generate > Image Assets on/off.

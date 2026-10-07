@@ -3968,6 +3968,7 @@ msgid "Edge Width"
 msgstr "Kantenbreite"
 
 #: app/src/App.tsx
+msgctxt "menu"
 msgid "Edit"
 msgstr "Bearbeiten"
 

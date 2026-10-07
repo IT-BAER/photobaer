@@ -3971,6 +3971,7 @@ msgid "Edge Width"
 msgstr "Anchura de bordes"
 
 #: app/src/App.tsx
+msgctxt "menu"
 msgid "Edit"
 msgstr "Edición"
 
