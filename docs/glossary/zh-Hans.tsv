@@ -1,0 +1,390 @@
+english	translation	source
+File	文件	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Edit	编辑	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Image	图像	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Layer	图层	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Type	文字	https://helpx.adobe.com/cn/photoshop/using/creating-type.html
+Select	选择	https://helpx.adobe.com/cn/photoshop/using/saving-selections-alpha-channel-masks.html
+Filter	滤镜	https://helpx.adobe.com/cn/photoshop/using/blur-gallery.html
+View	视图	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Window	窗口	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Help	帮助	?
+Adjustments	调整	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Mode	模式	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Image Size	图像大小	?
+Canvas Size	画布大小	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Image Rotation	图像旋转	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Transform	变换	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Free Transform	自由变换	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Content-Aware Fill	内容识别填充	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Content-Aware Scale	内容识别比例	https://helpx.adobe.com/cn/photoshop/desktop/crop-resize-transform/resize-adjust-resolution/preserve-visual-content-when-scaling-images.html
+Fill	填充	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Stroke	描边	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Fade	渐隐	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Place Embedded	置入嵌入对象	?
+Place Linked	置入链接的智能对象	?
+Export As	导出为	?
+Save As	存储为	?
+Save a Copy	存储副本	?
+Open Recent	最近打开文件	?
+File Info	文件简介	?
+Automate	自动	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Scripts	脚本	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Batch	批处理	?
+Photomerge	Photomerge	?
+Image Processor	图像处理器	?
+Color Settings	颜色设置	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Assign Profile	指定配置文件	?
+Convert to Profile	转换为配置文件	?
+Proof Setup	校样设置	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Proof Colors	校样颜色	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Gamut Warning	色域警告	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Apply Image	应用图像	https://helpx.adobe.com/cn/photoshop/using/channel-calculations.html
+Calculations	计算	https://helpx.adobe.com/cn/photoshop/using/channel-calculations.html
+Trim	裁切	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Reveal All	显示全部	?
+Rasterize	栅格化	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Smart Object	智能对象	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Smart Objects	智能对象	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Smart Filter	智能滤镜	https://helpx.adobe.com/cn/photoshop/using/blur-gallery.html
+Edit Contents	编辑内容	?
+Replace Contents	替换内容	?
+Layer Style	图层样式	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Blending Options	混合选项	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+New Adjustment Layer	新建调整图层	?
+New Fill Layer	新建填充图层	?
+Layer Mask	图层蒙版	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Vector Mask	矢量蒙版	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Clipping Mask	剪贴蒙版	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Create Clipping Mask	创建剪贴蒙版	?
+Merge Down	向下合并	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Merge Visible	合并可见图层	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Flatten Image	拼合图像	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Group Layers	图层编组	?
+Ungroup Layers	取消图层编组	?
+Arrange	排列	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Align	对齐	https://helpx.adobe.com/cn/photoshop/using/vanishing-point.html
+Distribute	分布	?
+Lock	锁定	?
+Artboard	画板	?
+Inverse	反选	?
+Feather	羽化	https://helpx.adobe.com/cn/photoshop/using/selecting-marquee-tools.html
+Grow	扩大选取	?
+Similar	选取相似	?
+Color Range	色彩范围	?
+Focus Area	焦点区域	?
+Select and Mask	选择并遮住	?
+Load Selection	载入选区	https://helpx.adobe.com/cn/photoshop/using/saving-selections-alpha-channel-masks.html
+Save Selection	存储选区	https://helpx.adobe.com/cn/photoshop/using/saving-selections-alpha-channel-masks.html
+Transform Selection	变换选区	?
+Border	边界	?
+Smooth	平滑	?
+Expand	扩展	?
+Contract	收缩	?
+Rulers	标尺	?
+Guides	参考线	https://helpx.adobe.com/cn/photoshop/using/selecting-marquee-tools.html
+New Guide	新建参考线	?
+Smart Guides	智能参考线	https://helpx.adobe.com/cn/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/show-or-hide-guides-grids-and-smart-guides.html
+Snap To	对齐到	https://helpx.adobe.com/cn/photoshop/using/selecting-marquee-tools.html
+Fit on Screen	按屏幕大小缩放	?
+Pixel Grid	像素网格	?
+Workspace	工作区	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Extras	额外内容	?
+Last Filter	上次滤镜操作	?
+Filter Gallery	滤镜库	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Camera Raw Filter	Camera Raw 滤镜	?
+Lens Correction	镜头校正	?
+Liquify	液化	?
+Vanishing Point	消失点	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Adaptive Wide Angle	自适应广角	?
+Global Light	全局光	?
+Bitmap	位图	https://helpx.adobe.com/cn/photoshop/using/color-modes.html
+Grayscale	灰度	https://helpx.adobe.com/cn/photoshop/using/color-modes.html
+Duotone	双色调	https://helpx.adobe.com/cn/photoshop/using/color-modes.html
+Indexed Color	索引颜色	https://helpx.adobe.com/cn/photoshop/using/color-modes.html
+RGB Color	RGB 颜色	https://helpx.adobe.com/cn/photoshop/using/color-modes.html
+CMYK Color	CMYK 颜色	https://helpx.adobe.com/cn/photoshop/using/color-modes.html
+Lab Color	Lab 颜色	https://helpx.adobe.com/cn/photoshop/using/color-modes.html
+Multichannel	多通道	https://helpx.adobe.com/cn/photoshop/using/color-modes.html
+Color Table	颜色表	?
+Layers	图层	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Channels	通道	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Paths	路径	https://helpx.adobe.com/cn/photoshop/using/paths.html
+History	历史记录	https://helpx.adobe.com/cn/photoshop/using/creating-type.html
+Actions	动作	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Properties	属性	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Swatches	色板	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Color	颜色	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Gradients	渐变	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Patterns	图案	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Styles	样式	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Shapes	形状	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Brushes	画笔	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Brush Settings	画笔设置	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Character	字符	https://helpx.adobe.com/cn/photoshop/using/creating-type.html
+Paragraph	段落	https://helpx.adobe.com/cn/photoshop/using/creating-type.html
+Glyphs	字形	?
+Navigator	导航器	?
+Histogram	直方图	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Info	信息	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Notes	注释	?
+Layer Comps	图层复合	https://helpx.adobe.com/cn/photoshop/using/layer-comps.html
+Tool Presets	工具预设	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Clone Source	仿制源	?
+Measurement Log	测量记录	?
+Options Bar	选项栏	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Tools	工具	?
+Move Tool	移动工具	?
+Rectangular Marquee Tool	矩形选框工具	https://helpx.adobe.com/cn/photoshop/using/selecting-marquee-tools.html
+Elliptical Marquee Tool	椭圆选框工具	https://helpx.adobe.com/cn/photoshop/using/selecting-marquee-tools.html
+Single Row Marquee Tool	单行选框工具	?
+Single Column Marquee Tool	单列选框工具	?
+Lasso Tool	套索工具	?
+Polygonal Lasso Tool	多边形套索工具	?
+Magnetic Lasso Tool	磁性套索工具	?
+Quick Selection Tool	快速选择工具	?
+Magic Wand Tool	魔棒工具	?
+Object Selection Tool	对象选择工具	https://helpx.adobe.com/cn/photoshop/desktop/make-selections/get-started-selections/select-objects-with-object-selection-tool.html
+Crop Tool	裁剪工具	?
+Perspective Crop Tool	透视裁剪工具	?
+Slice Tool	切片工具	?
+Slice Select Tool	切片选择工具	?
+Frame Tool	画框工具	?
+Eyedropper Tool	吸管工具	https://helpx.adobe.com/cn/photoshop/using/vanishing-point.html
+Color Sampler Tool	颜色取样器工具	?
+Ruler Tool	标尺工具	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Note Tool	注释工具	?
+Count Tool	计数工具	?
+Spot Healing Brush Tool	污点修复画笔工具	?
+Healing Brush Tool	修复画笔工具	?
+Patch Tool	修补工具	?
+Content-Aware Move Tool	内容感知移动工具	?
+Red Eye Tool	红眼工具	?
+Brush Tool	画笔工具	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Pencil Tool	铅笔工具	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Color Replacement Tool	颜色替换工具	?
+Mixer Brush Tool	混合器画笔工具	?
+Clone Stamp Tool	仿制图章工具	https://helpx.adobe.com/cn/photoshop/using/vanishing-point.html
+Pattern Stamp Tool	图案图章工具	?
+History Brush Tool	历史记录画笔工具	?
+Art History Brush Tool	历史记录艺术画笔工具	?
+Eraser Tool	橡皮擦工具	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Background Eraser Tool	背景橡皮擦工具	?
+Magic Eraser Tool	魔术橡皮擦工具	?
+Gradient Tool	渐变工具	?
+Paint Bucket Tool	油漆桶工具	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Blur Tool	模糊工具	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Sharpen Tool	锐化工具	?
+Smudge Tool	涂抹工具	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Dodge Tool	减淡工具	?
+Burn Tool	加深工具	?
+Sponge Tool	海绵工具	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Pen Tool	钢笔工具	https://helpx.adobe.com/cn/photoshop/using/paths.html
+Freeform Pen Tool	自由钢笔工具	?
+Curvature Pen Tool	弯度钢笔工具	?
+Add Anchor Point Tool	添加锚点工具	?
+Delete Anchor Point Tool	删除锚点工具	?
+Convert Point Tool	转换点工具	?
+Horizontal Type Tool	横排文字工具	https://helpx.adobe.com/cn/photoshop/using/creating-type.html
+Vertical Type Tool	直排文字工具	https://helpx.adobe.com/cn/photoshop/using/creating-type.html
+Horizontal Type Mask Tool	横排文字蒙版工具	?
+Vertical Type Mask Tool	直排文字蒙版工具	?
+Path Selection Tool	路径选择工具	?
+Direct Selection Tool	直接选择工具	?
+Rectangle Tool	矩形工具	?
+Ellipse Tool	椭圆工具	?
+Triangle Tool	三角形工具	?
+Polygon Tool	多边形工具	?
+Line Tool	直线工具	?
+Custom Shape Tool	自定形状工具	?
+Hand Tool	抓手工具	https://helpx.adobe.com/cn/photoshop/using/vanishing-point.html
+Rotate View Tool	旋转视图工具	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Zoom Tool	缩放工具	https://helpx.adobe.com/cn/photoshop/using/vanishing-point.html
+Opacity	不透明度	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Flow	流量	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Hardness	硬度	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Size	大小	https://helpx.adobe.com/cn/photoshop/using/blur-gallery.html
+Spacing	间距	?
+Tolerance	容差	?
+Anti-alias	消除锯齿	https://helpx.adobe.com/cn/photoshop/using/selecting-marquee-tools.html
+Contiguous	连续	?
+Sample All Layers	对所有图层取样	https://helpx.adobe.com/cn/photoshop/desktop/make-selections/get-started-selections/select-objects-with-object-selection-tool.html
+Airbrush	喷枪	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Smoothing	平滑	?
+Exposure	曝光度	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Strength	强度	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Range	范围	?
+Shadows	阴影	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Midtones	中间调	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Highlights	高光	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Protect Tones	保护色调	?
+Vibrance	自然饱和度	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Aligned	对齐	https://helpx.adobe.com/cn/photoshop/using/vanishing-point.html
+Fixed Ratio	固定比例	https://helpx.adobe.com/cn/photoshop/using/selecting-marquee-tools.html
+Fixed Size	固定大小	https://helpx.adobe.com/cn/photoshop/using/selecting-marquee-tools.html
+Delete Cropped Pixels	删除裁剪的像素	?
+Straighten	拉直	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Auto-Select	自动选择	?
+Show Transform Controls	显示变换控件	?
+Foreground Color	前景色	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Background Color	背景色	https://helpx.adobe.com/cn/photoshop/using/painting-tools.html
+Anchor Point	锚点	https://helpx.adobe.com/cn/photoshop/using/creating-type.html
+Path Operations	路径操作	?
+Combine Shapes	合并形状	?
+Subtract Front Shape	减去顶层形状	?
+Intersect Shape Areas	与形状区域相交	?
+Exclude Overlapping Shapes	排除重叠形状	?
+Normal	正常	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Dissolve	溶解	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Behind	背后	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Clear	清除	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Darken	变暗	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Multiply	正片叠底	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Color Burn	颜色加深	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Linear Burn	线性加深	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Darker Color	深色	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Lighten	变亮	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Screen	滤色	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Color Dodge	颜色减淡	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Linear Dodge (Add)	线性减淡（添加）	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Lighter Color	浅色	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Overlay	叠加	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Soft Light	柔光	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Hard Light	强光	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Vivid Light	亮光	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Linear Light	线性光	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Pin Light	点光	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Hard Mix	实色混合	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Difference	差值	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Exclusion	排除	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Subtract	减去	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Divide	划分	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Hue	色相	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Saturation	饱和度	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Luminosity	明度	https://helpx.adobe.com/cn/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Pass Through	穿透	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Brightness/Contrast	亮度/对比度	https://helpx.adobe.com/cn/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/work-with-adjustment-and-fill-layers.html
+Levels	色阶	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Curves	曲线	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Hue/Saturation	色相/饱和度	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Color Balance	色彩平衡	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Black & White	黑白	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Photo Filter	照片滤镜	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Channel Mixer	通道混合器	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Color Lookup	颜色查找	https://helpx.adobe.com/cn/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/work-with-adjustment-and-fill-layers.html
+Invert	反相	https://helpx.adobe.com/cn/photoshop/using/channel-calculations.html
+Posterize	色调分离	https://helpx.adobe.com/cn/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/work-with-adjustment-and-fill-layers.html
+Threshold	阈值	https://helpx.adobe.com/cn/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/work-with-adjustment-and-fill-layers.html
+Gradient Map	渐变映射	https://helpx.adobe.com/cn/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/work-with-adjustment-and-fill-layers.html
+Selective Color	可选颜色	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Shadows/Highlights	阴影/高光	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+HDR Toning	HDR 色调	?
+Desaturate	去色	?
+Match Color	匹配颜色	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Replace Color	替换颜色	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Equalize	色调均化	?
+Solid Color	纯色	https://helpx.adobe.com/cn/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/work-with-adjustment-and-fill-layers.html
+Gradient	渐变	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Pattern	图案	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Preserve Luminosity	保持明度	?
+Colorize	着色	?
+Blur	模糊	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Blur Gallery	模糊画廊	https://helpx.adobe.com/cn/photoshop/using/blur-gallery.html
+Distort	扭曲	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Noise	杂色	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Pixelate	像素化	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Render	渲染	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Sharpen	锐化	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Stylize	风格化	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Other	其它	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Artistic	艺术效果	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Brush Strokes	画笔描边	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Sketch	素描	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Texture	纹理	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Gaussian Blur	高斯模糊	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Motion Blur	动感模糊	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Radial Blur	径向模糊	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Lens Blur	镜头模糊	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Surface Blur	表面模糊	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Smart Blur	特殊模糊	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Box Blur	方框模糊	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Shape Blur	形状模糊	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Field Blur	场景模糊	https://helpx.adobe.com/cn/photoshop/using/blur-gallery.html
+Iris Blur	光圈模糊	https://helpx.adobe.com/cn/photoshop/using/blur-gallery.html
+Tilt-Shift	倾斜偏移	https://helpx.adobe.com/cn/photoshop/using/blur-gallery.html
+Path Blur	路径模糊	https://helpx.adobe.com/cn/photoshop/using/blur-gallery.html
+Spin Blur	旋转模糊	https://helpx.adobe.com/cn/photoshop/using/blur-gallery.html
+Unsharp Mask	USM 锐化	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Smart Sharpen	智能锐化	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+High Pass	高反差保留	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Add Noise	添加杂色	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Reduce Noise	减少杂色	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Despeckle	去斑	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Dust & Scratches	蒙尘与划痕	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Median	中间值	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Displace	置换	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Pinch	挤压	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Polar Coordinates	极坐标	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Ripple	波纹	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Shear	切变	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Spherize	球面化	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Twirl	旋转扭曲	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Wave	波浪	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+ZigZag	水波	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Clouds	云彩	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Difference Clouds	分层云彩	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Lens Flare	镜头光晕	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Lighting Effects	光照效果	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Fibers	纤维	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Color Halftone	彩色半调	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Crystallize	晶格化	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Mosaic	马赛克	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Pointillize	点状化	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Mezzotint	铜版雕刻	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Emboss	浮雕效果	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Find Edges	查找边缘	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Solarize	曝光过度	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Wind	风	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Oil Paint	油画	?
+Maximum	最大值	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Minimum	最小值	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Offset	位移	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Bevel & Emboss	斜面和浮雕	?
+Inner Shadow	内阴影	?
+Inner Glow	内发光	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Satin	光泽	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Color Overlay	颜色叠加	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Gradient Overlay	渐变叠加	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Pattern Overlay	图案叠加	?
+Outer Glow	外发光	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Drop Shadow	投影	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Contour	等高线	https://helpx.adobe.com/cn/photoshop/using/filter-effects-reference.html
+Knockout	挖空	https://helpx.adobe.com/cn/photoshop/using/knockout-reveal-content-layers.html
+Blend If	混合颜色带	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Use Global Light	使用全局光	?
+Angle	角度	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Distance	距离	?
+Spread	扩展	?
+Choke	阻塞	?
+Depth	深度	?
+Soften	软化	?
+Fill Opacity	填充不透明度	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Background	背景	?
+Selection	选区	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Mask	蒙版	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Channel	通道	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Path	路径	https://helpx.adobe.com/cn/photoshop/using/paths.html
+Swatch	色板	https://helpx.adobe.com/cn/photoshop/using/panels-menus.html
+Brush	画笔	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Preset	预设	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Document	文档	https://helpx.adobe.com/cn/photoshop/using/saving-selections-alpha-channel-masks.html
+Canvas	画布	https://helpx.adobe.com/cn/photoshop/using/adjusting-crop-rotation-canvas.html
+Resolution	分辨率	?
+Pixel	像素	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Adjustment Layer	调整图层	https://helpx.adobe.com/cn/photoshop/using/color-adjustments.html
+Fill Layer	填充图层	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Shape Layer	形状图层	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Type Layer	文字图层	https://helpx.adobe.com/cn/photoshop/using/creating-type.html
+Group	组	https://helpx.adobe.com/cn/photoshop/using/layer-opacity-blending.html
+Linked	链接	https://helpx.adobe.com/cn/photoshop/using/layers.html
+Embedded	嵌入	?
