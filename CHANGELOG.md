@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-07
+
 ### Added
 
+- The interface is available in 12 languages: English, German, French, Spanish, Brazilian Portuguese, Japanese,
+  Korean, Simplified Chinese, Russian, Turkish, Polish and Italian. photobaer starts in the browser's language;
+  the flag button in the menu bar switches it (applies after a reload). Menus, tools, panels, dialogs, filters
+  and messages use Photoshop's names in each language. The translations are drafts that native speakers have
+  not reviewed yet; corrections are welcome.
+- Numbers follow the interface language (decimal comma in German, French and others); number fields accept
+  both a comma and a point.
+- Keyboard shortcuts in menus, command search and the Channels panel show the language's modifier names
+  (German Strg+Umschalt, French Maj, Spanish Mayús). The keys themselves do not change.
 - 32-bit: the Gradient tool paints the Color Picker Intensity of the Foreground and Background colors, above 1
   in every interpolation method.
 
@@ -409,7 +420,8 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.3.5...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/IT-BAER/photobaer/compare/v0.3.8...v0.4.0
 [0.3.6]: https://github.com/IT-BAER/photobaer/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/IT-BAER/photobaer/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/IT-BAER/photobaer/compare/v0.3.3...v0.3.4
