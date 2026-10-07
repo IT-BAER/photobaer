@@ -38,7 +38,12 @@ function precache(): Plugin {
         .filter(f => f !== 'sw.js' && f !== 'precache.json' && !SITE_ONLY.test(f));
       writeFileSync(join(outDir, 'precache.json'), JSON.stringify(files));
       const hash = createHash('sha256');
-      for (const f of files.sort()) hash.update(f).update(readFileSync(join(outDir, f)));
+      for (const f of files.sort()) {
+        const bytes = readFileSync(join(outDir, f));
+        // An untransformed Lingui macro throws at load; in the engine worker the app hangs at "Starting…".
+        if (f.endsWith('.js') && bytes.includes('outside the context of compilation')) throw new Error(`${f}: Lingui macro left untransformed`);
+        hash.update(f).update(bytes);
+      }
       const sw = join(outDir, 'sw.js');
       const src = readFileSync(sw, 'utf8');
       const out = src.replace("const CACHE = 'photobaer';", `const CACHE = 'photobaer-${hash.digest('hex').slice(0, 16)}';`);
@@ -51,14 +56,17 @@ function precache(): Plugin {
 // The app version is the newest released CHANGELOG.md section, which is also the release notes.
 const version = /^## \[(\d+\.\d+\.\d+)\]/m.exec(readFileSync(new URL('./CHANGELOG.md', import.meta.url), 'utf8'))?.[1] ?? '0.0.0';
 
+const linguiPlugin = () => lingui({ macroTransform: { macro: { descriptorFields: 'message' } } });
+
 export default defineConfig({
   root: 'app',
   base: './',
   // descriptorFields 'message': production descriptors keep the English source text, the stable id of menu items.
-  plugins: [react(), lingui({ macroTransform: { macro: { descriptorFields: 'message' } } }), notices(), precache()],
+  plugins: [react(), linguiPlugin(), notices(), precache()],
   define: { __APP_VERSION__: JSON.stringify(version) },
   server: { headers },
   preview: { headers },
   build: { outDir: '../dist', emptyOutDir: true, target: 'es2023' },
-  worker: { format: 'es' },
+  // Workers build with their own plugin list: modules the engine worker imports use Lingui macros too.
+  worker: { format: 'es', plugins: () => [linguiPlugin()] },
 });
