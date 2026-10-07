@@ -1,0 +1,390 @@
+english	translation	source
+File	ファイル	?
+Edit	編集	https://helpx.adobe.com/jp/photoshop/desktop/get-started/settings-and-preferences/view-keyboard-shortcuts.html
+Image	イメージ	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Layer	レイヤー	?
+Type	書式	?
+Select	選択範囲	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/refine-modify-selections/expand-or-contract-selection.html
+Filter	フィルター	https://helpx.adobe.com/jp/photoshop/desktop/effects-filters/get-started-with-filters/filters-overview.html
+View	表示	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Window	ウィンドウ	https://helpx.adobe.com/jp/photoshop/desktop/get-started/set-up-toolbars-panels/create-tool-preset.html
+Help	ヘルプ	?
+Adjustments	色調補正	?
+Mode	モード	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Image Size	画像解像度	?
+Canvas Size	カンバスサイズ	https://helpx.adobe.com/jp/photoshop/using/adjusting-crop-rotation-canvas.html
+Image Rotation	画像の回転	https://helpx.adobe.com/jp/photoshop/desktop/crop-resize-transform/transform-manipulate-reshape/rotate-or-flip-images.html
+Transform	変形	https://helpx.adobe.com/jp/photoshop/desktop/crop-resize-transform/transform-manipulate-reshape/transformation-options-in-adobe-photoshop.html
+Free Transform	自由変形	?
+Content-Aware Fill	コンテンツに応じた塗りつぶし	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/adjust-content-aware-fill-settings.html
+Content-Aware Scale	コンテンツに応じた拡大・縮小	?
+Fill	塗りつぶし	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/fill-selection-layer-color.html
+Stroke	境界線を描く	?
+Fade	フェード	https://helpx.adobe.com/jp/photoshop/desktop/effects-filters/get-started-with-filters/blend-and-fade-filter-effects.html
+Place Embedded	埋め込みを配置	?
+Place Linked	リンクを配置	?
+Export As	書き出し形式	https://helpx.adobe.com/jp/photoshop/desktop/save-and-export/export-files-to-different-formats/fine-tune-your-export-settings-using-the-export-as-option.html
+Save As	別名で保存	https://helpx.adobe.com/jp/photoshop/desktop/save-and-export/save-files/revert-to-legacy-save-as-options.html
+Save a Copy	コピーを保存	?
+Open Recent	最近使用したファイルを開く	?
+File Info	ファイル情報	?
+Automate	自動処理	?
+Scripts	スクリプト	https://helpx.adobe.com/jp/photoshop/using/scripting.html
+Batch	バッチ	https://helpx.adobe.com/jp/photoshop/desktop/automate-tasks/process-a-batch-of-files/batch-process-files.html
+Photomerge	Photomerge	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/clean-restore-images/get-started-with-photomerge.html
+Image Processor	イメージプロセッサー	https://helpx.adobe.com/jp/photoshop/desktop/automate-tasks/process-a-batch-of-files/image-processor-overview.html
+Color Settings	カラー設定	https://helpx.adobe.com/jp/photoshop/using/color-settings.html
+Assign Profile	プロファイルを割り当て	?
+Convert to Profile	プロファイル変換	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Proof Setup	校正設定	?
+Proof Colors	色の校正	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Gamut Warning	色域外警告	?
+Apply Image	画像操作	?
+Calculations	チャンネル演算	?
+Trim	トリミング	?
+Reveal All	すべてを表示	?
+Rasterize	ラスタライズ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/smart-objects/rasterize-smart-objects.html
+Smart Object	スマートオブジェクト	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/smart-objects/smart-objects-overview-and-benefits.html
+Smart Objects	スマートオブジェクト	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/smart-objects/smart-objects-overview-and-benefits.html
+Smart Filter	スマートフィルター	https://helpx.adobe.com/jp/photoshop/desktop/effects-filters/get-started-with-filters/filters-overview.html
+Edit Contents	コンテンツを編集	?
+Replace Contents	コンテンツを置き換え	?
+Layer Style	レイヤースタイル	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Blending Options	描画オプション	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+New Adjustment Layer	新規調整レイヤー	?
+New Fill Layer	新規塗りつぶしレイヤー	?
+Layer Mask	レイヤーマスク	https://helpx.adobe.com/jp/photoshop/desktop/create-masks/layer-masks/add-layer-masks.html
+Vector Mask	ベクトルマスク	https://helpx.adobe.com/jp/photoshop/using/masking-layers-vector-masks.html
+Clipping Mask	クリッピングマスク	https://helpx.adobe.com/jp/photoshop/using/revealing-layers-clipping-masks.html
+Create Clipping Mask	クリッピングマスクを作成	?
+Merge Down	下のレイヤーと結合	?
+Merge Visible	表示レイヤーを結合	?
+Flatten Image	画像を統合	?
+Group Layers	レイヤーをグループ化	?
+Ungroup Layers	レイヤーのグループ解除	?
+Arrange	重ね順	?
+Align	整列	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/create-layer-compositions/align-content-of-layers-and-groups.html
+Distribute	分布	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/create-layer-compositions/distribute-layers-groups-evenly.html
+Lock	ロック	?
+Artboard	アートボード	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/layout-design-tools/get-started-artboards.html
+Inverse	選択範囲を反転	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/refine-modify-selections/inverse-selection.html
+Feather	境界をぼかす	?
+Grow	選択範囲を拡張	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/refine-modify-selections/expand-or-contract-selection.html
+Similar	近似色を選択	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/refine-modify-selections/expand-or-contract-selection.html
+Color Range	色域指定	?
+Focus Area	焦点領域	https://helpx.adobe.com/jp/photoshop/using/select-area-focus.html
+Select and Mask	選択とマスク	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/refine-modify-selections/refine-and-soften-selection-edges.html
+Load Selection	選択範囲を読み込む	?
+Save Selection	選択範囲を保存	?
+Transform Selection	選択範囲を変形	?
+Border	境界線を指定	?
+Smooth	滑らかに	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/refine-modify-selections/refine-and-soften-selection-edges.html
+Expand	拡張	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/refine-modify-selections/expand-or-contract-selection.html
+Contract	縮小	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/refine-modify-selections/expand-or-contract-selection.html
+Rulers	定規	https://helpx.adobe.com/jp/photoshop/using/rulers.html
+Guides	ガイド	https://helpx.adobe.com/jp/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/create-guides.html
+New Guide	新規ガイド	?
+Smart Guides	スマートガイド	https://helpx.adobe.com/jp/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/work-efficiently-with-smart-guides.html
+Snap To	スナップ先	?
+Fit on Screen	画面サイズに拡大	?
+Pixel Grid	ピクセルグリッド	?
+Workspace	ワークスペース	https://helpx.adobe.com/jp/photoshop/desktop/get-started/learn-the-basics/workspace-overview.html
+Extras	エクストラ	https://helpx.adobe.com/jp/photoshop/using/show-or-hide-non-printing.html
+Last Filter	前回のフィルター	?
+Filter Gallery	フィルターギャラリー	https://helpx.adobe.com/jp/photoshop/desktop/effects-filters/get-started-with-filters/filter-gallery.html
+Camera Raw Filter	Camera Raw フィルター	?
+Lens Correction	レンズ補正	?
+Liquify	ゆがみ	https://helpx.adobe.com/jp/photoshop/desktop/effects-filters/artistic-stylize-filters/overview-of-liquify-filter.html
+Vanishing Point	Vanishing Point	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Adaptive Wide Angle	広角補正	https://helpx.adobe.com/jp/photoshop/using/adaptive-wide-angle-filter.html
+Global Light	包括光源	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/set-a-global-lighting-angle-for-all-layers.html
+Bitmap	モノクロ 2 階調	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Grayscale	グレースケール	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Duotone	ダブルトーン	https://helpx.adobe.com/jp/photoshop/using/duotones.html
+Indexed Color	インデックスカラー	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+RGB Color	RGB カラー	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+CMYK Color	CMYK カラー	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Lab Color	Lab カラー	?
+Multichannel	マルチチャンネル	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-modes/convert-an-image-to-another-color-mode.html
+Color Table	カラーテーブル	https://helpx.adobe.com/jp/photoshop/using/customizing-indexed-color-tables.html
+Layers	レイヤー	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/get-started-layers/work-with-the-layers-panel.html
+Channels	チャンネル	https://helpx.adobe.com/jp/photoshop/using/channel-basics.html
+Paths	パス	https://helpx.adobe.com/jp/photoshop/using/paths.html
+History	ヒストリー	https://helpx.adobe.com/jp/photoshop/desktop/get-started/set-up-toolbars-panels/history-panel-overview.html
+Actions	アクション	https://helpx.adobe.com/jp/photoshop/desktop/automate-tasks/automation-settings-and-presets/use-the-actions-panel.html
+Properties	プロパティ	?
+Swatches	スウォッチ	https://helpx.adobe.com/jp/photoshop/using/choosing-colors-color-swatches-panels.html
+Color	カラー	https://helpx.adobe.com/jp/photoshop/using/choosing-colors-color-swatches-panels.html
+Gradients	グラデーション	?
+Patterns	パターン	?
+Styles	スタイル	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Shapes	シェイプ	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Brushes	ブラシ	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/brushes-presets/display-brush-panel-brush-options.html
+Brush Settings	ブラシ設定	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/brushes-presets/display-brush-panel-brush-options.html
+Character	文字	?
+Paragraph	段落	https://helpx.adobe.com/jp/photoshop/desktop/text-typography/get-started-with-text/setup-paragraph-formatting.html
+Glyphs	字形	https://helpx.adobe.com/jp/photoshop/desktop/text-typography/characters-glyphs/add-glyphs.html
+Navigator	ナビゲーター	?
+Histogram	ヒストグラム	https://helpx.adobe.com/jp/photoshop/using/viewing-histograms-pixel-values.html
+Info	情報	https://helpx.adobe.com/jp/photoshop/using/image-information.html
+Notes	注釈	https://helpx.adobe.com/jp/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Layer Comps	レイヤーカンプ	https://helpx.adobe.com/jp/photoshop/using/layer-comps.html
+Tool Presets	ツールプリセット	https://helpx.adobe.com/jp/photoshop/desktop/get-started/set-up-toolbars-panels/create-tool-preset.html
+Clone Source	コピーソース	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/heal-clone/clone-source-panel.html
+Measurement Log	測定ログ	https://helpx.adobe.com/jp/photoshop/desktop/use-grids-measurement-guides/measure-scale/measurement-log-for-measurements.html
+Options Bar	オプションバー	https://helpx.adobe.com/jp/photoshop/desktop/get-started/learn-the-basics/workspace-overview.html
+Tools	ツール	https://helpx.adobe.com/jp/photoshop/desktop/get-started/learn-the-basics/workspace-overview.html
+Move Tool	移動ツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Rectangular Marquee Tool	長方形選択ツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Elliptical Marquee Tool	楕円形選択ツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Single Row Marquee Tool	一行選択ツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Single Column Marquee Tool	一列選択ツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Lasso Tool	なげなわツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Polygonal Lasso Tool	多角形選択ツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Magnetic Lasso Tool	マグネット選択ツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Quick Selection Tool	クイック選択ツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Magic Wand Tool	自動選択ツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Object Selection Tool	オブジェクト選択ツール	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/get-started-selections/selection-tools-overview.html
+Crop Tool	切り抜きツール	https://helpx.adobe.com/jp/photoshop/desktop/crop-resize-transform/crop-straighten/crop-tool-options.html
+Perspective Crop Tool	遠近法の切り抜きツール	?
+Slice Tool	スライスツール	?
+Slice Select Tool	スライス選択ツール	?
+Frame Tool	フレームツール	?
+Eyedropper Tool	スポイトツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Color Sampler Tool	カラーサンプラーツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Ruler Tool	ものさしツール	https://helpx.adobe.com/jp/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Note Tool	注釈ツール	https://helpx.adobe.com/jp/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Count Tool	カウントツール	https://helpx.adobe.com/jp/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Spot Healing Brush Tool	スポット修復ブラシツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Healing Brush Tool	修復ブラシツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Patch Tool	パッチツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Content-Aware Move Tool	コンテンツに応じた移動ツール	?
+Red Eye Tool	赤目修正ツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Brush Tool	ブラシツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Pencil Tool	鉛筆ツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Color Replacement Tool	色の置き換えツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Mixer Brush Tool	混合ブラシツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Clone Stamp Tool	コピースタンプツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Pattern Stamp Tool	パターンスタンプツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+History Brush Tool	ヒストリーブラシツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Art History Brush Tool	アートヒストリーブラシツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Eraser Tool	消しゴムツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Background Eraser Tool	背景消しゴムツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Magic Eraser Tool	マジック消しゴムツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Gradient Tool	グラデーションツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Paint Bucket Tool	塗りつぶしツール	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/fill-objects-selections-layers/painting-tools-overview.html
+Blur Tool	ぼかしツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Sharpen Tool	シャープツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Smudge Tool	指先ツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Dodge Tool	覆い焼きツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Burn Tool	焼き込みツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Sponge Tool	スポンジツール	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/remove-objects-fill-space/retouch-tools-overview.html
+Pen Tool	ペンツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Freeform Pen Tool	フリーフォームペンツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Curvature Pen Tool	曲線ペンツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Add Anchor Point Tool	アンカーポイントの追加ツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Delete Anchor Point Tool	アンカーポイントの削除ツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Convert Point Tool	アンカーポイントの切り替えツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Horizontal Type Tool	横書き文字ツール	?
+Vertical Type Tool	縦書き文字ツール	?
+Horizontal Type Mask Tool	横書き文字マスクツール	?
+Vertical Type Mask Tool	縦書き文字マスクツール	?
+Path Selection Tool	パス選択ツール	?
+Direct Selection Tool	ダイレクト選択ツール	?
+Rectangle Tool	長方形ツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Ellipse Tool	楕円形ツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Triangle Tool	三角形ツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Polygon Tool	多角形ツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Line Tool	ラインツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Custom Shape Tool	カスタムシェイプツール	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Hand Tool	手のひらツール	https://helpx.adobe.com/jp/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Rotate View Tool	回転ビューツール	https://helpx.adobe.com/jp/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Zoom Tool	ズームツール	https://helpx.adobe.com/jp/photoshop/desktop/use-grids-measurement-guides/alignment-grids-guides/navigation-and-measuring-tools-overview.html
+Opacity	不透明度	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Flow	流量	?
+Hardness	硬さ	?
+Size	サイズ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Spacing	間隔	?
+Tolerance	許容値	?
+Anti-alias	アンチエイリアス	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/refine-modify-selections/refine-and-soften-selection-edges.html
+Contiguous	隣接	?
+Sample All Layers	全レイヤーを対象	?
+Airbrush	エアブラシ	?
+Smoothing	スムージング	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/clean-restore-images/create-smoother-more-polished-brush-strokes-with-stroke-smoothing.html
+Exposure	露光量	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Strength	強さ	?
+Range	範囲	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Shadows	シャドウ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Midtones	中間調	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Highlights	ハイライト	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Protect Tones	色調を保護	?
+Vibrance	自然な彩度	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Aligned	位置を揃える	?
+Fixed Ratio	縦横比を固定	?
+Fixed Size	サイズを固定	?
+Delete Cropped Pixels	切り抜いたピクセルを削除	https://helpx.adobe.com/jp/photoshop/desktop/crop-resize-transform/crop-straighten/crop-tool-options.html
+Straighten	角度補正	https://helpx.adobe.com/jp/photoshop/desktop/crop-resize-transform/crop-straighten/straighten-tilted-photos.html
+Auto-Select	自動選択	?
+Show Transform Controls	バウンディングボックスを表示	?
+Foreground Color	描画色	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/choose-colors/set-foreground-and-background-colors.html
+Background Color	背景色	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/choose-colors/set-foreground-and-background-colors.html
+Anchor Point	アンカーポイント	https://helpx.adobe.com/jp/photoshop/desktop/draw-shapes-paths/create-shapes/drawing-tools-overview.html
+Path Operations	パスの操作	?
+Combine Shapes	シェイプを結合	?
+Subtract Front Shape	前面シェイプで型抜き	?
+Intersect Shape Areas	シェイプが重なる領域を中マド	?
+Exclude Overlapping Shapes	重なり合う形状を除外	?
+Normal	通常	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Dissolve	ディザ合成	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Behind	背景	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Clear	消去	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Darken	比較（暗）	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Multiply	乗算	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Color Burn	焼き込みカラー	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Linear Burn	焼き込み（リニア）	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Darker Color	カラー比較（暗）	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Lighten	比較（明）	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Screen	スクリーン	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Color Dodge	覆い焼きカラー	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Linear Dodge (Add)	覆い焼き（リニア） - 加算	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Lighter Color	カラー比較（明）	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Overlay	オーバーレイ	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Soft Light	ソフトライト	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Hard Light	ハードライト	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Vivid Light	ビビッドライト	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Linear Light	リニアライト	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Pin Light	ピンライト	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Hard Mix	ハードミックス	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Difference	差の絶対値	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Exclusion	除外	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Subtract	減算	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Divide	除算	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Hue	色相	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Saturation	彩度	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Luminosity	輝度	https://helpx.adobe.com/jp/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html
+Pass Through	通過	?
+Brightness/Contrast	明るさ・コントラスト	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Levels	レベル補正	https://helpx.adobe.com/jp/photoshop/using/levels-adjustment.html
+Curves	トーンカーブ	https://helpx.adobe.com/jp/photoshop/using/curves-adjustment.html
+Hue/Saturation	色相・彩度	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Color Balance	カラーバランス	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Black & White	白黒	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Photo Filter	レンズフィルター	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Channel Mixer	チャンネルミキサー	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Color Lookup	カラールックアップ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Invert	階調の反転	?
+Posterize	ポスタリゼーション	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Threshold	2 階調化	?
+Gradient Map	グラデーションマップ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Selective Color	特定色域の選択	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Shadows/Highlights	シャドウ・ハイライト	?
+HDR Toning	HDR トーン	?
+Desaturate	彩度を下げる	?
+Match Color	カラーの適用	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/selective-color-adjustments/match-color-between-two-images.html
+Replace Color	色の置き換え	?
+Equalize	平均化	?
+Solid Color	べた塗り	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Gradient	グラデーション	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Pattern	パターン	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/adjustment-layers-options.html
+Preserve Luminosity	輝度を保持	?
+Colorize	色彩の統一	https://helpx.adobe.com/jp/photoshop/desktop/adjust-color/color-corrections/colorize-a-grayscale-image-or-create-a-monotone-effect.html
+Blur	ぼかし	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Blur Gallery	ぼかしギャラリー	https://helpx.adobe.com/jp/photoshop/using/blur-gallery.html
+Distort	変形	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Noise	ノイズ	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Pixelate	ピクセレート	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Render	描画	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Sharpen	シャープ	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Stylize	表現手法	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Other	その他	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Artistic	アーティスティック	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Brush Strokes	ブラシストローク	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Sketch	スケッチ	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Texture	テクスチャ	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Gaussian Blur	ぼかし（ガウス）	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Motion Blur	ぼかし（移動）	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Radial Blur	ぼかし（放射状）	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Lens Blur	ぼかし（レンズ）	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Surface Blur	ぼかし（表面）	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Smart Blur	ぼかし（詳細）	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Box Blur	ぼかし（ボックス）	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Shape Blur	ぼかし（シェイプ）	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Field Blur	フィールドぼかし	https://helpx.adobe.com/jp/photoshop/using/blur-gallery.html
+Iris Blur	虹彩絞りぼかし	https://helpx.adobe.com/jp/photoshop/using/blur-gallery.html
+Tilt-Shift	チルトシフト	https://helpx.adobe.com/jp/photoshop/using/blur-gallery.html
+Path Blur	パスぼかし	https://helpx.adobe.com/jp/photoshop/using/blur-gallery.html
+Spin Blur	スピンぼかし	https://helpx.adobe.com/jp/photoshop/using/blur-gallery.html
+Unsharp Mask	アンシャープマスク	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Smart Sharpen	スマートシャープ	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+High Pass	ハイパス	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Add Noise	ノイズを加える	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Reduce Noise	ノイズを軽減	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Despeckle	輪郭以外をぼかす	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Dust & Scratches	ダスト＆スクラッチ	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Median	中央値	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Displace	置き換え	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Pinch	つまむ	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Polar Coordinates	極座標	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Ripple	波紋	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Shear	シアー	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Spherize	球面	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Twirl	渦巻き	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Wave	波形	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+ZigZag	ジグザグ	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Clouds	雲模様 1	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Difference Clouds	雲模様 2	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Lens Flare	逆光	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Lighting Effects	照明効果	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Fibers	ファイバー	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Color Halftone	カラーハーフトーン	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Crystallize	水晶	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Mosaic	モザイク	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Pointillize	点描	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Mezzotint	メゾティント	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Emboss	エンボス	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Find Edges	輪郭検出	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Solarize	ソラリゼーション	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Wind	風	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Oil Paint	油彩	https://helpx.adobe.com/jp/photoshop/using/oil-paint-filter.html
+Maximum	明るさの最大値	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Minimum	明るさの最小値	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Offset	オフセット	https://helpx.adobe.com/jp/photoshop/using/filter-effects-reference.html
+Bevel & Emboss	ベベルとエンボス	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Inner Shadow	シャドウ（内側）	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Inner Glow	光彩（内側）	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Satin	サテン	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Color Overlay	カラーオーバーレイ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Gradient Overlay	グラデーションオーバーレイ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Pattern Overlay	パターンオーバーレイ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Outer Glow	光彩（外側）	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Drop Shadow	ドロップシャドウ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Contour	輪郭	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Knockout	ノックアウト	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Blend If	ブレンド条件	?
+Use Global Light	包括光源を使用	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Angle	角度	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Distance	距離	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Spread	スプレッド	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Choke	チョーク	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Depth	深さ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Soften	ソフト	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Fill Opacity	塗りの不透明度	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html
+Background	背景	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/get-started-layers/convert-background-and-regular-layers.html
+Selection	選択範囲	https://helpx.adobe.com/jp/photoshop/desktop/make-selections/refine-modify-selections/expand-or-contract-selection.html
+Mask	マスク	https://helpx.adobe.com/jp/photoshop/desktop/create-masks/layer-masks/add-layer-masks.html
+Channel	チャンネル	https://helpx.adobe.com/jp/photoshop/using/channel-basics.html
+Path	パス	https://helpx.adobe.com/jp/photoshop/using/paths.html
+Swatch	スウォッチ	https://helpx.adobe.com/jp/photoshop/using/choosing-colors-color-swatches-panels.html
+Brush	ブラシ	https://helpx.adobe.com/jp/photoshop/desktop/apply-painting-techniques/brushes-presets/display-brush-panel-brush-options.html
+Preset	プリセット	https://helpx.adobe.com/jp/photoshop/using/presets.html
+Document	ドキュメント	https://helpx.adobe.com/jp/photoshop/desktop/get-started/learn-the-basics/workspace-overview.html
+Canvas	カンバス	https://helpx.adobe.com/jp/photoshop/using/adjusting-crop-rotation-canvas.html
+Resolution	解像度	https://helpx.adobe.com/jp/photoshop/desktop/crop-resize-transform/resize-adjust-resolution/set-image-size-and-resolution.html
+Pixel	ピクセル	https://helpx.adobe.com/jp/photoshop/desktop/crop-resize-transform/resize-adjust-resolution/change-pixel-dimensions-of-an-image.html
+Adjustment Layer	調整レイヤー	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/create-adjustment-layers.html
+Fill Layer	塗りつぶしレイヤー	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/color-adjustment-fill-layers/create-fill-layers.html
+Shape Layer	シェイプレイヤー	?
+Type Layer	テキストレイヤー	https://helpx.adobe.com/jp/photoshop/desktop/text-typography/get-started-with-text/update-cjk-text-layers.html
+Group	グループ	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/transform-manipulate-layers/group-and-ungroup-layers.html
+Linked	リンク	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/smart-objects/create-linked-smart-objects.html
+Embedded	埋め込み	https://helpx.adobe.com/jp/photoshop/desktop/create-manage-layers/smart-objects/create-embedded-smart-objects.html
