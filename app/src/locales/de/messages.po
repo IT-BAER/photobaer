@@ -2352,6 +2352,10 @@ msgstr "Coding-Agenten wie Claude Code und Codex können Bilder von Ihrer Festpl
 msgid "Collapse {name}"
 msgstr "{name} einklappen"
 
+#: app/src/shell/DockSection.tsx
+msgid "Collapse {title}"
+msgstr "{title} reduzieren"
+
 #: app/src/AnalysisDialogs.tsx
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -3833,6 +3837,10 @@ msgstr "Ziehen Sie die Pins. Mit Umschalt-Klick auf eine Kante wird sie gerade a
 msgid "Drag to move effects; Alt or Ctrl drag to copy"
 msgstr "Ziehen zum Verschieben von Effekten; Alt- oder Strg-Ziehen zum Kopieren"
 
+#: app/src/shell/DockSection.tsx
+msgid "Drag to move this panel"
+msgstr "Ziehen, um dieses Bedienfeld zu verschieben"
+
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Drag to scroll the preview."
 msgstr "Ziehen, um die Vorschau zu scrollen."
@@ -4256,6 +4264,10 @@ msgstr "Erweitern"
 #: app/src/LayersPanel.tsx
 msgid "Expand {name}"
 msgstr "{name} ausklappen"
+
+#: app/src/shell/DockSection.tsx
+msgid "Expand {title}"
+msgstr "{title} erweitern"
 
 #: app/src/ActionsPanel.tsx
 msgid "Expand action"
@@ -9614,6 +9626,10 @@ msgstr "Transformation zurücksetzen"
 #: app/src/PropertiesPanel.tsx
 msgid "Reset Vector Mask Properties"
 msgstr "Vektormaskeneigenschaften zurücksetzen"
+
+#: app/src/shell/DockSection.tsx
+msgid "Resize {title}"
+msgstr "Größe von {title} ändern"
 
 #: app/src/ScriptDialogs.tsx
 msgid "Resize to Fit"

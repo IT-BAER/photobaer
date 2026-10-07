@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { t } from '@lingui/core/macro';
 import { DOCK_MAX_HEIGHT, DOCK_MIN_HEIGHT, type DockEntry, type DockKey } from '../app/workspaces.ts';
 
 interface Props {
@@ -41,7 +42,7 @@ export function DockSection({ id, title, entry, locked, edge = 'bottom', header,
   const currentHeight = () => ref.current?.getBoundingClientRect().height ?? DOCK_MIN_HEIGHT;
   const splitter = !collapsed && !locked && edge !== 'none' && (
     <div
-      className={`dock-splitter ${edge}`} role="separator" aria-orientation="horizontal" aria-label={`Resize ${title}`} tabIndex={0}
+      className={`dock-splitter ${edge}`} role="separator" aria-orientation="horizontal" aria-label={t`Resize ${title}`} tabIndex={0}
       aria-valuenow={height === undefined ? undefined : Math.round(height)} aria-valuemin={DOCK_MIN_HEIGHT} aria-valuemax={DOCK_MAX_HEIGHT}
       onPointerDown={e => {
         if (e.button !== 0) return;
@@ -94,7 +95,7 @@ export function DockSection({ id, title, entry, locked, edge = 'bottom', header,
     >
       {edge === 'top' && splitter}
       <div
-        className="dock-header" draggable={!locked} title={locked ? undefined : 'Drag to move this panel'}
+        className="dock-header" draggable={!locked} title={locked ? undefined : t`Drag to move this panel`}
         onDragStart={e => {
           if ((e.target as HTMLElement).closest('.dock-tabs button')) { e.preventDefault(); return; }
           e.dataTransfer.setData(DRAG_TYPE, id);
@@ -103,7 +104,7 @@ export function DockSection({ id, title, entry, locked, edge = 'bottom', header,
       >
         <button
           type="button" className="dock-toggle" disabled={locked} aria-expanded={!collapsed}
-          aria-label={header ? `${collapsed ? 'Expand' : 'Collapse'} ${title}` : undefined} onClick={() => onToggle(id)}
+          aria-label={header ? (collapsed ? t`Expand ${title}` : t`Collapse ${title}`) : undefined} onClick={() => onToggle(id)}
           aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
           onKeyDown={e => {
             const dir = e.altKey ? (e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0) : 0;

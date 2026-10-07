@@ -2638,10 +2638,10 @@ export function App() {
         </div>
         <aside className="sidebar">
           <DockSection {...sec('tabs', msg`Color panels`)} header={<div className="panel-tabs dock-tabs">
-            <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('color')}><Trans>Color</Trans></button>
-            <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('swatches')}><Trans>Swatches</Trans></button>
+            <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} disabled={workspace.locked} title={t`Color`} onClick={() => guardedSetDockTab('color')}><Trans>Color</Trans></button>
+            <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} disabled={workspace.locked} title={t`Swatches`} onClick={() => guardedSetDockTab('swatches')}><Trans>Swatches</Trans></button>
             <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} disabled={workspace.locked} title={t`Brush Settings (F5)`} onClick={() => guardedSetDockTab('brushSettings')}><Trans>Brush Settings</Trans></button>
-            <button className={`panel-tab${dockTab === 'brushes' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('brushes')}><Trans>Brushes</Trans></button>
+            <button className={`panel-tab${dockTab === 'brushes' ? ' active' : ''}`} disabled={workspace.locked} title={t`Brushes`} onClick={() => guardedSetDockTab('brushes')}><Trans>Brushes</Trans></button>
           </div>}>
           {dockTab === 'color' && <ColorPanel fg={fg} bg={bg} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} doc={doc} convert={convertColor} />}
           {dockTab === 'swatches' && <SwatchesPanel fg={fg} setFg={setFg} setBg={setBg} />}

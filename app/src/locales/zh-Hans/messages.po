@@ -2352,6 +2352,10 @@ msgstr ""
 msgid "Collapse {name}"
 msgstr ""
 
+#: app/src/shell/DockSection.tsx
+msgid "Collapse {title}"
+msgstr ""
+
 #: app/src/AnalysisDialogs.tsx
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -3833,6 +3837,10 @@ msgstr ""
 msgid "Drag to move effects; Alt or Ctrl drag to copy"
 msgstr ""
 
+#: app/src/shell/DockSection.tsx
+msgid "Drag to move this panel"
+msgstr ""
+
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Drag to scroll the preview."
 msgstr ""
@@ -4255,6 +4263,10 @@ msgstr ""
 
 #: app/src/LayersPanel.tsx
 msgid "Expand {name}"
+msgstr ""
+
+#: app/src/shell/DockSection.tsx
+msgid "Expand {title}"
 msgstr ""
 
 #: app/src/ActionsPanel.tsx
@@ -9613,6 +9625,10 @@ msgstr ""
 #: app/src/i18n/history.ts
 #: app/src/PropertiesPanel.tsx
 msgid "Reset Vector Mask Properties"
+msgstr ""
+
+#: app/src/shell/DockSection.tsx
+msgid "Resize {title}"
 msgstr ""
 
 #: app/src/ScriptDialogs.tsx
