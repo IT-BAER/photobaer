@@ -58,8 +58,8 @@ msgid "{0} is protected."
 msgstr "{0} is protected."
 
 #. placeholder {0}: file.name
-#. placeholder {1}: +base[0].toFixed(2)
-#. placeholder {2}: +base[1].toFixed(2)
+#. placeholder {1}: formatNumber(base[0], 2)
+#. placeholder {2}: formatNumber(base[1], 2)
 #: app/src/SvgDialog.tsx
 msgid "{0}: {1} x {2} px at 72 ppi"
 msgstr "{0}: {1} x {2} px at 72 ppi"
@@ -4143,6 +4143,27 @@ msgstr "Enhance Per Channel Contrast"
 #: app/src/filters/GalleryStack.tsx
 msgid "Enlarged"
 msgstr "Enlarged"
+
+#: app/src/shell/NumberInput.tsx
+msgid "Enter a number."
+msgstr "Enter a number."
+
+#: app/src/shell/NumberInput.tsx
+msgid "Enter a value from {lo} to {hi}."
+msgstr "Enter a value from {lo} to {hi}."
+
+#: app/src/shell/NumberInput.tsx
+msgid "Enter a value of at least {lo}."
+msgstr "Enter a value of at least {lo}."
+
+#: app/src/shell/NumberInput.tsx
+msgid "Enter a value of at most {hi}."
+msgstr "Enter a value of at most {hi}."
+
+#. placeholder {0}: formatNumber(Number(step ?? 1), digits)
+#: app/src/shell/NumberInput.tsx
+msgid "Enter a value that fits the step of {0}."
+msgstr "Enter a value that fits the step of {0}."
 
 #: app/src/app/helpers.ts
 msgid "Entropy"

@@ -4,6 +4,7 @@ import { msg, plural, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { LanguagePicker } from './shell/LanguagePicker.tsx';
 import { i18n } from './i18n/index.ts';
+import { formatPercent } from './i18n/numbers.ts';
 import { historyLabel } from './i18n/history.ts';
 import { errorLabel, errorText, warningList } from './i18n/errors.ts';
 import { client } from './client.ts';
@@ -2725,7 +2726,7 @@ export function App() {
       </main>
       <footer className="status">
         <span>{doc ? sizeText : t`No document`}</span>
-        <span>{Math.round(view.zoom * 1000) / 10}%</span>
+        <span>{formatPercent(view.zoom * 100, 1)}</span>
         <span>{deg ? `${deg}°` : ''}</span>
         <span className="grow">{doc ? hintText : ''}</span>
         <span className="shrink">{i18n._(AUTOSAVE_TEXT[autosave])}</span>

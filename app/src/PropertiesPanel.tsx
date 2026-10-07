@@ -12,6 +12,8 @@ import { hexToRgb, rgbToHex } from './shell/color.ts';
 import { BOOL_LABEL, dashFor, newStroke, radiusMax, setRadius, strokeStyleOf, type Live, type ShapeStroke, type StrokeStyle } from './shell/shapetools.ts';
 import { locate } from './layers.ts';
 import { i18n } from './i18n/index.ts';
+import { parseNumber } from './i18n/numbers.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 import { selectCreated, type SelectAfter } from './app/helpers.ts';
 import {
   EDIT_LABEL, FIELD_SPECS, MENU_LABEL, defaultAdjustment, fieldLabel, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
@@ -32,13 +34,13 @@ type OnChange = (a: Adjustment | DestructiveAdjustment, live: boolean) => void;
 
 // Slider plus a number field that commits on Enter or blur, so typing makes one edit.
 function NumberField({ spec, value, set }: { spec: Extract<FieldSpec, { type: 'number' }>; value: number; set: (v: number, live: boolean) => void }) {
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useState<number | null>(null);
   const [dragged, setDragged] = useState<number | null>(null);
   const clamp = (v: number) => Math.min(spec.max, Math.max(spec.min, v));
   const done = () => {
-    const v = Number(draft);
+    const v = draft;
     setDraft(null);
-    if (draft !== null && draft.trim() !== '' && Number.isFinite(v) && clamp(v) !== value) set(clamp(v), false);
+    if (v !== null && Number.isFinite(v) && clamp(v) !== value) set(clamp(v), false);
   };
   const release = () => {
     setDragged(null);
@@ -53,9 +55,9 @@ function NumberField({ spec, value, set }: { spec: Extract<FieldSpec, { type: 'n
         onChange={e => { const v = e.currentTarget.valueAsNumber; setDragged(v); set(v, true); }}
         onPointerUp={release} onKeyUp={release} onBlur={release}
       />
-      <input
-        type="number" aria-label={t`${label} value`} min={spec.min} max={spec.max} step={spec.step} value={draft ?? value}
-        onChange={e => setDraft(e.currentTarget.value)}
+      <NumberInput
+        aria-label={t`${label} value`} min={spec.min} max={spec.max} step={spec.step} value={draft ?? value}
+        onValue={setDraft}
         onBlur={done}
         onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
           if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
@@ -242,9 +244,9 @@ export function ArtboardPanel({ node, run }: { node: LayerNode; run: Run }) {
   const commit = (rect: [number, number, number, number], background: ArtboardBackground, label: string) =>
     void run(null, () => client.call('editArtboard', node.id, rect, background, label));
   const field = (label: string, shown: string, value: number, apply: (v: number) => [number, number, number, number], min: number) => (
-    <label>{shown} <input
-      key={`${node.id}-${label}-${value}`} type="number" step={1} min={min} defaultValue={value} aria-label={t`Artboard ${shown}`}
-      onBlur={e => { const v = Math.round(Number(e.currentTarget.value)); if (Number.isFinite(v) && v >= min && v !== value) commit(apply(v), a.background, `Artboard ${label}`); }}
+    <label>{shown} <NumberInput
+      key={`${node.id}-${label}-${value}`} step={1} min={min} value={value} onValue={() => {}} aria-label={t`Artboard ${shown}`}
+      onBlur={e => { const v = Math.round(parseNumber(e.currentTarget.value) ?? NaN); if (Number.isFinite(v) && v >= min && v !== value) commit(apply(v), a.background, `Artboard ${label}`); }}
       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
     /></label>
   );
@@ -287,9 +289,9 @@ export function ColorInput({ value, label, onCommit }: { value: [number, number,
 // A number field that commits once on blur or Enter.
 export function Num({ label, value, min, max, step, onCommit }: { label: string; value: number; min: number; max: number; step?: number; onCommit: (v: number) => void }) {
   return (
-    <label>{label} <input
-      key={`${label}-${value}`} type="number" min={min} max={max} step={step} defaultValue={value} aria-label={label}
-      onBlur={e => { const v = Number(e.currentTarget.value); if (Number.isFinite(v) && v !== value) onCommit(Math.min(max, Math.max(min, v))); }}
+    <label>{label} <NumberInput
+      key={`${label}-${value}`} min={min} max={max} step={step} value={value} onValue={() => {}} aria-label={label}
+      onBlur={e => { const v = parseNumber(e.currentTarget.value) ?? NaN; if (Number.isFinite(v) && v !== value) onCommit(Math.min(max, Math.max(min, v))); }}
       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
     /></label>
   );

@@ -4,6 +4,7 @@ import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { pixels, rasterSize, setHeight, setPpi, setWidth, svgSize, type RasterSize } from './app/rasterSize.ts';
 import { rasterSvg } from './app/files.ts';
+import { formatNumber } from './i18n/numbers.ts';
 import { Num } from './PropertiesPanel.tsx';
 
 export interface SvgDialogHandle {
@@ -61,7 +62,7 @@ export function SvgDialog({ ref, setError }: { ref: Ref<SvgDialogHandle>; setErr
     }
   }
 
-  const hint = file ? t`${file.name}: ${+base[0].toFixed(2)} x ${+base[1].toFixed(2)} px at 72 ppi` : '';
+  const hint = file ? t`${file.name}: ${formatNumber(base[0], 2)} x ${formatNumber(base[1], 2)} px at 72 ppi` : '';
   return (
     <dialog ref={dialog} className="mode-dialog svg-dialog" aria-label={t`Rasterize SVG Format`} onClose={() => { if (answer.current) close(null); }}>
       {file && (

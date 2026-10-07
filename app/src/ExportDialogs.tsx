@@ -3,6 +3,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'reac
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
+import { formatNumber } from './i18n/numbers.ts';
 import type { Dither } from './app/webExport.ts';
 import type { ExportFormat, ExportOptions } from './worker/helpers.ts';
 import { NumberInput } from './shell/NumberInput.tsx';
@@ -32,7 +33,7 @@ function savePrefs(p: ExportPrefs) {
 export const assetOptions = (format: ExportFormat, scale: number, quality: number, extra: Partial<ExportOptions> = {}): ExportOptions =>
   ({ format, scale, quality: quality / 100, colors: 256, dither: 'diffusion', icc: exportPrefs().icc, meta: exportPrefs().meta, ...extra });
 
-const kb = (n: number) => (n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(2)} MB`);
+const kb = (n: number) => (n < 1024 * 1024 ? `${formatNumber(n / 1024, 1)} KB` : `${formatNumber(n / 1024 / 1024, 2)} MB`);
 
 // Encoded size of each option set, measured in the worker 250 ms after the last change while `on`.
 function useEstimates(opts: ExportOptions[], on: boolean) {
@@ -120,7 +121,7 @@ export function SaveForWebDialog({ ref, size, start }: { ref: Ref<ExportDialogHa
   const close = () => { setOpen(false); dialog.current?.close(); };
   const size1 = e != null && typeof e !== 'string' ? kb(e.bytes) : '';
   const dims = e != null && typeof e !== 'string' ? `${e.width}×${e.height}` : '';
-  const pct = e != null && typeof e !== 'string' ? (e.bytes / (size[0] * size[1] * 4) * 100).toFixed(1) : '';
+  const pct = e != null && typeof e !== 'string' ? formatNumber(e.bytes / (size[0] * size[1] * 4) * 100, 1) : '';
   const reason = typeof e === 'string' ? e : '';
   return (
     <dialog ref={dialog} className="mode-dialog batch-dialog" aria-label={t`Save for Web`} onClose={() => setOpen(false)}>

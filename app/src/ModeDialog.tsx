@@ -293,11 +293,9 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
           {'ink' in edit ? (
             <div className="duotone-curve">
               {CURVE_INPUTS.map((x, i) => (
-                <label key={x}>{x}: <input type="number" aria-label={`${x}%`} min={0} max={100} step="any" value={edit.curve[i] ?? ''}
-                  onChange={e => {
-                    const t = e.currentTarget.value, v = Number(t);
-                    if (t === '' || Number.isFinite(v)) setEdit({ ...edit, curve: edit.curve.map((y, j) => (j !== i ? y : t === '' ? null : Math.min(100, Math.max(0, v)))) });
-                  }} /> %</label>
+                <label key={x}>{x}: <NumberInput aria-label={`${x}%`} min={0} max={100} step="any" value={edit.curve[i] ?? ''}
+                  onValue={v => setEdit({ ...edit, curve: edit.curve.map((y, j) => (j !== i ? y : Math.min(100, Math.max(0, v)))) })}
+                  onInput={e => { if (e.currentTarget.value.trim() === '') setEdit({ ...edit, curve: edit.curve.map((y, j) => (j !== i ? y : null)) }); }} /> %</label>
               ))}
             </div>
           ) : 'table' in edit ? (

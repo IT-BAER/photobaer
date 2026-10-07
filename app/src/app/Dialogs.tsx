@@ -2,7 +2,7 @@ import { ArrowUpRight } from 'lucide-react';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
-import { useEffect, useMemo, useRef, useState, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
 import { client } from '../client.ts';
 import type { Active } from '../LayersPanel.tsx';
 import { BLEND_MODES } from '../layers.ts';
@@ -215,8 +215,8 @@ export function NewImageDialog({ newDialog, createNew }: { newDialog: DialogRef;
     <dialog ref={newDialog}>
       <form onSubmit={createNew}>
         <h2><Trans>New image</Trans></h2>
-        <label><Trans>Width</Trans> <input name="w" type="number" min={1} max={65536} defaultValue={1920} required /> px</label>
-        <label><Trans>Height</Trans> <input name="h" type="number" min={1} max={65536} defaultValue={1080} required /> px</label>
+        <label><Trans>Width</Trans> <FormNumber name="w" min={1} max={65536} defaultValue={1920} required /> px</label>
+        <label><Trans>Height</Trans> <FormNumber name="h" min={1} max={65536} defaultValue={1080} required /> px</label>
         <label><Trans>Bit depth</Trans> <select name="depth" defaultValue="8"><option value="8">{t`8-bit`}</option><option value="16">{t`16-bit`}</option><option value="32">{t`32-bit`}</option></select></label>
         <label><Trans>Background</Trans> <select name="bg" defaultValue="white"><option value="white">{t`White`}</option><option value="black">{t`Black`}</option><option value="transparent">{t`Transparent`}</option></select></label>
         <div className="actions">
@@ -408,7 +408,7 @@ export function FeatherDialog({ featherDialog, run }: { featherDialog: DialogRef
         run(null, () => client.call('selectCommand', 'feather', r));
       }}>
         <h2><Trans>Feather Selection</Trans></h2>
-        <label><Trans>Feather radius</Trans> <input name="radius" type="number" min={0.1} max={1000} step={0.1} defaultValue={1} required /> px</label>
+        <label><Trans>Feather radius</Trans> <FormNumber name="radius" min={0.1} max={1000} step={0.1} defaultValue={1} required /> px</label>
         <div className="actions">
           <button type="button" onClick={() => featherDialog.current?.close()}><Trans>Cancel</Trans></button>
           <button type="submit" className="primary"><Trans>OK</Trans></button>
@@ -428,7 +428,7 @@ export function ModifyDialog({ modifyDialog, run, modifyOp }: { modifyDialog: Di
         run(null, () => client.call('modifySelection', modifyOp, Number(f.get('radius')), f.get('canvasBounds') === 'on'));
       }}>
         <h2>{i18n._(MODIFY_TITLE[modifyOp])}</h2>
-        <label><Trans>Radius</Trans> <input name="radius" type="number" min={MODIFY_OPS[modifyOp].min} max={MODIFY_OPS[modifyOp].max} defaultValue={MODIFY_OPS[modifyOp].default} required /> px</label>
+        <label><Trans>Radius</Trans> <FormNumber key={modifyOp} name="radius" min={MODIFY_OPS[modifyOp].min} max={MODIFY_OPS[modifyOp].max} defaultValue={MODIFY_OPS[modifyOp].default} required /> px</label>
         <label><input name="canvasBounds" type="checkbox" /> <Trans>Apply effect at canvas bounds</Trans></label>
         <div className="actions">
           <button type="button" onClick={() => modifyDialog.current?.close()}><Trans>Cancel</Trans></button>
@@ -564,7 +564,7 @@ export function AutomateDialog({ dialog, kind, ids, docCount, run }: { dialog: D
         </>}
         {kind === 'hdr' && <>
           <p><Trans>Merges the {docCount} open documents, in tab order, as an exposure bracket.</Trans></p>
-          <label><Trans>Stops Between Exposures</Trans> <input type="number" name="stops" min={0.25} max={4} step={0.25} defaultValue={2} required /></label>
+          <label><Trans>Stops Between Exposures</Trans> <FormNumber name="stops" min={0.25} max={4} step={0.25} defaultValue={2} required /></label>
         </>}
         <div className="actions">
           <button type="button" onClick={() => dialog.current?.close()}><Trans>Cancel</Trans></button>
@@ -576,6 +576,19 @@ export function AutomateDialog({ dialog, kind, ids, docCount, run }: { dialog: D
 }
 
 const num = (s: string) => (s.trim() === '' ? NaN : Number(s));
+type NumberProps = ComponentProps<typeof NumberInput>;
+
+// A form field that submits its plain number (hidden input), whatever decimal separator the UI shows.
+function FormNumber({ name, defaultValue, ...rest }: Omit<NumberProps, 'value' | 'onValue' | 'name'> & { name: string; defaultValue: number }) {
+  const [v, setV] = useState(defaultValue);
+  return <><NumberInput {...rest} value={v} onValue={setV} /><input type="hidden" name={name} value={v} /></>;
+}
+
+// A number field over a string state; an empty field sets ''.
+function TextNumber({ value, set, ...rest }: Omit<NumberProps, 'value' | 'onValue'> & { value: string; set: (s: string) => void }) {
+  const n = num(value);
+  return <NumberInput {...rest} value={Number.isNaN(n) ? '' : n} onValue={v => set(String(v))} onInput={e => { if (e.currentTarget.value.trim() === '') set(''); }} />;
+}
 
 // The form remounts after every close and on doc size changes, so each open starts from the document.
 export function CanvasSizeDialog({ canvasSizeDialog, doc, run, fg, bg }: { canvasSizeDialog: DialogRef; doc: DocInfo | null; run: Run; fg: Rgb; bg: Rgb }) {
@@ -617,8 +630,8 @@ function CanvasSizeForm({ dialog, doc, run, fg, bg }: { dialog: DialogRef; doc: 
     }}>
       <h2><Trans>Canvas Size</Trans></h2>
       <div><Trans>Current size: {curW} × {curH} px</Trans></div>
-      <label><Trans>Width</Trans> <input type="number" step="any" value={w} onChange={e => setW(e.currentTarget.value)} required /></label>
-      <label><Trans>Height</Trans> <input type="number" step="any" value={h} onChange={e => setH(e.currentTarget.value)} required /></label>
+      <label><Trans>Width</Trans> <TextNumber step="any" value={w} set={setW} required /></label>
+      <label><Trans>Height</Trans> <TextNumber step="any" value={h} set={setH} required /></label>
       <label><Trans>Unit</Trans> <select value={unit} onChange={e => reset(e.currentTarget.value as 'px' | 'pct', relative)}>
         <option value="px">{t`Pixels`}</option><option value="pct">{t`Percent`}</option>
       </select></label>
@@ -675,9 +688,9 @@ function ImageSizeForm({ dialog, doc, run }: { dialog: DialogRef; doc: DocInfo; 
       run(t`Resizing…`, () => client.call('imageSize', tw, th, interp, scaleStyles, r));
     }}>
       <h2><Trans>Image Size</Trans></h2>
-      <label><Trans>Width</Trans> <input type="number" min={1} step={1} value={resample ? w : doc.width} disabled={!resample} onChange={e => link(e.currentTarget.value, 'w')} required /> px</label>
-      <label><Trans>Height</Trans> <input type="number" min={1} step={1} value={resample ? h : doc.height} disabled={!resample} onChange={e => link(e.currentTarget.value, 'h')} required /> px</label>
-      <label><Trans>Resolution</Trans> <input type="number" min={1} step="any" value={res} onChange={e => setRes(e.currentTarget.value)} required /> ppi</label>
+      <label><Trans>Width</Trans> <TextNumber min={1} step={1} value={resample ? w : String(doc.width)} disabled={!resample} set={v => link(v, 'w')} required /> px</label>
+      <label><Trans>Height</Trans> <TextNumber min={1} step={1} value={resample ? h : String(doc.height)} disabled={!resample} set={v => link(v, 'h')} required /> px</label>
+      <label><Trans>Resolution</Trans> <TextNumber min={1} step="any" value={res} set={setRes} required /> ppi</label>
       <label><input type="checkbox" checked={constrain} onChange={e => setConstrain(e.currentTarget.checked)} /> <Trans>Constrain proportions</Trans></label>
       <label><input type="checkbox" checked={resample} onChange={e => { setResample(e.currentTarget.checked); setW(String(doc.width)); setH(String(doc.height)); }} /> <Trans>Resample</Trans></label>
       <label><Trans>Method</Trans> <select value={method} disabled={!resample} onChange={e => setMethod(e.currentTarget.value)}>
@@ -704,8 +717,8 @@ export function GlobalLightDialog({ globalLightDialog, doc, run }: { globalLight
         run(null, () => client.call('setGlobalLight', { angle: Number(f.get('angle')), altitude: Number(f.get('altitude')) }));
       }}>
         <h2><Trans>Global Light</Trans></h2>
-        <label><Trans>Angle</Trans> <input name="angle" type="number" min={-360} max={360} step="any" defaultValue={doc?.globalLight.angle ?? 120} required /> °</label>
-        <label><Trans>Altitude</Trans> <input name="altitude" type="number" min={0} max={90} step="any" defaultValue={doc?.globalLight.altitude ?? 30} required /> °</label>
+        <label><Trans>Angle</Trans> <FormNumber name="angle" min={-360} max={360} step="any" defaultValue={doc?.globalLight.angle ?? 120} required /> °</label>
+        <label><Trans>Altitude</Trans> <FormNumber name="altitude" min={0} max={90} step="any" defaultValue={doc?.globalLight.altitude ?? 30} required /> °</label>
         <div className="actions">
           <button type="button" onClick={() => globalLightDialog.current?.close()}><Trans>Cancel</Trans></button>
           <button type="submit" className="primary"><Trans>OK</Trans></button>
@@ -759,7 +772,7 @@ export function ScaleEffectsDialog({ scaleEffectsDialog, node, run }: { scaleEff
         if (node) run(null, () => client.call('scaleEffects', node.id, Number(f.get('scale'))));
       }}>
         <h2><Trans>Scale Layer Effects</Trans></h2>
-        <label><Trans>Scale</Trans> <input name="scale" type="number" min={1} max={1000} step={1} defaultValue={Math.round((node?.style?.scale ?? 1) * 100)} required /> %</label>
+        <label><Trans>Scale</Trans> <FormNumber name="scale" min={1} max={1000} step={1} defaultValue={Math.round((node?.style?.scale ?? 1) * 100)} required /> %</label>
         <div className="actions">
           <button type="button" onClick={() => scaleEffectsDialog.current?.close()}><Trans>Cancel</Trans></button>
           <button type="submit" className="primary"><Trans>OK</Trans></button>
@@ -779,7 +792,7 @@ export function RotateDialog({ rotateDialog, run }: { rotateDialog: DialogRef; r
         run('Rotating…', () => client.call('rotateCanvasArbitrary', Number(f.get('angle')), String(f.get('interp')) as 'nearest' | 'bilinear' | 'bicubic'));
       }}>
         <h2><Trans>Rotate Canvas</Trans></h2>
-        <label><Trans>Angle</Trans> <input name="angle" type="number" min={-360} max={360} step="any" defaultValue={0} required /> ° <Trans>clockwise</Trans></label>
+        <label><Trans>Angle</Trans> <FormNumber name="angle" min={-360} max={360} step="any" defaultValue={0} required /> ° <Trans>clockwise</Trans></label>
         <label><Trans>Interpolation</Trans> <select name="interp" defaultValue="bicubic">
           <option value="nearest">{t`Nearest Neighbor`}</option><option value="bilinear">{t`Bilinear`}</option><option value="bicubic">{t`Bicubic`}</option>
         </select></label>
@@ -871,7 +884,7 @@ export function NewGuideDialog({ newGuideDialog, run, doc, rulerUnit }: { newGui
           <label><input type="radio" name="orientation" value="horizontal" defaultChecked /> <Trans>Horizontal</Trans></label>
           <label><input type="radio" name="orientation" value="vertical" /> <Trans>Vertical</Trans></label>
         </fieldset>
-        <label><Trans>Position</Trans> <input name="position" type="number" step="any" defaultValue={0} required />
+        <label><Trans>Position</Trans> <FormNumber name="position" step="any" defaultValue={0} required />
           <select name="unit" defaultValue={rulerUnit}>{RULER_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
         </label>
         {artboards.length > 0 && (
@@ -956,17 +969,17 @@ export function NewGuideLayoutDialog({ newGuideLayoutDialog, run, doc }: { newGu
         }));
       }}>
         <h2><Trans>New Guide Layout</Trans></h2>
-        <label><Trans>Columns</Trans> <input name="columns" type="number" min={0} max={100} defaultValue={3} required /></label>
-        <label><Trans>Column Gutter</Trans> <input name="columnGutter" type="number" min={0} max={500} defaultValue={20} required /> px</label>
-        <label><Trans>Rows</Trans> <input name="rows" type="number" min={0} max={100} defaultValue={0} required /></label>
-        <label><Trans>Row Gutter</Trans> <input name="rowGutter" type="number" min={0} max={500} defaultValue={20} required /> px</label>
+        <label><Trans>Columns</Trans> <FormNumber name="columns" min={0} max={100} defaultValue={3} required /></label>
+        <label><Trans>Column Gutter</Trans> <FormNumber name="columnGutter" min={0} max={500} defaultValue={20} required /> px</label>
+        <label><Trans>Rows</Trans> <FormNumber name="rows" min={0} max={100} defaultValue={0} required /></label>
+        <label><Trans>Row Gutter</Trans> <FormNumber name="rowGutter" min={0} max={500} defaultValue={20} required /> px</label>
         <fieldset className="stroke-location trim-group">
           <legend><Trans>Margins</Trans></legend>
           <label><input name="margins" type="checkbox" /> <Trans>Use margins</Trans></label>
-          <label><Trans>Top</Trans> <input name="top" type="number" min={0} max={2000} defaultValue={0} /></label>
-          <label><Trans>Left</Trans> <input name="left" type="number" min={0} max={2000} defaultValue={0} /></label>
-          <label><Trans>Bottom</Trans> <input name="bottom" type="number" min={0} max={2000} defaultValue={0} /></label>
-          <label><Trans>Right</Trans> <input name="right" type="number" min={0} max={2000} defaultValue={0} /></label>
+          <label><Trans>Top</Trans> <FormNumber name="top" min={0} max={2000} defaultValue={0} /></label>
+          <label><Trans>Left</Trans> <FormNumber name="left" min={0} max={2000} defaultValue={0} /></label>
+          <label><Trans>Bottom</Trans> <FormNumber name="bottom" min={0} max={2000} defaultValue={0} /></label>
+          <label><Trans>Right</Trans> <FormNumber name="right" min={0} max={2000} defaultValue={0} /></label>
         </fieldset>
         <label><input name="clearExisting" type="checkbox" defaultChecked /> <Trans>Clear existing guides</Trans></label>
         <div className="actions">
@@ -1009,8 +1022,8 @@ export function ArtboardDialog({ artboardDialog, mode, run, doc, selected, layer
         <label><Trans>Name</Trans> <input name="name" defaultValue={mode === 'new' ? `Artboard ${count + 1}` : 'Artboard 1'} /></label>
         {mode === 'new' && (
           <>
-            <label><Trans>Width</Trans> <input name="w" type="number" min={1} max={300000} step={1} defaultValue={size[0]} required /> px</label>
-            <label><Trans>Height</Trans> <input name="h" type="number" min={1} max={300000} step={1} defaultValue={size[1]} required /> px</label>
+            <label><Trans>Width</Trans> <FormNumber name="w" min={1} max={300000} step={1} defaultValue={size[0]} required /> px</label>
+            <label><Trans>Height</Trans> <FormNumber name="h" min={1} max={300000} step={1} defaultValue={size[1]} required /> px</label>
             <label><Trans>Background</Trans> <select name="background" defaultValue="white">
               <option value="white">{t`White`}</option><option value="black">{t`Black`}</option><option value="transparent">{t`Transparent`}</option>
             </select></label>

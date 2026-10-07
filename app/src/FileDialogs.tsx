@@ -3,6 +3,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'reac
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
+import { formatNumber } from './i18n/numbers.ts';
 import { emptyInfo, xmpPacket, type FileInfo } from './app/fileInfo.ts';
 import { PAPERS, printLayout, type PrintSettings } from './app/print.ts';
 import { NumberInput } from './shell/NumberInput.tsx';
@@ -76,7 +77,7 @@ export function PrintDialog({ ref, settings, start }: { ref: Ref<PrintHandle>; s
   const outside = l && (l.xMm < s.marginMm - 0.01 || l.yMm < s.marginMm - 0.01 || l.xMm + l.widthMm > l.pageWidthMm - s.marginMm + 0.01 || l.yMm + l.heightMm > l.pageHeightMm - s.marginMm + 0.01);
   let sizeText = '';
   if (l) {
-    const w = l.widthMm.toFixed(1), h = l.heightMm.toFixed(1), pct = Math.round(l.scale * 100), pw = l.pageWidthMm.toFixed(0), ph = l.pageHeightMm.toFixed(0);
+    const w = formatNumber(l.widthMm, 1), h = formatNumber(l.heightMm, 1), pct = Math.round(l.scale * 100), pw = formatNumber(l.pageWidthMm, 0), ph = formatNumber(l.pageHeightMm, 0);
     sizeText = t`${w} × ${h} mm at ${pct}% on a ${pw} × ${ph} mm page.`;
   }
   return (

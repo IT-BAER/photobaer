@@ -3,6 +3,7 @@ import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
 import { flatNodes } from './layers.ts';
+import { formatNumber } from './i18n/numbers.ts';
 import { rgbToHex } from './shell/color.ts';
 import type { Viewer } from './viewer.ts';
 import type { DocInfo } from './worker/types.ts';
@@ -65,8 +66,8 @@ export function HistogramPanel({ doc }: { doc: DocInfo | null }) {
         </svg>
         <input className="histogram-bin" type="range" min="0" max="255" value={selectedBin} aria-label={t`Histogram bin`} onChange={event => setSelectedBin(event.currentTarget.valueAsNumber)} />
         <dl className="inspection-values">
-          <dt><Trans>Pixels</Trans></dt><dd>{stats.count}</dd><dt><Trans>Mean</Trans></dt><dd>{stats.mean.toFixed(2)}</dd>
-          <dt><Trans>Median</Trans></dt><dd>{stats.median}</dd><dt><Trans>Std Dev</Trans></dt><dd>{stats.standardDeviation.toFixed(2)}</dd>
+          <dt><Trans>Pixels</Trans></dt><dd>{stats.count}</dd><dt><Trans>Mean</Trans></dt><dd>{formatNumber(stats.mean, 2)}</dd>
+          <dt><Trans>Median</Trans></dt><dd>{stats.median}</dd><dt><Trans>Std Dev</Trans></dt><dd>{formatNumber(stats.standardDeviation, 2)}</dd>
           <dt><Trans>Bin {selectedBin}</Trans></dt><dd>{bins[selectedBin]}</dd>
         </dl>
       </> : <p className="panel-empty"><Trans>No document open.</Trans></p>}
@@ -183,15 +184,15 @@ export function InfoPanel({ doc, canvas, viewer }: { doc: DocInfo | null; canvas
       </select></label>
       {doc ? <dl className="inspection-values">
         <dt><Trans>Cursor</Trans></dt><dd>{sample ? `${sample.x}, ${sample.y}` : '–'}</dd>
-        <dt>RGBA</dt><dd>{sample ? sample.color.join(', ') : '–'}</dd>
-        <dt>Hex</dt><dd>{sample ? `${rgbToHex([sample.color[0], sample.color[1], sample.color[2]])} / ${sample.color[3]}` : '–'}</dd>
+        <dt>RGBA</dt><dd>{sample ? sample.color.map(v => formatNumber(v)).join(', ') : '–'}</dd>
+        <dt>Hex</dt><dd>{sample ? `${rgbToHex([sample.color[0], sample.color[1], sample.color[2]])} / ${formatNumber(sample.color[3])}` : '–'}</dd>
         <dt><Trans>Document</Trans></dt><dd>{doc.width} × {doc.height}</dd>
         <dt><Trans context="color mode">Mode</Trans></dt><dd><Trans>{mode}, {depth}-bit</Trans></dd>
         <dt><Trans>Profile</Trans></dt><dd>{doc.profile?.name ?? t`None`}</dd>
         <dt><Trans>Selection</Trans></dt><dd>{bounds ? `${bounds[2]} × ${bounds[3]}` : t`None`}</dd>
         {samples.map((s, i) => [
           <dt key={`t${i}`}>#{i + 1} {s.at[0]}, {s.at[1]}</dt>,
-          <dd key={`d${i}`}>{s.color.length ? s.color.join(', ') : '–'}</dd>,
+          <dd key={`d${i}`}>{s.color.length ? s.color.map(v => formatNumber(v)).join(', ') : '–'}</dd>,
         ])}
       </dl> : <p className="panel-empty"><Trans>No document open.</Trans></p>}
       {error && <p className="panel-error" role="alert">{error}</p>}

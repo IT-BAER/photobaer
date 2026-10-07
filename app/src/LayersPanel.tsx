@@ -8,6 +8,7 @@ import { msg, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
 import { i18n } from './i18n/index.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 import { choiceLabel } from './i18n/choices.ts';
 import { BLEND_MODES, HDR_BLEND_MODES, nodeById, dropTarget, type Where } from './layers.ts';
 import type { DocInfo, LayerNode } from './engine.worker.ts';
@@ -59,19 +60,19 @@ function zone(e: DragEvent, isGroup: boolean): Where {
 
 // A 0-100 percent field that commits on Enter or blur, so typing and arrow keys make one history step.
 function PercentField({ label, value, commit }: { label: string; value: number; commit: (v: number) => void }) {
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useState<number | null>(null);
   const done = () => {
-    const v = Math.round(Number(draft));
+    const v = Math.round(draft ?? NaN);
     setDraft(null);
     if (draft !== null && Number.isFinite(v)) commit(Math.min(100, Math.max(0, v)));
   };
   return (
     <label className="percent-field">
       {label}
-      <input
-        type="number" min={0} max={100} aria-label={label}
+      <NumberInput
+        min={0} max={100} aria-label={label}
         value={draft ?? value}
-        onChange={e => setDraft(e.currentTarget.value)}
+        onValue={setDraft}
         onBlur={done}
         onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
           if (e.key === 'Enter') e.currentTarget.blur();

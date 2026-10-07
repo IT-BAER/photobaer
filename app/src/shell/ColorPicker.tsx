@@ -12,14 +12,14 @@ export interface ColorPickerHandle { open(rgb: Rgb, title: string, commit: (rgb:
 
 // A numeric field bound to one channel of an [a, b, c] tuple, committed on blur/Enter.
 function Field({ label, value, min, max, onCommit }: { label: string; value: number; min: number; max: number; onCommit: (v: number) => void }) {
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useState<number | null>(null);
   return (
     <label className="color-field">
       {label}
-      <input
-        type="number" min={min} max={max} value={draft ?? Math.round(value)}
-        onChange={e => setDraft(e.currentTarget.value)}
-        onBlur={() => { const v = Number(draft); setDraft(null); if (draft !== null && Number.isFinite(v)) onCommit(Math.min(max, Math.max(min, v))); }}
+      <NumberInput
+        min={min} max={max} value={draft ?? Math.round(value)}
+        onValue={setDraft}
+        onBlur={() => { const v = draft; setDraft(null); if (v !== null && Number.isFinite(v)) onCommit(Math.min(max, Math.max(min, v))); }}
         onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
       />
     </label>

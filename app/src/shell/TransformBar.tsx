@@ -1,8 +1,9 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { i18n } from '../i18n/index.ts';
+import { NumberInput } from './NumberInput.tsx';
 import { Link, Unlink } from 'lucide-react';
 import { NUMERIC_FIELDS, type Mode, type NumericField } from '../transform/session.ts';
 import { STYLES, type Preset, type SplitMode, type Style } from '../transform/warp.ts';
@@ -47,14 +48,12 @@ const LABELS: Record<NumericField, [MessageDescriptor, string]> = {
 function NumField({ label, unit, value, digits = 2, min, max, set, p }: {
   label: string; unit: string; value: number; digits?: number; min?: number; max?: number; set(v: number): void; p: Props;
 }) {
-  const [draft, setDraft] = useState<string | null>(null);
   return (
     <label>
       {label}
-      <input
-        type="number" step={digits ? 0.1 : 1} min={min} max={max} aria-label={label} value={draft ?? value.toFixed(digits)}
-        onFocus={e => setDraft(e.currentTarget.value)} onBlur={() => setDraft(null)}
-        onChange={e => { setDraft(e.currentTarget.value); const v = e.currentTarget.valueAsNumber; if (Number.isFinite(v)) set(v); }}
+      <NumberInput
+        step={digits ? 0.1 : 1} min={min} max={max} aria-label={label} value={Number(value.toFixed(digits))}
+        onValue={set}
         onKeyDown={e => {
           if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); p.apply(); }
           else if (e.key === 'Escape') { e.preventDefault(); e.currentTarget.blur(); p.cancel(); }

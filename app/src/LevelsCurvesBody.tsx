@@ -7,6 +7,7 @@ import { msg, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
 import { i18n } from './i18n/index.ts';
+import { NumberInput } from './shell/NumberInput.tsx';
 import type { Adjustment, LevelsRecord } from './engine.worker.ts';
 import {
   AUTO_METHODS, CHANNELS, CURVES_PRESETS, LEVELS_PRESETS, addPoint, autoLevels, channelBins, channelValue, curveSamples,
@@ -63,15 +64,15 @@ function useSampler(sampleCanvas: SampleCanvas | undefined) {
 
 // Number field committing on Enter or blur.
 export function ValueInput({ label, value, step = 1, min, max, disabled, set }: { label: string; value: number; step?: number; min?: number; max?: number; disabled?: boolean; set: (v: number) => void }) {
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useState<number | null>(null);
   const done = () => {
-    const v = Number(draft);
+    const v = draft;
     setDraft(null);
-    if (draft !== null && draft.trim() !== '' && Number.isFinite(v) && v !== value) set(v);
+    if (v !== null && Number.isFinite(v) && v !== value) set(v);
   };
   return (
-    <input type="number" aria-label={label} title={label} step={step} min={min} max={max} disabled={disabled} value={draft ?? value}
-      onChange={e => setDraft(e.currentTarget.value)} onBlur={done}
+    <NumberInput aria-label={label} title={label} step={step} min={min} max={max} disabled={disabled} value={draft ?? value}
+      onValue={setDraft} onBlur={done}
       onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } else if (e.key === 'Escape') setDraft(null);
       }} />

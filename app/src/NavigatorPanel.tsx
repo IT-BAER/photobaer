@@ -4,6 +4,7 @@ import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { client } from './client.ts';
+import { formatNumber, parseNumber } from './i18n/numbers.ts';
 import type { DocInfo } from './engine.worker.ts';
 import type { Viewer } from './viewer.ts';
 import type { View } from './view.ts';
@@ -52,9 +53,9 @@ export function NavigatorPanel({ doc, viewer, view }: { doc: DocInfo; viewer: Vi
   };
   const dpr = viewer?.dpr ?? 1;
   const setZoom = (z: number) => viewer?.setView({ ...viewer.view, zoom: clampZoom(z) });
-  const shown = String(Math.round(view.zoom * dpr * 1000) / 10);
+  const shown = formatNumber(view.zoom * dpr * 100, 1);
   const applyPct = () => {
-    const v = Number((pct ?? '').replace('%', ''));
+    const v = parseNumber((pct ?? '').replace('%', '')) ?? NaN;
     if (Number.isFinite(v) && v > 0) setZoom(v / 100 / dpr);
     setPct(null);
   };
