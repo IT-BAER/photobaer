@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { initSync, Engine } from '../engine-pkg/photobaer_engine.js';
-import { renderRgba } from './helpers.ts';
+import { renderRgba, shiftedRegion } from './helpers.ts';
+import { tileIds } from '../project.ts';
 
 initSync({ module: readFileSync(new URL('../engine-pkg/photobaer_engine_bg.wasm', import.meta.url)) });
 
@@ -22,4 +23,14 @@ test('renderRgba with several layers keeps only them, reveals hidden ones and tr
   assert.equal(r.data[(11 * 22 + 21) * 4 + 3], 255);
   assert.equal(renderRgba(e, { layers: [c] })!.w, 64, 'untrimmed keeps the canvas');
   assert.equal(JSON.parse(e.layers_json()).find((n: { id: number }) => n.id === b).visible, false, 'the document is unchanged');
+});
+
+test('shiftedRegion past the canvas edge leaves the layer on its own tiles, so cached effect tiles stay valid', () => {
+  const e = new Engine(1000, 600, 8);
+  const id = e.add_layer('L', 0);
+  e.put_rgba8(id, 0, 0, 1000, 600, Uint8Array.from({ length: 1000 * 600 * 4 }, (_, i) => (i % 4 === 3 ? 255 : 128)));
+  const before = [...tileIds(e.manifest())].sort();
+  const r = shiftedRegion(e, [id], 0, [-50, 0, 1100, 600])!;
+  assert.deepEqual([r.image.x, r.image.w], [-50, 1100]);
+  assert.deepEqual([...tileIds(e.manifest())].sort(), before);
 });

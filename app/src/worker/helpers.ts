@@ -88,13 +88,14 @@ function shiftedRegion(e: Engine, ids: number[], level: number, r: Box) {
     const cell = intersect(r, [i * cw, j * ch, cw, ch]);
     if (!cell) continue;
     const dx = -i * cw, dy = -j * ch;
-    const shifted: number[] = [];
+    // A snapshot keeps the layers on their own tiles; an offset back re-cuts them under new ids, which misses every cached effect tile.
+    const snap = dx || dy ? e.snapshot() : null;
     let part: ReturnType<typeof displayRegion>;
     try {
-      for (const id of ids) if (dx || dy) { e.offset_layer(id, dx, dy); shifted.push(id); }
+      if (snap !== null) for (const id of ids) e.offset_layer(id, dx, dy);
       part = displayRegion(e, level, [cell[0] + dx, cell[1] + dy, cell[2], cell[3]]);
     } finally {
-      for (const id of shifted) e.offset_layer(id, -dx, -dy);
+      if (snap !== null) { e.restore(snap); e.drop_snapshot(snap); }
     }
     if (!part) continue;
     const src = new Uint8Array(part.data), { w: pw, h: ph } = part.image;
