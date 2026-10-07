@@ -1,4 +1,5 @@
 import { ArrowUpRight } from 'lucide-react';
+import { Trans } from '@lingui/react/macro';
 import { useEffect, useMemo, useRef, useState, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
 import { client } from '../client.ts';
 import type { Active } from '../LayersPanel.tsx';
@@ -294,7 +295,7 @@ export function AboutDialog({ aboutDialog }: { aboutDialog: DialogRef }) {
         </p>
         <p className="dim">The photobaer name and logo are not covered by the code license.</p>
         <p className="dim">
-          <a href="/impressum/" target="_blank" rel="noreferrer">Legal Notice</a> · <a href="/privacy/" target="_blank" rel="noreferrer">Privacy</a> ·{' '}
+          <a href="/impressum/" target="_blank" rel="noreferrer"><Trans>Legal Notice</Trans></a> · <a href="/privacy/" target="_blank" rel="noreferrer"><Trans>Privacy</Trans></a> ·{' '}
           <a href="/terms/" target="_blank" rel="noreferrer">Terms</a> · <a href="/licenses/" target="_blank" rel="noreferrer">Licenses</a>
         </p>
         <div className="actions"><button className="primary">OK</button></div>

@@ -605,6 +605,13 @@ dialog .gradient-midpoint[aria-pressed=true] { background: var(--accent); }
 .menubar-end > .agent-chip { color: var(--accent); }
 .menubar-end > a, .menubar-end > button { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px 10px; border-radius: 4px; color: inherit; text-decoration: none; font: inherit; cursor: default; }
 .menubar-end > a:hover, .menubar-end > button:hover { background: var(--panel-hi); }
+.menubar-end > .lang-button { padding: 4px 6px; }
+.flag { display: block; border-radius: 2px; }
+.lang-list { position: fixed; inset: auto; margin: 0; padding: 4px; display: none; grid-template-columns: repeat(3, auto); gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 24px #0006; }
+.lang-list:popover-open { display: grid; }
+.lang-list > button { padding: 5px 6px; background: none; border: 0; border-radius: 4px; cursor: default; }
+.lang-list > button:hover { background: var(--panel-hi); }
+.lang-list > button[aria-checked=true] { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Pathfinder buttons: two overlapping squares, the result drawn solid. */
 .pathfinder { display: flex; gap: 6px; padding: 4px 0 8px; }

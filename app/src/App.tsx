@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { LanguagePicker } from './shell/LanguagePicker.tsx';
 import { client } from './client.ts';
 import { Viewer, type ToolPointerEvent } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
@@ -2458,6 +2459,7 @@ export function App() {
             <svg className="heart" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.6 4.5c2.1 0 3.8 1.2 5.4 3.1 1.6-1.9 3.3-3.1 5.4-3.1 3.6 0 5.7 3.8 4.2 7.2C19.5 16.4 12 21 12 21z" /></svg>
             Donate
           </button>
+          <LanguagePicker />
           <button type="button" title="Fullscreen" aria-label="Fullscreen" onClick={() => void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen())}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.5" d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" /></svg>
           </button>

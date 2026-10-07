@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { lingui } from '@lingui/vite-plugin';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
@@ -53,7 +54,7 @@ const version = /^## \[(\d+\.\d+\.\d+)\]/m.exec(readFileSync(new URL('./CHANGELO
 export default defineConfig({
   root: 'app',
   base: './',
-  plugins: [react(), notices(), precache()],
+  plugins: [react(), lingui({ macroTransform: true }), notices(), precache()],
   define: { __APP_VERSION__: JSON.stringify(version) },
   server: { headers },
   preview: { headers },
