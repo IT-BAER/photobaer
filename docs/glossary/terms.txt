@@ -1,0 +1,400 @@
+# Glossary core terms (English source). One term per line; "## " starts a category.
+# Each language file docs/glossary/<locale>.tsv maps every term to that language's Photoshop wording.
+## Menus
+File
+Edit
+Image
+Layer
+Type
+Select
+Filter
+View
+Window
+Help
+Adjustments
+Mode
+Image Size
+Canvas Size
+Image Rotation
+Transform
+Free Transform
+Content-Aware Fill
+Content-Aware Scale
+Fill
+Stroke
+Fade
+Place Embedded
+Place Linked
+Export As
+Save As
+Save a Copy
+Open Recent
+File Info
+Automate
+Scripts
+Batch
+Photomerge
+Image Processor
+Color Settings
+Assign Profile
+Convert to Profile
+Proof Setup
+Proof Colors
+Gamut Warning
+Apply Image
+Calculations
+Trim
+Reveal All
+Rasterize
+Smart Object
+Smart Objects
+Smart Filter
+Edit Contents
+Replace Contents
+Layer Style
+Blending Options
+New Adjustment Layer
+New Fill Layer
+Layer Mask
+Vector Mask
+Clipping Mask
+Create Clipping Mask
+Merge Down
+Merge Visible
+Flatten Image
+Group Layers
+Ungroup Layers
+Arrange
+Align
+Distribute
+Lock
+Artboard
+Inverse
+Feather
+Grow
+Similar
+Color Range
+Focus Area
+Select and Mask
+Load Selection
+Save Selection
+Transform Selection
+Border
+Smooth
+Expand
+Contract
+Rulers
+Guides
+New Guide
+Smart Guides
+Snap To
+Fit on Screen
+Pixel Grid
+Workspace
+Extras
+Last Filter
+Filter Gallery
+Camera Raw Filter
+Lens Correction
+Liquify
+Vanishing Point
+Adaptive Wide Angle
+Global Light
+Bitmap
+Grayscale
+Duotone
+Indexed Color
+RGB Color
+CMYK Color
+Lab Color
+Multichannel
+Color Table
+## Panels
+Layers
+Channels
+Paths
+History
+Actions
+Properties
+Swatches
+Color
+Gradients
+Patterns
+Styles
+Shapes
+Brushes
+Brush Settings
+Character
+Paragraph
+Glyphs
+Navigator
+Histogram
+Info
+Notes
+Layer Comps
+Tool Presets
+Clone Source
+Measurement Log
+Options Bar
+Tools
+## Tools
+Move Tool
+Rectangular Marquee Tool
+Elliptical Marquee Tool
+Single Row Marquee Tool
+Single Column Marquee Tool
+Lasso Tool
+Polygonal Lasso Tool
+Magnetic Lasso Tool
+Quick Selection Tool
+Magic Wand Tool
+Object Selection Tool
+Crop Tool
+Perspective Crop Tool
+Slice Tool
+Slice Select Tool
+Frame Tool
+Eyedropper Tool
+Color Sampler Tool
+Ruler Tool
+Note Tool
+Count Tool
+Spot Healing Brush Tool
+Healing Brush Tool
+Patch Tool
+Content-Aware Move Tool
+Red Eye Tool
+Brush Tool
+Pencil Tool
+Color Replacement Tool
+Mixer Brush Tool
+Clone Stamp Tool
+Pattern Stamp Tool
+History Brush Tool
+Art History Brush Tool
+Eraser Tool
+Background Eraser Tool
+Magic Eraser Tool
+Gradient Tool
+Paint Bucket Tool
+Blur Tool
+Sharpen Tool
+Smudge Tool
+Dodge Tool
+Burn Tool
+Sponge Tool
+Pen Tool
+Freeform Pen Tool
+Curvature Pen Tool
+Add Anchor Point Tool
+Delete Anchor Point Tool
+Convert Point Tool
+Horizontal Type Tool
+Vertical Type Tool
+Horizontal Type Mask Tool
+Vertical Type Mask Tool
+Path Selection Tool
+Direct Selection Tool
+Rectangle Tool
+Ellipse Tool
+Triangle Tool
+Polygon Tool
+Line Tool
+Custom Shape Tool
+Hand Tool
+Rotate View Tool
+Zoom Tool
+## Tool options
+Opacity
+Flow
+Hardness
+Size
+Spacing
+Tolerance
+Anti-alias
+Contiguous
+Sample All Layers
+Airbrush
+Smoothing
+Exposure
+Strength
+Range
+Shadows
+Midtones
+Highlights
+Protect Tones
+Vibrance
+Aligned
+Fixed Ratio
+Fixed Size
+Delete Cropped Pixels
+Straighten
+Auto-Select
+Show Transform Controls
+Foreground Color
+Background Color
+Anchor Point
+Path Operations
+Combine Shapes
+Subtract Front Shape
+Intersect Shape Areas
+Exclude Overlapping Shapes
+## Blend modes
+Normal
+Dissolve
+Behind
+Clear
+Darken
+Multiply
+Color Burn
+Linear Burn
+Darker Color
+Lighten
+Screen
+Color Dodge
+Linear Dodge (Add)
+Lighter Color
+Overlay
+Soft Light
+Hard Light
+Vivid Light
+Linear Light
+Pin Light
+Hard Mix
+Difference
+Exclusion
+Subtract
+Divide
+Hue
+Saturation
+Luminosity
+Pass Through
+## Adjustments
+Brightness/Contrast
+Levels
+Curves
+Hue/Saturation
+Color Balance
+Black & White
+Photo Filter
+Channel Mixer
+Color Lookup
+Invert
+Posterize
+Threshold
+Gradient Map
+Selective Color
+Shadows/Highlights
+HDR Toning
+Desaturate
+Match Color
+Replace Color
+Equalize
+Solid Color
+Gradient
+Pattern
+Preserve Luminosity
+Colorize
+## Filters
+Blur
+Blur Gallery
+Distort
+Noise
+Pixelate
+Render
+Sharpen
+Stylize
+Other
+Artistic
+Brush Strokes
+Sketch
+Texture
+Gaussian Blur
+Motion Blur
+Radial Blur
+Lens Blur
+Surface Blur
+Smart Blur
+Box Blur
+Shape Blur
+Field Blur
+Iris Blur
+Tilt-Shift
+Path Blur
+Spin Blur
+Unsharp Mask
+Smart Sharpen
+High Pass
+Add Noise
+Reduce Noise
+Despeckle
+Dust & Scratches
+Median
+Displace
+Pinch
+Polar Coordinates
+Ripple
+Shear
+Spherize
+Twirl
+Wave
+ZigZag
+Clouds
+Difference Clouds
+Lens Flare
+Lighting Effects
+Fibers
+Color Halftone
+Crystallize
+Mosaic
+Pointillize
+Mezzotint
+Emboss
+Find Edges
+Solarize
+Wind
+Oil Paint
+Maximum
+Minimum
+Offset
+## Layer styles
+Bevel & Emboss
+Inner Shadow
+Inner Glow
+Satin
+Color Overlay
+Gradient Overlay
+Pattern Overlay
+Outer Glow
+Drop Shadow
+Contour
+Knockout
+Blend If
+Use Global Light
+Angle
+Distance
+Spread
+Choke
+Depth
+Soften
+Fill Opacity
+## Core nouns
+Background
+Selection
+Mask
+Channel
+Path
+Swatch
+Brush
+Preset
+Document
+Canvas
+Resolution
+Pixel
+Adjustment Layer
+Fill Layer
+Shape Layer
+Type Layer
+Group
+Linked
+Embedded
