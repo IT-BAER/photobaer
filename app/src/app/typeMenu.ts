@@ -1,18 +1,21 @@
 // Type menu, the type entries of the Layers context menu, and the shared type target (docs/M4.md
 // section 10): edits go to the open session, else to every selected type layer as one step.
 import type { RefObject } from 'react';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { i18n } from '../i18n/index.ts';
 import { client } from '../client.ts';
 import type { TextJson } from '../psd/text.ts';
 import { ANTI_ALIAS, LOREM, OPENTYPE, featureOn, loremText, setFeature, setParagraphs, type TextStyle } from '../shell/typecommands.ts';
 import { spanAt, type SpanAttrs } from '../shell/typesession.ts';
 import type { LayerNode } from '../worker/types.ts';
-import type { Item, Run } from './helpers.ts';
+import { tl, type Item, type Run } from './helpers.ts';
 import type { TypeApi } from './typeTools.ts';
 
 type Attrs = Record<string, unknown>;
 type Span = { length: number } & Record<string, any>;
 
-export const PREVIEW_SIZES: [string, number][] = [['None', 0], ['Small', 12], ['Medium', 16], ['Large', 24], ['Extra Large', 32], ['Huge', 48]];
+export const PREVIEW_SIZES: [MessageDescriptor, number][] = [[msg`None`, 0], [msg`Small`, 12], [msg`Medium`, 16], [msg`Large`, 24], [msg`Extra Large`, 32], [msg`Huge`, 48]];
 export interface TypePrefs {
   previewSize: number; language: 'default' | 'eastAsian' | 'middleEastern'; middleEasternComposer: boolean;
   defaults: { character: Attrs; paragraph: Attrs } | null;
@@ -37,8 +40,8 @@ export function saveStyles(kind: 'character' | 'paragraph', list: TextStyle[]) {
 }
 
 export type TypePanel = 'character' | 'paragraph' | 'characterStyles' | 'paragraphStyles' | 'glyphs';
-export const TYPE_PANELS: [TypePanel, string][] = [
-  ['character', 'Character'], ['paragraph', 'Paragraph'], ['characterStyles', 'Character Styles'], ['paragraphStyles', 'Paragraph Styles'], ['glyphs', 'Glyphs'],
+export const TYPE_PANELS: [TypePanel, MessageDescriptor][] = [
+  ['character', msg`Character`], ['paragraph', msg`Paragraph`], ['characterStyles', msg`Character Styles`], ['paragraphStyles', msg`Paragraph Styles`], ['glyphs', msg`Glyphs`],
 ];
 export interface TypeCtx {
   typeRef: RefObject<TypeApi | null>; selected: LayerNode[]; anyText: boolean; run: Run; setError: (m: string) => void;
@@ -91,8 +94,6 @@ export function runOf(t: { text: TextJson; at: number }): Span {
 }
 export const paragraphOf = (t: { text: TextJson; at: number }): Span => t.text.paragraphs[spanAt(t.text.paragraphs, t.at)];
 
-const check = (on: boolean, label: string) => (on ? `✓ ${label}` : label);
-
 export function typeMenuItems(c: TypeCtx): Item[] {
   const sel = typeLayers(c.selected), open = !!session(c), any = open || sel.length > 0;
   const target = typeTarget(c), r0 = target && runOf(target);
@@ -102,64 +103,64 @@ export function typeMenuItems(c: TypeCtx): Item[] {
   const setPref = (p: Partial<TypePrefs>) => { const n = { ...prefs, ...p }; saveTypePrefs(n); setPrefs(n); };
   return [
     {
-      label: 'Panels', keys: '›', run: () => {}, sub: TYPE_PANELS.map(([k, label]) => ({ label: check(c.panels[k], label), run: () => c.togglePanel(k) })),
+      ...tl(msg`Panels`), keys: '›', run: () => {}, sub: TYPE_PANELS.map(([k, label]) => ({ ...tl(label, c.panels[k]), run: () => c.togglePanel(k) })),
     },
     {
-      label: 'Anti-Alias', keys: '›', sep: true, run: () => {}, off: !any, sub: ANTI_ALIAS.map(([label, v], i) => ({
-        label: check(r0?.anti_alias === v && ANTI_ALIAS.findIndex(([, w]) => w === v) === i, label),
-        run: () => applyWhole(c, t => ({ ...t, runs: t.runs.map((r: Span) => ({ ...r, anti_alias: v })) }), label),
+      ...tl(msg`Anti-Alias`), keys: '›', sep: true, run: () => {}, off: !any, sub: ANTI_ALIAS.map(([label, v], i) => ({
+        ...tl(label, r0?.anti_alias === v && ANTI_ALIAS.findIndex(([, w]) => w === v) === i),
+        run: () => applyWhole(c, t => ({ ...t, runs: t.runs.map((r: Span) => ({ ...r, anti_alias: v })) }), label.message!),
       })),
     },
     {
-      label: 'Orientation', keys: '›', run: () => {}, off: !any, sub: (['Horizontal', 'Vertical'] as const).map(label => ({
-        label: check(target?.text.orientation === label.toLowerCase(), label),
-        run: () => applyWhole(c, t => ({ ...t, orientation: label.toLowerCase() }), label),
+      ...tl(msg`Orientation`), keys: '›', run: () => {}, off: !any, sub: ([['horizontal', msg`Horizontal`], ['vertical', msg`Vertical`]] as const).map(([o, label]) => ({
+        ...tl(label, target?.text.orientation === o),
+        run: () => applyWhole(c, t => ({ ...t, orientation: o }), label.message!),
       })),
     },
     {
-      label: 'OpenType', keys: '›', run: () => {}, off: !any, sub: OPENTYPE.map(([label, tag]) => {
+      ...tl(msg`OpenType`), keys: '›', run: () => {}, off: !any, sub: OPENTYPE.map(([label, tag]) => {
         const on = !!r0 && featureOn(r0, tag);
-        return { label: check(on, label), run: () => applyType(c, r => { const { length: _, ...rest } = setFeature(r, tag, !on); return rest; }, null, label) };
+        return { ...tl(label, on), run: () => applyType(c, r => { const { length: _, ...rest } = setFeature(r, tag, !on); return rest; }, null, label.message!) };
       }),
     },
-    { label: 'Create Work Path', sep: true, off: !last || !last.text!.text, run: () => last && c.run(null, () => client.call('typeWorkPath', last.id)) },
-    { label: 'Convert to Shape', off: layerOff, run: () => c.run('Converting…', () => client.call('typeToShape', ids)) },
-    { label: 'Rasterize Type Layer', sep: true, off: layerOff, run: () => c.run('Rasterizing…', () => client.call('rasterizeLayers', 'type', ids, 'Rasterize Type Layer')) },
-    { label: 'Convert to Paragraph Text', sep: true, off: !sel.some(n => n.text!.shape?.type !== 'paragraph'), run: () => c.run(null, () => client.call('typeConvert', ids, 'paragraph')) },
-    { label: 'Convert to Point Text', off: !sel.some(n => n.text!.shape?.type === 'paragraph'), run: () => c.run(null, () => client.call('typeConvert', ids, 'point')) },
-    { label: 'Warp Text…', off: !any, run: c.openWarp },
+    { ...tl(msg`Create Work Path`), sep: true, off: !last || !last.text!.text, run: () => last && c.run(null, () => client.call('typeWorkPath', last.id)) },
+    { ...tl(msg`Convert to Shape`), off: layerOff, run: () => c.run(i18n._(msg`Converting…`), () => client.call('typeToShape', ids)) },
+    { ...tl(msg`Rasterize Type Layer`), sep: true, off: layerOff, run: () => c.run(i18n._(msg`Rasterizing…`), () => client.call('rasterizeLayers', 'type', ids, 'Rasterize Type Layer')) },
+    { ...tl(msg`Convert to Paragraph Text`), sep: true, off: !sel.some(n => n.text!.shape?.type !== 'paragraph'), run: () => c.run(null, () => client.call('typeConvert', ids, 'paragraph')) },
+    { ...tl(msg`Convert to Point Text`), off: !sel.some(n => n.text!.shape?.type === 'paragraph'), run: () => c.run(null, () => client.call('typeConvert', ids, 'point')) },
+    { ...tl(msg`Warp Text…`), off: !any, run: c.openWarp },
     {
-      label: 'Font Preview Size', keys: '›', sep: true, run: () => {}, sub: PREVIEW_SIZES.map(([label, px]) => ({
-        label: check(prefs.previewSize === px, label), run: () => setPref({ previewSize: px }),
+      ...tl(msg`Font Preview Size`), keys: '›', sep: true, run: () => {}, sub: PREVIEW_SIZES.map(([label, px]) => ({
+        ...tl(label, prefs.previewSize === px), run: () => setPref({ previewSize: px }),
       })),
     },
     {
-      label: 'Language Options', keys: '›', run: () => {}, sub: [
-        ...([['default', 'Default Features'], ['eastAsian', 'East Asian Features'], ['middleEastern', 'Middle Eastern Features']] as [TypePrefs['language'], string][])
-          .map(([k, label]) => ({ label: check(prefs.language === k, label), run: () => setPref({ language: k }) })),
-        { label: check(prefs.middleEasternComposer, 'Middle Eastern & South Asian Composer'), sep: true, run: () => setPref({ middleEasternComposer: !prefs.middleEasternComposer }) },
+      ...tl(msg`Language Options`), keys: '›', run: () => {}, sub: [
+        ...([['default', msg`Default Features`], ['eastAsian', msg`East Asian Features`], ['middleEastern', msg`Middle Eastern Features`]] as [TypePrefs['language'], MessageDescriptor][])
+          .map(([k, label]) => ({ ...tl(label, prefs.language === k), run: () => setPref({ language: k }) })),
+        { ...tl(msg`Middle Eastern & South Asian Composer`, prefs.middleEasternComposer), sep: true, run: () => setPref({ middleEasternComposer: !prefs.middleEasternComposer }) },
       ],
     },
-    { label: 'Update All Text Layers', sep: true, off: !c.anyText, run: () => c.run('Updating…', () => client.call('typeRenderAll')) },
-    { label: 'Replace All Missing Fonts', off: !c.anyText, run: () => c.fontDialog('replace') },
-    { label: 'Resolve Missing Fonts', off: !c.anyText, run: () => c.fontDialog('resolve') },
-    ...(c.loadSystemFonts ? [{ label: 'Load System Fonts', run: c.loadSystemFonts }] : []),
+    { ...tl(msg`Update All Text Layers`), sep: true, off: !c.anyText, run: () => c.run(i18n._(msg`Updating…`), () => client.call('typeRenderAll')) },
+    { ...tl(msg`Replace All Missing Fonts`), off: !c.anyText, run: () => c.fontDialog('replace') },
+    { ...tl(msg`Resolve Missing Fonts`), off: !c.anyText, run: () => c.fontDialog('resolve') },
+    ...(c.loadSystemFonts ? [{ ...tl(msg`Load System Fonts`), run: c.loadSystemFonts }] : []),
     {
-      label: 'Paste Lorem Ipsum', sep: true, off: !any, run: () => {
+      ...tl(msg`Paste Lorem Ipsum`), sep: true, off: !any, run: () => {
         const t = c.typeRef.current;
         if (t?.editing()) t.insert(LOREM);
         else void c.run(null, () => client.call('typeSetMany', sel.map(n => [n.id, loremText(n.text!)]), 'Paste Lorem Ipsum'));
       },
     },
     {
-      label: 'Load Default Type Styles', sep: true, off: layerOff, run: () => {
+      ...tl(msg`Load Default Type Styles`), sep: true, off: layerOff, run: () => {
         const d = prefs.defaults;
-        if (!d) { c.setError('No default type styles have been saved yet.'); return; }
+        if (!d) { c.setError(i18n._(msg`No default type styles have been saved yet.`)); return; }
         void c.run(null, () => client.call('typeSetMany', sel.map(n => [n.id, setParagraphs({ ...n.text!, runs: n.text!.runs.map((r: Span) => ({ ...r, ...d.character, length: r.length })) }, d.paragraph)]), 'Load Default Type Styles'));
       },
     },
     {
-      label: 'Save Default Type Styles', off: layerOff, run: () => {
+      ...tl(msg`Save Default Type Styles`), off: layerOff, run: () => {
         const t = sel[0].text!, { length: _r, ...character } = t.runs[0], { length: _p, ...paragraph } = t.paragraphs[0];
         setPref({ defaults: { character, paragraph } });
       },
@@ -173,9 +174,9 @@ export function typeContextItems(n: LayerNode, c: TypeCtx): Item[] {
   const ids = typeLayers(c.selected).map(x => x.id);
   const para = n.text.shape?.type === 'paragraph';
   return [
-    { label: 'Convert to Shape', run: () => c.run('Converting…', () => client.call('typeToShape', ids.length ? ids : [n.id])) },
-    { label: 'Create Work Path', off: !n.text.text, run: () => c.run(null, () => client.call('typeWorkPath', n.id)) },
-    { label: para ? 'Convert to Point Text' : 'Convert to Paragraph Text', run: () => c.run(null, () => client.call('typeConvert', [n.id], para ? 'point' : 'paragraph')) },
-    { label: 'Warp Text…', run: c.openWarp },
+    { ...tl(msg`Convert to Shape`), run: () => c.run(i18n._(msg`Converting…`), () => client.call('typeToShape', ids.length ? ids : [n.id])) },
+    { ...tl(msg`Create Work Path`), off: !n.text.text, run: () => c.run(null, () => client.call('typeWorkPath', n.id)) },
+    { ...tl(para ? msg`Convert to Point Text` : msg`Convert to Paragraph Text`), run: () => c.run(null, () => client.call('typeConvert', [n.id], para ? 'point' : 'paragraph')) },
+    { ...tl(msg`Warp Text…`), run: c.openWarp },
   ];
 }

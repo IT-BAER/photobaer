@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
 import { flatNodes } from './layers.ts';
 import { rgbToHex } from './shell/color.ts';
@@ -29,7 +31,7 @@ export function HistogramPanel({ doc }: { doc: DocInfo | null }) {
       if (request.current !== id || result.key !== doc.key) return;
       const bins = result.histogram as Uint32Array;
       const count = histogramStats(selectHistogramChannel(bins, channel)).count;
-      if (count > doc.width * doc.height) throw new Error('Histogram pixel count exceeds the source document area.');
+      if (count > doc.width * doc.height) throw new Error(t`Histogram pixel count exceeds the source document area.`);
       setRaw(bins);
     }).catch(reason => { if (request.current === id) { setRaw(null); setError((reason as Error).message); } });
     return () => { if (request.current === id) request.current++; };
@@ -44,30 +46,30 @@ export function HistogramPanel({ doc }: { doc: DocInfo | null }) {
   };
 
   return (
-    <section className="inspection-panel" aria-label="Histogram">
-      <h2>Histogram</h2>
+    <section className="inspection-panel" aria-label={t`Histogram`}>
+      <h2><Trans>Histogram</Trans></h2>
       <div className="inspection-controls">
-        <label>Channel <select value={channel} onChange={event => setChannel(event.currentTarget.value as HistogramChannel)}>
-          <option value="composite">Composite</option><option value="red">Red</option><option value="green">Green</option><option value="blue">Blue</option>
+        <label><Trans>Channel</Trans> <select value={channel} onChange={event => setChannel(event.currentTarget.value as HistogramChannel)}>
+          <option value="composite">{t`Composite`}</option><option value="red">{t`Red`}</option><option value="green">{t`Green`}</option><option value="blue">{t`Blue`}</option>
         </select></label>
-        <label>Source <select value={source} onChange={event => setSource(event.currentTarget.value)} disabled={!doc}>
-          <option value="composite">Composite</option>
+        <label><Trans>Source</Trans> <select value={source} onChange={event => setSource(event.currentTarget.value)} disabled={!doc}>
+          <option value="composite">{t`Composite`}</option>
           {layers.map(layer => <option key={layer.id} value={layer.id}>{layer.name}</option>)}
         </select></label>
-        <button type="button" onClick={() => setRefresh(value => value + 1)} disabled={!doc}>Refresh</button>
+        <button type="button" onClick={() => setRefresh(value => value + 1)} disabled={!doc}><Trans>Refresh</Trans></button>
       </div>
       {doc ? <>
         <svg ref={graph} className="histogram-graph" viewBox="0 0 255 100" preserveAspectRatio="none" onPointerMove={event => selectAt(event.clientX)} onPointerDown={event => selectAt(event.clientX)}>
           <polyline points={points} fill="none" stroke="currentColor" vectorEffect="non-scaling-stroke" />
           <line x1={selectedBin} x2={selectedBin} y1="0" y2="100" vectorEffect="non-scaling-stroke" />
         </svg>
-        <input className="histogram-bin" type="range" min="0" max="255" value={selectedBin} aria-label="Histogram bin" onChange={event => setSelectedBin(event.currentTarget.valueAsNumber)} />
+        <input className="histogram-bin" type="range" min="0" max="255" value={selectedBin} aria-label={t`Histogram bin`} onChange={event => setSelectedBin(event.currentTarget.valueAsNumber)} />
         <dl className="inspection-values">
-          <dt>Pixels</dt><dd>{stats.count}</dd><dt>Mean</dt><dd>{stats.mean.toFixed(2)}</dd>
-          <dt>Median</dt><dd>{stats.median}</dd><dt>Std Dev</dt><dd>{stats.standardDeviation.toFixed(2)}</dd>
-          <dt>Bin {selectedBin}</dt><dd>{bins[selectedBin]}</dd>
+          <dt><Trans>Pixels</Trans></dt><dd>{stats.count}</dd><dt><Trans>Mean</Trans></dt><dd>{stats.mean.toFixed(2)}</dd>
+          <dt><Trans>Median</Trans></dt><dd>{stats.median}</dd><dt><Trans>Std Dev</Trans></dt><dd>{stats.standardDeviation.toFixed(2)}</dd>
+          <dt><Trans>Bin {selectedBin}</Trans></dt><dd>{bins[selectedBin]}</dd>
         </dl>
-      </> : <p className="panel-empty">No document open.</p>}
+      </> : <p className="panel-empty"><Trans>No document open.</Trans></p>}
       {error && <p className="panel-error" role="alert">{error}</p>}
     </section>
   );
@@ -172,25 +174,26 @@ export function InfoPanel({ doc, canvas, viewer }: { doc: DocInfo | null; canvas
 
   const mode = doc?.mode?.kind ?? (doc?.gray ? 'gray' : 'rgb');
   const bounds = doc?.selection?.bounds;
+  const depth = doc?.depth;
   return (
-    <section className="inspection-panel" aria-label="Info">
-      <h2>Info</h2>
-      <label>Sample <select value={size} onChange={event => setSize(Number(event.currentTarget.value) as 1 | 3 | 5)}>
-        <option value="1">Point</option><option value="3">3 × 3</option><option value="5">5 × 5</option>
+    <section className="inspection-panel" aria-label={t`Info`}>
+      <h2><Trans>Info</Trans></h2>
+      <label><Trans>Sample</Trans> <select value={size} onChange={event => setSize(Number(event.currentTarget.value) as 1 | 3 | 5)}>
+        <option value="1">{t({ message: 'Point', context: 'sample size' })}</option><option value="3">3 × 3</option><option value="5">5 × 5</option>
       </select></label>
       {doc ? <dl className="inspection-values">
-        <dt>Cursor</dt><dd>{sample ? `${sample.x}, ${sample.y}` : '–'}</dd>
+        <dt><Trans>Cursor</Trans></dt><dd>{sample ? `${sample.x}, ${sample.y}` : '–'}</dd>
         <dt>RGBA</dt><dd>{sample ? sample.color.join(', ') : '–'}</dd>
         <dt>Hex</dt><dd>{sample ? `${rgbToHex([sample.color[0], sample.color[1], sample.color[2]])} / ${sample.color[3]}` : '–'}</dd>
-        <dt>Document</dt><dd>{doc.width} × {doc.height}</dd>
-        <dt>Mode</dt><dd>{mode}, {doc.depth}-bit</dd>
-        <dt>Profile</dt><dd>{doc.profile?.name ?? 'None'}</dd>
-        <dt>Selection</dt><dd>{bounds ? `${bounds[2]} × ${bounds[3]}` : 'None'}</dd>
+        <dt><Trans>Document</Trans></dt><dd>{doc.width} × {doc.height}</dd>
+        <dt><Trans context="color mode">Mode</Trans></dt><dd><Trans>{mode}, {depth}-bit</Trans></dd>
+        <dt><Trans>Profile</Trans></dt><dd>{doc.profile?.name ?? t`None`}</dd>
+        <dt><Trans>Selection</Trans></dt><dd>{bounds ? `${bounds[2]} × ${bounds[3]}` : t`None`}</dd>
         {samples.map((s, i) => [
           <dt key={`t${i}`}>#{i + 1} {s.at[0]}, {s.at[1]}</dt>,
           <dd key={`d${i}`}>{s.color.length ? s.color.join(', ') : '–'}</dd>,
         ])}
-      </dl> : <p className="panel-empty">No document open.</p>}
+      </dl> : <p className="panel-empty"><Trans>No document open.</Trans></p>}
       {error && <p className="panel-error" role="alert">{error}</p>}
     </section>
   );

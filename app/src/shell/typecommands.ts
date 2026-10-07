@@ -1,5 +1,7 @@
 // Type menu and panel commands on the text model (docs/M4.md section 10): conversions, run and
 // paragraph setters, OpenType features per run (D6), Paste Lorem Ipsum.
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 import type { TextJson } from '../psd/text.ts';
 import type { TextLayout } from './typesession.ts';
 
@@ -9,13 +11,13 @@ type Run = Record<string, any>;
 export const LOREM = 'Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliguam erat volutpat. Ut wisis enim ad minim veniam, quis nostrud exerci tution ullamcorper suscipit lobortis nisl ut aliquip ex ea commodo consequat.';
 
 // Type > Anti-Alias: Windows LCD and Windows render as smooth (Q3).
-export const ANTI_ALIAS: [string, string][] = [
-  ['None', 'none'], ['Sharp', 'sharp'], ['Crisp', 'crisp'], ['Strong', 'strong'], ['Smooth', 'smooth'], ['Windows LCD', 'smooth'], ['Windows', 'smooth'],
+export const ANTI_ALIAS: [MessageDescriptor, string][] = [
+  [msg`None`, 'none'], [msg`Sharp`, 'sharp'], [msg`Crisp`, 'crisp'], [msg`Strong`, 'strong'], [msg({ message: 'Smooth', context: 'anti-alias' }), 'smooth'], [msg`Windows LCD`, 'smooth'], [msg`Windows`, 'smooth'],
 ];
 // Type > OpenType: label and tag; Contextual Alternates is calt (deviation from the reference's clig).
-export const OPENTYPE: [string, string][] = [
-  ['Standard Ligatures', 'liga'], ['Contextual Alternates', 'calt'], ['Discretionary Ligatures', 'dlig'], ['Swash', 'swsh'], ['Oldstyle', 'onum'],
-  ['Stylistic Alternates', 'salt'], ['Titling Alternates', 'titl'], ['Ornaments', 'ornm'], ['Ordinals', 'ordn'], ['Fractions', 'frac'],
+export const OPENTYPE: [MessageDescriptor, string][] = [
+  [msg`Standard Ligatures`, 'liga'], [msg`Contextual Alternates`, 'calt'], [msg`Discretionary Ligatures`, 'dlig'], [msg`Swash`, 'swsh'], [msg`Oldstyle`, 'onum'],
+  [msg`Stylistic Alternates`, 'salt'], [msg`Titling Alternates`, 'titl'], [msg`Ornaments`, 'ornm'], [msg`Ordinals`, 'ordn'], [msg`Fractions`, 'frac'],
 ];
 const ON_BY_DEFAULT = new Set(['liga', 'clig', 'calt']);
 

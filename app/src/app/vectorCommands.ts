@@ -1,9 +1,11 @@
 // Layer menu Combine Shapes, Vector Mask and Rasterize entries, and the layer row context menu
 // (docs/M4.md sections 5 to 7). Every entry acts on the selected layers.
+import type { MessageDescriptor } from '@lingui/core';
+import { msg, t } from '@lingui/core/macro';
 import { client } from '../client.ts';
 import { BOOL_LABEL } from '../shell/shapetools.ts';
 import type { BoolOp, DocInfo, FillContent, LayerNode, VectorMaskInfo, VectorPath } from '../worker/types.ts';
-import { selectCreated, type Item, type Run } from './helpers.ts';
+import { selectCreated, tl, type Item, type Run } from './helpers.ts';
 
 type ShapeInfo = NonNullable<LayerNode['shape']>;
 const OPS: BoolOp[] = ['unite', 'subtract', 'intersect', 'exclude'];
@@ -26,37 +28,37 @@ export function vectorMaskItems(doc: DocInfo, nodes: LayerNode[], run: Run): Ite
   const masked = nodes.filter(n => n.vector_mask);
   const edit = (targets: LayerNode[], mask: (n: LayerNode) => VectorMaskInfo | null, label: string) =>
     run(null, () => client.call('vectorMaskEdit', targets.map(n => ({ id: n.id, mask: mask(n) })), label));
-  const toggle = (key: 'enabled' | 'linked', label: string) => {
+  const toggle = (key: 'enabled' | 'linked', label: MessageDescriptor) => {
     const on = masked.some(n => n.vector_mask![key]);
-    return { label: `${on ? '✓ ' : ''}${label}`, off: !masked.length, run: () => edit(masked, n => ({ ...n.vector_mask!, [key]: !on }), label) };
+    return { ...tl(label, on), off: !masked.length, run: () => edit(masked, n => ({ ...n.vector_mask!, [key]: !on }), label.message!) };
   };
   const cur = currentPath(doc);
   return [
-    { label: 'Reveal All', off: !nodes.length, run: () => edit(nodes, () => newMask(rectPath(doc.width, doc.height), false), 'Reveal All') },
-    { label: 'Hide All', off: !nodes.length, run: () => edit(nodes, () => newMask(rectPath(doc.width, doc.height), true), 'Hide All') },
-    { label: 'Current Path', off: !nodes.length || !cur, run: () => cur && edit(nodes, () => newMask(cur, false), 'Current Path') },
-    { label: 'Delete', sep: true, off: !masked.length, run: () => edit(masked, () => null, 'Delete Vector Mask') },
-    { ...toggle('enabled', 'Enable Vector Mask'), sep: true },
-    toggle('linked', 'Link Vector Mask'),
+    { ...tl(msg`Reveal All`), off: !nodes.length, run: () => edit(nodes, () => newMask(rectPath(doc.width, doc.height), false), 'Reveal All') },
+    { ...tl(msg`Hide All`), off: !nodes.length, run: () => edit(nodes, () => newMask(rectPath(doc.width, doc.height), true), 'Hide All') },
+    { ...tl(msg`Current Path`), off: !nodes.length || !cur, run: () => cur && edit(nodes, () => newMask(cur, false), 'Current Path') },
+    { ...tl(msg`Delete`), sep: true, off: !masked.length, run: () => edit(masked, () => null, 'Delete Vector Mask') },
+    { ...toggle('enabled', msg`Enable Vector Mask`), sep: true },
+    toggle('linked', msg`Link Vector Mask`),
   ];
 }
 
 export function combineItems(nodes: LayerNode[], run: Run): Item[] {
   const shapes = nodes.filter(n => n.kind === 'shape').map(n => n.id);
   return [
-    ...OPS.map(op => ({ label: BOOL_LABEL[op], off: shapes.length < 2, run: () => run(null, () => client.call('combineShapes', shapes, op), selectCreated) })),
-    { label: 'Merge Shape Components', sep: true, off: !shapes.length, run: () => run(null, () => client.call('mergeShapeComponents', shapes)) },
+    ...OPS.map(op => ({ ...tl(BOOL_LABEL[op]), off: shapes.length < 2, run: () => run(null, () => client.call('combineShapes', shapes, op), selectCreated) })),
+    { ...tl(msg`Merge Shape Components`), sep: true, off: !shapes.length, run: () => run(null, () => client.call('mergeShapeComponents', shapes)) },
   ];
 }
 
 export function rasterizeItems(nodes: LayerNode[], run: Run): Item[] {
   const of = (pick: (n: LayerNode) => boolean) => nodes.filter(pick).map(n => n.id);
-  const item = (label: string, what: 'type' | 'shape' | 'vectorMask', ids: number[]) =>
-    ({ label, off: !ids.length, run: () => run('Rasterizing…', () => client.call('rasterizeLayers', what, ids)) });
+  const item = (label: MessageDescriptor, what: 'type' | 'shape' | 'vectorMask', ids: number[]) =>
+    ({ ...tl(label), off: !ids.length, run: () => run(t`Rasterizing…`, () => client.call('rasterizeLayers', what, ids)) });
   return [
-    item('Type', 'type', of(n => n.kind === 'text')),
-    item('Shape', 'shape', of(n => n.kind === 'shape')),
-    item('Vector Mask', 'vectorMask', of(n => !!n.vector_mask)),
+    item(msg`Type`, 'type', of(n => n.kind === 'text')),
+    item(msg`Shape`, 'shape', of(n => n.kind === 'shape')),
+    item(msg`Vector Mask`, 'vectorMask', of(n => !!n.vector_mask)),
   ];
 }
 
@@ -74,15 +76,15 @@ export function layerContextItems(n: LayerNode, nodes: LayerNode[], run: Run, on
   const copy = (format: 'svg' | 'css') => () => { copyCode(n.id, format).catch(e => onError((e as Error).message)); };
   return [
     ...(n.kind === 'shape' && n.shape ? [
-      { label: 'Copy Shape Attributes', run: () => { shapeAttrs = structuredClone({ fill: n.shape!.fill, stroke: n.shape!.stroke }); } },
+      { ...tl(msg`Copy Shape Attributes`), run: () => { shapeAttrs = structuredClone({ fill: n.shape!.fill, stroke: n.shape!.stroke }); } },
       {
-        label: 'Paste Shape Attributes', off: !shapeAttrs, run: () => {
+        ...tl(msg`Paste Shape Attributes`), off: !shapeAttrs, run: () => {
           const a = shapeAttrs;
           if (a) run(null, () => client.call('setShapes', shapes.map(x => ({ id: x.id, shape: { live: x.shape!.live, fill: a.fill, stroke: a.stroke } })), 'Paste Shape Attributes'));
         },
       },
     ] : []),
-    { label: 'Copy CSS', sep: n.kind === 'shape', run: copy('css') },
-    { label: 'Copy SVG', run: copy('svg') },
+    { ...tl(msg`Copy CSS`), sep: n.kind === 'shape', run: copy('css') },
+    { ...tl(msg`Copy SVG`), run: copy('svg') },
   ];
 }

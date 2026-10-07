@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { t } from '@lingui/core/macro';
 import { hsbToRgb, rgbToHex, type Rgb } from './color.ts';
 
 interface Props { h: number; s: number; b: number; onChange: (s: number, b: number) => void }
@@ -20,11 +21,13 @@ export function SbField({ h, s, b, onChange }: Props) {
     addEventListener('pointerup', up);
   };
   const step = (dx: number, dy: number) => onChange(Math.min(100, Math.max(0, s + dx)), Math.min(100, Math.max(0, b + dy)));
+  const sRound = Math.round(s);
+  const bRound = Math.round(b);
   const pureHue: Rgb = hsbToRgb([h, 100, 100]);
   return (
     <div
-      ref={ref} className="sb-field" role="slider" tabIndex={0} aria-label="Saturation and brightness"
-      aria-valuetext={`S ${Math.round(s)} B ${Math.round(b)}`}
+      ref={ref} className="sb-field" role="slider" tabIndex={0} aria-label={t`Saturation and brightness`}
+      aria-valuetext={t`S ${sRound} B ${bRound}`}
       style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${rgbToHex(pureHue)})` }}
       onPointerDown={drag}
       onKeyDown={e => {
@@ -58,7 +61,7 @@ export function HueStrip({ h, onChange }: { h: number; onChange: (h: number) => 
   };
   return (
     <div
-      ref={ref} className="hue-strip" role="slider" tabIndex={0} aria-label="Hue"
+      ref={ref} className="hue-strip" role="slider" tabIndex={0} aria-label={t`Hue`}
       aria-valuenow={Math.round(h)} aria-valuemin={0} aria-valuemax={360}
       onPointerDown={drag}
       onKeyDown={e => {

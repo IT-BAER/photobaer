@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { t } from '@lingui/core/macro';
 import {
   AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignHorizontalDistributeEnd,
   AlignHorizontalDistributeStart, AlignStartHorizontal, AlignStartVertical, AlignVerticalDistributeCenter, AlignVerticalDistributeEnd, AlignVerticalDistributeStart,
@@ -7,6 +8,8 @@ import {
 } from 'lucide-react';
 import type { AlignMode } from '../worker/types.ts';
 import { ALIGN_ITEMS } from '../app/helpers.ts';
+import { i18n } from '../i18n/index.ts';
+import { choiceLabel } from '../i18n/choices.ts';
 import { rgbToHex, type Rgb } from './color.ts';
 import { ToolIcon } from './ToolBar.tsx';
 import { PAINT_MODES, paintModesFor, saveToolOptions, type Tool } from './tools.ts';
@@ -24,9 +27,9 @@ const ALIGN_ICONS: LucideIcon[] = [
 // Move tool align and distribute buttons for the selected layers (`count`); same order as ALIGN_ITEMS.
 export function AlignButtons({ count, onAlign }: { count: number; onAlign: (mode: AlignMode) => void }) {
   return (
-    <span className="options-item" role="group" aria-label="Align and distribute">
+    <span className="options-item" role="group" aria-label={t`Align and distribute`}>
       {ALIGN_ITEMS.map(([mode, text], i) => {
-        const Icon = ALIGN_ICONS[i], label = `${mode.startsWith('align') ? 'Align' : 'Distribute'} ${text}`;
+        const Icon = ALIGN_ICONS[i], edges = i18n._(text), label = mode.startsWith('align') ? t`Align ${edges}` : t`Distribute ${edges}`;
         return <button key={mode} type="button" className="opt-icon" aria-label={label} title={label} disabled={count < (i < 6 ? 1 : 3)} onClick={() => onAlign(mode)}><Icon size={16} /></button>;
       })}
     </span>
@@ -91,7 +94,7 @@ function NumberField({ label, value, min, max, step = 1, unit, slider, onChange 
       <NumberInput aria-label={label} min={min} max={max} step={step} value={value} onValue={v => set(v)} />
       {unit && <span className="opt-unit">{unit}</span>}
       {slider && (
-        <button type="button" className="opt-drop" aria-label={`${label} slider`} aria-expanded={pop.open} onClick={pop.toggle}><ChevronDown size={12} /></button>
+        <button type="button" className="opt-drop" aria-label={t`${label} slider`} aria-expanded={pop.open} onClick={pop.toggle}><ChevronDown size={12} /></button>
       )}
       {pop.open && wrap.current && (
         <Popover anchor={wrap.current} onClose={pop.close}>
@@ -113,19 +116,19 @@ function BrushTip({ size, hardness, setSize, setHardness }: { size: number; hard
   const soft = hardness ?? 100;
   return (
     <>
-      <button ref={btn} type="button" className="brush-tip" aria-label="Brush size and hardness" aria-expanded={pop.open} onClick={pop.toggle}>
+      <button ref={btn} type="button" className="brush-tip" aria-label={t`Brush size and hardness`} aria-expanded={pop.open} onClick={pop.toggle}>
         <span className="brush-tip-preview" style={{ background: `radial-gradient(circle closest-side, currentColor ${soft}%, transparent 100%)` }} />
         <span>{size}</span>
         <ChevronDown size={12} />
       </button>
       {pop.open && btn.current && (
         <Popover anchor={btn.current} onClose={pop.close}>
-          <NumberField label="Size" value={size} min={1} max={5000} unit="px" onChange={setSize} />
-          <input type="range" aria-label="Size" min={0} max={1000} value={sizeToPos(size)} onChange={e => setSize(posToSize(e.currentTarget.valueAsNumber))} />
+          <NumberField label={t`Size`} value={size} min={1} max={5000} unit="px" onChange={setSize} />
+          <input type="range" aria-label={t`Size`} min={0} max={1000} value={sizeToPos(size)} onChange={e => setSize(posToSize(e.currentTarget.valueAsNumber))} />
           {hardness !== undefined && (
             <>
-              <NumberField label="Hardness" value={hardness} min={0} max={100} unit="%" onChange={setHardness} />
-              <input type="range" aria-label="Hardness" min={0} max={100} value={hardness} onChange={e => setHardness(e.currentTarget.valueAsNumber)} />
+              <NumberField label={t`Hardness`} value={hardness} min={0} max={100} unit="%" onChange={setHardness} />
+              <input type="range" aria-label={t`Hardness`} min={0} max={100} value={hardness} onChange={e => setHardness(e.currentTarget.valueAsNumber)} />
             </>
           )}
         </Popover>
@@ -137,7 +140,8 @@ function BrushTip({ size, hardness, setSize, setHardness }: { size: number; hard
 interface ControlProps { option: Tool['options'][number]; value: number | string | boolean; commit: (id: string, v: number | string | boolean) => void; fg: Rgb; depth?: number }
 
 // Generic control for one option, keyed off its schema kind.
-function Control({ option: { id, kind, label, min, max, step, unit, choices, icon }, value, commit, fg, depth }: ControlProps) {
+function Control({ option: { id, kind, label: text, min, max, step, unit, choices, icon }, value, commit, fg, depth }: ControlProps) {
+  const label = i18n._(text);
   if (kind === 'boolean' && icon) {
     const Icon = OPTION_ICONS[icon];
     return (
@@ -166,7 +170,7 @@ function Control({ option: { id, kind, label, min, max, step, unit, choices, ico
     return (
       <div className="opt-segmented" role="group" aria-label={label}>
         {choices?.map(c => (
-          <button key={c} type="button" aria-pressed={value === c} onClick={() => commit(id, c)}>{c}</button>
+          <button key={c} type="button" aria-pressed={value === c} onClick={() => commit(id, c)}>{choiceLabel(c)}</button>
         ))}
       </div>
     );
@@ -176,7 +180,7 @@ function Control({ option: { id, kind, label, min, max, step, unit, choices, ico
       <label className="opt-select">
         {label}
         <select value={value as string} onChange={e => commit(id, e.currentTarget.value)}>
-          {(choices === PAINT_MODES ? paintModesFor(depth, value as string) : choices)?.map(c => <option key={c} value={c}>{c}</option>)}
+          {(choices === PAINT_MODES ? paintModesFor(depth, value as string) : choices)?.map(c => <option key={c} value={c}>{choiceLabel(c)}</option>)}
         </select>
       </label>
     );
@@ -204,9 +208,10 @@ export function OptionsBar({ tool, values, setValues, custom = {}, fg = [0, 0, 0
   };
   // Painting tools fold Size and Hardness into the brush tip button.
   const tip = tool.cursor === 'none' && tool.options.some(o => o.id === 'size');
+  const name = i18n._(tool.label);
   return (
-    <div className="options-bar" role="toolbar" aria-label={`${tool.label} options`}>
-      <span className="options-tool" title={tool.label}><ToolIcon id={tool.id} size={16} /></span>
+    <div className="options-bar" role="toolbar" aria-label={t`${name} options`}>
+      <span className="options-tool" title={name}><ToolIcon id={tool.id} size={16} /></span>
       {tool.options.map(o => {
         if (tip && o.id === 'hardness') return null;
         // The Healing Brush shows its pattern picker only with Source: Pattern.

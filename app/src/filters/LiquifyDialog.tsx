@@ -1,7 +1,11 @@
 // Filter > Liquify (docs/M5.md section 6): a modal dialog with its own preview canvas. The mesh
 // lives in the worker session; this side sends brush points and draws the returned proxy.
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from '../client.ts';
+import { i18n } from '../i18n/index.ts';
 import type { DocInfo, Guide, LiquifyOp } from '../worker/types.ts';
 import { NumberInput } from '../shell/NumberInput.tsx';
 
@@ -10,19 +14,22 @@ export type LiquifyRequest = { id: number; filterId: number | null; width: numbe
 export interface LiquifyDialogHandle { open(r: LiquifyRequest): void }
 
 const TOOLS = [
-  ['forwardWarp', 'Forward Warp', 'W'], ['reconstruct', 'Reconstruct', 'R'], ['smooth', 'Smooth', 'E'],
-  ['twirlClockwise', 'Twirl Clockwise', 'C'], ['twirlCounterClockwise', 'Twirl Counter-Clockwise', 'Alt+C'], ['pucker', 'Pucker', 'S'],
-  ['bloat', 'Bloat', 'B'], ['pushLeft', 'Push Left', 'O'], ['freeze', 'Freeze Mask', 'F'], ['thaw', 'Thaw Mask', 'D'],
-  ['face', 'Face Tool (Face-Aware Liquify comes with M7)', 'A'], ['hand', 'Hand', 'H'], ['zoom', 'Zoom', 'Z'],
+  ['forwardWarp', msg`Forward Warp`, 'W'], ['reconstruct', msg`Reconstruct`, 'R'], ['smooth', msg`Smooth`, 'E'],
+  ['twirlClockwise', msg`Twirl Clockwise`, 'C'], ['twirlCounterClockwise', msg`Twirl Counter-Clockwise`, 'Alt+C'], ['pucker', msg`Pucker`, 'S'],
+  ['bloat', msg`Bloat`, 'B'], ['pushLeft', msg`Push Left`, 'O'], ['freeze', msg`Freeze Mask`, 'F'], ['thaw', msg`Thaw Mask`, 'D'],
+  ['face', msg`Face Tool (Face-Aware Liquify comes with M7)`, 'A'], ['hand', msg`Hand`, 'H'], ['zoom', msg`Zoom`, 'Z'],
 ] as const;
 type Tool = typeof TOOLS[number][0];
 const KEYS: Record<string, Tool> = { w: 'forwardWarp', r: 'reconstruct', e: 'smooth', c: 'twirlClockwise', s: 'pucker', b: 'bloat', o: 'pushLeft', f: 'freeze', d: 'thaw', h: 'hand', z: 'zoom' };
 const RATED = new Set<Tool>(['reconstruct', 'smooth', 'twirlClockwise', 'twirlCounterClockwise', 'pucker', 'bloat']);
-const MODES = ['revert', 'rigid', 'stiff', 'smooth', 'loose'];
-const MESH_SIZES: [string, number][] = [['Fine', 4], ['Medium', 8], ['Coarse', 16]];
-const MASK_COLORS: [string, string][] = [['Red', '#ff0000'], ['Green', '#00ff00'], ['Blue', '#0000ff'], ['Gray', '#808080'], ['Black', '#000000'], ['White', '#ffffff']];
-const MESH_COLORS: [string, string][] = [['Gray', '#808080'], ['Red', '#ff0000'], ['Green', '#00ff00'], ['Blue', '#0000ff'], ['Black', '#000000'], ['White', '#ffffff']];
-const MASK_OPS: [string, string][] = [['replace', 'Replace Selection'], ['add', 'Add to Selection'], ['subtract', 'Subtract from Selection'], ['intersect', 'Intersect with Selection'], ['invertSelection', 'Invert Selection']];
+const MODES: [string, MessageDescriptor][] = [['revert', msg`Revert`], ['rigid', msg`Rigid`], ['stiff', msg`Stiff`], ['smooth', msg`Smooth`], ['loose', msg`Loose`]];
+const MESH_SIZES: [MessageDescriptor, number][] = [[msg`Fine`, 4], [msg`Medium`, 8], [msg`Coarse`, 16]];
+const MASK_COLORS: [MessageDescriptor, string][] = [[msg`Red`, '#ff0000'], [msg`Green`, '#00ff00'], [msg`Blue`, '#0000ff'], [msg`Gray`, '#808080'], [msg`Black`, '#000000'], [msg`White`, '#ffffff']];
+const MESH_COLORS: [MessageDescriptor, string][] = [[msg`Gray`, '#808080'], [msg`Red`, '#ff0000'], [msg`Green`, '#00ff00'], [msg`Blue`, '#0000ff'], [msg`Black`, '#000000'], [msg`White`, '#ffffff']];
+const MASK_OPS: [string, MessageDescriptor, MessageDescriptor][] = [
+  ['replace', msg`Replace Selection`, msg`Replace`], ['add', msg`Add to Selection`, msg`Add`], ['subtract', msg`Subtract from Selection`, msg`Subtract`],
+  ['intersect', msg`Intersect with Selection`, msg`Intersect`], ['invertSelection', msg`Invert Selection`, msg`Invert`],
+];
 const PREFS = 'photobaer.liquify';
 const MAX_SIDE = 1600;
 
@@ -270,92 +277,95 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
   );
 
   return (
-    <dialog ref={dialog} className="liquify-dialog" aria-label="Liquify" onClose={() => close(false)} onKeyDown={keyDown}
+    <dialog ref={dialog} className="liquify-dialog" aria-label={t`Liquify`} onClose={() => close(false)} onKeyDown={keyDown}
       onKeyUp={e => { if (e.key === ' ') st.current.space = false; }}>
       <form onSubmit={e => { e.preventDefault(); close(true); }}>
-        <h2>Liquify</h2>
+        <h2><Trans>Liquify</Trans></h2>
         <div className="liquify-body">
-          <div className="liquify-tools" role="toolbar" aria-label="Liquify tools">
-            {TOOLS.map(([id, label, key]) => (
+          <div className="liquify-tools" role="toolbar" aria-label={t`Liquify tools`}>
+            {TOOLS.map(([id, d, key]) => {
+              const label = i18n._(d);
+              return (
               <button key={id} type="button" title={`${label} (${key})`} aria-label={label} aria-pressed={tool === id} disabled={id === 'face'}
                 onClick={() => setTool(id)}>{key.replace('Alt+', '⌥')}</button>
-            ))}
+            );
+            })}
           </div>
           <div className="liquify-stage">
             <canvas ref={canvas} className="liquify-canvas" data-tool={tool} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
               onPointerLeave={() => { st.current.cursor = null; requestAnimationFrame(draw); }}
               onWheel={e => { const q = toDoc(e); zoomAt(e.deltaY < 0 ? 1.25 : 0.8, q.sx, q.sy); }} />
             <div className="liquify-zoom">
-              <button type="button" aria-label="Zoom out" onClick={() => zoomCenter(0.5)}>−</button>
+              <button type="button" aria-label={t`Zoom out`} onClick={() => zoomCenter(0.5)}>−</button>
               <span>{Math.round(zoom * 100)}%</span>
-              <button type="button" aria-label="Zoom in" onClick={() => zoomCenter(2)}>+</button>
-              <button type="button" onClick={fit}>Fit</button>
+              <button type="button" aria-label={t`Zoom in`} onClick={() => zoomCenter(2)}>+</button>
+              <button type="button" onClick={fit}><Trans>Fit</Trans></button>
             </div>
           </div>
           <div className="liquify-options">
-            <h3>Brush Tool Options</h3>
-            {num('Size', 'size', 1, 15000)}
-            {num('Density', 'density', 0, 100)}
-            {num('Pressure', 'pressure', 0, 100)}
-            {num('Rate', 'rate', 0, 100)}
-            <label className="adjustment-check" title="Pressure from a stylus is not available yet."><input type="checkbox" disabled /> Stylus Pressure</label>
+            <h3><Trans>Brush Tool Options</Trans></h3>
+            {num(t`Size`, 'size', 1, 15000)}
+            {num(t`Density`, 'density', 0, 100)}
+            {num(t`Pressure`, 'pressure', 0, 100)}
+            {num(t`Rate`, 'rate', 0, 100)}
+            <label className="adjustment-check" title={t`Pressure from a stylus is not available yet.`}><input type="checkbox" disabled /> <Trans>Stylus Pressure</Trans></label>
             <label className="adjustment-check"><input type="checkbox" checked={prefs.pinEdges}
-              onChange={e => { const on = e.currentTarget.checked; setPrefs({ pinEdges: on }); send({ op: 'pin', on }); }} /> Pin Edges</label>
-            <h3>Brush Reconstruct Options</h3>
-            <label>Mode<select value={prefs.mode} onChange={e => setPrefs({ mode: e.currentTarget.value })}>
-              {MODES.map(m => <option key={m} value={m}>{m[0].toUpperCase() + m.slice(1)}</option>)}
+              onChange={e => { const on = e.currentTarget.checked; setPrefs({ pinEdges: on }); send({ op: 'pin', on }); }} /> <Trans>Pin Edges</Trans></label>
+            <h3><Trans>Brush Reconstruct Options</Trans></h3>
+            <label><Trans>Mode</Trans><select value={prefs.mode} onChange={e => setPrefs({ mode: e.currentTarget.value })}>
+              {MODES.map(([m, d]) => <option key={m} value={m}>{i18n._(d)}</option>)}
             </select></label>
             <div className="liquify-row">
-              <button type="button" onClick={() => setAmount(a => (a === null ? 100 : null))}>Reconstruct…</button>
-              <button type="button" onClick={() => send({ op: 'restore' })}>Restore All</button>
+              <button type="button" onClick={() => setAmount(a => (a === null ? 100 : null))}><Trans>Reconstruct…</Trans></button>
+              <button type="button" onClick={() => send({ op: 'restore' })}><Trans>Restore All</Trans></button>
             </div>
             {amount !== null && (
               <div className="liquify-row">
-                <label>Amount<NumberInput min={0} max={100} value={amount} onValue={v => setAmount(Math.min(100, Math.max(0, v || 0)))} /></label>
-                <button type="button" onClick={() => { send({ op: 'reconstruct', amount }); setAmount(null); }}>Apply</button>
+                <label><Trans>Amount</Trans><NumberInput min={0} max={100} value={amount} onValue={v => setAmount(Math.min(100, Math.max(0, v || 0)))} /></label>
+                <button type="button" onClick={() => { send({ op: 'reconstruct', amount }); setAmount(null); }}><Trans>Apply</Trans></button>
               </div>
             )}
-            <h3>Mask Options</h3>
-            <label>From<select value={maskSource} onChange={e => setMaskSource(e.currentTarget.value as 'selection' | 'transparency')}>
-              <option value="selection">Selection</option><option value="transparency">Transparency</option>
+            <h3><Trans>Mask Options</Trans></h3>
+            <label><Trans>From</Trans><select value={maskSource} onChange={e => setMaskSource(e.currentTarget.value as 'selection' | 'transparency')}>
+              <option value="selection">{t`Selection`}</option><option value="transparency">{t`Transparency`}</option>
             </select></label>
             <div className="liquify-row">
-              {MASK_OPS.map(([op, label]) => <button key={op} type="button" title={label} aria-label={label} onClick={() => send({ op: 'mask', source: maskSource, mode: op })}>{label.split(' ')[0]}</button>)}
+              {MASK_OPS.map(([op, d, short]) => <button key={op} type="button" title={i18n._(d)} aria-label={i18n._(d)} onClick={() => send({ op: 'mask', source: maskSource, mode: op })}>{i18n._(short)}</button>)}
             </div>
             <div className="liquify-row">
-              <button type="button" onClick={() => send({ op: 'mask', source: null, mode: 'none' })}>None</button>
-              <button type="button" onClick={() => send({ op: 'mask', source: null, mode: 'all' })}>Mask All</button>
-              <button type="button" onClick={() => send({ op: 'mask', source: null, mode: 'invert' })}>Invert All</button>
+              <button type="button" onClick={() => send({ op: 'mask', source: null, mode: 'none' })}>{t({ message: 'None', context: 'liquify mask' })}</button>
+              <button type="button" onClick={() => send({ op: 'mask', source: null, mode: 'all' })}><Trans>Mask All</Trans></button>
+              <button type="button" onClick={() => send({ op: 'mask', source: null, mode: 'invert' })}><Trans>Invert All</Trans></button>
             </div>
-            <h3>View Options</h3>
-            {check('Show Guides', 'showGuides')}
-            {check('Show Image', 'showImage')}
-            {check('Show Mesh', 'showMesh', on => on && send())}
-            <label>Mesh Size<select value={prefs.meshSize} onChange={e => { const n = Number(e.currentTarget.value); setPrefs({ meshSize: n }); send({ op: 'spacing', spacing: n }); }}>
-              {MESH_SIZES.map(([l, n]) => <option key={n} value={n}>{l}</option>)}
+            <h3><Trans>View Options</Trans></h3>
+            {check(t`Show Guides`, 'showGuides')}
+            {check(t`Show Image`, 'showImage')}
+            {check(t`Show Mesh`, 'showMesh', on => on && send())}
+            <label><Trans>Mesh Size</Trans><select value={prefs.meshSize} onChange={e => { const n = Number(e.currentTarget.value); setPrefs({ meshSize: n }); send({ op: 'spacing', spacing: n }); }}>
+              {MESH_SIZES.map(([l, n]) => <option key={n} value={n}>{i18n._(l)}</option>)}
             </select></label>
-            <label>Mesh Colour<select value={prefs.meshColor} onChange={e => setPrefs({ meshColor: e.currentTarget.value })}>
-              {MESH_COLORS.map(([l, c]) => <option key={c} value={c}>{l}</option>)}
+            <label><Trans>Mesh Colour</Trans><select value={prefs.meshColor} onChange={e => setPrefs({ meshColor: e.currentTarget.value })}>
+              {MESH_COLORS.map(([l, c]) => <option key={c} value={c}>{i18n._(l)}</option>)}
             </select></label>
-            {check('Show Mask', 'showMask', on => on && send())}
-            <label>Mask Colour<select value={prefs.maskColor} onChange={e => setPrefs({ maskColor: e.currentTarget.value })}>
-              {MASK_COLORS.map(([l, c]) => <option key={c} value={c}>{l}</option>)}
+            {check(t`Show Mask`, 'showMask', on => on && send())}
+            <label><Trans>Mask Colour</Trans><select value={prefs.maskColor} onChange={e => setPrefs({ maskColor: e.currentTarget.value })}>
+              {MASK_COLORS.map(([l, c]) => <option key={c} value={c}>{i18n._(l)}</option>)}
             </select></label>
-            {check('Show Backdrop', 'showBackdrop', on => on && loadBackdrop(prefs.backdrop))}
-            <label>Use<select value={prefs.backdrop} onChange={e => { const b = e.currentTarget.value; setPrefs({ backdrop: b }); if (prefs.showBackdrop) loadBackdrop(b); }}>
-              <option value="all">All Layers</option>
+            {check(t`Show Backdrop`, 'showBackdrop', on => on && loadBackdrop(prefs.backdrop))}
+            <label><Trans>Use</Trans><select value={prefs.backdrop} onChange={e => { const b = e.currentTarget.value; setPrefs({ backdrop: b }); if (prefs.showBackdrop) loadBackdrop(b); }}>
+              <option value="all">{t`All Layers`}</option>
               {req?.layers.filter(l => l.id !== req.id).map(l => <option key={l.id} value={String(l.id)}>{l.name}</option>)}
             </select></label>
-            <label>Mode<select value={prefs.backdropMode} onChange={e => setPrefs({ backdropMode: e.currentTarget.value })}>
-              <option value="front">In Front</option><option value="behind">Behind</option>
+            <label><Trans>Mode</Trans><select value={prefs.backdropMode} onChange={e => setPrefs({ backdropMode: e.currentTarget.value })}>
+              <option value="front">{t`In Front`}</option><option value="behind">{t`Behind`}</option>
             </select></label>
-            <label>Opacity<NumberInput min={0} max={100} value={prefs.backdropOpacity}
+            <label><Trans>Opacity</Trans><NumberInput min={0} max={100} value={prefs.backdropOpacity}
               onValue={v => setPrefs({ backdropOpacity: Math.min(100, Math.max(0, v || 0)) })} /></label>
           </div>
         </div>
         <div className="actions">
-          <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
-          <button type="submit" className="primary">OK</button>
+          <button type="button" onClick={() => dialog.current?.close()}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary"><Trans>OK</Trans></button>
         </div>
       </form>
     </dialog>

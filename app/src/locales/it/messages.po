@@ -7,10 +7,10908 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: it\n"
 
+#: app/src/MissingFonts.tsx
+msgid "“{docName}” uses fonts that could not be loaded. Choose replacements for the selected text. Text layout may change."
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "“{docName}” uses fonts that could not be loaded. Choose replacements for the whole document. Text layout may change."
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "(unchanged)"
+msgstr ""
+
+#. placeholder {0}: o.files.length
+#: app/src/BatchDialog.tsx
+msgid "{0, plural, one {# file} other {# files}}"
+msgstr ""
+
+#. placeholder {0}: a.slices.length
+#: app/src/app/measureTools.tsx
+msgid "{0, plural, one {# slice} other {# slices}}"
+msgstr ""
+
+#. placeholder {0}: r.added
+#: app/src/shell/BrushPanels.tsx
+msgid "{0, plural, one {Loaded # brush from {fromName}.} other {Loaded # brushes from {fromName}.}}"
+msgstr ""
+
+#. placeholder {0}: picked.size
+#: app/src/PdfDialog.tsx
+msgid "{0, plural, one {Page {firstPage} shown; # page at the same scale.} other {Page {firstPage} shown; # pages at the same scale.}}"
+msgstr ""
+
+#. placeholder {0}: file.name
+#: app/src/PdfDialog.tsx
+msgid "{0} is protected."
+msgstr ""
+
+#. placeholder {0}: file.name
+#. placeholder {1}: +base[0].toFixed(2)
+#. placeholder {2}: +base[1].toFixed(2)
+#: app/src/SvgDialog.tsx
+msgid "{0}: {1} x {2} px at 72 ppi"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "{added, plural, one {Imported # data set.} other {Imported # data sets.}}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "{b} Bits/Channel"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "{c} max"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "{c} min"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "{colorStops} color stops · {opacityStops} opacity stops"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "{count, plural, one {# pattern imported} other {# patterns imported}}"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "{fam} could not be loaded; the fallback face is shown."
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "{fam} has no glyphs in {subsetName}."
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "{family} does not contain every character used by {source}. Choose another font."
+msgstr ""
+
+#. placeholder {0}: handleName(cls, i === outer)
+#: app/src/LayerStyleDialog.tsx
+msgid "{label} {0}"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "{label} {handleKey}"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "{label} channel"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "{label} control"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "{label} document"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "{label} height"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "{label} Jitter"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "{label} layer"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "{label} Minimum"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "{label} name"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "{label} policy"
+msgstr ""
+
+#: app/src/shell/OptionsBar.tsx
+msgid "{label} slider"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/BrushPanels.tsx
+msgid "{label} value"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "{label} width"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "{label}: available in the Properties panel"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "{label}: click the image to set it"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "{maskName} Mask"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "{message}\n"
+"\n"
+"Continue playing the action?"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgid "{mode}, {depth}-bit"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "{n, plural, one {# file} other {# files}}"
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "{n, plural, one {# shape} other {# shapes}}"
+msgstr ""
+
+#: app/src/TabBar.tsx
+msgid "{name}\n"
+"{width} x {height} px, {depth}-bit"
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "{name} armed. Drag on the canvas to draw it."
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "{name} enabled"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "{name} handles"
+msgstr ""
+
+#: app/src/app/toolEffects.ts
+msgid "{name} is locked and can't be moved."
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "{name} mask"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+#: app/src/shell/OptionsBar.tsx
+msgid "{name} options"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "{name} vector mask"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "{name}: {summary}"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "{name}: {summary}; {extra}"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "{option} has an unsupported choice."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "{option} is not a valid color."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "{option} is outside its allowed range."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "{option} must be a boolean."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "{option} must be a bounded string."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "{option} must be finite."
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+msgid "{position} of {total}"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "{profileName} (stored as sRGB IEC61966-2.1)"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "{samplerCount} of {MAX_SAMPLERS}"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "{size1} · {dims} · {pct}% of the uncompressed image"
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "{w, plural, one {# warning} other {# warnings}}"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "{w} × {h} mm at {pct}% on a {pw} × {ph} mm page."
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "1:1"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "1. Add the photobaer MCP server to your agent"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "100%"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "101 by 101 Average"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "11 by 11 Average"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "16 bit"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "16-bit"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "16:9"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "180°"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "2-up"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "2:3"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "2. Start with this prompt"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "3 by 3 Average"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "3-up"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "31 by 31 Average"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "32-bit"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "32-bit Preview Options"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "32-bit Preview Options…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "4-up"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "4:5"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "5 by 5 Average"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "5:7"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/ModeDialog.tsx
+msgid "50% Gray"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "50% Threshold"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "51 by 51 Average"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "6-up"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "8 bit"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "8-bit"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "90° Clockwise"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "90° Counter Clockwise"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "A data set named \"{name}\" already exists."
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "A data set needs a name."
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "A document can have at most {MAX_SAMPLERS} color samplers."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "A tool preset named \"{name}\" already exists."
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "About photobaer"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "About photobaer…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Accented Edges"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+#: app/src/ScriptDialogs.tsx
+msgid "Action"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Action name"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Actions"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Actual Size"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Adaptive Wide Angle"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Adaptive Wide Angle…"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/filters/RenderEditors.tsx
+#: app/src/i18n/choices.ts
+msgid "Add"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Add {effectName}"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Add Anchor Point"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Add color stop"
+msgstr ""
+
+#: app/src/shell/SwatchesPanel.tsx
+msgid "Add foreground color"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "Add guides inside the canvas first."
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/LayersPanel.tsx
+msgid "Add layer mask"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Add Layer Mask"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Add Noise"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Add opacity stop"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Add Size"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Add to channel"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Add to Selection"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Add transparency"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Adjust for Zoom"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Adjustment"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Adjustment and fill layers"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Adjustment visible"
+msgstr ""
+
+#: app/src/AdjustmentsPanel.tsx
+#: app/src/app/menus.ts
+msgid "Adjustments"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Advanced Controls"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "After First"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Again"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Agent connected"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Airbrush"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/shell/tools.ts
+#: app/src/TypePanels.tsx
+msgid "Align"
+msgstr ""
+
+#: app/src/shell/OptionsBar.tsx
+msgid "Align {edges}"
+msgstr ""
+
+#: app/src/shell/OptionsBar.tsx
+msgid "Align and distribute"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Align Edges"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Align with layer"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Align with Layer"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Aligned"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Aligning…"
+msgstr ""
+
+#: app/src/shell/tools.ts
+#: app/src/TypePanels.tsx
+msgid "Alignment"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Aligns and merges the pixel layers of the active document."
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/filters/GalleryStack.tsx
+msgid "All"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "All Caps"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "All changes saved locally"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/i18n/choices.ts
+msgid "All Layers"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "All sizes are written into one folder, chosen next."
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Allow Continue? (OK = playback can continue, Cancel = playback ends here)"
+msgstr ""
+
+#: app/src/app/paintTool.ts
+msgid "Alt-click to set a clone source first."
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Alt-click to set a clone source, then paint inside a plane."
+msgstr ""
+
+#: app/src/app/paintTool.ts
+msgid "Alt-click to set a source for the Healing Brush."
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Alt-click to set the clone source, then paint inside a plane."
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Alt-click with the Clone Stamp to set a source."
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Alt-drag a handle to split it."
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Alternates for {altName}"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/LayerStyleDialog.tsx
+msgid "Altitude"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Amber"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Ambience"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/ModeDialog.tsx
+msgid "Amount"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Amplitude Max"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Amplitude Min"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "An AI agent controls this tab. Click to disconnect."
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+#: app/src/app/menus.ts
+msgid "Analysis"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Anchor"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Anchor bottom center"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Anchor bottom left"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Anchor bottom right"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Anchor middle center"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Anchor middle left"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Anchor middle right"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Anchor points {anchors}"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Anchor top center"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Anchor top left"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Anchor top right"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/toolPresets.ts
+#: app/src/filters/labels.ts
+#: app/src/filters/VanishingPointDialog.tsx
+#: app/src/i18n/choices.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/TransformBar.tsx
+msgid "Angle"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Angle (°)"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Angle and roundness"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Angle Follows Path"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Angled Strokes"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Angular Direction"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Anisotropic"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Anti-alias"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/TypePanels.tsx
+msgid "Anti-Alias"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Anti-aliased"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/tools.ts
+msgid "Appearance"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/shell/DeformSession.tsx
+#: app/src/shell/TransformBar.tsx
+#: app/src/ToolPresetsPanel.tsx
+#: app/src/VariablesDialogs.tsx
+msgid "Apply"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Apply Data Set"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Apply Data Set…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Apply effect at canvas bounds"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "Apply Image"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Apply Image…"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Apply Per Tip"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Apply this data set on OK"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Arabic"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Arbitrary…"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Arc"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Arc Lower"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Arc Upper"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Arch"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Area"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Around Center"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Arrange"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Arrangement"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Arrows"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Art History Brush"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/tools.ts
+msgid "Artboard"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Artboard {shown}"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Artboard background"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Artboard from Group"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Artboard from Group…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Artboard from Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Artboard from Layers…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Artboard…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Artboards"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Artboards to Files"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Artboards to Files…"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Artboards to PDF"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Artboards to PDF…"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Artistic"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Ask where to export each time"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Aspect"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Assign Profile"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Assign Profile…"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Assign working {askSpace}: {askWorking}"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Attempt to Automatically Align Source Images"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+#: app/src/FileDialogs.tsx
+msgid "Author"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/LevelsCurvesBody.tsx
+#: app/src/shell/DeformSession.tsx
+msgid "Auto"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Auto Add/Delete"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+msgid "Auto Color"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Auto Color Correction Options"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+msgid "Auto Contrast"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Auto erase"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Auto Hide"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Auto Scale"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+msgid "Auto Tone"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Auto-Align Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Auto-Align Layers…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Auto-Blend Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Auto-Blend Layers…"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Auto-enhance"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Auto-select"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Auto-select target"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Automate"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Automatic"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Automatically level near-horizontal line segments"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Automatically straighten and level both"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Automatically straighten near-vertical line segments"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Autosave failed"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Autosave off: open in another tab"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Autosave on"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Autosave unavailable in this browser"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Average"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Axis"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+#: app/src/i18n/choices.ts
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/tools.ts
+msgid "Background"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+#: app/src/shell/ToolBar.tsx
+msgid "Background color"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/ModeDialog.tsx
+msgid "Background Color"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Background Eraser"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Background Level"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Background Swatch"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Backward"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Balance"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Bas Relief"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Base Tree Type"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Based On"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Baseline"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Baseline Shift"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Basic"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Basic Latin"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+msgid "Batch"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Batch…"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Beads"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Before Last"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Begin recording"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/i18n/choices.ts
+msgid "Behind"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Bend"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Bend %"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Best"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Bevel"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Bevel & Emboss"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Bicubic"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Bicubic Sharper"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Bicubic Smoother"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Bilinear"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgid "Bin {selectedBin}"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Birch"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Bit depth"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Bit Depth"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+#: app/src/ModeDialog.tsx
+msgid "Bitmap"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Bitmap…"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/app/helpers.ts
+#: app/src/ChannelsPanel.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/i18n/choices.ts
+#: app/src/ModeDialog.tsx
+msgid "Black"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Black & White"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Black and White"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "black inner"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Black Intensity"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "black outer"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Black point"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Black Point Compensation"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Blacks"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Blade Curvature"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Blast"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Bleed"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Blend Clipped Layers as Group"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Blend If"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Blend Images Together"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Blend Interior Effects as Group"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Blend Method"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Blend mode"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Blend Mode"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "Blending"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/LayerStyleDialog.tsx
+msgid "Blending Options"
+msgstr ""
+
+#: app/src/app/contextMenus.ts
+#: app/src/app/menus.ts
+msgid "Blending Options…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Blending…"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Bloat"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Block"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Blocks"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/InspectionPanels.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/LevelsCurvesBody.tsx
+msgid "Blue"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Blue Strength"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Blues"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/filters/labels.ts
+#: app/src/filters/schema.ts
+#: app/src/shell/tools.ts
+msgid "Blur"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Blur Angle"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Blur Center"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Blur Focal Distance"
+msgstr ""
+
+#: app/src/filters/schema.ts
+msgid "Blur Gallery"
+msgstr ""
+
+#: app/src/filters/BlurGalleryOverlay.tsx
+msgid "Blur Gallery handles"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Blur Method"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Blur More"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Blur Shape"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Bokeh Color"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/TypePanels.tsx
+msgid "Bold"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Border"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Border Selection"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Border Thickness"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Border…"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Both"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Both Axes"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Bottom"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Bottom Edges"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Bottom left"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Bottom Left"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Bottom right"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Bottom Right"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Bottom Right Pixel Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Box Blur"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Box Drawing"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Branches Height"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Branches Thickness"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Brick"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Brightness"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Brightness / Contrast"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Brightness/Contrast"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Bring Forward"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Bring to Front"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Bristle Detail"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/ScriptDialogs.tsx
+msgid "Browse…"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/i18n/choices.ts
+#: app/src/shell/tools.ts
+msgid "Brush"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Brush {kind} asset \"{id}\" is unavailable."
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Brush Detail"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Brush Leash Color"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Brush Pose"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Brush presets"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Brush Preview"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Brush Projection"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Brush Reconstruct Options"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/shell/BrushPanels.tsx
+msgid "Brush Settings"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Brush Settings (F5)"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Brush settings sections"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Brush size"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Brush Size"
+msgstr ""
+
+#: app/src/shell/OptionsBar.tsx
+msgid "Brush size and hardness"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Brush Strokes"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Brush Tip Outline"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Brush Tip Shape"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Brush tips"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Brush Tool Options"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Brush Type"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Brush view"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/shell/BrushPanels.tsx
+msgid "Brushes"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Build-up"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Bulge"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Burlap"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Burn"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Butt"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Button mode"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "Calculations"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Calculations…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Camera Raw Filter"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Camera Raw Filter…"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+#: app/src/App.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/BatchDialog.tsx
+#: app/src/ChannelsPanel.tsx
+#: app/src/ColorDialog.tsx
+#: app/src/ExportDialogs.tsx
+#: app/src/FileDialogs.tsx
+#: app/src/filters/FilterDialog.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/MissingFonts.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/PdfDialog.tsx
+#: app/src/ScriptDialogs.tsx
+#: app/src/shell/ColorPicker.tsx
+#: app/src/shell/DeformSession.tsx
+#: app/src/shell/GradientEditor.tsx
+#: app/src/shell/TransformBar.tsx
+#: app/src/SvgDialog.tsx
+#: app/src/TypePanels.tsx
+#: app/src/VariablesDialogs.tsx
+#: app/src/WorkspaceDialog.tsx
+msgid "Cancel"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Cancel type edit"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Candle"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Cannot encode: {reason}"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+msgid "Canvas"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Canvas extension color"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Canvas Size"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Canvas Size…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Caps Lock switches between the brush tip and the crosshair, and between the tool icon and the crosshair."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Catch-up on Stroke End"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Cell Size"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/labels.ts
+#: app/src/i18n/choices.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/PropertiesPanel.tsx
+msgid "Center"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgctxt "text alignment"
+msgid "Center"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Center the image on the page"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Centered Blur"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Chalk & Charcoal"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Chalk Area"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/InspectionPanels.tsx
+#: app/src/LevelsCurvesBody.tsx
+msgid "Channel"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Channel 1"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Channel 2"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Channel 3"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Channel 4"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Channel Mixer"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Channel name"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+#: app/src/LayerStyleDialog.tsx
+msgid "Channels"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/TypePanels.tsx
+msgid "Character"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Character style name"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Character styles"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/TypePanels.tsx
+msgid "Character Styles"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+msgid "Charcoal"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Charcoal Area"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Charcoal Thickness"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Chisel Hard"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Chisel Soft"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Choke"
+msgstr ""
+
+#: app/src/app/paintTool.ts
+msgid "Choose a pattern first."
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+#: app/src/ExportDialogs.tsx
+#: app/src/ScriptDialogs.tsx
+msgid "Choose…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Chrome"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Circle"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/GradientEditor.tsx
+msgid "Classic"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Clean Brush After Each Stroke"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Cleanliness"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/i18n/choices.ts
+msgid "Clear"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+#: app/src/PresetPanels.tsx
+msgctxt "verb"
+msgid "Clear"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "Clear All"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Clear Amount"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Clear Canvas Guides"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Clear existing guides"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Clear Guides"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Clear Layer Style"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Clear Recent File List"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Clear Selected Artboard Guides"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Clear Smart Filters"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Clearing…"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Click four corners to define a perspective plane."
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/PropertiesPanel.tsx
+msgid "Click to edit the gradient"
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+msgid "Click with the Note tool to add a note."
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "Clicking a shape arms the Custom Shape tool."
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Clip to layer below"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Clipped"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Clipped to layer below"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Clipping"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "clockwise"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Clone Source"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Clone source {n}"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Clone sources"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Clone Stamp"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+msgid "Close"
+msgstr ""
+
+#: app/src/TabBar.tsx
+msgid "Close {name}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Close All"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Close alternates"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Close Others"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Closing contents…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Clouds"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Clumped"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "CMYK"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/PdfDialog.tsx
+msgid "CMYK Color"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+msgid "CMYK Sliders"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "CMYK working space"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Coarse"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Coarse Dots"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Code licensed under <0>AGPL-3.0</0>."
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Coding agents such as Claude Code and Codex can open images from your disk in photobaer, run filters and menu commands, look at the result and save it."
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Collapse {name}"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+#: app/src/App.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/ChannelsPanel.tsx
+#: app/src/ColorDialog.tsx
+#: app/src/i18n/choices.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/GradientEditor.tsx
+#: app/src/shell/tools.ts
+#: app/src/TypePanels.tsx
+msgid "Color"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgctxt "noun"
+msgid "Color"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Color {i}"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Color Adaptation"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Color Balance"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Color Blindness — Deuteranopia-type"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Color Blindness — Protanopia-type"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Color Burn"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Color Dodge"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Color Dynamics"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Color Halftone"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Color Lookup"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Color Management Policies"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Color model"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Color Overlay"
+msgstr ""
+
+#: app/src/shell/ColorPicker.tsx
+msgid "Color Picker"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Color Range"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Color Range…"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Color Replacement"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Color Sampler"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Color Settings"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Color Settings…"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+msgid "Color sliders"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Color stop at {position}%"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Color stops"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Color Table"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Color Table…"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Color…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Colored Pencil"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+#: app/src/ModeDialog.tsx
+msgid "Colors"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Column Gutter"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Columns"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Columns without a variable: {unknown}."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Combine Shapes"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Commands"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/shell/tools.ts
+msgid "Commit"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Commit type edit"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Components {components}"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Composer"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgid "Composite"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Consolidate All to Tabs"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Constrain"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Constrain proportions"
+msgstr ""
+
+#: app/src/SvgDialog.tsx
+msgid "Constrain Proportions"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Conté Crayon"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/i18n/choices.ts
+msgid "Content-Aware"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Content-Aware Color"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Content-Aware Fill"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Content-Aware Fill…"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Content-Aware Move"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Content-Aware Scale"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Content-Aware Scale…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Content-Aware Structure"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Contents"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Contextual Alternates"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/shell/tools.ts
+msgid "Contiguous"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Continuous"
+msgstr ""
+
+#: app/src/layerStyle.ts
+#: app/src/LayerStyleDialog.tsx
+msgid "Contour"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Contract"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Contract Selection"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Contract…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/tools.ts
+msgid "Contrast"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Contrasty"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Conversion"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Conversion Options"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Convert document's colors to the working space"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Convert for Smart Filters"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Convert path to shape"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Convert Point"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Convert Profile to sRGB"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Convert to Embedded"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Convert to Linked…"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Convert to Paragraph Text"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Convert to Point Text"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Convert to Profile"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Convert to Profile…"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Convert to Shape"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Convert to Smart Object"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Converting to linked…"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/menus.ts
+#: app/src/app/typeMenu.ts
+msgid "Converting…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Copied"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+msgid "Copy"
+msgstr ""
+
+#: app/src/app/vectorCommands.ts
+msgid "Copy CSS"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Copy Layer Style"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Copy Merged"
+msgstr ""
+
+#: app/src/app/vectorCommands.ts
+msgid "Copy Shape Attributes"
+msgstr ""
+
+#: app/src/app/vectorCommands.ts
+msgid "Copy SVG"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Copyright Info URL"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Copyright Notice"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Corner radius"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Corner Radius"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Correction"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Could not load {file}: {reason}"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Could not load {fileName}: {reason}"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Could not open {name}: {reason}"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Could not read the images: {reason}"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Could not read the media boxes: {reason}"
+msgstr ""
+
+#: app/src/app/toolEffects.ts
+msgid "Could not use the layer because it is locked."
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/tools.ts
+msgid "Count"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Count Group"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Count Tool"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "Count: {markCount}"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Crack Brightness"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Crack Depth"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Crack Spacing"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Craquelure"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Cream"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Create"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Create Clipping Mask"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Create connected plane"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Create Layers"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Create New Fields by"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Create Plane"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Create Smart Object after Loading Layers"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Create Texture"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Create Work Path"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Creating layers…"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Creating…"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+#: app/src/TypePanels.tsx
+msgid "Crisp"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/shell/tools.ts
+msgid "Crop"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Crop actions"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Crop Box"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Crop Factor"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Crop marks"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Crop To"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Cropping…"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/ModeDialog.tsx
+msgid "Cross"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Crosshatch"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Crystallize"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Ctrl-click: load as selection (Shift add, Alt subtract, Shift+Alt intersect)"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Ctrl+click loads the vector mask as a selection"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Ctrl+click to load as a selection"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Currency"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Current & Below"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Current Layer"
+msgstr ""
+
+#: app/src/app/vectorCommands.ts
+msgid "Current Path"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Current size: {curW} × {curH} px"
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "Current tool"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgid "Cursor"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Cursors"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Cursors…"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Curvature Pen"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Curve"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Curve drawing mode"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Curve Fit"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Curves"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+#: app/src/FileDialogs.tsx
+#: app/src/filters/labels.ts
+#: app/src/LevelsCurvesBody.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/shell/TransformBar.tsx
+msgid "Custom"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Custom color"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Custom fill color"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Custom Pattern"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Custom settings."
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Custom Shape"
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "Custom shape file"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Custom..."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Custom…"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Customize Proof Condition"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Cut"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Cutout"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Cyan"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Cyans"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Cyrillic"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Dab"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Dark Intensity"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Dark Rough"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Dark Strokes"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Darken"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Darken Amount"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Darken Only"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Darker"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Darker Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Darkness"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Dashed"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Data points"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Data Set"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Data Sets"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Data Sets as Files"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Data Sets as Files…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Data Sets…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "De-Interlace"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Deep"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+#: app/src/LevelsCurvesBody.tsx
+#: app/src/shell/TransformBar.tsx
+msgid "Default"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Default Features"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Define"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Define a variable on the Define tab first."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Definition"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Defoliate"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+#: app/src/app/menus.ts
+#: app/src/app/vectorCommands.ts
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/RenderEditors.tsx
+#: app/src/NotesPanels.tsx
+#: app/src/ToolPresetsPanel.tsx
+#: app/src/VariablesDialogs.tsx
+#: app/src/WorkspaceDialog.tsx
+msgid "Delete"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Delete {label}"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "Delete {name}"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Delete {styleName}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Delete All Empty Layers"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "Delete all saved styles?"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Delete Anchor Point"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Delete and Fill Selection"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Delete Brush"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Delete channel"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Delete cropped pixels"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Delete Filter Mask"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/LayersPanel.tsx
+msgid "Delete layer"
+msgstr ""
+
+#: app/src/app/contextMenus.ts
+msgid "Delete Layer"
+msgstr ""
+
+#: app/src/LayerCompsPanel.tsx
+msgid "Delete layer comp"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Delete layer mask"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Delete Layer Mask"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Delete Mask"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Delete path"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Delete Plane"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "Delete Slice"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+#: app/src/TypePanels.tsx
+msgid "Delete style"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Delete the selected step, action or set"
+msgstr ""
+
+#: app/src/WorkspaceDialog.tsx
+msgid "Delete Workspace"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Delete Workspace…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/DeformSession.tsx
+msgid "Density"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+msgid "Depth"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+#: app/src/i18n/choices.ts
+msgid "Desaturate"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Desaturate by"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Desaturate Monitor Colors By:"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Description"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Deselect"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Deselect All"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Despeckle"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+#: app/src/ExportDialogs.tsx
+#: app/src/i18n/choices.ts
+msgid "Destination"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Destination profile"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Destination Space"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Detail"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Device to Simulate"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Diagonal"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Diameter"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/i18n/choices.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/ModeDialog.tsx
+msgid "Diamond"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Difference"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Difference Clouds"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Diffuse"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Diffuse Glow"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Diffusion"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Diffusion Dither"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Dingbats"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Direct Selection"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+#: app/src/TypePanels.tsx
+msgid "Direction"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Direction Balance"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Disable Filter Mask"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Disable Layer Mask"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Disable Smart Filters"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Discard the embedded profile (don't color manage)"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Discontiguous"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Discretionary Ligatures"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Displace"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Displacement Map"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Display Options (On-Screen)"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Display Text"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Dissolve"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Distance"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Distance (px)"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/schema.ts
+#: app/src/shell/DeformSession.tsx
+#: app/src/shell/TransformBar.tsx
+msgid "Distort"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Distortion"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Distortion k2"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Distortion k3"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Distribute"
+msgstr ""
+
+#: app/src/shell/OptionsBar.tsx
+msgid "Distribute {edges}"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Distribution"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/tools.ts
+msgid "Dither"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Divide"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+#: app/src/InspectionPanels.tsx
+msgid "Document"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Document Bounds"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Document Title"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Dodge"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Don't Color Manage This Document"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Don't Merge"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Don't Save"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Donate"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Donate any amount"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Dot"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Dotted"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Double Line"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Down"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+#: app/src/ExportDialogs.tsx
+#: app/src/ScriptDialogs.tsx
+msgid "Downloads"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Draft"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Drag a corner to adjust the plane, or drag inside a plane to move it."
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Drag pins. Shift-click an edge to straighten and lock it."
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Drag to move effects; Alt or Ctrl drag to copy"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Drag to scroll the preview."
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Draw a ruler line first to measure a known length."
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "Draw a ruler line, place counts or make a selection first."
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Draw planes over the image. Join corners to link planes."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Drop an image here"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Drop Shadow"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Dry Brush"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Dual Brush"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+#: app/src/ModeDialog.tsx
+msgid "Duotone"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Duotone Curve"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Duotone Curve: Ink {inkNo}"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Duotone Options"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Duotone…"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Duplicate channel"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Duplicate layer"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Duplicate Layer"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Duplication"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Dust & Scratches"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Each size downloads as its own file."
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "East Asian Features"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/filters/VanishingPointDialog.tsx
+#: app/src/LayerStyleDialog.tsx
+msgid "Edge"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Edge Brightness"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Edge Extension"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Edge Fidelity"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Edge Intensity"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Edge Only"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Edge Simplicity"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Edge Thickness"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Edge Width"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Edit"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Edit {lowerLabel}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Edit Contents"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Edit effects for {name}"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/PropertiesPanel.tsx
+msgid "Edit gradient"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Edit gradient…"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Edit in Liquify…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Edit in Quick Mask Mode"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Edit in Vanishing Point…"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Edit Plane"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Edit points"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Edit Table..."
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Effect layers"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Effect Layers"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+#: app/src/LayerStyleDialog.tsx
+msgid "Effects"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Effects On"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Eliminate"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/ModeDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Ellipse"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Elliptical Marquee"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Embed File Info: copyright and contact (PNG and JPEG)"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Embed the color profile (PNG, JPEG and WebP)"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Embedded Profile Mismatch"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Embedded: {askEmbedded}<0/>Working: {askWorking}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Embedding…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/LayerStyleDialog.tsx
+msgid "Emboss"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+msgid "Enable {label}"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Enable every step"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Enable Filter Mask"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Enable Layer Mask"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Enable Smart Filters"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Enable this step"
+msgstr ""
+
+#: app/src/app/vectorCommands.ts
+msgid "Enable Vector Mask"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Enabled"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "End Point Speed (end)"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "End Point Speed (start)"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Enhance Brightness and Contrast"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Enhance Monochromatic Contrast"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Enhance Per Channel Contrast"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Enlarged"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Entropy"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+msgid "Equalize"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Erase to history"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Eraser"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+msgid "Errors"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Errors are written to a report and the other images go on."
+msgstr ""
+
+#: app/src/app/workspaces.ts
+msgid "Essentials"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Estimate"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Even Fields"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Every-line Composer"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Exact"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Exclude"
+msgstr ""
+
+#: app/src/shell/shapetools.ts
+msgid "Exclude Overlapping Shapes"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Exclusion"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Exit Quick Mask Mode"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Expand"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Expand {name}"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Expand action"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Expand Selection"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Expand set"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Expand…"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Expansion"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/ExportDialogs.tsx
+msgid "Export"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Export As"
+msgstr ""
+
+#: app/src/shell/SwatchesPanel.tsx
+msgid "Export as ACO"
+msgstr ""
+
+#: app/src/shell/SwatchesPanel.tsx
+msgid "Export as ASE"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Export As…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Export Contents…"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Export CSV…"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Export files to the browser's downloads"
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "Export JSON"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Export Preferences"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Export Preferences…"
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+msgid "Export…"
+msgstr ""
+
+#. placeholder {0}: nodes.length
+#. placeholder {1}: node.name
+#: app/src/App.tsx
+msgid "Exporting {n} of {0}: {1}…"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Exporting…"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/ColorDialog.tsx
+#: app/src/filters/labels.ts
+#: app/src/shell/tools.ts
+msgid "Exposure"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Exposure and Gamma"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Exposure value"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Extend"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Extend Plane"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Extra Bold"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Extra Large"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Extrude"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Eyedropper"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face Tool (Face-Aware Liquify comes with M7)"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Facet"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Fade"
+msgstr ""
+
+#: app/src/filters/FilterDialog.tsx
+msgid "Fade {step}"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Fade Steps"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Fade…"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Faux Bold"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Faux Italic"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/tools.ts
+msgid "Feather"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Feather radius"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Feather Selection"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Feather…"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Fewer Points"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Fiber Length"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Fibers"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Field Blur"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/VariablesDialogs.tsx
+msgid "File"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "File Info"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "File Info…"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+#: app/src/ScriptDialogs.tsx
+msgid "File Type"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+#: app/src/ScriptDialogs.tsx
+msgid "Files"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+msgid "Files from the Files source close after they are saved; open documents stay open."
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgctxt "command"
+msgid "Fill"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgctxt "layer style fill type"
+msgid "Fill"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+#: app/src/PropertiesPanel.tsx
+msgctxt "noun"
+msgid "Fill"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgctxt "shape appearance"
+msgid "Fill"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgctxt "shape fill color"
+msgid "Fill"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/PropertiesPanel.tsx
+msgid "Fill color"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Fill Color"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Fill Content"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Fill Empty Area With"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Fill layer"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Fill Opacity"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Fill path with foreground color"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Fill Type"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Fill with Background Color"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Fill with Foreground Color"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Fill…"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Filling…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Film Grain"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/FilterDialog.tsx
+#: app/src/LayersPanel.tsx
+msgid "Filter"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Filter Gallery"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Filter Gallery…"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Filter layers by kind"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Find Dark & Light Colors"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/i18n/choices.ts
+msgid "Find Edges"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Fine"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Fine Dots"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Finger Painting"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Fish"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Fisheye"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Fit"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Fit Artboard on Screen"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Fit on screen"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Fix Blue/Yellow Fringe"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Fix Green/Magenta Fringe"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Fix Red/Cyan Fringe"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Fixed"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Fixed H"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Fixed Ratio"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Fixed Size"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Fixed W"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Flag"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Flame"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Flame Lines (Complexity)"
+msgstr ""
+
+#: app/src/filters/RenderEditors.tsx
+msgid "Flame path"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Flame Type"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Flare Center"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Flatten All Layer Effects"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Flatten All Masks"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Flatten Image"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Flatten Image to Preserve Appearance"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Flip Canvas Horizontal"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Flip Canvas Vertical"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/menus.ts
+msgid "Flip Horizontal"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Flip horizontally"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/menus.ts
+msgid "Flip Vertical"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Flip vertically"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Flip X"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Flip X Jitter"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Flip Y"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Flip Y Jitter"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Flipping…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Float All in Windows"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/tools.ts
+msgid "Flow"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Focal Length"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Focus"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+#: app/src/ExportDialogs.tsx
+#: app/src/ScriptDialogs.tsx
+msgid "Folder"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+#: app/src/shell/tools.ts
+msgid "Font"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Font family"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Font Family"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Font Preview Size"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Font Size"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Font Size:"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Font style"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Font Style"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Forced"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Fore/Background"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+#: app/src/i18n/choices.ts
+msgid "Foreground"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+#: app/src/shell/ToolBar.tsx
+msgid "Foreground color"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/ModeDialog.tsx
+msgid "Foreground Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Foreground Level"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+#: app/src/ExportDialogs.tsx
+msgid "Format"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Forward"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Forward Warp"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Fractions"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Fragment"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/shell/tools.ts
+msgid "Frame"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Frame Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Frame Width"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Free"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/shell/TransformBar.tsx
+msgid "Free Transform"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Freeform Pen"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Freeze Mask"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Frequency"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Frequency unit"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Fresco"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "From"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "From The Left"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "From The Right"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Frosted"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Full Size Brush Tip"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Full Spherical"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Fullscreen"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Fuzziness"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+#: app/src/LevelsCurvesBody.tsx
+msgid "Gamma"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Gamma value"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Gamut Warning"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Gaussian"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+msgid "Gaussian Blur"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Generate"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Geometric Shapes"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Gilt"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Glass"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Global Light"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Global Light…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Gloss"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Gloss Contour"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Glow Amount"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Glow Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Glowing Edges"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Glyph Scaling Desired %"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Glyph Scaling Maximum %"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Glyph Scaling Minimum %"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/GlyphsPanel.tsx
+msgid "Glyphs"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Golden Ratio"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Golden Spiral"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Good"
+msgstr ""
+
+#: app/src/AdjustmentsPanel.tsx
+#: app/src/app/helpers.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Gradient"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Gradient Editor"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Gradient Fill"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Gradient Map"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Gradient Overlay"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Gradient…"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "Gradients"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Grain"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Grain Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Grain Highlights"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Grain Size"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Grain Type"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Graininess"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Grainy Dots"
+msgstr ""
+
+#: app/src/app/workspaces.ts
+msgid "Graphic and Web"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Graphic Pen"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+#: app/src/ColorDialog.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/LayerStyleDialog.tsx
+msgid "Gray"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Gray point"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Gray working space"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/ColorDialog.tsx
+#: app/src/PdfDialog.tsx
+msgid "Grayscale"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+msgid "Grayscale Sliders"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Greek"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/InspectionPanels.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/LevelsCurvesBody.tsx
+msgid "Green"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Green Strength"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Greens"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/i18n/choices.ts
+#: app/src/shell/TransformBar.tsx
+msgid "Grid"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Grid divisions"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Group"
+msgstr ""
+
+#: app/src/app/contextMenus.ts
+msgid "Group from Layers"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Group layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Group Layers"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Grout Width"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Grow"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Guides"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+#: app/src/ScriptDialogs.tsx
+#: app/src/shell/tools.ts
+msgid "H"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+#: app/src/shell/TransformBar.tsx
+msgctxt "height"
+msgid "H"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "H distortion"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "H skew"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Halftone Pattern"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Halftone Screen"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Hand"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Hard Light"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Hard Mix"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/filters/VanishingPointDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/OptionsBar.tsx
+#: app/src/shell/tools.ts
+msgid "Hardness"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "HDR Toning"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "HDR Toning…"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Healing Brush"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Hebrew"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/labels.ts
+#: app/src/filters/RenderEditors.tsx
+msgid "Height"
+msgstr ""
+
+#: app/src/SvgDialog.tsx
+msgid "Height (px)"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Height:"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Help"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Heptagon"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Hexagon"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hidden Layers"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Hide {effectName} of {name}"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Hide {name}"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Hide {shown}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Actions"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Adjustments"
+msgstr ""
+
+#: app/src/app/vectorCommands.ts
+msgid "Hide All"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide All Effects"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Channels"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Clone Source"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Hide effects of {name}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Gradients"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Grid"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Guides"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Histogram"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Info"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Layer Comps"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Measurement Log"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Navigator"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Notes"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Paths"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Patterns"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Pixel Grid"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Properties"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Rulers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide selection edges"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Shapes"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Styles"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Hide Tool Presets"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "High"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "High Pass"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Highlight Area"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Highlight Color"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Highlight Compression"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Highlight Fade Amount"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Highlight Mode"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Highlight Opacity"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Highlight Radius"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Highlight Strength"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Highlight Tonal Width"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/labels.ts
+#: app/src/i18n/choices.ts
+msgid "Highlights"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+#: app/src/LevelsCurvesBody.tsx
+msgid "Histogram"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgid "Histogram bin"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgid "Histogram pixel count exceeds the source document area."
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "History"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "History Brush"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/typeMenu.ts
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Horizontal"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Horizontal Centers"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Horizontal Distortion %"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Horizontal Only"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Horizontal Perspective"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Horizontal Scale"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Horizontal Scale %"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Horizontal Type"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Horizontal Type Mask"
+msgstr ""
+
+#: app/src/filters/RenderEditors.tsx
+msgid "Hotspot"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Hsb"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "HSB/HSL"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Hsl"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/ColorField.tsx
+msgid "Hue"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Hue / Saturation"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Hue/Saturation"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Huge"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Hyphen Limit"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Hyphenate"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Hyphenate Capitalized Words"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Hyphenation"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Hyphenation Zone"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Ignore Adjustment Layers"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Image"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Image Assets"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Image Balance"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/Dialogs.tsx
+msgid "Image editing in your browser"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Image Processor"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Image Processor…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Image Rotation"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Image Size"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Image size: {sizeText}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Image Size…"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/PdfDialog.tsx
+msgid "Images"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Import"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "Import .pat…"
+msgstr ""
+
+#: app/src/shell/SwatchesPanel.tsx
+msgid "Import ACO/ASE"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Import Data Sets"
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "Import JSON…"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Import PDF"
+msgstr ""
+
+#: app/src/shell/SwatchesPanel.tsx
+msgid "Import swatches"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Import warnings ({warningCount})"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Import…"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Impressionist"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "In a folder each type goes into a subfolder named JPEG, PSD or PNG."
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "In Front"
+msgstr ""
+
+#: app/src/DocumentArrangement.tsx
+msgid "Inactive document preview"
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "Include Colors"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Include layers inside groups"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Increase Contrast"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Increase Contrast 1"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Increase Contrast 2"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Increase Contrast 3"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Indent First Line"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Indent Left"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Indent Left (pt)"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Indent Right"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Indent Right (pt)"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Index"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Indexed Color"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Indexed Color…"
+msgstr ""
+
+#: app/src/filters/RenderEditors.tsx
+msgid "Infinite"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Inflate"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgid "Info"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Initial Direction"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Ink {ink}"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Ink {ink} curve"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Ink Outlines"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Inner Bevel"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Inner Glow"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Inner Shadow"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/LevelsCurvesBody.tsx
+msgid "Input"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Input {inputRes} {inputUnit}"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Input black"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Input histogram"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Input Levels"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Input white"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Insert stop"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/PropertiesPanel.tsx
+msgid "Inside"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/filters/RenderEditors.tsx
+#: app/src/shell/ColorPicker.tsx
+msgid "Intensity"
+msgstr ""
+
+#: app/src/shell/ColorPicker.tsx
+msgid "Intensity stops"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Intent"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Internet Standard RGB"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/GradientEditor.tsx
+msgid "Interpolation"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/i18n/choices.ts
+msgid "Intersect"
+msgstr ""
+
+#: app/src/shell/shapetools.ts
+msgid "Intersect Shape Areas"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Intersect with channel"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Intersect with Selection"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Intersection"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Interval"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Inverse"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Inverse Image"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+#: app/src/CloneSourcePanel.tsx
+#: app/src/filters/labels.ts
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/BrushPanels.tsx
+msgid "Invert"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Invert All"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Invert has no parameters. Use opacity or blend mode to moderate the result."
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Invert Selection"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Invert Texture"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Inverting…"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "IPA Extensions"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Iris Blur"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Italic"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Ivy"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Jag"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Jitter"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "JPEG quality"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "JPEG Quality"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Justification"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Justify All"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Justify Last Center"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Justify Last Left"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Justify Last Right"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Keep width and height proportional"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Kernel"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Keywords"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Knockout"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Kurtosis"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/PdfDialog.tsx
+msgid "Lab Color"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+msgid "Lab Sliders"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgctxt "print option"
+msgid "Label"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Label Size"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Lanczos 3"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Landscape"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Language Options"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/filters/GalleryStack.tsx
+msgid "Large"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Lasso"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Last Filter"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Latin Extended-A"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Latin Extended-B"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Latin-1 Supplement"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/menus.ts
+#: app/src/i18n/choices.ts
+#: app/src/ImageCalcDialog.tsx
+#: app/src/LayersPanel.tsx
+#: app/src/VariablesDialogs.tsx
+msgid "Layer"
+msgstr ""
+
+#: app/src/LayerCompsPanel.tsx
+msgid "Layer Comps"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Layer Comps to Files (JPEG)…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Layer Comps to Files (PNG)…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Layer Comps to Files (WebP)…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Layer Content Options…"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Layer filter"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Layer Knocks Out Drop Shadow"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Layer Mask"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Layer Mask Hides Effects"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/LayerStyleDialog.tsx
+msgid "Layer Style"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Layer via Copy"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Layer via Cut"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/LayersPanel.tsx
+msgid "Layers"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Layers to Files"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Layers to Files…"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Layout"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Leading (0 = auto)"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Leave as is (don't color manage)"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Leave unchanged"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Leaves Amount"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Leaves Size"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/FileDialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+#: app/src/i18n/choices.ts
+msgid "Left"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgctxt "text alignment"
+msgid "Left"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Left Diagonal"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Left Edges"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Left to Right"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Legacy Macintosh RGB"
+msgstr ""
+
+#: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
 msgid "Legal Notice"
 msgstr ""
 
+#: app/src/filters/labels.ts
+msgid "Length"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Length:"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+msgid "Lens Blur"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Lens Correction"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Lens Correction…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Lens Flare"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Lens Type"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Letter Spacing Desired %"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Letter Spacing Maximum %"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Letter Spacing Minimum %"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Letterlike Symbols"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+msgid "Level"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Levels"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "License"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Licenses"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/filters/RenderEditors.tsx
+msgid "Light"
+msgstr ""
+
+#. placeholder {0}: i + 1
+#: app/src/filters/RenderEditors.tsx
+msgid "Light {0}"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Light Bokeh"
+msgstr ""
+
+#: app/src/filters/RenderEditors.tsx
+msgid "Light color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Light Direction"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Light Intensity"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Light Position"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Light Range Max"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Light Range Min"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Light Rough"
+msgstr ""
+
+#: app/src/filters/RenderEditors.tsx
+msgid "Light type"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Light/Dark Balance"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Lighten"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Lighten Grout"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Lighten Only"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Lighten Shadows"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Lighter"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Lighter Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Lighting Effects"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Lightness"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/filters/RenderEditors.tsx
+msgid "Lights"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Limits"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Line"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/GradientEditor.tsx
+msgid "Linear"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Linear Burn"
+msgstr ""
+
+#: app/src/filters/FilterDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+msgid "Linear Dodge"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Linear Dodge (Add)"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Linear Light"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Lines/cm"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Lines/Inch"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Link corner radii"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Link dimensions"
+msgstr ""
+
+#: app/src/app/vectorCommands.ts
+msgid "Link Vector Mask"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Link with layer"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Link with Layer"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Linked"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Liquify"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Liquify tools"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Liquify…"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Load"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Load {name} as a selection"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Load 3D LUT…"
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "Load a .csh custom shape library"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Load ABR"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Load actions"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Load actions (.json)"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Load Brush After Each Stroke"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Load channel as selection"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Load color table"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Load Default Type Styles"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Load Files into Stack…"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Load Layers"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Load path as a selection"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Load Selection"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Load Selection…"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Load System Fonts"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Load..."
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+#: app/src/ShapesPanel.tsx
+#: app/src/shell/BrushPanels.tsx
+msgid "Load…"
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "Loaded {count} from {fileName}; {warns}: {first}"
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "Loaded {count} from {fileName}."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Loading layers…"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Loading the face…"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Loading…"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Local (Adaptive)"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Localized color clusters"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/shell/GradientEditor.tsx
+msgid "Location"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Lock all"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Lock All Layers in Group"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Lock Guides"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Lock Offset"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Lock pixels"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Lock position"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Lock transparency"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Lock Workspace"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Lock:"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Locked"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+msgid "Log Errors to a Report"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Logical Length:"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Logical Units:"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Long Lines"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Long Strokes"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Loose"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Loose Curl"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Loose Curl Long"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Loose Long"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Loose Medium"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Low"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Lower"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Lower Arc"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Lower Shell"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Luminance"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Luminosity"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+#: app/src/filters/GalleryStack.tsx
+msgid "Magenta"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Magentas"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Magic Eraser"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Magic Wand"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Magnetic"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Magnetic Lasso"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Make a selection first."
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Make Default"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Make Selection"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Make work path from selection"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Manage"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Maple"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+#: app/src/filters/labels.ts
+msgid "Margin"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Margins"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Marker Size"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "Mask"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mask All"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mask Colour"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Mask Incomplete Blocks"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mask Options"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Match All"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Match Color"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Match Color…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Match Location"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Match Zoom"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Material"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Mathematical Operators"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+#: app/src/ModeDialog.tsx
+msgid "Matte"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Matte color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Matte Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Max Radius"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/filters/labels.ts
+msgid "Maximum"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Maximum Offset"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Maybe later"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/InspectionPanels.tsx
+msgid "Mean"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Measurement"
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+msgid "Measurement Log"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Measurement Scale"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Measurement Scale Marker"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Measuring…"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Media Box"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/filters/labels.ts
+#: app/src/InspectionPanels.tsx
+msgid "Median"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Medium"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Medium Dots"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Medium Lines"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Medium Strokes"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Merge"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Merge Down"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Merge Group"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Merge Layers"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Merge layers before converting to {depth} Bits/Channel? Merging allows HDR Toning options; without it, each layer is toned with Local Adaptation."
+msgstr ""
+
+#: app/src/app/vectorCommands.ts
+msgid "Merge Shape Components"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Merge to HDR Pro"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Merge to HDR Pro…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Merge Visible"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "Merged"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Merges the {docCount} open documents, in tab order, as an exposure bracket."
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Merging…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Mesh"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mesh Colour"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Mesh density"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Mesh expansion"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mesh Size"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Message shown when playback reaches this stop"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/ColorDialog.tsx
+#: app/src/filters/labels.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Method"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Mezzotint"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Middle Eastern & South Asian Composer"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Middle Eastern Features"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Midpoint"
+msgstr ""
+
+#. placeholder {0}: pct(a.midpoint)
+#: app/src/shell/GradientEditor.tsx
+msgid "Midpoint {0}%"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/choices.ts
+msgid "Midtones"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Midtones Brighter"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Midtones Darker"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/filters/labels.ts
+msgid "Minimum"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Minimum Depth"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Missing Fonts"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "missing layer"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Missing Profile"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Missing Profiles: Ask When Opening"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Miter"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Mix"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Mixer Brush"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+#: app/src/filters/FilterDialog.tsx
+#: app/src/filters/labels.ts
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/PdfDialog.tsx
+#: app/src/shell/DeformSession.tsx
+#: app/src/shell/tools.ts
+msgid "Mode"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgctxt "blend mode"
+msgid "Mode"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgctxt "color mode"
+msgid "Mode"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Monitor RGB"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Monochromatic"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Monotone"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "More Points"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Mosaic"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Mosaic Tiles"
+msgstr ""
+
+#: app/src/app/workspaces.ts
+msgid "Motion"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+msgid "Motion Blur"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/shell/tools.ts
+msgid "Move"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Move {label} down"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Move {label} up"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Move Down"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Move the selected pins backward"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Move the selected pins forward"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Move Up"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Movie Prime"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/ChannelsPanel.tsx
+msgid "Multichannel"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Multiple Flames One Path"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Multiple Flames Path Direction"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Multiple Flames Various"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Multiply"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/app/measureTools.tsx
+#: app/src/ChannelsPanel.tsx
+#: app/src/filters/labels.ts
+#: app/src/VariablesDialogs.tsx
+#: app/src/WorkspaceDialog.tsx
+msgid "Name"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
+msgstr ""
+
+#: app/src/NavigatorPanel.tsx
+msgid "Navigator"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Nearest Neighbor"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Needs Node.js 20 or newer."
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Negative"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Neon Glow"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Netscape Gray"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/shell/ColorPicker.tsx
+#: app/src/ToolPresetsPanel.tsx
+#: app/src/VariablesDialogs.tsx
+msgid "New"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "New action"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "New Adjustment Layer"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+msgid "New Artboard"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/ChannelsPanel.tsx
+msgid "New channel"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "New Channel"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "New Document"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "New Effect Layer"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "New Fill Layer"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/LayersPanel.tsx
+msgid "New group"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "New Group"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "New Guide"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "New Guide Layout"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "New Guide Layout…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "New Guide…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "New Guides From Shape"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/Dialogs.tsx
+msgid "New image"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/LayersPanel.tsx
+msgid "New layer"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "New Layer"
+msgstr ""
+
+#: app/src/LayerCompsPanel.tsx
+msgid "New layer comp"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "New path"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "New Selection"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "New set"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "New size: {newSize}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "New Smart Object via Copy"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "New spot channel"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "New Spot Channel"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "New style name"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "New Style…"
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "New tool preset name"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "New Workspace…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "New…"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Next data set"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Next Document"
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+msgid "Next note"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "No action sets. Record an action or load a set."
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "No actions. Record one or load a set."
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "No alternates in this font."
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+msgid "No author"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "No available default font can display this text. Choose Manage to select a replacement."
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "No brush matches “{query}”."
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "No brush preset selected: pick one in Brushes to edit dynamics. The tip applies to the active tool."
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "No brushes found in {fromName}."
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "No default type styles have been saved yet."
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+#: app/src/NotesPanels.tsx
+msgid "No document open."
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "No effect selected"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "No fonts are available."
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "No installed fonts are available for replacement."
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "No lookup table loaded"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "No matching commands"
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+msgid "No measurements recorded."
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "No paths"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "No patterns."
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "No pixels"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "No preset"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "No properties"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "No saved styles yet."
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "No saved styles."
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "No shapes found in that file."
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "No shapes match “{q}”."
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "No slice selected"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "No smart filters."
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "No tool presets."
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "No. of Levels"
+msgstr ""
+
+#: app/src/filters/schema.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/GradientEditor.tsx
+msgid "Noise"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Noise Amount"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/app/menus.ts
+#: app/src/app/typeMenu.ts
+#: app/src/BatchDialog.tsx
+#: app/src/ExportDialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/i18n/choices.ts
+#: app/src/InspectionPanels.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/TransformBar.tsx
+#: app/src/shell/typecommands.ts
+#: app/src/TypePanels.tsx
+#: app/src/VariablesDialogs.tsx
+msgid "None"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgctxt "liquify mask"
+msgid "None"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/i18n/choices.ts
+#: app/src/shell/DeformSession.tsx
+msgid "Normal"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Normal Brush Tip"
+msgstr ""
+
+#: app/src/shell/ColorPicker.tsx
+msgid "Not web-safe: click to snap"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Note"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Note Paper"
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+msgid "Note text"
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+#: app/src/shell/tools.ts
+msgid "Notes"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "NTSC Colors"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Number of Generators"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Number of Tiles"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Oak"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Ocean Ripple"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Octagon"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Odd Fields"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Off"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+#: app/src/filters/labels.ts
+#: app/src/ImageCalcDialog.tsx
+msgid "Offset"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Oil Paint"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/BatchDialog.tsx
+#: app/src/ChannelsPanel.tsx
+#: app/src/ColorDialog.tsx
+#: app/src/ExportDialogs.tsx
+#: app/src/FileDialogs.tsx
+#: app/src/filters/FilterDialog.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/MissingFonts.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/PdfDialog.tsx
+#: app/src/ScriptDialogs.tsx
+#: app/src/shell/ColorPicker.tsx
+#: app/src/shell/GradientEditor.tsx
+#: app/src/SvgDialog.tsx
+#: app/src/TypePanels.tsx
+#: app/src/VariablesDialogs.tsx
+msgid "OK"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Oldstyle"
+msgstr ""
+
+#: app/src/filters/RenderEditors.tsx
+msgid "On"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "On the first connect, Chrome and Edge ask to allow access to apps on this device. Allow it, or the agent cannot reach the tab."
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Once"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "One file per data set, named after the document and the data set."
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "One Flame Along Path"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "One page per artboard, at the document resolution."
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/toolPresets.ts
+#: app/src/CloneSourcePanel.tsx
+#: app/src/filters/labels.ts
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/LayersPanel.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/GradientEditor.tsx
+#: app/src/shell/tools.ts
+msgid "Opacity"
+msgstr ""
+
+#: app/src/filters/FilterDialog.tsx
+msgid "Opacity (%)"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Opacity stop at {position}%"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Opacity stops"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Open a document to play an action."
+msgstr ""
+
+#: app/src/TabBar.tsx
+msgid "Open documents"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Open image…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Open Recent"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Open…"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+msgid "Opened Files"
+msgstr ""
+
+#. placeholder {0}: f.name
+#: app/src/App.tsx
+msgid "Opening {0}…"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Opening contents…"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "OpenType"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Operation"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Options…"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Ordinals"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/typeMenu.ts
+#: app/src/FileDialogs.tsx
+#: app/src/TypePanels.tsx
+msgid "Orientation"
+msgstr ""
+
+#: app/src/shell/ColorPicker.tsx
+msgid "Original"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Original Ratio"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Ornament Density"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Ornaments"
+msgstr ""
+
+#: app/src/filters/schema.ts
+msgid "Other"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Other color"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Other Cursors"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Out From Center"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Outer Bevel"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Outer Glow"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Outline"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/LevelsCurvesBody.tsx
+#: app/src/ModeDialog.tsx
+msgid "Output"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Output black"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Output Levels"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Output unit"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Output white"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/PropertiesPanel.tsx
+msgid "Outside"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/shell/tools.ts
+msgid "Overlay"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Overlay Edge"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Overlay mode"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Overlays"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Overprint"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Overprint {combo}"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Overprint Colors"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Overprint Colors…"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Override Pressure"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Override Rotation"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Override Tilt"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Package…"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Pages"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Paint Bucket"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Paint Daubs"
+msgstr ""
+
+#: app/src/app/workspaces.ts
+msgid "Painting"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Painting Cursors"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Palette"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Palette Knife"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Panels"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Panorama"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Paper"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Paper Brightness"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/TypePanels.tsx
+msgid "Paragraph"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Paragraph style name"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Paragraph styles"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/TypePanels.tsx
+msgid "Paragraph Styles"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Paragraph Text"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Pass Through"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Paste"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Paste in Place"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Paste Into"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Paste Layer Style"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Paste Lorem Ipsum"
+msgstr ""
+
+#: app/src/app/vectorCommands.ts
+msgid "Paste Shape Attributes"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Paste Special"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Patch"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Patchwork"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/i18n/choices.ts
+msgid "Path"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Path Blur"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Path name"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Path Operations"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Path Selection"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Pathfinder"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/PathsPanel.tsx
+msgid "Paths"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Paths to SVG…"
+msgstr ""
+
+#: app/src/AdjustmentsPanel.tsx
+#: app/src/App.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/app/helpers.ts
+#: app/src/ExportDialogs.tsx
+#: app/src/i18n/choices.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/tools.ts
+msgid "Pattern"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Pattern Dither"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Pattern Fill"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Pattern Overlay"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Pattern Stamp"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Pattern Type"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Pattern…"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "Patterns"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "PDF password"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Pen"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Pen Pressure"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Pen Tilt"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/i18n/choices.ts
+#: app/src/LevelsCurvesBody.tsx
+#: app/src/shell/tools.ts
+msgid "Pencil"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Pencil Width"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Pentagon"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Percent"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/GradientEditor.tsx
+msgid "Perceptual"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/shell/TransformBar.tsx
+msgid "Perspective"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Perspective Crop"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/filters/labels.ts
+#: app/src/shell/DeformSession.tsx
+msgid "Perspective Warp"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Photo Filter"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "photobaer is free and open source. Your support helps keep it alive and maintained."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "photobaer on GitHub"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Photocopy"
+msgstr ""
+
+#: app/src/app/workspaces.ts
+msgid "Photography"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Photomerge"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Photomerge…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Photoshop Filter"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Pick a filter to start a stack."
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Picture Frame"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Pillow Emboss"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Pin Depth"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Pin Edges"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Pin Light"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Pin rotation"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Pin rotation angle"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Pinch"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Pine"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Pins"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Pixel layers"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Pixel length comes from the ruler line."
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Pixel Length:"
+msgstr ""
+
+#: app/src/filters/schema.ts
+msgid "Pixelate"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/choices.ts
+#: app/src/InspectionPanels.tsx
+msgid "Pixels"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Pixels/cm"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Pixels/Inch"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Place Embedded…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Place Linked…"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Place pins inside the mesh, away from existing pins."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Place Scale Marker…"
+msgstr ""
+
+#. placeholder {0}: picked.file.name
+#: app/src/App.tsx
+msgid "Placing {0}…"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Placing scale marker…"
+msgstr ""
+
+#. placeholder {0}: i + 1
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Plane {0}"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Planes"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Plaster"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Plastic Wrap"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+msgid "Play"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Play the selected action"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Playing action…"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "PNG, JPEG, WebP, GIF, BMP, AVIF, SVG, ICO, PSD, PSB, EXR, HDR or PDF"
+msgstr ""
+
+#: app/src/filters/RenderEditors.tsx
+msgid "Point"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgctxt "sample size"
+msgid "Point"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Point Sample"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Point Text"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Pointillize"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Polar Coordinates"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Polar To Rect"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Polygon"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Polygonal Lasso"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Pond Ripples"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Poplar"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Portrait"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/LayerStyleDialog.tsx
+msgid "Position"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Poster Edges"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Posterization"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Posterize"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/LayerStyleDialog.tsx
+msgid "Precise"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/ScriptDialogs.tsx
+msgid "Preferences"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Preparing to print…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Preserve"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Preserve Details"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Preserve Numbers"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/ImageCalcDialog.tsx
+msgid "Preserve Transparency"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Preset"
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "Preset name"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+msgid "Pressure"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Pressure for Opacity"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Pressure for Size"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Pressure for Strength"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Pressure from a stylus is not available yet."
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+#: app/src/filters/FilterDialog.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/LayerStyleDialog.tsx
+msgid "Preview"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Previous"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Previous data set"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Previous Document"
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+msgid "Previous note"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Primaries"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Prime105"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Prime35"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Print"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Print One Copy"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Print preview"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Print…"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Printer, copies and \"Save as PDF\" are chosen in the browser's print dialog, which opens next."
+msgstr ""
+
+#: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
 msgid "Privacy"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+#: app/src/InspectionPanels.tsx
+msgid "Profile"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Profile Mismatches: Ask When Opening"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Profile:"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Profile: {sourceProfile}"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Projection"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Proof Colors"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Proof Setup"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+#: app/src/TypePanels.tsx
+msgid "Properties"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Protect Foreground Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Protect Skin Tones"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Protect Texture"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Protect Tones"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Proximity Match"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Pucker"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Pulled String"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Punctuation"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Pupil Size"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Puppet"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Puppet mode"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/filters/labels.ts
+#: app/src/shell/DeformSession.tsx
+msgid "Puppet Warp"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Purity"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Push Left"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Pyramids"
+msgstr ""
+
+#: app/src/shell/ToolBar.tsx
+msgid "QM"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Quadtone"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+#: app/src/filters/labels.ts
+#: app/src/ScriptDialogs.tsx
+msgid "Quality"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Quick Export as {format}"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Quick Export Format"
+msgstr ""
+
+#: app/src/shell/ToolBar.tsx
+msgid "Quick mask"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Quick Selection"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/LayerStyleDialog.tsx
+msgid "Radial"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Radial Blur"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/labels.ts
+msgid "Radius"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Random"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/shell/GradientEditor.tsx
+msgid "Randomize"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Randomize Shapes"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/helpers.ts
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Range"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Rasterize"
+msgstr ""
+
+#: app/src/SvgDialog.tsx
+msgid "Rasterize SVG Format"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Rasterize Type Layer"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/app/typeMenu.ts
+#: app/src/app/vectorCommands.ts
+msgid "Rasterizing…"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Rate"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Ratio"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Ratio H"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Ratio W"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Raw XMP"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Reach"
+msgstr ""
+
+#. placeholder {0}: file.name
+#: app/src/PdfDialog.tsx
+msgid "Reading {0}…"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Reading the images…"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Rear Sync"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Recent brushes"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Recently used"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Reconstruct"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Reconstruct…"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+msgid "Record an action in Window › Actions first."
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/NotesPanels.tsx
+msgid "Record Measurements"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Recording"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Rect To Polar"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/shell/tools.ts
+msgid "Rectangle"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Rectangular Marquee"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/InspectionPanels.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/LevelsCurvesBody.tsx
+msgid "Red"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Red Eye"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Red Strength"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Redo"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Redo (Shift+Ctrl+Z)"
+msgstr ""
+
+#. placeholder {0}: doc.redoLabel
+#: app/src/app/menus.ts
+msgid "Redo {0}"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Reds"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Reduce Color Noise"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Reduce Noise"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Reference {u},{v}"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Reference point"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+#: app/src/LayerStyleDialog.tsx
+msgid "Reflected"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgid "Refresh"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Registration marks"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Regular"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Relative"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Release Clipping Mask"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Relief"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Relink to File…"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+#: app/src/filters/labels.ts
+msgid "Remove"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Remove All"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Remove All Pins"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Remove Distortion"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Remove JPEG Artifact"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Remove split"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Remove stop"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Remove Warp Split"
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "Rename"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Rename Layer"
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "Rename tool preset"
+msgstr ""
+
+#: app/src/filters/schema.ts
+msgid "Render"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Rendering Intent"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Repeat Edge Pixels"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/MissingFonts.tsx
+msgid "Replace"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/MissingFonts.tsx
+msgid "Replace All Missing Fonts"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Replace Color"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Replace Color…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Replace Contents…"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Replace existing data sets"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Replace Fonts"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Replace Selection"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Replace With"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Replacement for {name}"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Replacement style for {name}"
+msgstr ""
+
+#. placeholder {0}: fams[0]
+#: app/src/MissingFonts.tsx
+msgid "Replacing {0}."
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Replacing {familyCount} missing families."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Replacing contents…"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Replacing…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Reposition"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Resample"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Reselect"
+msgstr ""
+
+#: app/src/filters/FilterDialog.tsx
+#: app/src/shell/DeformSession.tsx
+#: app/src/shell/ToolBar.tsx
+msgid "Reset"
+msgstr ""
+
+#. placeholder {0}: workspaceLabel(workspace.selected)
+#: app/src/app/menus.ts
+msgid "Reset {0}"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Reset {shownTitle}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Reset rotation"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+msgid "Reset to black and white"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Reset to Default"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+msgid "Reset to default (D)"
+msgstr ""
+
+#: app/src/shell/ToolBar.tsx
+msgid "Reset to default colors"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Reset Transform"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Reset Vector Mask Properties"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Resize to Fit"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Resizing…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Resolution"
+msgstr ""
+
+#: app/src/SvgDialog.tsx
+msgid "Resolution (ppi)"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/MissingFonts.tsx
+msgid "Resolve Missing Fonts"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Restore All"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Restrict colors"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "Result"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Reticulation"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/app/vectorCommands.ts
+msgid "Reveal All"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Revealing…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/tools.ts
+msgid "Reverse"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Revert"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Reverting…"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Rgb"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+#: app/src/LevelsCurvesBody.tsx
+msgid "RGB"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/PdfDialog.tsx
+msgid "RGB Color"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+msgid "RGB Sliders"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "RGB working space"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Ribbon"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Ridges"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Rig"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+#: app/src/i18n/choices.ts
+msgid "Right"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgctxt "text alignment"
+msgid "Right"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Right Diagonal"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Right Edges"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Right to Left"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Right-click a glyph to list its OpenType alternates."
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Right-to-Left"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/shell/DeformSession.tsx
+msgid "Rigid"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Ring"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Ripple"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Ripple Magnitude"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Ripple Size"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Rise"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Roman Hanging Punctuation"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+#: app/src/shell/TransformBar.tsx
+msgid "Rotate"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/menus.ts
+msgid "Rotate 180°"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Rotate 90° CCW"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Rotate 90° Clockwise"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Rotate 90° Counter Clockwise"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Rotate 90° CW"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Rotate Canvas"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Rotate View"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Rotating…"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+#: app/src/filters/labels.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Rotation"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Rough Pastels"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Roughness"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+#: app/src/PropertiesPanel.tsx
+msgid "Round"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Roundness"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Row Gutter"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Rows"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Rubber Band"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Rule of Thirds"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Ruler"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Ruler Tool"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+#: app/src/ScriptDialogs.tsx
+msgid "Run"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Run Action"
+msgstr ""
+
+#: app/src/shell/ColorField.tsx
+msgid "S {sRound} B {bRound}"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Sample"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Sample all layers"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Sample All Layers"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Sample curve point"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Sample curve point: available in the Properties panel"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "Sample curve point: click the image to add a point at its value"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Sample size"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/choices.ts
+msgid "Sampled"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Samplers"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Sampling"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Sandstone"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgid "Satin"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Saturate"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/i18n/choices.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Saturation"
+msgstr ""
+
+#: app/src/shell/ColorField.tsx
+msgid "Saturation and brightness"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
+#: app/src/ExportDialogs.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/WorkspaceDialog.tsx
+msgid "Save"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Save a Copy…"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Save as JPEG"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Save as PNG"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Save as PSD"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Save As…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Save changes to the photobaer document \"{name}\" before closing?"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Save character style"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Save Default Type Styles"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Save for Web"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Save for Web (Legacy)…"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Save paragraph style"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Save path"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Save Selection"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Save selection as channel"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Save Selection…"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "Save the layer style"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Save the selected set"
+msgstr ""
+
+#: app/src/WorkspaceDialog.tsx
+msgid "Save Workspace"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Save your text formatting as a named style to reuse it."
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Save..."
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Saved into PSD files, and into PNG and JPEG exports when Export Preferences include File Info."
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+#: app/src/PresetPanels.tsx
+msgid "Saved styles"
+msgstr ""
+
+#. placeholder {0}: h.name
+#: app/src/App.tsx
+msgid "Saving {0}…"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Saving contents…"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/helpers.ts
+msgid "Saving…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
+#: app/src/FileDialogs.tsx
+#: app/src/filters/labels.ts
+#: app/src/ImageCalcDialog.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/TransformBar.tsx
+msgid "Scale"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Scale Effects…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Scale Layer Effects"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Scale Styles"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Scale to Fit Media"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Scale: {scalePx} px = {scaleLogical} {scaleUnits}"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Scale: {scalePx} px = {scaleLogical} {scaleUnits} (the bar must be 1 to {maxBar} px wide)"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Scaled Print Size"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Scaling"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Scallop"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Scatter"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Scattering"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Screen"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Scripts"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Seamless Tones and Colors"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/shell/BrushPanels.tsx
+#: app/src/ToolPresetsPanel.tsx
+msgid "Search"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Search brushes"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Search commands"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "Search patterns"
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "Search shapes"
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "Search styles"
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "Search tool presets"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Search…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Seed"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/PdfDialog.tsx
+msgid "Select"
+msgstr ""
+
+#: app/src/App.tsx
+msgctxt "menu"
+msgid "Select"
+msgstr ""
+
+#: app/src/NotesPanels.tsx
+msgid "Select a note with the Note tool or the arrows."
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Select a set to save."
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Select a text layer to save or apply a style."
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Select a type layer or start typing to edit its characters."
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Select a type layer or start typing to edit its paragraphs."
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Select a type layer, or click into one with the Type tool, then click a glyph."
+msgstr ""
+
+#: app/src/app/contextMenus.ts
+#: app/src/NotesPanels.tsx
+#: app/src/PdfDialog.tsx
+msgid "Select All"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Select an action to play."
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+msgid "Select Data Points"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Select Data Points…"
+msgstr ""
+
+#: app/src/app/contextMenus.ts
+msgid "Select Inverse"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Select location to save processed images"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Select the images to process"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/InspectionPanels.tsx
+msgid "Selection"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Selective Color"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Send a coffee"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Send Backward"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Send to Back"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "Separate keywords with commas or semicolons."
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+#: app/src/ScriptDialogs.tsx
+msgid "Set"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Set Measurement Scale…"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Set name"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Set To Background"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Settings"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Shadow Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Shadow Fade Amount"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Shadow Intensity"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Shadow Mode"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Shadow Opacity"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Shadow Radius"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Shadow Tonal Width"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/labels.ts
+#: app/src/i18n/choices.ts
+msgid "Shadows"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Shadows/Highlights"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Shadows/Highlights…"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Shallow"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/vectorCommands.ts
+#: app/src/filters/labels.ts
+#: app/src/i18n/choices.ts
+#: app/src/ModeDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Shape"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Shape Blur"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Shape Dynamics"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Shape layers"
+msgstr ""
+
+#: app/src/ShapesPanel.tsx
+msgid "Shapes"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+#: app/src/TypePanels.tsx
+msgid "Sharp"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/filters/labels.ts
+#: app/src/filters/schema.ts
+#: app/src/shell/tools.ts
+msgid "Sharpen"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Sharpen Details"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Sharpen Edges"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Sharpen More"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Sharpness"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Shear"
+msgstr ""
+
+#: app/src/filters/ShearCurve.tsx
+msgid "Shear curve"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Shear Curve"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Shell Lower"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Shell Upper"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Shine"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Short Lines"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Short Strokes"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Show {effectName} of {name}"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Show {name}"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Show {shown}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Actions"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Adjustments"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show All Effects"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Show Backdrop"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Show Brush Leash While Smoothing"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Channels"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Clone Source"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Show Crosshair in Brush Tip"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Show effects of {name}"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Gradients"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Show Grid"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Show Guides"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Histogram"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Show Image"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Info"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Layer Comps"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Show Mask"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Measurement Log"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/shell/DeformSession.tsx
+msgid "Show Mesh"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Navigator"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Notes"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Show Only Crosshair While Painting"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Show Overlay"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Paths"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Patterns"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Pixel Grid"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Properties"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Rulers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show selection edges"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Shapes"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Styles"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Show the action tree"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show Tool Presets"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Show transform controls"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/tools.ts
+msgid "Sides"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Similar"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Simple"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Simulate Black Ink"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Simulate Paper Color"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Sine"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Single Column Marquee"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Single Row Marquee"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Single-line Composer"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+#: app/src/filters/labels.ts
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/OptionsBar.tsx
+#: app/src/shell/tools.ts
+#: app/src/TypePanels.tsx
+msgid "Size"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Size (px)"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Sketch"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Skew"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Skewness"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Skin Tones"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Skip for Now"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Slice"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Slice Select"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Slices"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "Slices From Guides"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+#: app/src/filters/GalleryStack.tsx
+msgid "Small"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Small Caps"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Smart Blur"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Smart Filter"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Smart Filters"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Smart Guides"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Smart Object"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Smart object contents"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Smart objects"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Smart Objects"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Smart Sharpen"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/TypePanels.tsx
+msgid "Smooth"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgctxt "anti-alias"
+msgid "Smooth"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Smooth Selection"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Smooth…"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/tools.ts
+msgid "Smoothing"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Smoothness"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Smudge"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Smudge Stick"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/shell/tools.ts
+#: app/src/shell/TransformBar.tsx
+msgid "Snap"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Snap To"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Soft"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Soft Light"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Soften (px)"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Softer"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Softness"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Solarize"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/GradientEditor.tsx
+msgid "Solid"
+msgstr ""
+
+#: app/src/AdjustmentsPanel.tsx
+#: app/src/app/helpers.ts
+msgid "Solid Color"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Solid Color…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Solid Front Faces"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Solidity"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+#: app/src/filters/labels.ts
+#: app/src/i18n/choices.ts
+#: app/src/ImageCalcDialog.tsx
+#: app/src/InspectionPanels.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Source"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "Source 1"
+msgstr ""
+
+#: app/src/ImageCalcDialog.tsx
+msgid "Source 2"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Source at {anchorX}, {anchorY} px"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Source code"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Source Space"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Space After"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Space After (pt)"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Space Before"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Space Before (pt)"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Spacing"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Sparkle"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Spatter"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Speckle"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Speed"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Spherize"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Spin"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Spin Blur"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Split crosswise"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Split horizontally"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Split vertically"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Split Warp Crosswise"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Split Warp Horizontally"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Split Warp Vertically"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/filters/labels.ts
+#: app/src/shell/tools.ts
+msgid "Sponge"
+msgstr ""
+
+#: app/src/filters/RenderEditors.tsx
+msgid "Spot"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Spot Channel Options"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Spot color"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Spot Color"
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/shell/tools.ts
+msgid "Spot Healing Brush"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Spray Radius"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Sprayed Strokes"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Spread"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Sprinkles"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/PropertiesPanel.tsx
+msgid "Square"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Square Size"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Squareness"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Squeeze"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Stack Images"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Stack Mode"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Stagger"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Stained Glass"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Stamp"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgctxt "Vanishing Point tool"
+msgid "Stamp"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Stamp Visible"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Standard"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Standard Deviation"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Standard Ligatures"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Star"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Star Inset"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Star ratio"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Starting…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "State"
+msgstr ""
+
+#: app/src/InspectionPanels.tsx
+msgid "Std Dev"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Stiff"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Stippled"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Stop"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Stop color"
+msgstr ""
+
+#: app/src/shell/GradientEditor.tsx
+msgid "Stop Color"
+msgstr ""
+
+#: app/src/BatchDialog.tsx
+msgid "Stop for Errors"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Stop recording"
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "Stop recording first."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Stop Script"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Stops Between Exposures"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Straighten"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Straighten Both"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Straighten Horizontal"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "Straighten Layer"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+msgid "Straighten Vertical"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/shell/tools.ts
+msgid "Strength"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Stretch To Fit"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Strikethrough"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Strobe Flashes"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Strobe Strength"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgctxt "command"
+msgid "Stroke"
+msgstr ""
+
+#: app/src/layerStyle.ts
+msgctxt "layer effect"
+msgid "Stroke"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgctxt "noun"
+msgid "Stroke"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgctxt "shape stroke color"
+msgid "Stroke"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Stroke cap"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Stroke Catch-up"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/PropertiesPanel.tsx
+msgid "Stroke color"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Stroke Color"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Stroke Detail"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Stroke Direction"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Stroke Emboss"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Stroke join"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Stroke Length"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Stroke path"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Stroke placement"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Stroke Pressure"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Stroke preview"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Stroke previews"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Stroke Size"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Stroke style"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/shell/tools.ts
+msgid "Stroke Width"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Stroke…"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+#: app/src/TypePanels.tsx
+msgid "Strong"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/shell/tools.ts
+msgid "Structure"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/labels.ts
+#: app/src/GlyphsPanel.tsx
+#: app/src/LayerStyleDialog.tsx
+#: app/src/MissingFonts.tsx
+#: app/src/shell/tools.ts
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Style"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+#: app/src/PresetPanels.tsx
+#: app/src/TypePanels.tsx
+msgid "Style name"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+#: app/src/PresetPanels.tsx
+msgid "Styles"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Stylistic Alternates"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Stylization"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/schema.ts
+msgid "Stylize"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Stylus Pressure"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Stylus Wheel"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Subscript"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "Subset"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/i18n/choices.ts
+msgid "Subtract"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Subtract from channel"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Subtract from Selection"
+msgstr ""
+
+#: app/src/shell/shapetools.ts
+msgid "Subtract Front Shape"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Suffix"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Sumi-e"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Summation"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Superscript"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Support photobaer"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Surface Blur"
+msgstr ""
+
+#: app/src/shell/ToolBar.tsx
+msgid "Swap"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+msgid "Swap colors"
+msgstr ""
+
+#: app/src/shell/ColorPanel.tsx
+msgid "Swap colors (X)"
+msgstr ""
+
+#: app/src/shell/ToolBar.tsx
+msgid "Swap foreground and background"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Swash"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/shell/SwatchesPanel.tsx
+msgid "Swatches"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Symmetric Distortion"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Table"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Taper"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Target"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Technique"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Temperature"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/Dialogs.tsx
+msgid "Terms"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Tetrahedral"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Text color"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Text Color"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Text in Shape"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Text layers: {layerCount}"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Text on Path"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Text Replacement"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+#: app/src/layerStyle.ts
+#: app/src/shell/BrushPanels.tsx
+msgid "Texture"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Texture Coverage"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Texture Each Tip"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Texturizer"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Thank you for thinking about supporting it. It means a lot!"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "That glyph has no code point — it is an OpenType alternate, reachable only through a feature."
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Thaw Mask"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "The {askDocKind} document “{askFile}” does not have an embedded color profile."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "The {kind} \"{id}\" is unavailable."
+msgstr ""
+
+#: app/src/ActionsPanel.tsx
+msgid "The action has no enabled steps."
+msgstr ""
+
+#: app/src/app/paintTool.ts
+msgid "The clone source is in another document. Alt-click to set a new source."
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "The document “{askFile}” has an embedded color profile that does not match the current {askSpace} working space."
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "The document has no layer to bind."
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "The file location is chosen next."
+msgstr ""
+
+#: app/src/filters/FilterDialog.tsx
+msgid "The filter stack is empty."
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "The image extends past the margins."
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "The measured line is already straight."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "The new tool preset id is invalid or already exists."
+msgstr ""
+
+#. placeholder {0}: file.name
+#: app/src/PdfDialog.tsx
+msgid "The password is wrong. {0} is protected."
+msgstr ""
+
+#: app/src/PresetPanels.tsx
+msgid "The pattern library is not available."
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "The PDF has no images."
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "The photobaer name and logo are not covered by the code license."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "The saved tool preset library is not valid JSON."
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "These fonts are missing in this text layer:"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Thin"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "This browser also has WebMCP enabled, so in-browser agents can use the same tools on this tab."
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "This filter has no options."
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "This Layer"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+msgid "Threshold"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Tight Curl"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Tight Curl Long"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Tight Long"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Tight Medium"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Tight Short"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Tile"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Tile All Horizontally"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Tile All Vertically"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Tile Size"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Tiles"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Tilt X"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Tilt Y"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Tilt-Shift"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Tint"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Tiny Lens"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Tip"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Tip thumbnails"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Titling Alternates"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
+msgstr ""
+
+#: app/src/shell/ToolBar.tsx
+msgid "Toggle quick mask"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Tolerance"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Tool preset brush identity is invalid."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Tool preset colors are invalid."
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "Tool preset file could not be read: {reason}"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Tool preset identity is invalid."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Tool preset ids and names must be unique."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/ToolPresetsPanel.tsx
+msgid "Tool preset import is too large."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Tool preset library is invalid."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Tool preset library is limited to {max} entries."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Tool preset name cannot be empty."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Tool preset name must be {max} characters or fewer."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Tool preset options are invalid."
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Tool preset tool is invalid."
+msgstr ""
+
+#: app/src/ToolPresetsPanel.tsx
+msgid "Tool Presets"
+msgstr ""
+
+#: app/src/shell/ToolBar.tsx
+msgid "Tools"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/FileDialogs.tsx
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Top"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Top Edges"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Top left"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Top Left"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Top Left Pixel Color"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Top right"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Top Right"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Torn Edges"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Trace Contour"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Tracking"
+msgstr ""
+
+#: app/src/shell/BrushPanels.tsx
+msgid "Transfer"
+msgstr ""
+
+#: app/src/App.tsx
+#: app/src/app/menus.ts
+msgid "Transform"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Transform mode"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Transform On Drop"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Transform options"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Transform Selection"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/ImageCalcDialog.tsx
+#: app/src/ModeDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Transparency"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Transparency Shapes Layer"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/choices.ts
+#: app/src/shell/tools.ts
+msgid "Transparent"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Transparent Pixels"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Tree"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/i18n/choices.ts
+#: app/src/shell/tools.ts
+msgid "Triangle"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Trilinear"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Trim"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Trim Away"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Trim to layer pixels"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Trim…"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Trimming…"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Tritone"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Tsume %"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Turbulent"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Turn the layer filter on or off"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Twirl"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Twirl Clockwise"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Twirl Counter-Clockwise"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Twist"
+msgstr ""
+
+#: app/src/app/vectorCommands.ts
+#: app/src/filters/labels.ts
+#: app/src/ModeDialog.tsx
+#: app/src/shell/GradientEditor.tsx
+#: app/src/shell/tools.ts
+#: app/src/TypePanels.tsx
+msgid "Type"
+msgstr ""
+
+#: app/src/App.tsx
+msgctxt "menu"
+msgid "Type"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Type layers"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Type Options"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Unaltered Image"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Undefined Areas"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Underline"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Underlying Layer"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Underpainting"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Undo"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Undo (Ctrl+Z)"
+msgstr ""
+
+#. placeholder {0}: doc.undoLabel
+#: app/src/app/menus.ts
+msgid "Undo {0}"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Ungroup layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Ungroup Layers"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/ModeDialog.tsx
+msgid "Uniform"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Unit"
+msgstr ""
+
+#: app/src/shell/shapetools.ts
+msgid "Unite Shapes"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Unknown tool option: {key}"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+msgid "Unknown tool preset."
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+msgid "Unlink corner radii"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+msgid "Unlink dimensions"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Unlock"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Unlock Guides"
+msgstr ""
+
+#: app/src/GlyphsPanel.tsx
+msgid "unmapped"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Unresolved fonts keep their current rendering until the text is edited. Original font names are kept; choose permanent replacements now or later from the Type menu."
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Unsharp Mask"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Untagged"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Untagged (treated as {assumed})"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Up"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Update All Modified Content"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Update All Text Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Update Modified Content"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/app/typeMenu.ts
+msgid "Updating…"
+msgstr ""
+
+#: app/src/MissingFonts.tsx
+msgid "Upload font…"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Upper"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Upper Arc"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Upper Shell"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Uppercase"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Use"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Use Black Point Compensation"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Use Custom Color For Flames"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Use Dither (8-bit/channel images)"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Use Global Light"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Use margins"
+msgstr ""
+
+#: app/src/ScriptDialogs.tsx
+msgid "Use Open Images"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Use the embedded profile (instead of the working space)"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Use the first column for data set names"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Use with AI agents"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Use with AI Agents…"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "UTF-8 text, comma, semicolon or tab separated; the first row names the variables."
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "V distortion"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "V skew"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Vanishing Point"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Vanishing Point tools"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Vanishing Point…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Variable Data Sets…"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/VariablesDialogs.tsx
+msgid "Variables"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Variables without a column: {missing}."
+msgstr ""
+
+#: app/src/app/helpers.ts
+#: app/src/filters/labels.ts
+msgid "Variance"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/app/vectorCommands.ts
+#: app/src/PropertiesPanel.tsx
+msgid "Vector Mask"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "Vector Mask Hides Effects"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/app/typeMenu.ts
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Vertical"
+msgstr ""
+
+#: app/src/app/helpers.ts
+msgid "Vertical Centers"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Vertical Distortion %"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Vertical Only"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Vertical Perspective"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Vertical Scale"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Vertical Scale %"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Vertical Type"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Vertical Type Mask"
+msgstr ""
+
+#: app/src/adjustments.ts
+#: app/src/filters/labels.ts
+#: app/src/shell/tools.ts
+msgid "Vibrance"
+msgstr ""
+
+#: app/src/filters/schema.ts
+msgid "Video"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "View"
+msgstr ""
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "View Options"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Vignette"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Vignette Amount"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Vignette Midpoint"
+msgstr ""
+
+#: app/src/VariablesDialogs.tsx
+msgid "Visibility"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "Visible"
+msgstr ""
+
+#: app/src/ExportDialogs.tsx
+msgid "Visible layers only"
+msgstr ""
+
+#: app/src/i18n/choices.ts
+msgid "Vivid Light"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+#: app/src/ScriptDialogs.tsx
+#: app/src/shell/tools.ts
+msgid "W"
+msgstr ""
+
+#: app/src/CloneSourcePanel.tsx
+#: app/src/shell/TransformBar.tsx
+msgctxt "width"
+msgid "W"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Walnut"
+msgstr ""
+
+#: app/src/shell/DeformSession.tsx
+#: app/src/shell/TransformBar.tsx
+msgid "Warp"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Warp grid"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Warp orientation"
+msgstr ""
+
+#: app/src/shell/TransformBar.tsx
+msgid "Warp style"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Warp Text"
+msgstr ""
+
+#: app/src/app/typeMenu.ts
+msgid "Warp Text…"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Water Paper"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Watercolor"
+msgstr ""
+
+#: app/src/filters/labels.ts
+#: app/src/shell/TransformBar.tsx
+#: app/src/TypePanels.tsx
+msgid "Wave"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Wavelength Max"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Wavelength Min"
+msgstr ""
+
+#: app/src/ModeDialog.tsx
+msgid "Web"
+msgstr ""
+
+#: app/src/shell/tools.ts
+msgid "Wet"
+msgstr ""
+
+#: app/src/app/toolPresets.ts
+#: app/src/shell/BrushPanels.tsx
+#: app/src/shell/tools.ts
+msgid "Wet Edges"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "What's new"
+msgstr ""
+
+#: app/src/AnalysisDialogs.tsx
+#: app/src/app/Dialogs.tsx
+#: app/src/app/helpers.ts
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/i18n/choices.ts
+#: app/src/ModeDialog.tsx
+msgid "White"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "white inner"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "White Intensity"
+msgstr ""
+
+#: app/src/LayerStyleDialog.tsx
+msgid "white outer"
+msgstr ""
+
+#: app/src/LevelsCurvesBody.tsx
+msgid "White point"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "Whites"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Wide Blurry"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Wide Sharp"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+#: app/src/filters/labels.ts
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/tools.ts
+msgid "Width"
+msgstr ""
+
+#: app/src/SvgDialog.tsx
+msgid "Width (px)"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Willow"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/labels.ts
+msgid "Wind"
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Window"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Windows"
+msgstr ""
+
+#: app/src/shell/typecommands.ts
+msgid "Windows LCD"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Word Spacing Desired %"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Word Spacing Maximum %"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Word Spacing Minimum %"
+msgstr ""
+
+#: app/src/TypePanels.tsx
+msgid "Words Longer Than"
+msgstr ""
+
+#: app/src/PathsPanel.tsx
+msgid "Work Path"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Working {workingKind}: {working}"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Working Black Plate"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Working CMY Plate"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Working CMYK"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Working Cyan Plate"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Working Magenta Plate"
+msgstr ""
+
+#: app/src/ColorDialog.tsx
+msgid "Working Spaces"
+msgstr ""
+
+#: app/src/app/proof.ts
+msgid "Working Yellow Plate"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/WorkspaceDialog.tsx
+msgid "Workspace"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Wrap Around"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/TransformBar.tsx
+msgid "X"
+msgstr ""
+
+#: app/src/app/measureTools.tsx
+msgid "X: {rx} Y: {ry} W: {rw} H: {rh} A: {ra} L1: {rl}"
+msgstr ""
+
+#: app/src/FileDialogs.tsx
+msgid "XMP packet"
+msgstr ""
+
+#: app/src/PropertiesPanel.tsx
+#: app/src/shell/TransformBar.tsx
+msgid "Y"
+msgstr ""
+
+#: app/src/ChannelsPanel.tsx
+msgid "Yellow"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Yellows"
+msgstr ""
+
+#: app/src/filters/labels.ts
+msgid "ZigZag"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/NavigatorPanel.tsx
+#: app/src/shell/tools.ts
+msgid "Zoom"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Zoom in"
+msgstr ""
+
+#: app/src/NavigatorPanel.tsx
+msgid "Zoom In"
+msgstr ""
+
+#: app/src/app/menus.ts
+#: app/src/filters/LiquifyDialog.tsx
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Zoom out"
+msgstr ""
+
+#: app/src/NavigatorPanel.tsx
+msgid "Zoom Out"
+msgstr ""
+
+#: app/src/NavigatorPanel.tsx
+msgid "Zoom percent"
+msgstr ""
+
+#: app/src/filters/VanishingPointDialog.tsx
+msgid "Zoom to 100%"
+msgstr ""
+
+#: app/src/filters/GalleryStack.tsx
+msgid "Zoom50to300"
 msgstr ""

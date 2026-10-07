@@ -1,5 +1,7 @@
 // Window > Navigator: a thumbnail of the flattened document with the visible area outlined in red.
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { client } from './client.ts';
 import type { DocInfo } from './engine.worker.ts';
@@ -19,12 +21,12 @@ export function NavigatorPanel({ doc, viewer, view }: { doc: DocInfo; viewer: Vi
   // Debounced: a stroke or drag bumps the version many times a second.
   useEffect(() => {
     let alive = true;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       client.call('navigatorThumb', SIZE).then(r => {
         if (alive && r.docId === doc.docId) setThumb(new ImageData(new Uint8ClampedArray(r.data), r.w, r.h));
       }).catch(err => console.warn('navigator thumbnail unavailable', err));
     }, 300);
-    return () => { alive = false; clearTimeout(t); };
+    return () => { alive = false; clearTimeout(timer); };
   }, [doc.docId, doc.version]);
 
   useEffect(() => {
@@ -59,16 +61,16 @@ export function NavigatorPanel({ doc, viewer, view }: { doc: DocInfo; viewer: Vi
 
   return (
     <div className="adjustments-panel navigator-panel">
-      <div className="panel-tabs"><span className="panel-tab">Navigator</span></div>
-      <canvas ref={canvas} role="img" aria-label="Navigator" width={w} height={h} className="navigator-canvas" style={{ aspectRatio: `${w} / ${h}` }}
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Navigator</Trans></span></div>
+      <canvas ref={canvas} role="img" aria-label={t`Navigator`} width={w} height={h} className="navigator-canvas" style={{ aspectRatio: `${w} / ${h}` }}
         onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); centerAt(e); }}
         onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) centerAt(e); }}
         onPointerUp={e => e.currentTarget.releasePointerCapture(e.pointerId)} />
       <div className="navigator-zoom">
-        <button type="button" aria-label="Zoom Out" title="Zoom Out" onClick={() => viewer?.zoomBy(0.5)}><ZoomOut {...ICON} /></button>
-        <input type="range" aria-label="Zoom" min={0} max={SLIDER_MAX} value={zoomToSlider(clampZoom(view.zoom))} onChange={e => setZoom(sliderToZoom(Number(e.currentTarget.value)))} />
-        <button type="button" aria-label="Zoom In" title="Zoom In" onClick={() => viewer?.zoomBy(2)}><ZoomIn {...ICON} /></button>
-        <input type="text" inputMode="decimal" aria-label="Zoom percent" className="navigator-pct" value={pct ?? shown}
+        <button type="button" aria-label={t`Zoom Out`} title={t`Zoom Out`} onClick={() => viewer?.zoomBy(0.5)}><ZoomOut {...ICON} /></button>
+        <input type="range" aria-label={t`Zoom`} min={0} max={SLIDER_MAX} value={zoomToSlider(clampZoom(view.zoom))} onChange={e => setZoom(sliderToZoom(Number(e.currentTarget.value)))} />
+        <button type="button" aria-label={t`Zoom In`} title={t`Zoom In`} onClick={() => viewer?.zoomBy(2)}><ZoomIn {...ICON} /></button>
+        <input type="text" inputMode="decimal" aria-label={t`Zoom percent`} className="navigator-pct" value={pct ?? shown}
           onChange={e => setPct(e.currentTarget.value)} onBlur={() => setPct(null)}
           onKeyDown={e => { if (e.key === 'Enter') applyPct(); else if (e.key === 'Escape') setPct(null); }} />
         <span>%</span>

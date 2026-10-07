@@ -1,6 +1,9 @@
 // The filter registry schema from the engine (docs/M5.md section 1): menu entries, dialog fields, defaults.
 import type { FieldSpec } from '../adjustments.ts';
 import type { ParamValue } from './lastFilter.ts';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { engineLabel } from './labels.ts';
 
 export interface FilterParam {
   key: string; label: string;
@@ -17,9 +20,9 @@ export interface FilterSpec {
 }
 
 // Filter menu submenus in reference order; registry groups not listed here (adjust) stay out of the menu.
-export const GROUPS: [string, string][] = [
-  ['blur', 'Blur'], ['blurGallery', 'Blur Gallery'], ['distort', 'Distort'], ['noise', 'Noise'], ['pixelate', 'Pixelate'],
-  ['render', 'Render'], ['sharpen', 'Sharpen'], ['stylize', 'Stylize'], ['video', 'Video'], ['other', 'Other'],
+export const GROUPS: [string, MessageDescriptor][] = [
+  ['blur', msg`Blur`], ['blurGallery', msg`Blur Gallery`], ['distort', msg`Distort`], ['noise', msg`Noise`], ['pixelate', msg`Pixelate`],
+  ['render', msg`Render`], ['sharpen', msg`Sharpen`], ['stylize', msg`Stylize`], ['video', msg`Video`], ['other', msg`Other`],
 ];
 
 let specs: FilterSpec[] = [];
@@ -31,7 +34,9 @@ export const specOf = (id: string) => specs.find(s => s.id === id);
 export const visibleParams = (s: FilterSpec) => s.params.filter(p => p.kind !== 'blob' && p.kind !== 'text' && p.kind !== 'seed' && p.kind !== 'color');
 // A filter missing from the 32-bit list is disabled in 32-bit documents.
 export const filterOff = (s: FilterSpec, depth?: number) => depth === 32 && !s.hdr;
-export const menuLabel = (s: FilterSpec) => (visibleParams(s).length ? `${s.label}…` : s.label);
+// Filter menu item: English id (shortcuts, WebMCP paths) and the label in the UI language.
+export const menuId = (s: FilterSpec) => `${s.label}${visibleParams(s).length ? '…' : ''}`;
+export const menuLabel = (s: FilterSpec) => `${engineLabel(s.label)}${visibleParams(s).length ? '…' : ''}`;
 
 // Color params (`foreground`, `background`) take the current colors as #rrggbb.
 let colors = () => ({ foreground: '#000000', background: '#ffffff' });

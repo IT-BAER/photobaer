@@ -12,7 +12,7 @@ import { FakeDir, fs } from './fake-opfs.ts';
 import { engineMesh, identityMesh } from './transform/warp.ts';
 import { croppedSize } from './crop/geometry.ts';
 import { decodeExr, toLinear } from './formats.ts';
-import { ADJUSTMENT_KINDS, DESTRUCTIVE_KINDS, DESTRUCTIVE_LABEL, MENU_LABEL, defaultAdjustment, defaultDestructive } from './adjustments.ts';
+import { ADJUSTMENT_KINDS, DESTRUCTIVE_KINDS, DESTRUCTIVE_LABEL, MENU_EN, defaultAdjustment, defaultDestructive } from './adjustments.ts';
 import { defaultBlending, defaultEffect, emptyStyle, type LayerStyle } from './layerStyle.ts';
 import type { LayerNode } from './worker/types.ts';
 
@@ -288,11 +288,11 @@ test('every kind\'s default params create an adjustment layer under its menu lab
   await call('init');
   await call('newDoc', 8, 8, 8, null);
   for (const kind of ADJUSTMENT_KINDS) {
-    const r = await call('newAdjustmentLayer', 1, defaultAdjustment(kind), MENU_LABEL[kind]);
+    const r = await call('newAdjustmentLayer', 1, defaultAdjustment(kind), MENU_EN[kind]);
     assert.equal(r.error, undefined, `${kind}: ${r.error}`);
     const info = r.result as { created: number; layers: { id: number; name: string; adjustment?: { kind: string } }[] };
     const node = info.layers.find(l => l.id === info.created)!;
-    assert.equal(node.name, MENU_LABEL[kind]);
+    assert.equal(node.name, MENU_EN[kind]);
     assert.equal(node.adjustment?.kind, kind);
   }
 });

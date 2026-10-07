@@ -1,0 +1,2389 @@
+{
+ "menus": {
+  "File": [
+   [
+    "New…",
+    "New…",
+    "Alt+Ctrl+N"
+   ],
+   [
+    "Open…",
+    "Open…",
+    "Ctrl+O"
+   ],
+   [
+    "Open Recent",
+    "Open Recent",
+    "›",
+    [
+     [
+      "Clear Recent File List",
+      "Clear Recent File List"
+     ]
+    ]
+   ],
+   [
+    "Place Embedded…",
+    "Place Embedded…"
+   ],
+   [
+    "Place Linked…",
+    "Place Linked…"
+   ],
+   [
+    "Package…",
+    "Package…"
+   ],
+   [
+    "Import",
+    "Import",
+    "›",
+    [
+     [
+      "Variable Data Sets…",
+      "Variable Data Sets…"
+     ]
+    ]
+   ],
+   [
+    "Save",
+    "Save",
+    "Ctrl+S"
+   ],
+   [
+    "Save As…",
+    "Save As…",
+    "Shift+Ctrl+S"
+   ],
+   [
+    "Save a Copy…",
+    "Save a Copy…",
+    "Alt+Ctrl+S"
+   ],
+   [
+    "Revert",
+    "Revert",
+    "F12"
+   ],
+   [
+    "Export",
+    "Export",
+    "›",
+    [
+     [
+      "Quick Export as PNG",
+      "Quick Export as PNG"
+     ],
+     [
+      "Export As…",
+      "Export As…",
+      "Alt+Shift+Ctrl+W"
+     ],
+     [
+      "Export Preferences…",
+      "Export Preferences…"
+     ],
+     [
+      "Save for Web (Legacy)…",
+      "Save for Web (Legacy)…",
+      "Alt+Shift+Ctrl+S"
+     ],
+     [
+      "Artboards to Files…",
+      "Artboards to Files…"
+     ],
+     [
+      "Artboards to PDF…",
+      "Artboards to PDF…"
+     ],
+     [
+      "Layers to Files…",
+      "Layers to Files…"
+     ],
+     [
+      "Layer Comps to Files (PNG)…",
+      "Layer Comps to Files (PNG)…"
+     ],
+     [
+      "Layer Comps to Files (JPEG)…",
+      "Layer Comps to Files (JPEG)…"
+     ],
+     [
+      "Layer Comps to Files (WebP)…",
+      "Layer Comps to Files (WebP)…"
+     ],
+     [
+      "Data Sets as Files…",
+      "Data Sets as Files…"
+     ],
+     [
+      "Paths to SVG…",
+      "Paths to SVG…"
+     ]
+    ]
+   ],
+   [
+    "Generate",
+    "Generate",
+    "›",
+    [
+     [
+      "Image Assets",
+      "✓ Image Assets"
+     ]
+    ]
+   ],
+   [
+    "Automate",
+    "Automate",
+    "›",
+    [
+     [
+      "Batch…",
+      "Batch…"
+     ],
+     [
+      "Photomerge…",
+      "Photomerge…"
+     ],
+     [
+      "Merge to HDR Pro…",
+      "Merge to HDR Pro…"
+     ]
+    ]
+   ],
+   [
+    "Scripts",
+    "Scripts",
+    "›",
+    [
+     [
+      "Image Processor…",
+      "Image Processor…"
+     ],
+     [
+      "Delete All Empty Layers",
+      "Delete All Empty Layers"
+     ],
+     [
+      "Flatten All Layer Effects",
+      "Flatten All Layer Effects"
+     ],
+     [
+      "Flatten All Masks",
+      "Flatten All Masks"
+     ],
+     [
+      "Load Files into Stack…",
+      "Load Files into Stack…"
+     ],
+     [
+      "Stop Script",
+      "Stop Script"
+     ]
+    ]
+   ],
+   [
+    "File Info…",
+    "File Info…",
+    "Alt+Shift+Ctrl+I"
+   ],
+   [
+    "Print…",
+    "Print…",
+    "Ctrl+P"
+   ],
+   [
+    "Print One Copy",
+    "Print One Copy",
+    "Alt+Shift+Ctrl+P"
+   ],
+   [
+    "Close",
+    "Close"
+   ],
+   [
+    "Close All",
+    "Close All"
+   ],
+   [
+    "Close Others",
+    "Close Others"
+   ]
+  ],
+  "Edit": [
+   [
+    "Undo ",
+    "Undo ",
+    "Ctrl+Z"
+   ],
+   [
+    "Redo ",
+    "Redo ",
+    "Shift+Ctrl+Z"
+   ],
+   [
+    "Fade…",
+    "Fade…",
+    "Shift+Ctrl+F"
+   ],
+   [
+    "Cut",
+    "Cut",
+    "Ctrl+X"
+   ],
+   [
+    "Copy",
+    "Copy",
+    "Ctrl+C"
+   ],
+   [
+    "Copy Merged",
+    "Copy Merged",
+    "Shift+Ctrl+C"
+   ],
+   [
+    "Paste",
+    "Paste",
+    "Ctrl+V"
+   ],
+   [
+    "Paste Special",
+    "Paste Special",
+    "›",
+    [
+     [
+      "Paste in Place",
+      "Paste in Place",
+      "Shift+Ctrl+V"
+     ],
+     [
+      "Paste Into",
+      "Paste Into",
+      "Alt+Shift+Ctrl+V"
+     ]
+    ]
+   ],
+   [
+    "Fill…",
+    "Fill…",
+    "Shift+F5"
+   ],
+   [
+    "Fill with Foreground Color",
+    "Fill with Foreground Color",
+    "Alt+Backspace"
+   ],
+   [
+    "Fill with Background Color",
+    "Fill with Background Color",
+    "Ctrl+Backspace"
+   ],
+   [
+    "Stroke…",
+    "Stroke…"
+   ],
+   [
+    "Content-Aware Fill…",
+    "Content-Aware Fill…"
+   ],
+   [
+    "Delete and Fill Selection",
+    "Delete and Fill Selection"
+   ],
+   [
+    "Clear",
+    "Clear",
+    "Delete"
+   ],
+   [
+    "Content-Aware Scale…",
+    "Content-Aware Scale…",
+    "Alt+Shift+Ctrl+C"
+   ],
+   [
+    "Puppet Warp",
+    "Puppet Warp"
+   ],
+   [
+    "Perspective Warp",
+    "Perspective Warp"
+   ],
+   [
+    "Free Transform",
+    "Free Transform",
+    "Ctrl+T"
+   ],
+   [
+    "Transform",
+    "Transform",
+    "›",
+    [
+     [
+      "Again",
+      "Again",
+      "Shift+Ctrl+T"
+     ],
+     [
+      "Scale",
+      "Scale"
+     ],
+     [
+      "Rotate",
+      "Rotate"
+     ],
+     [
+      "Skew",
+      "Skew"
+     ],
+     [
+      "Distort",
+      "Distort"
+     ],
+     [
+      "Perspective",
+      "Perspective"
+     ],
+     [
+      "Warp",
+      "Warp"
+     ],
+     [
+      "Split Warp Horizontally",
+      "Split Warp Horizontally"
+     ],
+     [
+      "Split Warp Vertically",
+      "Split Warp Vertically"
+     ],
+     [
+      "Split Warp Crosswise",
+      "Split Warp Crosswise"
+     ],
+     [
+      "Remove Warp Split",
+      "Remove Warp Split"
+     ],
+     [
+      "Rotate 180°",
+      "Rotate 180°"
+     ],
+     [
+      "Rotate 90° Clockwise",
+      "Rotate 90° Clockwise"
+     ],
+     [
+      "Rotate 90° Counter Clockwise",
+      "Rotate 90° Counter Clockwise"
+     ],
+     [
+      "Flip Horizontal",
+      "Flip Horizontal"
+     ],
+     [
+      "Flip Vertical",
+      "Flip Vertical"
+     ]
+    ]
+   ],
+   [
+    "Auto-Align Layers…",
+    "Auto-Align Layers…"
+   ],
+   [
+    "Auto-Blend Layers…",
+    "Auto-Blend Layers…"
+   ],
+   [
+    "Color Settings…",
+    "Color Settings…",
+    "Shift+Ctrl+K"
+   ],
+   [
+    "Assign Profile…",
+    "Assign Profile…"
+   ],
+   [
+    "Convert to Profile…",
+    "Convert to Profile…"
+   ],
+   [
+    "Search…",
+    "Search…",
+    "Ctrl+F"
+   ],
+   [
+    "Preferences",
+    "Preferences",
+    "›",
+    [
+     [
+      "Cursors…",
+      "Cursors…"
+     ]
+    ]
+   ]
+  ],
+  "Layer": [
+   [
+    "New Layer",
+    "New Layer"
+   ],
+   [
+    "New Group",
+    "New Group"
+   ],
+   [
+    "Layer via Copy",
+    "Layer via Copy",
+    "Ctrl+J"
+   ],
+   [
+    "Layer via Cut",
+    "Layer via Cut",
+    "Shift+Ctrl+J"
+   ],
+   [
+    "Duplicate Layer",
+    "Duplicate Layer"
+   ],
+   [
+    "Rename Layer",
+    "Rename Layer"
+   ],
+   [
+    "Quick Export as PNG",
+    "Quick Export as PNG",
+    "Shift+Ctrl+'"
+   ],
+   [
+    "Export As…",
+    "Export As…",
+    "Alt+Shift+Ctrl+'"
+   ],
+   [
+    "Delete",
+    "Delete",
+    "›",
+    [
+     [
+      "Layer",
+      "Layer"
+     ],
+     [
+      "Hidden Layers",
+      "Hidden Layers"
+     ]
+    ]
+   ],
+   [
+    "Group Layers",
+    "Group Layers",
+    "Ctrl+G"
+   ],
+   [
+    "Ungroup Layers",
+    "Ungroup Layers",
+    "Shift+Ctrl+G"
+   ],
+   [
+    "Lock All Layers in Group",
+    "Lock All Layers in Group"
+   ],
+   [
+    "Arrange",
+    "Arrange",
+    "›",
+    [
+     [
+      "Bring to Front",
+      "Bring to Front",
+      "Shift+Ctrl+]"
+     ],
+     [
+      "Bring Forward",
+      "Bring Forward",
+      "Ctrl+]"
+     ],
+     [
+      "Send Backward",
+      "Send Backward",
+      "Ctrl+["
+     ],
+     [
+      "Send to Back",
+      "Send to Back",
+      "Shift+Ctrl+["
+     ]
+    ]
+   ],
+   [
+    "Align",
+    "Align",
+    "›",
+    [
+     [
+      "Top Edges",
+      "Top Edges"
+     ],
+     [
+      "Vertical Centers",
+      "Vertical Centers"
+     ],
+     [
+      "Bottom Edges",
+      "Bottom Edges"
+     ],
+     [
+      "Left Edges",
+      "Left Edges"
+     ],
+     [
+      "Horizontal Centers",
+      "Horizontal Centers"
+     ],
+     [
+      "Right Edges",
+      "Right Edges"
+     ]
+    ]
+   ],
+   [
+    "Distribute",
+    "Distribute",
+    "›",
+    [
+     [
+      "Top Edges",
+      "Top Edges"
+     ],
+     [
+      "Vertical Centers",
+      "Vertical Centers"
+     ],
+     [
+      "Bottom Edges",
+      "Bottom Edges"
+     ],
+     [
+      "Left Edges",
+      "Left Edges"
+     ],
+     [
+      "Horizontal Centers",
+      "Horizontal Centers"
+     ],
+     [
+      "Right Edges",
+      "Right Edges"
+     ]
+    ]
+   ],
+   [
+    "Merge Down",
+    "Merge Down",
+    "Ctrl+E"
+   ],
+   [
+    "Merge Visible",
+    "Merge Visible",
+    "Shift+Ctrl+E"
+   ],
+   [
+    "Stamp Visible",
+    "Stamp Visible",
+    "Alt+Shift+Ctrl+E"
+   ],
+   [
+    "Flatten Image",
+    "Flatten Image"
+   ],
+   [
+    "Release Clipping Mask",
+    "Release Clipping Mask",
+    "Alt+Ctrl+G"
+   ],
+   [
+    "Add Layer Mask",
+    "Add Layer Mask"
+   ],
+   [
+    "Delete Layer Mask",
+    "Delete Layer Mask"
+   ],
+   [
+    "Disable Layer Mask",
+    "Disable Layer Mask"
+   ],
+   [
+    "Vector Mask",
+    "Vector Mask",
+    "›",
+    [
+     [
+      "Reveal All",
+      "Reveal All"
+     ],
+     [
+      "Hide All",
+      "Hide All"
+     ],
+     [
+      "Current Path",
+      "Current Path"
+     ],
+     [
+      "Delete",
+      "Delete"
+     ],
+     [
+      "Enable Vector Mask",
+      "✓ Enable Vector Mask"
+     ],
+     [
+      "Link Vector Mask",
+      "✓ Link Vector Mask"
+     ]
+    ]
+   ],
+   [
+    "Combine Shapes",
+    "Combine Shapes",
+    "›",
+    [
+     [
+      "Unite Shapes",
+      "Unite Shapes"
+     ],
+     [
+      "Subtract Front Shape",
+      "Subtract Front Shape"
+     ],
+     [
+      "Intersect Shape Areas",
+      "Intersect Shape Areas"
+     ],
+     [
+      "Exclude Overlapping Shapes",
+      "Exclude Overlapping Shapes"
+     ],
+     [
+      "Merge Shape Components",
+      "Merge Shape Components"
+     ]
+    ]
+   ],
+   [
+    "New Artboard",
+    "New Artboard",
+    "›",
+    [
+     [
+      "Artboard…",
+      "Artboard…"
+     ],
+     [
+      "Artboard from Group…",
+      "Artboard from Group…"
+     ],
+     [
+      "Artboard from Layers…",
+      "Artboard from Layers…"
+     ]
+    ]
+   ],
+   [
+    "New Fill Layer",
+    "New Fill Layer",
+    "›",
+    [
+     [
+      "Solid Color…",
+      "Solid Color…"
+     ],
+     [
+      "Gradient…",
+      "Gradient…"
+     ],
+     [
+      "Pattern…",
+      "Pattern…"
+     ]
+    ]
+   ],
+   [
+    "New Adjustment Layer",
+    "New Adjustment Layer",
+    "›",
+    [
+     [
+      "Brightness/Contrast",
+      "Brightness/Contrast"
+     ],
+     [
+      "Levels",
+      "Levels"
+     ],
+     [
+      "Curves",
+      "Curves"
+     ],
+     [
+      "Exposure",
+      "Exposure"
+     ],
+     [
+      "Vibrance",
+      "Vibrance"
+     ],
+     [
+      "Hue/Saturation",
+      "Hue/Saturation"
+     ],
+     [
+      "Color Balance",
+      "Color Balance"
+     ],
+     [
+      "Black & White",
+      "Black & White"
+     ],
+     [
+      "Photo Filter",
+      "Photo Filter"
+     ],
+     [
+      "Channel Mixer",
+      "Channel Mixer"
+     ],
+     [
+      "Color Lookup",
+      "Color Lookup"
+     ],
+     [
+      "Invert",
+      "Invert"
+     ],
+     [
+      "Posterize",
+      "Posterize"
+     ],
+     [
+      "Threshold",
+      "Threshold"
+     ],
+     [
+      "Gradient Map",
+      "Gradient Map"
+     ],
+     [
+      "Selective Color",
+      "Selective Color"
+     ]
+    ]
+   ],
+   [
+    "Layer Content Options…",
+    "Layer Content Options…"
+   ],
+   [
+    "Smart Objects",
+    "Smart Objects",
+    "›",
+    [
+     [
+      "Convert to Smart Object",
+      "Convert to Smart Object"
+     ],
+     [
+      "New Smart Object via Copy",
+      "New Smart Object via Copy"
+     ],
+     [
+      "Edit Contents",
+      "Edit Contents"
+     ],
+     [
+      "Replace Contents…",
+      "Replace Contents…"
+     ],
+     [
+      "Export Contents…",
+      "Export Contents…"
+     ],
+     [
+      "Convert to Linked…",
+      "Convert to Linked…"
+     ],
+     [
+      "Convert to Embedded",
+      "Convert to Embedded"
+     ],
+     [
+      "Relink to File…",
+      "Relink to File…"
+     ],
+     [
+      "Update Modified Content",
+      "Update Modified Content"
+     ],
+     [
+      "Update All Modified Content",
+      "Update All Modified Content"
+     ],
+     [
+      "Stack Mode",
+      "Stack Mode",
+      "›",
+      [
+       [
+        "None",
+        "None"
+       ],
+       [
+        "Entropy",
+        "Entropy"
+       ],
+       [
+        "Kurtosis",
+        "Kurtosis"
+       ],
+       [
+        "Maximum",
+        "Maximum"
+       ],
+       [
+        "Mean",
+        "Mean"
+       ],
+       [
+        "Median",
+        "Median"
+       ],
+       [
+        "Minimum",
+        "Minimum"
+       ],
+       [
+        "Range",
+        "Range"
+       ],
+       [
+        "Skewness",
+        "Skewness"
+       ],
+       [
+        "Standard Deviation",
+        "Standard Deviation"
+       ],
+       [
+        "Summation",
+        "Summation"
+       ],
+       [
+        "Variance",
+        "Variance"
+       ]
+      ]
+     ],
+     [
+      "Perspective Warp",
+      "Perspective Warp"
+     ],
+     [
+      "Puppet Warp",
+      "Puppet Warp"
+     ],
+     [
+      "Rasterize",
+      "Rasterize"
+     ]
+    ]
+   ],
+   [
+    "Smart Filter",
+    "Smart Filter",
+    "›",
+    [
+     [
+      null,
+      null
+     ],
+     [
+      "Delete Filter Mask",
+      "Delete Filter Mask"
+     ],
+     [
+      null,
+      null
+     ],
+     [
+      "Blending Options…",
+      "Blending Options…"
+     ],
+     [
+      "Clear Smart Filters",
+      "Clear Smart Filters"
+     ]
+    ]
+   ],
+   [
+    "Layer Style",
+    "Layer Style",
+    "›",
+    [
+     [
+      "Blending Options…",
+      "Blending Options…"
+     ],
+     [
+      "Bevel & Emboss…",
+      "Bevel & Emboss…"
+     ],
+     [
+      "Stroke…",
+      "Stroke…"
+     ],
+     [
+      "Inner Shadow…",
+      "Inner Shadow…"
+     ],
+     [
+      "Inner Glow…",
+      "Inner Glow…"
+     ],
+     [
+      "Satin…",
+      "Satin…"
+     ],
+     [
+      "Color Overlay…",
+      "Color Overlay…"
+     ],
+     [
+      "Gradient Overlay…",
+      "Gradient Overlay…"
+     ],
+     [
+      "Pattern Overlay…",
+      "Pattern Overlay…"
+     ],
+     [
+      "Outer Glow…",
+      "Outer Glow…"
+     ],
+     [
+      "Drop Shadow…",
+      "Drop Shadow…"
+     ],
+     [
+      "Copy Layer Style",
+      "Copy Layer Style"
+     ],
+     [
+      "Paste Layer Style",
+      "Paste Layer Style"
+     ],
+     [
+      "Clear Layer Style",
+      "Clear Layer Style"
+     ],
+     [
+      "Global Light…",
+      "Global Light…"
+     ],
+     [
+      "Create Layers",
+      "Create Layers"
+     ],
+     [
+      "Show All Effects",
+      "Show All Effects"
+     ],
+     [
+      "Scale Effects…",
+      "Scale Effects…"
+     ]
+    ]
+   ],
+   [
+    "Rasterize",
+    "Rasterize",
+    "›",
+    [
+     [
+      "Type",
+      "Type"
+     ],
+     [
+      "Shape",
+      "Shape"
+     ],
+     [
+      "Fill Content",
+      "Fill Content"
+     ],
+     [
+      "Vector Mask",
+      "Vector Mask"
+     ],
+     [
+      "Smart Object",
+      "Smart Object"
+     ]
+    ]
+   ]
+  ],
+  "Type": [
+   [
+    "Panels",
+    "Panels",
+    "›",
+    [
+     [
+      "Character",
+      "✓ Character"
+     ],
+     [
+      "Paragraph",
+      "✓ Paragraph"
+     ],
+     [
+      "Character Styles",
+      "✓ Character Styles"
+     ],
+     [
+      "Paragraph Styles",
+      "✓ Paragraph Styles"
+     ],
+     [
+      "Glyphs",
+      "✓ Glyphs"
+     ]
+    ]
+   ],
+   [
+    "Anti-Alias",
+    "Anti-Alias",
+    "›",
+    [
+     [
+      "None",
+      "None"
+     ],
+     [
+      "Sharp",
+      "Sharp"
+     ],
+     [
+      "Crisp",
+      "Crisp"
+     ],
+     [
+      "Strong",
+      "Strong"
+     ],
+     [
+      "Smooth",
+      "Smooth"
+     ],
+     [
+      "Windows LCD",
+      "Windows LCD"
+     ],
+     [
+      "Windows",
+      "Windows"
+     ]
+    ]
+   ],
+   [
+    "Orientation",
+    "Orientation",
+    "›",
+    [
+     [
+      "Horizontal",
+      "Horizontal"
+     ],
+     [
+      "Vertical",
+      "Vertical"
+     ]
+    ]
+   ],
+   [
+    "OpenType",
+    "OpenType",
+    "›",
+    [
+     [
+      "Standard Ligatures",
+      "✓ Standard Ligatures"
+     ],
+     [
+      "Contextual Alternates",
+      "✓ Contextual Alternates"
+     ],
+     [
+      "Discretionary Ligatures",
+      "✓ Discretionary Ligatures"
+     ],
+     [
+      "Swash",
+      "✓ Swash"
+     ],
+     [
+      "Oldstyle",
+      "✓ Oldstyle"
+     ],
+     [
+      "Stylistic Alternates",
+      "✓ Stylistic Alternates"
+     ],
+     [
+      "Titling Alternates",
+      "✓ Titling Alternates"
+     ],
+     [
+      "Ornaments",
+      "✓ Ornaments"
+     ],
+     [
+      "Ordinals",
+      "✓ Ordinals"
+     ],
+     [
+      "Fractions",
+      "✓ Fractions"
+     ]
+    ]
+   ],
+   [
+    "Create Work Path",
+    "Create Work Path"
+   ],
+   [
+    "Convert to Shape",
+    "Convert to Shape"
+   ],
+   [
+    "Rasterize Type Layer",
+    "Rasterize Type Layer"
+   ],
+   [
+    "Convert to Paragraph Text",
+    "Convert to Paragraph Text"
+   ],
+   [
+    "Convert to Point Text",
+    "Convert to Point Text"
+   ],
+   [
+    "Warp Text…",
+    "Warp Text…"
+   ],
+   [
+    "Font Preview Size",
+    "Font Preview Size",
+    "›",
+    [
+     [
+      "None",
+      "None"
+     ],
+     [
+      "Small",
+      "Small"
+     ],
+     [
+      "Medium",
+      "Medium"
+     ],
+     [
+      "Large",
+      "Large"
+     ],
+     [
+      "Extra Large",
+      "Extra Large"
+     ],
+     [
+      "Huge",
+      "Huge"
+     ]
+    ]
+   ],
+   [
+    "Language Options",
+    "Language Options",
+    "›",
+    [
+     [
+      "Default Features",
+      "Default Features"
+     ],
+     [
+      "East Asian Features",
+      "East Asian Features"
+     ],
+     [
+      "Middle Eastern Features",
+      "Middle Eastern Features"
+     ],
+     [
+      "Middle Eastern & South Asian Composer",
+      "✓ Middle Eastern & South Asian Composer"
+     ]
+    ]
+   ],
+   [
+    "Update All Text Layers",
+    "Update All Text Layers"
+   ],
+   [
+    "Replace All Missing Fonts",
+    "Replace All Missing Fonts"
+   ],
+   [
+    "Resolve Missing Fonts",
+    "Resolve Missing Fonts"
+   ],
+   [
+    "Load System Fonts",
+    "Load System Fonts"
+   ],
+   [
+    "Paste Lorem Ipsum",
+    "Paste Lorem Ipsum"
+   ],
+   [
+    "Load Default Type Styles",
+    "Load Default Type Styles"
+   ],
+   [
+    "Save Default Type Styles",
+    "Save Default Type Styles"
+   ]
+  ],
+  "Image": [
+   [
+    "Mode",
+    "Mode",
+    "›",
+    [
+     [
+      "Bitmap…",
+      "Bitmap…"
+     ],
+     [
+      "Grayscale",
+      "Grayscale"
+     ],
+     [
+      "Duotone…",
+      "Duotone…"
+     ],
+     [
+      "Indexed Color…",
+      "Indexed Color…"
+     ],
+     [
+      "RGB Color",
+      "RGB Color"
+     ],
+     [
+      "CMYK Color",
+      "CMYK Color"
+     ],
+     [
+      "Lab Color",
+      "Lab Color"
+     ],
+     [
+      "Multichannel",
+      "Multichannel"
+     ],
+     [
+      "8 Bits/Channel",
+      "8 Bits/Channel"
+     ],
+     [
+      "16 Bits/Channel",
+      "16 Bits/Channel"
+     ],
+     [
+      "32 Bits/Channel",
+      "32 Bits/Channel"
+     ],
+     [
+      "Color Table…",
+      "Color Table…"
+     ]
+    ]
+   ],
+   [
+    "Adjustments",
+    "Adjustments",
+    "›",
+    [
+     [
+      "Brightness/Contrast…",
+      "Brightness/Contrast…"
+     ],
+     [
+      "Levels…",
+      "Levels…",
+      "Ctrl+L"
+     ],
+     [
+      "Curves…",
+      "Curves…",
+      "Ctrl+M"
+     ],
+     [
+      "Exposure…",
+      "Exposure…"
+     ],
+     [
+      "Vibrance…",
+      "Vibrance…"
+     ],
+     [
+      "Hue/Saturation…",
+      "Hue/Saturation…",
+      "Ctrl+U"
+     ],
+     [
+      "Color Balance…",
+      "Color Balance…",
+      "Ctrl+B"
+     ],
+     [
+      "Black & White…",
+      "Black & White…",
+      "Ctrl+Alt+Shift+B"
+     ],
+     [
+      "Photo Filter…",
+      "Photo Filter…"
+     ],
+     [
+      "Channel Mixer…",
+      "Channel Mixer…"
+     ],
+     [
+      "Color Lookup…",
+      "Color Lookup…"
+     ],
+     [
+      "Invert",
+      "Invert",
+      "Ctrl+I"
+     ],
+     [
+      "Posterize…",
+      "Posterize…"
+     ],
+     [
+      "Threshold…",
+      "Threshold…"
+     ],
+     [
+      "Gradient Map…",
+      "Gradient Map…"
+     ],
+     [
+      "Selective Color…",
+      "Selective Color…"
+     ],
+     [
+      "Shadows/Highlights…",
+      "Shadows/Highlights…"
+     ],
+     [
+      "HDR Toning…",
+      "HDR Toning…"
+     ],
+     [
+      "Desaturate",
+      "Desaturate",
+      "Ctrl+Shift+U"
+     ],
+     [
+      "Match Color…",
+      "Match Color…"
+     ],
+     [
+      "Replace Color…",
+      "Replace Color…"
+     ],
+     [
+      "Equalize",
+      "Equalize"
+     ]
+    ]
+   ],
+   [
+    "Auto Tone",
+    "Auto Tone",
+    "Ctrl+Shift+L"
+   ],
+   [
+    "Auto Contrast",
+    "Auto Contrast",
+    "Ctrl+Alt+Shift+L"
+   ],
+   [
+    "Auto Color",
+    "Auto Color",
+    "Ctrl+Shift+B"
+   ],
+   [
+    "Image Size…",
+    "Image Size…",
+    "Alt+Ctrl+I"
+   ],
+   [
+    "Canvas Size…",
+    "Canvas Size…",
+    "Alt+Ctrl+C"
+   ],
+   [
+    "Image Rotation",
+    "Image Rotation",
+    "›",
+    [
+     [
+      "180°",
+      "180°"
+     ],
+     [
+      "90° Clockwise",
+      "90° Clockwise"
+     ],
+     [
+      "90° Counter Clockwise",
+      "90° Counter Clockwise"
+     ],
+     [
+      "Arbitrary…",
+      "Arbitrary…"
+     ],
+     [
+      "Flip Canvas Horizontal",
+      "Flip Canvas Horizontal"
+     ],
+     [
+      "Flip Canvas Vertical",
+      "Flip Canvas Vertical"
+     ]
+    ]
+   ],
+   [
+    "Crop",
+    "Crop"
+   ],
+   [
+    "Trim…",
+    "Trim…"
+   ],
+   [
+    "Reveal All",
+    "Reveal All"
+   ],
+   [
+    "Apply Image…",
+    "Apply Image…"
+   ],
+   [
+    "Calculations…",
+    "Calculations…"
+   ],
+   [
+    "Variables",
+    "Variables",
+    "›",
+    [
+     [
+      "Define…",
+      "Define…"
+     ],
+     [
+      "Data Sets…",
+      "Data Sets…"
+     ]
+    ]
+   ],
+   [
+    "Apply Data Set…",
+    "Apply Data Set…"
+   ],
+   [
+    "Analysis",
+    "Analysis",
+    "›",
+    [
+     [
+      "Set Measurement Scale…",
+      "Set Measurement Scale…"
+     ],
+     [
+      "Select Data Points…",
+      "Select Data Points…"
+     ],
+     [
+      "Record Measurements",
+      "Record Measurements",
+      "Shift+Ctrl+M"
+     ],
+     [
+      "Ruler Tool",
+      "Ruler Tool"
+     ],
+     [
+      "Count Tool",
+      "Count Tool"
+     ],
+     [
+      "Place Scale Marker…",
+      "Place Scale Marker…"
+     ]
+    ]
+   ]
+  ],
+  "Select": [
+   [
+    "All",
+    "All",
+    "Ctrl+A"
+   ],
+   [
+    "Deselect",
+    "Deselect",
+    "Ctrl+D"
+   ],
+   [
+    "Reselect",
+    "Reselect",
+    "Shift+Ctrl+D"
+   ],
+   [
+    "Inverse",
+    "Inverse",
+    "Shift+Ctrl+I"
+   ],
+   [
+    "Color Range…",
+    "Color Range…"
+   ],
+   [
+    "Border…",
+    "Border…"
+   ],
+   [
+    "Smooth…",
+    "Smooth…"
+   ],
+   [
+    "Expand…",
+    "Expand…"
+   ],
+   [
+    "Contract…",
+    "Contract…"
+   ],
+   [
+    "Feather…",
+    "Feather…",
+    "Shift+F6"
+   ],
+   [
+    "Grow",
+    "Grow"
+   ],
+   [
+    "Similar",
+    "Similar"
+   ],
+   [
+    "Exit Quick Mask Mode",
+    "Exit Quick Mask Mode",
+    "Q"
+   ],
+   [
+    "Load Selection…",
+    "Load Selection…"
+   ],
+   [
+    "Save Selection…",
+    "Save Selection…"
+   ],
+   [
+    "Transform Selection",
+    "Transform Selection"
+   ]
+  ],
+  "Filter": [
+   [
+    "Last Filter",
+    "Last Filter",
+    "Alt+Ctrl+F"
+   ],
+   [
+    "Convert for Smart Filters",
+    "Convert for Smart Filters"
+   ],
+   [
+    "Filter Gallery…",
+    "Filter Gallery…"
+   ],
+   [
+    "Adaptive Wide Angle…",
+    "Adaptive Wide Angle…",
+    "Alt+Shift+Ctrl+A"
+   ],
+   [
+    "Camera Raw Filter…",
+    "Camera Raw Filter…",
+    "Shift+Ctrl+A"
+   ],
+   [
+    "Lens Correction…",
+    "Lens Correction…",
+    "Shift+Ctrl+R"
+   ],
+   [
+    "Liquify…",
+    "Liquify…",
+    "Shift+Ctrl+X"
+   ],
+   [
+    "Vanishing Point…",
+    "Vanishing Point…",
+    "Alt+Ctrl+V"
+   ],
+   [
+    "Blur",
+    "Blur",
+    "›",
+    [
+     [
+      "Average",
+      "Average"
+     ],
+     [
+      "Blur",
+      "Blur"
+     ],
+     [
+      "Blur More",
+      "Blur More"
+     ],
+     [
+      "Box Blur…",
+      "Box Blur…"
+     ],
+     [
+      "Gaussian Blur…",
+      "Gaussian Blur…"
+     ],
+     [
+      "Lens Blur…",
+      "Lens Blur…"
+     ],
+     [
+      "Motion Blur…",
+      "Motion Blur…"
+     ],
+     [
+      "Radial Blur…",
+      "Radial Blur…"
+     ],
+     [
+      "Shape Blur…",
+      "Shape Blur…"
+     ],
+     [
+      "Smart Blur…",
+      "Smart Blur…"
+     ],
+     [
+      "Surface Blur…",
+      "Surface Blur…"
+     ]
+    ]
+   ],
+   [
+    "Blur Gallery",
+    "Blur Gallery",
+    "›",
+    [
+     [
+      "Field Blur…",
+      "Field Blur…"
+     ],
+     [
+      "Iris Blur…",
+      "Iris Blur…"
+     ],
+     [
+      "Tilt-Shift…",
+      "Tilt-Shift…"
+     ],
+     [
+      "Path Blur…",
+      "Path Blur…"
+     ],
+     [
+      "Spin Blur…",
+      "Spin Blur…"
+     ]
+    ]
+   ],
+   [
+    "Distort",
+    "Distort",
+    "›",
+    [
+     [
+      "Displace…",
+      "Displace…"
+     ],
+     [
+      "Pinch…",
+      "Pinch…"
+     ],
+     [
+      "Polar Coordinates…",
+      "Polar Coordinates…"
+     ],
+     [
+      "Ripple…",
+      "Ripple…"
+     ],
+     [
+      "Shear…",
+      "Shear…"
+     ],
+     [
+      "Spherize…",
+      "Spherize…"
+     ],
+     [
+      "Twirl…",
+      "Twirl…"
+     ],
+     [
+      "Wave…",
+      "Wave…"
+     ],
+     [
+      "ZigZag…",
+      "ZigZag…"
+     ]
+    ]
+   ],
+   [
+    "Noise",
+    "Noise",
+    "›",
+    [
+     [
+      "Add Noise…",
+      "Add Noise…"
+     ],
+     [
+      "Despeckle",
+      "Despeckle"
+     ],
+     [
+      "Dust & Scratches…",
+      "Dust & Scratches…"
+     ],
+     [
+      "Median…",
+      "Median…"
+     ],
+     [
+      "Reduce Noise…",
+      "Reduce Noise…"
+     ]
+    ]
+   ],
+   [
+    "Pixelate",
+    "Pixelate",
+    "›",
+    [
+     [
+      "Color Halftone…",
+      "Color Halftone…"
+     ],
+     [
+      "Crystallize…",
+      "Crystallize…"
+     ],
+     [
+      "Facet",
+      "Facet"
+     ],
+     [
+      "Fragment",
+      "Fragment"
+     ],
+     [
+      "Mezzotint…",
+      "Mezzotint…"
+     ],
+     [
+      "Mosaic…",
+      "Mosaic…"
+     ],
+     [
+      "Pointillize…",
+      "Pointillize…"
+     ]
+    ]
+   ],
+   [
+    "Render",
+    "Render",
+    "›",
+    [
+     [
+      "Clouds",
+      "Clouds"
+     ],
+     [
+      "Difference Clouds",
+      "Difference Clouds"
+     ],
+     [
+      "Fibers…",
+      "Fibers…"
+     ],
+     [
+      "Lens Flare…",
+      "Lens Flare…"
+     ],
+     [
+      "Lighting Effects…",
+      "Lighting Effects…"
+     ],
+     [
+      "Flame…",
+      "Flame…"
+     ],
+     [
+      "Picture Frame…",
+      "Picture Frame…"
+     ],
+     [
+      "Tree…",
+      "Tree…"
+     ]
+    ]
+   ],
+   [
+    "Sharpen",
+    "Sharpen",
+    "›",
+    [
+     [
+      "Sharpen",
+      "Sharpen"
+     ],
+     [
+      "Sharpen Edges",
+      "Sharpen Edges"
+     ],
+     [
+      "Sharpen More",
+      "Sharpen More"
+     ],
+     [
+      "Smart Sharpen…",
+      "Smart Sharpen…"
+     ],
+     [
+      "Unsharp Mask…",
+      "Unsharp Mask…"
+     ]
+    ]
+   ],
+   [
+    "Stylize",
+    "Stylize",
+    "›",
+    [
+     [
+      "Diffuse…",
+      "Diffuse…"
+     ],
+     [
+      "Emboss…",
+      "Emboss…"
+     ],
+     [
+      "Extrude…",
+      "Extrude…"
+     ],
+     [
+      "Find Edges",
+      "Find Edges"
+     ],
+     [
+      "Oil Paint…",
+      "Oil Paint…"
+     ],
+     [
+      "Solarize",
+      "Solarize"
+     ],
+     [
+      "Tiles…",
+      "Tiles…"
+     ],
+     [
+      "Trace Contour…",
+      "Trace Contour…"
+     ],
+     [
+      "Wind…",
+      "Wind…"
+     ]
+    ]
+   ],
+   [
+    "Video",
+    "Video",
+    "›",
+    [
+     [
+      "De-Interlace…",
+      "De-Interlace…"
+     ],
+     [
+      "NTSC Colors",
+      "NTSC Colors"
+     ]
+    ]
+   ],
+   [
+    "Other",
+    "Other",
+    "›",
+    [
+     [
+      "Custom…",
+      "Custom…"
+     ],
+     [
+      "HSB/HSL…",
+      "HSB/HSL…"
+     ],
+     [
+      "High Pass…",
+      "High Pass…"
+     ],
+     [
+      "Maximum…",
+      "Maximum…"
+     ],
+     [
+      "Minimum…",
+      "Minimum…"
+     ],
+     [
+      "Offset…",
+      "Offset…"
+     ]
+    ]
+   ]
+  ],
+  "View": [
+   [
+    "Proof Setup",
+    "Proof Setup",
+    "›",
+    [
+     [
+      "Custom…",
+      "Custom…"
+     ],
+     [
+      "Working CMYK",
+      "Working CMYK"
+     ],
+     [
+      "Working Cyan Plate",
+      "Working Cyan Plate"
+     ],
+     [
+      "Working Magenta Plate",
+      "Working Magenta Plate"
+     ],
+     [
+      "Working Yellow Plate",
+      "Working Yellow Plate"
+     ],
+     [
+      "Working Black Plate",
+      "Working Black Plate"
+     ],
+     [
+      "Working CMY Plate",
+      "Working CMY Plate"
+     ],
+     [
+      "Legacy Macintosh RGB",
+      "Legacy Macintosh RGB"
+     ],
+     [
+      "Internet Standard RGB",
+      "Internet Standard RGB"
+     ],
+     [
+      "Monitor RGB",
+      "Monitor RGB"
+     ],
+     [
+      "Color Blindness — Protanopia-type",
+      "Color Blindness — Protanopia-type"
+     ],
+     [
+      "Color Blindness — Deuteranopia-type",
+      "Color Blindness — Deuteranopia-type"
+     ]
+    ]
+   ],
+   [
+    "Proof Colors",
+    "✓ Proof Colors",
+    "Ctrl+Y"
+   ],
+   [
+    "Gamut Warning",
+    "✓ Gamut Warning",
+    "Shift+Ctrl+Y"
+   ],
+   [
+    "32-bit Preview Options…",
+    "32-bit Preview Options…"
+   ],
+   [
+    "Zoom in",
+    "Zoom in",
+    "Ctrl++"
+   ],
+   [
+    "Zoom out",
+    "Zoom out",
+    "Ctrl+-"
+   ],
+   [
+    "Fit on screen",
+    "Fit on screen",
+    "Ctrl+0"
+   ],
+   [
+    "Fit Artboard on Screen",
+    "Fit Artboard on Screen"
+   ],
+   [
+    "100%",
+    "100%",
+    "Ctrl+1"
+   ],
+   [
+    "Reset rotation",
+    "Reset rotation",
+    "Esc"
+   ],
+   [
+    "Hide selection edges",
+    "Hide selection edges",
+    "Ctrl+H"
+   ],
+   [
+    "Hide Rulers",
+    "Hide Rulers",
+    "Ctrl+R"
+   ],
+   [
+    "Hide Guides",
+    "Hide Guides",
+    "Ctrl+;"
+   ],
+   [
+    "Unlock Guides",
+    "Unlock Guides",
+    "Ctrl+Alt+;"
+   ],
+   [
+    "Clear Guides",
+    "Clear Guides"
+   ],
+   [
+    "Clear Canvas Guides",
+    "Clear Canvas Guides"
+   ],
+   [
+    "Clear Selected Artboard Guides",
+    "Clear Selected Artboard Guides"
+   ],
+   [
+    "New Guide…",
+    "New Guide…"
+   ],
+   [
+    "New Guide Layout…",
+    "New Guide Layout…"
+   ],
+   [
+    "New Guides From Shape",
+    "New Guides From Shape"
+   ],
+   [
+    "Hide Grid",
+    "Hide Grid",
+    "Ctrl+'"
+   ],
+   [
+    "Hide Pixel Grid",
+    "Hide Pixel Grid"
+   ],
+   [
+    "Smart Guides",
+    "✓ Smart Guides"
+   ],
+   [
+    "Snap",
+    "✓ Snap",
+    "Ctrl+Shift+;"
+   ],
+   [
+    "Snap To",
+    "Snap To",
+    "›",
+    [
+     [
+      "Guides",
+      "✓ Guides"
+     ],
+     [
+      "Grid",
+      "✓ Grid"
+     ],
+     [
+      "Layers",
+      "✓ Layers"
+     ],
+     [
+      "Document Bounds",
+      "✓ Document Bounds"
+     ],
+     [
+      "Artboards",
+      "✓ Artboards"
+     ],
+     [
+      "All",
+      "All"
+     ],
+     [
+      "None",
+      "None"
+     ]
+    ]
+   ]
+  ],
+  "Window": [
+   [
+    "Arrange",
+    "Arrange",
+    "›",
+    [
+     [
+      "Consolidate All to Tabs",
+      "Consolidate All to Tabs"
+     ],
+     [
+      "Tile All Vertically",
+      "Tile All Vertically"
+     ],
+     [
+      "Tile All Horizontally",
+      "Tile All Horizontally"
+     ],
+     [
+      "2-up",
+      "2-up"
+     ],
+     [
+      "3-up",
+      "3-up"
+     ],
+     [
+      "4-up",
+      "4-up"
+     ],
+     [
+      "6-up",
+      "6-up"
+     ],
+     [
+      "Float All in Windows",
+      "Float All in Windows"
+     ],
+     [
+      "Match Zoom",
+      "Match Zoom"
+     ],
+     [
+      "Match Location",
+      "Match Location"
+     ],
+     [
+      "Match All",
+      "Match All"
+     ]
+    ]
+   ],
+   [
+    "Workspace",
+    "Workspace",
+    "›",
+    [
+     [
+      "Essentials",
+      "Essentials"
+     ],
+     [
+      "Photography",
+      "Photography"
+     ],
+     [
+      "Painting",
+      "Painting"
+     ],
+     [
+      "Motion",
+      "Motion"
+     ],
+     [
+      "Graphic and Web",
+      "Graphic and Web"
+     ],
+     [
+      "New Workspace…",
+      "New Workspace…"
+     ],
+     [
+      "Delete Workspace…",
+      "Delete Workspace…"
+     ],
+     [
+      "Reset ",
+      "Reset "
+     ],
+     [
+      "Lock Workspace",
+      "✓ Lock Workspace"
+     ]
+    ]
+   ],
+   [
+    "Hide Actions",
+    "Hide Actions",
+    "Alt+F9"
+   ],
+   [
+    "Hide Adjustments",
+    "Hide Adjustments"
+   ],
+   [
+    "Hide Channels",
+    "Hide Channels"
+   ],
+   [
+    "Hide Clone Source",
+    "Hide Clone Source"
+   ],
+   [
+    "Hide Navigator",
+    "Hide Navigator"
+   ],
+   [
+    "Hide Layer Comps",
+    "Hide Layer Comps"
+   ],
+   [
+    "Hide Paths",
+    "Hide Paths"
+   ],
+   [
+    "Hide Properties",
+    "Hide Properties"
+   ],
+   [
+    "Hide Styles",
+    "Hide Styles"
+   ],
+   [
+    "Hide Patterns",
+    "Hide Patterns"
+   ],
+   [
+    "Hide Gradients",
+    "Hide Gradients"
+   ],
+   [
+    "Hide Shapes",
+    "Hide Shapes"
+   ],
+   [
+    "Hide Histogram",
+    "Hide Histogram"
+   ],
+   [
+    "Hide Info",
+    "Hide Info"
+   ],
+   [
+    "Hide Tool Presets",
+    "Hide Tool Presets"
+   ],
+   [
+    "Hide Notes",
+    "Hide Notes"
+   ],
+   [
+    "Hide Measurement Log",
+    "Hide Measurement Log"
+   ],
+   [
+    "Next Document",
+    "Next Document",
+    "Ctrl+Tab"
+   ],
+   [
+    "Previous Document",
+    "Previous Document",
+    "Shift+Ctrl+Tab"
+   ]
+  ],
+  "Help": [
+   [
+    "Use with AI Agents…",
+    "Use with AI Agents…"
+   ],
+   [
+    "About photobaer…",
+    "About photobaer…"
+   ]
+  ]
+ },
+ "typeContext": []
+}

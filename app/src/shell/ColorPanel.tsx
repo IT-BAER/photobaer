@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { RotateCcw, ArrowLeftRight } from 'lucide-react';
+import { msg, t } from '@lingui/core/macro';
+import type { MessageDescriptor } from '@lingui/core';
+import { i18n } from '../i18n/index.ts';
 import { hsbToRgb, rgbToHex, rgbToHsb, type Rgb } from './color.ts';
 import { HueStrip, SbField } from './ColorField.tsx';
 import { SLIDERS, defaultSliders, rgbOfSliders, slidersOf, type Convert, type Sliders } from './colorModes.ts';
@@ -9,7 +12,9 @@ interface Props {
   doc: { gray: boolean; mode: { kind: string } | null } | null; convert: Convert;
 }
 
-const SLIDER_NAMES: [Sliders, string][] = [['gray', 'Grayscale'], ['rgb', 'RGB'], ['cmyk', 'CMYK'], ['lab', 'Lab']];
+const SLIDER_NAMES: [Sliders, MessageDescriptor][] = [
+  ['gray', msg`Grayscale Sliders`], ['rgb', msg`RGB Sliders`], ['cmyk', msg`CMYK Sliders`], ['lab', msg`Lab Sliders`],
+];
 
 export function ColorPanel({ fg, bg, setFg, setBg, swap, reset, doc, convert }: Props) {
   const [editing, setEditing] = useState<'fg' | 'bg'>('fg');
@@ -38,17 +43,17 @@ export function ColorPanel({ fg, bg, setFg, setBg, swap, reset, doc, convert }: 
     <div className="color-panel">
       <div className="color-wells">
         <button
-          className={`well fg${editing === 'fg' ? ' active' : ''}`} aria-label="Foreground color" aria-pressed={editing === 'fg'}
+          className={`well fg${editing === 'fg' ? ' active' : ''}`} aria-label={t`Foreground color`} aria-pressed={editing === 'fg'}
           style={{ background: rgbToHex(fg) }} onClick={() => setEditing('fg')}
         />
         <button
-          className={`well bg${editing === 'bg' ? ' active' : ''}`} aria-label="Background color" aria-pressed={editing === 'bg'}
+          className={`well bg${editing === 'bg' ? ' active' : ''}`} aria-label={t`Background color`} aria-pressed={editing === 'bg'}
           style={{ background: rgbToHex(bg) }} onClick={() => setEditing('bg')}
         />
-        <button aria-label="Swap colors" title="Swap colors (X)" onClick={swap}><ArrowLeftRight size={14} strokeWidth={1.75} /></button>
-        <button aria-label="Reset to black and white" title="Reset to default (D)" onClick={reset}><RotateCcw size={14} strokeWidth={1.75} /></button>
-        <select className="color-sliders-kind" aria-label="Color sliders" value={kind} onChange={e => setPicked(e.currentTarget.value as Sliders)}>
-          {SLIDER_NAMES.map(([k, name]) => <option key={k} value={k}>{name} Sliders</option>)}
+        <button aria-label={t`Swap colors`} title={t`Swap colors (X)`} onClick={swap}><ArrowLeftRight size={14} strokeWidth={1.75} /></button>
+        <button aria-label={t`Reset to black and white`} title={t`Reset to default (D)`} onClick={reset}><RotateCcw size={14} strokeWidth={1.75} /></button>
+        <select className="color-sliders-kind" aria-label={t`Color sliders`} value={kind} onChange={e => setPicked(e.currentTarget.value as Sliders)}>
+          {SLIDER_NAMES.map(([k, name]) => <option key={k} value={k}>{i18n._(name)}</option>)}
         </select>
       </div>
       <div className="color-body">

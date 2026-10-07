@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { RotateCcw, ArrowLeftRight } from 'lucide-react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { i18n } from '../i18n/index.ts';
 import { SLOTS, TOOLS, cycleTool, type Slot } from './tools.ts';
 import { rgbToHex, type Rgb } from './color.ts';
 import { loadOrder, moveItem, saveOrder } from '../app/panelOrder.ts';
@@ -61,7 +64,7 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
   }
 
   return (
-    <div className="toolbar" role="toolbar" aria-label="Tools" aria-orientation="vertical" data-active-tool={active}
+    <div className="toolbar" role="toolbar" aria-label={t`Tools`} aria-orientation="vertical" data-active-tool={active}
       onKeyDown={e => {
         if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
         const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button.slot'));
@@ -80,7 +83,7 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
       <div className="toolbar-main">
         {slots.map(slot => {
           const toolId = currentOf(slot);
-          const tool = TOOLS[toolId];
+          const tool = TOOLS[toolId], name = i18n._(tool.label);
           return (
             <div key={slot.id} className={`tool-slot${drop?.id === slot.id ? (drop.after ? ' drop-after' : ' drop-before') : ''}`}
               onDragOver={e => {
@@ -100,8 +103,8 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
               }}
             >
               <button
-                className="slot" data-slot={slot.id} aria-label={tool.label} aria-pressed={active === toolId}
-                title={slot.key ? `${tool.label} (${slot.key.toUpperCase()})` : tool.label}
+                className="slot" data-slot={slot.id} aria-label={name} aria-pressed={active === toolId}
+                title={slot.key ? `${name} (${slot.key.toUpperCase()})` : name}
                 onClick={() => pressSlot(slot)}
                 onContextMenu={e => { e.preventDefault(); setFlyout(slot.id, e.currentTarget); }}
                 onPointerDown={e => { const el = e.currentTarget; timer.current = setTimeout(() => setFlyout(slot.id, el), LONG_PRESS_MS); }}
@@ -128,11 +131,11 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
                   }} />
                   <ul className="flyout" role="menu" ref={keepInView} style={{ top: flyout.top, left: flyout.left }}>
                     {slot.tools.map(id => {
-                      const t = TOOLS[id];
+                      const tl = TOOLS[id], label = i18n._(tl.label);
                       return (
                         <li key={id}>
-                          <button role="menuitem" aria-label={t.label} aria-pressed={active === id} onClick={() => choose(slot, id)}>
-                            <ToolIcon id={id} size={16} /><span>{t.label}</span><kbd>{t.key.toUpperCase()}</kbd>
+                          <button role="menuitem" aria-label={label} aria-pressed={active === id} onClick={() => choose(slot, id)}>
+                            <ToolIcon id={id} size={16} /><span>{label}</span><kbd>{tl.key.toUpperCase()}</kbd>
                           </button>
                         </li>
                       );
@@ -145,11 +148,11 @@ export function ToolBar({ active, setActive, lastUsed, setLastUsed, fg, bg, open
         })}
       </div>
       <div className="toolbar-footer">
-        <button aria-label="Foreground color" title="Foreground color" className="chip fg" style={{ background: rgbToHex(fg) }} onClick={() => openPicker('fg')} />
-        <button aria-label="Background color" title="Background color" className="chip bg" style={{ background: rgbToHex(bg) }} onClick={() => openPicker('bg')} />
-        <button aria-label="Swap foreground and background" title="Swap (X)" onClick={swap}><ArrowLeftRight size={14} strokeWidth={1.75} /></button>
-        <button aria-label="Reset to default colors" title="Reset (D)" onClick={reset}><RotateCcw size={14} strokeWidth={1.75} /></button>
-        <button aria-label="Toggle quick mask" title="Quick mask (Q)" aria-pressed={quickMask} onClick={() => setQuickMask(!quickMask)}>QM</button>
+        <button aria-label={t`Foreground color`} title={t`Foreground color`} className="chip fg" style={{ background: rgbToHex(fg) }} onClick={() => openPicker('fg')} />
+        <button aria-label={t`Background color`} title={t`Background color`} className="chip bg" style={{ background: rgbToHex(bg) }} onClick={() => openPicker('bg')} />
+        <button aria-label={t`Swap foreground and background`} title={`${t`Swap`} (X)`} onClick={swap}><ArrowLeftRight size={14} strokeWidth={1.75} /></button>
+        <button aria-label={t`Reset to default colors`} title={`${t`Reset`} (D)`} onClick={reset}><RotateCcw size={14} strokeWidth={1.75} /></button>
+        <button aria-label={t`Toggle quick mask`} title={`${t`Quick mask`} (Q)`} aria-pressed={quickMask} onClick={() => setQuickMask(!quickMask)}><Trans>QM</Trans></button>
       </div>
     </div>
   );

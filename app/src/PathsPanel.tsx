@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { PaintBucket, PenLine, Plus, Save, Shapes, Spline, SquareDashed, Trash2 } from 'lucide-react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
 import type { DocInfo, LayerNode, PathRole } from './engine.worker.ts';
 import { selectMode } from './shell/selecttools.ts';
@@ -35,14 +37,15 @@ export function PathsPanel({ doc, node, fg, run, selected, setSelected }: Props)
   const target = pathTarget(doc, node, selected);
   const pixel = node?.kind === 'pixel';
 
+  const loadAs = (name: string) => t`Load ${name} as a selection`;
   const load = (id: number, e: { shiftKey: boolean; altKey: boolean }) =>
     void run(null, () => client.call('makeSelectionFromPath', 'document', id, selectMode('new', e.shiftKey, e.altKey)));
 
   return (
     <div className="layers-panel">
-      <div className="panel-tabs"><span className="panel-tab">Paths</span></div>
-      <div className="layers-tree" role="listbox" aria-label="Paths" onClick={e => { if (e.target === e.currentTarget) setSelected(null, true); }}>
-        {doc.paths.length === 0 && <div className="panel-empty">No paths</div>}
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Paths</Trans></span></div>
+      <div className="layers-tree" role="listbox" aria-label={t`Paths`} onClick={e => { if (e.target === e.currentTarget) setSelected(null, true); }}>
+        {doc.paths.length === 0 && <div className="panel-empty"><Trans>No paths</Trans></div>}
         {doc.paths.map(p => (
           <div
             key={p.id} role="option" aria-selected={p.id === selected}
@@ -50,14 +53,14 @@ export function PathsPanel({ doc, node, fg, run, selected, setSelected }: Props)
             onClick={() => setSelected(p.id)}
           >
             <span
-              className="path-thumb" role="button" tabIndex={0} aria-label={`Load ${p.name} as a selection`}
-              title="Ctrl-click: load as selection (Shift add, Alt subtract, Shift+Alt intersect)"
+              className="path-thumb" role="button" tabIndex={0} aria-label={loadAs(p.name)}
+              title={t`Ctrl-click: load as selection (Shift add, Alt subtract, Shift+Alt intersect)`}
               onClick={e => { if (e.ctrlKey || e.metaKey) { e.stopPropagation(); setSelected(p.id); load(p.id, e); } }}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); load(p.id, e); } }}
             />
             {renaming === p.id ? (
               <input
-                className="path-name" autoFocus defaultValue={p.name} aria-label="Path name"
+                className="path-name" autoFocus defaultValue={p.name} aria-label={t`Path name`}
                 onClick={e => e.stopPropagation()}
                 onBlur={e => {
                   const name = e.currentTarget.value.trim();
@@ -68,17 +71,17 @@ export function PathsPanel({ doc, node, fg, run, selected, setSelected }: Props)
               />
             ) : (
               <span className="path-name" style={p.work ? { fontStyle: 'italic' } : undefined} title={p.name} onDoubleClick={() => setRenaming(p.id)}>
-                {p.work ? 'Work Path' : p.name}
+                {p.work ? t`Work Path` : p.name}
               </span>
             )}
             <span className="layer-comp-count">{p.path.subpaths.length}</span>
             {p.work && (
-              <button className="path-action" aria-label="Save path" title="Save path" onClick={e => { e.stopPropagation(); void run(null, () => client.call('savePath', p.id)); }}>
+              <button className="path-action" aria-label={t`Save path`} title={t`Save path`} onClick={e => { e.stopPropagation(); void run(null, () => client.call('savePath', p.id)); }}>
                 <Save {...ICON} />
               </button>
             )}
             <button
-              className="path-action" aria-label="Delete path" title="Delete path"
+              className="path-action" aria-label={t`Delete path`} title={t`Delete path`}
               onClick={e => { e.stopPropagation(); if (selected === p.id) setSelected(null); void run(null, () => client.call('deletePath', p.id)); }}
             >
               <Trash2 {...ICON} />
@@ -87,27 +90,27 @@ export function PathsPanel({ doc, node, fg, run, selected, setSelected }: Props)
         ))}
       </div>
       <div className="layers-footer">
-        <button aria-label="Fill path with foreground color" title="Fill path with foreground color" disabled={!target || !pixel}
+        <button aria-label={t`Fill path with foreground color`} title={t`Fill path with foreground color`} disabled={!target || !pixel}
           onClick={() => void run(null, () => client.call('fillPath', ...target!, node!.id, fg))}>
           <PaintBucket {...ICON} />
         </button>
-        <button aria-label="Stroke path" title="Stroke path" disabled={!target || !pixel}
+        <button aria-label={t`Stroke path`} title={t`Stroke path`} disabled={!target || !pixel}
           onClick={() => void run(null, () => client.call('strokePath', ...target!, node!.id, fg))}>
           <PenLine {...ICON} />
         </button>
-        <button aria-label="Load path as a selection" title="Load path as a selection" disabled={!target}
+        <button aria-label={t`Load path as a selection`} title={t`Load path as a selection`} disabled={!target}
           onClick={e => void run(null, () => client.call('makeSelectionFromPath', ...target!, selectMode('new', e.shiftKey, e.altKey)))}>
           <SquareDashed {...ICON} />
         </button>
-        <button aria-label="Make work path from selection" title="Make work path from selection" disabled={!doc.selection}
+        <button aria-label={t`Make work path from selection`} title={t`Make work path from selection`} disabled={!doc.selection}
           onClick={() => void run(null, () => client.call('makeWorkPath'))}>
           <Spline {...ICON} />
         </button>
-        <button aria-label="Convert path to shape" title="Convert path to shape" disabled={!target}
+        <button aria-label={t`Convert path to shape`} title={t`Convert path to shape`} disabled={!target}
           onClick={() => void run(null, () => client.call('convertPathToShape', ...target!, fg), selectCreated)}>
           <Shapes {...ICON} />
         </button>
-        <button aria-label="New path" title="New path"
+        <button aria-label={t`New path`} title={t`New path`}
           onClick={() => void run(null, async () => { const r = await client.call('newPath'); setSelected(r.created); return r; })}>
           <Plus {...ICON} />
         </button>

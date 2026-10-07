@@ -2,6 +2,8 @@
 // Measurement Log's Record Measurements. Marks live in the document (DocInfo.annotations) except
 // the ruler line, which is kept per tab for this session only.
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from '../client.ts';
 import type { Active } from '../LayersPanel.tsx';
 import { nodeById } from '../layers.ts';
@@ -129,7 +131,7 @@ export function useMeasureTools(c: MeasureCtx) {
           if (i >= 0 && e.altKey) { void commit({ ...a, samplers: a.samplers.filter((_, j) => j !== i) }, 'Delete Color Sampler'); return null; }
           if (i < 0) {
             if (e.altKey) return null;
-            if (a.samplers.length >= MAX_SAMPLERS) { setError(`A document can have at most ${MAX_SAMPLERS} color samplers.`); return null; }
+            if (a.samplers.length >= MAX_SAMPLERS) { setError(t`A document can have at most ${MAX_SAMPLERS} color samplers.`); return null; }
             if (e.x < 0 || e.y < 0 || e.x >= d.width || e.y >= d.height) return null;
             void commit({ ...a, samplers: [...a.samplers, [Math.floor(e.x), Math.floor(e.y)]] }, 'Color Sampler');
             return null;
@@ -253,7 +255,7 @@ export function useMeasureTools(c: MeasureCtx) {
       const s = measureSelection(mask, r.w, r.h);
       m = { source: 'Selection', area: s.area, perimeter: s.perimeter, width: s.bounds[2] - s.bounds[0], height: s.bounds[3] - s.bounds[1] };
     }
-    if (!m) { setError('Draw a ruler line, place counts or make a selection first.'); return; }
+    if (!m) { setError(t`Draw a ruler line, place counts or make a selection first.`); return; }
     const row = scaleMeasurement(m, d.annotations.scale ?? DEFAULT_SCALE);
     setLog(rows => [...rows, measureRow(rows.length + 1, d.name, row)]);
   }
@@ -264,44 +266,48 @@ export function useMeasureTools(c: MeasureCtx) {
   if (doc && a) {
     if (tool === 'ruler') {
       const r = ruler && rulerMeasure(...ruler);
+      const rx = r ? fmt(r.x) : '–', ry = r ? fmt(r.y) : '–', rw = r ? fmt(r.w) : '–', rh = r ? fmt(-r.h) : '–';
+      const ra = r ? `${fmt(r.angle)}°` : '–', rl = r ? fmt(r.length) : '–';
       bar = <span className="measure-bar">
-        <span>X: {r ? fmt(r.x) : '–'} Y: {r ? fmt(r.y) : '–'} W: {r ? fmt(r.w) : '–'} H: {r ? fmt(-r.h) : '–'} A: {r ? `${fmt(r.angle)}°` : '–'} L1: {r ? fmt(r.length) : '–'}</span>
-        {button('Straighten Layer', () => {
+        <span><Trans>X: {rx} Y: {ry} W: {rw} H: {rh} A: {ra} L1: {rl}</Trans></span>
+        {button(t`Straighten Layer`, () => {
           if (!r || !active) return;
           const deg = straightenAngle(r.angle);
-          if (Math.abs(deg) < 0.01) { setError('The measured line is already straight.'); return; }
+          if (Math.abs(deg) < 0.01) { setError(t`The measured line is already straight.`); return; }
           rulers.current.delete(key); setRuler(null);
           void run(null, () => client.call('straightenLayer', active.id, deg));
         }, !r || !active)}
-        {button('Clear', () => { rulers.current.delete(key); setRuler(null); }, !r)}
+        {button(t({ message: 'Clear', context: 'verb' }), () => { rulers.current.delete(key); setRuler(null); }, !r)}
       </span>;
     } else if (tool === 'count') {
       const gi = Math.max(0, Number(toolOptions.group) - 1), g = a.counts[gi];
+      const markCount = g?.marks.length ?? 0;
       bar = <span className="measure-bar">
-        <span>Count: {g?.marks.length ?? 0}</span>
-        <label><input type="checkbox" checked={g?.visible ?? true} disabled={!g} onChange={ev => void commit({ ...a, counts: a.counts.map((x, i) => (i === gi ? { ...x, visible: ev.currentTarget.checked } : x)) }, 'Count Group Visibility')} /> Visible</label>
-        {button('Clear', () => void commit({ ...a, counts: a.counts.map((x, i) => (i === gi ? { ...x, marks: [] } : x)) }, 'Clear Count'), !g?.marks.length)}
+        <span><Trans>Count: {markCount}</Trans></span>
+        <label><input type="checkbox" checked={g?.visible ?? true} disabled={!g} onChange={ev => void commit({ ...a, counts: a.counts.map((x, i) => (i === gi ? { ...x, visible: ev.currentTarget.checked } : x)) }, 'Count Group Visibility')} /> <Trans>Visible</Trans></label>
+        {button(t({ message: 'Clear', context: 'verb' }), () => void commit({ ...a, counts: a.counts.map((x, i) => (i === gi ? { ...x, marks: [] } : x)) }, 'Clear Count'), !g?.marks.length)}
       </span>;
     } else if (tool === 'colorSampler') {
+      const samplerCount = a.samplers.length;
       bar = <span className="measure-bar">
-        <span>{a.samplers.length} of {MAX_SAMPLERS}</span>
-        {button('Clear All', () => void commit({ ...a, samplers: [] }, 'Clear Color Samplers'), !a.samplers.length)}
+        <span><Trans>{samplerCount} of {MAX_SAMPLERS}</Trans></span>
+        {button(t`Clear All`, () => void commit({ ...a, samplers: [] }, 'Clear Color Samplers'), !a.samplers.length)}
       </span>;
     } else if (tool === 'note') {
       bar = <span className="measure-bar">
-        <label>Author <input type="text" value={author} maxLength={1024} onChange={ev => {
+        <label><Trans>Author</Trans> <input type="text" value={author} maxLength={1024} onChange={ev => {
           const v = ev.currentTarget.value;
           setAuthor(v);
           try { localStorage.setItem(AUTHOR_KEY, v); } catch { /* the author is only remembered when storage works */ }
         }} /></label>
-        {button('Clear All', () => void commit({ ...a, notes: [] }, 'Delete All Notes'), !a.notes.length)}
+        {button(t`Clear All`, () => void commit({ ...a, notes: [] }, 'Delete All Notes'), !a.notes.length)}
       </span>;
     } else if (tool === 'slice') {
       bar = <span className="measure-bar">
-        <span>{a.slices.length} slices</span>
-        {button('Slices From Guides', () => {
+        <span>{plural(a.slices.length, { one: '# slice', other: '# slices' })}</span>
+        {button(t`Slices From Guides`, () => {
           const rects = slicesFromGuides(doc.guides, doc.width, doc.height);
-          if (rects.length < 2) { setError('Add guides inside the canvas first.'); return; }
+          if (rects.length < 2) { setError(t`Add guides inside the canvas first.`); return; }
           const stem = doc.name.replace(/\.[^.]+$/, '');
           void commit({ ...a, slices: rects.map((rect, i) => ({ id: i + 1, name: `${stem}_${String(i + 1).padStart(2, '0')}`, rect })) }, 'Slices From Guides');
         })}
@@ -309,12 +315,12 @@ export function useMeasureTools(c: MeasureCtx) {
     } else if (tool === 'sliceSelect') {
       const s = a.slices.find(x => x.id === selectedSlice);
       bar = <span className="measure-bar">
-        {s ? <label>Name <input key={s.id} type="text" defaultValue={s.name} maxLength={1024} onBlur={ev => {
+        {s ? <label><Trans>Name</Trans> <input key={s.id} type="text" defaultValue={s.name} maxLength={1024} onBlur={ev => {
           const name = ev.currentTarget.value.trim();
           if (name && name !== s.name) void commit({ ...a, slices: a.slices.map(x => (x.id === s.id ? { ...x, name } : x)) }, 'Slice Options');
-        }} /></label> : <span>No slice selected</span>}
+        }} /></label> : <span><Trans>No slice selected</Trans></span>}
         {s && <span>{fmt(s.rect[2] - s.rect[0])} × {fmt(s.rect[3] - s.rect[1])}</span>}
-        {button('Delete Slice', () => { setSelectedSlice(null); void commit({ ...a, slices: a.slices.filter(x => x.id !== selectedSlice) }, 'Delete Slice'); }, !s)}
+        {button(t`Delete Slice`, () => { setSelectedSlice(null); void commit({ ...a, slices: a.slices.filter(x => x.id !== selectedSlice) }, 'Delete Slice'); }, !s)}
       </span>;
     }
   }

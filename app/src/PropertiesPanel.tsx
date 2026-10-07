@@ -3,12 +3,15 @@
 // Adjustments dialogs reuse `AdjustmentBody`.
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { RotateCcw } from 'lucide-react';
+import { msg, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
 import type { Adjustment, DestructiveAdjustment, DocInfo, LayerNode, SmartFilterInfo, SmartFilterKind } from './engine.worker.ts';
 import type { ArtboardBackground, BoolOp, FillContent, VectorMaskInfo } from './worker/types.ts';
 import { hexToRgb, rgbToHex } from './shell/color.ts';
 import { BOOL_LABEL, dashFor, newStroke, radiusMax, setRadius, strokeStyleOf, type Live, type ShapeStroke, type StrokeStyle } from './shell/shapetools.ts';
 import { locate } from './layers.ts';
+import { i18n } from './i18n/index.ts';
 import { selectCreated, type SelectAfter } from './app/helpers.ts';
 import {
   EDIT_LABEL, FIELD_SPECS, MENU_LABEL, defaultAdjustment, getPath, gradientDefToUi, setPath, uiToGradientDef, type FieldSpec,
@@ -18,6 +21,8 @@ import { LevelsCurvesBody, type SampleCanvas } from './LevelsCurvesBody.tsx';
 import { GalleryStack } from './filters/GalleryStack.tsx';
 import type { GalleryLayer, ParamValue } from './filters/lastFilter.ts';
 import { fieldSpecs, specOf } from './filters/schema.ts';
+import { engineLabel } from './filters/labels.ts';
+import { choiceLabel } from './i18n/choices.ts';
 
 type Run = (label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) => Promise<void>;
 export type OpenGradientEditor = (g: Gradient, onOk: (g: Gradient) => void) => void;
@@ -39,16 +44,17 @@ function NumberField({ spec, value, set }: { spec: Extract<FieldSpec, { type: 'n
     setDragged(null);
     if (dragged !== null) set(dragged, false);
   };
+  const label = engineLabel(spec.label);
   return (
     <div className="adjustment-field">
-      <span>{spec.label}</span>
+      <span>{label}</span>
       <input
-        type="range" aria-label={spec.label} min={spec.min} max={spec.max} step={spec.step} value={dragged ?? value}
+        type="range" aria-label={label} min={spec.min} max={spec.max} step={spec.step} value={dragged ?? value}
         onChange={e => { const v = e.currentTarget.valueAsNumber; setDragged(v); set(v, true); }}
         onPointerUp={release} onKeyUp={release} onBlur={release}
       />
       <input
-        type="number" aria-label={`${spec.label} value`} min={spec.min} max={spec.max} step={spec.step} value={draft ?? value}
+        type="number" aria-label={t`${label} value`} min={spec.min} max={spec.max} step={spec.step} value={draft ?? value}
         onChange={e => setDraft(e.currentTarget.value)}
         onBlur={done}
         onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
@@ -63,13 +69,13 @@ function NumberField({ spec, value, set }: { spec: Extract<FieldSpec, { type: 'n
 export function Field({ spec, params, onChange }: { spec: FieldSpec; params: object; onChange: (path: string, v: unknown, live: boolean) => void }) {
   const value = getPath(params, spec.path);
   if (spec.type === 'checkbox') {
-    return <label className="adjustment-check"><input type="checkbox" checked={!!value} onChange={e => onChange(spec.path, e.currentTarget.checked, false)} /> {spec.label}</label>;
+    return <label className="adjustment-check"><input type="checkbox" checked={!!value} onChange={e => onChange(spec.path, e.currentTarget.checked, false)} /> {engineLabel(spec.label)}</label>;
   }
   if (spec.type === 'select') {
     return (
-      <label className="adjustment-field"><span>{spec.label}</span>
+      <label className="adjustment-field"><span>{engineLabel(spec.label)}</span>
         <select value={String(value)} onChange={e => onChange(spec.path, e.currentTarget.value, false)}>
-          {spec.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          {spec.options.map(([v, l]) => <option key={v} value={v}>{engineLabel(l)}</option>)}
         </select>
       </label>
     );
@@ -90,20 +96,22 @@ export function AdjustmentBody({ adjustment, onChange, openGradientEditor, pickL
   if (adjustment.kind === 'levels' || adjustment.kind === 'curves') {
     return <LevelsCurvesBody adjustment={adjustment} onChange={onChange} histogramId={histogramId} sampleCanvas={sampleCanvas} />;
   }
-  if (kind === 'invert') return <p className="adjustment-note">Invert has no parameters. Use opacity or blend mode to moderate the result.</p>;
+  if (kind === 'invert') return <p className="adjustment-note"><Trans>Invert has no parameters. Use opacity or blend mode to moderate the result.</Trans></p>;
   if (kind === 'gradient_map') {
     const { params } = adjustment;
     const g = gradientDefToUi(params.gradient);
     const edit = () => openGradientEditor(g, next => onChange({ kind, params: { ...params, gradient: uiToGradientDef(next) } }, false));
+    const colorStops = g.stops.length;
+    const opacityStops = g.opacityStops.length;
     const flag = (key: 'reverse' | 'dither', v: boolean) => onChange({ kind, params: { ...params, [key]: v } }, false);
     return (
       <div className="adjustment-body">
-        <button type="button" className="gradient-ramp-button" aria-label="Edit gradient" title="Click to edit the gradient"
+        <button type="button" className="gradient-ramp-button" aria-label={t`Edit gradient`} title={t`Click to edit the gradient`}
           style={{ backgroundImage: `${rampCss(g, params.gradient.method)}, var(--checker)` }} onClick={edit} />
-        <span className="adjustment-note">{g.stops.length} color stops · {g.opacityStops.length} opacity stops</span>
-        <button type="button" onClick={edit}>Edit gradient…</button>
-        <label className="adjustment-check"><input type="checkbox" checked={params.reverse} onChange={e => flag('reverse', e.currentTarget.checked)} /> Reverse</label>
-        <label className="adjustment-check"><input type="checkbox" checked={params.dither} onChange={e => flag('dither', e.currentTarget.checked)} /> Dither</label>
+        <span className="adjustment-note"><Trans>{colorStops} color stops · {opacityStops} opacity stops</Trans></span>
+        <button type="button" onClick={edit}><Trans>Edit gradient…</Trans></button>
+        <label className="adjustment-check"><input type="checkbox" checked={params.reverse} onChange={e => flag('reverse', e.currentTarget.checked)} /> <Trans>Reverse</Trans></label>
+        <label className="adjustment-check"><input type="checkbox" checked={params.dither} onChange={e => flag('dither', e.currentTarget.checked)} /> <Trans>Dither</Trans></label>
       </div>
     );
   }
@@ -111,15 +119,15 @@ export function AdjustmentBody({ adjustment, onChange, openGradientEditor, pickL
     const { params } = adjustment;
     return (
       <div className="adjustment-body">
-        <button type="button" onClick={() => pickLookupFile((name, table, format) => onChange({ kind, params: { ...params, name, table, format } }, false))}>Load 3D LUT…</button>
-        <span className="adjustment-note">{params.table === null ? 'No lookup table loaded' : params.name}</span>
-        <label className="adjustment-field"><span>Interpolation</span>
+        <button type="button" onClick={() => pickLookupFile((name, table, format) => onChange({ kind, params: { ...params, name, table, format } }, false))}><Trans>Load 3D LUT…</Trans></button>
+        <span className="adjustment-note">{params.table === null ? t`No lookup table loaded` : params.name}</span>
+        <label className="adjustment-field"><span><Trans>Interpolation</Trans></span>
           <select value={params.interpolation} onChange={e => onChange({ kind, params: { ...params, interpolation: e.currentTarget.value as 'tetrahedral' | 'trilinear' } }, false)}>
-            <option value="tetrahedral">Tetrahedral</option>
-            <option value="trilinear">Trilinear</option>
+            <option value="tetrahedral">{t`Tetrahedral`}</option>
+            <option value="trilinear">{t`Trilinear`}</option>
           </select>
         </label>
-        <label className="adjustment-check"><input type="checkbox" checked={params.dither} onChange={e => onChange({ kind, params: { ...params, dither: e.currentTarget.checked } }, false)} /> Dither</label>
+        <label className="adjustment-check"><input type="checkbox" checked={params.dither} onChange={e => onChange({ kind, params: { ...params, dither: e.currentTarget.checked } }, false)} /> <Trans>Dither</Trans></label>
       </div>
     );
   }
@@ -137,6 +145,9 @@ export function PropertiesPanel({ doc, node, run, openGradientEditor, pickLookup
 }) {
   const adjustment = node.adjustment!;
   const title = EDIT_LABEL[adjustment.kind];
+  const shownTitle = adjustment.kind === 'brightness_contrast' ? t`Brightness / Contrast`
+    : adjustment.kind === 'hue_saturation' ? t`Hue / Saturation` : i18n._(MENU_LABEL[adjustment.kind]);
+  const resetTitle = t`Reset ${shownTitle}`;
   // A slider drag previews through the worker's preview session and commits once on release.
   const dragging = useRef(false);
   // Properties only ever holds a layer kind, so the body hands back one.
@@ -150,17 +161,17 @@ export function PropertiesPanel({ doc, node, run, openGradientEditor, pickLookup
   const isBottom = locate(doc.layers, node.id)?.index === 0;
   return (
     <div className="properties-panel">
-      <div className="panel-tabs"><span className="panel-tab">Properties</span></div>
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Properties</Trans></span></div>
       <div className="adjustment-header">
-        <h3>{title}</h3>
-        <button type="button" aria-label={`Reset ${title}`} title={`Reset ${title}`} onClick={() => change(defaultAdjustment(adjustment.kind), false)}>
+        <h3>{shownTitle}</h3>
+        <button type="button" aria-label={resetTitle} title={resetTitle} onClick={() => change(defaultAdjustment(adjustment.kind), false)}>
           <RotateCcw size={14} strokeWidth={1.75} />
         </button>
       </div>
       <AdjustmentBody key={node.id} adjustment={adjustment} onChange={change} openGradientEditor={openGradientEditor} pickLookupFile={pickLookupFile} histogramId={0} sampleCanvas={sampleCanvas} />
       <div className="professional-toggle-grid">
-        <label className="adjustment-check"><input type="checkbox" checked={node.visible} onChange={() => setFlag({ visible: !node.visible }, 'Adjustment Visibility')} /> Adjustment visible</label>
-        <label className="adjustment-check"><input type="checkbox" checked={node.clipping} disabled={isBottom} onChange={() => setFlag({ clipping: !node.clipping }, 'Adjustment Clipping')} /> Clip to layer below</label>
+        <label className="adjustment-check"><input type="checkbox" checked={node.visible} onChange={() => setFlag({ visible: !node.visible }, 'Adjustment Visibility')} /> <Trans>Adjustment visible</Trans></label>
+        <label className="adjustment-check"><input type="checkbox" checked={node.clipping} disabled={isBottom} onChange={() => setFlag({ clipping: !node.clipping }, 'Adjustment Clipping')} /> <Trans>Clip to layer below</Trans></label>
       </div>
     </div>
   );
@@ -169,7 +180,8 @@ export function PropertiesPanel({ doc, node, run, openGradientEditor, pickLookup
 const OPACITY: FieldSpec = { type: 'number', label: 'Opacity', path: 'opacity', min: 0, max: 100, step: 1, scale: 100 };
 
 export function filterLabel(f: SmartFilterKind): string {
-  return specOf(f.kind)?.label ?? f.kind;
+  const label = specOf(f.kind)?.label;
+  return label ? engineLabel(label) : f.kind;
 }
 
 // Properties for a smart object (B11-4): each filter's enable checkbox and opacity slider, and the params of
@@ -190,9 +202,9 @@ export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFil
   };
   return (
     <div className="properties-panel">
-      <div className="panel-tabs"><span className="panel-tab">Properties</span></div>
-      <h3>Smart Filters</h3>
-      {filters.length === 0 ? <p className="adjustment-note">No smart filters.</p> : filters.map(f => (
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Properties</Trans></span></div>
+      <h3><Trans>Smart Filters</Trans></h3>
+      {filters.length === 0 ? <p className="adjustment-note">{t`No smart filters.`}</p> : filters.map(f => (
         <div key={f.id} className="smart-filter-row" aria-current={f === current}>
           <label className="adjustment-check">
             <input type="checkbox" checked={f.enabled} onChange={e => set(f.id, { enabled: e.currentTarget.checked }, false)} />
@@ -205,9 +217,9 @@ export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFil
         <>
           <h3>{filterLabel(current.filter)}</h3>
           {spec?.id === 'liquify'
-            ? <button type="button" onClick={() => openLiquify(current.id)}>Edit in Liquify…</button>
+            ? <button type="button" onClick={() => openLiquify(current.id)}><Trans>Edit in Liquify…</Trans></button>
             : spec?.id === 'vanishing_point'
-            ? <button type="button" onClick={() => openVanishingPoint(current.id)}>Edit in Vanishing Point…</button>
+            ? <button type="button" onClick={() => openVanishingPoint(current.id)}><Trans>Edit in Vanishing Point…</Trans></button>
             : spec && spec.params.some(p => p.kind === 'stack')
             ? <GalleryStack key={current.id} value={(current.filter.params as Record<string, ParamValue>).stack as GalleryLayer[]}
                 onChange={v => set(current.id, { filter: { kind: spec.id, params: { ...current.filter.params, stack: v } } as SmartFilterKind }, false)} />
@@ -226,32 +238,32 @@ export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFil
 // W/H resize it, background. Each edit is one step labelled by its field.
 export function ArtboardPanel({ node, run }: { node: LayerNode; run: Run }) {
   const a = node.artboard!;
-  const [l, t, r, b] = a.rect;
+  const [l, top, r, b] = a.rect;
   const commit = (rect: [number, number, number, number], background: ArtboardBackground, label: string) =>
     void run(null, () => client.call('editArtboard', node.id, rect, background, label));
-  const field = (label: string, value: number, apply: (v: number) => [number, number, number, number], min: number) => (
-    <label>{label} <input
-      key={`${node.id}-${label}-${value}`} type="number" step={1} min={min} defaultValue={value} aria-label={`Artboard ${label}`}
+  const field = (label: string, shown: string, value: number, apply: (v: number) => [number, number, number, number], min: number) => (
+    <label>{shown} <input
+      key={`${node.id}-${label}-${value}`} type="number" step={1} min={min} defaultValue={value} aria-label={t`Artboard ${shown}`}
       onBlur={e => { const v = Math.round(Number(e.currentTarget.value)); if (Number.isFinite(v) && v >= min && v !== value) commit(apply(v), a.background, `Artboard ${label}`); }}
       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
     /></label>
   );
   return (
     <div className="properties-panel">
-      <div className="panel-tabs"><span className="panel-tab">Properties</span></div>
-      <div className="adjustment-header"><h3>Artboard</h3></div>
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Properties</Trans></span></div>
+      <div className="adjustment-header"><h3><Trans>Artboard</Trans></h3></div>
       <div className="professional-toggle-grid shape-appearance">
-        {field('X', l, v => [v, t, v + r - l, b], -1e7)}
-        {field('Y', t, v => [l, v, r, v + b - t], -1e7)}
-        {field('W', r - l, v => [l, t, l + v, b], 1)}
-        {field('H', b - t, v => [l, t, r, t + v], 1)}
-        <label>Background <select
-          value={a.background.type} aria-label="Artboard background"
+        {field('X', t`X`, l, v => [v, top, v + r - l, b], -1e7)}
+        {field('Y', t`Y`, top, v => [l, v, r, v + b - top], -1e7)}
+        {field('W', t`W`, r - l, v => [l, top, l + v, b], 1)}
+        {field('H', t`H`, b - top, v => [l, top, r, top + v], 1)}
+        <label><Trans>Background</Trans> <select
+          value={a.background.type} aria-label={t`Artboard background`}
           onChange={e => commit(a.rect, { type: e.currentTarget.value as 'none' | 'white' | 'black' | 'transparent' }, 'Artboard Background')}
         >
-          <option value="white">White</option><option value="black">Black</option><option value="transparent">Transparent</option>
-          <option value="none">None</option>
-          {a.background.type === 'color' && <option value="color" disabled>Other color</option>}
+          <option value="white">{choiceLabel('white')}</option><option value="black">{choiceLabel('black')}</option><option value="transparent">{choiceLabel('transparent')}</option>
+          <option value="none">{choiceLabel('none')}</option>
+          {a.background.type === 'color' && <option value="color" disabled>{t`Other color`}</option>}
         </select></label>
       </div>
     </div>
@@ -283,6 +295,11 @@ export function Num({ label, value, min, max, step, onCommit }: { label: string;
   );
 }
 
+const STROKE_OPTION = {
+  solid: msg`Solid`, dashed: msg`Dashed`, dotted: msg`Dotted`, inside: msg`Inside`, center: msg`Center`, outside: msg`Outside`,
+  butt: msg`Butt`, round: msg`Round`, square: msg`Square`, miter: msg`Miter`, bevel: msg`Bevel`,
+};
+
 type ShapeInfo = NonNullable<LayerNode['shape']>;
 const colorOf = (c: FillContent | null | undefined, fallback: [number, number, number]) => (c?.type === 'solid' ? c.color : fallback);
 const solid = (c: [number, number, number]): FillContent => ({ type: 'solid', color: c });
@@ -303,7 +320,7 @@ export function ShapePanel({ node, run, fg, selected }: { node: LayerNode; run: 
   const bounds = live && 'bounds' in live ? live.bounds : null;
   const select = <T extends string>(label: string, value: T, options: T[], apply: (v: T) => void) => (
     <label>{label} <select aria-label={label} value={value} onChange={e => apply(e.currentTarget.value as T)}>
-      {options.map(o => <option key={o} value={o}>{o[0].toUpperCase() + o.slice(1)}</option>)}
+      {options.map(o => <option key={o} value={o}>{i18n._(STROKE_OPTION[o as keyof typeof STROKE_OPTION])}</option>)}
     </select></label>
   );
   const strokeOn = (on: boolean) => edit('Shape Stroke', {
@@ -311,45 +328,45 @@ export function ShapePanel({ node, run, fg, selected }: { node: LayerNode; run: 
   });
   return (
     <div className="properties-panel">
-      <div className="panel-tabs"><span className="panel-tab">Properties</span></div>
-      <div className="adjustment-header"><h3>Appearance</h3></div>
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Properties</Trans></span></div>
+      <div className="adjustment-header"><h3><Trans>Appearance</Trans></h3></div>
       <div className="professional-toggle-grid shape-appearance">
         {live?.type !== 'line' && (
           <label className="adjustment-check">
-            <input type="checkbox" checked={!!s.fill} onChange={e => edit('Shape Fill', { fill: e.currentTarget.checked ? solid(fg) : null })} /> Fill
-            <ColorInput key={rgbToHex(colorOf(s.fill, fg))} label="Fill color" value={colorOf(s.fill, fg)} onCommit={c => edit('Shape Fill', { fill: solid(c) })} />
+            <input type="checkbox" checked={!!s.fill} onChange={e => edit('Shape Fill', { fill: e.currentTarget.checked ? solid(fg) : null })} /> <Trans context="noun">Fill</Trans>
+            <ColorInput key={rgbToHex(colorOf(s.fill, fg))} label={t`Fill color`} value={colorOf(s.fill, fg)} onCommit={c => edit('Shape Fill', { fill: solid(c) })} />
           </label>
         )}
         <label className="adjustment-check">
-          <input type="checkbox" checked={!!stroke} onChange={e => strokeOn(e.currentTarget.checked)} /> Stroke
-          <ColorInput key={rgbToHex(colorOf(s.stroke?.content, fg))} label="Stroke color" value={colorOf(s.stroke?.content, fg)}
+          <input type="checkbox" checked={!!stroke} onChange={e => strokeOn(e.currentTarget.checked)} /> <Trans context="noun">Stroke</Trans>
+          <ColorInput key={rgbToHex(colorOf(s.stroke?.content, fg))} label={t`Stroke color`} value={colorOf(s.stroke?.content, fg)}
             onCommit={c => edit('Shape Stroke', { stroke: s.stroke ? { ...s.stroke, enabled: true, content: solid(c) } : newStroke(c, 1, 4) })} />
         </label>
         {stroke && (
           <>
-            <Num label="Width" value={stroke.width} min={0} max={1000} onCommit={v => editStroke('Stroke Width', { width: v })} />
-            {select<StrokeStyle>('Stroke style', strokeStyleOf(stroke.dash, stroke.width), ['solid', 'dashed', 'dotted'], v => editStroke('Stroke Style', dashFor(v, stroke.width)))}
-            {select('Stroke placement', stroke.align, ['inside', 'center', 'outside'], v => editStroke('Stroke Placement', { align: v }))}
-            {select('Stroke cap', stroke.cap, ['butt', 'round', 'square'], v => editStroke('Stroke Cap', { cap: v }))}
-            {select('Stroke join', stroke.join, ['miter', 'round', 'bevel'], v => editStroke('Stroke Join', { join: v }))}
+            <Num label={t`Width`} value={stroke.width} min={0} max={1000} onCommit={v => editStroke('Stroke Width', { width: v })} />
+            {select<StrokeStyle>(t`Stroke style`, strokeStyleOf(stroke.dash, stroke.width), ['solid', 'dashed', 'dotted'], v => editStroke('Stroke Style', dashFor(v, stroke.width)))}
+            {select(t`Stroke placement`, stroke.align, ['inside', 'center', 'outside'], v => editStroke('Stroke Placement', { align: v }))}
+            {select(t`Stroke cap`, stroke.cap, ['butt', 'round', 'square'], v => editStroke('Stroke Cap', { cap: v }))}
+            {select(t`Stroke join`, stroke.join, ['miter', 'round', 'bevel'], v => editStroke('Stroke Join', { join: v }))}
           </>
         )}
         {radii && bounds && (
           <>
-            <button type="button" aria-pressed={linked} onClick={() => setLinked(x => !x)}>{linked ? 'Unlink corner radii' : 'Link corner radii'}</button>
-            {(['Top left', 'Top right', 'Bottom left', 'Bottom right'] as const).map((label, i) => (
-              <Num key={label} label={label} value={radii[i]} min={0} max={radiusMax(bounds)}
+            <button type="button" aria-pressed={linked} onClick={() => setLinked(x => !x)}>{linked ? t`Unlink corner radii` : t`Link corner radii`}</button>
+            {[t`Top left`, t`Top right`, t`Bottom left`, t`Bottom right`].map((label, i) => (
+              <Num key={i} label={label} value={radii[i]} min={0} max={radiusMax(bounds)}
                 onCommit={v => edit('Corner Radius', { live: { ...live!, radii: setRadius(radii, i, v, linked, bounds) } as Live })} />
             ))}
           </>
         )}
         {live && bounds && (live.type === 'triangle' || live.type === 'polygon') && (
-          <Num label="Corner radius" value={live.radius} min={0} max={radiusMax(bounds)} onCommit={v => edit('Corner Radius', { live: { ...live, radius: v } })} />
+          <Num label={t`Corner radius`} value={live.radius} min={0} max={radiusMax(bounds)} onCommit={v => edit('Corner Radius', { live: { ...live, radius: v } })} />
         )}
         {live?.type === 'polygon' && (
           <>
-            <Num label="Sides" value={live.sides} min={3} max={100} onCommit={v => edit('Polygon Sides', { live: { ...live, sides: Math.round(v) } })} />
-            <Num label="Star ratio" value={Math.round(live.star_inset * 100)} min={0} max={99} onCommit={v => edit('Polygon Star Ratio', { live: { ...live, star_inset: v / 100 } })} />
+            <Num label={t`Sides`} value={live.sides} min={3} max={100} onCommit={v => edit('Polygon Sides', { live: { ...live, sides: Math.round(v) } })} />
+            <Num label={t`Star ratio`} value={Math.round(live.star_inset * 100)} min={0} max={99} onCommit={v => edit('Polygon Star Ratio', { live: { ...live, star_inset: v / 100 } })} />
           </>
         )}
       </div>
@@ -369,10 +386,10 @@ function Pathfinder({ node, selected, run }: { node: LayerNode; selected: LayerN
     : run(null, () => client.call('pathfinder', node.id, op)));
   return (
     <>
-      <div className="adjustment-header"><h3>Pathfinder</h3></div>
-      <div className="pathfinder" role="group" aria-label="Pathfinder">
+      <div className="adjustment-header"><h3><Trans>Pathfinder</Trans></h3></div>
+      <div className="pathfinder" role="group" aria-label={t`Pathfinder`}>
         {(Object.keys(BOOL_LABEL) as BoolOp[]).map(op => (
-          <button key={op} type="button" className={`pathfinder-${op}`} aria-label={BOOL_LABEL[op]} title={BOOL_LABEL[op]} disabled={!on} onClick={() => apply(op)}>
+          <button key={op} type="button" className={`pathfinder-${op}`} aria-label={i18n._(BOOL_LABEL[op])} title={i18n._(BOOL_LABEL[op])} disabled={!on} onClick={() => apply(op)}>
             <i /><i />
           </button>
         ))}
@@ -389,27 +406,28 @@ export function VectorMaskPanel({ node, run }: { node: LayerNode; run: Run }) {
   const flag = (label: string, key: 'enabled' | 'linked' | 'inverted', undo: string) => (
     <label className="adjustment-check"><input type="checkbox" checked={m[key]} onChange={e => edit(undo, { [key]: e.currentTarget.checked })} /> {label}</label>
   );
+  const components = m.path.subpaths.length;
   const anchors = m.path.subpaths.reduce((n, s) => n + s.points.length, 0);
   return (
     <div className="properties-panel">
-      <div className="panel-tabs"><span className="panel-tab">Properties</span></div>
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Properties</Trans></span></div>
       <div className="adjustment-header">
-        <h3>Vector Mask</h3>
-        <button type="button" aria-label="Reset Vector Mask Properties" title="Reset Vector Mask Properties"
+        <h3><Trans>Vector Mask</Trans></h3>
+        <button type="button" aria-label={t`Reset Vector Mask Properties`} title={t`Reset Vector Mask Properties`}
           onClick={() => edit('Reset Vector Mask Properties', { enabled: true, linked: true, inverted: false, density: 1, feather: 0 })}>
           <RotateCcw size={14} strokeWidth={1.75} />
         </button>
       </div>
       <div className="professional-toggle-grid shape-appearance">
-        <Num label="Density" value={Math.round(m.density * 100)} min={0} max={100} onCommit={v => edit('Vector Mask Density', { density: v / 100 })} />
-        <Num label="Feather" value={m.feather} min={0} max={1000} step={0.1} onCommit={v => edit('Vector Mask Feather', { feather: v })} />
-        {flag('Enabled', 'enabled', 'Enable Vector Mask')}
-        {flag('Linked', 'linked', 'Link Vector Mask')}
-        {flag('Invert', 'inverted', 'Invert Vector Mask')}
-        <span>Components {m.path.subpaths.length}</span>
-        <span>Anchor points {anchors}</span>
-        <button type="button" onClick={() => void run(null, () => client.call('makeSelectionFromPath', 'vectorMask', node.id, 'new', 'Make Selection from Vector Mask'))}>Make Selection</button>
-        <button type="button" onClick={() => edit('Delete Vector Mask', null)}>Delete Mask</button>
+        <Num label={t`Density`} value={Math.round(m.density * 100)} min={0} max={100} onCommit={v => edit('Vector Mask Density', { density: v / 100 })} />
+        <Num label={t`Feather`} value={m.feather} min={0} max={1000} step={0.1} onCommit={v => edit('Vector Mask Feather', { feather: v })} />
+        {flag(t`Enabled`, 'enabled', 'Enable Vector Mask')}
+        {flag(t`Linked`, 'linked', 'Link Vector Mask')}
+        {flag(t`Invert`, 'inverted', 'Invert Vector Mask')}
+        <span><Trans>Components {components}</Trans></span>
+        <span><Trans>Anchor points {anchors}</Trans></span>
+        <button type="button" onClick={() => void run(null, () => client.call('makeSelectionFromPath', 'vectorMask', node.id, 'new', 'Make Selection from Vector Mask'))}><Trans>Make Selection</Trans></button>
+        <button type="button" onClick={() => edit('Delete Vector Mask', null)}><Trans>Delete Mask</Trans></button>
       </div>
     </div>
   );

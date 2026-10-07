@@ -1,5 +1,7 @@
 // Layer styles and blending options (docs/M3.md section 5): engine JSON types (field names verbatim),
 // per-effect defaults, the 18 contour presets and the effect catalogue the dialog and Layers panel share.
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 import type { FillContent, GradientDef } from './engine.worker.ts';
 
 type Rgb = [number, number, number];
@@ -87,10 +89,10 @@ export const EFFECT_KINDS: EffectKind[] = [
   'bevel', 'contour', 'texture', 'strokes', 'inner_shadows', 'inner_glow', 'satin', 'color_overlays',
   'gradient_overlays', 'pattern_overlays', 'outer_glow', 'drop_shadows',
 ];
-export const EFFECT_LABEL: Record<EffectKind, string> = {
-  bevel: 'Bevel & Emboss', contour: 'Contour', texture: 'Texture', strokes: 'Stroke', inner_shadows: 'Inner Shadow',
-  inner_glow: 'Inner Glow', satin: 'Satin', color_overlays: 'Color Overlay', gradient_overlays: 'Gradient Overlay',
-  pattern_overlays: 'Pattern Overlay', outer_glow: 'Outer Glow', drop_shadows: 'Drop Shadow',
+export const EFFECT_LABEL: Record<EffectKind, MessageDescriptor> = {
+  bevel: msg`Bevel & Emboss`, contour: msg`Contour`, texture: msg`Texture`, strokes: msg({ message: 'Stroke', context: 'layer effect' }),
+  inner_shadows: msg`Inner Shadow`, inner_glow: msg`Inner Glow`, satin: msg`Satin`, color_overlays: msg`Color Overlay`,
+  gradient_overlays: msg`Gradient Overlay`, pattern_overlays: msg`Pattern Overlay`, outer_glow: msg`Outer Glow`, drop_shadows: msg`Drop Shadow`,
 };
 export const MULTI: EffectKind[] = ['strokes', 'inner_shadows', 'color_overlays', 'gradient_overlays', 'drop_shadows'];
 export const MAX_INSTANCES = 10;
@@ -157,7 +159,7 @@ export function effectRows(s: LayerStyle): { kind: EffectKind; index: number; na
   return EFFECT_KINDS.filter(k => k !== 'contour' && k !== 'texture').flatMap(kind => instances(s, kind)
     .map((e, index) => ({ e, index }))
     .filter(({ e }) => e.present)
-    .map(({ e, index }) => ({ kind, index, name: index > 0 ? `${EFFECT_LABEL[kind]} ${index + 1}` : EFFECT_LABEL[kind], enabled: e.enabled })));
+    .map(({ e, index }) => ({ kind, index, name: index > 0 ? `${EFFECT_LABEL[kind].message} ${index + 1}` : EFFECT_LABEL[kind].message!, enabled: e.enabled })));
 }
 
 /** Sets `enabled` on one effect instance. */

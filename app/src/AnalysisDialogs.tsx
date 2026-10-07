@@ -1,5 +1,9 @@
 // Image > Analysis: Set Measurement Scale, Select Data Points and Place Scale Marker.
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { i18n } from './i18n/index.ts';
 import { DATA_POINTS, DEFAULT_SCALE, markerRect, type MeasureScale } from './app/analysis.ts';
 import { LOG_COLUMNS, type Annotations, type MeasureRow } from './app/measure.ts';
 import { newText } from './shell/typesession.ts';
@@ -15,7 +19,7 @@ interface Props {
   placeMarker: (rect: { x: number; y: number; w: number; h: number }, color: [number, number, number], text: TextJson | null) => void;
 }
 
-const TITLES: Record<AnalysisKind, string> = { scale: 'Measurement Scale', points: 'Select Data Points', marker: 'Measurement Scale Marker' };
+const TITLES: Record<AnalysisKind, MessageDescriptor> = { scale: msg`Measurement Scale`, points: msg`Select Data Points`, marker: msg`Measurement Scale Marker` };
 const num = (s: string) => Number(s.replace(',', '.'));
 
 export function AnalysisDialogs({ ref, annotations, size, rulerLength, points, setPoints, commit, placeMarker }: Props) {
@@ -54,6 +58,12 @@ export function AnalysisDialogs({ ref, annotations, size, rulerLength, points, s
   const fits = !!rect && rect.w >= 1 && rect.w === wantPx;
   const markerOk = num(length) > 0 && num(thickness) >= 1 && num(fontSize) > 0 && Number.isFinite(num(length) + num(thickness) + num(fontSize)) && fits;
 
+  const scalePx = scale.pixels, scaleLogical = scale.logical, scaleUnits = scale.units;
+  const maxBar = size ? size[0] - 2 * Math.round(size[0] * 0.05) : 0;
+  const scaleNote = num(length) > 0 && !fits
+    ? t`Scale: ${scalePx} px = ${scaleLogical} ${scaleUnits} (the bar must be 1 to ${maxBar} px wide)`
+    : t`Scale: ${scalePx} px = ${scaleLogical} ${scaleUnits}`;
+
   const submit = () => {
     if (kind === 'scale' && scaleOk && annotations) {
       const s: MeasureScale = { pixels: num(pixels), logical: num(logical), units: units.trim() };
@@ -74,38 +84,38 @@ export function AnalysisDialogs({ ref, annotations, size, rulerLength, points, s
     <label>{label} <input type="text" inputMode="decimal" value={value} onChange={e => set(e.currentTarget.value)} />{extra && ` ${extra}`}</label>;
 
   return (
-    <dialog ref={dialog} className="mode-dialog" aria-label={kind ? TITLES[kind] : 'Analysis'} onClose={() => setKind(null)}>
+    <dialog ref={dialog} className="mode-dialog" aria-label={kind ? i18n._(TITLES[kind]) : t`Analysis`} onClose={() => setKind(null)}>
       <form onSubmit={e => { e.preventDefault(); submit(); }}>
-        <h2>{kind && TITLES[kind]}</h2>
+        <h2>{kind && i18n._(TITLES[kind])}</h2>
         {kind === 'scale' && <>
-          {field('Pixel Length:', pixels, setPixels, 'px')}
-          {field('Logical Length:', logical, setLogical)}
-          <label>Logical Units: <input type="text" maxLength={64} value={units} onChange={e => setUnits(e.currentTarget.value)} /></label>
-          <p className="panel-empty">{rulerLength !== null ? 'Pixel length comes from the ruler line.' : 'Draw a ruler line first to measure a known length.'}</p>
+          {field(t`Pixel Length:`, pixels, setPixels, 'px')}
+          {field(t`Logical Length:`, logical, setLogical)}
+          <label><Trans>Logical Units:</Trans> <input type="text" maxLength={64} value={units} onChange={e => setUnits(e.currentTarget.value)} /></label>
+          <p className="panel-empty">{rulerLength !== null ? t`Pixel length comes from the ruler line.` : t`Draw a ruler line first to measure a known length.`}</p>
         </>}
-        {kind === 'points' && <fieldset><legend>Data points</legend>
+        {kind === 'points' && <fieldset><legend><Trans>Data points</Trans></legend>
           {LOG_COLUMNS.filter(([k]) => DATA_POINTS.includes(k)).map(([k, label]) => <label key={k}><input type="checkbox" checked={chosen.has(k)} onChange={e => {
             const on = e.currentTarget.checked;
             setChosen(c => { const n = new Set(c); if (on) n.add(k); else n.delete(k); return n; });
           }} /> {label}</label>)}
         </fieldset>}
         {kind === 'marker' && <>
-          {field('Length:', length, setLength, scale.units)}
-          {field('Height:', thickness, setThickness, 'px')}
-          {field('Font Size:', fontSize, setFontSize, 'pt')}
-          <label><input type="checkbox" checked={showText} onChange={e => setShowText(e.currentTarget.checked)} /> Display Text</label>
-          <label>Color <select value={color} onChange={e => setColor(e.currentTarget.value as 'black' | 'white')}>
-            <option value="black">Black</option><option value="white">White</option>
+          {field(t`Length:`, length, setLength, scale.units)}
+          {field(t`Height:`, thickness, setThickness, 'px')}
+          {field(t`Font Size:`, fontSize, setFontSize, 'pt')}
+          <label><input type="checkbox" checked={showText} onChange={e => setShowText(e.currentTarget.checked)} /> <Trans>Display Text</Trans></label>
+          <label><Trans>Color</Trans> <select value={color} onChange={e => setColor(e.currentTarget.value as 'black' | 'white')}>
+            <option value="black">{t`Black`}</option><option value="white">{t`White`}</option>
           </select></label>
-          <p className="panel-empty">Scale: {scale.pixels} px = {scale.logical} {scale.units}{num(length) > 0 && !fits ? ` (the bar must be 1 to ${size ? size[0] - 2 * Math.round(size[0] * 0.05) : 0} px wide)` : ''}</p>
+          <p className="panel-empty">{scaleNote}</p>
         </>}
         <div className="actions">
           {kind === 'scale' && <button type="button" disabled={!annotations?.scale} onClick={() => {
             if (annotations) { const { scale: _, ...rest } = annotations; commit(rest, 'Set Measurement Scale'); }
             close();
-          }}>Default</button>}
-          <button type="button" onClick={close}>Cancel</button>
-          <button type="submit" className="primary" disabled={kind === 'scale' ? !scaleOk : kind === 'marker' ? !markerOk : false}>OK</button>
+          }}><Trans>Default</Trans></button>}
+          <button type="button" onClick={close}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary" disabled={kind === 'scale' ? !scaleOk : kind === 'marker' ? !markerOk : false}><Trans>OK</Trans></button>
         </div>
       </form>
     </dialog>

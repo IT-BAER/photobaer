@@ -1,4 +1,7 @@
 // Window > Workspace state. Built-ins are immutable; custom workspaces are strict snapshots.
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { i18n } from '../i18n/index.ts';
 
 export const PANEL_KEYS = [
   'actions', 'adjustments', 'channels', 'cloneSource', 'navigator', 'layerComps', 'paths', 'properties', 'styles', 'patterns', 'gradients', 'shapes',
@@ -54,6 +57,12 @@ export const BUILTIN_WORKSPACES: readonly NamedWorkspace[] = [
   preset('Motion', { actions: true, properties: true }),
   preset('Graphic and Web', { properties: true, styles: true, patterns: true, gradients: true, shapes: true, character: true, paragraph: true, dockTab: 'swatches' }),
 ];
+
+// Built-in names are stored keys; only their display text is translated. Custom names show as typed.
+const BUILTIN_LABEL: Record<string, MessageDescriptor> = {
+  Essentials: msg`Essentials`, Photography: msg`Photography`, Painting: msg`Painting`, Motion: msg`Motion`, 'Graphic and Web': msg`Graphic and Web`,
+};
+export const workspaceLabel = (name: string) => (Object.hasOwn(BUILTIN_LABEL, name) ? i18n._(BUILTIN_LABEL[name]) : name);
 
 export const MAX_WORKSPACE_NAME = 64;
 const STORAGE_KEY = 'photobaer.workspaces';

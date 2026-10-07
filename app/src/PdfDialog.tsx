@@ -2,6 +2,10 @@
 // images in the file; each opens as its own document, then converts to the chosen mode and bit depth.
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg, plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { i18n } from './i18n/index.ts';
 import type { PdfImageRef } from './app/pdf.ts';
 import { boxReader } from './app/pdfBoxes.ts';
 import { pixels, rasterSize, type RasterSize } from './app/rasterSize.ts';
@@ -15,7 +19,7 @@ export interface PdfDialogHandle {
 
 const pdfjs = () => import('./app/pdf.ts');
 const isPassword = (e: unknown) => (e as Error)?.name === 'PasswordException';
-const MODES: [PdfMode, string][] = [['gray', 'Grayscale'], ['rgb', 'RGB Color'], ['cmyk', 'CMYK Color'], ['lab', 'Lab Color']];
+const MODES: [PdfMode, MessageDescriptor][] = [['gray', msg`Grayscale`], ['rgb', msg`RGB Color`], ['cmyk', msg`CMYK Color`], ['lab', msg`Lab Color`]];
 
 export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setError: (msg: string) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -61,12 +65,12 @@ export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setErr
       for (let n = 1; n <= doc.numPages && j === job.current; n++) {
         const url = await thumbnail(doc, n, 96);
         urls.current.push(url);
-        if (j === job.current) setThumbs(t => [...t, url]);
+        if (j === job.current) setThumbs(prev => [...prev, url]);
       }
     } catch (e) {
       if (j !== job.current) return;
       if (isPassword(e)) setPassword({ value: '', wrong: pw !== undefined });
-      else { close(null); setError(`Could not open ${f.name}: ${(e as Error).message}`); }
+      else { close(null); { const name = f.name, reason = (e as Error).message; setError(t`Could not open ${name}: ${reason}`); }; }
     }
   }
 
@@ -82,7 +86,7 @@ export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setErr
         out.push(b ? { box: b.media, size: await pageSize(pdf, n, b.media) } : null);
       }
       if (j === job.current) setMedia(out);
-    } catch (e) { setError(`Could not read the media boxes: ${(e as Error).message}`); }
+    } catch (e) { { const reason = (e as Error).message; setError(t`Could not read the media boxes: ${reason}`); }; }
   }
 
   async function loadImages() {
@@ -103,7 +107,7 @@ export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setErr
       if (j !== job.current) return;
       if (all.length) setPickedImages(new Set([all[0].img.key]));
       setImagesDone(true);
-    } catch (e) { setError(`Could not read the images: ${(e as Error).message}`); }
+    } catch (e) { { const reason = (e as Error).message; setError(t`Could not read the images: ${reason}`); }; }
   }
 
   useImperativeHandle(ref, () => ({
@@ -166,61 +170,61 @@ export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setErr
   const ready = select === 'images' ? pickedImages.size > 0 : !!pdf && picked.size > 0 && (cropTo === 'crop' || !!media);
 
   return (
-    <dialog ref={dialog} className="mode-dialog pdf-dialog" aria-label="Import PDF" onClose={() => { if (answer.current) close(null); }}>
+    <dialog ref={dialog} className="mode-dialog pdf-dialog" aria-label={t`Import PDF`} onClose={() => { if (answer.current) close(null); }}>
       {file && (
         <form onSubmit={e => { e.preventDefault(); if (password) { setPassword(null); void load(file, password.value); } else void ok(); }}>
-          <h2>Import PDF</h2>
+          <h2><Trans>Import PDF</Trans></h2>
           {password ? <>
-            <p>{password.wrong ? 'The password is wrong. ' : ''}{file.name} is protected.</p>
-            <label>PDF password <input type="password" aria-label="PDF password" autoFocus value={password.value} onChange={e => setPassword({ value: e.currentTarget.value, wrong: password.wrong })} /></label>
+            <p>{password.wrong ? t`The password is wrong. ${file.name} is protected.` : t`${file.name} is protected.`}</p>
+            <label><Trans>PDF password</Trans> <input type="password" aria-label={t`PDF password`} autoFocus value={password.value} onChange={e => setPassword({ value: e.currentTarget.value, wrong: password.wrong })} /></label>
           </> : <>
-            <div className="row" role="radiogroup" aria-label="Select">
-              <label className="check"><input type="radio" name="pdf-select" checked={select === 'pages'} onChange={() => setSelect('pages')} /> Pages</label>
-              <label className="check"><input type="radio" name="pdf-select" checked={select === 'images'} onChange={() => { setSelect('images'); void loadImages(); }} /> Images</label>
+            <div className="row" role="radiogroup" aria-label={t`Select`}>
+              <label className="check"><input type="radio" name="pdf-select" checked={select === 'pages'} onChange={() => setSelect('pages')} /> <Trans>Pages</Trans></label>
+              <label className="check"><input type="radio" name="pdf-select" checked={select === 'images'} onChange={() => { setSelect('images'); void loadImages(); }} /> <Trans>Images</Trans></label>
             </div>
             {select === 'pages' ? <>
-              <div className="pdf-pages" role="listbox" aria-label="Pages" aria-multiselectable="true">
+              <div className="pdf-pages" role="listbox" aria-label={t`Pages`} aria-multiselectable="true">
                 {sizes.map((_, i) => (
                   <button type="button" key={i} role="option" aria-selected={picked.has(i + 1)} className={picked.has(i + 1) ? 'on' : ''} onClick={() => toggle(i + 1)}>
                     {thumbs[i] ? <img src={thumbs[i]} alt="" /> : <span className="pdf-blank" />}
                     <span>{i + 1}</span>
                   </button>
                 ))}
-                {!sizes.length && <p>Reading {file.name}…</p>}
+                {!sizes.length && <p><Trans>Reading {file.name}…</Trans></p>}
               </div>
               <div className="row">
-                <button type="button" onClick={() => setPicked(new Set(sizes.map((_, i) => i + 1)))}>Select All</button>
-                <button type="button" onClick={() => setPicked(new Set())}>Deselect All</button>
+                <button type="button" onClick={() => setPicked(new Set(sizes.map((_, i) => i + 1)))}><Trans>Select All</Trans></button>
+                <button type="button" onClick={() => setPicked(new Set())}><Trans>Deselect All</Trans></button>
               </div>
-              <label>Crop To <select aria-label="Crop To" value={cropTo} onChange={e => { const v = e.currentTarget.value as 'crop' | 'media'; setCropTo(v); if (v === 'media') void loadMedia(); }}>
-                <option value="crop">Crop Box</option>
-                <option value="media">Media Box</option>
+              <label><Trans>Crop To</Trans> <select aria-label={t`Crop To`} value={cropTo} onChange={e => { const v = e.currentTarget.value as 'crop' | 'media'; setCropTo(v); if (v === 'media') void loadMedia(); }}>
+                <option value="crop">{t`Crop Box`}</option>
+                <option value="media">{t`Media Box`}</option>
               </select></label>
               {base && <RasterFields base={base} size={size} set={set} />}
-              {base && picked.size > 1 && <p className="hint">Page {firstPage} shown; {picked.size} pages at the same scale.</p>}
+              {base && picked.size > 1 && <p className="hint">{plural(picked.size, { one: `Page ${firstPage} shown; # page at the same scale.`, other: `Page ${firstPage} shown; # pages at the same scale.` })}</p>}
             </> : (
-              <div className="pdf-pages" role="listbox" aria-label="Images" aria-multiselectable="true">
+              <div className="pdf-pages" role="listbox" aria-label={t`Images`} aria-multiselectable="true">
                 {(images ?? []).map(({ img, url }, i) => (
                   <button type="button" key={img.key} role="option" aria-selected={pickedImages.has(img.key)} className={pickedImages.has(img.key) ? 'on' : ''} onClick={() => toggleImage(img.key)}>
                     <img src={url} alt="" />
                     <span>{i + 1}: {img.width} x {img.height}</span>
                   </button>
                 ))}
-                {!images?.length && <p>{imagesDone ? 'The PDF has no images.' : 'Reading the images…'}</p>}
+                {!images?.length && <p>{imagesDone ? t`The PDF has no images.` : t`Reading the images…`}</p>}
               </div>
             )}
-            <label>Mode <select aria-label="Mode" value={mode} onChange={e => setMode(e.currentTarget.value as PdfMode)}>
-              {MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            <label><Trans>Mode</Trans> <select aria-label={t`Mode`} value={mode} onChange={e => setMode(e.currentTarget.value as PdfMode)}>
+              {MODES.map(([v, l]) => <option key={v} value={v}>{i18n._(l)}</option>)}
             </select></label>
-            <label>Bit Depth <select aria-label="Bit Depth" value={depth} onChange={e => setDepth(+e.currentTarget.value as 8 | 16)}>
-              <option value={8}>8 bit</option>
-              <option value={16}>16 bit</option>
+            <label><Trans>Bit Depth</Trans> <select aria-label={t`Bit Depth`} value={depth} onChange={e => setDepth(+e.currentTarget.value as 8 | 16)}>
+              <option value={8}>{t`8 bit`}</option>
+              <option value={16}>{t`16 bit`}</option>
             </select></label>
             {select === 'pages' && base && <p className="hint">{pixels(size, base).join(' x ')} px</p>}
           </>}
           <div className="actions">
-            <button type="button" onClick={() => close(null)}>Cancel</button>
-            <button type="submit" className="primary" disabled={busy || (!password && !ready)}>{password ? 'Unlock' : 'OK'}</button>
+            <button type="button" onClick={() => close(null)}><Trans>Cancel</Trans></button>
+            <button type="submit" className="primary" disabled={busy || (!password && !ready)}>{password ? t`Unlock` : t`OK`}</button>
           </div>
         </form>
       )}

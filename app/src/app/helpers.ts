@@ -1,3 +1,6 @@
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { i18n } from '../i18n/index.ts';
 import type { Active } from '../LayersPanel.tsx';
 import { locate, nodeById } from '../layers.ts';
 import type { Rgb } from '../shell/color.ts';
@@ -7,20 +10,20 @@ import type { AlignMode, AutosaveState, DocInfo, FillContent, StrokeSelectionPar
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
 const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso', 'magneticLasso', 'quickSelection', 'magicWand'];
-const PAINT_LABELS: Record<string, string> = {
-  brush: 'Brush', pencil: 'Pencil', eraser: 'Eraser', cloneStamp: 'Clone Stamp', patternStamp: 'Pattern Stamp',
-  spotHealing: 'Spot Healing Brush', healingBrush: 'Healing Brush', historyBrush: 'History Brush', artHistoryBrush: 'Art History Brush',
-  blur: 'Blur', sharpen: 'Sharpen', smudge: 'Smudge', dodge: 'Dodge', burn: 'Burn', sponge: 'Sponge',
-  colorReplacement: 'Color Replacement', mixerBrush: 'Mixer Brush', backgroundEraser: 'Background Eraser',
+const PAINT_LABELS: Record<string, MessageDescriptor> = {
+  brush: msg`Brush`, pencil: msg`Pencil`, eraser: msg`Eraser`, cloneStamp: msg`Clone Stamp`, patternStamp: msg`Pattern Stamp`,
+  spotHealing: msg`Spot Healing Brush`, healingBrush: msg`Healing Brush`, historyBrush: msg`History Brush`, artHistoryBrush: msg`Art History Brush`,
+  blur: msg`Blur`, sharpen: msg`Sharpen`, smudge: msg`Smudge`, dodge: msg`Dodge`, burn: msg`Burn`, sponge: msg`Sponge`,
+  colorReplacement: msg`Color Replacement`, mixerBrush: msg`Mixer Brush`, backgroundEraser: msg`Background Eraser`,
 };
 const PAINT_TOOLS = new Set(Object.keys(PAINT_LABELS));
 
 // Select > Modify (docs/M2.md section 3): op -> [min, max, default].
-const MODIFY_OPS: Record<'border' | 'smooth' | 'expand' | 'contract', { label: string; min: number; max: number; default: number }> = {
-  border: { label: 'Border', min: 1, max: 200, default: 10 },
-  smooth: { label: 'Smooth', min: 1, max: 100, default: 2 },
-  expand: { label: 'Expand', min: 1, max: 500, default: 5 },
-  contract: { label: 'Contract', min: 1, max: 500, default: 5 },
+const MODIFY_OPS: Record<'border' | 'smooth' | 'expand' | 'contract', { label: MessageDescriptor; min: number; max: number; default: number }> = {
+  border: { label: msg`Border`, min: 1, max: 200, default: 10 },
+  smooth: { label: msg`Smooth`, min: 1, max: 100, default: 2 },
+  expand: { label: msg`Expand`, min: 1, max: 500, default: 5 },
+  contract: { label: msg`Contract`, min: 1, max: 500, default: 5 },
 };
 const COLOR_RANGE_PRESETS = ['sampled', 'reds', 'yellows', 'greens', 'cyans', 'blues', 'magentas', 'highlights', 'midtones', 'shadows', 'skin tones'];
 
@@ -39,7 +42,7 @@ type TrimBase = 'transparent' | 'topLeftPixel' | 'bottomRightPixel';
 
 // Edit > Fill: only contents, color and pattern persist across openings.
 const FILL_KEY = 'photobaer:fill';
-const FILL_CONTENTS = { foreground: 'Foreground Color', background: 'Background Color', color: 'Color…', contentAware: 'Content-Aware', pattern: 'Pattern', history: 'History', black: 'Black', gray: '50% Gray', white: 'White' };
+const FILL_CONTENTS = { foreground: msg`Foreground Color`, background: msg`Background Color`, color: msg`Color…`, contentAware: msg`Content-Aware`, pattern: msg`Pattern`, history: msg`History`, black: msg`Black`, gray: msg`50% Gray`, white: msg`White` };
 type FillContents = keyof typeof FILL_CONTENTS;
 interface FillForm { contents: FillContents; color: Rgb; pattern: string; caStructure: number; caColor: number; mode: string; opacity: number; preserve: boolean }
 function loadFillForm(): FillForm {
@@ -61,9 +64,9 @@ const STROKE_DEFAULT: StrokeForm = { width: 3, color: [0, 0, 0], location: 'insi
 // the undo label and the new layer's name. The dialog's gradient is black to white, classic, two stops;
 // it never edits the stops.
 const FILL_LAYERS = {
-  solid: { title: 'Solid Color', label: 'Solid Color', name: 'Color Fill' },
-  gradient: { title: 'Gradient Fill', label: 'Gradient', name: 'Gradient Fill' },
-  pattern: { title: 'Pattern Fill', label: 'Pattern', name: 'Pattern Fill' },
+  solid: { title: msg`Solid Color`, label: msg`Solid Color`, name: 'Color Fill' },
+  gradient: { title: msg`Gradient Fill`, label: msg`Gradient`, name: 'Gradient Fill' },
+  pattern: { title: msg`Pattern Fill`, label: msg`Pattern`, name: 'Pattern Fill' },
 } as const;
 const DEFAULT_GRADIENT = {
   method: 'classic' as const,
@@ -98,6 +101,8 @@ type SelectAfter = (d: DocInfo) => Active;
 // search and WebMCP find items by it, so a translated `label` does not break them.
 interface Item { id?: string; label: string; keys?: string; run: () => void; off?: boolean; sub?: Item[]; sep?: boolean }
 export const itemId = (i: Item) => i.id ?? i.label;
+/** Translated menu text: `tl(msg\`Snap\`, on)` gives the English id and the label in the active language. */
+export const tl = (d: MessageDescriptor, on?: boolean) => ({ id: d.message!, label: `${on ? '✓ ' : ''}${i18n._(d)}` });
 
 /** The first item of any menu or its direct submenus whose id matches, in menu order. */
 export function findMenuItem(menus: Record<string, Item[]>, pred: (id: string) => boolean): Item | undefined {
@@ -123,23 +128,23 @@ function selectAfterDelete(before: DocInfo, id: number): SelectAfter {
   };
 }
 
-const AUTOSAVE_TEXT: Record<AutosaveState, string> = {
-  off: 'Autosave unavailable in this browser',
-  'other-tab': 'Autosave off: open in another tab',
-  idle: 'Autosave on',
-  saving: 'Saving…',
-  saved: 'All changes saved locally',
-  error: 'Autosave failed',
+const AUTOSAVE_TEXT: Record<AutosaveState, MessageDescriptor> = {
+  off: msg`Autosave unavailable in this browser`,
+  'other-tab': msg`Autosave off: open in another tab`,
+  idle: msg`Autosave on`,
+  saving: msg`Saving…`,
+  saved: msg`All changes saved locally`,
+  error: msg`Autosave failed`,
 };
 
 // Place/Replace/Relink file choice: the File System Access picker (with a handle, D7) or a plain file input.
 type OpenPicker = (o: object) => Promise<FileSystemFileHandle[]>;
-const PLACE_TYPES = [{ description: 'Images', accept: { 'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/webp': ['.webp'], 'image/vnd.adobe.photoshop': ['.psd', '.psb'] } }];
+const PLACE_TYPES = [{ description: msg`Images`, accept: { 'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/webp': ['.webp'], 'image/vnd.adobe.photoshop': ['.psd', '.psb'] } }];
 async function pickPlaceFile(): Promise<{ file: File; handle: FileSystemFileHandle | null } | null> {
   const picker = (window as unknown as { showOpenFilePicker?: OpenPicker }).showOpenFilePicker;
   if (picker) {
     try {
-      const [handle] = await picker({ types: PLACE_TYPES, multiple: false });
+      const [handle] = await picker({ types: PLACE_TYPES.map(p => ({ ...p, description: i18n._(p.description) })), multiple: false });
       return { file: await handle.getFile(), handle };
     } catch (e) {
       if ((e as Error).name === 'AbortError') return null;
@@ -154,14 +159,15 @@ async function pickPlaceFile(): Promise<{ file: File; handle: FileSystemFileHand
     i.click();
   });
 }
-const ALIGN_ITEMS: [AlignMode, string][] = [
-  ['align-top', 'Top Edges'], ['align-vcenter', 'Vertical Centers'], ['align-bottom', 'Bottom Edges'], ['align-left', 'Left Edges'], ['align-hcenter', 'Horizontal Centers'], ['align-right', 'Right Edges'],
-  ['distribute-top', 'Top Edges'], ['distribute-vcenter', 'Vertical Centers'], ['distribute-bottom', 'Bottom Edges'], ['distribute-left', 'Left Edges'], ['distribute-hcenter', 'Horizontal Centers'], ['distribute-right', 'Right Edges'],
+const EDGES = [msg`Top Edges`, msg`Vertical Centers`, msg`Bottom Edges`, msg`Left Edges`, msg`Horizontal Centers`, msg`Right Edges`];
+const ALIGN_ITEMS: [AlignMode, MessageDescriptor][] = [
+  ['align-top', EDGES[0]], ['align-vcenter', EDGES[1]], ['align-bottom', EDGES[2]], ['align-left', EDGES[3]], ['align-hcenter', EDGES[4]], ['align-right', EDGES[5]],
+  ['distribute-top', EDGES[0]], ['distribute-vcenter', EDGES[1]], ['distribute-bottom', EDGES[2]], ['distribute-left', EDGES[3]], ['distribute-hcenter', EDGES[4]], ['distribute-right', EDGES[5]],
 ];
-const STACK_MODES: [string | null, string][] = [
-  [null, 'None'], ['entropy', 'Entropy'], ['kurtosis', 'Kurtosis'], ['maximum', 'Maximum'], ['mean', 'Mean'], ['median', 'Median'],
-  ['minimum', 'Minimum'], ['range', 'Range'], ['skewness', 'Skewness'], ['standard_deviation', 'Standard Deviation'],
-  ['summation', 'Summation'], ['variance', 'Variance'],
+const STACK_MODES: [string | null, MessageDescriptor][] = [
+  [null, msg`None`], ['entropy', msg`Entropy`], ['kurtosis', msg`Kurtosis`], ['maximum', msg`Maximum`], ['mean', msg`Mean`], ['median', msg`Median`],
+  ['minimum', msg`Minimum`], ['range', msg`Range`], ['skewness', msg`Skewness`], ['standard_deviation', msg`Standard Deviation`],
+  ['summation', msg`Summation`], ['variance', msg`Variance`],
 ];
 
 // False when the user cancels the file picker.

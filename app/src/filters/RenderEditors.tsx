@@ -2,6 +2,8 @@
 // drag a light (circle) or its target (square), click empty space to add a path point, drag a point
 // off the box to remove it.
 import { useEffect, useRef, useState } from 'react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { ValueInput } from '../LevelsCurvesBody.tsx';
 import type { Light, PathPoint } from './lastFilter.ts';
 
@@ -53,7 +55,7 @@ const near = (x: number, y: number, px: number, py: number) => Math.hypot((x - p
 
 export function FlamePath({ value, onChange }: { value: PathPoint[]; onChange: (v: PathPoint[]) => void }) {
   return (
-    <Box label="Flame path" hit={(x, y) => value.findIndex(p => near(x, y, p.x, p.y))}
+    <Box label={t`Flame path`} hit={(x, y) => value.findIndex(p => near(x, y, p.x, p.y))}
       add={(x, y) => { if (value.length >= MAX_POINTS) return -1; onChange([...value, { x, y }]); return value.length; }}
       drag={(i, x, y) => onChange(value.map((p, k) => (k === i ? { x, y } : p)))}
       remove={i => { if (value.length > 2) onChange(value.filter((_, k) => k !== i)); }}
@@ -76,7 +78,7 @@ export function LightsEditor({ value, onChange }: { value: Light[]; onChange: (v
   const aimed = (l: Light) => l.type !== 'point';
   return (
     <div className="lights-editor">
-      <Box label="Lights"
+      <Box label={t`Lights`}
         hit={(x, y) => {
           for (let i = value.length - 1; i >= 0; i--) {
             const l = value[i];
@@ -108,22 +110,22 @@ export function LightsEditor({ value, onChange }: { value: Light[]; onChange: (v
           g.globalAlpha = 1;
         })} />
       <div className="lights-row">
-        <select aria-label="Light" value={value.indexOf(cur)} onChange={e => setSel(Number(e.currentTarget.value))} disabled={!cur}>
-          {value.map((l, i) => <option key={i} value={i}>{`Light ${i + 1}`}</option>)}
+        <select aria-label={t`Light`} value={value.indexOf(cur)} onChange={e => setSel(Number(e.currentTarget.value))} disabled={!cur}>
+          {value.map((l, i) => <option key={i} value={i}>{t`Light ${i + 1}`}</option>)}
         </select>
-        <button type="button" disabled={value.length >= MAX_LIGHTS} onClick={() => { onChange([...value, { ...NEW_LIGHT }]); setSel(value.length); }}>Add</button>
-        <button type="button" disabled={!cur} onClick={() => { onChange(value.filter(l => l !== cur)); setSel(0); }}>Delete</button>
+        <button type="button" disabled={value.length >= MAX_LIGHTS} onClick={() => { onChange([...value, { ...NEW_LIGHT }]); setSel(value.length); }}><Trans>Add</Trans></button>
+        <button type="button" disabled={!cur} onClick={() => { onChange(value.filter(l => l !== cur)); setSel(0); }}><Trans>Delete</Trans></button>
       </div>
       {cur && (
         <div className="lights-row">
-          <select aria-label="Light type" value={cur.type} onChange={e => set({ type: e.currentTarget.value as Light['type'] })}>
-            <option value="spot">Spot</option><option value="point">Point</option><option value="infinite">Infinite</option>
+          <select aria-label={t`Light type`} value={cur.type} onChange={e => set({ type: e.currentTarget.value as Light['type'] })}>
+            <option value="spot">{t`Spot`}</option><option value="point">{t`Point`}</option><option value="infinite">{t`Infinite`}</option>
           </select>
-          <label><input type="checkbox" checked={cur.enabled} onChange={e => set({ enabled: e.currentTarget.checked })} /> On</label>
-          <input type="color" aria-label="Light color" value={cur.color} onChange={e => set({ color: e.currentTarget.value })} />
-          <label>Intensity <ValueInput label="Intensity" min={-100} max={100} value={cur.intensity} set={v => set({ intensity: Math.min(100, Math.max(-100, v)) })} /></label>
-          {cur.type === 'spot' && <label>Hotspot <ValueInput label="Hotspot" min={0} max={100} value={Math.round(cur.hotspot * 100)} set={v => set({ hotspot: clamp01(v / 100) })} /></label>}
-          <label>Height <ValueInput label="Height" min={1} max={100} value={Math.round(cur.z * 100)} set={v => set({ z: Math.min(1, Math.max(0.01, v / 100)) })} /></label>
+          <label><input type="checkbox" checked={cur.enabled} onChange={e => set({ enabled: e.currentTarget.checked })} /> <Trans>On</Trans></label>
+          <input type="color" aria-label={t`Light color`} value={cur.color} onChange={e => set({ color: e.currentTarget.value })} />
+          <label><Trans>Intensity</Trans> <ValueInput label={t`Intensity`} min={-100} max={100} value={cur.intensity} set={v => set({ intensity: Math.min(100, Math.max(-100, v)) })} /></label>
+          {cur.type === 'spot' && <label><Trans>Hotspot</Trans> <ValueInput label={t`Hotspot`} min={0} max={100} value={Math.round(cur.hotspot * 100)} set={v => set({ hotspot: clamp01(v / 100) })} /></label>}
+          <label><Trans>Height</Trans> <ValueInput label={t`Height`} min={1} max={100} value={Math.round(cur.z * 100)} set={v => set({ z: Math.min(1, Math.max(0.01, v / 100)) })} /></label>
         </div>
       )}
     </div>

@@ -1,5 +1,9 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { LanguagePicker } from './shell/LanguagePicker.tsx';
+import { i18n } from './i18n/index.ts';
 import { client } from './client.ts';
 import { Viewer, type ToolPointerEvent } from './viewer.ts';
 import { createRenderer } from './render/renderer.ts';
@@ -47,7 +51,7 @@ import { LayerStyleDialog, type StylePage } from './LayerStyleDialog.tsx';
 import { StyleLibrary, styleRefusal, type SavedStyle } from './layerStyle.ts';
 import { GradientsPanel, PatternsPanel, StylesPanel, adoptPatterns } from './PresetPanels.tsx';
 import type { SampleCanvas } from './LevelsCurvesBody.tsx';
-import { COMMAND_LABEL, DESTRUCTIVE_LABEL, MENU_LABEL, defaultAdjustment, defaultDestructive, uiToGradientDef, type DestructiveKind, type Kind } from './adjustments.ts';
+import { COMMAND_LABEL, DESTRUCTIVE_LABEL, MENU_EN, defaultAdjustment, defaultDestructive, uiToGradientDef, type DestructiveKind, type Kind } from './adjustments.ts';
 import type { Adjustment, AutosaveState, DestructiveAdjustment, DocInfo, FillContent, FillParams, GradientParams, LayerNode } from './engine.worker.ts';
 import type { ContentAwareOpts, FaceInfo } from './worker/types.ts';
 import { ToolBar } from './shell/ToolBar.tsx';
@@ -82,7 +86,7 @@ import { rampCss, type Method } from './gradients/gradient.ts';
 import { BUILTIN_GRADIENTS, GradientLibrary, resolvePreset, type GradientPreset } from './gradients/presets.ts';
 import {
   AUTOSAVE_TEXT, FILL_KEY, FILL_LAYERS, MODIFY_OPS, PAINT_TOOLS, SELECT_TOOLS, STROKE_DEFAULT, VIEWER_TOOL, fallbackActive,
-  fillContentFromForm, formFromFillContent, itemId, loadFillForm, pickPlaceFile, saveBlob, selectAfterDelete, selectCreated,
+  fillContentFromForm, formFromFillContent, itemId, loadFillForm, pickPlaceFile, saveBlob, selectAfterDelete, selectCreated, tl,
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
 import { buildMenus, type ExportKind } from './app/menus.ts';
@@ -127,6 +131,11 @@ import {
 declare const __APP_VERSION__: string;
 // The SEO title from index.html, shown while no document is open.
 const PAGE_TITLE = document.title;
+// Menu bar titles: the menus record keys stay English (shortcuts, WebMCP paths); only the shown title is translated.
+const MENU_TITLE: Record<string, MessageDescriptor> = {
+  File: msg`File`, Edit: msg`Edit`, Layer: msg`Layer`, Type: msg({ message: 'Type', context: 'menu' }), Image: msg`Image`,
+  Select: msg({ message: 'Select', context: 'menu' }), Filter: msg`Filter`, View: msg`View`, Window: msg`Window`, Help: msg`Help`,
+};
 // File > Generate > Image Assets on/off.
 const ASSETS_KEY = 'photobaer.imageAssets';
 
@@ -215,7 +224,7 @@ export function App() {
   const [fullView, setFullView] = useState<View>({ zoom: 1, rot: 0, cx: 0, cy: 0 });
   const [autosave, setAutosave] = useState<AutosaveState>('off');
   const [renderer, setRenderer] = useState('');
-  const [busy, setBusy] = useState<string | null>('Starting…');
+  const [busy, setBusy] = useState<string | null>(() => t`Starting…`);
   const [workspaceStart] = useState(() => {
     try { return { state: loadWorkspaces(), error: null }; }
     catch (e) {
@@ -664,7 +673,7 @@ export function App() {
         action = a;
       }
     } catch { /* unreadable profile: the policy decides in openFile */ }
-    setBusy(`Opening ${f.name}…`);
+    setBusy(t`Opening ${f.name}…`);
     try {
       const d = await client.call('openFile', f, action, ppi);
       if (handle) {
@@ -713,7 +722,7 @@ export function App() {
   const lost = (warnings: string[]) => `The source file cannot store:\n- ${warnings.join('\n- ')}`;
   async function editContents(id: number) {
     let warnings: string[] = [];
-    await run('Opening contents…', async () => {
+    await run(t`Opening contents…`, async () => {
       const d = await client.call('editContents', id);
       warnings = d.warnings;
       return d;
@@ -721,7 +730,7 @@ export function App() {
     if (warnings.length) setError(`Opened with warnings: ${warnings.join('; ')}`);
   }
   async function saveContents() {
-    await run('Saving contents…', async () => {
+    await run(t`Saving contents…`, async () => {
       const d = await client.call('smartEditSave');
       return d.written || !confirm(`${lost(d.warnings)}\n\nWrite the contents back anyway?`) ? d : client.call('smartEditSave', true);
     });
@@ -763,7 +772,7 @@ export function App() {
     }
   }
   async function closeContents() {
-    await run('Closing contents…', async () => {
+    await run(t`Closing contents…`, async () => {
       let d = await client.call('smartEditClose');
       if (!d.closed && !d.error && confirm(`${lost(d.warnings)}\n\nWrite the contents back anyway?`)) d = await client.call('smartEditClose', 'accept');
       if (!d.closed && confirm(`${d.error ?? 'The contents were not written back.'}\n\nClose without saving the contents?`)) d = await client.call('smartEditClose', 'discard');
@@ -776,7 +785,7 @@ export function App() {
     setMenu(null);
     const d = docRef.current;
     if (!d) return;
-    setBusy('Exporting…');
+    setBusy(t`Exporting…`);
     try {
       await body(d);
     } catch (e) {
@@ -861,7 +870,8 @@ export function App() {
       const used = new Set<string>(), skipped: string[] = [];
       let n = 0;
       for (const node of nodes) {
-        setBusy(`Exporting ${++n} of ${nodes.length}: ${node.name}…`);
+        n++;
+        setBusy(t`Exporting ${n} of ${nodes.length}: ${node.name}…`);
         const target = o.kind === 'artboards' ? { artboard: node.id, reveal: true } : { layer: node.id, trim: o.trim, reveal: true };
         try {
           const { blob } = await client.call('exportAsset', assetOptions(o.format, o.scale, o.quality, target));
@@ -953,7 +963,7 @@ export function App() {
     const d = docRef.current;
     if (!d) return;
     let url = '';
-    setBusy('Preparing to print…');
+    setBusy(t`Preparing to print…`);
     try {
       const l = printLayout(d.width, d.height, d.resolution, s);
       const scale = Math.min(1, l.widthMm / 25.4 * 300 / d.width);
@@ -1076,7 +1086,7 @@ export function App() {
 
   // File > Scripts > Load Files into Stack.
   async function loadStack(files: File[], align: boolean, smart: boolean) {
-    await run('Loading layers…', async () => {
+    await run(t`Loading layers…`, async () => {
       const d = await client.call('loadStack', await Promise.all(files.map(f => rasterSvg(f))), align, smart);
       if (d.warnings.length) setError(d.warnings.join('; '));
       return d;
@@ -1118,7 +1128,7 @@ export function App() {
     setMenu(null);
     const d = docRef.current;
     if (!d) return;
-    setBusy('Exporting…');
+    setBusy(t`Exporting…`);
     try {
       const files = await client.call('exportLayerCompsToFiles', mime, 0.92);
       for (const f of files) await saveBlob(f.blob, `${f.name}.${ext}`, mime, ext);
@@ -1135,7 +1145,7 @@ export function App() {
   // Writes the active document to `h`; true when written. `save` (Ctrl+S overwrite) confirms PSD export warnings
   // first; `copy` leaves the dirty state as it was.
   async function writeDoc(h: FileSystemFileHandle, how: 'save' | 'as' | 'copy') {
-    setBusy(`Saving ${h.name}…`);
+    setBusy(t`Saving ${h.name}…`);
     let encoded = false, saved = false;
     try {
       if (!await permit(h, 'readwrite')) throw new Error('permission denied');
@@ -1160,7 +1170,7 @@ export function App() {
     setMenu(null);
     const d = docRef.current;
     if (!d) return false;
-    setBusy('Saving…');
+    setBusy(t`Saving…`);
     let encoded = false, saved = false;
     try {
       const { blob, warnings } = await encode();
@@ -1234,7 +1244,7 @@ export function App() {
     }
     if (!confirm(`Revert to the saved version of ${o.handle.name}? This cannot be undone.`)) return;
     let warnings: string[] = [];
-    await run('Reverting…', async () => {
+    await run(t`Reverting…`, async () => {
       const r = await client.call('revertDoc', await rasterSvg(await o.handle.getFile()), d.key);
       origins.current.set(r.key, { ...o, warned: r.warnings.length > 0 });
       warnings = r.warnings;
@@ -1274,7 +1284,7 @@ export function App() {
     const adopt = () => (doc ? adoptPatterns(doc, brushLib.current?.library ?? null, content) : Promise.resolve(null));
     if (fillContentMode.kind === 'create') {
       const { type } = fillContentMode;
-      run(null, () => adopt().then(() => client.call('newFillLayer', active.id, content, FILL_LAYERS[type].name, FILL_LAYERS[type].label)), selectCreated);
+      run(null, () => adopt().then(() => client.call('newFillLayer', active.id, content, FILL_LAYERS[type].name, FILL_LAYERS[type].label.message!)), selectCreated);
     } else {
       const { id } = fillContentMode;
       run(null, () => adopt().then(() => client.call('setFillContent', [id], content)));
@@ -1334,7 +1344,7 @@ export function App() {
     if (why) { setError(why); return; }
     if (dialog) { contentAwareDialog.current?.showModal(); return; }
     const id = active.id;
-    run('Filling…', () => contentAwareCall(id, 4, 5, null, true, 'Delete and Fill Selection'));
+    run(t`Filling…`, () => contentAwareCall(id, 4, 5, null, true, 'Delete and Fill Selection'));
   }
 
   async function fillParams(f: FillForm): Promise<FillParams> {
@@ -1475,13 +1485,13 @@ export function App() {
   async function convertDepth(depth: 8 | 16 | 32) {
     setMenu(null);
     const layers = doc?.layers ?? [];
-    if (doc?.depth !== 32 || depth === 32 || !layers.length) { run('Converting…', () => client.call('convertDepth', depth)); return; }
+    if (doc?.depth !== 32 || depth === 32 || !layers.length) { run(t`Converting…`, () => client.call('convertDepth', depth)); return; }
     const merge = layers.length > 1 || layers[0].kind !== 'pixel';
     if (merge) {
       setMergeDepth(depth);
       const c = await new Promise<MergeChoice>(r => { mergeAnswer.current = r; mergeDialog.current?.showModal(); mergeDialog.current?.querySelector<HTMLButtonElement>('.primary')?.focus(); });
       if (c === 'cancel') return;
-      if (c === 'keep') { run('Converting…', () => client.call('convertDepth', depth, { merge: false, params: (defaultDestructive('hdr_toning') as Extract<DestructiveAdjustment, { kind: 'hdr_toning' }>).params })); return; }
+      if (c === 'keep') { run(t`Converting…`, () => client.call('convertDepth', depth, { merge: false, params: (defaultDestructive('hdr_toning') as Extract<DestructiveAdjustment, { kind: 'hdr_toning' }>).params })); return; }
     }
     hdrConvert.current = { depth, merge };
     startAdjust(defaultDestructive('hdr_toning'));
@@ -1550,14 +1560,14 @@ export function App() {
   function newAdjustmentLayer(kind: Kind) {
     if (!active) return;
     setShowProperties(true);
-    run(null, () => client.call('newAdjustmentLayer', active.id, defaultAdjustment(kind), MENU_LABEL[kind]), selectCreated);
+    run(null, () => client.call('newAdjustmentLayer', active.id, defaultAdjustment(kind), MENU_EN[kind]), selectCreated);
   }
 
   // Adjustments panel fill row: solid with the foreground color, gradient black to white, the first pattern.
   function quickFillLayer(type: FillContentForm['type']) {
     if (!active) return;
     const content = fillContentFromForm({ type, color: fg, style: 'linear', angle: 90, scalePct: 100, reverse: false, dither: false, alignWithLayer: true, patternId: doc?.patterns[0]?.id ?? '', linked: true });
-    run(null, () => client.call('newFillLayer', active.id, content, FILL_LAYERS[type].name, FILL_LAYERS[type].label), selectCreated);
+    run(null, () => client.call('newFillLayer', active.id, content, FILL_LAYERS[type].name, FILL_LAYERS[type].label.message!), selectCreated);
   }
 
   function quickFill(rgb: Rgb, label: string) {
@@ -1606,7 +1616,7 @@ export function App() {
     const bg = String(f.get('bg'));
     const fill: Rgba | null = bg === 'white' ? [255, 255, 255, 255] : bg === 'black' ? [0, 0, 0, 255] : null;
     newDialog.current?.close();
-    run('Creating…', () => client.call('newDoc', Number(f.get('w')), Number(f.get('h')), Number(f.get('depth')), fill));
+    run(t`Creating…`, () => client.call('newDoc', Number(f.get('w')), Number(f.get('h')), Number(f.get('depth')), fill));
   }
 
   const has = !!doc;
@@ -1619,15 +1629,15 @@ export function App() {
   const activeArtboard = (doc && active && doc.layers.find(n => n.artboard && (n.id === active.id || nodeById(n.children ?? [], active.id)))) || null;
   const deleteDisabled = !doc || !active || (doc.layers.length === 1 && doc.layers[0].id === active.id);
 
-  const newLayer = () => active && run('New layer', () => client.call('addLayer', active.id), selectCreated);
-  const newGroup = () => active && run('New group', () => client.call('addGroup', active.id), selectCreated);
-  const duplicateLayer = () => active && run('Duplicate layer', () => client.call('duplicateNode', active.id), selectCreated);
-  const deleteLayer = () => doc && active && run('Delete layer', () => client.call('deleteNode', active.id), selectAfterDelete(doc, active.id));
-  const groupLayers = () => active && run('Group layers', () => client.call('groupNodes', [active.id]), selectCreated);
-  const ungroupLayers = () => active && run('Ungroup layers', () => client.call('ungroup', active.id));
+  const newLayer = () => active && run(t`New layer`, () => client.call('addLayer', active.id), selectCreated);
+  const newGroup = () => active && run(t`New group`, () => client.call('addGroup', active.id), selectCreated);
+  const duplicateLayer = () => active && run(t`Duplicate layer`, () => client.call('duplicateNode', active.id), selectCreated);
+  const deleteLayer = () => doc && active && run(t`Delete layer`, () => client.call('deleteNode', active.id), selectAfterDelete(doc, active.id));
+  const groupLayers = () => active && run(t`Group layers`, () => client.call('groupNodes', [active.id]), selectCreated);
+  const ungroupLayers = () => active && run(t`Ungroup layers`, () => client.call('ungroup', active.id));
   const toggleClipping = () => node && run(null, () => client.call('setProps', node.id, { clipping: !node.clipping }));
-  const addMask = () => active && run('Add layer mask', () => client.call('addMask', active.id, true));
-  const deleteMask = () => active && run('Delete layer mask', () => client.call('deleteMask', active.id));
+  const addMask = () => active && run(t`Add layer mask`, () => client.call('addMask', active.id, true));
+  const deleteMask = () => active && run(t`Delete layer mask`, () => client.call('deleteMask', active.id));
   const toggleMaskEnabled = () => node?.mask && run(null, () => client.call('setProps', node.id, { mask_enabled: !node.mask!.enabled }));
 
   // ---------- smart objects (docs/M3.md section 6) ----------
@@ -1641,7 +1651,7 @@ export function App() {
     try { picked = await pickPlaceFile(); } catch (e) { setError((e as Error).message); return; }
     if (!picked) return;
     const link = linked && !!picked.handle;
-    await run(`Placing ${picked.file.name}…`, () => client.call('placeSmart', a.id, picked.file, link, link ? picked.handle : null), selectCreated);
+    await run(t`Placing ${picked.file.name}…`, () => client.call('placeSmart', a.id, picked.file, link, link ? picked.handle : null), selectCreated);
     if (linked && !link) setError('This browser cannot link files, so the file was placed embedded.');
   }
   async function replaceContents(relink: boolean) {
@@ -1652,7 +1662,7 @@ export function App() {
     try { picked = await pickPlaceFile(); } catch (e) { setError((e as Error).message); return; }
     if (!picked) return;
     if (relink && !picked.handle) { setError('Relinking needs a browser with file system access.'); return; }
-    await run('Replacing contents…', () => relink ? client.call('relinkToFile', n.id, picked.file, picked.handle!) : client.call('replaceContents', n.id, picked.file));
+    await run(t`Replacing contents…`, () => relink ? client.call('relinkToFile', n.id, picked.file, picked.handle!) : client.call('replaceContents', n.id, picked.file));
   }
   async function exportContents() {
     setMenu(null);
@@ -1673,14 +1683,14 @@ export function App() {
     if (!picker) { setError('Linking needs a browser with file system access.'); return; }
     let h: FileSystemFileHandle;
     try { h = await picker({ suggestedName: `${n.name}.psb` }); } catch (e) { if ((e as Error).name !== 'AbortError') setError((e as Error).message); return; }
-    await run('Converting to linked…', () => client.call('convertToLinked', n.id, h));
+    await run(t`Converting to linked…`, () => client.call('convertToLinked', n.id, h));
   }
   // ---------- smart filters (docs/M3.md section 7) ----------
   const filters = smart?.filters ?? [];
   const filterMasks = !!smart?.stack_mask || filters.some(f => f.mask);
   const masksOn = !!smart?.stack_mask?.enabled || filters.some(f => f.mask?.enabled);
-  const toggleLabel = filters.some(f => f.enabled) ? 'Disable Smart Filters' : 'Enable Smart Filters';
-  const maskLabel = masksOn ? 'Disable Filter Mask' : 'Enable Filter Mask';
+  const toggleLabel = tl(filters.some(f => f.enabled) ? msg`Disable Smart Filters` : msg`Enable Smart Filters`);
+  const maskLabel = tl(masksOn ? msg`Disable Filter Mask` : msg`Enable Filter Mask`);
   const filterCommand = (op: 'toggle' | 'clear' | 'deleteMasks' | 'toggleMasks', label: string) =>
     () => node && run(null, () => client.call('smartFilterCommand', node.id, op, label));
   function openFilterBlend() {
@@ -2372,12 +2382,12 @@ export function App() {
     });
   }
   const patternSelect = (
-    <select aria-label="Pattern" value={String(toolOptions.pattern ?? '')} onChange={e => setToolOptions({ ...toolOptions, pattern: e.currentTarget.value })}>
+    <select aria-label={t`Pattern`} value={String(toolOptions.pattern ?? '')} onChange={e => setToolOptions({ ...toolOptions, pattern: e.currentTarget.value })}>
       {(brushLib.current?.library.patterns() ?? []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
     </select>
   );
   const gradientButton = (
-    <button type="button" className="gradient-ramp-button" aria-label="Edit gradient" title="Click to edit the gradient"
+    <button type="button" className="gradient-ramp-button" aria-label={t`Edit gradient`} title={t`Click to edit the gradient`}
       style={{ backgroundImage: `${rampCss(gradPreset, gradOptions.method as Method)}, var(--checker)` }} onClick={editGradient} />
   );
   // Shapes panel click: the Custom Shape tool with that shape.
@@ -2388,7 +2398,7 @@ export function App() {
   };
   const shapeChoices = shapeLibrary().list();
   const customShapeSelect = (
-    <label>Shape <select aria-label="Shape" value={String(toolOptions.customShape || shapeChoices[0]?.id)}
+    <label><Trans>Shape</Trans> <select aria-label={t`Shape`} value={String(toolOptions.customShape || shapeChoices[0]?.id)}
       onChange={e => setToolOptions({ ...toolOptions, customShape: e.currentTarget.value })}>
       {shapeChoices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
     </select></label>
@@ -2396,7 +2406,7 @@ export function App() {
   const families = [...new Set(pickFaces.map(f => f.family))].sort();
   const typeFont = (
     <span className="type-font">
-      <select aria-label="Font family" value={String(toolOptions.family)} onChange={e => {
+      <select aria-label={t`Font family`} value={String(toolOptions.family)} onChange={e => {
         const family = e.currentTarget.value, styles = pickFaces.filter(f => f.family === family).map(f => f.style);
         setToolOptions({ ...toolOptions, family, style: styles.includes(String(toolOptions.style)) ? toolOptions.style : styles[0] ?? 'Regular' });
         void ensureFamilies([family]);
@@ -2408,21 +2418,21 @@ export function App() {
   );
   const typeStyles = pickFaces.filter(f => f.family === toolOptions.family).map(f => f.style);
   const typeStyle = (
-    <select aria-label="Font style" value={String(toolOptions.style)} onChange={e => setToolOptions({ ...toolOptions, style: e.currentTarget.value })}>
+    <select aria-label={t`Font style`} value={String(toolOptions.style)} onChange={e => setToolOptions({ ...toolOptions, style: e.currentTarget.value })}>
       {!typeStyles.includes(String(toolOptions.style)) && <option value={String(toolOptions.style)}>{String(toolOptions.style)}</option>}
       {typeStyles.map(st => <option key={st} value={st}>{st}</option>)}
     </select>
   );
   const typeActions = typeEditing && (
     <span className="crop-actions">
-      <button type="button" aria-label="Cancel type edit" onClick={() => typeRef.current?.cancel()}>Cancel</button>
-      <button type="button" className="primary" aria-label="Commit type edit" onClick={() => typeRef.current?.commit()}>Commit</button>
+      <button type="button" aria-label={t`Cancel type edit`} onClick={() => typeRef.current?.cancel()}><Trans>Cancel</Trans></button>
+      <button type="button" className="primary" aria-label={t`Commit type edit`} onClick={() => typeRef.current?.commit()}><Trans>Commit</Trans></button>
     </span>
   );
   const cropActions = (
     <span className="crop-actions">
-      <button type="button" onClick={() => cropSession.current?.cancel()}>Cancel</button>
-      <button type="button" className="primary" onClick={() => cropSession.current?.commit()}>Apply</button>
+      <button type="button" onClick={() => cropSession.current?.cancel()}><Trans>Cancel</Trans></button>
+      <button type="button" className="primary" onClick={() => cropSession.current?.commit()}><Trans>Apply</Trans></button>
     </span>
   );
   const menuItems = (items: Item[]): ReactNode => items.map(i => (
@@ -2440,27 +2450,27 @@ export function App() {
         <img className="brand" src="./logo-light.png" alt="photobaer" width={24} height={24} />
         {Object.entries(menus).map(([name, items]) => (
           <div key={name} className="menu">
-            <button className={menu === name ? 'open' : ''} onClick={() => setMenu(menu === name ? null : name)} onMouseEnter={() => menu && setMenu(name)}>{name}</button>
+            <button className={menu === name ? 'open' : ''} onClick={() => setMenu(menu === name ? null : name)} onMouseEnter={() => menu && setMenu(name)}>{MENU_TITLE[name] ? i18n._(MENU_TITLE[name]) : name}</button>
             {menu === name && (
               <ul role="menu" ref={placeMenu}>{menuItems(items)}</ul>
             )}
           </div>
         ))}
         {doc?.parents.length ? (
-          <span className="breadcrumb" aria-label="Smart object contents">
+          <span className="breadcrumb" aria-label={t`Smart object contents`}>
             {[...doc.parents, doc.name].join(' › ')}
-            <button type="button" onClick={() => saveContents()}>Save</button>
-            <button type="button" onClick={() => closeContents()}>Close</button>
+            <button type="button" onClick={() => saveContents()}><Trans>Save</Trans></button>
+            <button type="button" onClick={() => closeContents()}><Trans>Close</Trans></button>
           </span>
         ) : null}
         <span className="menubar-end">
-          {agent && <button type="button" className="agent-chip" title="An AI agent controls this tab. Click to disconnect." onClick={() => bridgeRef.current?.close()}>Agent connected ✕</button>}
+          {agent && <button type="button" className="agent-chip" title={t`An AI agent controls this tab. Click to disconnect.`} onClick={() => bridgeRef.current?.close()}><Trans>Agent connected</Trans> ✕</button>}
           <button type="button" onClick={() => donateDialog.current?.showModal()}>
             <svg className="heart" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.6 4.5c2.1 0 3.8 1.2 5.4 3.1 1.6-1.9 3.3-3.1 5.4-3.1 3.6 0 5.7 3.8 4.2 7.2C19.5 16.4 12 21 12 21z" /></svg>
-            Donate
+            <Trans>Donate</Trans>
           </button>
           <LanguagePicker />
-          <button type="button" title="Fullscreen" aria-label="Fullscreen" onClick={() => void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen())}>
+          <button type="button" title={t`Fullscreen`} aria-label={t`Fullscreen`} onClick={() => void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen())}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.5" d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" /></svg>
           </button>
         </span>
@@ -2470,17 +2480,17 @@ export function App() {
         <>
           <div className="scrim" onClick={() => setTransformMenu(null)} onContextMenu={e => { e.preventDefault(); setTransformMenu(null); }} />
           <div className="menu context-menu" style={{ left: transformMenu[0], top: transformMenu[1] }}>
-            <ul role="menu" aria-label="Transform">
+            <ul role="menu" aria-label={t`Transform`}>
               {([
-                ...MODES.map(([m, label]) => ({ label, run: () => withTransform(t => setTransformMode(t, m)), off: warping && m !== 'warp' })),
-                { label: 'Rotate 180°', run: () => transformCommand('180'), off: warping },
-                { label: 'Rotate 90° CW', run: () => transformCommand('cw'), off: warping },
-                { label: 'Rotate 90° CCW', run: () => transformCommand('ccw'), off: warping },
-                { label: 'Flip Horizontal', run: () => transformCommand('flipH'), off: warping },
-                { label: 'Flip Vertical', run: () => transformCommand('flipV'), off: warping },
-                { label: 'Apply', run: () => endTransform(true) },
-                { label: 'Cancel', run: () => endTransform(false) },
-              ] as { label: string; run: () => void; off?: boolean }[]).map(i => (
+                ...MODES.map(([m, label]) => ({ ...tl(label), run: () => withTransform(x => setTransformMode(x, m)), off: warping && m !== 'warp' })),
+                { ...tl(msg`Rotate 180°`), run: () => transformCommand('180'), off: warping },
+                { ...tl(msg`Rotate 90° CW`), run: () => transformCommand('cw'), off: warping },
+                { ...tl(msg`Rotate 90° CCW`), run: () => transformCommand('ccw'), off: warping },
+                { ...tl(msg`Flip Horizontal`), run: () => transformCommand('flipH'), off: warping },
+                { ...tl(msg`Flip Vertical`), run: () => transformCommand('flipV'), off: warping },
+                { ...tl(msg`Apply`), run: () => endTransform(true) },
+                { ...tl(msg`Cancel`), run: () => endTransform(false) },
+              ] as { id: string; label: string; run: () => void; off?: boolean }[]).map(i => (
                 <li key={itemId(i)}><button role="menuitem" disabled={i.off} onClick={i.run}><span>{i.label}</span></button></li>
               ))}
             </ul>
@@ -2495,7 +2505,7 @@ export function App() {
             <div className="menu context-menu" style={{
               left: Math.max(0, Math.min(canvasMenu[0], innerWidth - 220)), top: Math.max(0, Math.min(canvasMenu[1], innerHeight - items.length * 30 - 20)),
             }}>
-              <ul role="menu" aria-label="Canvas">
+              <ul role="menu" aria-label={t`Canvas`}>
                 {items.map(i => (
                   <Fragment key={itemId(i)}>
                     {i.sep && <li role="separator" className="menu-sep" />}
@@ -2572,10 +2582,10 @@ export function App() {
             {!doc && !busy && (
               <div className="welcome">
                 <h1><img src="./logo-light.png" alt="" width={64} height={64} />photobaer</h1>
-                <p className="tagline">Image editing in your browser</p>
+                <p className="tagline"><Trans>Image editing in your browser</Trans></p>
                 <div className="actions">
-                  <button className="primary" onClick={() => void openFiles()}>Open image…</button>
-                  <button onClick={() => newDialog.current?.showModal()}>New image</button>
+                  <button className="primary" onClick={() => void openFiles()}><Trans>Open image…</Trans></button>
+                  <button onClick={() => newDialog.current?.showModal()}><Trans>New image</Trans></button>
                 </div>
                 <div
                   className={`drop-hint${dragOver ? ' over' : ''}`}
@@ -2583,18 +2593,18 @@ export function App() {
                   onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(false); }}
                   onDrop={() => setDragOver(false)}
                 >
-                  Drop an image here
-                  <small>PNG, JPEG, WebP, GIF, BMP, AVIF, SVG, ICO, PSD, PSB, EXR, HDR or PDF</small>
+                  <Trans>Drop an image here</Trans>
+                  <small><Trans>PNG, JPEG, WebP, GIF, BMP, AVIF, SVG, ICO, PSD, PSB, EXR, HDR or PDF</Trans></small>
                 </div>
                 <small className="copyright">
                   © 2026 IT-BAER ·{' '}
-                  <a href={`https://github.com/IT-BAER/photobaer/releases/tag/v${__APP_VERSION__}`} target="_blank" rel="noreferrer">What's new</a> · v{__APP_VERSION__} ·{' '}
-                  <a href="https://github.com/IT-BAER/photobaer" target="_blank" rel="noreferrer" aria-label="photobaer on GitHub" title="GitHub">
+                  <a href={`https://github.com/IT-BAER/photobaer/releases/tag/v${__APP_VERSION__}`} target="_blank" rel="noreferrer"><Trans>What's new</Trans></a> · v{__APP_VERSION__} ·{' '}
+                  <a href="https://github.com/IT-BAER/photobaer" target="_blank" rel="noreferrer" aria-label={t`photobaer on GitHub`} title="GitHub">
                     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
                   </a>
                   <br />
-                  <a href="/impressum/" target="_blank" rel="noreferrer">Legal Notice</a> · <a href="/privacy/" target="_blank" rel="noreferrer">Privacy</a> ·{' '}
-                  <a href="/terms/" target="_blank" rel="noreferrer">Terms</a> · <a href="/licenses/" target="_blank" rel="noreferrer">License</a>
+                  <a href="/impressum/" target="_blank" rel="noreferrer"><Trans>Legal Notice</Trans></a> · <a href="/privacy/" target="_blank" rel="noreferrer"><Trans>Privacy</Trans></a> ·{' '}
+                  <a href="/terms/" target="_blank" rel="noreferrer"><Trans>Terms</Trans></a> · <a href="/licenses/" target="_blank" rel="noreferrer"><Trans>License</Trans></a>
                 </small>
               </div>
             )}
@@ -2605,10 +2615,10 @@ export function App() {
         </div>
         <aside className="sidebar">
           <DockSection {...sec('tabs', 'Color panels')} header={<div className="panel-tabs dock-tabs">
-            <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('color')}>Color</button>
-            <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('swatches')}>Swatches</button>
-            <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} disabled={workspace.locked} title="Brush Settings (F5)" onClick={() => guardedSetDockTab('brushSettings')}>Brush Settings</button>
-            <button className={`panel-tab${dockTab === 'brushes' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('brushes')}>Brushes</button>
+            <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('color')}><Trans>Color</Trans></button>
+            <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('swatches')}><Trans>Swatches</Trans></button>
+            <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} disabled={workspace.locked} title={t`Brush Settings (F5)`} onClick={() => guardedSetDockTab('brushSettings')}><Trans>Brush Settings</Trans></button>
+            <button className={`panel-tab${dockTab === 'brushes' ? ' active' : ''}`} disabled={workspace.locked} onClick={() => guardedSetDockTab('brushes')}><Trans>Brushes</Trans></button>
           </div>}>
           {dockTab === 'color' && <ColorPanel fg={fg} bg={bg} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} doc={doc} convert={convertColor} />}
           {dockTab === 'swatches' && <SwatchesPanel fg={fg} setFg={setFg} setBg={setBg} />}
@@ -2660,7 +2670,7 @@ export function App() {
                 <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} openLiquify={openLiquify} openVanishingPoint={openVanishingPoint} />
               )}
               {!(node && ((node.kind === 'adjustment' && node.adjustment) || (node.kind === 'text' && node.text) || node.artboard || (node.kind === 'shape' && node.shape) || node.vector_mask || (node.kind === 'smart' && node.smart)))
-                && <p className="panel-empty">No properties</p>}
+                && <p className="panel-empty"><Trans>No properties</Trans></p>}
             </DockSection>
           )}
           {doc && typePanels.character && (
@@ -2695,8 +2705,8 @@ export function App() {
         <span>{doc ? `${doc.width} × ${doc.height} px, ${doc.depth}-bit` : 'No document'}</span>
         <span>{Math.round(view.zoom * 1000) / 10}%</span>
         <span>{deg ? `${deg}°` : ''}</span>
-        <span className="grow">{doc ? (SELECT_TOOLS.includes(tool) ? 'drag to select, Shift add, Alt subtract' : `${activeTool.label}: drag to use, Space to pan, wheel to zoom`) : ''}</span>
-        <span className="shrink">{AUTOSAVE_TEXT[autosave]}</span>
+        <span className="grow">{doc ? (SELECT_TOOLS.includes(tool) ? 'drag to select, Shift add, Alt subtract' : `${i18n._(activeTool.label)}: drag to use, Space to pan, wheel to zoom`) : ''}</span>
+        <span className="shrink">{i18n._(AUTOSAVE_TEXT[autosave])}</span>
         <span>{renderer}</span>
       </footer>
       <ColorPicker ref={picker} convert={convertColor} />
@@ -2746,7 +2756,7 @@ export function App() {
       <FeatherDialog featherDialog={featherDialog} run={run} />
       <ContentAwareFillDialog dialog={contentAwareDialog} submit={(structure, color) => {
         const id = active?.id;
-        if (id !== undefined) run('Filling…', () => contentAwareCall(id, structure, color, null, false, 'Content-Aware Fill'));
+        if (id !== undefined) run(t`Filling…`, () => contentAwareCall(id, structure, color, null, false, 'Content-Aware Fill'));
       }} />
       <WarpTextDialog dialog={warpDialog} c={typeCtx} />
       <ModifyDialog modifyDialog={modifyDialog} run={run} modifyOp={modifyOp} />
@@ -2790,7 +2800,7 @@ export function App() {
       <VariablesDialog ref={variablesDialog} commit={commitVariables} importInto={importInto} exportCsv={saveSetsCsv} />
       <AnalysisDialogs ref={analysisDialog} annotations={doc?.annotations ?? null} size={doc ? [doc.width, doc.height] : null} rulerLength={measure.rulerLength}
         points={measure.points} setPoints={measure.setPoints} commit={(a, label) => void measure.commit(a, label)}
-        placeMarker={(rect, color, text) => void run('Placing scale marker…', () => client.call('placeScaleMarker', rect, color, text))} />
+        placeMarker={(rect, color, text) => void run(t`Placing scale marker…`, () => client.call('placeScaleMarker', rect, color, text))} />
       <ImportDataSetsDialog ref={importSetsDialog} />
       <ApplyDataSetDialog ref={applySetDialog} apply={name => void run(null, () => applySet(name))} />
       <PrintDialog ref={printDialog} settings={printSettings.current} start={s => void printDoc(s)} />

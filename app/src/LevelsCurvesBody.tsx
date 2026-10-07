@@ -2,7 +2,11 @@
 // Image > Adjustments dialogs: histogram, channel select, handles/graph, Auto, eyedroppers, presets.
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Crosshair, Pencil, Pipette, Spline } from 'lucide-react';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
+import { i18n } from './i18n/index.ts';
 import type { Adjustment, LevelsRecord } from './engine.worker.ts';
 import {
   AUTO_METHODS, CHANNELS, CURVES_PRESETS, LEVELS_PRESETS, addPoint, autoLevels, channelBins, channelValue, curveSamples,
@@ -16,6 +20,18 @@ export type SampleCanvas = (onSample: ((rgb: Rgb) => void) | null) => void;
 type OnChange = (a: Adjustment, live: boolean) => void;
 interface BodyProps<P> { params: P; onChange: (p: P, live: boolean) => void; histogramId: number; sampleCanvas?: SampleCanvas }
 
+// Display text of the engine-side English names (preset names are also the select values).
+const WORDS: Record<string, MessageDescriptor> = {
+  RGB: msg`RGB`, Red: msg`Red`, Green: msg`Green`, Blue: msg`Blue`,
+  'Enhance Monochromatic Contrast': msg`Enhance Monochromatic Contrast`, 'Enhance Per Channel Contrast': msg`Enhance Per Channel Contrast`,
+  'Find Dark & Light Colors': msg`Find Dark & Light Colors`, 'Enhance Brightness and Contrast': msg`Enhance Brightness and Contrast`,
+  Default: msg`Default`, Custom: msg`Custom`, Darker: msg`Darker`, Lighter: msg`Lighter`,
+  'Increase Contrast': msg`Increase Contrast`, 'Increase Contrast 1': msg`Increase Contrast 1`, 'Increase Contrast 2': msg`Increase Contrast 2`,
+  'Increase Contrast 3': msg`Increase Contrast 3`, 'Lighten Shadows': msg`Lighten Shadows`, 'Midtones Brighter': msg`Midtones Brighter`,
+  'Midtones Darker': msg`Midtones Darker`, Matte: msg`Matte`, Negative: msg`Negative`,
+  Histogram: msg`Histogram`, Overlays: msg`Overlays`, Baseline: msg`Baseline`, Intersection: msg`Intersection`, Clipping: msg`Clipping`,
+};
+const word = (text: string) => (Object.hasOwn(WORDS, text) ? i18n._(WORDS[text]) : text);
 const AUTO_KEY = 'photobaer.levels-auto-method.v1';
 const LINE: Record<Channel, string> = { composite: 'currentColor', red: '#e5484d', green: '#30a46c', blue: '#3e8ef7' };
 
@@ -83,23 +99,23 @@ function HandleTrack({ label, handles, onDrag, className }: {
     <div className={`levels-track ${className ?? ''}`} aria-label={label}
       onPointerMove={e => { if (drag.current) { drag.current.pos = at(e); drag.current.moved = true; onDrag(drag.current.key, drag.current.pos, true); } }}
       onPointerUp={end} onPointerCancel={end}>
-      {handles.map(h => (
-        <span key={h.key} className={`levels-handle ${h.tone}`} style={{ left: `${(h.pos / 255) * 100}%` }} aria-label={`${label} ${h.key}`}
+      {handles.map(h => { const handleKey = h.key; return (
+        <span key={h.key} className={`levels-handle ${h.tone}`} style={{ left: `${(h.pos / 255) * 100}%` }} aria-label={t`${label} ${handleKey}`}
           onPointerDown={e => {
             e.preventDefault();
             (e.currentTarget.parentElement as HTMLElement).setPointerCapture(e.pointerId);
             drag.current = { key: h.key, pos: h.pos, moved: false };
           }} />
-      ))}
+      ); })}
     </div>
   );
 }
 
 function ChannelSelect({ value, set }: { value: Channel; set: (c: Channel) => void }) {
   return (
-    <label className="adjustment-field"><span>Channel</span>
+    <label className="adjustment-field"><span><Trans>Channel</Trans></span>
       <select value={value} onChange={e => set(e.currentTarget.value as Channel)}>
-        {CHANNELS.map(([c, l]) => <option key={c} value={c}>{l}</option>)}
+        {CHANNELS.map(([c, l]) => <option key={c} value={c}>{word(l)}</option>)}
       </select>
     </label>
   );
@@ -107,11 +123,11 @@ function ChannelSelect({ value, set }: { value: Channel; set: (c: Channel) => vo
 
 function PresetSelect({ names, current, apply }: { names: string[]; current: string; apply: (name: string) => void }) {
   return (
-    <label className="adjustment-field"><span>Preset</span>
+    <label className="adjustment-field"><span><Trans>Preset</Trans></span>
       <select value={current} onChange={e => apply(e.currentTarget.value)}>
-        <option value="Default">Default</option>
-        {names.map(n => <option key={n} value={n}>{n}</option>)}
-        {current === 'Custom' && <option value="Custom">Custom</option>}
+        <option value="Default">{word('Default')}</option>
+        {names.map(n => <option key={n} value={n}>{word(n)}</option>)}
+        {current === 'Custom' && <option value="Custom">{word('Custom')}</option>}
       </select>
     </label>
   );
@@ -148,7 +164,7 @@ function LevelsBody({ params, onChange, histogramId, sampleCanvas }: BodyProps<L
     <ValueInput label={label} value={rec[key]} step={step} set={v => set(setLevelsInput(rec, key, v), false)} />;
   const dropper = (which: 'black' | 'gray' | 'white', label: string) => (
     <button type="button" className={`levels-eyedropper-${which}`} aria-label={label} aria-pressed={armed === which} disabled={!sampleCanvas || !h}
-      title={sampleCanvas ? `${label}: click the image to set it` : `${label}: available in the Properties panel`}
+      title={sampleCanvas ? t`${label}: click the image to set it` : t`${label}: available in the Properties panel`}
       onClick={() => arm(which, rgb => onChange(levelsEyedropper(params, which, rgb), false))}>
       <Pipette size={14} strokeWidth={1.75} />
     </button>
@@ -161,32 +177,32 @@ function LevelsBody({ params, onChange, histogramId, sampleCanvas }: BodyProps<L
       }} />
       <ChannelSelect value={ch} set={setCh} />
       <div className="levels-tools">
-        {dropper('black', 'Black point')}{dropper('gray', 'Gray point')}{dropper('white', 'White point')}
-        <button type="button" disabled={!h?.some(n => n > 0)} onClick={() => h && onChange(autoLevels(h, method), false)}>Auto</button>
-        <button type="button" aria-expanded={options} onClick={() => setOptions(!options)}>Options…</button>
+        {dropper('black', t`Black point`)}{dropper('gray', t`Gray point`)}{dropper('white', t`White point`)}
+        <button type="button" disabled={!h?.some(n => n > 0)} onClick={() => h && onChange(autoLevels(h, method), false)}><Trans>Auto</Trans></button>
+        <button type="button" aria-expanded={options} onClick={() => setOptions(!options)}><Trans>Options…</Trans></button>
       </div>
       {options && (
-        <fieldset className="levels-options"><legend>Auto Color Correction Options</legend>
+        <fieldset className="levels-options"><legend><Trans>Auto Color Correction Options</Trans></legend>
           {AUTO_METHODS.map(([m, l]) => (
-            <label key={m} className="adjustment-check"><input type="radio" name="levels-auto" checked={method === m} onChange={() => pickMethod(m)} /> {l}</label>
+            <label key={m} className="adjustment-check"><input type="radio" name="levels-auto" checked={method === m} onChange={() => pickMethod(m)} /> {word(l)}</label>
           ))}
         </fieldset>
       )}
-      <span className="adjustment-note">Input Levels</span>
-      <svg className="levels-histogram" viewBox="0 0 256 100" preserveAspectRatio="none" aria-label="Input histogram">
+      <span className="adjustment-note"><Trans>Input Levels</Trans></span>
+      <svg className="levels-histogram" viewBox="0 0 256 100" preserveAspectRatio="none" aria-label={t`Input histogram`}>
         {bins && <path d={histogramPath(bins, 100)} fill={ch === 'composite' ? 'currentColor' : LINE[ch]} />}
       </svg>
-      {!h ? <span className="adjustment-note">Loading…</span> : !bins?.some(n => n > 0) && <span className="adjustment-note">No pixels</span>}
-      <HandleTrack label="Input" onDrag={drag} handles={[
+      {!h ? <span className="adjustment-note"><Trans>Loading…</Trans></span> : !bins?.some(n => n > 0) && <span className="adjustment-note"><Trans>No pixels</Trans></span>}
+      <HandleTrack label={t`Input`} onDrag={drag} handles={[
         { key: 'input_black', pos: rec.input_black, tone: 'black' }, { key: 'gamma', pos: gammaPos, tone: 'gray' },
         { key: 'input_white', pos: rec.input_white, tone: 'white' },
       ]} />
-      <div className="levels-values">{field('Input black', 'input_black')}{field('Gamma', 'gamma', 0.01)}{field('Input white', 'input_white')}</div>
-      <span className="adjustment-note">Output Levels</span>
-      <HandleTrack label="Output" className="levels-output-ramp" onDrag={drag} handles={[
+      <div className="levels-values">{field(t`Input black`, 'input_black')}{field(t`Gamma`, 'gamma', 0.01)}{field(t`Input white`, 'input_white')}</div>
+      <span className="adjustment-note"><Trans>Output Levels</Trans></span>
+      <HandleTrack label={t`Output`} className="levels-output-ramp" onDrag={drag} handles={[
         { key: 'output_black', pos: rec.output_black, tone: 'black' }, { key: 'output_white', pos: rec.output_white, tone: 'white' },
       ]} />
-      <div className="levels-values">{field('Output black', 'output_black')}{field('Output white', 'output_white')}</div>
+      <div className="levels-values">{field(t`Output black`, 'output_black')}{field(t`Output white`, 'output_white')}</div>
     </div>
   );
 }
@@ -282,16 +298,16 @@ function CurvesBody({ params, onChange, histogramId, sampleCanvas }: BodyProps<C
         if (pts) { setSel(-1); onChange({ mode: 'point', composite: pts, red: null, green: null, blue: null }, false); }
       }} />
       <ChannelSelect value={ch} set={c => { setCh(c); setSel(-1); }} />
-      <div className="levels-tools" role="group" aria-label="Curve drawing mode">
-        <button type="button" aria-label="Edit points" title="Edit points" aria-pressed={!pencil} onClick={() => setMode('point')}><Spline size={14} strokeWidth={1.75} /></button>
-        <button type="button" aria-label="Pencil" title="Pencil" aria-pressed={pencil} onClick={() => setMode('pencil')}><Pencil size={14} strokeWidth={1.75} /></button>
-        <button type="button" aria-label="Sample curve point" aria-pressed={armed === 'sample'} disabled={!sampleCanvas || pencil}
-          title={sampleCanvas ? 'Sample curve point: click the image to add a point at its value' : 'Sample curve point: available in the Properties panel'}
+      <div className="levels-tools" role="group" aria-label={t`Curve drawing mode`}>
+        <button type="button" aria-label={t`Edit points`} title={t`Edit points`} aria-pressed={!pencil} onClick={() => setMode('point')}><Spline size={14} strokeWidth={1.75} /></button>
+        <button type="button" aria-label={t`Pencil`} title={t`Pencil`} aria-pressed={pencil} onClick={() => setMode('pencil')}><Pencil size={14} strokeWidth={1.75} /></button>
+        <button type="button" aria-label={t`Sample curve point`} aria-pressed={armed === 'sample'} disabled={!sampleCanvas || pencil}
+          title={sampleCanvas ? t`Sample curve point: click the image to add a point at its value` : t`Sample curve point: available in the Properties panel`}
           onClick={() => arm('sample', addSample)}>
           <Crosshair size={14} strokeWidth={1.75} />
         </button>
       </div>
-      <svg ref={svg} className="adjustment-curve" viewBox="0 0 255 255" aria-label="Curve" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+      <svg ref={svg} className="adjustment-curve" viewBox="0 0 255 255" aria-label={t`Curve`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
         {show.histogram && bins && <path d={histogramPath(bins, 255)} className="curve-histogram" />}
         {[64, 128, 191].map(g => <g key={g} className="curve-grid"><line x1={g} y1={0} x2={g} y2={255} /><line x1={0} y1={g} x2={255} y2={g} /></g>)}
         {show.baseline && <line className="curve-grid" x1={0} y1={255} x2={255} y2={0} />}
@@ -302,11 +318,11 @@ function CurvesBody({ params, onChange, histogramId, sampleCanvas }: BodyProps<C
         {!pencil && points.map(([x, y], i) => <rect key={i} className={i === sel ? 'curve-point selected' : 'curve-point'} x={x - 3} y={255 - y - 3} width={6} height={6} />)}
       </svg>
       <div className="levels-values">
-        <ValueInput label="Input" value={selected?.[0] ?? 0} disabled={!selected} set={v => set(movePoint(points, sel, v, points[sel][1]), false)} />
-        <ValueInput label="Output" value={selected?.[1] ?? 0} disabled={!selected} set={v => set(movePoint(points, sel, points[sel][0], v), false)} />
+        <ValueInput label={t`Input`} value={selected?.[0] ?? 0} disabled={!selected} set={v => set(movePoint(points, sel, v, points[sel][1]), false)} />
+        <ValueInput label={t`Output`} value={selected?.[1] ?? 0} disabled={!selected} set={v => set(movePoint(points, sel, points[sel][0], v), false)} />
       </div>
       <div className="professional-toggle-grid">
-        {DISPLAY.map(([k, l]) => <label key={k} className="adjustment-check"><input type="checkbox" checked={show[k]} onChange={e => setShow({ ...show, [k]: e.currentTarget.checked })} /> {l}</label>)}
+        {DISPLAY.map(([k, l]) => <label key={k} className="adjustment-check"><input type="checkbox" checked={show[k]} onChange={e => setShow({ ...show, [k]: e.currentTarget.checked })} /> {word(l)}</label>)}
       </div>
     </div>
   );

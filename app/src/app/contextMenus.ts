@@ -1,8 +1,17 @@
 // Right-click menus (layer row, canvas): flat picks from the menus buildMenus produced, so labels, handlers and
 // disabled states stay those of the menu bar.
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { i18n } from '../i18n/index.ts';
 import { itemId, type Item } from './helpers.ts';
 
 type Menus = Record<string, Item[]>;
+
+// `=Shown` texts of the specs below: the English text is the key, the label is translated.
+const SHOWN: Record<string, MessageDescriptor> = {
+  'Delete Layer': msg`Delete Layer`, 'Group from Layers': msg`Group from Layers`, 'Blending Options…': msg`Blending Options…`,
+  'Select Inverse': msg`Select Inverse`, 'Select All': msg`Select All`,
+};
 
 /**
  * `Menu/Id|Other Id` or `Menu/Submenu/Id` (item ids, the English labels), optionally `=Shown` to rename. `Menu/Label>` expands the
@@ -19,7 +28,7 @@ function find(menus: Menus, spec: string): Item[] {
   const item = items?.find(i => names.includes(itemId(i)));
   if (!item) return [];
   if (expand) return (item.sub ?? []).filter(i => !i.off).map(i => ({ ...i, id: `${itemId(item)} ${itemId(i)}`, label: `${item.label} ${i.label}` }));
-  return [shown ? { ...item, label: shown } : item];
+  return [shown ? { ...item, label: SHOWN[shown] ? i18n._(SHOWN[shown]) : shown } : item];
 }
 
 /** Groups of specs become one flat list (submenus dropped) with a separator before every group but the first. */

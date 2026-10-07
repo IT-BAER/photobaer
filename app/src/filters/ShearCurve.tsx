@@ -1,6 +1,7 @@
 // Shear curve editor: y runs down the side, the offset across, the center line is 0. Drag a point to
 // move it, click empty space to add one, drag it off the box to remove it (two points stay).
 import { useEffect, useRef } from 'react';
+import { t } from '@lingui/core/macro';
 import type { CurvePoint } from './lastFilter.ts';
 
 const SIZE = 160;
@@ -66,7 +67,7 @@ export function ShearCurve({ value, onChange }: { value: CurvePoint[]; onChange:
   }
 
   return (
-    <canvas ref={canvas} className="shear-curve" width={SIZE} height={SIZE} aria-label="Shear curve"
+    <canvas ref={canvas} className="shear-curve" width={SIZE} height={SIZE} aria-label={t`Shear curve`}
       onPointerDown={down} onPointerMove={move} onPointerUp={() => { drag.current = -1; }} onPointerCancel={() => { drag.current = -1; }} />
   );
 }

@@ -1,6 +1,9 @@
 // The generic filter dialog built from the schema, also used for Edit > Fade (docs/M5.md section 2).
 import { useEffect, useImperativeHandle, useRef, useState, type Ref, type RefObject } from 'react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from '../client.ts';
+import { choiceLabel } from '../i18n/choices.ts';
 import type { FieldSpec } from '../adjustments.ts';
 import { BLEND_MODES } from '../layers.ts';
 import { setIn } from '../layerStyle.ts';
@@ -11,10 +14,11 @@ import type { DocInfo } from '../worker/types.ts';
 import { applyFilter, type CurvePoint, type GalleryLayer, type Light, type ParamValue, type PathPoint } from './lastFilter.ts';
 import { BlurGalleryOverlay } from './BlurGalleryOverlay.tsx';
 import { snap, type Box } from './gallery.ts';
-import { GalleryStack } from './GalleryStack.tsx';
+import { GalleryStack, localFields } from './GalleryStack.tsx';
+import { engineLabel } from './labels.ts';
 import { FlamePath, LightsEditor } from './RenderEditors.tsx';
 import { ShearCurve } from './ShearCurve.tsx';
-import { defaults, fieldSpecs, previewScale, visibleParams, type FilterSpec } from './schema.ts';
+import { defaults, previewScale, visibleParams, type FilterSpec } from './schema.ts';
 
 type Target = 'pixels' | 'mask' | 'selection';
 type Show = (d: DocInfo | null) => void;
@@ -24,9 +28,9 @@ export type FilterRequest = { type: 'filter'; spec: FilterSpec; id: number; targ
 export interface FilterDialogHandle { open(r: FilterRequest): void }
 
 const FADE_DEFAULTS: Params = { opacity: 100, mode: 'normal' };
-const FADE_FIELDS: FieldSpec[] = [
-  { type: 'number', label: 'Opacity (%)', path: 'opacity', min: 0, max: 100, step: 1 },
-  { type: 'select', label: 'Mode', path: 'mode', options: BLEND_MODES.map(m => [m, m.replace(/(^| )\w/g, c => c.toUpperCase())]) },
+const fadeFields = (): FieldSpec[] => [
+  { type: 'number', label: t`Opacity (%)`, path: 'opacity', min: 0, max: 100, step: 1 },
+  { type: 'select', label: t`Mode`, path: 'mode', options: BLEND_MODES.map(m => [m, m === 'linear dodge' ? t`Linear Dodge` : choiceLabel(m)]) },
 ];
 
 export function FilterDialog({ ref, viewer, show, setError }: {
@@ -99,7 +103,7 @@ export function FilterDialog({ ref, viewer, show, setError }: {
   // OK renders the whole target at full resolution: inside the open preview session, or as a plain step.
   function ok() {
     if (!req) return;
-    if (stacked && !(params.stack as GalleryLayer[]).some(l => l.enabled)) { setError('The filter stack is empty.'); return; }
+    if (stacked && !(params.stack as GalleryLayer[]).some(l => l.enabled)) { setError(t`The filter stack is empty.`); return; }
     stop();
     st.current.closing = true;
     dialog.current?.close();
@@ -132,8 +136,9 @@ export function FilterDialog({ ref, viewer, show, setError }: {
     enqueue(() => endSession(false).finally(() => setReq(q => (q === r ? null : q))));
   }
 
-  const title = req ? (req.type === 'fade' ? `Fade ${req.step}` : req.spec.label) : 'Filter';
-  const fields = req?.type === 'filter' ? fieldSpecs(req.spec) : FADE_FIELDS;
+  const step = req?.type === 'fade' ? req.step : '';
+  const title = req ? (req.type === 'fade' ? t`Fade ${step}` : engineLabel(req.spec.label)) : t`Filter`;
+  const fields = req?.type === 'filter' ? localFields(req.spec) : fadeFields();
   const gallery = req?.type === 'filter' && req.spec.group === 'blurGallery' ? req.spec.id.replace('blur_gallery.', '') : null;
   const stacked = req?.type === 'filter' && req.spec.params.some(p => p.kind === 'stack');
   return (
@@ -162,13 +167,13 @@ export function FilterDialog({ ref, viewer, show, setError }: {
           </div>
         )}
         {(req?.type === 'fade' || req?.spec.preview) && (
-          <label className="adjustment-check"><input type="checkbox" checked={previewOn} onChange={e => setPreviewOn(e.currentTarget.checked)} /> Preview</label>
+          <label className="adjustment-check"><input type="checkbox" checked={previewOn} onChange={e => setPreviewOn(e.currentTarget.checked)} /> <Trans>Preview</Trans></label>
         )}
         <div className="actions">
           {alt
-            ? <button type="button" onClick={() => req && reset(req)}>Reset</button>
-            : <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>}
-          <button type="submit" className="primary">OK</button>
+            ? <button type="button" onClick={() => req && reset(req)}><Trans>Reset</Trans></button>
+            : <button type="button" onClick={() => dialog.current?.close()}><Trans>Cancel</Trans></button>}
+          <button type="submit" className="primary"><Trans>OK</Trans></button>
         </div>
       </form>
     </dialog>

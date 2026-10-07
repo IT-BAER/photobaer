@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { Plus, Trash2 } from 'lucide-react';
 import { client } from './client.ts';
 import type { DocInfo } from './engine.worker.ts';
@@ -17,8 +19,8 @@ export function LayerCompsPanel({ doc, run }: Props) {
 
   return (
     <div className="layers-panel">
-      <div className="panel-tabs"><span className="panel-tab">Layer Comps</span></div>
-      <div className="layers-tree" role="listbox" aria-label="Layer Comps">
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Layer Comps</Trans></span></div>
+      <div className="layers-tree" role="listbox" aria-label={t`Layer Comps`}>
         {doc.layerComps.map(c => (
           <div
             key={c.id}
@@ -33,11 +35,11 @@ export function LayerCompsPanel({ doc, run }: Props) {
         ))}
       </div>
       <div className="layers-footer">
-        <button aria-label="New layer comp" title="New layer comp" onClick={() => void run(null, () => client.call('captureLayerComp'))}>
+        <button aria-label={t`New layer comp`} title={t`New layer comp`} onClick={() => void run(null, () => client.call('captureLayerComp'))}>
           <Plus {...ICON} />
         </button>
         <button
-          aria-label="Delete layer comp" title="Delete layer comp" disabled={selected == null}
+          aria-label={t`Delete layer comp`} title={t`Delete layer comp`} disabled={selected == null}
           onClick={() => { const id = selected!; setSelected(null); void run(null, () => client.call('deleteLayerComp', id)); }}
         >
           <Trash2 {...ICON} />

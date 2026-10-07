@@ -1,7 +1,8 @@
 // Menu consumers resolve items by their stable English id, so translated labels do not break them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findMenuItem, itemId, type Item } from './helpers.ts';
+import { findMenuItem, itemId, tl, type Item } from './helpers.ts';
+import { i18n } from '../i18n/index.ts';
 import { canvasItems, pickItems } from './contextMenus.ts';
 import { flattenMenus, searchCommands } from './commandSearch.ts';
 import { agentTools, type WebMcpCtx } from './webmcp.ts';
@@ -20,6 +21,18 @@ const menus: Record<string, Item[]> = {
 test('itemId is the id, else the label', () => {
   assert.equal(itemId(tr('Copy')), 'Copy');
   assert.equal(itemId({ label: 'Paste', run: () => {} }), 'Paste');
+});
+
+test('tl keeps the English source text as id and shows the active language, with an optional check mark', () => {
+  const d = { id: 'x1', message: 'Snap' };
+  i18n.loadAndActivate({ locale: 'de', messages: { x1: 'Ausrichten' } });
+  try {
+    assert.deepEqual(tl(d), { id: 'Snap', label: 'Ausrichten' });
+    assert.deepEqual(tl(d, true), { id: 'Snap', label: '✓ Ausrichten' });
+  } finally {
+    i18n.loadAndActivate({ locale: 'en', messages: {} });
+  }
+  assert.deepEqual(tl(d, false), { id: 'Snap', label: 'Snap' });
 });
 
 test('findMenuItem searches top level and submenus by id', () => {

@@ -1,6 +1,8 @@
 // Missing-font dialogs (docs/M4.md section 8): the per-layer prompt when editing starts, Resolve
 // Missing Fonts (one replacement per missing face) and Replace All Missing Fonts (one for all).
 import { useEffect, useRef, useState } from 'react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
 import type { TextJson } from './psd/text.ts';
 import { substituteFonts, type FontSub, type MissingRow } from './shell/typecommands.ts';
@@ -46,7 +48,7 @@ function Shell({ title, children, onCancel }: { title: string; children: React.R
 }
 
 const UploadButton = ({ c, busy }: { c: FontDialogCtx; busy: boolean }) => (
-  <button type="button" disabled={busy} onClick={() => void c.upload()}>Upload font…</button>
+  <button type="button" disabled={busy} onClick={() => void c.upload()}><Trans>Upload font…</Trans></button>
 );
 
 // Editing a layer whose fonts are missing: Replace swaps them for the first default family that draws
@@ -63,20 +65,20 @@ function LayerDialog({ d, c }: { d: Extract<FontDialog, { kind: 'layer' }>; c: F
         if (await client.call('fontCovers', family, 'Regular', r.text)) { subs.push({ source: r, target: { family, style: 'Regular' } }); break; }
       }
     }
-    if (subs.length !== d.rows.length) { setErr('No available default font can display this text. Choose Manage to select a replacement.'); setBusy(false); return; }
+    if (subs.length !== d.rows.length) { setErr(t`No available default font can display this text. Choose Manage to select a replacement.`); setBusy(false); return; }
     if (await apply(c, subs, 'Replace Missing Fonts', [d.id])) { c.close(); d.resume(); } else setBusy(false);
   };
   return (
-    <Shell title="Missing Fonts" onCancel={c.close}>
-      <p>These fonts are missing in this text layer:</p>
+    <Shell title={t`Missing Fonts`} onCancel={c.close}>
+      <p><Trans>These fonts are missing in this text layer:</Trans></p>
       <ul>{d.rows.map(r => <li key={key(r)}>{faceName(r)}</li>)}</ul>
-      <p>To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document.</p>
+      <p><Trans>To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document.</Trans></p>
       {err && <p role="alert">{err}</p>}
       <div className="actions">
         <UploadButton c={c} busy={busy} />
-        <button type="button" disabled={busy} onClick={c.manage}>Manage</button>
-        <button type="button" onClick={c.close}>Cancel</button>
-        <button type="button" className="primary" disabled={busy} onClick={() => void replace()}>Replace</button>
+        <button type="button" disabled={busy} onClick={c.manage}><Trans>Manage</Trans></button>
+        <button type="button" onClick={c.close}><Trans>Cancel</Trans></button>
+        <button type="button" className="primary" disabled={busy} onClick={() => void replace()}><Trans>Replace</Trans></button>
       </div>
     </Shell>
   );
@@ -88,34 +90,35 @@ function ResolveDialog({ d, c }: { d: Extract<FontDialog, { kind: 'resolve' }>; 
   const [pick, setPick] = useState<Record<string, { family: string; style: string }>>({});
   const [busy, setBusy] = useState(false), [err, setErr] = useState<string | null>(null);
   const all = families(c.faces);
+  const docName = c.docName;
   const ok = async () => {
     setBusy(true); setErr(null);
     const subs: FontSub[] = [];
     for (const r of d.rows) {
-      const t = pick[key(r)];
-      if (!t) continue;
-      await c.ensure([t.family]);
-      if (!await client.call('fontCovers', t.family, t.style, r.text)) {
-        setErr(`${t.family} does not contain every character used by ${r.family} ${r.style}. Choose another font.`);
+      const sub = pick[key(r)];
+      if (!sub) continue;
+      await c.ensure([sub.family]);
+      if (!await client.call('fontCovers', sub.family, sub.style, r.text)) {
+        { const family = sub.family, source = `${r.family} ${r.style}`; setErr(t`${family} does not contain every character used by ${source}. Choose another font.`); };
         setBusy(false);
         return;
       }
-      subs.push({ source: r, target: t });
+      subs.push({ source: r, target: sub });
     }
     if (await apply(c, subs, 'Resolve Missing Fonts', d.layerIds)) c.close(); else setBusy(false);
   };
   return (
-    <Shell title="Resolve Missing Fonts" onCancel={c.close}>
-      <p>{`“${c.docName}” uses fonts that could not be loaded. Choose replacements for ${d.layerIds ? 'the selected text' : 'the whole document'}. Text layout may change.`}</p>
-      <p>Unresolved fonts keep their current rendering until the text is edited. Original font names are kept; choose permanent replacements now or later from the Type menu.</p>
-      {!all.length && <p role="status">No installed fonts are available for replacement.</p>}
+    <Shell title={t`Resolve Missing Fonts`} onCancel={c.close}>
+      <p>{d.layerIds ? t`“${docName}” uses fonts that could not be loaded. Choose replacements for the selected text. Text layout may change.` : t`“${docName}” uses fonts that could not be loaded. Choose replacements for the whole document. Text layout may change.`}</p>
+      <p><Trans>Unresolved fonts keep their current rendering until the text is edited. Original font names are kept; choose permanent replacements now or later from the Type menu.</Trans></p>
+      {!all.length && <p role="status"><Trans>No installed fonts are available for replacement.</Trans></p>}
       <div className="missing-fonts-list">
         {d.rows.map(r => {
-          const k = key(r), t = pick[k], name = faceName(r);
+          const k = key(r), sub = pick[k], name = faceName(r), layerCount = r.layerIds.length;
           return (
             <div key={k} className="missing-font-row">
-              <div><strong>{name}</strong> <span>Text layers: {r.layerIds.length}</span></div>
-              <select aria-label={`Replacement for ${name}`} value={t?.family ?? ''} disabled={busy} onChange={e => {
+              <div><strong>{name}</strong> <span><Trans>Text layers: {layerCount}</Trans></span></div>
+              <select aria-label={t`Replacement for ${name}`} value={sub?.family ?? ''} disabled={busy} onChange={e => {
                 const family = e.currentTarget.value, styles = stylesOf(c.faces, family);
                 setPick(p => {
                   const n = { ...p };
@@ -123,12 +126,12 @@ function ResolveDialog({ d, c }: { d: Extract<FontDialog, { kind: 'resolve' }>; 
                   return n;
                 });
               }}>
-                <option value="">Leave unchanged</option>
+                <option value="">{t`Leave unchanged`}</option>
                 {all.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
-              {t && (
-                <select aria-label={`Replacement style for ${name}`} value={t.style} disabled={busy} onChange={e => { const style = e.currentTarget.value; setPick(p => ({ ...p, [k]: { ...t, style } })); }}>
-                  {stylesOf(c.faces, t.family).map(s => <option key={s} value={s}>{s}</option>)}
+              {sub && (
+                <select aria-label={t`Replacement style for ${name}`} value={sub.style} disabled={busy} onChange={e => { const style = e.currentTarget.value; setPick(p => ({ ...p, [k]: { ...sub, style } })); }}>
+                  {stylesOf(c.faces, sub.family).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               )}
             </div>
@@ -138,8 +141,8 @@ function ResolveDialog({ d, c }: { d: Extract<FontDialog, { kind: 'resolve' }>; 
       {err && <p role="alert">{err}</p>}
       <div className="actions">
         <UploadButton c={c} busy={busy} />
-        <button type="button" onClick={c.close}>Skip for Now</button>
-        <button type="button" className="primary" disabled={busy || !Object.keys(pick).length} onClick={() => void ok()}>{busy ? 'Replacing…' : 'Replace Fonts'}</button>
+        <button type="button" onClick={c.close}><Trans>Skip for Now</Trans></button>
+        <button type="button" className="primary" disabled={busy || !Object.keys(pick).length} onClick={() => void ok()}>{busy ? t`Replacing…` : t`Replace Fonts`}</button>
       </div>
     </Shell>
   );
@@ -147,7 +150,7 @@ function ResolveDialog({ d, c }: { d: Extract<FontDialog, { kind: 'resolve' }>; 
 
 // Type > Replace All Missing Fonts: every run set in any missing face takes one family and style.
 function ReplaceDialog({ d, c }: { d: Extract<FontDialog, { kind: 'replace' }>; c: FontDialogCtx }) {
-  const all = families(c.faces), fams = [...new Set(d.rows.map(r => r.family))];
+  const all = families(c.faces), fams = [...new Set(d.rows.map(r => r.family))], familyCount = fams.length;
   const [family, setFamily] = useState(all[0] ?? ''), styles = stylesOf(c.faces, family);
   const [style, setStyle] = useState(styles[0] ?? 'Regular');
   const [busy, setBusy] = useState(false);
@@ -156,20 +159,20 @@ function ReplaceDialog({ d, c }: { d: Extract<FontDialog, { kind: 'replace' }>; 
     if (await apply(c, d.rows.map(r => ({ source: r, target: { family, style } })), 'Replace All Missing Fonts')) c.close(); else setBusy(false);
   };
   return (
-    <Shell title="Replace All Missing Fonts" onCancel={c.close}>
-      <p>{`Replacing ${fams.length === 1 ? fams[0] : `${fams.length} missing families`}.`}</p>
-      <label className="adjustment-field"><span>Replace With</span>
+    <Shell title={t`Replace All Missing Fonts`} onCancel={c.close}>
+      <p>{fams.length === 1 ? t`Replacing ${fams[0]}.` : t`Replacing ${familyCount} missing families.`}</p>
+      <label className="adjustment-field"><span><Trans>Replace With</Trans></span>
         <select value={family} onChange={e => { const f = e.currentTarget.value, s = stylesOf(c.faces, f); setFamily(f); setStyle(s.includes(style) ? style : s[0] ?? 'Regular'); }}>
           {all.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
       </label>
-      <label className="adjustment-field"><span>Style</span>
+      <label className="adjustment-field"><span><Trans>Style</Trans></span>
         <select value={style} onChange={e => setStyle(e.currentTarget.value)}>{styles.map(s => <option key={s} value={s}>{s}</option>)}</select>
       </label>
       <div className="actions">
         <UploadButton c={c} busy={busy} />
-        <button type="button" onClick={c.close}>Cancel</button>
-        <button type="button" className="primary" disabled={busy || !family} onClick={() => void ok()}>OK</button>
+        <button type="button" onClick={c.close}><Trans>Cancel</Trans></button>
+        <button type="button" className="primary" disabled={busy || !family} onClick={() => void ok()}><Trans>OK</Trans></button>
       </div>
     </Shell>
   );

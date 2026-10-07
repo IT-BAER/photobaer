@@ -1961,14 +1961,14 @@ const api = {
   combineShapes(ids: number[], op: BoolOp) {
     const e = need();
     let created = 0;
-    history.run(BOOL_LABEL[op], () => { created = e.combine_shapes(Uint32Array.from(ids), op); });
+    history.run(BOOL_LABEL[op].message!, () => { created = e.combine_shapes(Uint32Array.from(ids), op); });
     return { ...changed(), created };
   },
 
   // Properties Pathfinder on one shape layer: its subpaths folded in order.
   pathfinder(id: number, op: BoolOp) {
     const e = need();
-    history.run(BOOL_LABEL[op], () => e.pathfinder(id, op));
+    history.run(BOOL_LABEL[op].message!, () => e.pathfinder(id, op));
     return changed();
   },
 

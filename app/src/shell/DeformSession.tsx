@@ -3,7 +3,10 @@
 // the whole document (proxy first); Enter commits one step, Esc cancels.
 import { useEffect, useMemo, useReducer, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { msg, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from '../client.ts';
+import { i18n } from '../i18n/index.ts';
 import { previewScale } from '../filters/schema.ts';
 import { PuppetSession, type Density, type Geometry, type Grid, type Options, type PuppetMode } from '../transform/puppet.ts';
 import { PerspectiveSession, engineState } from '../transform/pwarp.ts';
@@ -17,8 +20,9 @@ type Session = PuppetSession | PerspectiveSession;
 
 const HIT = 9;
 const LABEL = { puppet: 'Puppet Warp', perspective: 'Perspective Warp' };
-const PLACE = 'Place pins inside the mesh, away from existing pins.';
-const HINT = { layout: 'Draw planes over the image. Join corners to link planes.', warp: 'Drag pins. Shift-click an edge to straighten and lock it.' };
+const LABEL_MSG = { puppet: msg`Puppet Warp`, perspective: msg`Perspective Warp` };
+const PLACE = msg`Place pins inside the mesh, away from existing pins.`;
+const HINT = { layout: msg`Draw planes over the image. Join corners to link planes.`, warp: msg`Drag pins. Shift-click an edge to straighten and lock it.` };
 const deg = (r: number) => Math.round(r * 180 / Math.PI * 10) / 10;
 
 export function DeformSession({ req, viewer, show, setError, onEnd }: {
@@ -180,7 +184,7 @@ export function DeformSession({ req, viewer, show, setError, onEnd }: {
         if (pivot) s.begin(pivot, x, y, true);
       } else {
         const pin = hit ?? s.add(x, y, r);
-        if (pin) { s.begin(pin, x, y, false, e.shiftKey); if (!hit) changed(); } else setNote(PLACE);
+        if (pin) { s.begin(pin, x, y, false, e.shiftKey); if (!hit) changed(); } else setNote(i18n._(PLACE));
       }
     }
     if (s.dragging) e.currentTarget.setPointerCapture(e.pointerId);
@@ -213,8 +217,8 @@ export function DeformSession({ req, viewer, show, setError, onEnd }: {
 
   const end = (
     <>
-      <button type="button" onClick={() => finish(false)}>Cancel</button>
-      <button type="button" className="primary" onClick={() => finish(true)}>Apply</button>
+      <button type="button" onClick={() => finish(false)}><Trans>Cancel</Trans></button>
+      <button type="button" className="primary" onClick={() => finish(true)}><Trans>Apply</Trans></button>
     </>
   );
   let bar;
@@ -223,33 +227,33 @@ export function DeformSession({ req, viewer, show, setError, onEnd }: {
     const pins = (f: Parameters<PuppetSession['updatePins']>[0]) => { s.updatePins(f); changed(); };
     bar = (
       <>
-        <label>Mode
-          <select aria-label="Puppet mode" value={s.options.mode} onChange={e => setOptions({ mode: e.currentTarget.value as PuppetMode })}>
-            <option value="rigid">Rigid</option><option value="normal">Normal</option><option value="distort">Distort</option>
+        <label><Trans>Mode</Trans>
+          <select aria-label={t`Puppet mode`} value={s.options.mode} onChange={e => setOptions({ mode: e.currentTarget.value as PuppetMode })}>
+            <option value="rigid">{t`Rigid`}</option><option value="normal">{t`Normal`}</option><option value="distort">{t`Distort`}</option>
           </select>
         </label>
-        <label>Density
-          <select aria-label="Mesh density" value={s.options.density} onChange={e => setOptions({ density: e.currentTarget.value as Density })}>
-            <option value="fewerPoints">Fewer Points</option><option value="normal">Normal</option><option value="morePoints">More Points</option>
+        <label><Trans>Density</Trans>
+          <select aria-label={t`Mesh density`} value={s.options.density} onChange={e => setOptions({ density: e.currentTarget.value as Density })}>
+            <option value="fewerPoints">{t`Fewer Points`}</option><option value="normal">{t`Normal`}</option><option value="morePoints">{t`More Points`}</option>
           </select>
         </label>
-        <label>Expansion
-          <NumberInput aria-label="Mesh expansion" min={-50} max={50} step={1} value={s.options.expansion}
+        <label><Trans>Expansion</Trans>
+          <NumberInput aria-label={t`Mesh expansion`} min={-50} max={50} step={1} value={s.options.expansion}
             onValue={v => setOptions({ expansion: Math.max(-50, Math.min(50, Math.round(v))) })} /> px
         </label>
-        <label className="opt-bool"><input type="checkbox" checked={s.options.showMesh} onChange={e => setOptions({ showMesh: e.currentTarget.checked })} />Show Mesh</label>
-        <span>Pin Depth</span>
-        <button type="button" disabled={!first} title="Move the selected pins forward" onClick={() => pins(p => ({ ...p, depth: p.depth + 1 }))}>Forward</button>
-        <button type="button" disabled={!first} title="Move the selected pins backward" onClick={() => pins(p => ({ ...p, depth: p.depth - 1 }))}>Backward</button>
-        <label>Rotate
-          <select aria-label="Pin rotation" disabled={!first} value={first?.fixed ? 'fixed' : 'auto'}
+        <label className="opt-bool"><input type="checkbox" checked={s.options.showMesh} onChange={e => setOptions({ showMesh: e.currentTarget.checked })} /><Trans>Show Mesh</Trans></label>
+        <span><Trans>Pin Depth</Trans></span>
+        <button type="button" disabled={!first} title={t`Move the selected pins forward`} onClick={() => pins(p => ({ ...p, depth: p.depth + 1 }))}><Trans>Forward</Trans></button>
+        <button type="button" disabled={!first} title={t`Move the selected pins backward`} onClick={() => pins(p => ({ ...p, depth: p.depth - 1 }))}><Trans>Backward</Trans></button>
+        <label><Trans>Rotate</Trans>
+          <select aria-label={t`Pin rotation`} disabled={!first} value={first?.fixed ? 'fixed' : 'auto'}
             onChange={e => pins(p => (e.currentTarget.value === 'fixed' ? { ...p, fixed: true, rotation: s.rotationOf(p) } : { ...p, fixed: false, rotation: 0 }))}>
-            <option value="auto">Auto</option><option value="fixed">Fixed</option>
+            <option value="auto">{t`Auto`}</option><option value="fixed">{t`Fixed`}</option>
           </select>
         </label>
-        <NumberInput aria-label="Pin rotation angle" disabled={!first?.fixed} step={1} value={first ? deg(s.rotationOf(first)) : 0}
+        <NumberInput aria-label={t`Pin rotation angle`} disabled={!first?.fixed} step={1} value={first ? deg(s.rotationOf(first)) : 0}
           onValue={v => pins(p => ({ ...p, fixed: true, rotation: v * Math.PI / 180 }))} />°
-        <button type="button" disabled={!s.pins.length} onClick={() => { s.reset(); changed(); }}>Remove All Pins</button>
+        <button type="button" disabled={!s.pins.length} onClick={() => { s.reset(); changed(); }}><Trans>Remove All Pins</Trans></button>
         {note && <span className="deform-hint">{note}</span>}
       </>
     );
@@ -257,27 +261,29 @@ export function DeformSession({ req, viewer, show, setError, onEnd }: {
     const warp = s.state.mode === 'warp';
     bar = (
       <>
-        <button type="button" aria-pressed={!warp} onClick={() => { s.setMode('layout'); changed(); }}>Layout</button>
-        <button type="button" aria-pressed={warp} disabled={!s.state.quads.length} onClick={() => { s.setMode('warp'); changed(); }}>Warp</button>
+        <button type="button" aria-pressed={!warp} onClick={() => { s.setMode('layout'); changed(); }}><Trans>Layout</Trans></button>
+        <button type="button" aria-pressed={warp} disabled={!s.state.quads.length} onClick={() => { s.setMode('warp'); changed(); }}><Trans>Warp</Trans></button>
         {warp && (
           <>
-            <button type="button" title="Automatically straighten near-vertical line segments" onClick={() => { s.autoStraighten('vertical'); changed(); }}>Straighten Vertical</button>
-            <button type="button" title="Automatically level near-horizontal line segments" onClick={() => { s.autoStraighten('horizontal'); changed(); }}>Straighten Horizontal</button>
-            <button type="button" title="Automatically straighten and level both" onClick={() => { s.autoStraighten('both'); changed(); }}>Straighten Both</button>
-            <button type="button" onClick={() => { s.reset(); changed(); }}>Reset</button>
+            <button type="button" title={t`Automatically straighten near-vertical line segments`} onClick={() => { s.autoStraighten('vertical'); changed(); }}><Trans>Straighten Vertical</Trans></button>
+            <button type="button" title={t`Automatically level near-horizontal line segments`} onClick={() => { s.autoStraighten('horizontal'); changed(); }}><Trans>Straighten Horizontal</Trans></button>
+            <button type="button" title={t`Automatically straighten and level both`} onClick={() => { s.autoStraighten('both'); changed(); }}><Trans>Straighten Both</Trans></button>
+            <button type="button" onClick={() => { s.reset(); changed(); }}><Trans>Reset</Trans></button>
           </>
         )}
-        <span className="deform-hint">{HINT[s.state.mode]}</span>
+        <span className="deform-hint">{i18n._(HINT[s.state.mode])}</span>
       </>
     );
   }
 
+  const name = i18n._(LABEL_MSG[req.kind]);
+  const optionsLabel = t`${name} options`, handlesLabel = t`${name} handles`;
   return (
-    <div className="options-bar transform-bar" role="toolbar" aria-label={`${LABEL[req.kind]} options`}>
+    <div className="options-bar transform-bar" role="toolbar" aria-label={optionsLabel}>
       {bar}
       {end}
       {stage && createPortal(
-        <canvas ref={canvas} className="overlay gallery-overlay" tabIndex={0} aria-label={`${LABEL[req.kind]} handles`}
+        <canvas ref={canvas} className="overlay gallery-overlay" tabIndex={0} aria-label={handlesLabel}
           onPointerDown={e => { alt(e); down(e); }} onPointerMove={e => { if (st.current.alt !== e.altKey) alt(e); drag(e, false); }}
           onPointerUp={e => drag(e, true)} onPointerCancel={() => { s.cancelDrag(); changed(); }}
           onKeyDown={e => { alt(e); key(e); }} onKeyUp={alt}

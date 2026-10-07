@@ -1,5 +1,7 @@
 // The 16 adjustment layer kinds (docs/M3.md section 3, B5): catalogue order, undo labels (B5-5),
 // neutral defaults and the generic per-field renderer's field lists (m3-inv-a.md section 7 ranges).
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 import type { Adjustment, DestructiveAdjustment, GradientDef, HueRange } from './engine.worker.ts';
 import type { Gradient } from './gradients/gradient.ts';
 
@@ -16,15 +18,17 @@ export const ADJUSTMENT_KINDS: Kind[] = [
 
 // B5-5: creation and destructive apply undo under the plain menu label (also the layer's default
 // name); a Properties edit undoes under the spaced label for the two kinds with a slash.
-export const MENU_LABEL: Record<Kind, string> = {
-  brightness_contrast: 'Brightness/Contrast', levels: 'Levels', curves: 'Curves', exposure: 'Exposure',
-  vibrance: 'Vibrance', hue_saturation: 'Hue/Saturation', color_balance: 'Color Balance',
-  black_white: 'Black & White', photo_filter: 'Photo Filter', channel_mixer: 'Channel Mixer',
-  color_lookup: 'Color Lookup', invert: 'Invert', posterize: 'Posterize', threshold: 'Threshold',
-  gradient_map: 'Gradient Map', selective_color: 'Selective Color',
+export const MENU_LABEL: Record<Kind, MessageDescriptor> = {
+  brightness_contrast: msg`Brightness/Contrast`, levels: msg`Levels`, curves: msg`Curves`, exposure: msg`Exposure`,
+  vibrance: msg`Vibrance`, hue_saturation: msg`Hue/Saturation`, color_balance: msg`Color Balance`,
+  black_white: msg`Black & White`, photo_filter: msg`Photo Filter`, channel_mixer: msg`Channel Mixer`,
+  color_lookup: msg`Color Lookup`, invert: msg`Invert`, posterize: msg`Posterize`, threshold: msg`Threshold`,
+  gradient_map: msg`Gradient Map`, selective_color: msg`Selective Color`,
 };
+// The English menu labels: undo labels and default layer names sent to the engine.
+export const MENU_EN = Object.fromEntries(Object.entries(MENU_LABEL).map(([k, d]) => [k, d.message!])) as Record<Kind, string>;
 export const EDIT_LABEL: Record<Kind, string> = {
-  ...MENU_LABEL, brightness_contrast: 'Brightness / Contrast', hue_saturation: 'Hue / Saturation',
+  ...MENU_EN, brightness_contrast: 'Brightness / Contrast', hue_saturation: 'Hue / Saturation',
 };
 
 // Image > Adjustments shortcuts (docs/M3.md section 3); Invert's Ctrl+I already exists elsewhere.
@@ -40,7 +44,7 @@ export const DESTRUCTIVE_LABEL: Record<DestructiveKind, string> = {
   shadows_highlights: 'Shadows/Highlights', hdr_toning: 'HDR Toning', desaturate: 'Desaturate', match_color: 'Match Color',
   replace_color: 'Replace Color', equalize: 'Equalize', auto_tone: 'Auto Tone', auto_contrast: 'Auto Contrast', auto_color: 'Auto Color',
 };
-export const COMMAND_LABEL: Record<AnyKind, string> = { ...MENU_LABEL, ...DESTRUCTIVE_LABEL };
+export const COMMAND_LABEL: Record<AnyKind, string> = { ...MENU_EN, ...DESTRUCTIVE_LABEL };
 
 /** Section 3 defaults of a destructive-only kind; the kinds without params apply at once. */
 export function defaultDestructive(kind: DestructiveKind): DestructiveAdjustment {

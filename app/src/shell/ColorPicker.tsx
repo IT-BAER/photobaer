@@ -1,5 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { TriangleAlert } from 'lucide-react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { hexToRgb, hsbToRgb, intensityOf, isWebSafe, labToRgb, rgbToHex, rgbToHsb, rgbToLab, snapWebSafe, withIntensity, type Rgb } from './color.ts';
 import { HueStrip, SbField } from './ColorField.tsx';
 import { rgbOfSliders, slidersOf, type Convert } from './colorModes.ts';
@@ -27,7 +29,7 @@ function Field({ label, value, min, max, onCommit }: { label: string; value: num
 // `convert` gives the C, M, Y, K fields (working or document CMYK); without it they are not shown.
 export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; convert?: Convert }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [title, setTitle] = useState('Color Picker');
+  const [title, setTitle] = useState(t`Color Picker`);
   const [rgb, setRgb] = useState<Rgb>([0, 0, 0]);
   const original = useRef<Rgb>([0, 0, 0]);
   const commit = useRef<(rgb: Rgb) => void>(() => {});
@@ -35,10 +37,10 @@ export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; con
   const [stops, setStops] = useState(0);
 
   useImperativeHandle(ref, () => ({
-    open(initial, t, onCommit, opts) {
+    open(initial, heading, onCommit, opts) {
       original.current = initial;
       commit.current = onCommit;
-      setTitle(t);
+      setTitle(heading);
       setRgb(initial);
       setHdr(!!opts?.hdr);
       setStops(opts?.hdr ? intensityOf(initial) : 0);
@@ -70,10 +72,10 @@ export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; con
         <SbField h={h} s={s} b={b} onChange={(ns, nb) => apply(hsbToRgb([h, ns, nb]))} />
         <HueStrip h={h} onChange={nh => apply(hsbToRgb([nh, s, b]))} />
         <div className="picker-preview">
-          <div className="swatch-preview" style={{ background: rgbToHex(rgb) }} title="New" />
-          <div className="swatch-preview" style={{ background: rgbToHex(original.current) }} title="Original" />
+          <div className="swatch-preview" style={{ background: rgbToHex(rgb) }} title={t`New`} />
+          <div className="swatch-preview" style={{ background: rgbToHex(original.current) }} title={t`Original`} />
           {!websafe && (
-            <button type="button" className="websafe-warning" title="Not web-safe: click to snap" onClick={() => apply(snapWebSafe(rgb))}>
+            <button type="button" className="websafe-warning" title={t`Not web-safe: click to snap`} onClick={() => apply(snapWebSafe(rgb))}>
               <TriangleAlert size={16} strokeWidth={1.75} />
             </button>
           )}
@@ -105,15 +107,15 @@ export function ColorPicker({ ref, convert }: { ref: Ref<ColorPickerHandle>; con
       </div>
       {hdr && (
         <label className="color-intensity">
-          Intensity
+          <Trans>Intensity</Trans>
           <input type="range" min={-20} max={20} step={0.01} value={stops} onChange={e => apply(rgb, Number(e.currentTarget.value))} />
-          <NumberInput min={-20} max={20} step={0.01} value={stops} aria-label="Intensity stops"
+          <NumberInput min={-20} max={20} step={0.01} value={stops} aria-label={t`Intensity stops`}
             onValue={v => apply(rgb, Math.min(20, Math.max(-20, v)))} />
         </label>
       )}
       <div className="actions">
-        <button type="button" onClick={() => { revert(); dialog.current?.close(); }}>Cancel</button>
-        <button type="button" className="primary" onClick={() => dialog.current?.close()}>OK</button>
+        <button type="button" onClick={() => { revert(); dialog.current?.close(); }}><Trans>Cancel</Trans></button>
+        <button type="button" className="primary" onClick={() => dialog.current?.close()}><Trans>OK</Trans></button>
       </div>
     </dialog>
   );

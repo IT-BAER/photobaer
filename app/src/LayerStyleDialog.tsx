@@ -2,6 +2,8 @@
 // middle, OK / Cancel / Preview and a sample swatch on the right. Edits preview on the canvas through the
 // worker's preview session (debounced 70 ms); OK commits one "Layer Style" step, Cancel restores.
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { client } from './client.ts';
 import type { DocInfo, FillContent, GlobalLight, LayerNode } from './engine.worker.ts';
@@ -10,6 +12,8 @@ import { PatternPicker, adoptPatterns } from './PresetPanels.tsx';
 import { Field, type OpenGradientEditor } from './PropertiesPanel.tsx';
 import { getPath, gradientDefToUi, uiToGradientDef, type FieldSpec } from './adjustments.ts';
 import { blendModesFor } from './layers.ts';
+import { i18n } from './i18n/index.ts';
+import { choiceLabel } from './i18n/choices.ts';
 import { rampCss } from './gradients/gradient.ts';
 import { rgbToHex, type Rgb } from './shell/color.ts';
 import {
@@ -31,64 +35,64 @@ const select = (label: string, path: string, options: [string, string][]): Field
 const f = <T extends Spec['type']>(type: T, label: string, path: string) => ({ type, label, path }) as Spec;
 
 const shadow = (inner: boolean): Spec[] => [
-  f('blend', 'Blend Mode', 'blend'), f('color', 'Color', 'color'), pct('Opacity', 'opacity'),
-  f('angle', 'Angle', 'angle'), check('Use Global Light', 'use_global_light'),
-  num('Distance (px)', 'distance', 0, 250), pct(inner ? 'Choke' : 'Spread', 'spread'), num('Size (px)', 'size', 0, 250),
-  f('contour', 'Contour', 'contour'), check('Anti-aliased', 'contour.anti_alias'), pct('Noise', 'noise'),
-  ...(inner ? [] : [check('Layer Knocks Out Drop Shadow', 'knocks_out')]),
+  f('blend', t`Blend Mode`, 'blend'), f('color', t`Color`, 'color'), pct(t`Opacity`, 'opacity'),
+  f('angle', t`Angle`, 'angle'), check(t`Use Global Light`, 'use_global_light'),
+  num(t`Distance (px)`, 'distance', 0, 250), pct(inner ? t`Choke` : t`Spread`, 'spread'), num(t`Size (px)`, 'size', 0, 250),
+  f('contour', t`Contour`, 'contour'), check(t`Anti-aliased`, 'contour.anti_alias'), pct(t`Noise`, 'noise'),
+  ...(inner ? [] : [check(t`Layer Knocks Out Drop Shadow`, 'knocks_out')]),
 ];
 const glow = (inner: boolean): Spec[] => [
-  f('blend', 'Blend Mode', 'blend'), pct('Opacity', 'opacity'), pct('Noise', 'noise'), { type: 'glowFill' },
-  select('Technique', 'technique', [['softer', 'Softer'], ['precise', 'Precise']]),
-  ...(inner ? [select('Source', 'source', [['center', 'Center'], ['edge', 'Edge']])] : []),
-  pct(inner ? 'Choke' : 'Spread', 'spread'), num('Size (px)', 'size', 0, 250),
-  f('contour', 'Contour', 'contour'), check('Anti-aliased', 'contour.anti_alias'), pct('Range', 'range', 1, 100), pct('Jitter', 'jitter'),
+  f('blend', t`Blend Mode`, 'blend'), pct(t`Opacity`, 'opacity'), pct(t`Noise`, 'noise'), { type: 'glowFill' },
+  select(t`Technique`, 'technique', [['softer', t`Softer`], ['precise', t`Precise`]]),
+  ...(inner ? [select(t`Source`, 'source', [['center', t`Center`], ['edge', t`Edge`]])] : []),
+  pct(inner ? t`Choke` : t`Spread`, 'spread'), num(t`Size (px)`, 'size', 0, 250),
+  f('contour', t`Contour`, 'contour'), check(t`Anti-aliased`, 'contour.anti_alias'), pct(t`Range`, 'range', 1, 100), pct(t`Jitter`, 'jitter'),
 ];
 const gradientFields = (p: string): Spec[] => [
-  f('gradient', 'Gradient', `${p}gradient`),
-  select('Method', `${p}gradient.method`, [['perceptual', 'Perceptual'], ['linear', 'Linear'], ['classic', 'Classic']]),
-  select('Style', `${p}style`, [['linear', 'Linear'], ['radial', 'Radial'], ['angle', 'Angle'], ['reflected', 'Reflected'], ['diamond', 'Diamond']]),
-  num('Angle (°)', `${p}angle`, -180, 180), pct('Scale', `${p}scale`, 10, 150),
-  check('Reverse', `${p}reverse`), check('Dither', `${p}dither`), check('Align with Layer', `${p}align_with_layer`),
+  f('gradient', t`Gradient`, `${p}gradient`),
+  select(t`Method`, `${p}gradient.method`, [['perceptual', t`Perceptual`], ['linear', t`Linear`], ['classic', t`Classic`]]),
+  select(t`Style`, `${p}style`, [['linear', t`Linear`], ['radial', t`Radial`], ['angle', t`Angle`], ['reflected', t`Reflected`], ['diamond', t`Diamond`]]),
+  num(t`Angle (°)`, `${p}angle`, -180, 180), pct(t`Scale`, `${p}scale`, 10, 150),
+  check(t`Reverse`, `${p}reverse`), check(t`Dither`, `${p}dither`), check(t`Align with Layer`, `${p}align_with_layer`),
 ];
 const patternFields = (p: string): Spec[] => [
-  f('pattern', 'Pattern', `${p}pattern_id`), pct('Scale', `${p}scale`, 1, 1000), num('Angle (°)', `${p}angle`, -180, 180),
-  check('Link with Layer', `${p}linked`),
+  f('pattern', t`Pattern`, `${p}pattern_id`), pct(t`Scale`, `${p}scale`, 1, 1000), num(t`Angle (°)`, `${p}angle`, -180, 180),
+  check(t`Link with Layer`, `${p}linked`),
 ];
 
-const PAGES: Record<EffectKind, Spec[]> = {
+const pages = (): Record<EffectKind, Spec[]> => ({
   drop_shadows: shadow(false),
   inner_shadows: shadow(true),
   outer_glow: glow(false),
   inner_glow: glow(true),
   bevel: [
-    select('Style', 'style', [['outer', 'Outer Bevel'], ['inner', 'Inner Bevel'], ['emboss', 'Emboss'], ['pillow', 'Pillow Emboss'], ['stroke_emboss', 'Stroke Emboss']]),
-    select('Technique', 'technique', [['smooth', 'Smooth'], ['chisel_hard', 'Chisel Hard'], ['chisel_soft', 'Chisel Soft']]),
-    pct('Depth', 'depth', 1, 1000), select('Direction', 'direction', [['up', 'Up'], ['down', 'Down']]),
-    num('Size (px)', 'size', 0, 250), num('Soften (px)', 'soften', 0, 16),
-    f('angle', 'Angle', 'angle'), f('angle', 'Altitude', 'altitude'), check('Use Global Light', 'use_global_light'),
-    f('contour', 'Gloss Contour', 'gloss_contour'), check('Anti-aliased', 'gloss_contour.anti_alias'),
-    f('blend', 'Highlight Mode', 'highlight_blend'), f('color', 'Highlight Color', 'highlight_color'), pct('Highlight Opacity', 'highlight_opacity'),
-    f('blend', 'Shadow Mode', 'shadow_blend'), f('color', 'Shadow Color', 'shadow_color'), pct('Shadow Opacity', 'shadow_opacity'),
+    select(t`Style`, 'style', [['outer', t`Outer Bevel`], ['inner', t`Inner Bevel`], ['emboss', t`Emboss`], ['pillow', t`Pillow Emboss`], ['stroke_emboss', t`Stroke Emboss`]]),
+    select(t`Technique`, 'technique', [['smooth', t`Smooth`], ['chisel_hard', t`Chisel Hard`], ['chisel_soft', t`Chisel Soft`]]),
+    pct(t`Depth`, 'depth', 1, 1000), select(t`Direction`, 'direction', [['up', t`Up`], ['down', t`Down`]]),
+    num(t`Size (px)`, 'size', 0, 250), num(t`Soften (px)`, 'soften', 0, 16),
+    f('angle', t`Angle`, 'angle'), f('angle', t`Altitude`, 'altitude'), check(t`Use Global Light`, 'use_global_light'),
+    f('contour', t`Gloss Contour`, 'gloss_contour'), check(t`Anti-aliased`, 'gloss_contour.anti_alias'),
+    f('blend', t`Highlight Mode`, 'highlight_blend'), f('color', t`Highlight Color`, 'highlight_color'), pct(t`Highlight Opacity`, 'highlight_opacity'),
+    f('blend', t`Shadow Mode`, 'shadow_blend'), f('color', t`Shadow Color`, 'shadow_color'), pct(t`Shadow Opacity`, 'shadow_opacity'),
   ],
-  contour: [f('contour', 'Contour', 'contour'), check('Anti-aliased', 'contour.anti_alias'), pct('Range', 'range', 1, 100)],
+  contour: [f('contour', t`Contour`, 'contour'), check(t`Anti-aliased`, 'contour.anti_alias'), pct(t`Range`, 'range', 1, 100)],
   texture: [
-    f('pattern', 'Pattern', 'pattern_id'), pct('Scale', 'scale', 1, 1000), pct('Depth', 'depth', -1000, 1000),
-    check('Invert', 'invert'), check('Link with Layer', 'linked'),
+    f('pattern', t`Pattern`, 'pattern_id'), pct(t`Scale`, 'scale', 1, 1000), pct(t`Depth`, 'depth', -1000, 1000),
+    check(t`Invert`, 'invert'), check(t`Link with Layer`, 'linked'),
   ],
   satin: [
-    f('blend', 'Blend Mode', 'blend'), f('color', 'Color', 'color'), pct('Opacity', 'opacity'), num('Angle (°)', 'angle', -180, 180),
-    num('Distance (px)', 'distance', 0, 250), num('Size (px)', 'size', 0, 250), f('contour', 'Contour', 'contour'),
-    check('Anti-aliased', 'contour.anti_alias'), check('Invert', 'invert'),
+    f('blend', t`Blend Mode`, 'blend'), f('color', t`Color`, 'color'), pct(t`Opacity`, 'opacity'), num(t`Angle (°)`, 'angle', -180, 180),
+    num(t`Distance (px)`, 'distance', 0, 250), num(t`Size (px)`, 'size', 0, 250), f('contour', t`Contour`, 'contour'),
+    check(t`Anti-aliased`, 'contour.anti_alias'), check(t`Invert`, 'invert'),
   ],
-  color_overlays: [f('blend', 'Blend Mode', 'blend'), f('color', 'Color', 'color'), pct('Opacity', 'opacity')],
-  gradient_overlays: [f('blend', 'Blend Mode', 'blend'), pct('Opacity', 'opacity'), ...gradientFields('gradient.')],
-  pattern_overlays: [f('blend', 'Blend Mode', 'blend'), pct('Opacity', 'opacity'), ...patternFields('pattern.')],
+  color_overlays: [f('blend', t`Blend Mode`, 'blend'), f('color', t`Color`, 'color'), pct(t`Opacity`, 'opacity')],
+  gradient_overlays: [f('blend', t`Blend Mode`, 'blend'), pct(t`Opacity`, 'opacity'), ...gradientFields('gradient.')],
+  pattern_overlays: [f('blend', t`Blend Mode`, 'blend'), pct(t`Opacity`, 'opacity'), ...patternFields('pattern.')],
   strokes: [
-    num('Size (px)', 'size', 1, 250), select('Position', 'position', [['outside', 'Outside'], ['inside', 'Inside'], ['center', 'Center']]),
-    f('blend', 'Blend Mode', 'blend'), pct('Opacity', 'opacity'), check('Overprint', 'overprint'), { type: 'fill' },
+    num(t`Size (px)`, 'size', 1, 250), select(t`Position`, 'position', [['outside', t`Outside`], ['inside', t`Inside`], ['center', t`Center`]]),
+    f('blend', t`Blend Mode`, 'blend'), pct(t`Opacity`, 'opacity'), check(t`Overprint`, 'overprint'), { type: 'fill' },
   ],
-};
+});
 
 // Light-bound fields: an angle or altitude with "use global light" edits the document light.
 const LIGHT_BOUND: Partial<Record<EffectKind, true>> = { drop_shadows: true, inner_shadows: true, bevel: true };
@@ -98,7 +102,7 @@ const contourPath = (c: Contour) => c.points.map(([x, y], i) => `${i ? 'L' : 'M'
 
 function ContourGrid({ value, set }: { value: Contour; set: (c: Contour) => void }) {
   return (
-    <div className="contour-grid" role="group" aria-label="Contour">
+    <div className="contour-grid" role="group" aria-label={t`Contour`}>
       {CONTOUR_PRESETS.map(c => (
         <button key={c.name} type="button" title={c.name} aria-label={c.name} aria-pressed={c.name === value.name}
           className={c.name === value.name ? 'active' : ''} onClick={() => set({ ...structuredClone(c), anti_alias: value.anti_alias })}>
@@ -110,6 +114,7 @@ function ContourGrid({ value, set }: { value: Contour; set: (c: Contour) => void
 }
 
 // One blend-if bar: [black outer, black inner, white inner, white outer]; Alt-drag splits a handle.
+const handleName = (cls: string, outer: boolean) => (cls === 'black' ? (outer ? t`black outer` : t`black inner`) : outer ? t`white outer` : t`white inner`);
 function BlendIfBar({ label, value, set }: { label: string; value: Quad; set: (q: Quad) => void }) {
   const bar = useRef<HTMLDivElement>(null);
   const drag = (e: ReactPointerEvent, which: number[]) => {
@@ -135,7 +140,7 @@ function BlendIfBar({ label, value, set }: { label: string; value: Quad; set: (q
     const split = value[outer] !== value[inner];
     const one = (i: number) => (
       <span key={i} className={`blend-if-handle ${cls}${split ? ' split' : ''}`} style={{ left: `${(value[i] / 255) * 100}%` }}
-        role="slider" aria-label={`${label} ${cls} ${i === outer ? 'outer' : 'inner'}`} aria-valuenow={value[i]} aria-valuemin={0} aria-valuemax={255}
+        role="slider" aria-label={t`${label} ${handleName(cls, i === outer)}`} aria-valuenow={value[i]} aria-valuemin={0} aria-valuemax={255}
         onPointerDown={e => drag(e, split ? [i] : e.altKey ? [inner] : [outer, inner])} />
     );
     return split ? [one(outer), one(inner)] : [one(inner)];
@@ -162,7 +167,7 @@ function Swatch({ style }: { style: LayerStyle }) {
   const stroke = on(style.strokes[0]);
   const overlay = on(style.color_overlays[0]);
   return (
-    <div className="layer-style-swatch" aria-label="Sample">
+    <div className="layer-style-swatch" aria-label={t`Sample`}>
       <div style={{
         background: overlay ? rgbToHex(overlay.color) : '#ffffff',
         boxShadow: shadows.join(', ') || undefined,
@@ -284,13 +289,13 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
         : { type, pattern_id: firstPattern, scale: 1, angle: 0, linked: true, offset: [0, 0] });
       return (
         <div key="fill" className="layer-style-fill">
-          <label className="adjustment-field"><span>Fill Type</span>
+          <label className="adjustment-field"><span><Trans>Fill Type</Trans></span>
             <select value={fc.type} onChange={ev => change(ev.currentTarget.value as FillContent['type'])}>
-              <option value="solid">Color</option><option value="gradient">Gradient</option>
-              <option value="pattern" disabled={!firstPattern}>Pattern</option>
+              <option value="solid">{t`Color`}</option><option value="gradient">{t`Gradient`}</option>
+              <option value="pattern" disabled={!firstPattern}>{t`Pattern`}</option>
             </select>
           </label>
-          {(fc.type === 'solid' ? [f('color', 'Color', 'fill.color')] : fc.type === 'gradient' ? gradientFields('fill.') : patternFields('fill.'))
+          {(fc.type === 'solid' ? [f('color', t`Color`, 'fill.color')] : fc.type === 'gradient' ? gradientFields('fill.') : patternFields('fill.'))
             .map(s => renderSpec(s, kind, index, e))}
         </div>
       );
@@ -299,13 +304,13 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
       const gf = e.fill as { type: 'color' | 'gradient' };
       return (
         <div key="glowFill">
-          <label className="adjustment-field"><span>Fill</span>
+          <label className="adjustment-field"><span>{t({ message: 'Fill', context: 'layer style fill type' })}</span>
             <select value={gf.type} onChange={ev => set('fill', ev.currentTarget.value === 'color'
               ? { type: 'color', color: [255, 255, 190] } : { type: 'gradient', gradient: defaultGradientParams().gradient })}>
-              <option value="color">Color</option><option value="gradient">Gradient</option>
+              <option value="color">{t`Color`}</option><option value="gradient">{t`Gradient`}</option>
             </select>
           </label>
-          {renderSpec(gf.type === 'color' ? f('color', 'Color', 'fill.color') : f('gradient', 'Gradient', 'fill.gradient'), kind, index, e)}
+          {renderSpec(gf.type === 'color' ? f('color', t`Color`, 'fill.color') : f('gradient', t`Gradient`, 'fill.gradient'), kind, index, e)}
         </div>
       );
     }
@@ -315,7 +320,7 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
         return (
           <label key={spec.path} className="adjustment-field"><span>{spec.label}</span>
             <select value={String(value)} onChange={ev => set(spec.path, ev.currentTarget.value)}>
-              {blendModesFor(doc.depth, String(value)).map(m => <option key={m} value={m}>{m}</option>)}
+              {blendModesFor(doc.depth, String(value)).map(m => <option key={m} value={m}>{choiceLabel(m)}</option>)}
             </select>
           </label>
         );
@@ -340,9 +345,10 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
         );
       case 'gradient': {
         const g = gradientDefToUi(value as Parameters<typeof gradientDefToUi>[0]);
+        const lowerLabel = spec.label.toLowerCase();
         return (
           <label key={spec.path} className="adjustment-field"><span>{spec.label}</span>
-            <button type="button" className="gradient-ramp-button" aria-label={`Edit ${spec.label.toLowerCase()}`} title="Click to edit the gradient"
+            <button type="button" className="gradient-ramp-button" aria-label={t`Edit ${lowerLabel}`} title={t`Click to edit the gradient`}
               style={{ backgroundImage: `${rampCss(g, g.interpolation)}, var(--checker)` }}
               onClick={() => openGradientEditor(g, next => set(spec.path, uiToGradientDef(next)))} />
           </label>
@@ -367,10 +373,10 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
   function renderPage() {
     if (page === 'styles') {
       const saved = styles.list();
-      if (!saved.length) return <p className="adjustment-note">No saved styles yet.</p>;
+      if (!saved.length) return <p className="adjustment-note"><Trans>No saved styles yet.</Trans></p>;
       const use = (id: string) => { const a = styles.apply(id); if (a) { setStyle(a.style); setBlending(a.blending); } };
       return (
-        <ul className="style-library-list" aria-label="Saved styles">
+        <ul className="style-library-list" aria-label={t`Saved styles`}>
           {saved.map(x => <li key={x.id}><button type="button" className="style-library-name" onClick={() => use(x.id)}>{x.name}</button></li>)}
         </ul>
       );
@@ -384,31 +390,31 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
       );
       return (
         <div className="adjustment-body">
-          <Field spec={pct('Fill Opacity', 'fill')} params={{ fill }} onChange={(_, v) => setFill(Number(v))} />
-          <div className="adjustment-field"><span>Channels</span>
+          <Field spec={pct(t`Fill Opacity`, 'fill')} params={{ fill }} onChange={(_, v) => setFill(Number(v))} />
+          <div className="adjustment-field"><span><Trans>Channels</Trans></span>
             {(['R', 'G', 'B'] as const).map((c, i) => (
               <label key={c} className="adjustment-check"><input type="checkbox" checked={blending.channels[i]}
                 onChange={ev => setBlending(setIn(blending, `channels.${i}`, ev.currentTarget.checked))} /> {c}</label>
             ))}
           </div>
-          <label className="adjustment-field"><span>Knockout</span>
+          <label className="adjustment-field"><span><Trans>Knockout</Trans></span>
             <select value={blending.knockout} onChange={ev => setBlending({ ...blending, knockout: ev.currentTarget.value as Blending['knockout'] })}>
-              <option value="none">None</option><option value="shallow">Shallow</option><option value="deep">Deep</option>
+              <option value="none">{t`None`}</option><option value="shallow">{t`Shallow`}</option><option value="deep">{t`Deep`}</option>
             </select>
           </label>
-          {flag('Blend Interior Effects as Group', 'blend_interior')}
-          {flag('Blend Clipped Layers as Group', 'blend_clipped')}
-          {flag('Transparency Shapes Layer', 'transparency_shapes')}
-          {flag('Layer Mask Hides Effects', 'layer_mask_hides_effects')}
-          {flag('Vector Mask Hides Effects', 'vector_mask_hides_effects')}
-          <label className="adjustment-field"><span>Blend If</span>
+          {flag(t`Blend Interior Effects as Group`, 'blend_interior')}
+          {flag(t`Blend Clipped Layers as Group`, 'blend_clipped')}
+          {flag(t`Transparency Shapes Layer`, 'transparency_shapes')}
+          {flag(t`Layer Mask Hides Effects`, 'layer_mask_hides_effects')}
+          {flag(t`Vector Mask Hides Effects`, 'vector_mask_hides_effects')}
+          <label className="adjustment-field"><span><Trans>Blend If</Trans></span>
             <select value={blendIfChannel} onChange={ev => setBlendIfChannel(ev.currentTarget.value as keyof Blending['blend_if'])}>
-              <option value="gray">Gray</option><option value="red">Red</option><option value="green">Green</option><option value="blue">Blue</option>
+              <option value="gray">{t`Gray`}</option><option value="red">{t`Red`}</option><option value="green">{t`Green`}</option><option value="blue">{t`Blue`}</option>
             </select>
           </label>
-          <BlendIfBar label="This Layer" value={range.source} set={q => setRange('source', q)} />
-          <BlendIfBar label="Underlying Layer" value={range.destination} set={q => setRange('destination', q)} />
-          <p className="adjustment-note">Alt-drag a handle to split it.</p>
+          <BlendIfBar label={t`This Layer`} value={range.source} set={q => setRange('source', q)} />
+          <BlendIfBar label={t`Underlying Layer`} value={range.destination} set={q => setRange('destination', q)} />
+          <p className="adjustment-note"><Trans>Alt-drag a handle to split it.</Trans></p>
         </div>
       );
     }
@@ -417,10 +423,10 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
     if (!e) return null;
     return (
       <div className="adjustment-body">
-        {PAGES[kind].map(s => renderSpec(s, kind, index, e))}
+        {pages()[kind].map(s => renderSpec(s, kind, index, e))}
         <div className="layer-style-defaults">
-          <button type="button" onClick={() => saveEffectDefault(kind, e)}>Make Default</button>
-          <button type="button" onClick={() => editEffect(kind, index, { ...effectDefault(kind, firstPattern), present: e.present, enabled: e.enabled })}>Reset to Default</button>
+          <button type="button" onClick={() => saveEffectDefault(kind, e)}><Trans>Make Default</Trans></button>
+          <button type="button" onClick={() => editEffect(kind, index, { ...effectDefault(kind, firstPattern), present: e.present, enabled: e.enabled })}><Trans>Reset to Default</Trans></button>
         </div>
       </div>
     );
@@ -429,19 +435,21 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
   const isPage = (k: EffectKind, i: number) => typeof page === 'object' && page.kind === k && page.index === i;
   function listRow(kind: EffectKind, index: number, count: number) {
     const e = instances(style, kind)[index];
-    const label = count > 1 ? `${EFFECT_LABEL[kind]} ${index + 1}` : EFFECT_LABEL[kind];
+    const effectName = i18n._(EFFECT_LABEL[kind]);
+    const n = index + 1;
+    const label = count > 1 ? `${effectName} ${n}` : effectName;
     const sub = kind === 'contour' || kind === 'texture';
     const multi = MULTI.includes(kind);
     return (
       <li key={`${kind}.${index}`} className={`layer-style-row${sub ? ' sub' : ''}${isPage(kind, index) ? ' active' : ''}`}>
-        <input type="checkbox" aria-label={`Enable ${label}`} checked={!!e && e.present && e.enabled} onChange={ev => toggle(kind, index, ev.currentTarget.checked)} />
+        <input type="checkbox" aria-label={t`Enable ${label}`} checked={!!e && e.present && e.enabled} onChange={ev => toggle(kind, index, ev.currentTarget.checked)} />
         <button type="button" className="layer-style-name" onClick={() => choose(kind, index)}>{label}</button>
-        {multi && <button type="button" aria-label={`Add ${EFFECT_LABEL[kind]}`} title={`Add ${EFFECT_LABEL[kind]}`} disabled={count >= MAX_INSTANCES} onClick={() => add(kind, count ? index : -1)}><Plus size={12} /></button>}
+        {multi && <button type="button" aria-label={t`Add ${effectName}`} title={t`Add ${effectName}`} disabled={count >= MAX_INSTANCES} onClick={() => add(kind, count ? index : -1)}><Plus size={12} /></button>}
         {multi && count > 0 && isPage(kind, index) && (
           <>
-            <button type="button" aria-label={`Move ${label} up`} disabled={index === 0} onClick={() => moveInstance(kind, index, index - 1)}><ArrowUp size={12} /></button>
-            <button type="button" aria-label={`Move ${label} down`} disabled={index === count - 1} onClick={() => moveInstance(kind, index, index + 1)}><ArrowDown size={12} /></button>
-            <button type="button" aria-label={`Delete ${label}`} onClick={() => remove(kind, index)}><Trash2 size={12} /></button>
+            <button type="button" aria-label={t`Move ${label} up`} disabled={index === 0} onClick={() => moveInstance(kind, index, index - 1)}><ArrowUp size={12} /></button>
+            <button type="button" aria-label={t`Move ${label} down`} disabled={index === count - 1} onClick={() => moveInstance(kind, index, index + 1)}><ArrowDown size={12} /></button>
+            <button type="button" aria-label={t`Delete ${label}`} onClick={() => remove(kind, index)}><Trash2 size={12} /></button>
           </>
         )}
       </li>
@@ -449,31 +457,31 @@ export function LayerStyleDialog({ doc, node, page: initialPage, library, styles
   }
 
   return (
-    <dialog ref={dialog} className="layer-style-dialog" aria-label="Layer Style" onCancel={ev => { ev.preventDefault(); finish(false); }}>
-      <h2>Layer Style</h2>
+    <dialog ref={dialog} className="layer-style-dialog" aria-label={t`Layer Style`} onCancel={ev => { ev.preventDefault(); finish(false); }}>
+      <h2><Trans>Layer Style</Trans></h2>
       <div className="layer-style-grid">
-        <ul className="layer-style-list" aria-label="Effects">
-          <li className={`layer-style-row${page === 'styles' ? ' active' : ''}`}><button type="button" className="layer-style-name" onClick={() => setPage('styles')}>Styles</button></li>
-          <li className={`layer-style-row${page === 'blending' ? ' active' : ''}`}><button type="button" className="layer-style-name" onClick={() => setPage('blending')}>Blending Options</button></li>
+        <ul className="layer-style-list" aria-label={t`Effects`}>
+          <li className={`layer-style-row${page === 'styles' ? ' active' : ''}`}><button type="button" className="layer-style-name" onClick={() => setPage('styles')}><Trans>Styles</Trans></button></li>
+          <li className={`layer-style-row${page === 'blending' ? ' active' : ''}`}><button type="button" className="layer-style-name" onClick={() => setPage('blending')}><Trans>Blending Options</Trans></button></li>
           {EFFECT_KINDS.flatMap(kind => {
             const count = instances(style, kind).length;
             return MULTI.includes(kind) && count > 0 ? Array.from({ length: count }, (_, i) => listRow(kind, i, count)) : [listRow(kind, 0, count)];
           })}
         </ul>
         <div className="layer-style-page">
-          <h3>{page === 'styles' ? 'Styles' : page === 'blending' ? 'Blending Options' : EFFECT_LABEL[page.kind]}</h3>
+          <h3>{page === 'styles' ? t`Styles` : page === 'blending' ? t`Blending Options` : i18n._(EFFECT_LABEL[page.kind])}</h3>
           {renderPage()}
         </div>
         <div className="layer-style-side">
-          <button type="button" className="primary" onClick={() => finish(true)}>OK</button>
-          <button type="button" onClick={() => finish(false)}>Cancel</button>
-          <label className="adjustment-check"><input type="checkbox" checked={preview} onChange={ev => setPreview(ev.currentTarget.checked)} /> Preview</label>
-          <label className="adjustment-check"><input type="checkbox" checked={style.enabled} onChange={ev => setStyle({ ...style, enabled: ev.currentTarget.checked })} /> Effects On</label>
-          <button type="button" onClick={() => setStyleName('')}>New Style…</button>
+          <button type="button" className="primary" onClick={() => finish(true)}><Trans>OK</Trans></button>
+          <button type="button" onClick={() => finish(false)}><Trans>Cancel</Trans></button>
+          <label className="adjustment-check"><input type="checkbox" checked={preview} onChange={ev => setPreview(ev.currentTarget.checked)} /> <Trans>Preview</Trans></label>
+          <label className="adjustment-check"><input type="checkbox" checked={style.enabled} onChange={ev => setStyle({ ...style, enabled: ev.currentTarget.checked })} /> <Trans>Effects On</Trans></label>
+          <button type="button" onClick={() => setStyleName('')}><Trans>New Style…</Trans></button>
           {styleName !== null && (
             <form className="layer-style-new" onSubmit={ev => { ev.preventDefault(); styles.save(styleName, style, blending); setStyleName(null); }}>
-              <input autoFocus aria-label="Style name" placeholder="Style name" value={styleName} onChange={ev => setStyleName(ev.currentTarget.value)} />
-              <button type="submit">Save</button>
+              <input autoFocus aria-label={t`Style name`} placeholder={t`Style name`} value={styleName} onChange={ev => setStyleName(ev.currentTarget.value)} />
+              <button type="submit"><Trans>Save</Trans></button>
             </form>
           )}
           <Swatch style={style} />

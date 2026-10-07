@@ -1,4 +1,6 @@
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { MAX_WORKSPACE_NAME } from './app/workspaces.ts';
 
 export type WorkspaceDialogRequest =
@@ -34,20 +36,21 @@ export function WorkspaceDialog({ ref, act }: { ref: Ref<WorkspaceDialogHandle>;
     act(action);
   };
 
+  const title = request?.mode === 'delete' ? t`Delete Workspace` : t`Save Workspace`;
   return (
-    <dialog ref={dialog} className="mode-dialog" aria-label={request?.mode === 'delete' ? 'Delete Workspace' : 'Save Workspace'} onClose={() => setRequest(null)}>
+    <dialog ref={dialog} className="mode-dialog" aria-label={title} onClose={() => setRequest(null)}>
       <form onSubmit={event => { event.preventDefault(); submit(); }}>
-        <h2>{request?.mode === 'delete' ? 'Delete Workspace' : 'Save Workspace'}</h2>
+        <h2>{title}</h2>
         {request?.mode === 'delete' ? (
-          <label>Workspace <select value={name} onChange={event => setName(event.currentTarget.value)}>
+          <label><Trans>Workspace</Trans> <select value={name} onChange={event => setName(event.currentTarget.value)}>
             {request.custom.map(item => <option key={item} value={item}>{item}</option>)}
           </select></label>
         ) : (
-          <label>Name <input autoFocus maxLength={MAX_WORKSPACE_NAME} value={name} onChange={event => setName(event.currentTarget.value)} /></label>
+          <label><Trans>Name</Trans> <input autoFocus maxLength={MAX_WORKSPACE_NAME} value={name} onChange={event => setName(event.currentTarget.value)} /></label>
         )}
         <div className="actions">
-          <button type="button" onClick={close}>Cancel</button>
-          <button type="submit" className="primary" disabled={!name.trim()}>{request?.mode === 'delete' ? 'Delete' : 'Save'}</button>
+          <button type="button" onClick={close}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary" disabled={!name.trim()}>{request?.mode === 'delete' ? t`Delete` : t`Save`}</button>
         </div>
       </form>
     </dialog>

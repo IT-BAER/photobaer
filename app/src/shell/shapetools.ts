@@ -1,12 +1,14 @@
 // Shape tools (docs/M4.md section 5): drag geometry to live shape parameters, the options bar
 // appearance to fill and stroke, and the Properties Appearance helpers. Pure, no engine calls.
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 import type { BoolOp, FillContent } from '../worker/types.ts';
 import type { Preview } from './SelectionOverlay.ts';
 import { marqueeEnd, marqueeRect, snap45Length } from './selecttools.ts';
 
 // Combine Shapes / Pathfinder undo and menu labels.
-export const BOOL_LABEL: Record<BoolOp, string> = {
-  unite: 'Unite Shapes', subtract: 'Subtract Front Shape', intersect: 'Intersect Shape Areas', exclude: 'Exclude Overlapping Shapes',
+export const BOOL_LABEL: Record<BoolOp, MessageDescriptor> = {
+  unite: msg`Unite Shapes`, subtract: msg`Subtract Front Shape`, intersect: msg`Intersect Shape Areas`, exclude: msg`Exclude Overlapping Shapes`,
 };
 
 export type Bounds = [number, number, number, number];

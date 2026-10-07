@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { client } from '../client.ts';
 import type { Active } from '../LayersPanel.tsx';
@@ -143,7 +144,7 @@ export function usePaintTool(c: PaintToolCtx) {
         const lib = brushLib.current;
         const ref = (o.pattern as string) || lib?.library.patterns()[0]?.id;
         const patternId = ref && lib ? await lib.assets.pattern(ref) : undefined;
-        if (patternId === undefined) throw new Error('Choose a pattern first.');
+        if (patternId === undefined) throw new Error(t`Choose a pattern first.`);
         return { kind: 'pattern', patternId, origin: o.aligned ? [0, 0] : [x, y], impressionist: !!o.impressionist };
       };
       if (tool === 'patternStamp') return { source: await patternSource() };
@@ -151,8 +152,8 @@ export function usePaintTool(c: PaintToolCtx) {
       if (tool === 'healingBrush' && o.source === 'pattern') return { source: await patternSource(), heal: 'healing', diffusion };
       if (tool !== 'cloneStamp' && tool !== 'healingBrush') return {};
       const slot = cloneSources.slot(), key = docRef.current?.key ?? '';
-      if (!slot.anchor) throw new Error(tool === 'cloneStamp' ? 'Alt-click to set a clone source first.' : 'Alt-click to set a source for the Healing Brush.');
-      if (slot.key !== key) throw new Error('The clone source is in another document. Alt-click to set a new source.');
+      if (!slot.anchor) throw new Error(tool === 'cloneStamp' ? t`Alt-click to set a clone source first.` : t`Alt-click to set a source for the Healing Brush.`);
+      if (slot.key !== key) throw new Error(t`The clone source is in another document. Alt-click to set a new source.`);
       const map = cloneSources.beginStroke({ x, y }, key, !!o.aligned)!;
       const sample = tool === 'cloneStamp' ? o.sample : o.allLayers ? 'allLayers' : 'currentLayer';
       const source = { kind: 'clone', ...map, sample, ignoreAdjustments: !!o.ignoreAdjustments, ...(slot.layerId !== null ? { layerId: slot.layerId } : {}) };
@@ -188,7 +189,7 @@ export function usePaintTool(c: PaintToolCtx) {
       if (!active) return;
       const stride = strideFor(e.pointerType);
       const p = await strokeParams(e.x, e.y, stride, e.altKey);
-      await client.call('strokeBegin', active.id, quickMask ? 'selection' : 'pixels', p, PAINT_LABELS[tool]);
+      await client.call('strokeBegin', active.id, quickMask ? 'selection' : 'pixels', p, PAINT_LABELS[tool].message!);
       st.layerId = active.id;
       st.stride = stride;
       const preset = presetFor();
@@ -225,7 +226,7 @@ export function usePaintTool(c: PaintToolCtx) {
       const stride = strideFor(e.pointerType);
       const fields = inputFields(e, stride);
       const p = await strokeParams(from[0], from[1], stride);
-      await client.call('strokeBegin', active.id, quickMask ? 'selection' : 'pixels', p, PAINT_LABELS[tool]);
+      await client.call('strokeBegin', active.id, quickMask ? 'selection' : 'pixels', p, PAINT_LABELS[tool].message!);
       const r = await client.call('strokeTo', Float64Array.from([from[0], from[1], ...fields, e.x, e.y, ...fields]));
       viewer.current?.invalidate(r.version, r.dirty);
       lastStrokePoint.current[active.id] = [e.x, e.y];

@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 import { X } from 'lucide-react';
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { DocInfo } from './worker/types.ts';
@@ -16,6 +17,7 @@ export function TabBar({ doc, switchTo, close, move }: { doc: DocInfo; switchTo:
   const bar = useRef<HTMLDivElement>(null);
   const [drag, setState] = useState<Drag | null>(null);
   // Pointer events can outrun renders; the handlers read the latest drag from the ref.
+  const { width, height, depth } = doc;
   const live = useRef<Drag | null>(null);
   const setDrag = (d: Drag | null) => { live.current = d; setState(d); };
 
@@ -42,6 +44,9 @@ export function TabBar({ doc, switchTo, close, move }: { doc: DocInfo; switchTo:
     setDrag({ ...drag, dx: slot, dropped: true });
     move(drag.key, drag.to).finally(() => setDrag(null));
   };
+  const activeTitle = (name: string) => t`${name}
+${width} x ${height} px, ${depth}-bit`;
+  const closeLabel = (name: string) => t`Close ${name}`;
   const offset = (i: number) => {
     if (!drag?.moved) return 0;
     if (i === drag.from) return drag.dx;
@@ -52,21 +57,21 @@ export function TabBar({ doc, switchTo, close, move }: { doc: DocInfo; switchTo:
   };
 
   return (
-    <div ref={bar} className={`tab-bar${drag?.moved ? ' dragging' : ''}`} role="tablist" aria-label="Open documents">
-      {doc.docs.map((t, i) => {
+    <div ref={bar} className={`tab-bar${drag?.moved ? ' dragging' : ''}`} role="tablist" aria-label={t`Open documents`}>
+      {doc.docs.map((tab, i) => {
         const dragged = drag?.moved && i === drag.from;
         return (
-          <div key={t.key} className={`doc-tab${t.active ? ' active' : ''}${dragged ? ' drag' : ''}`} role="tab" aria-selected={t.active} tabIndex={t.active ? 0 : -1}
-            title={t.active ? `${t.name}\n${doc.width} x ${doc.height} px, ${doc.depth}-bit` : t.name}
+          <div key={tab.key} className={`doc-tab${tab.active ? ' active' : ''}${dragged ? ' drag' : ''}`} role="tab" aria-selected={tab.active} tabIndex={tab.active ? 0 : -1}
+            title={tab.active ? activeTitle(tab.name) : tab.name}
             style={drag?.moved ? { transform: `translateX(${offset(i)}px)`, transition: dragged && !drag.dropped ? 'none' : 'transform 150ms ease' } : undefined}
             onPointerDown={e => down(e, i)} onPointerMove={pointerMove} onPointerUp={up} onPointerCancel={() => setDrag(null)}
-            onClick={() => { if (!live.current?.moved && !t.active) switchTo(t.key); }}
-            onAuxClick={e => { if (e.button === 1) { e.preventDefault(); close(t.key); } }}
+            onClick={() => { if (!live.current?.moved && !tab.active) switchTo(tab.key); }}
+            onAuxClick={e => { if (e.button === 1) { e.preventDefault(); close(tab.key); } }}
             onMouseDown={e => { if (e.button === 1) e.preventDefault(); }}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!t.active) switchTo(t.key); } }}>
-            <span className="doc-tab-name">{t.name}{t.dirty ? '*' : ''}<span className="doc-tab-mode"> ({t.mode}/{t.depth}{t.proof ? `/${t.proof}` : ''})</span></span>
-            <button type="button" className="doc-tab-close" aria-label={`Close ${t.name}`} tabIndex={-1}
-              onClick={e => { e.stopPropagation(); close(t.key); }}><X size={12} aria-hidden /></button>
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!tab.active) switchTo(tab.key); } }}>
+            <span className="doc-tab-name">{tab.name}{tab.dirty ? '*' : ''}<span className="doc-tab-mode"> ({tab.mode}/{tab.depth}{tab.proof ? `/${tab.proof}` : ''})</span></span>
+            <button type="button" className="doc-tab-close" aria-label={closeLabel(tab.name)} tabIndex={-1}
+              onClick={e => { e.stopPropagation(); close(tab.key); }}><X size={12} aria-hidden /></button>
           </div>
         );
       })}

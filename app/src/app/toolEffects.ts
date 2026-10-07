@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { client } from '../client.ts';
 import type { Active } from '../LayersPanel.tsx';
@@ -97,7 +98,7 @@ export function useSelectionTools(c: SelectionToolsCtx) {
           overlayRef.current?.setPreview(null);
           if (e.type === 'cancel') return;
           const o = toolOptionsRef.current;
-          client.call('select', { kind: shapeKind(), ...r }, d.mode, tool === 'marqueeEllipse' && !!o.antiAlias, Number(o.feather), TOOLS[tool].label).then(show);
+          client.call('select', { kind: shapeKind(), ...r }, d.mode, tool === 'marqueeEllipse' && !!o.antiAlias, Number(o.feather), TOOLS[tool].label.message!).then(show);
         }
       };
     } else if (tool === 'marqueeRow' || tool === 'marqueeColumn') {
@@ -109,7 +110,7 @@ export function useSelectionTools(c: SelectionToolsCtx) {
         const shape = tool === 'marqueeRow'
           ? { kind: 'rect' as const, x: 0, y: Math.floor(e.y), w: d.width, h: 1 }
           : { kind: 'rect' as const, x: Math.floor(e.x), y: 0, w: 1, h: d.height };
-        client.call('select', shape, mode, false, 0, TOOLS[tool].label).then(show);
+        client.call('select', shape, mode, false, 0, TOOLS[tool].label.message!).then(show);
       };
     } else if (tool === 'lasso') {
       v.onPointer = e => {
@@ -296,8 +297,8 @@ export function useMoveTool(c: MoveToolCtx) {
       const n = nodeById(d.layers, id);
       if (!n) return null;
       if (n.kind !== 'pixel') pixels = false;
-      if (pixels && n.locks.pixels) { setError('Could not use the layer because it is locked.'); return null; }
-      if (!pixels && n.locks.position) { setError(`${n.name} is locked and can't be moved.`); return null; }
+      if (pixels && n.locks.pixels) { setError(t`Could not use the layer because it is locked.`); return null; }
+      if (!pixels && n.locks.position) { const name = n.name; setError(t`${name} is locked and can't be moved.`); return null; }
       return { pixels, id, alt };
     }
     function begin(p: Plan) {

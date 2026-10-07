@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Download, Plus, Upload } from 'lucide-react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { rgbToHex, type Rgb } from './color.ts';
 import { openSwatchStore, parseAco, parseAse, writeAco, writeAse, type Swatch, type SwatchStore } from './swatches.ts';
 
@@ -46,8 +48,8 @@ export function SwatchesPanel({ fg, setFg, setBg }: Props) {
 
   return (
     <div className="swatches-panel">
-      <div className="panel-tabs"><span className="panel-tab">Swatches</span></div>
-      <div className="swatches-grid" role="list" aria-label="Swatches">
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Swatches</Trans></span></div>
+      <div className="swatches-grid" role="list" aria-label={t`Swatches`}>
         {swatches.map((sw, i) => (
           <button
             key={i} role="listitem" className="swatch-cell" style={{ background: rgbToHex(sw.rgb) }}
@@ -56,14 +58,14 @@ export function SwatchesPanel({ fg, setFg, setBg }: Props) {
             onContextMenu={e => { e.preventDefault(); save(swatches.filter((_, j) => j !== i)); }}
           />
         ))}
-        <button className="swatch-cell add" aria-label="Add foreground color" title="Add foreground color" onClick={() => save([...swatches, { name: '', rgb: fg }])}>
+        <button className="swatch-cell add" aria-label={t`Add foreground color`} title={t`Add foreground color`} onClick={() => save([...swatches, { name: '', rgb: fg }])}>
           <Plus size={14} strokeWidth={1.75} />
         </button>
       </div>
       <div className="swatches-footer">
-        <button aria-label="Import swatches" title="Import ACO/ASE" onClick={() => fileInput.current?.click()}><Upload size={14} strokeWidth={1.75} /></button>
-        <button aria-label="Export as ACO" title="Export as ACO" onClick={() => exportFile('aco')}>ACO</button>
-        <button aria-label="Export as ASE" title="Export as ASE" onClick={() => exportFile('ase')}><Download size={14} strokeWidth={1.75} />ASE</button>
+        <button aria-label={t`Import swatches`} title={t`Import ACO/ASE`} onClick={() => fileInput.current?.click()}><Upload size={14} strokeWidth={1.75} /></button>
+        <button aria-label={t`Export as ACO`} title={t`Export as ACO`} onClick={() => exportFile('aco')}>ACO</button>
+        <button aria-label={t`Export as ASE`} title={t`Export as ASE`} onClick={() => exportFile('ase')}><Download size={14} strokeWidth={1.75} />ASE</button>
       </div>
       {warning && <p className="swatches-warning" role="status">{warning}</p>}
       <input

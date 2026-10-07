@@ -1,5 +1,7 @@
 // View > Proof Setup, Proof Colors, Gamut Warning and 32-bit Preview Options: per-document display
 // state, and its translation into the engine's view JSON.
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 import type { Intent } from './colorSettings.ts';
 
 export type ProofId =
@@ -24,18 +26,18 @@ export interface HdrPreview { method: HdrMethod; exposure: number; gamma: number
 export interface ViewState { setup: ProofSetup; proofColors: boolean; gamutWarning: boolean; hdr: HdrPreview }
 
 // The Proof Setup submenu: id, label, separator before it.
-export const PROOF_PRESETS: [ProofId, string, boolean][] = [
-  ['workingCmyk', 'Working CMYK', true],
-  ['workingCyanPlate', 'Working Cyan Plate', false],
-  ['workingMagentaPlate', 'Working Magenta Plate', false],
-  ['workingYellowPlate', 'Working Yellow Plate', false],
-  ['workingBlackPlate', 'Working Black Plate', false],
-  ['workingCmyPlate', 'Working CMY Plate', false],
-  ['legacyMacintoshRgb', 'Legacy Macintosh RGB', true],
-  ['internetStandardRgb', 'Internet Standard RGB', false],
-  ['monitorRgb', 'Monitor RGB', false],
-  ['colorBlindnessProtanopia', 'Color Blindness — Protanopia-type', true],
-  ['colorBlindnessDeuteranopia', 'Color Blindness — Deuteranopia-type', false],
+export const PROOF_PRESETS: [ProofId, MessageDescriptor, boolean][] = [
+  ['workingCmyk', msg`Working CMYK`, true],
+  ['workingCyanPlate', msg`Working Cyan Plate`, false],
+  ['workingMagentaPlate', msg`Working Magenta Plate`, false],
+  ['workingYellowPlate', msg`Working Yellow Plate`, false],
+  ['workingBlackPlate', msg`Working Black Plate`, false],
+  ['workingCmyPlate', msg`Working CMY Plate`, false],
+  ['legacyMacintoshRgb', msg`Legacy Macintosh RGB`, true],
+  ['internetStandardRgb', msg`Internet Standard RGB`, false],
+  ['monitorRgb', msg`Monitor RGB`, false],
+  ['colorBlindnessProtanopia', msg`Color Blindness — Protanopia-type`, true],
+  ['colorBlindnessDeuteranopia', msg`Color Blindness — Deuteranopia-type`, false],
 ];
 
 const PLATES: Partial<Record<ProofId, [boolean, boolean, boolean, boolean]>> = {
@@ -50,7 +52,7 @@ const PLATES: Partial<Record<ProofId, [boolean, boolean, boolean, boolean]>> = {
 export function proofLabel(s: ProofSetup): string {
   if (s.id === 'custom') return s.profile ?? 'CMYK';
   if (s.id === 'workingCmyk') return 'CMYK';
-  const label = PROOF_PRESETS.find(p => p[0] === s.id)![1];
+  const label = PROOF_PRESETS.find(p => p[0] === s.id)![1].message!;
   return label.replace(/^Working |^Color Blindness — |-type$/g, '');
 }
 

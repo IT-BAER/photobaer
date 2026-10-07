@@ -1,5 +1,7 @@
 // File > Export: Export As, Save for Web, Export Preferences, and Layers/Artboards to Files and Artboards to PDF.
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
 import type { Dither } from './app/webExport.ts';
 import type { ExportFormat, ExportOptions } from './worker/helpers.ts';
@@ -40,7 +42,7 @@ function useEstimates(opts: ExportOptions[], on: boolean) {
     if (!on) return;
     let dead = false;
     setOut(opts.map(() => null));
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       const r: typeof out = [];
       for (const o of opts) {
         try { const a = await client.call('exportAsset', o); r.push({ bytes: a.blob.size, width: a.width, height: a.height }); }
@@ -49,7 +51,7 @@ function useEstimates(opts: ExportOptions[], on: boolean) {
         setOut([...r, ...opts.slice(r.length).map(() => null)]);
       }
     }, 250);
-    return () => { dead = true; clearTimeout(t); };
+    return () => { dead = true; clearTimeout(timer); };
   }, [key, on]);
   return out;
 }
@@ -67,40 +69,40 @@ export function ExportAsDialog({ ref, start }: { ref: Ref<ExportDialogHandle>; s
   const set = (k: number, p: Partial<ExportRow>) => setRows(rs => rs.map(r => (r.key === k ? { ...r, ...p } : r)));
   const close = () => { setOpen(false); dialog.current?.close(); };
   return (
-    <dialog ref={dialog} className="mode-dialog batch-dialog export-dialog" aria-label="Export As" onClose={() => setOpen(false)}>
+    <dialog ref={dialog} className="mode-dialog batch-dialog export-dialog" aria-label={t`Export As`} onClose={() => setOpen(false)}>
       <form onSubmit={e => { e.preventDefault(); close(); start(rows, target); }}>
-        <h2>Export As</h2>
+        <h2><Trans>Export As</Trans></h2>
         <table className="export-rows">
-          <thead><tr><th>Size</th><th>Suffix</th><th>Format</th><th>Quality</th><th>Estimate</th><th /></tr></thead>
+          <thead><tr><th><Trans>Size</Trans></th><th><Trans>Suffix</Trans></th><th><Trans>Format</Trans></th><th><Trans>Quality</Trans></th><th><Trans>Estimate</Trans></th><th /></tr></thead>
           <tbody>
             {rows.map((r, i) => {
               const e = est[i];
               return (
                 <tr key={r.key}>
-                  <td><select aria-label="Size" value={r.scale} onChange={ev => set(r.key, { scale: Number(ev.currentTarget.value) })}>
+                  <td><select aria-label={t`Size`} value={r.scale} onChange={ev => set(r.key, { scale: Number(ev.currentTarget.value) })}>
                     {[0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4].map(s => <option key={s} value={s}>{s}x</option>)}
                   </select></td>
-                  <td><input aria-label="Suffix" value={r.suffix} onChange={ev => set(r.key, { suffix: ev.currentTarget.value })} /></td>
-                  <td><select aria-label="Format" value={r.format} onChange={ev => set(r.key, { format: ev.currentTarget.value as ExportFormat })}>
+                  <td><input aria-label={t`Suffix`} value={r.suffix} onChange={ev => set(r.key, { suffix: ev.currentTarget.value })} /></td>
+                  <td><select aria-label={t`Format`} value={r.format} onChange={ev => set(r.key, { format: ev.currentTarget.value as ExportFormat })}>
                     {FORMATS.map(f => <option key={f} value={f}>{FORMAT_LABEL[f]}</option>)}
                   </select></td>
                   <td>{LOSSY(r.format)
-                    ? <NumberInput aria-label="Quality" min={1} max={100} value={r.quality} onValue={v => set(r.key, { quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} />
+                    ? <NumberInput aria-label={t`Quality`} min={1} max={100} value={r.quality} onValue={v => set(r.key, { quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} />
                     : <span className="hint">-</span>}</td>
                   <td className="hint">{e == null ? '…' : typeof e === 'string' ? e : `${kb(e.bytes)} · ${e.width}×${e.height}`}</td>
-                  <td><button type="button" disabled={rows.length === 1} onClick={() => setRows(rs => rs.filter(x => x.key !== r.key))}>Remove</button></td>
+                  <td><button type="button" disabled={rows.length === 1} onClick={() => setRows(rs => rs.filter(x => x.key !== r.key))}><Trans>Remove</Trans></button></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
         <div className="row">
-          <button type="button" onClick={() => setRows(rs => [...rs, { key: Math.max(...rs.map(x => x.key)) + 1, scale: rs.length + 1, suffix: `@${rs.length + 1}x`, format: 'png', quality: 85 }])}>Add Size</button>
+          <button type="button" onClick={() => setRows(rs => [...rs, { key: Math.max(...rs.map(x => x.key)) + 1, scale: rs.length + 1, suffix: `@${rs.length + 1}x`, format: 'png', quality: 85 }])}><Trans>Add Size</Trans></button>
         </div>
-        <p className="hint">{rows.length > 1 ? (canFolder() ? 'All sizes are written into one folder, chosen next.' : 'Each size downloads as its own file.') : 'The file location is chosen next.'}</p>
+        <p className="hint">{rows.length > 1 ? (canFolder() ? t`All sizes are written into one folder, chosen next.` : t`Each size downloads as its own file.`) : t`The file location is chosen next.`}</p>
         <div className="actions">
-          <button type="button" onClick={close}>Cancel</button>
-          <button type="submit" className="primary">Export</button>
+          <button type="button" onClick={close}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary"><Trans>Export</Trans></button>
         </div>
       </form>
     </dialog>
@@ -116,29 +118,33 @@ export function SaveForWebDialog({ ref, size, start }: { ref: Ref<ExportDialogHa
   useImperativeHandle(ref, () => ({ open() { setOpen(true); dialog.current?.showModal(); } }));
   const [e] = useEstimates([assetOptions(o.format, o.scale, o.quality, { colors: o.colors, dither: o.dither })], open);
   const close = () => { setOpen(false); dialog.current?.close(); };
+  const size1 = e != null && typeof e !== 'string' ? kb(e.bytes) : '';
+  const dims = e != null && typeof e !== 'string' ? `${e.width}×${e.height}` : '';
+  const pct = e != null && typeof e !== 'string' ? (e.bytes / (size[0] * size[1] * 4) * 100).toFixed(1) : '';
+  const reason = typeof e === 'string' ? e : '';
   return (
-    <dialog ref={dialog} className="mode-dialog batch-dialog" aria-label="Save for Web" onClose={() => setOpen(false)}>
+    <dialog ref={dialog} className="mode-dialog batch-dialog" aria-label={t`Save for Web`} onClose={() => setOpen(false)}>
       <form onSubmit={ev => { ev.preventDefault(); close(); start(o); }}>
-        <h2>Save for Web</h2>
+        <h2><Trans>Save for Web</Trans></h2>
         <div className="row">
-          <label>Format <select value={o.format} onChange={ev => setO({ ...o, format: ev.currentTarget.value as ExportFormat })}>
+          <label><Trans>Format</Trans> <select value={o.format} onChange={ev => setO({ ...o, format: ev.currentTarget.value as ExportFormat })}>
             {(['jpeg', 'png', 'png8', 'gif', 'webp'] as const).map(f => <option key={f} value={f}>{FORMAT_LABEL[f]}</option>)}
           </select></label>
-          <label>Scale <select value={o.scale} onChange={ev => setO({ ...o, scale: Number(ev.currentTarget.value) })}>
+          <label><Trans>Scale</Trans> <select value={o.scale} onChange={ev => setO({ ...o, scale: Number(ev.currentTarget.value) })}>
             {[0.25, 0.5, 0.75, 1].map(s => <option key={s} value={s}>{s * 100}%</option>)}
           </select></label>
         </div>
-        {LOSSY(o.format) && <div className="row"><label>Quality <NumberInput min={1} max={100} value={o.quality} onValue={v => setO({ ...o, quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} /> %</label></div>}
+        {LOSSY(o.format) && <div className="row"><label><Trans>Quality</Trans> <NumberInput min={1} max={100} value={o.quality} onValue={v => setO({ ...o, quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} /> %</label></div>}
         {INDEXED(o.format) && <div className="row">
-          <label>Colors <NumberInput min={2} max={256} value={o.colors} onValue={v => setO({ ...o, colors: Math.min(256, Math.max(2, Math.round(v) || 2)) })} /></label>
-          <label>Dither <select value={o.dither} onChange={ev => setO({ ...o, dither: ev.currentTarget.value as Dither })}>
-            <option value="none">None</option><option value="diffusion">Diffusion</option><option value="pattern">Pattern</option>
+          <label><Trans>Colors</Trans> <NumberInput min={2} max={256} value={o.colors} onValue={v => setO({ ...o, colors: Math.min(256, Math.max(2, Math.round(v) || 2)) })} /></label>
+          <label><Trans>Dither</Trans> <select value={o.dither} onChange={ev => setO({ ...o, dither: ev.currentTarget.value as Dither })}>
+            <option value="none">{t`None`}</option><option value="diffusion">{t`Diffusion`}</option><option value="pattern">{t`Pattern`}</option>
           </select></label>
         </div>}
-        <p className="hint">{e == null ? 'Measuring…' : typeof e === 'string' ? `Cannot encode: ${e}` : `${kb(e.bytes)} · ${e.width}×${e.height} · ${(e.bytes / (size[0] * size[1] * 4) * 100).toFixed(1)}% of the uncompressed image`}</p>
+        <p className="hint">{e == null ? t`Measuring…` : typeof e === 'string' ? t`Cannot encode: ${reason}` : t`${size1} · ${dims} · ${pct}% of the uncompressed image`}</p>
         <div className="actions">
-          <button type="button" onClick={close}>Cancel</button>
-          <button type="submit" className="primary">Save</button>
+          <button type="button" onClick={close}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary"><Trans>Save</Trans></button>
         </div>
       </form>
     </dialog>
@@ -150,22 +156,22 @@ export function ExportPrefsDialog({ ref }: { ref: Ref<ExportDialogHandle> }) {
   const [p, setP] = useState(exportPrefs);
   useImperativeHandle(ref, () => ({ open() { setP(exportPrefs()); dialog.current?.showModal(); } }));
   return (
-    <dialog ref={dialog} className="mode-dialog batch-dialog" aria-label="Export Preferences">
+    <dialog ref={dialog} className="mode-dialog batch-dialog" aria-label={t`Export Preferences`}>
       <form onSubmit={e => { e.preventDefault(); savePrefs(p); dialog.current?.close(); }}>
-        <h2>Export Preferences</h2>
+        <h2><Trans>Export Preferences</Trans></h2>
         <div className="row">
-          <label>Quick Export Format <select value={p.format} onChange={e => setP({ ...p, format: e.currentTarget.value as ExportPrefs['format'] })}>
+          <label><Trans>Quick Export Format</Trans> <select value={p.format} onChange={e => setP({ ...p, format: e.currentTarget.value as ExportPrefs['format'] })}>
             <option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option>
           </select></label>
-          {p.format !== 'png' && <label>Quality <NumberInput min={1} max={100} value={p.quality} onValue={v => setP({ ...p, quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} /> %</label>}
+          {p.format !== 'png' && <label><Trans>Quality</Trans> <NumberInput min={1} max={100} value={p.quality} onValue={v => setP({ ...p, quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} /> %</label>}
         </div>
-        <label className="radio"><input type="radio" name="xp-ask" checked={p.ask} onChange={() => setP({ ...p, ask: true })} /> Ask where to export each time</label>
-        <label className="radio"><input type="radio" name="xp-ask" checked={!p.ask} onChange={() => setP({ ...p, ask: false })} /> Export files to the browser's downloads</label>
-        <label className="radio"><input type="checkbox" checked={p.icc} onChange={e => setP({ ...p, icc: e.currentTarget.checked })} /> Embed the color profile (PNG, JPEG and WebP)</label>
-        <label className="radio"><input type="checkbox" checked={p.meta} onChange={e => setP({ ...p, meta: e.currentTarget.checked })} /> Embed File Info: copyright and contact (PNG and JPEG)</label>
+        <label className="radio"><input type="radio" name="xp-ask" checked={p.ask} onChange={() => setP({ ...p, ask: true })} /> <Trans>Ask where to export each time</Trans></label>
+        <label className="radio"><input type="radio" name="xp-ask" checked={!p.ask} onChange={() => setP({ ...p, ask: false })} /> <Trans>Export files to the browser's downloads</Trans></label>
+        <label className="radio"><input type="checkbox" checked={p.icc} onChange={e => setP({ ...p, icc: e.currentTarget.checked })} /> <Trans>Embed the color profile (PNG, JPEG and WebP)</Trans></label>
+        <label className="radio"><input type="checkbox" checked={p.meta} onChange={e => setP({ ...p, meta: e.currentTarget.checked })} /> <Trans>Embed File Info: copyright and contact (PNG and JPEG)</Trans></label>
         <div className="actions">
-          <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
-          <button type="submit" className="primary">OK</button>
+          <button type="button" onClick={() => dialog.current?.close()}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary"><Trans>OK</Trans></button>
         </div>
       </form>
     </dialog>
@@ -186,7 +192,7 @@ export function FilesExportDialog({ ref, start }: { ref: Ref<FilesDialogHandle>;
   async function pickFolder() {
     try { setO({ ...o, dest: 'folder', folder: await (window as unknown as DirPicker).showDirectoryPicker!({ mode: 'readwrite' }) }); } catch { /* cancelled */ }
   }
-  const title = { layers: 'Layers to Files', artboards: 'Artboards to Files', pdf: 'Artboards to PDF', datasets: 'Data Sets as Files' }[o.kind];
+  const title = { layers: t`Layers to Files`, artboards: t`Artboards to Files`, pdf: t`Artboards to PDF`, datasets: t`Data Sets as Files` }[o.kind];
   const sets = o.kind === 'datasets';
   const ready = o.kind === 'pdf' || o.dest !== 'folder' || !!o.folder;
   return (
@@ -194,36 +200,36 @@ export function FilesExportDialog({ ref, start }: { ref: Ref<FilesDialogHandle>;
       <form onSubmit={e => { e.preventDefault(); if (!ready) return; dialog.current?.close(); start(o); }}>
         <h2>{title}</h2>
         {o.kind !== 'pdf' && <fieldset>
-          <legend>Destination</legend>
+          <legend><Trans>Destination</Trans></legend>
           {canFolder() && <div className="row">
-            <label className="radio"><input type="radio" name="fx-dest" checked={o.dest === 'folder'} onChange={() => setO({ ...o, dest: 'folder' })} /> Folder</label>
-            <button type="button" onClick={() => void pickFolder()}>Choose…</button>
+            <label className="radio"><input type="radio" name="fx-dest" checked={o.dest === 'folder'} onChange={() => setO({ ...o, dest: 'folder' })} /> <Trans>Folder</Trans></label>
+            <button type="button" onClick={() => void pickFolder()}><Trans>Choose…</Trans></button>
             <span className="hint">{o.folder?.name ?? ''}</span>
           </div>}
-          <label className="radio"><input type="radio" name="fx-dest" checked={o.dest === 'download'} onChange={() => setO({ ...o, dest: 'download' })} /> Downloads</label>
+          <label className="radio"><input type="radio" name="fx-dest" checked={o.dest === 'download'} onChange={() => setO({ ...o, dest: 'download' })} /> <Trans>Downloads</Trans></label>
         </fieldset>}
         <div className="row">
-          {sets && <label>File Type <select value={o.setFormat} onChange={e => setO({ ...o, setFormat: e.currentTarget.value as FilesOptions['setFormat'] })}>
+          {sets && <label><Trans>File Type</Trans> <select value={o.setFormat} onChange={e => setO({ ...o, setFormat: e.currentTarget.value as FilesOptions['setFormat'] })}>
             <option value="psd">PSD</option><option value="png">PNG</option><option value="jpeg">JPEG</option>
           </select></label>}
-          {o.kind !== 'pdf' && !sets && <label>File Type <select value={o.format} onChange={e => setO({ ...o, format: e.currentTarget.value as ExportFormat })}>
+          {o.kind !== 'pdf' && !sets && <label><Trans>File Type</Trans> <select value={o.format} onChange={e => setO({ ...o, format: e.currentTarget.value as ExportFormat })}>
             {FORMATS.map(f => <option key={f} value={f}>{FORMAT_LABEL[f]}</option>)}
           </select></label>}
-          {o.kind !== 'pdf' && !sets && <label>Size <select value={o.scale} onChange={e => setO({ ...o, scale: Number(e.currentTarget.value) })}>
+          {o.kind !== 'pdf' && !sets && <label><Trans>Size</Trans> <select value={o.scale} onChange={e => setO({ ...o, scale: Number(e.currentTarget.value) })}>
             {[0.5, 1, 2, 3].map(s => <option key={s} value={s}>{s * 100}%</option>)}
           </select></label>}
-          {(o.kind === 'pdf' || (sets ? o.setFormat === 'jpeg' : LOSSY(o.format))) && <label>{o.kind === 'pdf' ? 'JPEG Quality' : 'Quality'} <NumberInput min={1} max={100} value={o.quality} onValue={v => setO({ ...o, quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} /> %</label>}
+          {(o.kind === 'pdf' || (sets ? o.setFormat === 'jpeg' : LOSSY(o.format))) && <label>{o.kind === 'pdf' ? t`JPEG Quality` : t`Quality`} <NumberInput min={1} max={100} value={o.quality} onValue={v => setO({ ...o, quality: Math.min(100, Math.max(1, Math.round(v) || 1)) })} /> %</label>}
         </div>
         {o.kind === 'layers' && <>
-          <label className="radio"><input type="checkbox" checked={o.trim} onChange={e => setO({ ...o, trim: e.currentTarget.checked })} /> Trim to layer pixels</label>
-          <label className="radio"><input type="checkbox" checked={o.nested} onChange={e => setO({ ...o, nested: e.currentTarget.checked })} /> Include layers inside groups</label>
-          <label className="radio"><input type="checkbox" checked={o.skipHidden} onChange={e => setO({ ...o, skipHidden: e.currentTarget.checked })} /> Visible layers only</label>
+          <label className="radio"><input type="checkbox" checked={o.trim} onChange={e => setO({ ...o, trim: e.currentTarget.checked })} /> <Trans>Trim to layer pixels</Trans></label>
+          <label className="radio"><input type="checkbox" checked={o.nested} onChange={e => setO({ ...o, nested: e.currentTarget.checked })} /> <Trans>Include layers inside groups</Trans></label>
+          <label className="radio"><input type="checkbox" checked={o.skipHidden} onChange={e => setO({ ...o, skipHidden: e.currentTarget.checked })} /> <Trans>Visible layers only</Trans></label>
         </>}
-        {o.kind === 'pdf' && <p className="hint">One page per artboard, at the document resolution.</p>}
-        {sets && <p className="hint">One file per data set, named after the document and the data set.</p>}
+        {o.kind === 'pdf' && <p className="hint"><Trans>One page per artboard, at the document resolution.</Trans></p>}
+        {sets && <p className="hint"><Trans>One file per data set, named after the document and the data set.</Trans></p>}
         <div className="actions">
-          <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
-          <button type="submit" className="primary" disabled={!ready}>Run</button>
+          <button type="button" onClick={() => dialog.current?.close()}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary" disabled={!ready}><Trans>Run</Trans></button>
         </div>
       </form>
     </dialog>

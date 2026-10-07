@@ -1,6 +1,10 @@
 // Edit > Color Settings, Assign Profile and Convert to Profile, View > Proof Setup > Custom and 32-bit
 // Preview Options, plus the Profile Mismatch and Missing Profile questions asked while opening a file.
 import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react';
+import { msg, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import type { MessageDescriptor } from '@lingui/core';
+import { i18n } from './i18n/index.ts';
 import { client } from './client.ts';
 import type { DocInfo } from './engine.worker.ts';
 import type { IccProfile } from './worker/types.ts';
@@ -20,11 +24,11 @@ export interface ColorDialogHandle {
 }
 
 type Kind = ColorDialogKind | 'mismatch' | 'missing';
-const NAMES: Record<Kind, string> = {
-  settings: 'Color Settings', assign: 'Assign Profile', convert: 'Convert to Profile', mismatch: 'Embedded Profile Mismatch', missing: 'Missing Profile',
-  proof: 'Customize Proof Condition', hdr: '32-bit Preview Options',
+const NAMES: Record<Kind, MessageDescriptor> = {
+  settings: msg`Color Settings`, assign: msg`Assign Profile`, convert: msg`Convert to Profile`, mismatch: msg`Embedded Profile Mismatch`, missing: msg`Missing Profile`,
+  proof: msg`Customize Proof Condition`, hdr: msg`32-bit Preview Options`,
 };
-const HDR_METHODS: [HdrMethod, string][] = [['exposureAndGamma', 'Exposure and Gamma'], ['highlightCompression', 'Highlight Compression']];
+const HDR_METHODS: [HdrMethod, MessageDescriptor][] = [['exposureAndGamma', msg`Exposure and Gamma`], ['highlightCompression', msg`Highlight Compression`]];
 
 export function ColorDialog({ ref, doc, show, setError }: {
   ref: Ref<ColorDialogHandle>; doc: DocInfo | null; show: (d: DocInfo | null) => void; setError: (msg: string) => void;
@@ -111,7 +115,8 @@ export function ColorDialog({ ref, doc, show, setError }: {
         setProfile(p.name);
         setChoice('profile');
       } catch (e) {
-        setError(`Could not load ${f.name}: ${(e as Error).message}`);
+        const fileName = f.name, reason = (e as Error).message;
+        setError(t`Could not load ${fileName}: ${reason}`);
       }
     };
     input.click();
@@ -165,130 +170,140 @@ export function ColorDialog({ ref, doc, show, setError }: {
     <label className="radio"><input type="radio" name="color-choice" checked={choice === value} onChange={() => setChoice(value)} /> {label}</label>
   );
   const conversion = (o: { intent: Intent; bpc: boolean; dither: boolean }, set: (p: Partial<typeof o>) => void) => <>
-    <label>Intent <select aria-label="Intent" value={o.intent} onChange={e => set({ intent: e.currentTarget.value as Intent })}>
+    <label><Trans>Intent</Trans> <select aria-label={t`Intent`} value={o.intent} onChange={e => set({ intent: e.currentTarget.value as Intent })}>
       {INTENTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
     </select></label>
-    <label className="check"><input type="checkbox" checked={o.bpc} onChange={e => set({ bpc: e.currentTarget.checked })} /> Use Black Point Compensation</label>
-    <label className="check"><input type="checkbox" checked={o.dither} onChange={e => set({ dither: e.currentTarget.checked })} /> Use Dither (8-bit/channel images)</label>
+    <label className="check"><input type="checkbox" checked={o.bpc} onChange={e => set({ bpc: e.currentTarget.checked })} /> <Trans>Use Black Point Compensation</Trans></label>
+    <label className="check"><input type="checkbox" checked={o.dither} onChange={e => set({ dither: e.currentTarget.checked })} /> <Trans>Use Dither (8-bit/channel images)</Trans></label>
   </>;
   const preset = matchPreset(draft);
   const policy = (label: string, value: Policy, set: (p: Policy) => void, space: string) => (
-    <label>{label} <select aria-label={`${label} policy`} value={value} onChange={e => set(e.currentTarget.value as Policy)}>
+    <label>{label} <select aria-label={t`${label} policy`} value={value} onChange={e => set(e.currentTarget.value as Policy)}>
       {POLICIES.map(([v, l]) => <option key={v} value={v}>{l.replace('RGB', space)}</option>)}
     </select></label>
   );
 
+  const workingKind = cmykDoc ? 'CMYK' : gray ? t`Gray` : 'RGB';
+  const assumed = gray ? 'Gray Gamma 2.2' : 'sRGB IEC61966-2.1';
+  const profileName = doc?.profile?.name ?? t`Untagged`;
+  const sourceProfile = cmykDoc ? t`${profileName} (stored as sRGB IEC61966-2.1)` : doc?.profile?.name ?? t`Untagged (treated as ${assumed})`;
+  const askFile = question.file;
+  const askEmbedded = question.embedded;
+  const askWorking = settings[question.space];
+  const askSpace = question.space === 'gray' ? t`Gray` : 'RGB';
+  const askDocKind = question.space === 'gray' ? t`Grayscale` : 'RGB';
+
   return (
-    <dialog ref={dialog} className="mode-dialog color-dialog" aria-label={kind ? NAMES[kind] : 'Color'} onClose={() => { setKind(null); if (answer.current || hdrBefore.current || assignOn.current) close(null); }}>
+    <dialog ref={dialog} className="mode-dialog color-dialog" aria-label={kind ? i18n._(NAMES[kind]) : t`Color`} onClose={() => { setKind(null); if (answer.current || hdrBefore.current || assignOn.current) close(null); }}>
       {kind && (
         <form onSubmit={e => { e.preventDefault(); ok(); }}>
-          <h2>{NAMES[kind]}</h2>
+          <h2>{i18n._(NAMES[kind])}</h2>
           {kind === 'settings' && <>
-            <label>Settings <select aria-label="Settings" value={preset} onChange={e => {
+            <label><Trans>Settings</Trans> <select aria-label={t`Settings`} value={preset} onChange={e => {
               const p = COLOR_PRESETS.find(x => x.name === e.currentTarget.value);
               if (p) setDraft(p.settings);
             }}>
-              {preset === 'Custom' && <option value="Custom">Custom</option>}
+              {preset === 'Custom' && <option value="Custom">{t`Custom`}</option>}
               {COLOR_PRESETS.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
             </select></label>
-            <fieldset><legend>Working Spaces</legend>
-              <label>RGB {select('RGB working space', draft.rgb, v => setDraft({ ...draft, rgb: v }), [...RGB_SPACES, ...loadedOf('rgb')])}</label>
-              <label>CMYK {select('CMYK working space', draft.cmyk, v => setDraft({ ...draft, cmyk: v }), [...CMYK_SPACES, ...loadedOf('cmyk')])}</label>
-              <label>Gray {select('Gray working space', draft.gray, v => setDraft({ ...draft, gray: v }), [...GRAY_SPACES, ...loadedOf('gray')])}</label>
-              <button type="button" onClick={load}>Load…</button>
+            <fieldset><legend><Trans>Working Spaces</Trans></legend>
+              <label><Trans>RGB</Trans> {select(t`RGB working space`, draft.rgb, v => setDraft({ ...draft, rgb: v }), [...RGB_SPACES, ...loadedOf('rgb')])}</label>
+              <label><Trans>CMYK</Trans> {select(t`CMYK working space`, draft.cmyk, v => setDraft({ ...draft, cmyk: v }), [...CMYK_SPACES, ...loadedOf('cmyk')])}</label>
+              <label><Trans>Gray</Trans> {select(t`Gray working space`, draft.gray, v => setDraft({ ...draft, gray: v }), [...GRAY_SPACES, ...loadedOf('gray')])}</label>
+              <button type="button" onClick={load}><Trans>Load…</Trans></button>
             </fieldset>
-            <fieldset><legend>Color Management Policies</legend>
-              {policy('RGB', draft.rgbPolicy, p => setDraft({ ...draft, rgbPolicy: p }), 'RGB')}
-              {policy('Gray', draft.grayPolicy, p => setDraft({ ...draft, grayPolicy: p }), 'Gray')}
-              <label className="check"><input type="checkbox" checked={draft.askWhenOpening} onChange={e => setDraft({ ...draft, askWhenOpening: e.currentTarget.checked })} /> Profile Mismatches: Ask When Opening</label>
-              <label className="check"><input type="checkbox" checked={draft.askWhenMissing} onChange={e => setDraft({ ...draft, askWhenMissing: e.currentTarget.checked })} /> Missing Profiles: Ask When Opening</label>
+            <fieldset><legend><Trans>Color Management Policies</Trans></legend>
+              {policy(t`RGB`, draft.rgbPolicy, p => setDraft({ ...draft, rgbPolicy: p }), 'RGB')}
+              {policy(t`Gray`, draft.grayPolicy, p => setDraft({ ...draft, grayPolicy: p }), 'Gray')}
+              <label className="check"><input type="checkbox" checked={draft.askWhenOpening} onChange={e => setDraft({ ...draft, askWhenOpening: e.currentTarget.checked })} /> <Trans>Profile Mismatches: Ask When Opening</Trans></label>
+              <label className="check"><input type="checkbox" checked={draft.askWhenMissing} onChange={e => setDraft({ ...draft, askWhenMissing: e.currentTarget.checked })} /> <Trans>Missing Profiles: Ask When Opening</Trans></label>
             </fieldset>
-            <fieldset><legend>Conversion Options</legend>
+            <fieldset><legend><Trans>Conversion Options</Trans></legend>
               {conversion(draft, p => setDraft({ ...draft, ...p }))}
             </fieldset>
-            <fieldset><legend>Advanced Controls</legend>
+            <fieldset><legend><Trans>Advanced Controls</Trans></legend>
               <div className="row">
-                <label className="check"><input type="checkbox" checked={draft.desaturateOn} onChange={e => setDraft({ ...draft, desaturateOn: e.currentTarget.checked })} /> Desaturate Monitor Colors By:</label>
-                <NumberInput aria-label="Desaturate by" min={1} max={100} disabled={!draft.desaturateOn} value={draft.desaturateBy}
+                <label className="check"><input type="checkbox" checked={draft.desaturateOn} onChange={e => setDraft({ ...draft, desaturateOn: e.currentTarget.checked })} /> <Trans>Desaturate Monitor Colors By:</Trans></label>
+                <NumberInput aria-label={t`Desaturate by`} min={1} max={100} disabled={!draft.desaturateOn} value={draft.desaturateBy}
                   onValue={n => { const v = Math.round(n); if (v >= 1 && v <= 100) setDraft({ ...draft, desaturateBy: v }); }} /> %
               </div>
             </fieldset>
-            <p className="hint">{COLOR_PRESETS.find(p => p.name === preset)?.description ?? 'Custom settings.'}</p>
+            <p className="hint">{COLOR_PRESETS.find(p => p.name === preset)?.description ?? t`Custom settings.`}</p>
           </>}
           {kind === 'assign' && <>
-            {radio('none', "Don't Color Manage This Document")}
-            {radio('working', `Working ${cmykDoc ? 'CMYK' : gray ? 'Gray' : 'RGB'}: ${working}`)}
+            {radio('none', t`Don't Color Manage This Document`)}
+            {radio('working', t`Working ${workingKind}: ${working}`)}
             <div className="row">
-              {radio('profile', 'Profile:')}
-              {select('Profile', profile, setProfile, own.map(p => p.name), choice !== 'profile')}
-              <button type="button" onClick={load}>Load…</button>
+              {radio('profile', t`Profile:`)}
+              {select(t`Profile`, profile, setProfile, own.map(p => p.name), choice !== 'profile')}
+              <button type="button" onClick={load}><Trans>Load…</Trans></button>
             </div>
-            <label className="check"><input type="checkbox" checked={assignPreview} onChange={e => setAssignPreview(e.currentTarget.checked)} /> Preview</label>
+            <label className="check"><input type="checkbox" checked={assignPreview} onChange={e => setAssignPreview(e.currentTarget.checked)} /> <Trans>Preview</Trans></label>
           </>}
           {kind === 'convert' && <>
-            <fieldset><legend>Source Space</legend>
-              <p>Profile: {cmykDoc ? `${doc?.profile?.name ?? 'Untagged'} (stored as sRGB IEC61966-2.1)` : doc?.profile?.name ?? `Untagged (treated as ${gray ? 'Gray Gamma 2.2' : 'sRGB IEC61966-2.1'})`}</p>
+            <fieldset><legend><Trans>Source Space</Trans></legend>
+              <p><Trans>Profile: {sourceProfile}</Trans></p>
             </fieldset>
-            <fieldset><legend>Destination Space</legend>
+            <fieldset><legend><Trans>Destination Space</Trans></legend>
               <div className="row">
-                <label>Profile {select('Destination profile', profile, setProfile, profiles.map(p => p.name))}</label>
-                <button type="button" onClick={load}>Load…</button>
+                <label><Trans>Profile</Trans> {select(t`Destination profile`, profile, setProfile, profiles.map(p => p.name))}</label>
+                <button type="button" onClick={load}><Trans>Load…</Trans></button>
               </div>
             </fieldset>
-            <fieldset><legend>Conversion Options</legend>
+            <fieldset><legend><Trans>Conversion Options</Trans></legend>
               {conversion(opts, p => setOpts({ ...opts, ...p }))}
-              <label className="check"><input type="checkbox" checked={opts.flatten} onChange={e => setOpts({ ...opts, flatten: e.currentTarget.checked })} /> Flatten Image to Preserve Appearance</label>
+              <label className="check"><input type="checkbox" checked={opts.flatten} onChange={e => setOpts({ ...opts, flatten: e.currentTarget.checked })} /> <Trans>Flatten Image to Preserve Appearance</Trans></label>
             </fieldset>
           </>}
           {kind === 'proof' && <>
             <div className="row">
-              <label>Device to Simulate {select('Device to Simulate', profile, setProfile, profiles.map(p => p.name))}</label>
-              <button type="button" onClick={load}>Load…</button>
+              <label><Trans>Device to Simulate</Trans> {select(t`Device to Simulate`, profile, setProfile, profiles.map(p => p.name))}</label>
+              <button type="button" onClick={load}><Trans>Load…</Trans></button>
             </div>
             <label className="check"><input type="checkbox" checked={proof.preserveNumbers && sameKind} disabled={!sameKind}
-              onChange={e => setProof({ ...proof, preserveNumbers: e.currentTarget.checked })} /> Preserve Numbers</label>
-            <label>Rendering Intent <select aria-label="Rendering Intent" value={opts.intent} disabled={proof.preserveNumbers && sameKind}
+              onChange={e => setProof({ ...proof, preserveNumbers: e.currentTarget.checked })} /> <Trans>Preserve Numbers</Trans></label>
+            <label><Trans>Rendering Intent</Trans> <select aria-label={t`Rendering Intent`} value={opts.intent} disabled={proof.preserveNumbers && sameKind}
               onChange={e => setOpts({ ...opts, intent: e.currentTarget.value as Intent })}>
               {INTENTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select></label>
-            <label className="check"><input type="checkbox" checked={opts.bpc} onChange={e => setOpts({ ...opts, bpc: e.currentTarget.checked })} /> Black Point Compensation</label>
-            <fieldset><legend>Display Options (On-Screen)</legend>
-              <label className="check"><input type="checkbox" checked={proof.simulatePaper} onChange={e => setProof({ ...proof, simulatePaper: e.currentTarget.checked })} /> Simulate Paper Color</label>
+            <label className="check"><input type="checkbox" checked={opts.bpc} onChange={e => setOpts({ ...opts, bpc: e.currentTarget.checked })} /> <Trans>Black Point Compensation</Trans></label>
+            <fieldset><legend><Trans>Display Options (On-Screen)</Trans></legend>
+              <label className="check"><input type="checkbox" checked={proof.simulatePaper} onChange={e => setProof({ ...proof, simulatePaper: e.currentTarget.checked })} /> <Trans>Simulate Paper Color</Trans></label>
               <label className="check"><input type="checkbox" checked={proof.simulateBlackInk || proof.simulatePaper} disabled={proof.simulatePaper}
-                onChange={e => setProof({ ...proof, simulateBlackInk: e.currentTarget.checked })} /> Simulate Black Ink</label>
+                onChange={e => setProof({ ...proof, simulateBlackInk: e.currentTarget.checked })} /> <Trans>Simulate Black Ink</Trans></label>
             </fieldset>
-            <label className="check"><input type="checkbox" checked={proof.preview} onChange={e => setProof({ ...proof, preview: e.currentTarget.checked })} /> Preview</label>
+            <label className="check"><input type="checkbox" checked={proof.preview} onChange={e => setProof({ ...proof, preview: e.currentTarget.checked })} /> <Trans>Preview</Trans></label>
           </>}
           {kind === 'hdr' && <>
-            <label>Method <select aria-label="Method" value={hdr.method} onChange={e => previewHdr({ ...hdr, method: e.currentTarget.value as HdrMethod })}>
-              {HDR_METHODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            <label><Trans>Method</Trans> <select aria-label={t`Method`} value={hdr.method} onChange={e => previewHdr({ ...hdr, method: e.currentTarget.value as HdrMethod })}>
+              {HDR_METHODS.map(([v, l]) => <option key={v} value={v}>{i18n._(l)}</option>)}
             </select></label>
             {hdr.method === 'exposureAndGamma' && <>
-              <label>Exposure <input type="range" aria-label="Exposure" min={-HDR_EXPOSURE} max={HDR_EXPOSURE} step={0.01} value={hdr.exposure}
+              <label><Trans>Exposure</Trans> <input type="range" aria-label={t`Exposure`} min={-HDR_EXPOSURE} max={HDR_EXPOSURE} step={0.01} value={hdr.exposure}
                 onChange={e => previewHdr(sanitizeHdr({ ...hdr, exposure: Number(e.currentTarget.value) }))} />
-                <NumberInput aria-label="Exposure value" min={-HDR_EXPOSURE} max={HDR_EXPOSURE} step={0.01} value={hdr.exposure}
+                <NumberInput aria-label={t`Exposure value`} min={-HDR_EXPOSURE} max={HDR_EXPOSURE} step={0.01} value={hdr.exposure}
                   onValue={v => previewHdr(sanitizeHdr({ ...hdr, exposure: v }))} /></label>
-              <label>Gamma <input type="range" aria-label="Gamma" min={Math.log10(HDR_GAMMA[0])} max={Math.log10(HDR_GAMMA[1])} step={0.01} value={Math.log10(hdr.gamma)}
+              <label><Trans>Gamma</Trans> <input type="range" aria-label={t`Gamma`} min={Math.log10(HDR_GAMMA[0])} max={Math.log10(HDR_GAMMA[1])} step={0.01} value={Math.log10(hdr.gamma)}
                 onChange={e => previewHdr(sanitizeHdr({ ...hdr, gamma: Number((10 ** Number(e.currentTarget.value)).toFixed(2)) }))} />
-                <NumberInput aria-label="Gamma value" min={HDR_GAMMA[0]} max={HDR_GAMMA[1]} step={0.01} value={hdr.gamma}
+                <NumberInput aria-label={t`Gamma value`} min={HDR_GAMMA[0]} max={HDR_GAMMA[1]} step={0.01} value={hdr.gamma}
                   onValue={v => previewHdr(sanitizeHdr({ ...hdr, gamma: v }))} /></label>
             </>}
           </>}
           {kind === 'mismatch' && <>
-            <p>The document “{question.file}” has an embedded color profile that does not match the current {question.space === 'gray' ? 'Gray' : 'RGB'} working space.</p>
-            <p>Embedded: {question.embedded}<br />Working: {settings[question.space]}</p>
-            {radio('keep', 'Use the embedded profile (instead of the working space)')}
-            {radio('convert', "Convert document's colors to the working space")}
-            {radio('discard', "Discard the embedded profile (don't color manage)")}
+            <p><Trans>The document “{askFile}” has an embedded color profile that does not match the current {askSpace} working space.</Trans></p>
+            <p><Trans>Embedded: {askEmbedded}<br />Working: {askWorking}</Trans></p>
+            {radio('keep', t`Use the embedded profile (instead of the working space)`)}
+            {radio('convert', t`Convert document's colors to the working space`)}
+            {radio('discard', t`Discard the embedded profile (don't color manage)`)}
           </>}
           {kind === 'missing' && <>
-            <p>The {question.space === 'gray' ? 'Grayscale' : 'RGB'} document “{question.file}” does not have an embedded color profile.</p>
-            {radio('leave', "Leave as is (don't color manage)")}
-            {radio('assign', `Assign working ${question.space === 'gray' ? 'Gray' : 'RGB'}: ${settings[question.space]}`)}
+            <p><Trans>The {askDocKind} document “{askFile}” does not have an embedded color profile.</Trans></p>
+            {radio('leave', t`Leave as is (don't color manage)`)}
+            {radio('assign', t`Assign working ${askSpace}: ${askWorking}`)}
           </>}
           <div className="actions">
-            <button type="button" onClick={() => close(null)}>Cancel</button>
-            <button type="submit" className="primary">OK</button>
+            <button type="button" onClick={() => close(null)}><Trans>Cancel</Trans></button>
+            <button type="submit" className="primary"><Trans>OK</Trans></button>
           </div>
         </form>
       )}

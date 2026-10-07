@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
+import { t } from '@lingui/core/macro';
 import { client } from './client.ts';
 import { createRenderer, type Renderer } from './render/renderer.ts';
 import { Viewer } from './viewer.ts';
@@ -89,7 +90,7 @@ function BackgroundPane({ docKey, view, revision, saveView, onError }: {
     if (view && current && !sameView(current.view, view)) current.setView(view);
   }, [view]);
 
-  return <canvas ref={canvas} aria-label="Inactive document preview" />;
+  return <canvas ref={canvas} aria-label={t`Inactive document preview`} />;
 }
 
 export function DocumentArrangement({ mode, documents, activeKey, primary, views, revision, activate, saveView, onError }: Props) {

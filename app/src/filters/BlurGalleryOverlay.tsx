@@ -3,6 +3,7 @@
 // pin's ring turns its blur. The wheel still zooms the view underneath.
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { t } from '@lingui/core/macro';
 import type { Viewer } from '../viewer.ts';
 import { addAt, drag, handles, outline, removeHandle, ringBlur, type Box, type Pt } from './gallery.ts';
 import type { ParamValue, Pin } from './lastFilter.ts';
@@ -88,7 +89,7 @@ export function BlurGalleryOverlay({ kind, params, box, viewer, onChange, onCanc
   };
 
   return createPortal(
-    <canvas ref={canvas} className="overlay gallery-overlay" tabIndex={0} aria-label="Blur Gallery handles"
+    <canvas ref={canvas} className="overlay gallery-overlay" tabIndex={0} aria-label={t`Blur Gallery handles`}
       onPointerDown={e => {
         if (e.button !== 0) return;
         e.currentTarget.focus();

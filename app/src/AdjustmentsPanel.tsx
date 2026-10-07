@@ -5,6 +5,9 @@ import {
   SlidersHorizontal, Sparkles, SquareSplitHorizontal, SunMedium, Table2, Target, type LucideIcon,
 } from 'lucide-react';
 import { ADJUSTMENT_KINDS, MENU_LABEL, type Kind } from './adjustments.ts';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { i18n } from './i18n/index.ts';
 
 const ICONS: Record<Kind, LucideIcon> = {
   brightness_contrast: SunMedium, levels: ChartColumn, curves: ChartSpline, exposure: Aperture, vibrance: Sparkles,
@@ -19,19 +22,19 @@ export function AdjustmentsPanel({ create, fill, patternOff }: {
 }) {
   return (
     <div className="adjustments-panel">
-      <div className="panel-tabs"><span className="panel-tab">Adjustments</span></div>
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Adjustments</Trans></span></div>
       {ROWS.map((row, i) => (
         <div key={i} className="adjustments-row">
           {row.map(kind => {
             const Icon = ICONS[kind];
-            return <button key={kind} type="button" aria-label={MENU_LABEL[kind]} title={MENU_LABEL[kind]} onClick={() => create(kind)}><Icon {...ICON} /></button>;
+            return <button key={kind} type="button" aria-label={i18n._(MENU_LABEL[kind])} title={i18n._(MENU_LABEL[kind])} onClick={() => create(kind)}><Icon {...ICON} /></button>;
           })}
         </div>
       ))}
       <div className="adjustments-row">
-        <button type="button" aria-label="Solid Color" title="Solid Color" onClick={() => fill('solid')}><PaintBucket {...ICON} /></button>
-        <button type="button" aria-label="Gradient" title="Gradient" onClick={() => fill('gradient')}><Blend {...ICON} /></button>
-        <button type="button" aria-label="Pattern" title="Pattern" disabled={patternOff} onClick={() => fill('pattern')}><Grid3x3 {...ICON} /></button>
+        <button type="button" aria-label={t`Solid Color`} title={t`Solid Color`} onClick={() => fill('solid')}><PaintBucket {...ICON} /></button>
+        <button type="button" aria-label={t`Gradient`} title={t`Gradient`} onClick={() => fill('gradient')}><Blend {...ICON} /></button>
+        <button type="button" aria-label={t`Pattern`} title={t`Pattern`} disabled={patternOff} onClick={() => fill('pattern')}><Grid3x3 {...ICON} /></button>
       </div>
     </div>
   );

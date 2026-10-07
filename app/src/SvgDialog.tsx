@@ -1,5 +1,7 @@
 // File > Open of an .svg: Rasterize SVG Format sets the pixel size and resolution the drawing renders at.
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { pixels, rasterSize, setHeight, setPpi, setWidth, svgSize, type RasterSize } from './app/rasterSize.ts';
 import { rasterSvg } from './app/files.ts';
 import { Num } from './PropertiesPanel.tsx';
@@ -12,10 +14,10 @@ export interface SvgDialogHandle {
 export function RasterFields({ base, size, set }: { base: [number, number]; size: RasterSize; set: (s: RasterSize) => void }) {
   const [w, h] = pixels(size, base);
   return <>
-    <Num label="Width (px)" value={w} min={1} max={32767} onCommit={v => set(setWidth(size, base, Math.round(v)))} />
-    <Num label="Height (px)" value={h} min={1} max={32767} onCommit={v => set(setHeight(size, base, Math.round(v)))} />
-    <Num label="Resolution (ppi)" value={size.ppi} min={1} max={2400} onCommit={v => set(setPpi(size, Math.round(v)))} />
-    <label className="check"><input type="checkbox" checked={size.constrain} onChange={e => set({ ...size, constrain: e.currentTarget.checked })} /> Constrain Proportions</label>
+    <Num label={t`Width (px)`} value={w} min={1} max={32767} onCommit={v => set(setWidth(size, base, Math.round(v)))} />
+    <Num label={t`Height (px)`} value={h} min={1} max={32767} onCommit={v => set(setHeight(size, base, Math.round(v)))} />
+    <Num label={t`Resolution (ppi)`} value={size.ppi} min={1} max={2400} onCommit={v => set(setPpi(size, Math.round(v)))} />
+    <label className="check"><input type="checkbox" checked={size.constrain} onChange={e => set({ ...size, constrain: e.currentTarget.checked })} /> <Trans>Constrain Proportions</Trans></label>
   </>;
 }
 
@@ -59,16 +61,17 @@ export function SvgDialog({ ref, setError }: { ref: Ref<SvgDialogHandle>; setErr
     }
   }
 
+  const hint = file ? t`${file.name}: ${+base[0].toFixed(2)} x ${+base[1].toFixed(2)} px at 72 ppi` : '';
   return (
-    <dialog ref={dialog} className="mode-dialog svg-dialog" aria-label="Rasterize SVG Format" onClose={() => { if (answer.current) close(null); }}>
+    <dialog ref={dialog} className="mode-dialog svg-dialog" aria-label={t`Rasterize SVG Format`} onClose={() => { if (answer.current) close(null); }}>
       {file && (
         <form onSubmit={e => { e.preventDefault(); void ok(); }}>
-          <h2>Rasterize SVG Format</h2>
-          <p className="hint">{file.name}: {+base[0].toFixed(2)} x {+base[1].toFixed(2)} px at 72 ppi</p>
+          <h2><Trans>Rasterize SVG Format</Trans></h2>
+          <p className="hint">{hint}</p>
           <RasterFields base={base} size={size} set={set} />
           <div className="actions">
-            <button type="button" onClick={() => close(null)}>Cancel</button>
-            <button type="submit" className="primary" disabled={busy}>OK</button>
+            <button type="button" onClick={() => close(null)}><Trans>Cancel</Trans></button>
+            <button type="submit" className="primary" disabled={busy}><Trans>OK</Trans></button>
           </div>
         </form>
       )}

@@ -1,12 +1,17 @@
+import type { MessageDescriptor } from '@lingui/core';
 import { Fragment, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import {
   Brush, ChevronDown, ChevronRight, Contrast, CornerLeftDown, Eye, Folder, FolderPlus, Frame, Grid2x2, Image as ImageIcon, Link2, Lock, Move,
   PaintBucket, Package, Shapes, SquareDashed, SquarePlus, Trash2, Type as TypeIcon,
 } from 'lucide-react';
+import { msg, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
+import { i18n } from './i18n/index.ts';
+import { choiceLabel } from './i18n/choices.ts';
 import { BLEND_MODES, HDR_BLEND_MODES, nodeById, dropTarget, type Where } from './layers.ts';
 import type { DocInfo, LayerNode } from './engine.worker.ts';
-import { effectRows, setEffectEnabled, type EffectKind } from './layerStyle.ts';
+import { EFFECT_LABEL, effectRows, setEffectEnabled, type EffectKind } from './layerStyle.ts';
 import { pathData } from './app/svgcss.ts';
 import { itemId, type Item } from './app/helpers.ts';
 import { filterLayers, KIND_FILTERS, type KindFilter } from './app/layerFilter.ts';
@@ -36,6 +41,9 @@ interface Props {
 }
 
 const ICON = { size: 16, strokeWidth: 1.75 };
+const KIND_LABEL: Record<KindFilter, MessageDescriptor> = {
+  pixel: msg`Pixel layers`, adjustment: msg`Adjustment and fill layers`, type: msg`Type layers`, shape: msg`Shape layers`, smart: msg`Smart objects`,
+};
 const KIND_ICONS: Record<KindFilter, ReactNode> = {
   pixel: <ImageIcon size={14} strokeWidth={1.75} />, adjustment: <Contrast size={14} strokeWidth={1.75} />, type: <TypeIcon size={14} strokeWidth={1.75} />,
   shape: <Shapes size={14} strokeWidth={1.75} />, smart: <Package size={14} strokeWidth={1.75} />,
@@ -119,7 +127,7 @@ export function LayersPanel(props: Props) {
   // Best-effort, debounced so a brush stroke does not request a thumbnail per dab.
   useEffect(() => {
     if (thumbDoc.current !== doc.docId) { thumbDoc.current = doc.docId; setThumbs(new Map()); }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       const ids = thumbIds(doc.layers, collapsed);
       if (!ids.length) return;
       client.call('layerThumbs', ids, Math.round(26 * window.devicePixelRatio)).then(list => {
@@ -132,7 +140,7 @@ export function LayersPanel(props: Props) {
         });
       }).catch(err => { if (!thumbWarned) { thumbWarned = true; console.warn('layer thumbnails unavailable', err); } });
     }, 150);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [doc.docId, doc.version, collapsed]);
 
   const node = nodeById(doc.layers, active.id);
@@ -179,8 +187,8 @@ export function LayersPanel(props: Props) {
   }
 
   function move(id: number, target: number, where: Where) {
-    const t = dropTarget(doc.layers, id, target, where);
-    if (t) run(null, () => client.call('moveNode', id, t.parent, t.index));
+    const drop = dropTarget(doc.layers, id, target, where);
+    if (drop) run(null, () => client.call('moveNode', id, drop.parent, drop.index));
   }
 
   function toggleCollapsed(id: number) {
@@ -202,6 +210,7 @@ export function LayersPanel(props: Props) {
   // The fx badge, its disclosure and the effect rows (the "Effects" row's eye is the style's master switch).
   function effects(n: LayerNode, depth: number) {
     const style = n.style;
+    const name = n.name;
     const rows = style ? effectRows(style) : [];
     if (!style || !rows.length) return { badge: null, list: null };
     const open = !fxFolded.has(n.id);
@@ -211,30 +220,33 @@ export function LayersPanel(props: Props) {
     const badge = (
       <>
         <button
-          className={`layer-fx-badge${style.enabled ? '' : ' disabled'}`} draggable aria-label={`Edit effects for ${n.name}`}
-          title="Drag to move effects; Alt or Ctrl drag to copy"
+          className={`layer-fx-badge${style.enabled ? '' : ' disabled'}`} draggable aria-label={t`Edit effects for ${name}`}
+          title={t`Drag to move effects; Alt or Ctrl drag to copy`}
           onClick={e => { e.stopPropagation(); props.openLayerStyle(n.id, 'blending'); }}
           onDragStart={e => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'copyMove'; setFxDrag(n.id); }}
           onDragEnd={() => { setFxDrag(null); setDropHint(null); }}
         >fx</button>
-        <button className="disclosure" aria-label={open ? `Hide effects of ${n.name}` : `Show effects of ${n.name}`} aria-expanded={open}
+        <button className="disclosure" aria-label={open ? t`Hide effects of ${name}` : t`Show effects of ${name}`} aria-expanded={open}
           onClick={e => { e.stopPropagation(); toggleFx(n.id); }}>{open ? <ChevronDown {...ICON} /> : <ChevronRight {...ICON} />}</button>
       </>
     );
     const list = open && (
       <div role="group" className="layer-effects-list">
         <div className="layer-effect-row" role="treeitem" aria-level={depth + 2}>
-          {eye(style.enabled, style.enabled ? `Hide effects of ${n.name}` : `Show effects of ${n.name}`,
+          {eye(style.enabled, style.enabled ? t`Hide effects of ${name}` : t`Show effects of ${name}`,
             () => run(null, () => client.call('editLayerStyle', n.id, { ...style, enabled: !style.enabled }, style.enabled ? 'Hide Layer Effects' : 'Show Layer Effects')))}
-          <span className="name">Effects</span>
+          <span className="name"><Trans>Effects</Trans></span>
         </div>
-        {rows.map(r => (
+        {rows.map(r => {
+          const effectName = r.index > 0 ? `${i18n._(EFFECT_LABEL[r.kind])} ${r.index + 1}` : i18n._(EFFECT_LABEL[r.kind]);
+          return (
           <div key={`${r.kind}.${r.index}`} className={`layer-effect-row instance${r.enabled ? '' : ' disabled'}`} role="treeitem" aria-level={depth + 3}>
-            {eye(r.enabled, `${r.enabled ? 'Hide' : 'Show'} ${r.name} of ${n.name}`,
+            {eye(r.enabled, r.enabled ? t`Hide ${effectName} of ${name}` : t`Show ${effectName} of ${name}`,
               () => run(null, () => client.call('editLayerStyle', n.id, setEffectEnabled(style, r.kind, r.index, !r.enabled), `${r.enabled ? 'Hide' : 'Show'} ${r.name}`)))}
-            <button className="name" onClick={() => props.openLayerStyle(n.id, { kind: r.kind, index: r.index })}>{r.name}</button>
+            <button className="name" onClick={() => props.openLayerStyle(n.id, { kind: r.kind, index: r.index })}>{effectName}</button>
           </div>
-        ))}
+          );
+        })}
       </div>
     );
     return { badge, list };
@@ -248,6 +260,7 @@ export function LayersPanel(props: Props) {
     const hint = dropHint?.id === n.id ? dropHint.where : null;
     const locked = n.locks.transparency || n.locks.pixels || n.locks.position;
     const fx = effects(n, depth);
+    const name = n.name;
     return (
       <div
         key={n.id}
@@ -294,24 +307,24 @@ export function LayersPanel(props: Props) {
           {hint === 'above' && <div className="drop-line drop-above" />}
           <button
             className="visibility"
-            aria-label={n.visible ? `Hide ${n.name}` : `Show ${n.name}`}
+            aria-label={n.visible ? t`Hide ${name}` : t`Show ${name}`}
             onClick={e => { e.stopPropagation(); setProps(n.id, { visible: !n.visible }); }}
           >{n.visible && <Eye {...ICON} />}</button>
           {Array.from({ length: depth }, (_, i) => <span key={i} className="indent" />)}
-          {clipped && <CornerLeftDown className="clip-marker" size={14} strokeWidth={1.75} aria-label="Clipped to layer below" />}
+          {clipped && <CornerLeftDown className="clip-marker" size={14} strokeWidth={1.75} aria-label={t`Clipped to layer below`} />}
           {isGroup ? (
             <>
               <button
                 className="disclosure"
-                aria-label={open ? `Collapse ${n.name}` : `Expand ${n.name}`}
+                aria-label={open ? t`Collapse ${name}` : t`Expand ${name}`}
                 onClick={e => { e.stopPropagation(); toggleCollapsed(n.id); }}
               >{open ? <ChevronDown {...ICON} /> : <ChevronRight {...ICON} />}</button>
               {n.artboard
-                ? <Frame className="group-icon" size={18} strokeWidth={1.75} aria-label="Artboard" />
+                ? <Frame className="group-icon" size={18} strokeWidth={1.75} aria-label={t`Artboard`} />
                 : <Folder className="group-icon" size={18} strokeWidth={1.75} />}
             </>
           ) : n.kind === 'fill' ? (
-            <PaintBucket className="fill-layer-icon" size={16} strokeWidth={1.75} aria-label="Fill layer" />
+            <PaintBucket className="fill-layer-icon" size={16} strokeWidth={1.75} aria-label={t`Fill layer`} />
           ) : (
             <span
               className={`thumb${isActive && active.target === 'pixels' && n.mask ? ' target' : ''}`}
@@ -324,7 +337,7 @@ export function LayersPanel(props: Props) {
               <button
                 className={`mask-chip${n.mask.enabled ? '' : ' disabled'}${isActive && active.target === 'mask' ? ' target' : ''}`}
                 style={{ background: `rgb(${n.mask.default} ${n.mask.default} ${n.mask.default})` }}
-                aria-label={`${n.name} mask`}
+                aria-label={t`${name} mask`}
                 onClick={e => { e.stopPropagation(); select(n.id, 'mask'); }}
               />
             </>
@@ -332,7 +345,7 @@ export function LayersPanel(props: Props) {
           {n.vector_mask && (
             <button
               className={`mask-chip vector-mask-chip${n.vector_mask.enabled ? '' : ' disabled'}${n.vector_mask.inverted ? ' inverted' : ''}`}
-              aria-label={`${n.name} vector mask`} title="Ctrl+click loads the vector mask as a selection"
+              aria-label={t`${name} vector mask`} title={t`Ctrl+click loads the vector mask as a selection`}
               onClick={e => {
                 e.stopPropagation();
                 if (e.ctrlKey || e.metaKey) run(null, () => client.call('makeSelectionFromPath', 'vectorMask', n.id, 'new', 'Make Selection from Vector Mask'));
@@ -361,7 +374,7 @@ export function LayersPanel(props: Props) {
             <span className="name" onDoubleClick={e => { e.stopPropagation(); setRenaming(n.id); }}>{n.name}</span>
           )}
           {fx.badge}
-          {locked && <Lock className="lock-badge" size={13} strokeWidth={1.75} aria-label="Locked" />}
+          {locked && <Lock className="lock-badge" size={13} strokeWidth={1.75} aria-label={t`Locked`} />}
           {hint === 'below' && <div className="drop-line drop-below" />}
         </div>
         {fx.list}
@@ -382,41 +395,41 @@ export function LayersPanel(props: Props) {
 
   return (
     <div className="layers-panel">
-      <div className="panel-tabs"><span className="panel-tab">Layers</span></div>
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Layers</Trans></span></div>
       {node && (
         <div className="layer-props">
           <div className="props-row">
-            <select aria-label="Blend mode" value={node.blend} onChange={e => setProps(node.id, { blend: e.target.value })}>
-              {node.kind === 'group' && <option value="pass through">pass through</option>}
-              {(doc.depth === 32 ? HDR_BLEND_MODES : BLEND_MODES).map(m => <option key={m} value={m}>{m}</option>)}
-              {doc.depth === 32 && node.blend !== 'pass through' && !HDR_BLEND_MODES.includes(node.blend) && <option value={node.blend}>{node.blend}</option>}
+            <select aria-label={t`Blend mode`} value={node.blend} onChange={e => setProps(node.id, { blend: e.target.value })}>
+              {node.kind === 'group' && <option value="pass through">{t`Pass Through`}</option>}
+              {(doc.depth === 32 ? HDR_BLEND_MODES : BLEND_MODES).map(m => <option key={m} value={m}>{choiceLabel(m)}</option>)}
+              {doc.depth === 32 && node.blend !== 'pass through' && !HDR_BLEND_MODES.includes(node.blend) && <option value={node.blend}>{choiceLabel(node.blend)}</option>}
             </select>
-            <PercentField label="Opacity" value={Math.round(node.opacity * 100)} commit={v => setProps(node.id, { opacity: v / 100 })} />
+            <PercentField label={t`Opacity`} value={Math.round(node.opacity * 100)} commit={v => setProps(node.id, { opacity: v / 100 })} />
           </div>
           <div className="props-row">
             <div className="locks">
-              Lock:
-              {lock('transparency', 'Lock transparency', <Grid2x2 size={14} strokeWidth={1.75} />)}
-              {lock('pixels', 'Lock pixels', <Brush size={14} strokeWidth={1.75} />)}
-              {lock('position', 'Lock position', <Move size={14} strokeWidth={1.75} />)}
-              <button aria-label="Lock all" aria-pressed={allLocked} title="Lock all"
+              <Trans>Lock:</Trans>
+              {lock('transparency', t`Lock transparency`, <Grid2x2 size={14} strokeWidth={1.75} />)}
+              {lock('pixels', t`Lock pixels`, <Brush size={14} strokeWidth={1.75} />)}
+              {lock('position', t`Lock position`, <Move size={14} strokeWidth={1.75} />)}
+              <button aria-label={t`Lock all`} aria-pressed={allLocked} title={t`Lock all`}
                 onClick={() => setProps(node.id, { locks: { transparency: !allLocked, pixels: !allLocked, position: !allLocked } })}>
                 <Lock size={14} strokeWidth={1.75} />
               </button>
             </div>
             {node.kind === 'pixel' && (
-              <PercentField label="Fill" value={Math.round(node.fill * 100)} commit={v => setProps(node.id, { fill: v / 100 })} />
+              <PercentField label={t({ message: 'Fill', context: 'noun' })} value={Math.round(node.fill * 100)} commit={v => setProps(node.id, { fill: v / 100 })} />
             )}
           </div>
         </div>
       )}
-      <div className="layer-filter" role="group" aria-label="Filter layers by kind">
+      <div className="layer-filter" role="group" aria-label={t`Filter layers by kind`}>
         {KIND_FILTERS.map(f => (
-          <button key={f.kind} aria-label={f.label} aria-pressed={kinds.has(f.kind)} title={f.label} onClick={() => toggleKind(f.kind)}>{KIND_ICONS[f.kind]}</button>
+          <button key={f.kind} aria-label={i18n._(KIND_LABEL[f.kind])} aria-pressed={kinds.has(f.kind)} title={i18n._(KIND_LABEL[f.kind])} onClick={() => toggleKind(f.kind)}>{KIND_ICONS[f.kind]}</button>
         ))}
-        <button className="layer-filter-switch" aria-label="Layer filter" aria-pressed={filterOn} title="Turn the layer filter on or off" onClick={() => setFilterOn(v => !v)}>Filter</button>
+        <button className="layer-filter-switch" aria-label={t`Layer filter`} aria-pressed={filterOn} title={t`Turn the layer filter on or off`} onClick={() => setFilterOn(v => !v)}><Trans>Filter</Trans></button>
       </div>
-      <div className="layers-tree" role="tree" aria-label="Layers">
+      <div className="layers-tree" role="tree" aria-label={t`Layers`}>
         {[...shown].reverse().map(n => renderRow(n, 0, n.clipping))}
       </div>
       {context && (
@@ -426,7 +439,7 @@ export function LayersPanel(props: Props) {
             // The panel sits at the right edge, so the menu opens to the left (and up in the lower half).
             right: innerWidth - context.x, ...(context.y > innerHeight / 2 ? { bottom: innerHeight - context.y } : { top: context.y }),
           }}>
-            <ul role="menu" aria-label="Layer">
+            <ul role="menu" aria-label={t`Layer`}>
               {props.contextItems(context.n, context.nodes).map(i => (
                 <Fragment key={itemId(i)}>
                   {i.sep && <li role="separator" className="menu-sep" />}
@@ -438,10 +451,10 @@ export function LayersPanel(props: Props) {
         </>
       )}
       <div className="layers-footer">
-        <button aria-label="Add layer mask" title="Add layer mask" disabled={!!node?.mask} onClick={props.addMask}><SquareDashed {...ICON} /></button>
-        <button aria-label="New group" title="New group" onClick={props.newGroup}><FolderPlus {...ICON} /></button>
-        <button aria-label="New layer" title="New layer" onClick={props.newLayer}><SquarePlus {...ICON} /></button>
-        <button aria-label="Delete layer" title="Delete layer" disabled={props.deleteDisabled} onClick={props.deleteLayer}><Trash2 {...ICON} /></button>
+        <button aria-label={t`Add layer mask`} title={t`Add layer mask`} disabled={!!node?.mask} onClick={props.addMask}><SquareDashed {...ICON} /></button>
+        <button aria-label={t`New group`} title={t`New group`} onClick={props.newGroup}><FolderPlus {...ICON} /></button>
+        <button aria-label={t`New layer`} title={t`New layer`} onClick={props.newLayer}><SquarePlus {...ICON} /></button>
+        <button aria-label={t`Delete layer`} title={t`Delete layer`} disabled={props.deleteDisabled} onClick={props.deleteLayer}><Trash2 {...ICON} /></button>
       </div>
     </div>
   );

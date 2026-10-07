@@ -1,6 +1,8 @@
 // Pattern picker (document patterns merged with the preset library) and the Window > Styles, Patterns and
 // Gradients panels. A preset pattern is copied into the document (`addDocumentPattern`) before anything uses it.
 import { useEffect, useRef, useState } from 'react';
+import { plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { Plus, Trash2 } from 'lucide-react';
 import { client } from './client.ts';
 import type { DocInfo, LayerNode } from './engine.worker.ts';
@@ -72,15 +74,19 @@ export function PatternPicker({ doc, library, value, set, onDoc, onError, activa
     adoptPatterns(doc, library, { pattern_id: id }).then(d => { if (d) onDoc(d); then(id); }, e => onError((e as Error).message));
   };
   async function importPat(f: File) {
-    if (!library) { onError('The pattern library is not available.'); return; }
+    if (!library) { onError(t`The pattern library is not available.`); return; }
     const { patterns, warnings } = parsePat(new Uint8Array(await f.arrayBuffer()));
     if (patterns.length) library.import({ presets: [], tips: [], patterns });
-    if (!patterns.length || warnings.length) onError(`${f.name}: ${patterns.length} patterns imported${warnings.length ? `; ${warnings.join('; ')}` : ''}`);
+    if (!patterns.length || warnings.length) {
+      const name = f.name, count = patterns.length, extra = warnings.join('; ');
+      const summary = plural(count, { one: '# pattern imported', other: '# patterns imported' });
+      onError(warnings.length ? t`${name}: ${summary}; ${extra}` : t`${name}: ${summary}`);
+    }
     setImported(n => n + 1);
   }
   return (
     <div className="style-pattern-picker">
-      <input type="search" placeholder="Search patterns" aria-label="Search patterns" value={q} onChange={e => setQ(e.currentTarget.value)} />
+      <input type="search" placeholder={t`Search patterns`} aria-label={t`Search patterns`} value={q} onChange={e => setQ(e.currentTarget.value)} />
       {shown.length ? (
         <div className="style-pattern-grid">
           {shown.map(c => (
@@ -90,8 +96,8 @@ export function PatternPicker({ doc, library, value, set, onDoc, onError, activa
             </button>
           ))}
         </div>
-      ) : <p className="adjustment-note">No patterns.</p>}
-      <button type="button" onClick={() => file.current?.click()}>Import .pat…</button>
+      ) : <p className="adjustment-note"><Trans>No patterns.</Trans></p>}
+      <button type="button" onClick={() => file.current?.click()}><Trans>Import .pat…</Trans></button>
       <input ref={file} type="file" hidden accept=".pat" onChange={e => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void importPat(f); }} />
     </div>
   );
@@ -103,7 +109,7 @@ export function PatternsPanel({ doc, library, onDoc, onError, fill }: {
   const [sel, setSel] = useState('');
   return (
     <div className="adjustments-panel">
-      <div className="panel-tabs"><span className="panel-tab">Patterns</span></div>
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Patterns</Trans></span></div>
       <PatternPicker doc={doc} library={library} value={sel} set={setSel} onDoc={onDoc} onError={onError} activate={fill} />
     </div>
   );
@@ -112,7 +118,7 @@ export function PatternsPanel({ doc, library, onDoc, onError, fill }: {
 export function GradientsPanel({ presets, fg, bg, fill }: { presets: GradientPreset[]; fg: Rgb; bg: Rgb; fill: (p: GradientPreset) => void }) {
   return (
     <div className="adjustments-panel">
-      <div className="panel-tabs"><span className="panel-tab">Gradients</span></div>
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Gradients</Trans></span></div>
       <div className="gradient-preset-grid">
         {presets.map(p => {
           const g = resolvePreset(p, fg, bg);
@@ -129,24 +135,25 @@ export function StylesPanel({ styles, node, apply }: { styles: StyleLibrary; nod
   const [, setVersion] = useState(0);
   const changed = () => setVersion(v => v + 1);
   const list = styles.list(q);
+  const deleteLabel = (name: string) => t`Delete ${name}`;
   return (
     <div className="adjustments-panel">
-      <div className="panel-tabs"><span className="panel-tab">Styles</span></div>
-      <input type="search" placeholder="Search styles" aria-label="Search styles" value={q} onChange={e => setQ(e.currentTarget.value)} />
-      <ul className="style-library-list" aria-label="Saved styles">
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Styles</Trans></span></div>
+      <input type="search" placeholder={t`Search styles`} aria-label={t`Search styles`} value={q} onChange={e => setQ(e.currentTarget.value)} />
+      <ul className="style-library-list" aria-label={t`Saved styles`}>
         {list.map(s => (
           <li key={s.id}>
             <button type="button" className="style-library-name" disabled={!node} onClick={() => apply(s)}>{s.name}</button>
-            <button type="button" aria-label={`Delete ${s.name}`} title="Delete style" onClick={() => { styles.remove(s.id); changed(); }}><Trash2 {...ICON} /></button>
+            <button type="button" aria-label={deleteLabel(s.name)} title={t`Delete style`} onClick={() => { styles.remove(s.id); changed(); }}><Trash2 {...ICON} /></button>
           </li>
         ))}
-        {!list.length && <li className="adjustment-note">No saved styles.</li>}
+        {!list.length && <li className="adjustment-note"><Trans>No saved styles.</Trans></li>}
       </ul>
       <div className="panel-footer">
-        <input placeholder="Style name" aria-label="New style name" value={name} onChange={e => setName(e.currentTarget.value)} />
-        <button type="button" aria-label="Save the layer style" title="Save the layer style" disabled={!node}
+        <input placeholder={t`Style name`} aria-label={t`New style name`} value={name} onChange={e => setName(e.currentTarget.value)} />
+        <button type="button" aria-label={t`Save the layer style`} title={t`Save the layer style`} disabled={!node}
           onClick={() => { if (node) { styles.save(name, node.style ?? emptyStyle(), node.blending); setName(''); changed(); } }}><Plus {...ICON} /></button>
-        <button type="button" disabled={!styles.list().length} onClick={() => { if (confirm('Delete all saved styles?')) { styles.clear(); changed(); } }}>Clear</button>
+        <button type="button" disabled={!styles.list().length} onClick={() => { if (confirm(t`Delete all saved styles?`)) { styles.clear(); changed(); } }}><Trans context="verb">Clear</Trans></button>
       </div>
     </div>
   );

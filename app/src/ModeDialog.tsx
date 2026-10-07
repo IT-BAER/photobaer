@@ -1,5 +1,9 @@
 // Image > Mode dialogs: Bitmap, Duotone, Indexed Color and Color Table.
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { msg, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import type { MessageDescriptor } from '@lingui/core';
+import { i18n } from './i18n/index.ts';
 import { client } from './client.ts';
 import type { DocInfo } from './engine.worker.ts';
 import type { BitmapMethod, InkCurve, ModeSpec } from './worker/types.ts';
@@ -15,8 +19,8 @@ export interface ModeDialogHandle { open(kind: ModeDialogKind): void }
 
 type Indexed = Extract<ModeSpec, { mode: 'indexed' }>;
 type Halftone = Extract<BitmapMethod, { method: 'halftone' }>;
-const SHAPES: [Halftone['shape'], string][] = [['round', 'Round'], ['ellipse', 'Ellipse'], ['line', 'Line'], ['square', 'Square'], ['cross', 'Cross'], ['diamond', 'Diamond']];
-const INK_TYPES = ['Monotone', 'Duotone', 'Tritone', 'Quadtone'];
+const SHAPES: [Halftone['shape'], MessageDescriptor][] = [['round', msg`Round`], ['ellipse', msg`Ellipse`], ['line', msg`Line`], ['square', msg`Square`], ['cross', msg`Cross`], ['diamond', msg`Diamond`]];
+const INK_TYPES = [msg`Monotone`, msg`Duotone`, msg`Tritone`, msg`Quadtone`];
 const DEFAULT_INKS: Rgb3[] = [[0, 0, 0], [228, 120, 40], [40, 110, 190], [230, 200, 40]];
 const hex = (c: Rgb3) => `#${c.map(v => v.toString(16).padStart(2, '0')).join('')}`;
 const rgb = (h: string): Rgb3 => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) as Rgb3;
@@ -24,8 +28,8 @@ const rgb = (h: string): Rgb3 => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 
 const CURVE_INPUTS = INK_CURVE_INPUTS;
 const IDENTITY: InkCurve = CURVE_INPUTS.map((_, i) => (i === 0 ? 0 : i === 12 ? 100 : null));
 // Indexed Color Matte; Foreground and Background are the swatches, None is no matte.
-const MATTES: [string, string][] = [['none', 'None'], ['foreground', 'Foreground Color'], ['background', 'Background Color'], ['white', 'White'],
-  ['black', 'Black'], ['gray', '50% Gray'], ['netscape', 'Netscape Gray'], ['custom', 'Custom...']];
+const MATTES: [string, MessageDescriptor][] = [['none', msg`None`], ['foreground', msg`Foreground Color`], ['background', msg`Background Color`], ['white', msg`White`],
+  ['black', msg`Black`], ['gray', msg`50% Gray`], ['netscape', msg`Netscape Gray`], ['custom', msg`Custom...`]];
 const MATTE_RGB: Record<string, Rgb3> = { white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128], netscape: [191, 191, 191] };
 
 // Color Table grid with its preset select, Load (.act, .aco) and Save (.act); presets resample to
@@ -36,8 +40,8 @@ function TableEditor({ table, preset, fixed = false, set, onError }: {
   const file = useRef<HTMLInputElement>(null);
   async function load(f: File) {
     try {
-      const t = readTableFile(f.name, new Uint8Array(await f.arrayBuffer()));
-      set(fixed ? fitTable(t, table.length) : t, 'custom');
+      const loaded = readTableFile(f.name, new Uint8Array(await f.arrayBuffer()));
+      set(fixed ? fitTable(loaded, table.length) : loaded, 'custom');
     } catch (e) {
       onError((e as Error).message);
     }
@@ -51,22 +55,22 @@ function TableEditor({ table, preset, fixed = false, set, onError }: {
   }
   return (<>
     <div className="row">
-      <button type="button" onClick={() => file.current?.click()}>Load...</button>
-      <button type="button" onClick={save}>Save...</button>
-      <input ref={file} type="file" hidden accept=".act,.aco" aria-label="Load color table"
+      <button type="button" onClick={() => file.current?.click()}><Trans>Load...</Trans></button>
+      <button type="button" onClick={save}><Trans>Save...</Trans></button>
+      <input ref={file} type="file" hidden accept=".act,.aco" aria-label={t`Load color table`}
         onChange={e => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void load(f); }} />
     </div>
-    <label>Table <select aria-label="Table" value={preset} onChange={e => {
+    <label><Trans>Table</Trans> <select aria-label={t`Table`} value={preset} onChange={e => {
       const p = e.currentTarget.value;
       set(p === 'custom' ? table : colorTablePreset(p, table.length), p);
     }}>
-      <option value="custom">Custom</option>
+      <option value="custom">{t`Custom`}</option>
       {TABLE_PRESETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
     </select></label>
-    <div className="color-table" role="group" aria-label="Colors">
+    <div className="color-table" role="group" aria-label={t`Colors`}>
       {table.map((c, i) => (
         <label key={i} className="color-table-cell" style={{ background: hex(c) }} title={`${i}: ${c.join(', ')}`}>
-          <input type="color" aria-label={`Color ${i}`} value={hex(c)}
+          <input type="color" aria-label={t`Color ${i}`} value={hex(c)}
             onChange={e => { const v = rgb(e.currentTarget.value); set(table.map((x, j) => (j === i ? v : x)), 'custom'); }} />
         </label>
       ))}
@@ -75,6 +79,7 @@ function TableEditor({ table, preset, fixed = false, set, onError }: {
 }
 
 // Ink indices of the overprint colors in the engine's order: 1+2, 1+3, 2+3, 1+2+3 ...
+const overName = (s: number[]) => s.map(v => v + 1).join('+');
 function overprintSets(n: number): number[][] {
   const sets = Array.from({ length: 1 << n }, (_, m) => [...Array(n).keys()].filter(i => m & (1 << i))).filter(s => s.length > 1);
   return sets.sort((a, b) => { const i = a.findIndex((v, k) => v !== b[k]); return a.length - b.length || a[i] - b[i]; });
@@ -154,7 +159,7 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
     run.then(show, e => setError((e as Error).message));
   }
 
-  const name = { bitmap: 'Bitmap', duotone: 'Duotone Options', indexed: 'Indexed Color', table: 'Color Table' }[kind ?? 'bitmap'];
+  const name = { bitmap: t`Bitmap`, duotone: t`Duotone Options`, indexed: t`Indexed Color`, table: t`Color Table` }[kind ?? 'bitmap'];
   const fixedCount = ix.palette !== 'uniform' && ix.palette !== 'adaptive';
   const ownTable = ix.palette === 'custom' || ix.palette === 'previous';
   // Custom starts from its last table, the document's table, or the table the chosen palette makes now.
@@ -176,38 +181,41 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
     sub.current?.close();
   }
 
-  const subName = edit && 'ink' in edit ? `Duotone Curve: Ink ${edit.ink + 1}` : edit && 'table' in edit ? 'Color Table' : 'Overprint Colors';
+  const inkNo = edit && 'ink' in edit ? edit.ink + 1 : 0;
+  const inputRes = +(perCm ? (doc?.resolution ?? 0) / 2.54 : doc?.resolution ?? 0).toFixed(2);
+  const inputUnit = perCm ? t`Pixels/cm` : t`Pixels/Inch`;
+  const subName = edit && 'ink' in edit ? t`Duotone Curve: Ink ${inkNo}` : edit && 'table' in edit ? t`Color Table` : t`Overprint Colors`;
   return (<>
     <dialog ref={dialog} className="mode-dialog" aria-label={name} onClose={() => setKind(null)}>
       {doc && kind && (
         <form onSubmit={e => { e.preventDefault(); ok(); }}>
           <h2>{name}</h2>
           {kind === 'bitmap' && <>
-            <label>Input {+(perCm ? doc.resolution / 2.54 : doc.resolution).toFixed(2)} {perCm ? 'Pixels/cm' : 'Pixels/Inch'}</label>
-            <label>Output <NumberInput aria-label="Output" min={0.01} step="any" value={+(perCm ? ppi / 2.54 : ppi).toFixed(2)}
+            <label><Trans>Input {inputRes} {inputUnit}</Trans></label>
+            <label><Trans>Output</Trans> <NumberInput aria-label={t`Output`} min={0.01} step="any" value={+(perCm ? ppi / 2.54 : ppi).toFixed(2)}
               onValue={v => { if (v > 0) setPpi(perCm ? v * 2.54 : v); }} />
-              <select aria-label="Output unit" value={perCm ? 'cm' : 'inch'} onChange={e => setPerCm(e.currentTarget.value === 'cm')}>
-                <option value="inch">Pixels/Inch</option>
-                <option value="cm">Pixels/cm</option>
+              <select aria-label={t`Output unit`} value={perCm ? 'cm' : 'inch'} onChange={e => setPerCm(e.currentTarget.value === 'cm')}>
+                <option value="inch">{t`Pixels/Inch`}</option>
+                <option value="cm">{t`Pixels/cm`}</option>
               </select></label>
-            <label>Method <select aria-label="Method" value={method} onChange={e => setMethod(e.currentTarget.value as typeof method)}>
-              <option value="threshold">50% Threshold</option>
-              <option value="pattern">Pattern Dither</option>
-              <option value="diffusion">Diffusion Dither</option>
-              <option value="halftone">Halftone Screen</option>
-              <option value="custom">Custom Pattern</option>
+            <label><Trans>Method</Trans> <select aria-label={t`Method`} value={method} onChange={e => setMethod(e.currentTarget.value as typeof method)}>
+              <option value="threshold">{t`50% Threshold`}</option>
+              <option value="pattern">{t`Pattern Dither`}</option>
+              <option value="diffusion">{t`Diffusion Dither`}</option>
+              <option value="halftone">{t`Halftone Screen`}</option>
+              <option value="custom">{t`Custom Pattern`}</option>
             </select></label>
             {method === 'halftone' && <>
-              <label>Frequency <NumberInput aria-label="Frequency" min={1} max={999} step="any" value={screen.frequency}
+              <label><Trans>Frequency</Trans> <NumberInput aria-label={t`Frequency`} min={1} max={999} step="any" value={screen.frequency}
                 onValue={v => setScreen({ ...screen, frequency: Math.min(999, Math.max(1, v)) })} />
-                <select aria-label="Frequency unit" value={screen.unit} onChange={e => setScreen({ ...screen, unit: e.currentTarget.value as Halftone['unit'] })}>
-                  <option value="inch">Lines/Inch</option>
-                  <option value="cm">Lines/cm</option>
+                <select aria-label={t`Frequency unit`} value={screen.unit} onChange={e => setScreen({ ...screen, unit: e.currentTarget.value as Halftone['unit'] })}>
+                  <option value="inch">{t`Lines/Inch`}</option>
+                  <option value="cm">{t`Lines/cm`}</option>
                 </select></label>
-              <label>Angle <NumberInput aria-label="Angle" min={-180} max={180} value={screen.angle}
+              <label><Trans>Angle</Trans> <NumberInput aria-label={t`Angle`} min={-180} max={180} value={screen.angle}
                 onValue={v => setScreen({ ...screen, angle: Math.min(180, Math.max(-180, v)) })} /> °</label>
-              <label>Shape <select aria-label="Shape" value={screen.shape} onChange={e => setScreen({ ...screen, shape: e.currentTarget.value as Halftone['shape'] })}>
-                {SHAPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              <label><Trans>Shape</Trans> <select aria-label={t`Shape`} value={screen.shape} onChange={e => setScreen({ ...screen, shape: e.currentTarget.value as Halftone['shape'] })}>
+                {SHAPES.map(([v, l]) => <option key={v} value={v}>{i18n._(l)}</option>)}
               </select></label>
             </>}
             {method === 'custom' && (
@@ -215,65 +223,65 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
             )}
           </>}
           {kind === 'duotone' && <>
-            <label>Type <select aria-label="Type" value={inks.length} onChange={e => {
+            <label><Trans>Type</Trans> <select aria-label={t`Type`} value={inks.length} onChange={e => {
               const n = Number(e.currentTarget.value);
               setInks(Array.from({ length: n }, (_, i) => inks[i] ?? DEFAULT_INKS[i]));
               setCurves(Array.from({ length: n }, (_, i) => curves[i] ?? IDENTITY));
               setOverprints(null);
             }}>
-              {INK_TYPES.map((t, i) => <option key={t} value={i + 1}>{t}</option>)}
+              {INK_TYPES.map((d, i) => <option key={d.message} value={i + 1}>{i18n._(d)}</option>)}
             </select></label>
-            {inks.map((c, i) => (
+            {inks.map((c, i) => { const ink = i + 1; return (
               <div key={i} className="duotone-ink">
-                <button type="button" aria-label={`Ink ${i + 1} curve`} title="Duotone Curve" onClick={() => openSub({ ink: i, curve: curves[i] ?? IDENTITY })}>
+                <button type="button" aria-label={t`Ink ${ink} curve`} title={t`Duotone Curve`} onClick={() => openSub({ ink: i, curve: curves[i] ?? IDENTITY })}>
                   <CurveIcon curve={curves[i] ?? IDENTITY} />
                 </button>
-                <label>Ink {i + 1} <input type="color" aria-label={`Ink ${i + 1}`} value={hex(c)}
+                <label><Trans>Ink {ink}</Trans> <input type="color" aria-label={t`Ink ${ink}`} value={hex(c)}
                   onChange={e => { const v = rgb(e.currentTarget.value); setInks(inks.map((x, j) => (j === i ? v : x))); setOverprints(null); }} /></label>
               </div>
-            ))}
-            <button type="button" disabled={inks.length < 2} onClick={() => openSub({ over: overprints ?? multiplied(inks) })}>Overprint Colors…</button>
+            ); })}
+            <button type="button" disabled={inks.length < 2} onClick={() => openSub({ over: overprints ?? multiplied(inks) })}><Trans>Overprint Colors…</Trans></button>
           </>}
           {kind === 'indexed' && <>
-            <label>Palette <select aria-label="Palette" value={ix.palette} onChange={e => {
+            <label><Trans>Palette</Trans> <select aria-label={t`Palette`} value={ix.palette} onChange={e => {
               const p = e.currentTarget.value as Indexed['palette'];
               if (p === 'custom') void customStart().then(table => openSub({ table, preset: 'custom' }));
               else setIx({ ...ix, palette: p, ...(p === 'previous' && previous ? { colors: previous.length } : {}) });
             }}>
-              <option value="exact">Exact</option>
-              <option value="web">Web</option>
-              <option value="uniform">Uniform</option>
-              <option value="adaptive">Local (Adaptive)</option>
-              <option value="custom">Custom...</option>
-              <option value="previous" disabled={!previous}>Previous</option>
+              <option value="exact">{t`Exact`}</option>
+              <option value="web">{t`Web`}</option>
+              <option value="uniform">{t`Uniform`}</option>
+              <option value="adaptive">{t`Local (Adaptive)`}</option>
+              <option value="custom">{t`Custom...`}</option>
+              <option value="previous" disabled={!previous}>{t`Previous`}</option>
             </select></label>
-            {ix.palette === 'custom' && <button type="button" onClick={() => void customStart().then(table => openSub({ table, preset: 'custom' }))}>Edit Table...</button>}
-            <label>Colors <NumberInput aria-label="Colors" min={2} max={256} disabled={fixedCount} value={ix.colors}
+            {ix.palette === 'custom' && <button type="button" onClick={() => void customStart().then(table => openSub({ table, preset: 'custom' }))}><Trans>Edit Table...</Trans></button>}
+            <label><Trans>Colors</Trans> <NumberInput aria-label={t`Colors`} min={2} max={256} disabled={fixedCount} value={ix.colors}
               onValue={n => { const v = Math.round(n); setIx({ ...ix, colors: Math.min(256, Math.max(2, v)) }); }} /></label>
-            <label>Forced <select aria-label="Forced" value={ix.forced} disabled={ownTable} onChange={e => setIx({ ...ix, forced: e.currentTarget.value as Indexed['forced'] })}>
-              <option value="none">None</option>
-              <option value="black_white">Black and White</option>
-              <option value="primaries">Primaries</option>
-              <option value="web">Web</option>
+            <label><Trans>Forced</Trans> <select aria-label={t`Forced`} value={ix.forced} disabled={ownTable} onChange={e => setIx({ ...ix, forced: e.currentTarget.value as Indexed['forced'] })}>
+              <option value="none">{t`None`}</option>
+              <option value="black_white">{t`Black and White`}</option>
+              <option value="primaries">{t`Primaries`}</option>
+              <option value="web">{t`Web`}</option>
             </select></label>
-            <label><input type="checkbox" checked={ix.transparency} onChange={e => setIx({ ...ix, transparency: e.currentTarget.checked })} /> Transparency</label>
-            <label>Matte <select aria-label="Matte" value={matte} onChange={e => setMatte(e.currentTarget.value)}>
-              {MATTES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            <label><input type="checkbox" checked={ix.transparency} onChange={e => setIx({ ...ix, transparency: e.currentTarget.checked })} /> <Trans>Transparency</Trans></label>
+            <label><Trans>Matte</Trans> <select aria-label={t`Matte`} value={matte} onChange={e => setMatte(e.currentTarget.value)}>
+              {MATTES.map(([v, l]) => <option key={v} value={v}>{i18n._(l)}</option>)}
             </select>
-              {matte === 'custom' && <input type="color" aria-label="Matte color" value={hex(matteColor)} onChange={e => setMatteColor(rgb(e.currentTarget.value))} />}</label>
-            <label>Dither <select aria-label="Dither" value={ix.dither} onChange={e => setIx({ ...ix, dither: e.currentTarget.value as Indexed['dither'] })}>
-              <option value="none">None</option>
-              <option value="diffusion">Diffusion</option>
-              <option value="pattern">Pattern</option>
-              <option value="noise">Noise</option>
+              {matte === 'custom' && <input type="color" aria-label={t`Matte color`} value={hex(matteColor)} onChange={e => setMatteColor(rgb(e.currentTarget.value))} />}</label>
+            <label><Trans>Dither</Trans> <select aria-label={t`Dither`} value={ix.dither} onChange={e => setIx({ ...ix, dither: e.currentTarget.value as Indexed['dither'] })}>
+              <option value="none">{t`None`}</option>
+              <option value="diffusion">{t`Diffusion`}</option>
+              <option value="pattern">{t`Pattern`}</option>
+              <option value="noise">{t`Noise`}</option>
             </select></label>
-            <label>Amount <NumberInput aria-label="Amount" min={0} max={100} disabled={ix.dither === 'none'} value={Math.round(ix.amount * 100)}
+            <label><Trans>Amount</Trans> <NumberInput aria-label={t`Amount`} min={0} max={100} disabled={ix.dither === 'none'} value={Math.round(ix.amount * 100)}
               onValue={v => setIx({ ...ix, amount: Math.min(100, Math.max(0, v)) / 100 })} /> %</label>
           </>}
           {kind === 'table' && <TableEditor table={table} preset={preset} fixed set={(t, p) => { setTable(t); setPreset(p); }} onError={setError} />}
           <div className="actions">
-            <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
-            <button type="submit" className="primary" disabled={kind === 'bitmap' && method === 'custom' && !pattern}>OK</button>
+            <button type="button" onClick={() => dialog.current?.close()}><Trans>Cancel</Trans></button>
+            <button type="submit" className="primary" disabled={kind === 'bitmap' && method === 'custom' && !pattern}><Trans>OK</Trans></button>
           </div>
         </form>
       )}
@@ -294,13 +302,16 @@ export function ModeDialog({ ref, doc, library = null, fg = [0, 0, 0], bg = [255
             </div>
           ) : 'table' in edit ? (
             <TableEditor table={edit.table} preset={edit.preset} set={(table, preset) => setEdit({ table, preset })} onError={setError} />
-          ) : overprintSets(inks.length).map((s, i) => (
-            <label key={i}>{s.map(v => v + 1).join(' + ')} <input type="color" aria-label={`Overprint ${s.map(v => v + 1).join('+')}`} value={hex(edit.over[i])}
-              onChange={e => { const v = rgb(e.currentTarget.value); setEdit({ over: edit.over.map((x, j) => (j === i ? v : x)) }); }} /></label>
-          ))}
+          ) : overprintSets(inks.length).map((s, i) => {
+            const combo = overName(s);
+            return (
+              <label key={i}>{combo.replaceAll('+', ' + ')} <input type="color" aria-label={t`Overprint ${combo}`} value={hex(edit.over[i])}
+                onChange={e => { const v = rgb(e.currentTarget.value); setEdit({ over: edit.over.map((x, j) => (j === i ? v : x)) }); }} /></label>
+            );
+          })}
           <div className="actions">
-            <button type="button" onClick={() => sub.current?.close()}>Cancel</button>
-            <button type="submit" className="primary">OK</button>
+            <button type="button" onClick={() => sub.current?.close()}><Trans>Cancel</Trans></button>
+            <button type="submit" className="primary"><Trans>OK</Trans></button>
           </div>
         </form>
       )}
