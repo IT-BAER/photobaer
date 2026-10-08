@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Layer > Layer Mask with Reveal All, Hide All, Reveal Selection, Hide Selection, From Transparency and Apply;
   Layer > Hide Layers (Ctrl+,), Lock Layers… (Ctrl+/) and Arrange > Reverse; Select > All Layers (Alt+Ctrl+A),
   Find Layers (Alt+Shift+Ctrl+F) and Isolate Layers. The Layers panel filter can also filter by name.
+- Layer > Matting with Color Decontaminate…, Defringe…, Remove Black Matte and Remove White Matte for pixel
+  layers, limited to the selection like other pixel edits.
 
 ## [0.4.2] - 2026-10-07
 

@@ -560,6 +560,42 @@ test('maskFromTransparency and applyMask are one step each and undo restores', a
   assert.ok(maxDiff(before, await composite()) <= 1);
 });
 
+test('Matting commands are one history step each and undo restores', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, [255, 255, 255, 255]);
+  const a = await rectLayer(1, 8, 8, 16, 16, [255, 0, 0, 255]);
+  await call('select', { kind: 'rect', x: 8, y: 8, w: 16, h: 1 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', a, 'pixels', [0, 255, 0, 255]);
+  await call('select', { kind: 'rect', x: 30, y: 8, w: 16, h: 16 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', a, 'pixels', [0, 128, 0, 128]);
+  await call('selectCommand', 'deselect');
+  await call('addMask', a, true);
+  await call('select', { kind: 'rect', x: 14, y: 8, w: 4, h: 16 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', a, 'mask', [128, 128, 128, 255]);
+  await call('select', { kind: 'rect', x: 14, y: 12, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', a, 'pixels', [0, 0, 255, 255]);
+  await call('selectCommand', 'deselect');
+  type D = { undoLabel: string | null };
+  const steps: [string, () => Promise<{ result?: unknown; error?: unknown }>][] = [
+    ['Defringe', () => call('defringe', a, 1)],
+    ['Remove Black Matte', () => call('removeMatte', a, false)],
+    ['Remove White Matte', () => call('removeMatte', a, true)],
+    ['Color Decontaminate', () => call('colorDecontaminate', a, 100)],
+  ];
+  for (const [label, op] of steps) {
+    const before = await composite();
+    const r = await op();
+    assert.equal(r.error, undefined, `${label}: ${String(r.error)}`);
+    assert.equal((r.result as D).undoLabel, label);
+    assert.ok(maxDiff(before, await composite()) > 0, `${label} changes pixels`);
+    const u = (await call('undo')).result as D;
+    assert.equal(u.undoLabel, 'Deselect');
+    assert.equal(maxDiff(before, await composite()), 0, `${label} undoes in one step`);
+  }
+  await call('deleteMask', a);
+  assert.ok((await call('colorDecontaminate', a, 100)).error, 'no mask is an error');
+});
+
 async function mergeDoc() {
   await call('init');
   await call('newDoc', 64, 64, 8, [255, 255, 255, 255]);

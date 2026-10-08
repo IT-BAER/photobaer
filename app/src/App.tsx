@@ -128,7 +128,7 @@ import { schema, setColorSource, setSchema, type FilterSpec } from './filters/sc
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
   LoadSelectionDialog, ModifyDialog, ArtboardDialog, CursorPrefsDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, MergeDialog, type MergeChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, type AutomateKind, RotateDialog, SaveSelectionDialog,
-  AutomateDialog, LockLayersDialog, ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
+  AutomateDialog, ColorDecontaminateDialog, DefringeDialog, LockLayersDialog, ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
 } from './app/Dialogs.tsx';
 
 // Set by vite.config.ts from CHANGELOG.md.
@@ -462,6 +462,8 @@ export function App() {
   const globalLightDialog = useRef<HTMLDialogElement>(null);
   const scaleEffectsDialog = useRef<HTMLDialogElement>(null);
   const lockLayersDialog = useRef<HTMLDialogElement>(null);
+  const defringeDialog = useRef<HTMLDialogElement>(null);
+  const decontaminateDialog = useRef<HTMLDialogElement>(null);
   // The Filter menu's generic dialog (also Edit > Fade) and Layer > Smart Filter > Blending Options.
   const filterDialog = useRef<FilterDialogHandle>(null);
   const imageCalc = useRef<ImageCalcHandle>(null);
@@ -1800,7 +1802,7 @@ export function App() {
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, convertDepth, applyDestructive, rotateDialog,
+    globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, defringeDialog, decontaminateDialog, openAdjust, hostOff, pixelsOff, convertDepth, applyDestructive, rotateDialog,
     openImageCalc: calc => { setMenu(null); if (calc) imageCalc.current?.open({ kind: 'calc' }); else if (active) imageCalc.current?.open({ kind: 'apply', id: active.id }); }, trimDialog, imageSizeDialog, canvasSizeDialog,
     openAutomate: kind => { setMenu(null); setAutomate(kind); automateDialog.current?.showModal(); },
     openBatch: () => { setMenu(null); batchDialog.current?.open(); },
@@ -2847,6 +2849,8 @@ export function App() {
         filterBlendDialog={filterBlendDialog} setFilterBlend={setFilterBlend} filterBlend={filterBlend} run={run} filters={filters}
       />
       <ScaleEffectsDialog scaleEffectsDialog={scaleEffectsDialog} node={node} run={run} />
+      <DefringeDialog dialog={defringeDialog} node={node} run={run} />
+      <ColorDecontaminateDialog dialog={decontaminateDialog} node={node} run={run} />
       <LockLayersDialog lockLayersDialog={lockLayersDialog} node={node} ids={selectedNodes.map(n => n.id)} run={run} />
       <RotateDialog rotateDialog={rotateDialog} run={run} />
       <AutomateDialog dialog={automateDialog} kind={automate} ids={selectedNodes.filter(n => n.kind === 'pixel').map(n => n.id)} docCount={doc?.docs.length ?? 0} run={run} />

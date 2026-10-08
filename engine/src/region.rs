@@ -180,7 +180,7 @@ fn edt_1d(f: &[f64]) -> Vec<f64> {
 
 // Squared Euclidean distance from every cell to the nearest cell where `inside` is true
 // (columns then rows, per Felzenszwalb & Huttenlocher).
-fn edt2(inside: &[bool], w: usize, h: usize) -> Vec<f64> {
+pub(crate) fn edt2(inside: &[bool], w: usize, h: usize) -> Vec<f64> {
     const INF: f64 = 1e20;
     let mut g = vec![0f64; w * h];
     for x in 0..w {

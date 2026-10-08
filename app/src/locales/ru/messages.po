@@ -748,6 +748,7 @@ msgstr "Янтарный"
 msgid "Ambience"
 msgstr "Окружающий свет"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ModeDialog.tsx
@@ -2425,6 +2426,15 @@ msgstr "Затемнение основы"
 msgid "Color Correction"
 msgstr "Цветокоррекция"
 
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Color Decontaminate"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Color Decontaminate…"
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "Color Dodge"
 msgstr "Осветление основы"
@@ -3397,6 +3407,15 @@ msgstr "Четкость"
 #: app/src/filters/labels.ts
 msgid "Defoliate"
 msgstr "Удаление листвы"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Defringe"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Defringe…"
+msgstr ""
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
@@ -7176,6 +7195,10 @@ msgstr "Цвет подложки"
 msgid "Matte Color"
 msgstr "Цвет подложки"
 
+#: app/src/app/menus.ts
+msgid "Matting"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Max Radius"
 msgstr "Максимальный радиус"
@@ -9517,6 +9540,11 @@ msgstr "Удалить все"
 msgid "Remove All Pins"
 msgstr "Удалить все булавки"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Remove Black Matte"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
 msgstr "Удалить искажение"
@@ -9536,6 +9564,11 @@ msgstr "Удалить ограничитель"
 #: app/src/app/menus.ts
 msgid "Remove Warp Split"
 msgstr "Удалить разделение деформации"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Remove White Matte"
+msgstr ""
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"

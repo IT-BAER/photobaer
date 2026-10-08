@@ -613,6 +613,29 @@
     "Flatten Image"
    ],
    [
+    "Matting",
+    "Matting",
+    "›",
+    [
+     [
+      "Color Decontaminate…",
+      "Color Decontaminate…"
+     ],
+     [
+      "Defringe…",
+      "Defringe…"
+     ],
+     [
+      "Remove Black Matte",
+      "Remove Black Matte"
+     ],
+     [
+      "Remove White Matte",
+      "Remove White Matte"
+     ]
+    ]
+   ],
+   [
     "Release Clipping Mask",
     "Release Clipping Mask",
     "Alt+Ctrl+G"

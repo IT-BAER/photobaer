@@ -748,6 +748,7 @@ msgstr "アンバー"
 msgid "Ambience"
 msgstr "環境光"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ModeDialog.tsx
@@ -2425,6 +2426,15 @@ msgstr "焼き込みカラー"
 msgid "Color Correction"
 msgstr "色調補正"
 
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Color Decontaminate"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Color Decontaminate…"
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "Color Dodge"
 msgstr "覆い焼きカラー"
@@ -3397,6 +3407,15 @@ msgstr "精細度"
 #: app/src/filters/labels.ts
 msgid "Defoliate"
 msgstr "落葉"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Defringe"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Defringe…"
+msgstr ""
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
@@ -7176,6 +7195,10 @@ msgstr "マットカラー"
 msgid "Matte Color"
 msgstr "マットカラー"
 
+#: app/src/app/menus.ts
+msgid "Matting"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Max Radius"
 msgstr "最大半径"
@@ -9517,6 +9540,11 @@ msgstr "すべてを削除"
 msgid "Remove All Pins"
 msgstr "すべてのピンを削除"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Remove Black Matte"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
 msgstr "歪曲収差を補正"
@@ -9536,6 +9564,11 @@ msgstr "分岐点を削除"
 #: app/src/app/menus.ts
 msgid "Remove Warp Split"
 msgstr "ワープ分割を削除"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Remove White Matte"
+msgstr ""
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"

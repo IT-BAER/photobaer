@@ -745,6 +745,7 @@ msgstr "Kehribar"
 msgid "Ambience"
 msgstr "Ortam"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ModeDialog.tsx
@@ -2422,6 +2423,15 @@ msgstr "Renk Yanması"
 msgid "Color Correction"
 msgstr "Renk Düzeltme"
 
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Color Decontaminate"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Color Decontaminate…"
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "Color Dodge"
 msgstr "Renk Soldurma"
@@ -3394,6 +3404,15 @@ msgstr "Tanım"
 #: app/src/filters/labels.ts
 msgid "Defoliate"
 msgstr "Yaprakları Dök"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Defringe"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Defringe…"
+msgstr ""
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
@@ -7173,6 +7192,10 @@ msgstr "Mat rengi"
 msgid "Matte Color"
 msgstr "Mat Rengi"
 
+#: app/src/app/menus.ts
+msgid "Matting"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Max Radius"
 msgstr "Maks. Yarıçap"
@@ -9514,6 +9537,11 @@ msgstr "Tümünü Kaldır"
 msgid "Remove All Pins"
 msgstr "Tüm Pinleri Kaldır"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Remove Black Matte"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
 msgstr "Bozulmayı Kaldır"
@@ -9533,6 +9561,11 @@ msgstr "Durağı kaldır"
 #: app/src/app/menus.ts
 msgid "Remove Warp Split"
 msgstr "Eğriltme Bölmesini Kaldır"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Remove White Matte"
+msgstr ""
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"

@@ -477,6 +477,21 @@ impl Engine {
         self.0.doc.apply_mask(id).map_err(err)
     }
 
+    /// Layer > Matting > Defringe; `width` 1..200 px.
+    pub fn defringe(&mut self, id: u32, width: u32) -> Result<(), JsError> {
+        self.0.doc.defringe(id, width).map_err(err)
+    }
+
+    /// Layer > Matting > Remove White Matte (`white`) or Remove Black Matte.
+    pub fn remove_matte(&mut self, id: u32, white: bool) -> Result<(), JsError> {
+        self.0.doc.remove_matte(id, white).map_err(err)
+    }
+
+    /// Layer > Matting > Color Decontaminate; `amount` 0..1, the layer needs a layer mask.
+    pub fn color_decontaminate(&mut self, id: u32, amount: f32) -> Result<(), JsError> {
+        self.0.doc.color_decontaminate(id, amount).map_err(err)
+    }
+
     /// `target` is "pixels" or "mask"; a mask fill uses the red channel as its value.
     pub fn fill(&mut self, id: u32, target: &str, r: u8, g: u8, b: u8, a: u8) -> Result<(), JsError> {
         let t = Target::parse(target).map_err(err)?;

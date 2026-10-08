@@ -57,6 +57,11 @@ mod retouch_tests;
 #[cfg(test)]
 #[path = "doc_mask_tests.rs"]
 mod mask_tests;
+#[path = "matting.rs"]
+mod matting;
+#[cfg(test)]
+#[path = "matting_tests.rs"]
+mod matting_tests;
 pub use transform::{Lift, Remap};
 pub use brush::EngineCore;
 use brush::*;

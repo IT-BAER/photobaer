@@ -58,7 +58,7 @@ export interface MenuCtx {
   convertToLinked: () => Promise<void>; anyLinked: boolean; toggleLabel: Label;
   filterCommand: (op: 'toggle' | 'clear' | 'deleteMasks' | 'toggleMasks', label: string) => () => void; filters: SmartFilterInfo[];
   filterMasks: boolean; maskLabel: Label; openFilterBlend: () => void; openLayerStyle: (page: StylePage, id?: number) => void;
-  globalLightDialog: DialogRef; allEffectsHidden: boolean; anyStyled: boolean; scaleEffectsDialog: DialogRef;
+  globalLightDialog: DialogRef; allEffectsHidden: boolean; anyStyled: boolean; scaleEffectsDialog: DialogRef; defringeDialog: DialogRef; decontaminateDialog: DialogRef;
   openAutomate: (kind: AutomateKind) => void; openBatch: () => void; openImageProcessor: () => void; openLoadStack: () => void; browseScript: () => void; scriptRunning: boolean;
   assetsOn: boolean; toggleImageAssets: () => void; packageDoc: () => void; openVariables: (tab: 'define' | 'sets') => void; openApplyDataSet: () => void; openImportSets: () => void; openFileInfo: () => void; openPrint: () => void; printOneCopy: () => void;
   openAnalysis: (kind: 'scale' | 'points' | 'marker') => void; recordMeasurements: () => void; chooseTool: (id: string) => void;
@@ -135,7 +135,7 @@ export function buildMenus(c: MenuCtx) {
     transformRemap, newLayer, newGroup, duplicateLayer, deleteLayer, deleteDisabled, groupLayers, ungroupLayers, node, toggleClipping, addMask,
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
-    openAutomate, openBatch, openImageProcessor, openLoadStack, browseScript, scriptRunning, assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo, openPrint, printOneCopy, openAnalysis, recordMeasurements, chooseTool, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, convertDepth, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
+    openAutomate, openBatch, openImageProcessor, openLoadStack, browseScript, scriptRunning, assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo, openPrint, printOneCopy, openAnalysis, recordMeasurements, chooseTool, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, defringeDialog, decontaminateDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, convertDepth, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
@@ -338,6 +338,14 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Merge Visible`), keys: 'Shift+Ctrl+E', run: () => run(null, () => client.call('mergeNodes', [], 'visible')), off: !has },
       { ...tl(msg`Stamp Visible`), keys: 'Alt+Shift+Ctrl+E', run: () => run(null, () => client.call('mergeNodes', [], 'stamp')), off: !has },
       { ...tl(msg`Flatten Image`), run: () => run(null, () => client.call('mergeNodes', [], 'flatten')), off: !has },
+      {
+        ...tl(msg`Matting`), keys: '›', run: () => {}, off: !has || node?.kind !== 'pixel', sub: [
+          { ...tl(msg`Color Decontaminate…`), run: () => { setMenu(null); decontaminateDialog.current?.showModal(); }, off: !node?.mask },
+          { ...tl(msg`Defringe…`), run: () => { setMenu(null); defringeDialog.current?.showModal(); } },
+          { ...tl(msg`Remove Black Matte`), run: () => node && run(null, () => client.call('removeMatte', node.id, false)) },
+          { ...tl(msg`Remove White Matte`), run: () => node && run(null, () => client.call('removeMatte', node.id, true)) },
+        ],
+      },
       { ...tl(node?.clipping ? msg`Release Clipping Mask` : msg`Create Clipping Mask`), keys: 'Alt+Ctrl+G', run: toggleClipping, off: !has },
       { ...tl(msg`Add Layer Mask`), run: addMask, off: !has || !!node?.mask },
       { ...tl(msg`Delete Layer Mask`), run: deleteMask, off: !has || !node?.mask },

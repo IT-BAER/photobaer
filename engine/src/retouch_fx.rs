@@ -368,7 +368,7 @@ pub(super) fn bilinear(fetch: impl Fn(i32, i32) -> [f32; 4], x: f64, y: f64) -> 
 
 impl Document {
     // Straight RGBA over `r` ([x0, y0, x1, y1], inside the canvas) from the layer or the visible composite.
-    fn read_region(&self, layer: u32, all: bool, r: [i32; 4]) -> Result<Vec<[f32; 4]>, String> {
+    pub(super) fn read_region(&self, layer: u32, all: bool, r: [i32; 4]) -> Result<Vec<[f32; 4]>, String> {
         let (ti, w) = (TILE as i32, (r[2] - r[0]) as usize);
         let mut out = vec![[0f32; 4]; w * (r[3] - r[1]) as usize];
         for (tx, ty) in self.tiles_of_rect(r[0], r[1], r[2], r[3]) {

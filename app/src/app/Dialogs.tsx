@@ -808,6 +808,48 @@ export function LockLayersDialog({ lockLayersDialog, node, ids, run }: { lockLay
   );
 }
 
+// Layer > Matting > Defringe: Width 1..200 px.
+export function DefringeDialog({ dialog, node, run }: { dialog: DialogRef; node: LayerNode | undefined; run: Run }) {
+  return (
+    <dialog ref={dialog}>
+      <form onSubmit={e => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        dialog.current?.close();
+        if (node) run(null, () => client.call('defringe', node.id, Number(f.get('width'))));
+      }}>
+        <h2><Trans>Defringe</Trans></h2>
+        <label><Trans>Width</Trans> <FormNumber name="width" min={1} max={200} step={1} defaultValue={1} required /> <Trans>Pixels</Trans></label>
+        <div className="actions">
+          <button type="button" onClick={() => dialog.current?.close()}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary"><Trans>OK</Trans></button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+// Layer > Matting > Color Decontaminate: Amount 0..100 %.
+export function ColorDecontaminateDialog({ dialog, node, run }: { dialog: DialogRef; node: LayerNode | undefined; run: Run }) {
+  const [amount, setAmount] = useState(100);
+  return (
+    <dialog ref={dialog}>
+      <form onSubmit={e => {
+        e.preventDefault();
+        dialog.current?.close();
+        if (node) run(null, () => client.call('colorDecontaminate', node.id, amount));
+      }}>
+        <h2><Trans>Color Decontaminate</Trans></h2>
+        <label><Trans>Amount</Trans> <input name="amount" type="range" min={0} max={100} value={amount} onChange={e => setAmount(Number(e.currentTarget.value))} /> {amount}%</label>
+        <div className="actions">
+          <button type="button" onClick={() => dialog.current?.close()}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary"><Trans>OK</Trans></button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
 export function RotateDialog({ rotateDialog, run }: { rotateDialog: DialogRef; run: Run }) {
   return (
     <dialog ref={rotateDialog}>

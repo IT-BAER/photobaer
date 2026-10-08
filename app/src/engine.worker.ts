@@ -2691,6 +2691,27 @@ const api = {
     return changed();
   },
 
+  // Layer > Matting > Defringe: `width` 1..200 px.
+  defringe(id: number, width: number) {
+    const e = need();
+    history.run('Defringe', () => e.defringe(id, width));
+    return changed();
+  },
+
+  // Layer > Matting > Remove White Matte (`white`) or Remove Black Matte.
+  removeMatte(id: number, white: boolean) {
+    const e = need();
+    history.run(white ? 'Remove White Matte' : 'Remove Black Matte', () => e.remove_matte(id, white));
+    return changed();
+  },
+
+  // Layer > Matting > Color Decontaminate: `percent` 0..100; the layer needs a layer mask.
+  colorDecontaminate(id: number, percent: number) {
+    const e = need();
+    history.run('Color Decontaminate', () => e.color_decontaminate(id, percent / 100));
+    return changed();
+  },
+
   // Layer > New Fill Layer: `label` is the per-type menu label ("Solid Color"/"Gradient"/"Pattern"),
   // `name` the layer's name ("Color Fill"/"Gradient Fill"/"Pattern Fill"). One engine call masks the
   // new layer to the selection (or reveals all) and drops the selection, so this is one undo step.

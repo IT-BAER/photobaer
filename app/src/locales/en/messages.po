@@ -748,6 +748,7 @@ msgstr "Amber"
 msgid "Ambience"
 msgstr "Ambience"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ModeDialog.tsx
@@ -2425,6 +2426,15 @@ msgstr "Color Burn"
 msgid "Color Correction"
 msgstr "Color Correction"
 
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Color Decontaminate"
+msgstr "Color Decontaminate"
+
+#: app/src/app/menus.ts
+msgid "Color Decontaminate…"
+msgstr "Color Decontaminate…"
+
 #: app/src/i18n/choices.ts
 msgid "Color Dodge"
 msgstr "Color Dodge"
@@ -3397,6 +3407,15 @@ msgstr "Definition"
 #: app/src/filters/labels.ts
 msgid "Defoliate"
 msgstr "Defoliate"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Defringe"
+msgstr "Defringe"
+
+#: app/src/app/menus.ts
+msgid "Defringe…"
+msgstr "Defringe…"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
@@ -7176,6 +7195,10 @@ msgstr "Matte color"
 msgid "Matte Color"
 msgstr "Matte Color"
 
+#: app/src/app/menus.ts
+msgid "Matting"
+msgstr "Matting"
+
 #: app/src/filters/labels.ts
 msgid "Max Radius"
 msgstr "Max Radius"
@@ -9517,6 +9540,11 @@ msgstr "Remove All"
 msgid "Remove All Pins"
 msgstr "Remove All Pins"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Remove Black Matte"
+msgstr "Remove Black Matte"
+
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
 msgstr "Remove Distortion"
@@ -9536,6 +9564,11 @@ msgstr "Remove stop"
 #: app/src/app/menus.ts
 msgid "Remove Warp Split"
 msgstr "Remove Warp Split"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Remove White Matte"
+msgstr "Remove White Matte"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"
