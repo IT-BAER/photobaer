@@ -4,6 +4,13 @@
 use super::*;
 use crate::geom;
 
+// Test hooks: force the per-document-tile effect path, and count effect plane renders.
+#[cfg(test)]
+thread_local! {
+    pub(super) static FX_LEGACY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    pub(super) static FX_RENDERS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 // ---------- compositing ----------
 
 struct TileCtx {
@@ -414,6 +421,7 @@ pub(super) struct Region {
     x0: i64,
     y0: i64,
     n: usize,
+    level: u32,
     parts: Vec<(i64, i64, Part)>,
     masks: Vec<(i64, i64, Arc<Pixels>)>,
     mask_default: Option<f32>,
@@ -522,6 +530,32 @@ impl Program {
             payloads,
             data,
         }
+    }
+}
+
+/// Layer-space effect memo: window input hashes by region key and position, and tight layer
+/// bounds by tile ids. Each map is dropped whole past `FX_MEMO` entries.
+#[derive(Clone, Default)]
+pub(super) struct FxMemo {
+    inputs: HashMap<u64, u64>,
+    bounds: HashMap<u64, [f64; 4]>,
+}
+
+const FX_MEMO: usize = 4096;
+
+impl FxMemo {
+    fn put_input(&mut self, key: u64, hash: u64) {
+        if self.inputs.len() >= FX_MEMO {
+            self.inputs.clear();
+        }
+        self.inputs.insert(key, hash);
+    }
+
+    fn put_bounds(&mut self, key: u64, b: [f64; 4]) {
+        if self.bounds.len() >= FX_MEMO {
+            self.bounds.clear();
+        }
+        self.bounds.insert(key, b);
     }
 }
 
@@ -1113,7 +1147,7 @@ impl Document {
         let vm = node.vector_mask.as_ref().filter(|m| m.enabled);
         key = mix_bytes(key, serde_json::to_string(&vm).expect("vector mask serializes").as_bytes());
         let vector = vm.map(|m| (m.clone(), level, (self.width, self.height)));
-        Some(Region { x0, y0, n, parts, masks, mask_default, vector, key })
+        Some(Region { x0, y0, n, level, parts, masks, mask_default, vector, key })
     }
 
     // Straight RGBA of a region with alpha times the masks, the raster and the vector mask plane.
@@ -1163,97 +1197,79 @@ impl Document {
             return (b, mix_bytes(3, serde_json::to_string(&s.path).expect("path serializes").as_bytes()));
         }
         match content_tiles(node) {
-            // ponytail: scans every tile per rendered display tile; cache by key if it shows up in profiles.
-            Some(tiles) => {
-                let key = tiles.iter().fold(1, |k, ((x, y), t)| k ^ mix(mix(t.id, *x as u64), *y as u64));
-                (tiles_bounds(tiles).map_or([0.0; 4], |b| b.map(|v| v as f64)), key)
-            }
+            Some(tiles) => self.tight_bounds(tiles),
             None => ([0.0, 0.0, self.width as f64, self.height as f64], 2),
         }
+    }
+
+    // Tight bounds of `tiles` (document px, zero when empty) and their key, memoized by tile ids.
+    fn tight_bounds(&self, tiles: &Tiles) -> ([f64; 4], u64) {
+        let key = tiles.iter().fold(1, |k, ((x, y), t)| k ^ mix(mix(mix(0xB0DE_5000_0000_0001, t.id), *x as u64), *y as u64));
+        let hit = self.fx_memo.borrow().bounds.get(&key).copied();
+        let b = hit.unwrap_or_else(|| {
+            let b = tiles_bounds(tiles).map_or([0.0; 4], |b| b.map(|v| v as f64));
+            self.fx_memo.borrow_mut().put_bounds(key, b);
+            b
+        });
+        (b, key)
     }
 
     /// A styled node (docs/M3.md section 5) on the program's tile: its padded region (the tile
     /// grown by the style's reach) goes through `render_layer`; the centre crops of the behind
     /// planes and the styled content become payload tiles drawn by `Draw` after the `Knockout`.
-    /// Level L scales every px parameter by 2^-L.
+    /// Level L scales every px parameter by 2^-L. Effects that never read the position render on
+    /// a layer-space grid instead (`fx_composed`), so a moved layer keeps its cached planes.
     fn emit_styled(&self, node: &Node, style: &Style, mode: Blend, prog: &mut Program) {
         let (level, tx, ty) = (prog.level, prog.tx, prog.ty);
         let k = 0.5f32.powi(level as i32);
         let style = Style { scale: style.scale * k, ..style.clone() };
         let pad = styles::reach(&style) as usize;
-        let n = TILE + 2 * pad;
-        let (x0, y0) = (tx as i64 * TILE as i64 - pad as i64, ty as i64 * TILE as i64 - pad as i64);
         let mode = if mode == Blend::PassThrough { Blend::Normal } else { mode };
-        let fill = node.fill;
         let group_knock = matches!(node.kind, Kind::Group(_)) && Document::knocks_out(node);
-        let Some(region) = self.styled_region(node, level, x0, y0, n) else { return };
-        let (bounds, bounds_key) = self.style_bounds(node, &style);
 
         let mut key = mix_bytes(0x57E1_ED00_0000_0002, serde_json::to_string(&style).expect("style serializes").as_bytes());
         key = mix_bytes(key, serde_json::to_string(&node.blending).expect("blending serializes").as_bytes());
         let light = [self.global_light.angle.to_bits(), self.global_light.altitude.to_bits()];
-        for v in [fill.to_bits(), mode.index() as u32, light[0], light[1], self.width, self.height, self.depth as u32] {
+        for v in [node.fill.to_bits(), mode.index() as u32, light[0], light[1], self.width, self.height, self.depth as u32] {
             key = mix(key, v as u64);
         }
         for p in &self.patterns {
             key = mix(mix(mix(mix_bytes(key, p.id.as_bytes()), p.blob), p.width as u64), p.height as u64);
         }
-        for v in [region.key, bounds_key, level as u64, tx as u64, ty as u64, group_knock as u64] {
-            key = mix(key, v);
-        }
-        let live = |present: bool, enabled: bool| style.enabled && present && enabled;
-        let behind: Vec<(Blend, f32)> = style
-            .drop_shadows
-            .iter()
-            .filter(|e| live(e.present, e.enabled))
-            .map(|e| (e.blend, e.opacity))
-            .chain(style.outer_glow.iter().filter(|e| live(e.present, e.enabled)).map(|e| (e.blend, e.opacity)))
-            .collect();
-        let keys: Vec<u64> =
-            (0..behind.len() + 1 + group_knock as usize).map(|i| mix(key, i as u64) | (1 << 63)).collect();
+        key = mix(mix(key, level as u64), group_knock as u64);
+        let behind = Document::behind_planes(&style);
+        let count = behind.len() + 1 + group_knock as usize;
         let random = style.drop_shadows.iter().chain(&style.inner_shadows).any(|e| e.noise > 0.0)
             || style.outer_glow.iter().chain(&style.inner_glow).any(|e| e.noise > 0.0 || e.jitter > 0.0);
-        let hits: Option<Vec<Arc<Pixels>>> =
-            if random { None } else { keys.iter().map(|k| self.tile_cache.borrow_mut().get(*k)).collect() };
-        let planes = hits.unwrap_or_else(|| {
-            let (content, mask, vector) = Document::region_pixels(&region);
-            let cx = styles::Ctx {
-                origin: [x0 as i32, y0 as i32],
-                level,
-                scale: 1.0,
-                light: &self.global_light,
-                patterns: &self.patterns,
-                blobs: &self.blobs,
-                bounds: bounds.map(|v| v * k as f64),
-                doc: [self.width as f64 * k as f64, self.height as f64 * k as f64],
-                hdr: self.depth == 32,
-            };
-            let layer = styles::Layer {
-                w: n,
-                h: n,
-                content: &content,
-                blend: mode,
-                fill,
-                blending: &node.blending,
-                layer_mask: mask.as_ref(),
-                vector_mask: vector.as_ref(),
-            };
-            let r = styles::render_padded(&style, &layer, &cx, pad);
-            debug_assert!(r.behind.iter().map(|b| (b.blend, b.opacity)).eq(behind.iter().copied()));
-            let crop = |p: &[[f32; 4]]| {
-                let v: Vec<f32> = (0..TILE).flat_map(|y| p[(y + pad) * n + pad..(y + pad) * n + pad + TILE].iter().flatten().copied()).collect();
-                Arc::new(Pixels::from_straight(self.depth, &v))
-            };
-            let mut planes: Vec<Arc<Pixels>> = r.behind.iter().map(|b| crop(&b.rgba)).chain([crop(&r.content)]).collect();
-            if group_knock {
-                planes.push(crop(&content));
+        #[cfg(test)]
+        let legacy = FX_LEGACY.with(|c| c.get());
+        #[cfg(not(test))]
+        let legacy = false;
+
+        let (keys, planes) = if !random && !legacy && Document::fx_layer_space(node, &style) {
+            let Some(c) = self.fx_composed(node, &style, mode, key, pad, count, level, tx, ty) else { return };
+            c
+        } else {
+            let n = TILE + 2 * pad;
+            let (x0, y0) = (tx as i64 * TILE as i64 - pad as i64, ty as i64 * TILE as i64 - pad as i64);
+            let Some(region) = self.styled_region(node, level, x0, y0, n) else { return };
+            let (bounds, bounds_key) = self.style_bounds(node, &style);
+            for v in [region.key, bounds_key, tx as u64, ty as u64] {
+                key = mix(key, v);
             }
-            if !random {
-                let mut cache = self.tile_cache.borrow_mut();
-                keys.iter().zip(&planes).for_each(|(k, p)| cache.insert(*k, p.clone(), level));
-            }
-            planes
-        });
+            let keys: Vec<u64> = (0..count).map(|i| mix(key, i as u64) | (1 << 63)).collect();
+            let hits: Option<Vec<Arc<Pixels>>> =
+                if random { None } else { keys.iter().map(|k| self.tile_cache.borrow_mut().get(*k)).collect() };
+            let planes = hits.unwrap_or_else(|| {
+                let planes = self.render_planes(node, &style, mode, &region, pad, bounds, group_knock);
+                if !random {
+                    let mut cache = self.tile_cache.borrow_mut();
+                    keys.iter().zip(&planes).for_each(|(k, p)| cache.insert(*k, p.clone(), level));
+                }
+                planes
+            });
+            (keys, planes)
+        };
 
         if Document::knocks_out(node) {
             // Layers knock out by their content tile and mask, groups by their composite.
@@ -1280,6 +1296,220 @@ impl Document {
             }
             prog.steps.push(s);
         }
+    }
+
+    // (blend, opacity) of the live planes drawn behind the content: drop shadows, then outer glow.
+    fn behind_planes(style: &Style) -> Vec<(Blend, f32)> {
+        let live = |present: bool, enabled: bool| style.enabled && present && enabled;
+        style
+            .drop_shadows
+            .iter()
+            .filter(|e| live(e.present, e.enabled))
+            .map(|e| (e.blend, e.opacity))
+            .chain(style.outer_glow.iter().filter(|e| live(e.present, e.enabled)).map(|e| (e.blend, e.opacity)))
+            .collect()
+    }
+
+    // The behind planes, the styled content (and for a knockout group its composite) of `region`'s
+    // centre tile, straight at the document depth. `bounds` are in document px.
+    #[allow(clippy::too_many_arguments)]
+    fn render_planes(
+        &self,
+        node: &Node,
+        style: &Style,
+        mode: Blend,
+        region: &Region,
+        pad: usize,
+        bounds: [f64; 4],
+        group_knock: bool,
+    ) -> Vec<Arc<Pixels>> {
+        #[cfg(test)]
+        FX_RENDERS.with(|c| c.set(c.get() + 1));
+        let (n, level) = (region.n, region.level);
+        let k = 0.5f32.powi(level as i32) as f64;
+        let (content, mask, vector) = Document::region_pixels(region);
+        let cx = styles::Ctx {
+            origin: [region.x0 as i32, region.y0 as i32],
+            level,
+            scale: 1.0,
+            light: &self.global_light,
+            patterns: &self.patterns,
+            blobs: &self.blobs,
+            bounds: bounds.map(|v| v * k),
+            doc: [self.width as f64 * k, self.height as f64 * k],
+            hdr: self.depth == 32,
+        };
+        let layer = styles::Layer {
+            w: n,
+            h: n,
+            content: &content,
+            blend: mode,
+            fill: node.fill,
+            blending: &node.blending,
+            layer_mask: mask.as_ref(),
+            vector_mask: vector.as_ref(),
+        };
+        let r = styles::render_padded(style, &layer, &cx, pad);
+        debug_assert!(r.behind.iter().map(|b| (b.blend, b.opacity)).eq(Document::behind_planes(style)));
+        let crop = |p: &[[f32; 4]]| {
+            let v: Vec<f32> = (0..TILE).flat_map(|y| p[(y + pad) * n + pad..(y + pad) * n + pad + TILE].iter().flatten().copied()).collect();
+            Arc::new(Pixels::from_straight(self.depth, &v))
+        };
+        let mut planes: Vec<Arc<Pixels>> = r.behind.iter().map(|b| crop(&b.rgba)).chain([crop(&r.content)]).collect();
+        if group_knock {
+            planes.push(crop(&content));
+        }
+        planes
+    }
+
+    // Whether a style's planes depend on the layer's pixels and bounds alone, not on where it sits:
+    // noise and jitter (checked by the caller), knockout, a vector mask, inner shadows (clamped at
+    // the canvas), gradients laid out on the document and unlinked patterns read the position.
+    fn fx_layer_space(node: &Node, style: &Style) -> bool {
+        let on = |present: bool, enabled: bool| present && enabled;
+        let positioned = |f: &FillContent| match f {
+            FillContent::Gradient(g) => !g.align_with_layer,
+            FillContent::Pattern(p) => !p.linked,
+            FillContent::Solid(_) => false,
+        };
+        let bevel = style.bevel.as_ref().is_some_and(|b| on(b.present, b.enabled));
+        matches!(node.kind, Kind::Pixel(_) | Kind::Smart(_) | Kind::Text(_))
+            && !Document::knocks_out(node)
+            && !node.vector_mask.as_ref().is_some_and(|m| m.enabled)
+            && !style.inner_shadows.iter().any(|e| on(e.present, e.enabled))
+            && !style.gradient_overlays.iter().any(|o| on(o.present, o.enabled) && !o.gradient.align_with_layer)
+            && !style.pattern_overlays.iter().any(|o| on(o.present, o.enabled) && !o.pattern.linked)
+            && !style.strokes.iter().any(|s| on(s.present, s.enabled) && positioned(&s.fill))
+            && !(bevel && style.texture.as_ref().is_some_and(|t| on(t.present, t.enabled) && !t.linked))
+    }
+
+    // The planes of document tile (tx, ty) copied from the layer-space windows under it: 256 px
+    // windows on a grid at the node's `fx_anchor`, so a move by whole level px reuses every window.
+    // Keys: `key` (the style side), each window's key and the tile's offset on the grid.
+    #[allow(clippy::too_many_arguments)]
+    fn fx_composed(
+        &self,
+        node: &Node,
+        style: &Style,
+        mode: Blend,
+        key: u64,
+        pad: usize,
+        count: usize,
+        level: u32,
+        tx: u32,
+        ty: u32,
+    ) -> Option<(Vec<u64>, Vec<Arc<Pixels>>)> {
+        let t = TILE as i64;
+        let [ax, ay] = node.fx_anchor.map(|v| (v as i64).div_euclid(1 << level));
+        let (rx, ry) = (tx as i64 * t - ax, ty as i64 * t - ay);
+        let mut ckey = mix(mix(key, rx.rem_euclid(t) as u64), ry.rem_euclid(t) as u64);
+        let mut out: Option<Vec<Pixels>> = None;
+        for v in ry.div_euclid(t)..=(ry + t - 1).div_euclid(t) {
+            for u in rx.div_euclid(t)..=(rx + t - 1).div_euclid(t) {
+                let window = self.fx_window(node, style, mode, key, pad, count, level, ax + u * t, ay + v * t);
+                ckey = mix(ckey, window.as_ref().map_or(0, |w| w.0));
+                let Some((_, planes)) = window else { continue };
+                let out = out.get_or_insert_with(|| (0..count).map(|_| Pixels::transparent(self.depth)).collect());
+                let (xa, xb) = ((u * t).max(rx), ((u + 1) * t).min(rx + t));
+                for y in (v * t).max(ry)..((v + 1) * t).min(ry + t) {
+                    let at = ((y - ry) * t + xa - rx) as usize;
+                    let from = ((y - v * t) * t + xa - u * t) as usize;
+                    out.iter_mut().zip(&planes).for_each(|(o, p)| o.copy_run(at, p, from, (xb - xa) as usize));
+                }
+            }
+        }
+        let keys = (0..count).map(|i| mix(ckey, i as u64) | (1 << 63)).collect();
+        Some((keys, out?.into_iter().map(Arc::new).collect()))
+    }
+
+    // One layer-space window: the planes of the 256 px tile at (x, y) level px, cached under the
+    // style key, a hash of the pixels and mask values the render reads and the layer bounds
+    // relative to the window. None when the node has no content there.
+    #[allow(clippy::too_many_arguments)]
+    fn fx_window(
+        &self,
+        node: &Node,
+        style: &Style,
+        mode: Blend,
+        key: u64,
+        pad: usize,
+        count: usize,
+        level: u32,
+        x: i64,
+        y: i64,
+    ) -> Option<(u64, Vec<Arc<Pixels>>)> {
+        let n = TILE + 2 * pad;
+        // A window that misses the content renders nothing, as it does at any other position.
+        let k = 0.5f32.powi(level as i32) as f64;
+        let ([cx, cy, cw, ch], _) = self.tight_bounds(content_tiles(node)?);
+        let (lo, hi) = (|v: f64| (v * k).floor() as i64, |v: f64| (v * k).ceil() as i64);
+        let (p, t) = (pad as i64, TILE as i64);
+        if cw <= 0.0 || x + t + p <= lo(cx) || hi(cx + cw) <= x - p || y + t + p <= lo(cy) || hi(cy + ch) <= y - p {
+            return None;
+        }
+        let region = self.styled_region(node, level, x - pad as i64, y - pad as i64, n)?;
+        let memo = mix(mix(mix(region.key, region.x0 as u64), region.y0 as u64), level as u64);
+        let hit = self.fx_memo.borrow().inputs.get(&memo).copied();
+        let input = hit.unwrap_or_else(|| {
+            let h = Document::region_hash(&region);
+            self.fx_memo.borrow_mut().put_input(memo, h);
+            h
+        });
+        // Key 0: no effect reads the bounds, so they stay out of the key.
+        let (bounds, bounds_key) = self.style_bounds(node, style);
+        let rel = if bounds_key == 0 { [0.0; 4] } else { [bounds[0] * k - x as f64, bounds[1] * k - y as f64, bounds[2] * k, bounds[3] * k] };
+        let wkey = rel.iter().fold(mix(key, input), |h, v| mix(h, v.to_bits()));
+        let keys: Vec<u64> = (0..count).map(|i| mix(wkey, i as u64) | (1 << 63)).collect();
+        let hits: Option<Vec<Arc<Pixels>>> = keys.iter().map(|k| self.tile_cache.borrow_mut().get(*k)).collect();
+        if let Some(planes) = hits {
+            return Some((wkey, planes));
+        }
+        let planes = self.render_planes(node, style, mode, &region, pad, bounds, false);
+        let mut cache = self.tile_cache.borrow_mut();
+        keys.iter().zip(&planes).for_each(|(k, p)| cache.insert(*k, p.clone(), level));
+        Some((wkey, planes))
+    }
+
+    // A hash of a region's content and mask values in window order, so the same pixels hash the
+    // same wherever the window sits and however its tiles are cut. Content tiles only.
+    fn region_hash(r: &Region) -> u64 {
+        let t = TILE as i64;
+        let n = r.n as i64;
+        let (mut h, mut hm) = (mix(0x57E1_ED00_0000_0003, r.n as u64), mix(0x57E1_ED00_0000_0004, r.n as u64));
+        for gy in r.y0..r.y0 + n {
+            let j = gy.div_euclid(t);
+            let row = ((gy - j * t) * t) as usize;
+            let mut gx = r.x0;
+            while gx < r.x0 + n {
+                let i = gx.div_euclid(t);
+                let end = ((i + 1) * t).min(r.x0 + n);
+                let (a, b) = (row + (gx - i * t) as usize, row + (end - i * t) as usize);
+                let px = r.parts.iter().find(|p| p.0 == i && p.1 == j).map(|p| match &p.2 {
+                    Part::Px(px) => px.as_ref(),
+                    Part::Prog(_) => unreachable!("layer-space effects read content tiles only"),
+                });
+                // Color under alpha 0 never shows and a move drops tiles holding only that, so it hashes as 0.
+                match px {
+                    Some(Pixels::U8(d)) => d[a * 4..b * 4].chunks_exact(4).for_each(|c| {
+                        h = mix(h, if c[3] == 0 { 0 } else { u32::from_le_bytes([c[0], c[1], c[2], c[3]]) as u64 })
+                    }),
+                    Some(Pixels::U16(d)) => d[a * 4..b * 4].chunks_exact(4).for_each(|c| {
+                        h = mix(h, if c[3] == 0 { 0 } else { c.iter().fold(0, |w, &v| w << 16 | v as u64) })
+                    }),
+                    Some(Pixels::F32(d)) => d[a * 4..b * 4].chunks_exact(4).for_each(|c| {
+                        let (lo, hi) = ((c[0].to_bits() as u64) << 32 | c[1].to_bits() as u64, (c[2].to_bits() as u64) << 32 | c[3].to_bits() as u64);
+                        h = if c[3] == 0.0 { mix(h, 0) } else { mix(mix(h, lo), hi) };
+                    }),
+                    _ => (a..b).for_each(|_| h = mix(h, 0)),
+                }
+                if let Some(def) = r.mask_default {
+                    let m = r.masks.iter().find(|m| m.0 == i && m.1 == j);
+                    (a..b).for_each(|s| hm = mix(hm, m.map_or(def, |m| m.2.mask_f32(s)).to_bits() as u64));
+                }
+                gx = end;
+            }
+        }
+        mix(h, hm)
     }
 
     fn emit_list(&self, nodes: &[Node], prog: &mut Program) {

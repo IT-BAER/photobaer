@@ -1209,7 +1209,8 @@ impl Document {
             return Ok(());
         }
         if vector {
-            return self.offset_vector_layer(id, dx, dy);
+            self.offset_vector_layer(id, dx, dy)?;
+            return self.shift_fx_anchor(id, dx, dy);
         }
         // The shifted tiles must stay within the coordinates a manifest may store.
         let node = self.node(id)?;
@@ -1235,7 +1236,15 @@ impl Document {
             let moved = self.shift_tiles(&tiles, dx, dy, Some(default));
             self.node_mut(id)?.mask.as_mut().expect("checked").tiles = moved;
         }
-        self.offset_linked_vector_mask(id, dx, dy)
+        self.offset_linked_vector_mask(id, dx, dy)?;
+        self.shift_fx_anchor(id, dx, dy)
+    }
+
+    // The layer-space effect grid follows the layer, so its cached effect planes stay valid.
+    fn shift_fx_anchor(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), String> {
+        let a = &mut self.node_mut(id)?.fx_anchor;
+        *a = [a[0].wrapping_add(dx), a[1].wrapping_add(dy)];
+        Ok(())
     }
 
     fn offset_linked_vector_mask(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), String> {

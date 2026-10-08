@@ -20,6 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Move tool starts dragging a layer with effects sooner: the drag begins with a sharp image of the view
   and the whole layer follows (on a 3273 x 2992 px layer with three effects at 100 %, about 0.1 s instead of
   0.35 s until the layer moves with the pointer).
+- Layer effects stay cached when a layer moves: shadows, glows, strokes, bevels, satin and overlays render on a
+  grid that moves with the layer, so after a drop only the newly uncovered parts render again (on a 4000 x
+  4000 px document at 100 %, 0.2 to 0.6 s instead of 1.3 to 1.8 s until the view is sharp again). Effects that
+  depend on where the layer sits (noise, inner shadows, knockout, vector masks, gradients aligned to the
+  document, unlinked patterns) still render per tile.
+
+### Fixed
+
+- A Move tool drag that starts right after the previous one, while that one is still landing, is no longer
+  ignored: it starts as soon as the previous move is committed.
+- Clicking or starting to drag a layer with effects with the Move tool no longer flashes a doubled, darker
+  shadow: the floating layer shows only once the view has lifted the layer out.
 
 ## [0.5.0] - 2026-10-08
 

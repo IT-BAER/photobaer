@@ -283,6 +283,8 @@ export function useMoveTool(c: MoveToolCtx) {
     };
     type Box4 = [number, number, number, number];
     let drag: Drag | null = null;
+    // A press while the previous drag still lands (its last step not yet on screen) starts after that commit.
+    let queued: { g: Drag; e: ToolPointerEvent } | null = null;
 
     // What a gesture moves, or null (after a message) when it cannot start. Nudges pass no point.
     async function plan(pt: [number, number] | null, alt: boolean, auto: boolean): Promise<Plan | null> {
@@ -377,18 +379,30 @@ export function useMoveTool(c: MoveToolCtx) {
         return;
       }
       if (!g.end && !g.failed) return;
-      if (drag === g) drag = null;
-      v!.hold(false);
       overlayRef.current?.setGuides([]);
       if (g.float) { overlayRef.current?.setImage(null); overlayRef.current?.setAntsMatrix(null); }
       redrawOverlay();
       const p = g.plan!;
-      run(null, () => (g.failed || g.end === 'cancel' ? cancel(p) : commit(p)));
+      release(g, run(null, () => (g.failed || g.end === 'cancel' ? cancel(p) : commit(p))));
+    }
+    // Ends `g`; a queued press becomes the drag and starts once `landed` (the commit) settles.
+    function release(g: Drag, landed: Promise<unknown> = Promise.resolve()) {
+      if (drag === g) drag = null;
+      v!.hold(false);
+      const q = queued;
+      queued = null;
+      if (!q) return;
+      drag = q.g;
+      void landed.then(() => {
+        if (drag !== q.g) return;
+        v!.hold(true);
+        void start(q.g, q.e);
+      });
     }
     async function start(g: Drag, e: ToolPointerEvent) {
       const o = toolOptionsRef.current;
       const p = await plan(g.origin, e.altKey, !!o.autoSelect !== (e.ctrlKey || e.metaKey));
-      if (!p) { if (drag === g) { drag = null; v!.hold(false); } return; }
+      if (!p) { if (drag === g) release(g); return; }
       g.plan = p;
       try {
         const d = await begin(p);
@@ -410,6 +424,8 @@ export function useMoveTool(c: MoveToolCtx) {
           const top = over && sourceImage(over), up = above && sourceImage(above), upOver = above?.over && sourceImage(above.over);
           g.float = { ...img, clip: [0, 0, info.width, info.height], ...(top ? { over: top } : {}), ...(up ? { above: { ...up, ...(upOver ? { over: upOver } : {}) } } : {}) };
           show(info);
+          // The float image shows only once the view has the layer lifted out, else the layer draws twice.
+          await v!.drawn(info.version);
         }
       } catch (err) {
         setError((err as Error).message);
@@ -422,18 +438,19 @@ export function useMoveTool(c: MoveToolCtx) {
 
     v.onPointer = e => {
       if (e.type === 'down') {
-        if (drag) return;
+        if ((drag && !drag.end) || queued) return;
         const g: Drag = {
           origin: [e.x, e.y], pos: [e.x, e.y], shift: e.shiftKey, plan: null, ready: false, busy: false, failed: false,
           want: [0, 0], sent: [0, 0], end: null, moving: { x: 0, y: 0, w: 0, h: 0 }, tx: [], ty: [], lock: { x: null, y: null }, grid: [undefined, undefined],
           float: null, settled: false, patching: false, asked: [null, null], pending: false,
         };
+        if (drag) { queued = { g, e }; return; }
         drag = g;
         v.hold(true);
         void start(g, e);
         return;
       }
-      const g = drag;
+      const g = queued?.g ?? drag;
       if (!g || g.end) return;
       g.pos = [e.x, e.y];
       g.shift = e.shiftKey;
@@ -443,7 +460,7 @@ export function useMoveTool(c: MoveToolCtx) {
     };
     // Escape ends the drag like a pointer cancel; the pointer events that follow are ignored.
     const onKey = (e: KeyboardEvent) => {
-      const g = drag;
+      const g = queued?.g ?? drag;
       if (e.key !== 'Escape' || !g || g.end) return;
       e.preventDefault();
       g.end = 'cancel';
@@ -465,6 +482,7 @@ export function useMoveTool(c: MoveToolCtx) {
       v.onPointer = () => {};
       window.removeEventListener('keydown', onKey);
       moveKeysRef.current = null;
+      queued = null;
       const g = drag;
       drag = null;
       if (g) { g.end = 'cancel'; pump(g); }

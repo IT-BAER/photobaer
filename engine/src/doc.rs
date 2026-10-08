@@ -34,6 +34,9 @@ mod m3_tests;
 #[cfg(test)]
 #[path = "doc_m4_tests.rs"]
 mod m4_tests;
+#[cfg(test)]
+#[path = "doc_fx_cache_tests.rs"]
+mod fx_cache_tests;
 #[path = "filter_run.rs"]
 mod filter_run;
 #[path = "apply_image.rs"]
@@ -674,6 +677,8 @@ pub struct Node {
     pub vector_mask: Option<VectorMask>,
     /// Only on a top-level group (D14).
     pub artboard: Option<Artboard>,
+    /// Origin of the layer-space effect grid in document px: moves with the layer, never stored.
+    pub fx_anchor: [i32; 2],
 }
 
 impl Node {
@@ -693,6 +698,7 @@ impl Node {
             blending: Blending::default(),
             vector_mask: None,
             artboard: None,
+            fx_anchor: [0, 0],
         }
     }
 
@@ -855,6 +861,8 @@ pub struct Document {
     tile_cache: Arc<RefCell<TileCache>>,
     // Compiled `Adjust` data by params key: (opcode, data key, data); none = neutral.
     adjust_cache: RefCell<HashMap<u64, Option<(u32, u64, Arc<Vec<f32>>)>>>,
+    // Layer-space effect inputs and layer bounds by content key (compositor `FxMemo`).
+    fx_memo: RefCell<FxMemo>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -917,6 +925,7 @@ impl Document {
             loading: None,
             tile_cache: Arc::new(RefCell::new(TileCache::default())),
             adjust_cache: RefCell::default(),
+            fx_memo: RefCell::default(),
         })
     }
 

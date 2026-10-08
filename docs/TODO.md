@@ -76,3 +76,15 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 - Status bar: document size (flattened / with layers), units selector.
 - Help: Keyboard Shortcuts reference, System Info.
 - Video layers and the Timeline panel last; drop if nobody needs them.
+
+## Move performance
+- Check the layer-space effect cache in Chrome at 100 % zoom on a large styled layer: drag start and view settle
+  under 0.5 s, no console errors (measured only in the Node worker harness so far).
+- Effects of fill, shape and group layers, and effects that read the position (noise, inner shadows, knockout,
+  vector masks, document-aligned gradients, unlinked patterns), still render per document tile after a move.
+- A regression test for color under alpha 0 in a PSD layer (the hash treats it as 0; seen only on a PSD).
+- GPU layer effects: decide after measuring the cache in the browser.
+- Layer-space effect cache: memoize the layer bounds once per document tile (each window folds over all content
+  tiles today); widen `fx_layer_space` only together with `region_hash`, which accepts content tiles only.
+- Move tool queued drag: a cancelled queued press still sends begin and cancel; a failed drag without an end
+  drops presses until it lands.

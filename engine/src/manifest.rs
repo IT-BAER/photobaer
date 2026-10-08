@@ -485,6 +485,7 @@ impl Document {
             }),
             tile_cache: Arc::new(RefCell::new(TileCache::default())),
             adjust_cache: RefCell::default(),
+            fx_memo: RefCell::default(),
         })
     }
 
@@ -779,6 +780,7 @@ fn build_nodes(in_nodes: &[NodeIn<Coord>], path: &mut Vec<usize>, ctx: &mut Load
             blending,
             vector_mask: n.vector_mask.clone(),
             artboard: n.artboard.clone(),
+            fx_anchor: [0, 0],
         });
     }
     Ok(out)
