@@ -10,26 +10,10 @@
 
 A free, open-source online photo editor and Photoshop alternative. Open [photobaer.com](https://photobaer.com) and start editing: no account, no upload, no install. It works offline, keeps your files on your device and opens and saves PSD files.
 
-<table>
-  <tr>
-    <td width="25%" valign="top">
-      <h3>⌨️ Photoshop habits work</h3>
-      Same menus, shortcuts, tools and panel names. Ctrl+J duplicates a layer, Ctrl+M opens Curves.
-    </td>
-    <td width="25%" valign="top">
-      <h3>🔒 Your files stay local</h3>
-      Nothing is uploaded. Works offline, installs as an app and autosaves open documents in the browser.
-    </td>
-    <td width="25%" valign="top">
-      <h3>🗂️ Layered PSD</h3>
-      Opens and saves PSD with groups, masks, adjustment layers, layer styles and smart objects.
-    </td>
-    <td width="25%" valign="top">
-      <h3>🌍 12 languages</h3>
-      Menus and tools use Photoshop's own names in each language, from German to Japanese.
-    </td>
-  </tr>
-</table>
+- ⌨️ **Photoshop habits work.** Same menus, shortcuts, tools and panel names. Ctrl+J duplicates a layer, Ctrl+M opens Curves.
+- 🔒 **Your files stay local.** Nothing is uploaded. Works offline, installs as an app and autosaves open documents in the browser.
+- 🗂️ **Layered PSD.** Opens and saves PSD with groups, masks, adjustment layers, layer styles and smart objects.
+- 🌍 **12 languages.** Menus and tools use Photoshop's own names in each language, from German to Japanese.
 
 <p align="center"><img src="docs/demo/photobaer-demo.gif" alt="photobaer in action: editing a layered document in the browser" width="900"></p>
 
