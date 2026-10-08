@@ -2210,6 +2210,10 @@
     "Ctrl+0"
    ],
    [
+    "Fit Layer(s) on Screen",
+    "Fit Layer(s) on Screen"
+   ],
+   [
     "Fit Artboard on Screen",
     "Fit Artboard on Screen"
    ],
@@ -2217,6 +2221,18 @@
     "100%",
     "100%",
     "Ctrl+1"
+   ],
+   [
+    "200%",
+    "200%"
+   ],
+   [
+    "Print Size",
+    "Print Size"
+   ],
+   [
+    "Flip Horizontal",
+    "✓ Flip Horizontal"
    ],
    [
     "Reset rotation",
@@ -2227,6 +2243,17 @@
     "Hide selection edges",
     "Hide selection edges",
     "Ctrl+H"
+   ],
+   [
+    "Show",
+    "Show",
+    "›",
+    [
+     [
+      "Layer Edges",
+      "✓ Layer Edges"
+     ]
+    ]
    ],
    [
     "Hide Rulers",

@@ -47,11 +47,12 @@ export interface Tick { value: number; pos: number; major: boolean }
 
 // Ticks along one axis: `pxPerUnit` screen px per unit, `originPx` the screen position of unit 0,
 // `spanPx` the ruler's CSS length. Every 5th step is major (labelled); others are minor (unlabelled).
+// A negative `pxPerUnit` (flipped view) runs the units right to left.
 export function ticksFor(pxPerUnit: number, originPx: number, spanPx: number, minPx = 50): Tick[] {
-  if (!(pxPerUnit > 0)) return [];
-  const step = tickStep(pxPerUnit, minPx);
-  const uMin = (0 - originPx) / pxPerUnit;
-  const uMax = (spanPx - originPx) / pxPerUnit;
+  if (!(Math.abs(pxPerUnit) > 0)) return [];
+  const step = tickStep(Math.abs(pxPerUnit), minPx);
+  const ua = (0 - originPx) / pxPerUnit, ub = (spanPx - originPx) / pxPerUnit;
+  const uMin = Math.min(ua, ub), uMax = Math.max(ua, ub);
   const start = Math.floor(uMin / step) * step;
   const out: Tick[] = [];
   for (let u = start; u <= uMax + step; u += step) {
@@ -112,7 +113,7 @@ export class Rulers {
     if (this.#showRulers) {
       const originX = docToScreen(flat, 0, 0, cssW, cssH)[0];
       const originY = docToScreen(flat, 0, 0, cssW, cssH)[1];
-      const xPerUnit = view.zoom * unitToPx(1, this.#unit, this.#resolution, docW);
+      const xPerUnit = (view.flip ? -1 : 1) * view.zoom * unitToPx(1, this.#unit, this.#resolution, docW);
       const yPerUnit = view.zoom * unitToPx(1, this.#unit, this.#resolution, docH);
       this.#drawAxis(this.#top, ticksFor(xPerUnit, originX, cssW), cssW, RULER_THICKNESS, dpr, false, this.#pointer?.[0] === undefined ? null : originX + this.#pointer![0] * xPerUnit);
       this.#drawAxis(this.#left, ticksFor(yPerUnit, originY, cssH), cssH, RULER_THICKNESS, dpr, true, this.#pointer?.[1] === undefined ? null : originY + this.#pointer![1] * yPerUnit);

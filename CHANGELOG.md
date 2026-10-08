@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- View > 200%, Print Size, Fit Layer(s) on Screen, Flip Horizontal (mirrors the view only, tools, rulers and
+  overlays follow it) and Show > Layer Edges (outlines the selected layers).
 - Layer > Layer Mask with Reveal All, Hide All, Reveal Selection, Hide Selection, From Transparency and Apply;
   Layer > Hide Layers (Ctrl+,), Lock Layers… (Ctrl+/) and Arrange > Reverse; Select > All Layers (Alt+Ctrl+A),
   Find Layers (Alt+Shift+Ctrl+F) and Isolate Layers. The Layers panel filter can also filter by name.

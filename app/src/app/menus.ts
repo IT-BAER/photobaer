@@ -27,6 +27,7 @@ import type { Recent } from './files.ts';
 import type { ModeDialogKind } from '../ModeDialog.tsx';
 import type { ColorDialogKind } from '../ColorDialog.tsx';
 import { DEFAULT_VIEW, PROOF_PRESETS, presetSetup, type ViewState } from './proof.ts';
+import { printSizeZoom } from '../view.ts';
 import { BUILTIN_WORKSPACES, workspaceLabel, type WorkspaceState } from './workspaces.ts';
 import type { ArrangeMode, MatchKind } from './arrange.ts';
 
@@ -73,6 +74,7 @@ export interface MenuCtx {
   showGradients: boolean; setShowGradients: SetState<boolean>;
   showRulers: boolean; setShowRulers: SetState<boolean>; showPixelGrid: boolean; setShowPixelGrid: SetState<boolean>;
   showGuides: boolean; setShowGuides: SetState<boolean>; showGrid: boolean; setShowGrid: SetState<boolean>;
+  showLayerEdges: boolean; setShowLayerEdges: SetState<boolean>; flipped: boolean; fitLayers: () => void;
   workspace: WorkspaceState; chooseWorkspace: (name: string) => void; openWorkspaceDialog: (mode: 'save' | 'delete') => void;
   resetCurrentWorkspace: () => void; toggleWorkspaceLock: () => void;
   arrangeMode: ArrangeMode; chooseArrangement: (mode: ArrangeMode) => void; matchArrangement: (kind: MatchKind) => void;
@@ -141,7 +143,7 @@ export function buildMenus(c: MenuCtx) {
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, cursorPrefsDialog, snap, setSnap, openArtboard, activeArtboard,
-    selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
+    showLayerEdges, setShowLayerEdges, flipped, fitLayers, selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
     workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
     arrangeMode, chooseArrangement, matchArrangement, openDefine, canDefineShape, purge, openLockLayers, selectAllLayers, findLayers, isolated, toggleIsolate,
@@ -505,6 +507,10 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Zoom out`), keys: 'Ctrl+-', run: () => { setMenu(null); viewer.current?.zoomBy(0.5); }, off: !has },
       { ...tl(msg`Fit on screen`), keys: 'Ctrl+0', run: () => { setMenu(null); viewer.current?.fit(); }, off: !has },
       {
+        ...tl(msg`Fit Layer(s) on Screen`), run: () => { setMenu(null); fitLayers(); },
+        off: !selectedNodes.some(n => ['pixel', 'smart', 'shape', 'text', 'group'].includes(n.kind)),
+      },
+      {
         ...tl(msg`Fit Artboard on Screen`), off: !activeArtboard, run: () => {
           setMenu(null);
           const r = activeArtboard?.artboard?.rect;
@@ -512,8 +518,16 @@ export function buildMenus(c: MenuCtx) {
         },
       },
       { ...tl(msg`100%`), keys: 'Ctrl+1', run: () => { setMenu(null); viewer.current?.actualPixels(); }, off: !has },
+      { ...tl(msg`200%`), run: () => { setMenu(null); const v = viewer.current; v?.zoomTo(2 / v.dpr); }, off: !has },
+      { ...tl(msg`Print Size`), run: () => { setMenu(null); if (doc?.resolution) viewer.current?.zoomTo(printSizeZoom(doc.resolution)); }, off: !doc?.resolution },
+      { ...tl(msg`Flip Horizontal`, flipped), run: () => { setMenu(null); viewer.current?.toggleFlip(); }, off: !has },
       { ...tl(msg`Reset rotation`), keys: 'Esc', run: () => { setMenu(null); viewer.current?.resetRotation(); }, off: !has },
       { ...tl(showAnts ? msg`Hide selection edges` : msg`Show selection edges`), keys: 'Ctrl+H', run: () => { setMenu(null); setShowAnts(v => !v); }, off: !has },
+      {
+        ...tl(msg`Show`), keys: '›', run: () => {}, sub: [
+          { ...tl(msg`Layer Edges`, showLayerEdges), run: () => { setMenu(null); setShowLayerEdges(v => !v); } },
+        ],
+      },
       { ...tl(showRulers ? msg`Hide Rulers` : msg`Show Rulers`), keys: 'Ctrl+R', run: () => { setMenu(null); setShowRulers(v => !v); } },
       { ...tl(showGuides ? msg`Hide Guides` : msg`Show Guides`), keys: 'Ctrl+;', run: () => { setMenu(null); setShowGuides(v => !v); }, off: !has },
       { ...tl(doc?.guidesLocked ? msg`Unlock Guides` : msg`Lock Guides`), keys: 'Ctrl+Alt+;', run: () => run(null, () => client.call('setGuidesLocked', !doc?.guidesLocked)), off: !has },

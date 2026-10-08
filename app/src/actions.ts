@@ -20,7 +20,7 @@ export const LAYER_ARGS: Record<string, string[]> = {
   setLocks: ['0[]'], setVisibility: ['0[]'], newGuidesFromShape: ['0[]'], artboardFromGroup: ['0'], artboardFromLayers: ['0[]'], editArtboard: ['0'],
   setVectorMask: ['0'], fillPath: ['2'], strokePath: ['2'], luminance: ['0'], fillShape: ['0'], setShapes: ['0[].id'], combineShapes: ['0[]'],
   pathfinder: ['0'], mergeShapeComponents: ['0[]'], rasterizeLayers: ['1[]'], vectorMaskEdit: ['0[].id'], layerCode: ['0'],
-  snapTargets: ['0'], movingBounds: ['0'], typeBegin: ['0.id', '0.above'], typeLayout: ['0'], typeSet: ['0'], typeConvert: ['0[]'],
+  snapTargets: ['0'], movingBounds: ['0'], layersBounds: ['0[]'], typeBegin: ['0.id', '0.above'], typeLayout: ['0'], typeSet: ['0'], typeConvert: ['0[]'],
   typeWorkPath: ['0'], typeToShape: ['0[]'], moveLayerBegin: ['0'], movePixelsBegin: ['0'], transformBegin: ['0'], transformAgain: ['0'],
   rotateExact: ['0'], autoAlign: ['0[]'], autoBlend: ['0[]'], setProps: ['0'], addMask: ['0'], deleteMask: ['0'], addMaskFromSelection: ['0'], maskFromTransparency: ['0'], applyMask: ['0'], defringe: ['0'], removeMatte: ['0'], colorDecontaminate: ['0'], newFillLayer: ['0'],
   setFillContent: ['0[]'], newAdjustmentLayer: ['0'], setAdjustment: ['0'], adjust: ['0'], rasterizeFill: ['0'], setLayerStyle: ['0'],

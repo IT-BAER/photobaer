@@ -4499,3 +4499,20 @@ test('convertColor: RGB to the working CMYK and Gray and back; Grayscale documen
   const [own] = await conv([0.5, 0.5, 0.5], 'rgb', 'gray');
   assert.ok(Math.abs(own - 0.2140 ** (1 / 2.2)) < 0.01, `document Gray Gamma 2.2: ${own}`);
 });
+
+test('layersBounds unions the content bounds of the given layers, null when none has pixels', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('copy', 1, false, false);
+  const a = (await call('paste', 1, 'inPlace', null)).result as Pasted;
+  await call('select', { kind: 'rect', x: 40, y: 30, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('copy', 1, false, false);
+  const b = (await call('paste', a.created, 'inPlace', null)).result as Pasted;
+  assert.deepEqual((await call('layersBounds', [a.created])).result, [4, 4, 8, 8]);
+  assert.deepEqual((await call('layersBounds', [a.created, b.created])).result, [4, 4, 40, 30]);
+  const empty = (await call('addLayer', b.created)).result as { created: number };
+  assert.equal((await call('layersBounds', [empty.created])).result, null);
+  assert.equal((await call('layersBounds', [])).result, null);
+});

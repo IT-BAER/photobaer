@@ -366,6 +366,10 @@ msgstr "2:3"
 msgid "2. Start with this prompt"
 msgstr "2. 다음 프롬프트로 시작"
 
+#: app/src/app/menus.ts
+msgid "200%"
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
 msgstr "3 x 3 평균"
@@ -4746,6 +4750,10 @@ msgid "Fit Artboard on Screen"
 msgstr "화면 크기에 맞게 대지 조정"
 
 #: app/src/app/menus.ts
+msgid "Fit Layer(s) on Screen"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Fit on screen"
 msgstr "화면 크기에 맞게 조정"
 
@@ -6435,6 +6443,10 @@ msgstr "레이어 내용 옵션"
 #: app/src/app/menus.ts
 msgid "Layer Content Options…"
 msgstr "레이어 내용 옵션…"
+
+#: app/src/app/menus.ts
+msgid "Layer Edges"
+msgstr ""
 
 #: app/src/LayersPanel.tsx
 msgid "Layer filter"
@@ -9138,6 +9150,10 @@ msgid "Print production. The wider Adobe RGB working space keeps colors a press 
 msgstr "인쇄 출력용입니다. 더 넓은 Adobe RGB 작업 공간은 sRGB로는 표현할 수 없지만 인쇄기로는 인쇄할 수 있는 색상을 유지하며, 모든 불일치에 대해 확인합니다."
 
 #: app/src/app/menus.ts
+msgid "Print Size"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Print…"
 msgstr "인쇄…"
 
@@ -10760,6 +10776,10 @@ msgstr "짧은 선"
 #: app/src/filters/GalleryStack.tsx
 msgid "Short Strokes"
 msgstr "짧은 획"
+
+#: app/src/app/menus.ts
+msgid "Show"
+msgstr ""
 
 #: app/src/i18n/history.ts
 msgid "Show {effect}"

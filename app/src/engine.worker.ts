@@ -854,6 +854,18 @@ async function decodeFile(file: File): Promise<{ e: Engine; name: string; warnin
   return { e, name: base, warnings: [] };
 }
 
+function unionBounds(e: ReturnType<typeof need>, ids: number[]): Box | null {
+  const tree = JSON.parse(e.layers_json()) as LayerNode[];
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const pid of ids.flatMap(id => collectPixelIds(tree, id))) {
+    const b = e.layer_bounds(pid) as Box | null;
+    if (!b) continue;
+    x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]);
+    x1 = Math.max(x1, b[0] + b[2]); y1 = Math.max(y1, b[1] + b[3]);
+  }
+  return x0 === Infinity ? null : [x0, y0, x1 - x0, y1 - y0];
+}
+
 const api = {
   async init(names?: Record<string, string>) {
     if (names) nameBases = names;
@@ -2148,16 +2160,13 @@ const api = {
   // Union of the content bounds of every pixel layer under `id` (itself included), or null when
   // none has any pixels. The moving rect for snapping and for the union offset bounding box.
   movingBounds(id: number) {
-    const e = need();
-    const tree = JSON.parse(e.layers_json()) as LayerNode[];
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const pid of collectPixelIds(tree, id)) {
-      const b = e.layer_bounds(pid) as [number, number, number, number] | null;
-      if (!b) continue;
-      x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]);
-      x1 = Math.max(x1, b[0] + b[2]); y1 = Math.max(y1, b[1] + b[3]);
-    }
-    return x0 === Infinity ? null : [x0, y0, x1 - x0, y1 - y0];
+    return unionBounds(need(), [id]);
+  },
+
+  // Union of the content bounds of the layers `ids` (groups by their pixel layers), or null when none
+  // has any pixels (View > Fit Layer(s) on Screen, Show > Layer Edges).
+  layersBounds(ids: number[]) {
+    return unionBounds(need(), ids);
   },
 
   // Move tool auto-select: the topmost visible pixel layer with a non-transparent pixel at (x, y),
@@ -3927,18 +3936,18 @@ async function handle(id: number, op: keyof Api, args: unknown[]) {
 }
 
 // Ops that may run while a stroke is open without committing it (they never touch the document or history).
-const STROKE_OPS = new Set<keyof Api>(['cloneSample', 'strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'patternPixels']);
-const PREVIEW_OPS = new Set<keyof Api>(['applyImage', 'cloneSample', 'fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels',
+const STROKE_OPS = new Set<keyof Api>(['layersBounds', 'cloneSample', 'strokeBegin', 'strokeTo', 'strokeEnd', 'strokeCancel', 'brushPreview', 'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'patternPixels']);
+const PREVIEW_OPS = new Set<keyof Api>(['layersBounds', 'applyImage', 'cloneSample', 'fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels',
   'layerThumbs', 'navigatorThumb', 'histogram', 'documentHistogram', 'documentSample', 'channelMask', 'layerMask']);
 // An open move session commits before any other op, so history never sees a half move; panel refreshes only read.
-const MOVE_OPS = new Set<keyof Api>(['cloneSample', 'moveFloat', 'moveFloatPatch', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels',
+const MOVE_OPS = new Set<keyof Api>(['layersBounds', 'cloneSample', 'moveFloat', 'moveFloatPatch', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels',
   'layerThumbs', 'navigatorThumb', 'histogram']);
 // App-scope font calls: never refused for a stale document id and never close an open session.
 const FONT_OPS = new Set<keyof Api>(['fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing', 'glyphCells', 'glyphAlternates', 'fontCovers']);
 // An open type session commits before any other op; the UI hears it as typeCommitted.
-const TYPE_OPS = new Set<keyof Api>(['typeBegin', 'typeUpdate', 'typeCommit', 'typeCancel', 'typeHit', 'typeLayout', 'sample', 'snapTargets', 'patternPixels']);
+const TYPE_OPS = new Set<keyof Api>(['layersBounds', 'typeBegin', 'typeUpdate', 'typeCommit', 'typeCancel', 'typeHit', 'typeLayout', 'sample', 'snapTargets', 'patternPixels']);
 // An open transform session is cancelled by any other op: only the UI knows its current matrix.
-const TRANSFORM_OPS = new Set<keyof Api>(['transformRefine', 'transformUnrefine', 'transformCommit', 'transformCancel', 'transformWarp', 'sample', 'snapTargets', 'movingBounds', 'selectionAt', 'patternPixels']);
+const TRANSFORM_OPS = new Set<keyof Api>(['layersBounds', 'transformRefine', 'transformUnrefine', 'transformCommit', 'transformCancel', 'transformWarp', 'sample', 'snapTargets', 'movingBounds', 'selectionAt', 'patternPixels']);
 
 // Before `op`: commits or cancels the sessions it may not run inside.
 function settle(op: string) {

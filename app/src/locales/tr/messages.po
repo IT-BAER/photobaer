@@ -366,6 +366,10 @@ msgstr "2:3"
 msgid "2. Start with this prompt"
 msgstr "2. Bu istemle başla"
 
+#: app/src/app/menus.ts
+msgid "200%"
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
 msgstr "3 x 3 Ortalama"
@@ -4746,6 +4750,10 @@ msgid "Fit Artboard on Screen"
 msgstr "Çalışma Yüzeyini Ekrana Sığdır"
 
 #: app/src/app/menus.ts
+msgid "Fit Layer(s) on Screen"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Fit on screen"
 msgstr "Ekrana sığdır"
 
@@ -6435,6 +6443,10 @@ msgstr "Katman İçeriği Seçenekleri"
 #: app/src/app/menus.ts
 msgid "Layer Content Options…"
 msgstr "Katman İçeriği Seçenekleri…"
+
+#: app/src/app/menus.ts
+msgid "Layer Edges"
+msgstr ""
 
 #: app/src/LayersPanel.tsx
 msgid "Layer filter"
@@ -9138,6 +9150,10 @@ msgid "Print production. The wider Adobe RGB working space keeps colors a press 
 msgstr "Baskı üretimi. Geniş Adobe RGB çalışma alanı, bir baskı makinesinin basabildiği ancak sRGB'nin basamadığı renkleri korur ve her uyuşmazlık için soru sorulur."
 
 #: app/src/app/menus.ts
+msgid "Print Size"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Print…"
 msgstr "Yazdır…"
 
@@ -10760,6 +10776,10 @@ msgstr "Kısa Çizgiler"
 #: app/src/filters/GalleryStack.tsx
 msgid "Short Strokes"
 msgstr "Kısa Vuruşlar"
+
+#: app/src/app/menus.ts
+msgid "Show"
+msgstr ""
 
 #: app/src/i18n/history.ts
 msgid "Show {effect}"

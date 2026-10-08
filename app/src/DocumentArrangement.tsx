@@ -23,7 +23,7 @@ interface Props {
 interface TileMeta { key: string; version: number; width: number; height: number; maxLevel: number; data: ArrayBuffer | null }
 
 function sameView(a: View, b: View) {
-  return a.zoom === b.zoom && a.rot === b.rot && a.cx === b.cx && a.cy === b.cy;
+  return a.zoom === b.zoom && a.rot === b.rot && a.cx === b.cx && a.cy === b.cy && !!a.flip === !!b.flip;
 }
 
 function BackgroundPane({ docKey, view, revision, saveView, onError }: {

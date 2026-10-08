@@ -369,6 +369,10 @@ msgstr "2:3"
 msgid "2. Start with this prompt"
 msgstr "2. 次のプロンプトで開始します"
 
+#: app/src/app/menus.ts
+msgid "200%"
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
 msgstr "3 x 3 ピクセル範囲の平均"
@@ -4749,6 +4753,10 @@ msgid "Fit Artboard on Screen"
 msgstr "アートボードを画面サイズに合わせる"
 
 #: app/src/app/menus.ts
+msgid "Fit Layer(s) on Screen"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Fit on screen"
 msgstr "画面サイズに拡大"
 
@@ -6438,6 +6446,10 @@ msgstr "レイヤー内容のオプション"
 #: app/src/app/menus.ts
 msgid "Layer Content Options…"
 msgstr "レイヤー内容のオプション…"
+
+#: app/src/app/menus.ts
+msgid "Layer Edges"
+msgstr ""
 
 #: app/src/LayersPanel.tsx
 msgid "Layer filter"
@@ -9141,6 +9153,10 @@ msgid "Print production. The wider Adobe RGB working space keeps colors a press 
 msgstr "印刷用です。広い Adobe RGB 作業用スペースでは、印刷機で再現できても sRGB では表現できないカラーが保持され、不一致があるたびに確認されます。"
 
 #: app/src/app/menus.ts
+msgid "Print Size"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Print…"
 msgstr "プリント…"
 
@@ -10763,6 +10779,10 @@ msgstr "短い線"
 #: app/src/filters/GalleryStack.tsx
 msgid "Short Strokes"
 msgstr "短いストローク"
+
+#: app/src/app/menus.ts
+msgid "Show"
+msgstr ""
 
 #: app/src/i18n/history.ts
 msgid "Show {effect}"

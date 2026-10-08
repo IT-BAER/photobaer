@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { docToScreen, screenToDoc, zoomAt, panBy, fit, levelFor, visibleTiles, clipMatrix, invalidateEntries, visibleRect, tweenView, edgeScroll, type View } from './view.ts';
+import { docToScreen, screenToDoc, zoomAt, panBy, fit, levelFor, visibleTiles, clipMatrix, invalidateEntries, visibleRect, tweenView, edgeScroll, printSizeZoom, type View } from './view.ts';
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 const W = 800, H = 600;
@@ -132,4 +132,57 @@ test('edgeScroll pans toward the pointer outside the viewport while the document
   const edge: View = { zoom: 1, rot: 0, cx: 1000 - W / 2 - 2, cy: 500 };
   const [ex] = edgeScroll(edge, W + 300, 300, W, H, 1000, 1000);
   near(ex, -2);
+});
+
+test('a flipped view mirrors the screen left-right and still inverts exactly', () => {
+  const v: View = { zoom: 0.37, rot: 0.9, cx: 1234, cy: 567, flip: true };
+  const [dx, dy] = screenToDoc(v, 100, 50, W, H);
+  const [sx, sy] = docToScreen(v, dx, dy, W, H);
+  near(sx, 100); near(sy, 50);
+  // Unrotated: a document point right of the center shows left of the viewport center.
+  const flat: View = { zoom: 2, rot: 0, cx: 100, cy: 100, flip: true };
+  const [px, py] = docToScreen(flat, 110, 105, W, H);
+  near(px, W / 2 - 20); near(py, H / 2 + 10);
+  const plain = docToScreen({ ...flat, flip: false }, 110, 105, W, H);
+  near(px, W - plain[0]); near(py, plain[1]);
+});
+
+test('zoomAt keeps the anchor fixed and the flip on in a flipped view', () => {
+  const v: View = { zoom: 0.5, rot: 0.3, cx: 400, cy: 300, flip: true };
+  const before = screenToDoc(v, 700, 100, W, H);
+  const z = zoomAt(v, 4, 700, 100, W, H);
+  assert.equal(z.flip, true);
+  const after = screenToDoc(z, 700, 100, W, H);
+  near(after[0], before[0]); near(after[1], before[1]);
+  const m = tweenView(v, z, 0.5, 700, 100, W, H);
+  assert.equal(m.flip, true);
+  const mid = screenToDoc(m, 700, 100, W, H);
+  near(mid[0], before[0]); near(mid[1], before[1]);
+});
+
+test('panBy in a flipped view still moves the image with the pointer', () => {
+  const v: View = { zoom: 2, rot: Math.PI / 2, cx: 50, cy: 50, flip: true };
+  const d = screenToDoc(v, 300, 200, W, H);
+  const s = docToScreen(panBy(v, 30, -10), d[0], d[1], W, H);
+  near(s[0], 330); near(s[1], 190);
+  // Unrotated: dragging right moves the view center toward higher document x (mirrored from normal).
+  const flat: View = { zoom: 1, rot: 0, cx: 50, cy: 50, flip: true };
+  near(panBy(flat, 10, 0).cx, 60);
+  near(panBy({ ...flat, flip: false }, 10, 0).cx, 40);
+});
+
+test('clipMatrix and visibleRect follow the flip', () => {
+  const v: View = { zoom: 0.8, rot: 0.4, cx: 200, cy: 100, flip: true };
+  const m = clipMatrix(v, W, H);
+  const ap = (x: number, y: number) => [m[0] * x + m[1] * y + m[2], m[3] * x + m[4] * y + m[5]];
+  const [dx, dy] = screenToDoc(v, 0, 0, W, H);
+  const [cx, cy] = ap(dx, dy);
+  near(cx, -1); near(cy, 1);
+  assert.deepEqual(visibleRect({ zoom: 2, rot: 0, cx: 50, cy: 50, flip: true }, 100, 60, 1000, 1000), [25, 35, 50, 30]);
+});
+
+test('printSizeZoom shows one document inch as one CSS inch', () => {
+  near(printSizeZoom(96), 1);
+  near(printSizeZoom(300), 0.32);
+  near(printSizeZoom(72), 4 / 3);
 });

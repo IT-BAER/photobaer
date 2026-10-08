@@ -1,10 +1,13 @@
 export const TILE = 256;
 
-// zoom: CSS px per document px; rot: radians clockwise on screen; (cx, cy): document point at the viewport center.
-export interface View { zoom: number; rot: number; cx: number; cy: number }
+// zoom: CSS px per document px; rot: radians clockwise on screen; (cx, cy): document point at the viewport center;
+// flip: View > Flip Horizontal, a left-right mirror of the screen about the viewport center, after the rotation.
+export interface View { zoom: number; rot: number; cx: number; cy: number; flip?: boolean }
+
+const mirror = (v: View) => (v.flip ? -1 : 1);
 
 export function screenToDoc(v: View, sx: number, sy: number, w: number, h: number): [number, number] {
-  const px = (sx - w / 2) / v.zoom, py = (sy - h / 2) / v.zoom;
+  const px = (mirror(v) * (sx - w / 2)) / v.zoom, py = (sy - h / 2) / v.zoom;
   const c = Math.cos(v.rot), s = Math.sin(v.rot);
   return [v.cx + c * px + s * py, v.cy - s * px + c * py];
 }
@@ -12,7 +15,7 @@ export function screenToDoc(v: View, sx: number, sy: number, w: number, h: numbe
 export function docToScreen(v: View, dx: number, dy: number, w: number, h: number): [number, number] {
   const x = dx - v.cx, y = dy - v.cy;
   const c = Math.cos(v.rot), s = Math.sin(v.rot);
-  return [w / 2 + v.zoom * (c * x - s * y), h / 2 + v.zoom * (s * x + c * y)];
+  return [w / 2 + mirror(v) * v.zoom * (c * x - s * y), h / 2 + v.zoom * (s * x + c * y)];
 }
 
 export function zoomAt(v: View, factor: number, sx: number, sy: number, w: number, h: number): View {
@@ -29,13 +32,13 @@ export function tweenView(a: View, b: View, t: number, sx: number, sy: number, w
   if (t >= 1) return b;
   const zoom = a.zoom * (b.zoom / a.zoom) ** t, rot = a.rot + (b.rot - a.rot) * t;
   const [ax, ay] = screenToDoc(a, sx, sy, w, h), [bx, by] = screenToDoc(b, sx, sy, w, h);
-  const [ox, oy] = screenToDoc({ zoom, rot, cx: 0, cy: 0 }, sx, sy, w, h);
-  return { zoom, rot, cx: ax + (bx - ax) * t - ox, cy: ay + (by - ay) * t - oy };
+  const [ox, oy] = screenToDoc({ zoom, rot, cx: 0, cy: 0, flip: b.flip }, sx, sy, w, h);
+  return { zoom, rot, cx: ax + (bx - ax) * t - ox, cy: ay + (by - ay) * t - oy, flip: b.flip };
 }
 
 export function panBy(v: View, dsx: number, dsy: number): View {
   const c = Math.cos(v.rot), s = Math.sin(v.rot);
-  const px = dsx / v.zoom, py = dsy / v.zoom;
+  const px = (mirror(v) * dsx) / v.zoom, py = dsy / v.zoom;
   return { ...v, cx: v.cx - (c * px + s * py), cy: v.cy - (-s * px + c * py) };
 }
 
@@ -55,6 +58,11 @@ export function edgeScroll(v: View, px: number, py: number, w: number, h: number
 
 export function fit(docW: number, docH: number, w: number, h: number): View {
   return { zoom: 0.95 * Math.min(w / docW, h / docH), rot: 0, cx: docW / 2, cy: docH / 2 };
+}
+
+// View > Print Size: one document inch at `resolution` ppi spans one CSS inch (96 CSS px).
+export function printSizeZoom(resolution: number): number {
+  return 96 / resolution;
 }
 
 export function levelFor(zoom: number, dpr: number, maxLevel: number): number {
@@ -114,7 +122,7 @@ export function invalidateEntries(cache: Map<string, { version: number }>, versi
 // Row-major 2x3 affine matrix from document coordinates to WebGPU/WebGL clip space.
 export function clipMatrix(v: View, w: number, h: number): number[] {
   const c = Math.cos(v.rot), s = Math.sin(v.rot);
-  const ax = 2 * v.zoom / w, ay = -2 * v.zoom / h;
+  const ax = mirror(v) * 2 * v.zoom / w, ay = -2 * v.zoom / h;
   const m = [ax * c, -ax * s, 0, ay * s, ay * c, 0];
   m[2] = -(m[0] * v.cx + m[1] * v.cy);
   m[5] = -(m[3] * v.cx + m[4] * v.cy);

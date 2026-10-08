@@ -90,6 +90,7 @@ export class SelectionOverlay {
   #clone: CloneOverlay | null = null;
   #guides: [number, number, number, number][] = [];
   #box: BoxRect | null = null;
+  #edges: [number, number, number, number][] = [];
   #transform: TransformBox | null = null;
   #image: TransformImage | null = null;
   #antsMatrix: number[] | null = null;
@@ -148,6 +149,11 @@ export class SelectionOverlay {
 
   setGuides(lines: [number, number, number, number][]) {
     this.#guides = lines;
+  }
+
+  // View > Show > Layer Edges: the doc rects [x, y, w, h] of the selected layers' content.
+  setLayerEdges(boxes: [number, number, number, number][]) {
+    this.#edges = boxes;
   }
 
   // Move tool transform controls: the target's bounding box with 8 handles (no drag from them).
@@ -241,6 +247,7 @@ export class SelectionOverlay {
     else if (this.#ants && this.#antsMatrix) this.#strokeSegments(this.#mapSegments(this.#ants, this.#antsScale, this.#antsMatrix), view, cssW, cssH, dpr, 1);
     else if (this.#ants) this.#strokeSegments(this.#segmentsFor(this.#ants), view, cssW, cssH, dpr, this.#antsScale);
     if (this.#preview) this.#strokeSegments(this.#previewSegments(this.#preview), view, cssW, cssH, dpr, 1);
+    if (this.#edges.length) this.#drawEdges(view, cssW, cssH, dpr);
     if (this.#box) this.#drawBox(this.#box, view, cssW, cssH, dpr);
     if (this.#transform) this.#drawTransform(this.#transform, view, cssW, cssH, dpr);
     if (this.#warp) this.#drawWarp(this.#warp, view, cssW, cssH, dpr);
@@ -322,6 +329,22 @@ export class SelectionOverlay {
     ctx.stroke();
     ctx.lineWidth = w;
     ctx.strokeStyle = '#fff';
+    ctx.stroke();
+  }
+
+  // Thin blue outlines, 1 CSS px, following rotation and flip.
+  #drawEdges(view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.beginPath();
+    for (const [x, y, w, h] of this.#edges) {
+      const p = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([a, b]) => docToScreen(view, a, b, cssW, cssH));
+      p.forEach(([a, b], i) => (i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)));
+      ctx.closePath();
+    }
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.strokeStyle = '#2f7cff';
     ctx.stroke();
   }
 

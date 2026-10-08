@@ -366,6 +366,10 @@ msgstr "2:3"
 msgid "2. Start with this prompt"
 msgstr "2. 从此提示开始"
 
+#: app/src/app/menus.ts
+msgid "200%"
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
 msgstr "3 x 3 平均"
@@ -4746,6 +4750,10 @@ msgid "Fit Artboard on Screen"
 msgstr "按屏幕大小缩放画板"
 
 #: app/src/app/menus.ts
+msgid "Fit Layer(s) on Screen"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Fit on screen"
 msgstr "按屏幕大小缩放"
 
@@ -6435,6 +6443,10 @@ msgstr "图层内容选项"
 #: app/src/app/menus.ts
 msgid "Layer Content Options…"
 msgstr "图层内容选项…"
+
+#: app/src/app/menus.ts
+msgid "Layer Edges"
+msgstr ""
 
 #: app/src/LayersPanel.tsx
 msgid "Layer filter"
@@ -9138,6 +9150,10 @@ msgid "Print production. The wider Adobe RGB working space keeps colors a press 
 msgstr "印刷制作。较宽的 Adobe RGB 工作空间可保留印刷机能够印出但 sRGB 无法表示的颜色，每次不匹配都会询问。"
 
 #: app/src/app/menus.ts
+msgid "Print Size"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Print…"
 msgstr "打印…"
 
@@ -10760,6 +10776,10 @@ msgstr "短直线"
 #: app/src/filters/GalleryStack.tsx
 msgid "Short Strokes"
 msgstr "短描边"
+
+#: app/src/app/menus.ts
+msgid "Show"
+msgstr ""
 
 #: app/src/i18n/history.ts
 msgid "Show {effect}"

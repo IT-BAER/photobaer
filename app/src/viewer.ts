@@ -100,11 +100,12 @@ export class Viewer {
   setDoc(d: ViewDoc | null, view?: View) {
     // A canvas size change (crop, trim, rotation, their undo) refits like a new document.
     const fresh = !d || !this.#doc || d.docId !== this.#doc.docId || d.width !== this.#doc.width || d.height !== this.#doc.height;
+    const flip = d && this.#doc?.docId === d.docId ? this.view.flip : undefined;
     this.#doc = d;
     if (fresh) {
       this.#resetCache();
       for (const w of this.#waiters.splice(0)) w.done();
-      if (d) this.setView(view ?? fit(d.width, d.height, this.#w, this.#h));
+      if (d) this.setView(view ?? { ...fit(d.width, d.height, this.#w, this.#h), flip });
     }
     this.redraw();
   }
@@ -147,10 +148,14 @@ export class Viewer {
     if (this.#anim) this.redraw();
   }
 
-  fit() { if (this.#doc) this.animateView(fit(this.#doc.width, this.#doc.height, this.#w, this.#h)); }
-  // Frames a document rect `[x, y, w, h]` (View > Fit Artboard on Screen).
-  fitRect(x: number, y: number, w: number, h: number) { this.animateView({ ...fit(w, h, this.#w, this.#h), cx: x + w / 2, cy: y + h / 2 }); }
-  actualPixels() { this.animateView({ ...this.view, zoom: 1 / this.dpr }); }
+  fit() { if (this.#doc) this.animateView({ ...fit(this.#doc.width, this.#doc.height, this.#w, this.#h), flip: this.view.flip }); }
+  // Frames a document rect `[x, y, w, h]` (View > Fit Artboard on Screen, Fit Layer(s) on Screen).
+  fitRect(x: number, y: number, w: number, h: number) { this.animateView({ ...fit(w, h, this.#w, this.#h), cx: x + w / 2, cy: y + h / 2, flip: this.view.flip }); }
+  // Zooms to `zoom` CSS px per document px about the viewport center.
+  zoomTo(zoom: number) { this.animateView({ ...(this.#anim?.to ?? this.view), zoom }); }
+  actualPixels() { this.zoomTo(1 / this.dpr); }
+  // View > Flip Horizontal: mirrors the view about the viewport center; the document is unchanged.
+  toggleFlip() { this.setView({ ...(this.#anim?.to ?? this.view), flip: !this.view.flip }); }
   // The active tool (hand/zoom/rotate drive the viewer; anything else forwards through onPointer).
   setTool(t: ViewerTool) { this.#tool = t; }
   // A spring-loaded key override, e.g. held Space; null restores the active tool's own behavior.
@@ -399,7 +404,8 @@ export class Viewer {
       if (mode === 'rotate') {
         const a0 = Math.atan2(last[1] - this.#h / 2, last[0] - this.#w / 2);
         const a1 = Math.atan2(p[1] - this.#h / 2, p[0] - this.#w / 2);
-        this.setView({ ...this.view, rot: this.view.rot + a1 - a0 });
+        // A mirrored screen turns the other way, so the document still follows the pointer.
+        this.setView({ ...this.view, rot: this.view.rot + (this.view.flip ? a0 - a1 : a1 - a0) });
       } else if (mode === 'hand') {
         this.setView(panBy(this.view, p[0] - last[0], p[1] - last[1]));
       } else if (mode !== 'zoom' && mode !== 'zoomOut') {

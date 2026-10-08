@@ -369,6 +369,10 @@ msgstr "2:3"
 msgid "2. Start with this prompt"
 msgstr "2. Comienza con este mensaje"
 
+#: app/src/app/menus.ts
+msgid "200%"
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
 msgstr "Media de 3 por 3"
@@ -4749,6 +4753,10 @@ msgid "Fit Artboard on Screen"
 msgstr "Ajustar mesa de trabajo en pantalla"
 
 #: app/src/app/menus.ts
+msgid "Fit Layer(s) on Screen"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Fit on screen"
 msgstr "Ajustar en pantalla"
 
@@ -6438,6 +6446,10 @@ msgstr "Opciones de contenido de capa"
 #: app/src/app/menus.ts
 msgid "Layer Content Options…"
 msgstr "Opciones de contenido de capa…"
+
+#: app/src/app/menus.ts
+msgid "Layer Edges"
+msgstr ""
 
 #: app/src/LayersPanel.tsx
 msgid "Layer filter"
@@ -9141,6 +9153,10 @@ msgid "Print production. The wider Adobe RGB working space keeps colors a press 
 msgstr "Producción de impresión. El espacio de trabajo Adobe RGB, más amplio, conserva colores que una imprenta puede imprimir pero sRGB no, y se pregunta por cada discrepancia."
 
 #: app/src/app/menus.ts
+msgid "Print Size"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Print…"
 msgstr "Imprimir…"
 
@@ -10763,6 +10779,10 @@ msgstr "Líneas cortas"
 #: app/src/filters/GalleryStack.tsx
 msgid "Short Strokes"
 msgstr "Trazos cortos"
+
+#: app/src/app/menus.ts
+msgid "Show"
+msgstr ""
 
 #: app/src/i18n/history.ts
 msgid "Show {effect}"

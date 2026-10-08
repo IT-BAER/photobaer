@@ -366,6 +366,10 @@ msgstr ""
 msgid "2. Start with this prompt"
 msgstr ""
 
+#: app/src/app/menus.ts
+msgid "200%"
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
 msgstr ""
@@ -4746,6 +4750,10 @@ msgid "Fit Artboard on Screen"
 msgstr ""
 
 #: app/src/app/menus.ts
+msgid "Fit Layer(s) on Screen"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Fit on screen"
 msgstr ""
 
@@ -6434,6 +6442,10 @@ msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Layer Content Options…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Layer Edges"
 msgstr ""
 
 #: app/src/LayersPanel.tsx
@@ -9138,6 +9150,10 @@ msgid "Print production. The wider Adobe RGB working space keeps colors a press 
 msgstr ""
 
 #: app/src/app/menus.ts
+msgid "Print Size"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Print…"
 msgstr ""
 
@@ -10759,6 +10775,10 @@ msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Short Strokes"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Show"
 msgstr ""
 
 #: app/src/i18n/history.ts

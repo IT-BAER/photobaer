@@ -282,6 +282,7 @@ export function App() {
   const [showPixelGrid, setShowPixelGrid] = useState(false);
   const [showGuides, setShowGuides] = useState(true);
   const [showGrid, setShowGrid] = useState(false);
+  const [showLayerEdges, setShowLayerEdges] = useState(false);
   setGridShown(showGrid);
   const [snap, setSnapState] = useState(snapSettings);
   const setSnap = (patch: Partial<SnapSettings>) => { setSnapSettings(patch); setSnapState(snapSettings()); };
@@ -1822,7 +1823,12 @@ export function App() {
     openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
-    showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, cursorPrefsDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openVanishingPoint: () => openVanishingPoint(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
+    showGuides, setShowGuides, showGrid, setShowGrid, showLayerEdges, setShowLayerEdges, flipped: !!fullView.flip,
+    fitLayers: () => {
+      const ids = selectedNodes.map(n => n.id);
+      client.call('layersBounds', ids).then(b => { if (b) viewer.current?.fitRect(b[0], b[1], b[2], b[3]); }, e => setError((e as Error).message));
+    },
+    newGuideDialog, newGuideLayoutDialog, cursorPrefsDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openVanishingPoint: () => openVanishingPoint(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems: typeMenuItems(typeCtx),
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
@@ -2206,6 +2212,22 @@ export function App() {
   useMoveTool({
     viewer, tool, docRef, activeRef, toolOptionsRef, setActive, setError, show, overlayRef, redrawOverlay, run, moveKeysRef, doc,
   });
+
+  // View > Show > Layer Edges: each selected layer's content bounds, refreshed on every document change.
+  const edgeIds = selectedNodes.map(n => n.id).join(',');
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    if (!showLayerEdges || !edgeIds) { overlay.setLayerEdges([]); redrawOverlay(); return; }
+    let alive = true;
+    Promise.all(edgeIds.split(',').map(id => client.call('layersBounds', [Number(id)]))).then(bs => {
+      if (!alive) return;
+      overlay.setLayerEdges(bs.filter(b => !!b) as [number, number, number, number][]);
+      redrawOverlay();
+    }, e => setError((e as Error).message));
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showLayerEdges, edgeIds, doc?.version]);
 
   // Show transform controls: the active layer's bounding box with 8 handles; hovering a handle
   // only shows a scale cursor.
