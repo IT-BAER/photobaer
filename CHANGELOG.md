@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-08
+
 ### Added
 
 - View > 200%, Print Size, Fit Layer(s) on Screen, Flip Horizontal (mirrors the view only, tools, rulers and
@@ -450,7 +452,9 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.4.1...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/IT-BAER/photobaer/compare/v0.4.2...v0.5.0
+[0.4.2]: https://github.com/IT-BAER/photobaer/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/IT-BAER/photobaer/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/IT-BAER/photobaer/compare/v0.3.8...v0.4.0
 [0.3.6]: https://github.com/IT-BAER/photobaer/compare/v0.3.5...v0.3.6
