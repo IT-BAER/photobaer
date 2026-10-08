@@ -464,6 +464,19 @@ impl Engine {
         self.0.doc.delete_mask(id).map_err(err)
     }
 
+    /// A layer mask from the selection (`hide`: inverted); deselects.
+    pub fn add_mask_from_selection(&mut self, id: u32, hide: bool) -> Result<(), JsError> {
+        self.0.doc.add_mask_from_selection(id, hide).map_err(err)
+    }
+
+    pub fn mask_from_transparency(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.mask_from_transparency(id).map_err(err)
+    }
+
+    pub fn apply_mask(&mut self, id: u32) -> Result<(), JsError> {
+        self.0.doc.apply_mask(id).map_err(err)
+    }
+
     /// `target` is "pixels" or "mask"; a mask fill uses the red channel as its value.
     pub fn fill(&mut self, id: u32, target: &str, r: u8, g: u8, b: u8, a: u8) -> Result<(), JsError> {
         let t = Target::parse(target).map_err(err)?;

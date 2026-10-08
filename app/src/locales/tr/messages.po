@@ -685,6 +685,7 @@ msgstr "Tümü Büyük Harf"
 msgid "All changes saved locally"
 msgstr "Tüm değişiklikler yerel olarak kaydedildi"
 
+#: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 msgid "All Layers"
@@ -875,6 +876,11 @@ msgstr "Görünüm"
 msgid "Apply"
 msgstr "Uygula"
 
+#: app/src/app/menus.ts
+msgctxt "layer mask"
+msgid "Apply"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
 msgstr "{style} Uygula"
@@ -908,6 +914,10 @@ msgstr "Görüntü Uygula…"
 #: app/src/i18n/history.ts
 msgid "Apply Layer Comp"
 msgstr "Katman Kompozisyonunu Uygula"
+
+#: app/src/i18n/history.ts
+msgid "Apply Layer Mask"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -4630,6 +4640,14 @@ msgstr "Filtre Galerisi…"
 msgid "Filter layers by kind"
 msgstr "Katmanları türe göre filtrele"
 
+#: app/src/LayersPanel.tsx
+msgid "Filter layers by name"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Filter type"
+msgstr ""
+
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
 msgstr "Koyu ve Açık Renkleri Bul"
@@ -4638,6 +4656,10 @@ msgstr "Koyu ve Açık Renkleri Bul"
 #: app/src/i18n/choices.ts
 msgid "Find Edges"
 msgstr "Kenarları Bul"
+
+#: app/src/app/menus.ts
+msgid "Find Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4981,6 +5003,11 @@ msgstr "Soldan"
 #: app/src/filters/GalleryStack.tsx
 msgid "From The Right"
 msgstr "Sağdan"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "From Transparency"
+msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5491,6 +5518,7 @@ msgstr "Eylemleri Gizle"
 msgid "Hide Adjustments"
 msgstr "Ayarlamaları Gizle"
 
+#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "Tümünü Gizle"
@@ -5545,6 +5573,11 @@ msgid "Hide Layer Effects"
 msgstr "Katman Efektlerini Gizle"
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Hide Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Hide Measurement Log"
 msgstr "Ölçüm Günlüğünü Gizle"
 
@@ -5575,6 +5608,10 @@ msgstr "Özellikleri Gizle"
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
 msgstr "Cetvelleri Gizle"
+
+#: app/src/app/menus.ts
+msgid "Hide Selection"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -6166,6 +6203,10 @@ msgstr "IPA Uzantıları"
 msgid "Iris Blur"
 msgstr "İris Bulanıklaştırma"
 
+#: app/src/app/menus.ts
+msgid "Isolate Layers"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "Italic"
 msgstr "İtalik"
@@ -6221,6 +6262,11 @@ msgstr "Çekirdek"
 #: app/src/FileDialogs.tsx
 msgid "Keywords"
 msgstr "Anahtar Sözcükler"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Kind"
+msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6345,6 +6391,7 @@ msgstr "Katmanda dışa aktarılabilir piksel yok."
 msgid "Layer Knocks Out Drop Shadow"
 msgstr "Katman Alt Gölgeyi Gizler"
 
+#: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
 msgid "Layer Mask"
 msgstr "Katman Maskesi"
@@ -6834,6 +6881,15 @@ msgstr "Kılavuzları Kilitle"
 #: app/src/i18n/history.ts
 msgid "Lock Layer"
 msgstr "Katmanı Kilitle"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Lock Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Lock Layers…"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7536,6 +7592,11 @@ msgstr "Çoğalt"
 #: app/src/WorkspaceDialog.tsx
 msgid "Name"
 msgstr "Ad"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Name"
+msgstr ""
 
 #: app/src/VariablesDialogs.tsx
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
@@ -9686,15 +9747,25 @@ msgid "Reveal All"
 msgstr "Tümünü Göster"
 
 #: app/src/app/menus.ts
+msgid "Reveal Selection"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Revealing…"
 msgstr "Gösteriliyor…"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Reverse"
 msgstr "Ters"
+
+#: app/src/app/menus.ts
+msgctxt "arrange"
+msgid "Reverse"
+msgstr ""
 
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -10687,6 +10758,11 @@ msgstr "Katman Kompozisyonlarını Göster"
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
 msgstr "Katman Efektlerini Göster"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Show Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -12230,6 +12306,7 @@ msgstr "Dönüştürme seçenekleri"
 msgid "Transform Selection"
 msgstr "Seçimi Dönüştür"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx

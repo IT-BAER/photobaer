@@ -485,6 +485,81 @@ async function rectLayer(above: number, x: number, y: number, w: number, h: numb
   await call('selectCommand', 'deselect');
   return id;
 }
+test('setLocks takes the Lock Layers label', async () => {
+  const [, b, c] = await fourLayers();
+  const r = (await call('setLocks', [b, c], { transparency: true, pixels: false, position: true }, 'Lock Layers')).result as ArrDoc;
+  assert.equal(r.undoLabel, 'Lock Layers');
+  assert.deepEqual(r.layers.filter(n => n.id === b || n.id === c).map(n => n.locks.position), [true, true]);
+});
+
+test('setVisibility hides and shows every listed layer in one history step', async () => {
+  const [a, b, c] = await fourLayers();
+  type VisDoc = { layers: { id: number; visible: boolean }[]; undoLabel: string | null };
+  const hidden = (await call('setVisibility', [b, c], false)).result as VisDoc;
+  assert.equal(hidden.undoLabel, 'Hide Layers');
+  assert.deepEqual(hidden.layers.filter(n => !n.visible).map(n => n.id), [b, c]);
+  const shown = (await call('setVisibility', [b, c], true)).result as VisDoc;
+  assert.equal(shown.undoLabel, 'Show Layers');
+  assert.ok(shown.layers.every(n => n.visible));
+  await call('undo');
+  const u = (await call('undo')).result as VisDoc;
+  assert.ok(u.layers.every(n => n.visible), 'one undo per command');
+  assert.ok(u.layers.some(n => n.id === a));
+});
+
+test('arrangeNodes reverse flips the selected siblings in their slots, one step', async () => {
+  const [a, b, c, d] = await fourLayers();
+  const r = (await call('arrangeNodes', [a, c, d], 'reverse')).result as ArrDoc;
+  assert.deepEqual(r.layers.map(n => n.id), [d, b, c, a]);
+  assert.equal(r.undoLabel, 'Reverse');
+  assert.deepEqual(((await call('undo')).result as ArrDoc).layers.map(n => n.id), [a, b, c, d]);
+  const one = (await call('arrangeNodes', [b], 'reverse')).result as ArrDoc;
+  assert.equal(one.undoLabel, 'New Layer', 'one selected layer is a no-op without a step');
+});
+
+type MaskDoc = { layers: { id: number; mask: { enabled: boolean; default: number } | null }[]; undoLabel: string | null; selection: unknown; hasLastSelection: boolean };
+const maskOf = (d: MaskDoc, id: number) => d.layers.find(n => n.id === id)!.mask;
+
+test('addMaskFromSelection masks to the selection or its inverse and deselects, one step', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, [255, 255, 255, 255]);
+  const a = await rectLayer(1, 0, 0, 64, 64, [255, 0, 0, 255]);
+  for (const hide of [false, true]) {
+    await call('select', { kind: 'rect', x: 8, y: 8, w: 16, h: 16 }, 'new', false, 0, 'Rectangular Marquee');
+    const r = (await call('addMaskFromSelection', a, hide)).result as MaskDoc;
+    assert.equal(r.undoLabel, 'Add Layer Mask');
+    assert.equal(r.selection, null);
+    assert.equal(maskOf(r, a)!.default, hide ? 255 : 0);
+    const u = (await call('undo')).result as MaskDoc;
+    assert.equal(maskOf(u, a), null);
+    assert.notEqual(u.selection, null, 'undo restores the selection');
+  }
+  await call('selectCommand', 'deselect');
+  assert.ok((await call('addMaskFromSelection', a, false)).error, 'no selection is an error');
+});
+
+test('maskFromTransparency and applyMask are one step each and undo restores', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, [255, 255, 255, 255]);
+  const a = await rectLayer(1, 8, 8, 16, 16, [255, 0, 0, 255]);
+  const before = await composite();
+  const m = (await call('maskFromTransparency', a)).result as MaskDoc;
+  assert.equal(m.undoLabel, 'From Transparency');
+  assert.equal(maskOf(m, a)!.default, 0);
+  assert.ok(maxDiff(before, await composite()) <= 1, 'the mask hides what the alpha hid');
+  assert.ok((await call('maskFromTransparency', a)).error, 'a second mask is an error');
+  const ap = (await call('applyMask', a)).result as MaskDoc;
+  assert.equal(ap.undoLabel, 'Apply Layer Mask');
+  assert.equal(maskOf(ap, a), null);
+  assert.ok(maxDiff(before, await composite()) <= 1);
+  assert.ok((await call('applyMask', a)).error, 'no mask is an error');
+  const u1 = (await call('undo')).result as MaskDoc;
+  assert.equal(maskOf(u1, a)!.default, 0);
+  const u2 = (await call('undo')).result as MaskDoc;
+  assert.equal(maskOf(u2, a), null);
+  assert.ok(maxDiff(before, await composite()) <= 1);
+});
+
 async function mergeDoc() {
   await call('init');
   await call('newDoc', 64, 64, 8, [255, 255, 255, 255]);

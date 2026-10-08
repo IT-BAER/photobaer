@@ -783,6 +783,31 @@ export function ScaleEffectsDialog({ scaleEffectsDialog, node, run }: { scaleEff
   );
 }
 
+// Layer > Lock Layers: prefilled from the active layer, applied to every selected layer.
+export function LockLayersDialog({ lockLayersDialog, node, ids, run }: { lockLayersDialog: DialogRef; node: LayerNode | undefined; ids: number[]; run: Run }) {
+  const l = node?.locks;
+  return (
+    <dialog ref={lockLayersDialog}>
+      <form key={l ? `${node.id}/${l.transparency}/${l.pixels}/${l.position}` : ''} onSubmit={e => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        lockLayersDialog.current?.close();
+        const locks = { transparency: f.has('transparency'), pixels: f.has('pixels'), position: f.has('position') };
+        if (ids.length) run(null, () => client.call('setLocks', ids, locks, 'Lock Layers'));
+      }}>
+        <h2><Trans>Lock Layers</Trans></h2>
+        <label><input name="transparency" type="checkbox" defaultChecked={l?.transparency} /> <Trans>Transparency</Trans></label>
+        <label><input name="pixels" type="checkbox" defaultChecked={l?.pixels} /> <Trans>Pixels</Trans></label>
+        <label><input name="position" type="checkbox" defaultChecked={l?.position} /> <Trans>Position</Trans></label>
+        <div className="actions">
+          <button type="button" onClick={() => lockLayersDialog.current?.close()}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary"><Trans>OK</Trans></button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
 export function RotateDialog({ rotateDialog, run }: { rotateDialog: DialogRef; run: Run }) {
   return (
     <dialog ref={rotateDialog}>

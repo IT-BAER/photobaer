@@ -685,6 +685,7 @@ msgstr "全部大写字母"
 msgid "All changes saved locally"
 msgstr "所有更改已保存在本地"
 
+#: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 msgid "All Layers"
@@ -875,6 +876,11 @@ msgstr "外观"
 msgid "Apply"
 msgstr "应用"
 
+#: app/src/app/menus.ts
+msgctxt "layer mask"
+msgid "Apply"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
 msgstr "应用{style}"
@@ -908,6 +914,10 @@ msgstr "应用图像…"
 #: app/src/i18n/history.ts
 msgid "Apply Layer Comp"
 msgstr "应用图层复合"
+
+#: app/src/i18n/history.ts
+msgid "Apply Layer Mask"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -4630,6 +4640,14 @@ msgstr "滤镜库…"
 msgid "Filter layers by kind"
 msgstr "按类型过滤图层"
 
+#: app/src/LayersPanel.tsx
+msgid "Filter layers by name"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Filter type"
+msgstr ""
+
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
 msgstr "查找深色与浅色"
@@ -4638,6 +4656,10 @@ msgstr "查找深色与浅色"
 #: app/src/i18n/choices.ts
 msgid "Find Edges"
 msgstr "查找边缘"
+
+#: app/src/app/menus.ts
+msgid "Find Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4981,6 +5003,11 @@ msgstr "从左侧"
 #: app/src/filters/GalleryStack.tsx
 msgid "From The Right"
 msgstr "从右侧"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "From Transparency"
+msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5491,6 +5518,7 @@ msgstr "隐藏动作"
 msgid "Hide Adjustments"
 msgstr "隐藏调整"
 
+#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "全部隐藏"
@@ -5545,6 +5573,11 @@ msgid "Hide Layer Effects"
 msgstr "隐藏图层效果"
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Hide Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Hide Measurement Log"
 msgstr "隐藏测量记录"
 
@@ -5575,6 +5608,10 @@ msgstr "隐藏属性"
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
 msgstr "隐藏标尺"
+
+#: app/src/app/menus.ts
+msgid "Hide Selection"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -6166,6 +6203,10 @@ msgstr "国际音标扩展"
 msgid "Iris Blur"
 msgstr "光圈模糊"
 
+#: app/src/app/menus.ts
+msgid "Isolate Layers"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "Italic"
 msgstr "斜体"
@@ -6221,6 +6262,11 @@ msgstr "内核"
 #: app/src/FileDialogs.tsx
 msgid "Keywords"
 msgstr "关键字"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Kind"
+msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6345,6 +6391,7 @@ msgstr "图层没有可导出的像素。"
 msgid "Layer Knocks Out Drop Shadow"
 msgstr "图层挖空投影"
 
+#: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
 msgid "Layer Mask"
 msgstr "图层蒙版"
@@ -6834,6 +6881,15 @@ msgstr "锁定参考线"
 #: app/src/i18n/history.ts
 msgid "Lock Layer"
 msgstr "锁定图层"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Lock Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Lock Layers…"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7536,6 +7592,11 @@ msgstr "正片叠底"
 #: app/src/WorkspaceDialog.tsx
 msgid "Name"
 msgstr "名称"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Name"
+msgstr ""
 
 #: app/src/VariablesDialogs.tsx
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
@@ -9686,15 +9747,25 @@ msgid "Reveal All"
 msgstr "显示全部"
 
 #: app/src/app/menus.ts
+msgid "Reveal Selection"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Revealing…"
 msgstr "正在显示全部…"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Reverse"
 msgstr "反向"
+
+#: app/src/app/menus.ts
+msgctxt "arrange"
+msgid "Reverse"
+msgstr ""
 
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -10687,6 +10758,11 @@ msgstr "显示图层复合"
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
 msgstr "显示图层效果"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Show Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -12230,6 +12306,7 @@ msgstr "变换选项"
 msgid "Transform Selection"
 msgstr "变换选区"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx

@@ -87,6 +87,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (layerExport === 'as') triggerLayer('Export As…', e);
       else if (ctrl && e.altKey && k === 'n') trigger('New', e);
       else if (ctrl && e.altKey && !e.shiftKey && k === 'f') trigger('Last Filter', e);
+      else if (ctrl && e.altKey && e.shiftKey && k === 'f') triggerBy(l => l === 'Find Layers', e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 'f') trigger('Fade', e);
       else if (ctrl && !e.altKey && !e.shiftKey && k === 'f') { if (!t?.closest('textarea, [contenteditable]')) triggerBy(l => l === 'Search…', e); }
       else if (ctrl && k === 'tab') triggerBy(l => l === (e.shiftKey ? 'Previous Document' : 'Next Document'), e);
@@ -105,6 +106,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && k === 'z') trigger('Undo', e);
       else if (ctrl && e.shiftKey && e.altKey && k === 'a') trigger('Adaptive Wide Angle', e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 'a') trigger('Camera Raw Filter', e);
+      else if (ctrl && e.altKey && !e.shiftKey && k === 'a') triggerBy(l => l === 'All Layers', e);
       else if (ctrl && k === 'a') trigger('All', e);
       else if (ctrl && e.shiftKey && k === 'd') trigger('Reselect', e);
       else if (ctrl && k === 'd') trigger('Deselect', e);
@@ -153,6 +155,8 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && !e.altKey && e.shiftKey && k === 'e') trigger('Merge Visible', e);
       else if (ctrl && !e.altKey && k === 'e') triggerBy(l => l === 'Merge Down' || l === 'Merge Layers' || l === 'Merge Group', e);
       else if (ctrl && k === 'g') trigger('Group Layers', e);
+      else if (ctrl && !e.altKey && k === ',') triggerBy(l => l === 'Hide Layers' || l === 'Show Layers', e);
+      else if (ctrl && !e.altKey && k === '/') triggerBy(l => l === 'Lock Layers…', e);
       else if (ctrl && !e.altKey && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
         trigger(e.code === 'BracketRight' ? (e.shiftKey ? 'Bring to Front' : 'Bring Forward') : (e.shiftKey ? 'Send to Back' : 'Send Backward'), e);
       }

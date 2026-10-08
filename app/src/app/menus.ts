@@ -76,6 +76,7 @@ export interface MenuCtx {
   workspace: WorkspaceState; chooseWorkspace: (name: string) => void; openWorkspaceDialog: (mode: 'save' | 'delete') => void;
   resetCurrentWorkspace: () => void; toggleWorkspaceLock: () => void;
   arrangeMode: ArrangeMode; chooseArrangement: (mode: ArrangeMode) => void; matchArrangement: (kind: MatchKind) => void;
+  openLockLayers: () => void; selectAllLayers: () => void; findLayers: () => void; isolated: boolean; toggleIsolate: () => void;
   snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef; cursorPrefsDialog: DialogRef;
   openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null; selectedNodes: LayerNode[];
@@ -142,8 +143,18 @@ export function buildMenus(c: MenuCtx) {
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
     workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
-    arrangeMode, chooseArrangement, matchArrangement,
+    arrangeMode, chooseArrangement, matchArrangement, openLockLayers, selectAllLayers, findLayers, isolated, toggleIsolate,
   } = c;
+  const selectedIds = selectedNodes.map(n => n.id);
+  const allHidden = selectedNodes.length > 0 && selectedNodes.every(n => !n.visible);
+  const maskItems: Item[] = [
+    { ...tl(msg`Reveal All`), run: () => node && run(null, () => client.call('addMask', node.id, true)), off: !!node?.mask },
+    { ...tl(msg`Hide All`), run: () => node && run(null, () => client.call('addMask', node.id, false)), off: !!node?.mask },
+    { ...tl(msg`Reveal Selection`), run: () => node && run(null, () => client.call('addMaskFromSelection', node.id, false)), off: !!node?.mask || !doc?.selection },
+    { ...tl(msg`Hide Selection`), run: () => node && run(null, () => client.call('addMaskFromSelection', node.id, true)), off: !!node?.mask || !doc?.selection },
+    { ...tl(msg`From Transparency`), run: () => node && run(null, () => client.call('maskFromTransparency', node.id)), off: node?.kind !== 'pixel' || !!node.mask },
+    { ...tl(msg({ message: 'Apply', context: 'layer mask' })), run: () => node && run(null, () => client.call('applyMask', node.id)), off: node?.kind !== 'pixel' || !node.mask },
+  ];
   const workspaceTypeItems = typeItems.map(item => itemId(item) === 'Panels'
     ? { ...item, sub: item.sub?.map(panel => ({ ...panel, off: workspace.locked })) }
     : item);
@@ -307,11 +318,15 @@ export function buildMenus(c: MenuCtx) {
       },
       { ...tl(msg`Group Layers`), keys: 'Ctrl+G', run: groupLayers, off: !has },
       { ...tl(msg`Ungroup Layers`), keys: 'Shift+Ctrl+G', run: ungroupLayers, off: !has || node?.kind !== 'group' },
+      { ...tl(allHidden ? msg`Show Layers` : msg`Hide Layers`), keys: 'Ctrl+,', run: () => run(null, () => client.call('setVisibility', selectedIds, allHidden)), off: !has || !selectedNodes.length },
+      { ...tl(msg`Lock Layers…`), keys: 'Ctrl+/', run: openLockLayers, off: !has || !selectedNodes.length },
       { ...tl(msg`Lock All Layers in Group`), run: () => node && run(null, () => client.call('setLocks', flatNodes(node.children ?? []).map(n => n.id), { transparency: true, pixels: true, position: true })), off: !has || node?.kind !== 'group' },
       {
         ...tl(msg`Arrange`), keys: '›', sep: true, run: () => {}, off: !has || !selectedNodes.length, sub: ([
           ['front', msg`Bring to Front`, 'Shift+Ctrl+]'], ['forward', msg`Bring Forward`, 'Ctrl+]'], ['backward', msg`Send Backward`, 'Ctrl+['], ['back', msg`Send to Back`, 'Shift+Ctrl+['],
-        ] as const).map(([mode, label, keys]) => ({ ...tl(label), keys, run: () => run(null, () => client.call('arrangeNodes', selectedNodes.map(n => n.id), mode)) })),
+        ] as const).map<Item>(([mode, label, keys]) => ({ ...tl(label), keys, run: () => run(null, () => client.call('arrangeNodes', selectedIds, mode)) })).concat([
+          { ...tl(msg({ message: 'Reverse', context: 'arrange' })), sep: true, run: () => run(null, () => client.call('arrangeNodes', selectedIds, 'reverse')), off: selectedNodes.length < 2 },
+        ]),
       },
       ...([[msg`Align`, 1, ALIGN_ITEMS.slice(0, 6)], [msg`Distribute`, 3, ALIGN_ITEMS.slice(6)]] as const).map(([label, min, items]) => ({
         ...tl(label), keys: '›', run: () => {}, off: !has || selectedNodes.length < min,
@@ -327,6 +342,7 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Add Layer Mask`), run: addMask, off: !has || !!node?.mask },
       { ...tl(msg`Delete Layer Mask`), run: deleteMask, off: !has || !node?.mask },
       { ...tl(node?.mask?.enabled === false ? msg`Enable Layer Mask` : msg`Disable Layer Mask`), run: toggleMaskEnabled, off: !has || !node?.mask },
+      { ...tl(msg`Layer Mask`), keys: '›', run: () => {}, off: !has || !node, sub: maskItems },
       { ...tl(msg`Vector Mask`), keys: '›', run: () => {}, off: !doc || !selectedNodes.length, sub: doc ? vectorMaskItems(doc, selectedNodes, run) : [] },
       { ...tl(msg`Combine Shapes`), keys: '›', run: () => {}, off: !selectedNodes.some(n => n.kind === 'shape'), sub: combineItems(selectedNodes, run) },
       {
@@ -432,7 +448,10 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Deselect`), keys: 'Ctrl+D', run: () => run(null, () => client.call('selectCommand', 'deselect')), off: !doc?.selection },
       { ...tl(msg`Reselect`), keys: 'Shift+Ctrl+D', run: () => run(null, () => client.call('selectCommand', 'reselect')), off: !doc?.hasLastSelection },
       { ...tl(msg`Inverse`), keys: 'Shift+Ctrl+I', run: () => run(null, () => client.call('selectCommand', 'inverse')), off: !doc?.selection },
-      { ...tl(msg`Color Range…`), run: () => openColorRange(), off: !has },
+      { ...tl(msg`All Layers`), keys: 'Alt+Ctrl+A', sep: true, run: selectAllLayers, off: !has },
+      { ...tl(msg`Find Layers`), keys: 'Alt+Shift+Ctrl+F', run: () => { setMenu(null); findLayers(); }, off: !has },
+      { ...tl(msg`Isolate Layers`, isolated), run: toggleIsolate, off: !has || (!isolated && !selectedNodes.length) },
+      { ...tl(msg`Color Range…`), sep: true, run: () => openColorRange(), off: !has },
       { ...tl(msg`Border…`), run: () => openModify('border'), off: !doc?.selection },
       { ...tl(msg`Smooth…`), run: () => openModify('smooth'), off: !doc?.selection },
       { ...tl(msg`Expand…`), run: () => openModify('expand'), off: !doc?.selection },

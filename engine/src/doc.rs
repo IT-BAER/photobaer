@@ -54,6 +54,9 @@ mod m5_tests;
 #[cfg(test)]
 #[path = "retouch_tests.rs"]
 mod retouch_tests;
+#[cfg(test)]
+#[path = "doc_mask_tests.rs"]
+mod mask_tests;
 pub use transform::{Lift, Remap};
 pub use brush::EngineCore;
 use brush::*;
@@ -1210,6 +1213,128 @@ impl Document {
         let node = self.node_mut(id)?;
         if node.mask.take().is_none() {
             return Err(format!("node {id} has no mask"));
+        }
+        Ok(())
+    }
+
+    /// A new layer mask from the selection (`hide`: inverted), then deselects (keeping it for Reselect).
+    pub fn add_mask_from_selection(&mut self, id: u32, hide: bool) -> Result<(), String> {
+        self.check_idle()?;
+        if self.node(id)?.mask.is_some() {
+            return Err(format!("node {id} already has a mask"));
+        }
+        let sel = self.selection.clone().ok_or("there is no selection")?;
+        let (default, tiles) = if hide {
+            let mut inv = Tiles::default();
+            for (tx, ty) in sel.tiles.coords() {
+                let px = sel.tiles.get(tx, ty).expect("listed").px.inverted();
+                inv.put(tx, ty, Some(Tile { id: self.alloc_tile_id(), px: Arc::new(px) }));
+            }
+            (max_value(self.depth) - sel.default, inv)
+        } else {
+            (sel.default, sel.tiles)
+        };
+        self.node_mut(id)?.mask = Some(Mask { enabled: true, default, tiles });
+        self.last_selection = self.selection.take();
+        Ok(())
+    }
+
+    fn check_mask_pixel_layer(&self, id: u32) -> Result<&Node, String> {
+        let node = self.node(id)?;
+        if !matches!(node.kind, Kind::Pixel(_)) {
+            return Err(format!("node {id} is not a pixel layer"));
+        }
+        if node.locks.pixels {
+            return Err("layer pixels are locked".into());
+        }
+        Ok(node)
+    }
+
+    /// Layer Mask > From Transparency: the on-canvas alpha becomes the mask (hidden elsewhere) and
+    /// those pixels turn opaque, keeping their stored color.
+    pub fn mask_from_transparency(&mut self, id: u32) -> Result<(), String> {
+        self.check_idle()?;
+        let node = self.check_mask_pixel_layer(id)?;
+        if node.locks.transparency {
+            return Err("layer transparency is locked".into());
+        }
+        if node.mask.is_some() {
+            return Err(format!("node {id} already has a mask"));
+        }
+        let old = node.pixel_tiles()?.clone();
+        let mut split = Vec::new();
+        for (tx, ty) in old.coords().into_iter().filter(|(tx, ty)| self.on_canvas(*tx, *ty)) {
+            let (alpha, opaque) = match &*old.get(tx, ty).expect("listed").px {
+                Pixels::U8(d) => {
+                    let mut o = d.clone();
+                    o.chunks_exact_mut(4).for_each(|p| p[3] = 255);
+                    (Pixels::Mask8(d.chunks_exact(4).map(|p| p[3]).collect()), Pixels::U8(o))
+                }
+                Pixels::U16(d) => {
+                    let mut o = d.clone();
+                    o.chunks_exact_mut(4).for_each(|p| p[3] = 65535);
+                    (Pixels::Mask16(d.chunks_exact(4).map(|p| p[3]).collect()), Pixels::U16(o))
+                }
+                Pixels::F32(d) => {
+                    let mut o = d.clone();
+                    o.chunks_exact_mut(4).for_each(|p| p[3] = 1.0);
+                    (Pixels::Mask16(d.chunks_exact(4).map(|p| quantize(p[3], 65535.0) as u16).collect()), Pixels::F32(o))
+                }
+                _ => unreachable!("pixel tiles hold RGBA"),
+            };
+            split.push((tx, ty, alpha, opaque));
+        }
+        let mut pixels = Vec::new();
+        let mut mask = Tiles::default();
+        for (tx, ty, alpha, opaque) in split {
+            mask.put(tx, ty, Some(Tile { id: self.alloc_tile_id(), px: Arc::new(alpha) }));
+            pixels.push((tx, ty, Tile { id: self.alloc_tile_id(), px: Arc::new(opaque) }));
+        }
+        let node = self.node_mut(id)?;
+        node.mask = Some(Mask { enabled: true, default: 0, tiles: mask });
+        let tiles = node.pixel_tiles_mut()?;
+        for (tx, ty, t) in pixels {
+            tiles.put(tx, ty, Some(t));
+        }
+        Ok(())
+    }
+
+    /// Layer Mask > Apply: alpha *= mask (a disabled mask too), then the mask is removed.
+    pub fn apply_mask(&mut self, id: u32) -> Result<(), String> {
+        self.check_idle()?;
+        let node = self.check_mask_pixel_layer(id)?;
+        let m = node.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
+        let max = max_value(self.depth) as f32;
+        let def = m.default as f32 / max;
+        let old = node.pixel_tiles()?.clone();
+        let mut fresh = Vec::new();
+        for (tx, ty) in old.coords() {
+            let mt = m.tiles.get(tx, ty);
+            if mt.is_none() && m.default == max as u32 {
+                continue;
+            }
+            let mv = |p: usize| mt.map_or(def, |t| t.px.mask_f32(p));
+            let mut px = (*old.get(tx, ty).expect("listed").px).clone();
+            match &mut px {
+                Pixels::U8(d) => d.chunks_exact_mut(4).enumerate().for_each(|(p, c)| c[3] = quantize(c[3] as f32 / 255.0 * mv(p), 255.0) as u8),
+                Pixels::U16(d) => {
+                    d.chunks_exact_mut(4).enumerate().for_each(|(p, c)| c[3] = quantize(c[3] as f32 / 65535.0 * mv(p), 65535.0) as u16)
+                }
+                Pixels::F32(d) => d.chunks_exact_mut(4).enumerate().for_each(|(p, c)| c[3] = float(c[3] * mv(p), true)),
+                _ => unreachable!("pixel tiles hold RGBA"),
+            }
+            fresh.push((tx, ty, px.any_alpha().then(|| Tile { id: 0, px: Arc::new(px) })));
+        }
+        for (_, _, t) in fresh.iter_mut() {
+            if let Some(t) = t {
+                t.id = self.alloc_tile_id();
+            }
+        }
+        let node = self.node_mut(id)?;
+        node.mask = None;
+        let tiles = node.pixel_tiles_mut()?;
+        for (tx, ty, t) in fresh {
+            tiles.put(tx, ty, t);
         }
         Ok(())
     }

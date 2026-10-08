@@ -688,6 +688,7 @@ msgstr "オールキャップス"
 msgid "All changes saved locally"
 msgstr "すべての変更をローカルに保存しました"
 
+#: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 msgid "All Layers"
@@ -878,6 +879,11 @@ msgstr "アピアランス"
 msgid "Apply"
 msgstr "適用"
 
+#: app/src/app/menus.ts
+msgctxt "layer mask"
+msgid "Apply"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
 msgstr "{style}を適用"
@@ -911,6 +917,10 @@ msgstr "画像操作…"
 #: app/src/i18n/history.ts
 msgid "Apply Layer Comp"
 msgstr "レイヤーカンプを適用"
+
+#: app/src/i18n/history.ts
+msgid "Apply Layer Mask"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -4633,6 +4643,14 @@ msgstr "フィルターギャラリー…"
 msgid "Filter layers by kind"
 msgstr "種類でレイヤーをフィルター"
 
+#: app/src/LayersPanel.tsx
+msgid "Filter layers by name"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Filter type"
+msgstr ""
+
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
 msgstr "暗い色と明るい色を検索"
@@ -4641,6 +4659,10 @@ msgstr "暗い色と明るい色を検索"
 #: app/src/i18n/choices.ts
 msgid "Find Edges"
 msgstr "輪郭検出"
+
+#: app/src/app/menus.ts
+msgid "Find Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4984,6 +5006,11 @@ msgstr "左から"
 #: app/src/filters/GalleryStack.tsx
 msgid "From The Right"
 msgstr "右から"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "From Transparency"
+msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5494,6 +5521,7 @@ msgstr "アクションを隠す"
 msgid "Hide Adjustments"
 msgstr "色調補正を隠す"
 
+#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "すべてを隠す"
@@ -5548,6 +5576,11 @@ msgid "Hide Layer Effects"
 msgstr "レイヤー効果を隠す"
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Hide Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Hide Measurement Log"
 msgstr "測定ログを隠す"
 
@@ -5578,6 +5611,10 @@ msgstr "プロパティを隠す"
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
 msgstr "定規を隠す"
+
+#: app/src/app/menus.ts
+msgid "Hide Selection"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -6169,6 +6206,10 @@ msgstr "IPA 拡張"
 msgid "Iris Blur"
 msgstr "虹彩絞りぼかし"
 
+#: app/src/app/menus.ts
+msgid "Isolate Layers"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "Italic"
 msgstr "斜体"
@@ -6224,6 +6265,11 @@ msgstr "カーネル"
 #: app/src/FileDialogs.tsx
 msgid "Keywords"
 msgstr "キーワード"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Kind"
+msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6348,6 +6394,7 @@ msgstr "レイヤーに書き出し可能なピクセルがありません。"
 msgid "Layer Knocks Out Drop Shadow"
 msgstr "レイヤーがドロップシャドウをノックアウト"
 
+#: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
 msgid "Layer Mask"
 msgstr "レイヤーマスク"
@@ -6837,6 +6884,15 @@ msgstr "ガイドをロック"
 #: app/src/i18n/history.ts
 msgid "Lock Layer"
 msgstr "レイヤーをロック"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Lock Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Lock Layers…"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7539,6 +7595,11 @@ msgstr "乗算"
 #: app/src/WorkspaceDialog.tsx
 msgid "Name"
 msgstr "名前"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Name"
+msgstr ""
 
 #: app/src/VariablesDialogs.tsx
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
@@ -9689,15 +9750,25 @@ msgid "Reveal All"
 msgstr "すべてを表示"
 
 #: app/src/app/menus.ts
+msgid "Reveal Selection"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Revealing…"
 msgstr "表示中…"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Reverse"
 msgstr "逆方向"
+
+#: app/src/app/menus.ts
+msgctxt "arrange"
+msgid "Reverse"
+msgstr ""
 
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -10690,6 +10761,11 @@ msgstr "レイヤーカンプを表示"
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
 msgstr "レイヤー効果を表示"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Show Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -12233,6 +12309,7 @@ msgstr "変形オプション"
 msgid "Transform Selection"
 msgstr "選択範囲を変形"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx

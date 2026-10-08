@@ -685,6 +685,7 @@ msgstr "모두 대문자"
 msgid "All changes saved locally"
 msgstr "모든 변경 사항이 로컬에 저장됨"
 
+#: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 msgid "All Layers"
@@ -875,6 +876,11 @@ msgstr "모양"
 msgid "Apply"
 msgstr "적용"
 
+#: app/src/app/menus.ts
+msgctxt "layer mask"
+msgid "Apply"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
 msgstr "{style} 적용"
@@ -908,6 +914,10 @@ msgstr "이미지 적용…"
 #: app/src/i18n/history.ts
 msgid "Apply Layer Comp"
 msgstr "레이어 구성 적용"
+
+#: app/src/i18n/history.ts
+msgid "Apply Layer Mask"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -4630,6 +4640,14 @@ msgstr "필터 갤러리…"
 msgid "Filter layers by kind"
 msgstr "종류별로 레이어 필터링"
 
+#: app/src/LayersPanel.tsx
+msgid "Filter layers by name"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Filter type"
+msgstr ""
+
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
 msgstr "어둡고 밝은 색상 찾기"
@@ -4638,6 +4656,10 @@ msgstr "어둡고 밝은 색상 찾기"
 #: app/src/i18n/choices.ts
 msgid "Find Edges"
 msgstr "가장자리 찾기"
+
+#: app/src/app/menus.ts
+msgid "Find Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4981,6 +5003,11 @@ msgstr "왼쪽에서"
 #: app/src/filters/GalleryStack.tsx
 msgid "From The Right"
 msgstr "오른쪽에서"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "From Transparency"
+msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5491,6 +5518,7 @@ msgstr "액션 숨기기"
 msgid "Hide Adjustments"
 msgstr "조정 숨기기"
 
+#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "모두 숨기기"
@@ -5545,6 +5573,11 @@ msgid "Hide Layer Effects"
 msgstr "레이어 효과 숨기기"
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Hide Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Hide Measurement Log"
 msgstr "측정 로그 숨기기"
 
@@ -5575,6 +5608,10 @@ msgstr "속성 숨기기"
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
 msgstr "눈금자 숨기기"
+
+#: app/src/app/menus.ts
+msgid "Hide Selection"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -6166,6 +6203,10 @@ msgstr "IPA 확장"
 msgid "Iris Blur"
 msgstr "조리개 흐림 효과"
 
+#: app/src/app/menus.ts
+msgid "Isolate Layers"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "Italic"
 msgstr "기울임꼴"
@@ -6221,6 +6262,11 @@ msgstr "커널"
 #: app/src/FileDialogs.tsx
 msgid "Keywords"
 msgstr "키워드"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Kind"
+msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6345,6 +6391,7 @@ msgstr "레이어에 내보낼 수 있는 픽셀이 없습니다."
 msgid "Layer Knocks Out Drop Shadow"
 msgstr "레이어가 그림자 효과를 녹아웃"
 
+#: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
 msgid "Layer Mask"
 msgstr "레이어 마스크"
@@ -6834,6 +6881,15 @@ msgstr "안내선 잠그기"
 #: app/src/i18n/history.ts
 msgid "Lock Layer"
 msgstr "레이어 잠그기"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Lock Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Lock Layers…"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7536,6 +7592,11 @@ msgstr "곱하기"
 #: app/src/WorkspaceDialog.tsx
 msgid "Name"
 msgstr "이름"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Name"
+msgstr ""
 
 #: app/src/VariablesDialogs.tsx
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
@@ -9686,15 +9747,25 @@ msgid "Reveal All"
 msgstr "모두 나타내기"
 
 #: app/src/app/menus.ts
+msgid "Reveal Selection"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Revealing…"
 msgstr "나타내는 중…"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Reverse"
 msgstr "반전"
+
+#: app/src/app/menus.ts
+msgctxt "arrange"
+msgid "Reverse"
+msgstr ""
 
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -10687,6 +10758,11 @@ msgstr "레이어 구성 표시"
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
 msgstr "레이어 효과 표시"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Show Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -12230,6 +12306,7 @@ msgstr "변형 옵션"
 msgid "Transform Selection"
 msgstr "선택 영역 변형"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx

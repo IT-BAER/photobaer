@@ -1628,7 +1628,8 @@ const api = {
   },
 
   // Layer > Arrange: the selected siblings of each parent move as a block, one history step; none if nothing moves.
-  arrangeNodes(ids: number[], mode: 'front' | 'forward' | 'backward' | 'back') {
+  // Reverse flips the order of the selected siblings within the slots they occupy.
+  arrangeNodes(ids: number[], mode: 'front' | 'forward' | 'backward' | 'back' | 'reverse') {
     const e = need();
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     const moves: [number, number, number][] = [];
@@ -1637,7 +1638,10 @@ const api = {
       const cur = (parent ? nodeById(tree, parent)!.children! : tree).map(n => n.id);
       const sel = cur.map(id => ids.includes(id));
       const next = cur.slice();
-      if (mode === 'front' || mode === 'back') {
+      if (mode === 'reverse') {
+        const slots = cur.flatMap((_, i) => (sel[i] ? [i] : [])), picked = slots.map(i => cur[i]).reverse();
+        slots.forEach((i, k) => { next[i] = picked[k]; });
+      } else if (mode === 'front' || mode === 'back') {
         const picked = cur.filter((_, i) => sel[i]), rest = cur.filter((_, i) => !sel[i]);
         next.splice(0, next.length, ...(mode === 'front' ? [...rest, ...picked] : [...picked, ...rest]));
       } else {
@@ -1650,7 +1654,7 @@ const api = {
       next.forEach((id, i) => { if (cur[i] !== id) { moves.push([id, parent!, i]); cur.splice(cur.indexOf(id), 1); cur.splice(i, 0, id); } });
     }
     if (!moves.length) return changed();
-    const label = { front: 'Bring to Front', forward: 'Bring Forward', backward: 'Send Backward', back: 'Send to Back' }[mode];
+    const label = { front: 'Bring to Front', forward: 'Bring Forward', backward: 'Send Backward', back: 'Send to Back', reverse: 'Reverse' }[mode];
     history.run(label, () => { for (const [id, parent, index] of moves) e.move_node(id, parent, index); });
     return changed();
   },
@@ -1734,9 +1738,16 @@ const api = {
     return changed();
   },
 
-  setLocks(ids: number[], locks: { transparency: boolean; pixels: boolean; position: boolean }) {
+  setLocks(ids: number[], locks: { transparency: boolean; pixels: boolean; position: boolean }, label = 'Lock All Layers in Group') {
     const e = need();
-    history.run('Lock All Layers in Group', () => { for (const id of ids) e.set_props(id, JSON.stringify({ locks })); });
+    history.run(label, () => { for (const id of ids) e.set_props(id, JSON.stringify({ locks })); });
+    return changed();
+  },
+
+  // Layer > Hide Layers / Show Layers: every listed layer in one history step.
+  setVisibility(ids: number[], visible: boolean) {
+    const e = need();
+    history.run(visible ? 'Show Layers' : 'Hide Layers', () => { for (const id of ids) e.set_props(id, JSON.stringify({ visible })); });
     return changed();
   },
 
@@ -2655,6 +2666,28 @@ const api = {
   deleteMask(id: number) {
     const e = need();
     history.run('Delete Layer Mask', () => e.delete_mask(id));
+    return changed();
+  },
+
+  // Layer > Layer Mask > Reveal/Hide Selection: the mask is the selection (inverted to hide); deselects.
+  addMaskFromSelection(id: number, hide: boolean) {
+    const e = need();
+    history.run('Add Layer Mask', () => e.add_mask_from_selection(id, hide));
+    selGen++;
+    return changed();
+  },
+
+  // Layer > Layer Mask > From Transparency: the layer's alpha moves into a new mask; the pixels turn opaque.
+  maskFromTransparency(id: number) {
+    const e = need();
+    history.run('From Transparency', () => e.mask_from_transparency(id));
+    return changed();
+  },
+
+  // Layer > Layer Mask > Apply: the mask multiplies into the alpha and is removed (a disabled mask too).
+  applyMask(id: number) {
+    const e = need();
+    history.run('Apply Layer Mask', () => e.apply_mask(id));
     return changed();
   },
 

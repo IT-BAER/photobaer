@@ -685,6 +685,7 @@ msgstr "Großbuchstaben"
 msgid "All changes saved locally"
 msgstr "Alle Änderungen lokal gespeichert"
 
+#: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 msgid "All Layers"
@@ -875,6 +876,11 @@ msgstr "Darstellung"
 msgid "Apply"
 msgstr "Anwenden"
 
+#: app/src/app/menus.ts
+msgctxt "layer mask"
+msgid "Apply"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
 msgstr "{style} anwenden"
@@ -908,6 +914,10 @@ msgstr "Bildberechnungen…"
 #: app/src/i18n/history.ts
 msgid "Apply Layer Comp"
 msgstr "Ebenenkomposition anwenden"
+
+#: app/src/i18n/history.ts
+msgid "Apply Layer Mask"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -4630,6 +4640,14 @@ msgstr "Filtergalerie…"
 msgid "Filter layers by kind"
 msgstr "Ebenen nach Art filtern"
 
+#: app/src/LayersPanel.tsx
+msgid "Filter layers by name"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Filter type"
+msgstr ""
+
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
 msgstr "Dunkle und helle Farben suchen"
@@ -4638,6 +4656,10 @@ msgstr "Dunkle und helle Farben suchen"
 #: app/src/i18n/choices.ts
 msgid "Find Edges"
 msgstr "Konturen finden"
+
+#: app/src/app/menus.ts
+msgid "Find Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4981,6 +5003,11 @@ msgstr "Von links"
 #: app/src/filters/GalleryStack.tsx
 msgid "From The Right"
 msgstr "Von rechts"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "From Transparency"
+msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5491,6 +5518,7 @@ msgstr "Aktionen ausblenden"
 msgid "Hide Adjustments"
 msgstr "Korrekturen ausblenden"
 
+#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "Alle ausblenden"
@@ -5545,6 +5573,11 @@ msgid "Hide Layer Effects"
 msgstr "Ebeneneffekte ausblenden"
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Hide Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Hide Measurement Log"
 msgstr "Messprotokoll ausblenden"
 
@@ -5575,6 +5608,10 @@ msgstr "Eigenschaften ausblenden"
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
 msgstr "Lineale ausblenden"
+
+#: app/src/app/menus.ts
+msgid "Hide Selection"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -6166,6 +6203,10 @@ msgstr "IPA-Erweiterungen"
 msgid "Iris Blur"
 msgstr "Iris-Weichzeichnung"
 
+#: app/src/app/menus.ts
+msgid "Isolate Layers"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "Italic"
 msgstr "Kursiv"
@@ -6221,6 +6262,11 @@ msgstr "Kernel"
 #: app/src/FileDialogs.tsx
 msgid "Keywords"
 msgstr "Schlüsselwörter"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Kind"
+msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6345,6 +6391,7 @@ msgstr "Die Ebene hat keine exportierbaren Pixel."
 msgid "Layer Knocks Out Drop Shadow"
 msgstr "Ebene spart Schlagschatten aus"
 
+#: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
 msgid "Layer Mask"
 msgstr "Ebenenmaske"
@@ -6834,6 +6881,15 @@ msgstr "Hilfslinien fixieren"
 #: app/src/i18n/history.ts
 msgid "Lock Layer"
 msgstr "Ebene fixieren"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Lock Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Lock Layers…"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7536,6 +7592,11 @@ msgstr "Multiplizieren"
 #: app/src/WorkspaceDialog.tsx
 msgid "Name"
 msgstr "Name"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Name"
+msgstr ""
 
 #: app/src/VariablesDialogs.tsx
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
@@ -9686,15 +9747,25 @@ msgid "Reveal All"
 msgstr "Alles einblenden"
 
 #: app/src/app/menus.ts
+msgid "Reveal Selection"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Revealing…"
 msgstr "Wird eingeblendet…"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Reverse"
 msgstr "Umkehren"
+
+#: app/src/app/menus.ts
+msgctxt "arrange"
+msgid "Reverse"
+msgstr ""
 
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -10687,6 +10758,11 @@ msgstr "Ebenenkompositionen einblenden"
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
 msgstr "Ebeneneffekte einblenden"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Show Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -12230,6 +12306,7 @@ msgstr "Transformationsoptionen"
 msgid "Transform Selection"
 msgstr "Auswahl transformieren"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx

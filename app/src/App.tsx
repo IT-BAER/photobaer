@@ -128,7 +128,7 @@ import { schema, setColorSource, setSchema, type FilterSpec } from './filters/sc
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
   LoadSelectionDialog, ModifyDialog, ArtboardDialog, CursorPrefsDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, MergeDialog, type MergeChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, type AutomateKind, RotateDialog, SaveSelectionDialog,
-  AutomateDialog, ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
+  AutomateDialog, LockLayersDialog, ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
 } from './app/Dialogs.tsx';
 
 // Set by vite.config.ts from CHANGELOG.md.
@@ -199,6 +199,9 @@ export function App() {
   const newDialog = useRef<HTMLDialogElement>(null);
   const closeDialog = useRef<HTMLDialogElement>(null);
   const [renameTick, setRenameTick] = useState(0);
+  // Select > Find Layers (each increment focuses the Layers panel's name filter) and Isolate Layers.
+  const [findTick, setFindTick] = useState(0);
+  const [isolated, setIsolated] = useState<number[] | null>(null);
   const [closeName, setCloseName] = useState('');
   const closeAnswer = useRef<((c: CloseChoice) => void) | null>(null);
   const mergeDialog = useRef<HTMLDialogElement>(null);
@@ -458,6 +461,7 @@ export function App() {
   const [styleDialog, setStyleDialog] = useState<{ id: number; page: StylePage; n: number } | null>(null);
   const globalLightDialog = useRef<HTMLDialogElement>(null);
   const scaleEffectsDialog = useRef<HTMLDialogElement>(null);
+  const lockLayersDialog = useRef<HTMLDialogElement>(null);
   // The Filter menu's generic dialog (also Edit > Fade) and Layer > Smart Filter > Blending Options.
   const filterDialog = useRef<FilterDialogHandle>(null);
   const imageCalc = useRef<ImageCalcHandle>(null);
@@ -615,7 +619,7 @@ export function App() {
     v?.setDoc(d, saved?.view);
     document.title = d ? `${d.name}${d.dirty ? '*' : ''} - photobaer` : PAGE_TITLE;
     if (!d) { setActive(null); return; }
-    if (switched) { setQuickMask(false); setPicked(saved ? saved.picked.filter(id => nodeById(d.layers, id)) : []); }
+    if (switched) { setQuickMask(false); setIsolated(null); setPicked(saved ? saved.picked.filter(id => nodeById(d.layers, id)) : []); }
     // Node ids restart per document: a previous document's active layer never carries over.
     const sameDoc = d.docId === prev?.docId;
     const restored = saved?.active && nodeById(d.layers, saved.active.id) ? saved.active : null;
@@ -1818,6 +1822,15 @@ export function App() {
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
     workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
     arrangeMode, chooseArrangement, matchArrangement,
+    openLockLayers: () => { setMenu(null); lockLayersDialog.current?.showModal(); },
+    selectAllLayers: () => {
+      const ids = doc ? flatNodes(doc.layers).filter(n => n.kind !== 'group').map(n => n.id) : [];
+      if (!ids.length) return;
+      setPicked(ids);
+      if (!active || !ids.includes(active.id)) setActive({ id: ids.at(-1)!, target: 'pixels' });
+    },
+    findLayers: () => setFindTick(n => n + 1),
+    isolated: !!isolated, toggleIsolate: () => setIsolated(cur => (cur ? null : selectedNodes.map(n => n.id))),
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
@@ -2713,7 +2726,7 @@ export function App() {
                 contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerRowItems(menus, layerContextItems(n, nodes, run, setError))]}
                 newLayer={newLayer} newGroup={newGroup}
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
-                openProperties={() => setShowProperties(true)} renameTick={renameTick}
+                openProperties={() => setShowProperties(true)} renameTick={renameTick} findTick={findTick} isolated={isolated}
                 openLayerStyle={(id, page) => openLayerStyle(page, id)}
               /></DockSection>
               <DockSection {...sec('history', msg`History`)}><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>
@@ -2834,6 +2847,7 @@ export function App() {
         filterBlendDialog={filterBlendDialog} setFilterBlend={setFilterBlend} filterBlend={filterBlend} run={run} filters={filters}
       />
       <ScaleEffectsDialog scaleEffectsDialog={scaleEffectsDialog} node={node} run={run} />
+      <LockLayersDialog lockLayersDialog={lockLayersDialog} node={node} ids={selectedNodes.map(n => n.id)} run={run} />
       <RotateDialog rotateDialog={rotateDialog} run={run} />
       <AutomateDialog dialog={automateDialog} kind={automate} ids={selectedNodes.filter(n => n.kind === 'pixel').map(n => n.id)} docCount={doc?.docs.length ?? 0} run={run} />
       <ColorRangeDialog

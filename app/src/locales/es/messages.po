@@ -688,6 +688,7 @@ msgstr "Todo en mayúsculas"
 msgid "All changes saved locally"
 msgstr "Todos los cambios se guardaron localmente"
 
+#: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 msgid "All Layers"
@@ -878,6 +879,11 @@ msgstr "Aspecto"
 msgid "Apply"
 msgstr "Aplicar"
 
+#: app/src/app/menus.ts
+msgctxt "layer mask"
+msgid "Apply"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
 msgstr "Aplicar {style}"
@@ -911,6 +917,10 @@ msgstr "Aplicar imagen…"
 #: app/src/i18n/history.ts
 msgid "Apply Layer Comp"
 msgstr "Aplicar composición de capas"
+
+#: app/src/i18n/history.ts
+msgid "Apply Layer Mask"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -4633,6 +4643,14 @@ msgstr "Galería de filtros…"
 msgid "Filter layers by kind"
 msgstr "Filtrar capas por tipo"
 
+#: app/src/LayersPanel.tsx
+msgid "Filter layers by name"
+msgstr ""
+
+#: app/src/LayersPanel.tsx
+msgid "Filter type"
+msgstr ""
+
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
 msgstr "Buscar colores oscuros y claros"
@@ -4641,6 +4659,10 @@ msgstr "Buscar colores oscuros y claros"
 #: app/src/i18n/choices.ts
 msgid "Find Edges"
 msgstr "Hallar bordes"
+
+#: app/src/app/menus.ts
+msgid "Find Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4984,6 +5006,11 @@ msgstr "Desde la izquierda"
 #: app/src/filters/GalleryStack.tsx
 msgid "From The Right"
 msgstr "Desde la derecha"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "From Transparency"
+msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5494,6 +5521,7 @@ msgstr "Ocultar Acciones"
 msgid "Hide Adjustments"
 msgstr "Ocultar Ajustes"
 
+#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "Ocultar todo"
@@ -5548,6 +5576,11 @@ msgid "Hide Layer Effects"
 msgstr "Ocultar efectos de capa"
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Hide Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Hide Measurement Log"
 msgstr "Ocultar Registro de medidas"
 
@@ -5578,6 +5611,10 @@ msgstr "Ocultar Propiedades"
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
 msgstr "Ocultar reglas"
+
+#: app/src/app/menus.ts
+msgid "Hide Selection"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -6169,6 +6206,10 @@ msgstr "Extensiones IPA"
 msgid "Iris Blur"
 msgstr "Desenfocar iris"
 
+#: app/src/app/menus.ts
+msgid "Isolate Layers"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "Italic"
 msgstr "Cursiva"
@@ -6224,6 +6265,11 @@ msgstr "Núcleo"
 #: app/src/FileDialogs.tsx
 msgid "Keywords"
 msgstr "Palabras clave"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Kind"
+msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6348,6 +6394,7 @@ msgstr "La capa no tiene píxeles exportables."
 msgid "Layer Knocks Out Drop Shadow"
 msgstr "La capa recorta la sombra paralela"
 
+#: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
 msgid "Layer Mask"
 msgstr "Máscara de capa"
@@ -6837,6 +6884,15 @@ msgstr "Bloquear guías"
 #: app/src/i18n/history.ts
 msgid "Lock Layer"
 msgstr "Bloquear capa"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Lock Layers"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Lock Layers…"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7539,6 +7595,11 @@ msgstr "Multiplicar"
 #: app/src/WorkspaceDialog.tsx
 msgid "Name"
 msgstr "Nombre"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Name"
+msgstr ""
 
 #: app/src/VariablesDialogs.tsx
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
@@ -9689,15 +9750,25 @@ msgid "Reveal All"
 msgstr "Mostrar todo"
 
 #: app/src/app/menus.ts
+msgid "Reveal Selection"
+msgstr ""
+
+#: app/src/app/menus.ts
 msgid "Revealing…"
 msgstr "Mostrando…"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Reverse"
 msgstr "Invertir"
+
+#: app/src/app/menus.ts
+msgctxt "arrange"
+msgid "Reverse"
+msgstr ""
 
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -10690,6 +10761,11 @@ msgstr "Mostrar composiciones de capas"
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
 msgstr "Mostrar efectos de capa"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Show Layers"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -12233,6 +12309,7 @@ msgstr "Opciones de transformación"
 msgid "Transform Selection"
 msgstr "Transformar selección"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx

@@ -688,6 +688,7 @@ msgstr "All Caps"
 msgid "All changes saved locally"
 msgstr "All changes saved locally"
 
+#: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 msgid "All Layers"
@@ -878,6 +879,11 @@ msgstr "Appearance"
 msgid "Apply"
 msgstr "Apply"
 
+#: app/src/app/menus.ts
+msgctxt "layer mask"
+msgid "Apply"
+msgstr "Apply"
+
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
 msgstr "Apply {style}"
@@ -911,6 +917,10 @@ msgstr "Apply Image…"
 #: app/src/i18n/history.ts
 msgid "Apply Layer Comp"
 msgstr "Apply Layer Comp"
+
+#: app/src/i18n/history.ts
+msgid "Apply Layer Mask"
+msgstr "Apply Layer Mask"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -4633,6 +4643,14 @@ msgstr "Filter Gallery…"
 msgid "Filter layers by kind"
 msgstr "Filter layers by kind"
 
+#: app/src/LayersPanel.tsx
+msgid "Filter layers by name"
+msgstr "Filter layers by name"
+
+#: app/src/LayersPanel.tsx
+msgid "Filter type"
+msgstr "Filter type"
+
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
 msgstr "Find Dark & Light Colors"
@@ -4641,6 +4659,10 @@ msgstr "Find Dark & Light Colors"
 #: app/src/i18n/choices.ts
 msgid "Find Edges"
 msgstr "Find Edges"
+
+#: app/src/app/menus.ts
+msgid "Find Layers"
+msgstr "Find Layers"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4984,6 +5006,11 @@ msgstr "From The Left"
 #: app/src/filters/GalleryStack.tsx
 msgid "From The Right"
 msgstr "From The Right"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "From Transparency"
+msgstr "From Transparency"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5494,6 +5521,7 @@ msgstr "Hide Actions"
 msgid "Hide Adjustments"
 msgstr "Hide Adjustments"
 
+#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "Hide All"
@@ -5548,6 +5576,11 @@ msgid "Hide Layer Effects"
 msgstr "Hide Layer Effects"
 
 #: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Hide Layers"
+msgstr "Hide Layers"
+
+#: app/src/app/menus.ts
 msgid "Hide Measurement Log"
 msgstr "Hide Measurement Log"
 
@@ -5578,6 +5611,10 @@ msgstr "Hide Properties"
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
 msgstr "Hide Rulers"
+
+#: app/src/app/menus.ts
+msgid "Hide Selection"
+msgstr "Hide Selection"
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -6169,6 +6206,10 @@ msgstr "IPA Extensions"
 msgid "Iris Blur"
 msgstr "Iris Blur"
 
+#: app/src/app/menus.ts
+msgid "Isolate Layers"
+msgstr "Isolate Layers"
+
 #: app/src/TypePanels.tsx
 msgid "Italic"
 msgstr "Italic"
@@ -6224,6 +6265,11 @@ msgstr "Kernel"
 #: app/src/FileDialogs.tsx
 msgid "Keywords"
 msgstr "Keywords"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
+msgid "Kind"
+msgstr "Kind"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6348,6 +6394,7 @@ msgstr "Layer has no exportable pixels."
 msgid "Layer Knocks Out Drop Shadow"
 msgstr "Layer Knocks Out Drop Shadow"
 
+#: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
 msgid "Layer Mask"
 msgstr "Layer Mask"
@@ -6837,6 +6884,15 @@ msgstr "Lock Guides"
 #: app/src/i18n/history.ts
 msgid "Lock Layer"
 msgstr "Lock Layer"
+
+#: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Lock Layers"
+msgstr "Lock Layers"
+
+#: app/src/app/menus.ts
+msgid "Lock Layers…"
+msgstr "Lock Layers…"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7537,6 +7593,11 @@ msgstr "Multiply"
 #: app/src/filters/labels.ts
 #: app/src/VariablesDialogs.tsx
 #: app/src/WorkspaceDialog.tsx
+msgid "Name"
+msgstr "Name"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer filter"
 msgid "Name"
 msgstr "Name"
 
@@ -9689,13 +9750,23 @@ msgid "Reveal All"
 msgstr "Reveal All"
 
 #: app/src/app/menus.ts
+msgid "Reveal Selection"
+msgstr "Reveal Selection"
+
+#: app/src/app/menus.ts
 msgid "Revealing…"
 msgstr "Revealing…"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/i18n/history.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
+msgid "Reverse"
+msgstr "Reverse"
+
+#: app/src/app/menus.ts
+msgctxt "arrange"
 msgid "Reverse"
 msgstr "Reverse"
 
@@ -10690,6 +10761,11 @@ msgstr "Show Layer Comps"
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
 msgstr "Show Layer Effects"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Show Layers"
+msgstr "Show Layers"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -12233,6 +12309,7 @@ msgstr "Transform options"
 msgid "Transform Selection"
 msgstr "Transform Selection"
 
+#: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx

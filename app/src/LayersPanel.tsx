@@ -15,7 +15,7 @@ import type { DocInfo, LayerNode } from './engine.worker.ts';
 import { EFFECT_LABEL, effectRows, setEffectEnabled, type EffectKind } from './layerStyle.ts';
 import { pathData } from './app/svgcss.ts';
 import { itemId, type Item } from './app/helpers.ts';
-import { filterLayers, KIND_FILTERS, type KindFilter } from './app/layerFilter.ts';
+import { filterByName, filterIds, filterLayers, KIND_FILTERS, type KindFilter } from './app/layerFilter.ts';
 
 export type Active = { id: number; target: 'pixels' | 'mask' };
 type SelectAfter = (d: DocInfo) => Active;
@@ -39,6 +39,10 @@ interface Props {
   openLayerStyle: (id: number, page: 'blending' | { kind: EffectKind; index: number }) => void;
   // Layer > Rename Layer: each increment starts the inline rename of the active layer.
   renameTick: number;
+  // Select > Find Layers: each increment turns on the name filter and focuses its field.
+  findTick: number;
+  // Select > Isolate Layers: only these layers (and their groups) show; null shows all.
+  isolated: number[] | null;
 }
 
 const ICON = { size: 16, strokeWidth: 1.75 };
@@ -107,11 +111,31 @@ export function LayersPanel(props: Props) {
   const [renaming, setRenaming] = useState<number | null>(null);
   const [filterOn, setFilterOn] = useState(false);
   const [kinds, setKinds] = useState<Set<KindFilter>>(new Set());
-  const shown = filterOn ? filterLayers(doc.layers, kinds) : doc.layers;
+  const [filterBy, setFilterBy] = useState<'kind' | 'name'>('kind');
+  const [nameText, setNameText] = useState('');
+  const filtered = !filterOn ? doc.layers : filterBy === 'kind' ? filterLayers(doc.layers, kinds) : filterByName(doc.layers, nameText);
+  const shown = props.isolated ? filterIds(filtered, props.isolated) : filtered;
   const tick = useRef(props.renameTick);
   useEffect(() => {
     if (tick.current !== props.renameTick) { tick.current = props.renameTick; setRenaming(active.id); }
   }, [props.renameTick]);
+  const nameField = useRef<HTMLInputElement>(null);
+  const findTick = useRef(props.findTick);
+  useEffect(() => {
+    if (findTick.current === props.findTick) return;
+    findTick.current = props.findTick;
+    setFilterBy('name');
+    setFilterOn(true);
+    focusFind.current = true;
+  }, [props.findTick]);
+  // Focuses after the render that mounts the name field (switching from the kind filter).
+  const focusFind = useRef(false);
+  useEffect(() => {
+    if (!focusFind.current || !nameField.current) return;
+    focusFind.current = false;
+    nameField.current.focus();
+    nameField.current.select();
+  });
   const [dragId, setDragId] = useState<number | null>(null);
   const [dropHint, setDropHint] = useState<{ id: number; where: Where } | null>(null);
   // Layers whose effect rows are folded, and the layer whose fx badge is being dragged.
@@ -421,10 +445,17 @@ export function LayersPanel(props: Props) {
           </div>
         </div>
       )}
-      <div className="layer-filter" role="group" aria-label={t`Filter layers by kind`}>
-        {KIND_FILTERS.map(f => (
+      <div className="layer-filter" role="group" aria-label={filterBy === 'kind' ? t`Filter layers by kind` : t`Filter layers by name`}>
+        <select aria-label={t`Filter type`} value={filterBy} onChange={e => setFilterBy(e.currentTarget.value as 'kind' | 'name')}>
+          <option value="kind">{t({ message: 'Kind', context: 'layer filter' })}</option>
+          <option value="name">{t({ message: 'Name', context: 'layer filter' })}</option>
+        </select>
+        {filterBy === 'kind' ? KIND_FILTERS.map(f => (
           <button key={f.kind} aria-label={i18n._(f.label)} aria-pressed={kinds.has(f.kind)} title={i18n._(f.label)} onClick={() => toggleKind(f.kind)}>{KIND_ICONS[f.kind]}</button>
-        ))}
+        )) : (
+          <input ref={nameField} type="search" aria-label={t`Filter layers by name`} value={nameText}
+            onChange={e => { setNameText(e.currentTarget.value); setFilterOn(true); }} />
+        )}
         <button className="layer-filter-switch" aria-label={t`Layer filter`} aria-pressed={filterOn} title={t`Turn the layer filter on or off`} onClick={() => setFilterOn(v => !v)}><Trans>Filter</Trans></button>
       </div>
       <div className="layers-tree" role="tree" aria-label={t`Layers`}>

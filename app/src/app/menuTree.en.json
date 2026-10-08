@@ -487,6 +487,16 @@
     "Shift+Ctrl+G"
    ],
    [
+    "Hide Layers",
+    "Hide Layers",
+    "Ctrl+,"
+   ],
+   [
+    "Lock Layers…",
+    "Lock Layers…",
+    "Ctrl+/"
+   ],
+   [
     "Lock All Layers in Group",
     "Lock All Layers in Group"
    ],
@@ -514,6 +524,10 @@
       "Send to Back",
       "Send to Back",
       "Shift+Ctrl+["
+     ],
+     [
+      "Reverse",
+      "Reverse"
      ]
     ]
    ],
@@ -614,6 +628,37 @@
    [
     "Disable Layer Mask",
     "Disable Layer Mask"
+   ],
+   [
+    "Layer Mask",
+    "Layer Mask",
+    "›",
+    [
+     [
+      "Reveal All",
+      "Reveal All"
+     ],
+     [
+      "Hide All",
+      "Hide All"
+     ],
+     [
+      "Reveal Selection",
+      "Reveal Selection"
+     ],
+     [
+      "Hide Selection",
+      "Hide Selection"
+     ],
+     [
+      "From Transparency",
+      "From Transparency"
+     ],
+     [
+      "Apply",
+      "Apply"
+     ]
+    ]
    ],
    [
     "Vector Mask",
@@ -1572,6 +1617,20 @@
     "Inverse",
     "Inverse",
     "Shift+Ctrl+I"
+   ],
+   [
+    "All Layers",
+    "All Layers",
+    "Alt+Ctrl+A"
+   ],
+   [
+    "Find Layers",
+    "Find Layers",
+    "Alt+Shift+Ctrl+F"
+   ],
+   [
+    "Isolate Layers",
+    "✓ Isolate Layers"
    ],
    [
     "Color Range…",
