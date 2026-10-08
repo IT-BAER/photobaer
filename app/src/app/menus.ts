@@ -79,7 +79,7 @@ export interface MenuCtx {
   resetCurrentWorkspace: () => void; toggleWorkspaceLock: () => void;
   arrangeMode: ArrangeMode; chooseArrangement: (mode: ArrangeMode) => void; matchArrangement: (kind: MatchKind) => void;
   openDefine: (kind: DefineKind) => void; canDefineShape: boolean; purge: (what: 'clipboard' | 'histories' | 'all') => void;
-  openLockLayers: () => void; selectAllLayers: () => void; findLayers: () => void; isolated: boolean; toggleIsolate: () => void;
+  openLockLayers: () => void; selectAllLayers: () => void; deselectLayers: () => void; findLayers: () => void; isolated: boolean; toggleIsolate: () => void;
   snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef; cursorPrefsDialog: DialogRef;
   openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null; selectedNodes: LayerNode[];
@@ -146,7 +146,7 @@ export function buildMenus(c: MenuCtx) {
     showLayerEdges, setShowLayerEdges, flipped, fitLayers, selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
     workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
-    arrangeMode, chooseArrangement, matchArrangement, openDefine, canDefineShape, purge, openLockLayers, selectAllLayers, findLayers, isolated, toggleIsolate,
+    arrangeMode, chooseArrangement, matchArrangement, openDefine, canDefineShape, purge, openLockLayers, selectAllLayers, deselectLayers, findLayers, isolated, toggleIsolate,
   } = c;
   const selectedIds = selectedNodes.map(n => n.id);
   const allHidden = selectedNodes.length > 0 && selectedNodes.every(n => !n.visible);
@@ -203,8 +203,8 @@ export function buildMenus(c: MenuCtx) {
           { ...tl(msg`Clear Recent File List`), sep: recent.length > 0, run: clearRecent },
         ],
       }] : []),
-      { ...tl(msg`Place Embedded…`), run: () => void placeFile(false), off: !has || !active },
-      { ...tl(msg`Place Linked…`), run: () => void placeFile(true), off: !has || !active },
+      { ...tl(msg`Place Embedded…`), run: () => void placeFile(false), off: !has },
+      { ...tl(msg`Place Linked…`), run: () => void placeFile(true), off: !has },
       { ...tl(msg`Package…`), run: packageDoc, off: !has },
       {
         ...tl(msg`Import`), keys: '›', run: () => {}, off: !has, sub: [
@@ -268,12 +268,12 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Cut`), keys: 'Ctrl+X', sep: true, run: () => active && copy(run, active, false, true), off: !doc?.selection || node?.kind !== 'pixel' },
       { ...tl(msg`Copy`), keys: 'Ctrl+C', run: () => active && copy(run, active, false, false), off: !has || !active },
       { ...tl(msg`Copy Merged`), keys: 'Shift+Ctrl+C', run: () => active && copy(run, active, true, false), off: !has || !active },
-      { ...tl(msg`Paste`), keys: 'Ctrl+V', run: (bytes?: Uint8Array | null) => active && paste(run, active, 'paste', bytes), off: !has || !active },
+      { ...tl(msg`Paste`), keys: 'Ctrl+V', run: (bytes?: Uint8Array | null) => paste(run, active, 'paste', bytes), off: !has },
       {
-        ...tl(msg`Paste Special`), keys: '›', run: () => {}, off: !has || !active, sub: [
-          { ...tl(msg`Paste in Place`), keys: 'Shift+Ctrl+V', run: () => active && paste(run, active, 'inPlace') },
-          { ...tl(msg`Paste Into`), keys: 'Alt+Shift+Ctrl+V', run: () => active && paste(run, active, 'into'), off: !doc?.selection },
-          { ...tl(msg`Paste Outside`), run: () => active && paste(run, active, 'outside'), off: !doc?.selection },
+        ...tl(msg`Paste Special`), keys: '›', run: () => {}, off: !has, sub: [
+          { ...tl(msg`Paste in Place`), keys: 'Shift+Ctrl+V', run: () => paste(run, active, 'inPlace') },
+          { ...tl(msg`Paste Into`), keys: 'Alt+Shift+Ctrl+V', run: () => paste(run, active, 'into'), off: !doc?.selection },
+          { ...tl(msg`Paste Outside`), run: () => paste(run, active, 'outside'), off: !doc?.selection },
         ],
       },
       { ...tl(msg`Fill…`), keys: 'Shift+F5', sep: true, run: () => openPreviewDialog('fill'), off: !has || !active },
@@ -376,14 +376,14 @@ export function buildMenus(c: MenuCtx) {
         ],
       },
       {
-        ...tl(msg`New Fill Layer`), keys: '›', run: () => {}, off: !has || !active, sub: [
+        ...tl(msg`New Fill Layer`), keys: '›', run: () => {}, off: !has, sub: [
           { ...tl(msg`Solid Color…`), run: () => openNewFillLayer('solid') },
           { ...tl(msg`Gradient…`), run: () => openNewFillLayer('gradient') },
           { ...tl(msg`Pattern…`), run: () => openNewFillLayer('pattern') },
         ],
       },
       {
-        ...tl(msg`New Adjustment Layer`), keys: '›', run: () => {}, off: !has || !active, sub: ADJUSTMENT_KINDS.map(kind => ({
+        ...tl(msg`New Adjustment Layer`), keys: '›', run: () => {}, off: !has, sub: ADJUSTMENT_KINDS.map(kind => ({
           ...tl(MENU_LABEL[kind]), sep: kind === 'invert', run: () => newAdjustmentLayer(kind),
         })),
       },
@@ -472,6 +472,7 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Reselect`), keys: 'Shift+Ctrl+D', run: () => run(null, () => client.call('selectCommand', 'reselect')), off: !doc?.hasLastSelection },
       { ...tl(msg`Inverse`), keys: 'Shift+Ctrl+I', run: () => run(null, () => client.call('selectCommand', 'inverse')), off: !doc?.selection },
       { ...tl(msg`All Layers`), keys: 'Alt+Ctrl+A', sep: true, run: selectAllLayers, off: !has },
+      { ...tl(msg`Deselect Layers`), run: deselectLayers, off: !active },
       { ...tl(msg`Find Layers`), keys: 'Alt+Shift+Ctrl+F', run: () => { setMenu(null); findLayers(); }, off: !has },
       { ...tl(msg`Isolate Layers`, isolated), run: toggleIsolate, off: !has || (!isolated && !selectedNodes.length) },
       { ...tl(msg`Color Range…`), sep: true, run: () => openColorRange(), off: !has },

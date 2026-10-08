@@ -33,7 +33,7 @@ The server accepts only the photobaer origin, only the token from the last `conn
 | `connect` | Opens photobaer and pairs the tab |
 | `open_file` | Opens an image from disk (PNG, JPEG, WebP, GIF, BMP, PSD) |
 | `save_file` | Saves to disk as PNG, JPEG, WebP or PSD; never replaces a file unless `overwrite` is true |
-| `get_document` | Document size, layers and active layer |
+| `get_document` | Document size, layers and active layer (`null` after Select > Deselect Layers) |
 | `select_layer` | Makes a layer active |
 | `new_document` | Creates a white RGB document |
 | `list_filters`, `run_filter` | Lists filters and their parameters, runs one without a dialog |

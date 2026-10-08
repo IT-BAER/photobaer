@@ -106,7 +106,7 @@ const safe = (ready: WebMcpCtx['ready'], f: ToolDef['execute']): ToolDef['execut
   try { await ready(); return await f(input); } catch (e) { return { error: (e as Error).message }; }
 };
 
-const needDoc = (ctx: WebMcpCtx) => { if (!ctx.doc() || ctx.active() === null) throw new Error('No document is open. Use new_document or open a file first.'); };
+const needDoc = (ctx: WebMcpCtx) => { if (!ctx.doc()) throw new Error('No document is open. Use new_document or open a file first.'); };
 
 // The tools shared by WebMCP and the agent bridge; execute never throws, errors come back as { error }.
 export function agentTools(ctx: WebMcpCtx): ToolDef[] {

@@ -3647,6 +3647,10 @@ msgstr "Auswahl aufheben"
 msgid "Deselect All"
 msgstr "Alle abwählen"
 
+#: app/src/app/menus.ts
+msgid "Deselect Layers"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Despeckle"
 msgstr "Rauschen entfernen"
@@ -7976,6 +7980,10 @@ msgstr "Keine Ebene hat eine Maske zum Anwenden."
 #: app/src/i18n/errors.ts
 msgid "No layer has an effect to flatten."
 msgstr "Keine Ebene hat einen Effekt, der reduziert werden kann."
+
+#: app/src/App.tsx
+msgid "No layer is selected"
+msgstr ""
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."

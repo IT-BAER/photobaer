@@ -68,7 +68,7 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 - Image: Duplicate, Trap.
 - Layer: Frame from Layers, layer colors. Layer from Background, Link Layers, Select Linked Layers and
   Layer Mask > Link need a Background layer and layer links in the document model.
-- Select: Deselect Layers (needs a document without an active layer).
+- Select: Alt+[ and Alt+] select the layer below and above (top or bottom layer when none is active).
 - View: Screen Modes, Pixel Aspect Ratio, Pattern Preview, Show > Target Path, Notes, Brush Preview, Mesh.
 - New Document dialog: presets by category (Photo, Print, Art and Illustration, Web, Mobile, Film and Video,
   Social), preset search, Clipboard preset, name, units, resolution, orientation, color mode, size estimate.

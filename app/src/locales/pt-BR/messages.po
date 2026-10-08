@@ -3650,6 +3650,10 @@ msgstr "Desmarcar seleção"
 msgid "Deselect All"
 msgstr "Desmarcar tudo"
 
+#: app/src/app/menus.ts
+msgid "Deselect Layers"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Despeckle"
 msgstr "Remover manchas"
@@ -7979,6 +7983,10 @@ msgstr "Nenhuma camada tem máscara para aplicar."
 #: app/src/i18n/errors.ts
 msgid "No layer has an effect to flatten."
 msgstr "Nenhuma camada tem efeito para achatar."
+
+#: app/src/App.tsx
+msgid "No layer is selected"
+msgstr ""
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."

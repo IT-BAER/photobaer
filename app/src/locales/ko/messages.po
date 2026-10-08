@@ -3647,6 +3647,10 @@ msgstr "선택 해제"
 msgid "Deselect All"
 msgstr "모두 선택 해제"
 
+#: app/src/app/menus.ts
+msgid "Deselect Layers"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Despeckle"
 msgstr "반점 제거"
@@ -7976,6 +7980,10 @@ msgstr "적용할 마스크가 있는 레이어가 없습니다."
 #: app/src/i18n/errors.ts
 msgid "No layer has an effect to flatten."
 msgstr "병합할 효과가 있는 레이어가 없습니다."
+
+#: app/src/App.tsx
+msgid "No layer is selected"
+msgstr ""
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."

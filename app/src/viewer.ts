@@ -34,6 +34,9 @@ export class Viewer {
   // existing guide works regardless of the active tool); returning true means it already took over via
   // `intercept`, so the normal tool/hand/zoom dispatch for this pointer is skipped entirely.
   guideHit: ((sx: number, sy: number) => boolean) | null = null;
+  // Checked on a tool's pointerdown; true drops the whole gesture (the tool cannot run, e.g. no active layer).
+  refuse: ((e: ToolPointerEvent) => boolean) | null = null;
+  #refused = false;
   // Fires once per version, the first time a drawn frame has every visible-level tile it needs
   // (ignoring the coarse top-level fallback, which a live stroke's dirty rect always keeps stale).
   // `readyAt` is when the last tile the frame needed was stored (performance.now()).
@@ -356,7 +359,12 @@ export class Viewer {
   }
 
   #mode(): ViewerTool { return this.#spring ?? (this.intercept ? null : this.#tool); }
-  #emit(e: ToolPointerEvent) { (this.intercept ?? this.onPointer)(e); }
+  #emit(e: ToolPointerEvent) {
+    if (this.intercept) return this.intercept(e);
+    if (e.type === 'down') this.#refused = !!this.refuse?.(e);
+    if (!this.#refused) return this.onPointer(e);
+    if (e.type === 'up' || e.type === 'cancel') this.#refused = false;
+  }
 
   #bindInput() {
     const c = this.#canvas;

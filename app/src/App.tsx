@@ -89,7 +89,7 @@ import { GradientEditor, type GradientEditorHandle } from './shell/GradientEdito
 import { rampCss, type Method } from './gradients/gradient.ts';
 import { BUILTIN_GRADIENTS, GradientLibrary, resolvePreset, type GradientPreset } from './gradients/presets.ts';
 import {
-  AUTOSAVE_TEXT, FILL_KEY, FILL_LAYERS, MODIFY_OPS, PAINT_TOOLS, SELECT_TOOLS, STROKE_DEFAULT, VIEWER_TOOL, fallbackActive,
+  AUTOSAVE_TEXT, FILL_KEY, FILL_LAYERS, MODIFY_OPS, PAINT_TOOLS, SELECT_TOOLS, STROKE_DEFAULT, VIEWER_TOOL, needsLayer, nextActive,
   fillContentFromForm, formFromFillContent, itemId, loadFillForm, pickPlaceFile, saveBlob, selectAfterDelete, selectCreated, tl,
   type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
@@ -629,8 +629,7 @@ export function App() {
     if (switched) { setQuickMask(false); setIsolated(null); setPicked(saved ? saved.picked.filter(id => nodeById(d.layers, id)) : []); }
     // Node ids restart per document: a previous document's active layer never carries over.
     const sameDoc = d.docId === prev?.docId;
-    const restored = saved?.active && nodeById(d.layers, saved.active.id) ? saved.active : null;
-    setActive(cur => selectAfter ? selectAfter(d) : restored ?? (sameDoc && cur && nodeById(d.layers, cur.id) ? cur : fallbackActive(d)));
+    setActive(cur => nextActive(d, sameDoc, cur, saved, selectAfter));
   }
 
   async function run(label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) {
@@ -1293,7 +1292,6 @@ export function App() {
 
   function openNewFillLayer(type: FillContentForm['type']) {
     setMenu(null);
-    if (!active) return;
     setFillContentForm({ type, color: fg, style: 'linear', angle: 90, scalePct: 100, reverse: false, dither: false, alignWithLayer: true, patternId: doc?.patterns[0]?.id ?? '', linked: true });
     setFillContentMode({ kind: 'create', type });
     fillContentDialog.current?.showModal();
@@ -1308,13 +1306,13 @@ export function App() {
   }
 
   function submitFillContent() {
-    if (!active || !fillContentMode) return;
+    if (!fillContentMode) return;
     const content = fillContentFromForm(fillContentForm);
     fillContentDialog.current?.close();
     const adopt = () => (doc ? adoptPatterns(doc, brushLib.current?.library ?? null, content) : Promise.resolve(null));
     if (fillContentMode.kind === 'create') {
       const { type } = fillContentMode;
-      run(null, () => adopt().then(() => client.call('newFillLayer', active.id, content, FILL_LAYERS[type].name, FILL_LAYERS[type].label.message!)), selectCreated);
+      run(null, () => adopt().then(() => client.call('newFillLayer', active?.id ?? 0, content, FILL_LAYERS[type].name, FILL_LAYERS[type].label.message!)), selectCreated);
     } else {
       const { id } = fillContentMode;
       run(null, () => adopt().then(() => client.call('setFillContent', [id], content)));
@@ -1323,10 +1321,9 @@ export function App() {
 
   // Patterns and Gradients panels: a double click adds a fill layer above the active one.
   function panelFillLayer(content: FillContent) {
-    if (!active) return;
     const { name } = FILL_LAYERS[content.type];
     const adopt = () => (doc ? adoptPatterns(doc, brushLib.current?.library ?? null, content) : Promise.resolve(null));
-    run(null, () => adopt().then(() => client.call('newFillLayer', active.id, content, name, name)), selectCreated);
+    run(null, () => adopt().then(() => client.call('newFillLayer', active?.id ?? 0, content, name, name)), selectCreated);
   }
 
   function gradientFillLayer(p: GradientPreset) {
@@ -1588,16 +1585,16 @@ export function App() {
 
   // Layer > New Adjustment Layer and the Adjustments panel: the new layer is selected and shown in Properties.
   function newAdjustmentLayer(kind: Kind) {
-    if (!active) return;
+    if (!doc) return;
     setShowProperties(true);
-    run(null, () => client.call('newAdjustmentLayer', active.id, defaultAdjustment(kind), MENU_EN[kind]), selectCreated);
+    run(null, () => client.call('newAdjustmentLayer', active?.id ?? 0, defaultAdjustment(kind), MENU_EN[kind]), selectCreated);
   }
 
   // Adjustments panel fill row: solid with the foreground color, gradient black to white, the first pattern.
   function quickFillLayer(type: FillContentForm['type']) {
-    if (!active) return;
+    if (!doc) return;
     const content = fillContentFromForm({ type, color: fg, style: 'linear', angle: 90, scalePct: 100, reverse: false, dither: false, alignWithLayer: true, patternId: doc?.patterns[0]?.id ?? '', linked: true });
-    run(null, () => client.call('newFillLayer', active.id, content, FILL_LAYERS[type].name, FILL_LAYERS[type].label.message!), selectCreated);
+    run(null, () => client.call('newFillLayer', active?.id ?? 0, content, FILL_LAYERS[type].name, FILL_LAYERS[type].label.message!), selectCreated);
   }
 
   function quickFill(rgb: Rgb, label: string) {
@@ -1670,8 +1667,8 @@ export function App() {
   const activeArtboard = (doc && active && doc.layers.find(n => n.artboard && (n.id === active.id || nodeById(n.children ?? [], active.id)))) || null;
   const deleteDisabled = !doc || !active || (doc.layers.length === 1 && doc.layers[0].id === active.id);
 
-  const newLayer = () => active && run(t`New layer`, () => client.call('addLayer', active.id), selectCreated);
-  const newGroup = () => active && run(t`New group`, () => client.call('addGroup', active.id), selectCreated);
+  const newLayer = () => doc && run(t`New layer`, () => client.call('addLayer', active?.id ?? 0), selectCreated);
+  const newGroup = () => doc && run(t`New group`, () => client.call('addGroup', active?.id ?? 0), selectCreated);
   const duplicateLayer = () => active && run(t`Duplicate layer`, () => client.call('duplicateNode', active.id), selectCreated);
   const deleteLayer = () => doc && active && run(t`Delete layer`, () => client.call('deleteNode', active.id), selectAfterDelete(doc, active.id));
   const groupLayers = () => active && run(t`Group layers`, () => client.call('groupNodes', [active.id]), selectCreated);
@@ -1687,12 +1684,11 @@ export function App() {
   async function placeFile(linked: boolean) {
     setMenu(null);
     const a = activeRef.current;
-    if (!a) return;
     let picked;
     try { picked = await pickPlaceFile(); } catch (e) { setError((e as Error).message); return; }
     if (!picked) return;
     const link = linked && !!picked.handle;
-    await run(t`Placing ${picked.file.name}…`, () => client.call('placeSmart', a.id, picked.file, link, link ? picked.handle : null), selectCreated);
+    await run(t`Placing ${picked.file.name}…`, () => client.call('placeSmart', a?.id ?? 0, picked.file, link, link ? picked.handle : null), selectCreated);
     if (linked && !link) setError(t`This browser cannot link files, so the file was placed embedded.`);
   }
   async function replaceContents(relink: boolean) {
@@ -1867,6 +1863,7 @@ export function App() {
       setPicked(ids);
       if (!active || !ids.includes(active.id)) setActive({ id: ids.at(-1)!, target: 'pixels' });
     },
+    deselectLayers: () => { setMenu(null); setPicked([]); setActive(null); },
     findLayers: () => setFindTick(n => n + 1),
     isolated: !!isolated, toggleIsolate: () => setIsolated(cur => (cur ? null : selectedNodes.map(n => n.id))),
   });
@@ -1962,6 +1959,7 @@ export function App() {
         rulersRef.current = new Rulers(rulerTop.current!, rulerLeft.current!, pixelGridCanvas.current!);
         v.onView = x => { setView({ zoom: x.zoom * v.dpr, rot: x.rot }); setFullView(x); redrawOverlay(); redrawRulers(); };
         v.guideHit = guideHit;
+        v.refuse = refuseTool;
         rulerTop.current?.addEventListener('pointerdown', rulerGuideStart('y'));
         rulerLeft.current?.addEventListener('pointerdown', rulerGuideStart('x'));
         viewer.current = v;
@@ -2150,6 +2148,11 @@ export function App() {
 
   const toolRef = useRef(tool);
   toolRef.current = tool;
+  const refuseTool = (e: ToolPointerEvent) => {
+    if (!docRef.current || activeRef.current || !needsLayer(toolRef.current, toolOptionsRef.current, e)) return false;
+    setError(t`No layer is selected`);
+    return true;
+  };
   const lastUsedRef = useRef(lastUsed);
   lastUsedRef.current = lastUsed;
   const fgRef = useRef(fg);
@@ -2751,13 +2754,13 @@ export function App() {
             />
           )}
           </DockSection>
-          {doc && active && showAdjustments && <DockSection {...sec('adjustments', msg`Adjustments`)}><AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} /></DockSection>}
+          {doc && showAdjustments && <DockSection {...sec('adjustments', msg`Adjustments`)}><AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} /></DockSection>}
           {doc && showStyles && <DockSection {...sec('styles', msg`Styles`)}><StylesPanel styles={styleLib.current} node={node ?? null} apply={applySavedStyle} /></DockSection>}
-          {doc && active && showPatterns && (
+          {doc && showPatterns && (
             <DockSection {...sec('patterns', msg`Patterns`)}><PatternsPanel doc={doc} library={brushLib.current?.library ?? null} onDoc={d => show(d)} onError={setError}
               fill={id => panelFillLayer({ type: 'pattern', pattern_id: id, scale: 1, angle: 0, linked: true, offset: [0, 0] })} /></DockSection>
           )}
-          {doc && active && showGradients && <DockSection {...sec('gradients', msg`Gradients`)}><GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} /></DockSection>}
+          {doc && showGradients && <DockSection {...sec('gradients', msg`Gradients`)}><GradientsPanel presets={gradLib.current.list()} fg={fg} bg={bg} fill={gradientFillLayer} /></DockSection>}
           {doc && showCloneSource && <DockSection {...sec('cloneSource', msg`Clone Source`)}><CloneSourcePanel docKey={doc.key} /></DockSection>}
           {doc && showNavigator && <DockSection {...sec('navigator', msg`Navigator`)}><NavigatorPanel doc={doc} viewer={viewer.current} view={fullView} /></DockSection>}
           {showHistogram && <DockSection {...sec('histogram', msg`Histogram`)}><HistogramPanel doc={doc} /></DockSection>}
@@ -2794,7 +2797,7 @@ export function App() {
           {doc && typePanels.characterStyles && <DockSection {...sec('characterStyles', msg`Character Styles`)}><TextStylesPanel kind="character" c={typeCtx} /></DockSection>}
           {doc && typePanels.paragraphStyles && <DockSection {...sec('paragraphStyles', msg`Paragraph Styles`)}><TextStylesPanel kind="paragraph" c={typeCtx} /></DockSection>}
           {doc && typePanels.glyphs && <DockSection {...sec('glyphs', msg`Glyphs`)}><GlyphsPanel c={typeCtx} faces={pickFaces} /></DockSection>}
-          {doc && active && (
+          {doc && (
             <>
               <DockSection {...sec('layers', msg`Layers`)}><LayersPanel
                 doc={doc} active={active} setActive={setActive} run={run}

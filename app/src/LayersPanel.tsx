@@ -23,8 +23,8 @@ type Run = (label: string | null, p: () => Promise<DocInfo | null>, selectAfter?
 
 interface Props {
   doc: DocInfo;
-  active: Active;
-  setActive: (a: Active) => void;
+  active: Active | null;
+  setActive: (a: Active | null) => void;
   run: Run;
   // Every selected layer id (the active one included) and the Ctrl/Shift+click pick that sets it.
   selected: number[];
@@ -117,7 +117,7 @@ export function LayersPanel(props: Props) {
   const shown = props.isolated ? filterIds(filtered, props.isolated) : filtered;
   const tick = useRef(props.renameTick);
   useEffect(() => {
-    if (tick.current !== props.renameTick) { tick.current = props.renameTick; setRenaming(active.id); }
+    if (tick.current !== props.renameTick) { tick.current = props.renameTick; if (active) setRenaming(active.id); }
   }, [props.renameTick]);
   const nameField = useRef<HTMLInputElement>(null);
   const findTick = useRef(props.findTick);
@@ -165,7 +165,7 @@ export function LayersPanel(props: Props) {
     return () => clearTimeout(timer);
   }, [doc.docId, doc.version, collapsed]);
 
-  const node = nodeById(doc.layers, active.id);
+  const node = active ? nodeById(doc.layers, active.id) : undefined;
 
   function select(id: number, target: 'pixels' | 'mask') {
     props.setPicked([]);
@@ -183,7 +183,7 @@ export function LayersPanel(props: Props) {
 
   // Ctrl+click toggles a layer in the selection, Shift+click selects the rows from the active one.
   function rowClick(e: MouseEvent, id: number) {
-    if (e.shiftKey) {
+    if (e.shiftKey && active) {
       const order = rowOrder(shown), a = order.indexOf(active.id), b = order.indexOf(id);
       props.setPicked(order.slice(Math.min(a, b), Math.max(a, b) + 1));
       setActive({ id, target: 'pixels' });
@@ -277,7 +277,7 @@ export function LayersPanel(props: Props) {
   function renderRow(n: LayerNode, depth: number, clipped: boolean): ReactNode {
     const isGroup = n.kind === 'group';
     const open = isGroup && !collapsed.has(n.id);
-    const isActive = active.id === n.id;
+    const isActive = active?.id === n.id;
     const picked = props.selected.length > 1 && props.selected.includes(n.id);
     const hint = dropHint?.id === n.id ? dropHint.where : null;
     const locked = n.locks.transparency || n.locks.pixels || n.locks.position;
@@ -349,7 +349,7 @@ export function LayersPanel(props: Props) {
             <PaintBucket className="fill-layer-icon" size={16} strokeWidth={1.75} aria-label={t`Fill layer`} />
           ) : (
             <span
-              className={`thumb${isActive && active.target === 'pixels' && n.mask ? ' target' : ''}`}
+              className={`thumb${isActive && active?.target === 'pixels' && n.mask ? ' target' : ''}`}
               onDoubleClick={n.kind === 'adjustment' ? e => { e.stopPropagation(); select(n.id, 'pixels'); props.openProperties(); } : undefined}
             >{thumbs.get(n.id) && THUMB_KINDS.has(n.kind) && <LayerThumb thumb={thumbs.get(n.id)!} />}</span>
           )}
@@ -357,7 +357,7 @@ export function LayersPanel(props: Props) {
             <>
               <Link2 className="mask-link" size={14} strokeWidth={1.75} />
               <button
-                className={`mask-chip${n.mask.enabled ? '' : ' disabled'}${isActive && active.target === 'mask' ? ' target' : ''}`}
+                className={`mask-chip${n.mask.enabled ? '' : ' disabled'}${isActive && active?.target === 'mask' ? ' target' : ''}`}
                 style={{ background: `rgb(${n.mask.default} ${n.mask.default} ${n.mask.default})` }}
                 aria-label={t`${name} mask`}
                 onClick={e => { e.stopPropagation(); select(n.id, 'mask'); }}
@@ -458,7 +458,11 @@ export function LayersPanel(props: Props) {
         )}
         <button className="layer-filter-switch" aria-label={t`Layer filter`} aria-pressed={filterOn} title={t`Turn the layer filter on or off`} onClick={() => setFilterOn(v => !v)}><Trans>Filter</Trans></button>
       </div>
-      <div className="layers-tree" role="tree" aria-label={t`Layers`}>
+      {/* A click below the last row deselects all layers (Select > Deselect Layers). */}
+      <div className="layers-tree" role="tree" aria-label={t`Layers`} onClick={e => {
+        const last = e.currentTarget.lastElementChild;
+        if (e.target === e.currentTarget && (!last || e.clientY > last.getBoundingClientRect().bottom)) { props.setPicked([]); setActive(null); }
+      }}>
         {[...shown].reverse().map(n => renderRow(n, 0, n.clipping))}
       </div>
       {context && (

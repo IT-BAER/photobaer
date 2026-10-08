@@ -3650,6 +3650,10 @@ msgstr "Deselect"
 msgid "Deselect All"
 msgstr "Deselect All"
 
+#: app/src/app/menus.ts
+msgid "Deselect Layers"
+msgstr "Deselect Layers"
+
 #: app/src/filters/labels.ts
 msgid "Despeckle"
 msgstr "Despeckle"
@@ -7979,6 +7983,10 @@ msgstr "No layer has a mask to apply."
 #: app/src/i18n/errors.ts
 msgid "No layer has an effect to flatten."
 msgstr "No layer has an effect to flatten."
+
+#: app/src/App.tsx
+msgid "No layer is selected"
+msgstr "No layer is selected"
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."

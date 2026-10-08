@@ -17,6 +17,17 @@ const PAINT_LABELS: Record<string, MessageDescriptor> = {
   colorReplacement: msg`Color Replacement`, mixerBrush: msg`Mixer Brush`, backgroundEraser: msg`Background Eraser`,
 };
 const PAINT_TOOLS = new Set(Object.keys(PAINT_LABELS));
+const SHAPE_NAMES: Record<string, string> = { rectangle: 'Rectangle', ellipse: 'Ellipse', triangle: 'Triangle', polygon: 'Polygon', line: 'Line', customShape: 'Shape' };
+const LAYER_TOOLS = new Set(['magneticLasso', 'bucket', 'magicEraser', 'gradient']);
+
+// Tools whose gesture changes or samples the active layer; with no active layer they report it and do not start.
+// Move with Auto-Select (Ctrl/Cmd inverts it) picks the clicked layer instead.
+function needsLayer(tool: string, o: Record<string, unknown>, key: { ctrlKey: boolean; metaKey: boolean }): boolean {
+  if (tool === 'move') return !o.autoSelect === !(key.ctrlKey || key.metaKey);
+  if (tool === 'magicWand' || tool === 'quickSelection') return !o.sampleAllLayers;
+  if (tool in SHAPE_NAMES) return o.mode === 'pixels';
+  return PAINT_TOOLS.has(tool) || LAYER_TOOLS.has(tool);
+}
 
 // Select > Modify (docs/M2.md section 3): op -> [min, max, default].
 const MODIFY_OPS: Record<'border' | 'smooth' | 'expand' | 'contract', { label: MessageDescriptor; min: number; max: number; default: number }> = {
@@ -96,7 +107,7 @@ function formFromFillContent(c: FillContent, fallbackColor: Rgb, fallbackPattern
   return { ...base, patternId: c.pattern_id, scalePct: c.scale * 100, angle: c.angle, linked: c.linked };
 }
 type CreateResult = DocInfo & { created: number };
-type SelectAfter = (d: DocInfo) => Active;
+type SelectAfter = (d: DocInfo) => Active | null;
 // `sep` draws a separator line above the item. `id` is the English label: shortcuts, context menus, command
 // search and WebMCP find items by it, so a translated `label` does not break them.
 interface Item { id?: string; label: string; keys?: string; run: () => void; off?: boolean; sub?: Item[]; sep?: boolean }
@@ -112,6 +123,16 @@ export function findMenuItem(menus: Record<string, Item[]>, pred: (id: string) =
 // Default and undo/redo fallback: the topmost root layer, pixels target.
 function fallbackActive(d: DocInfo): Active {
   return { id: d.layers.at(-1)!.id, target: 'pixels' };
+}
+
+// Active layer after a worker reply. No active layer (Deselect Layers) survives replies on the same document
+// and tab restores; a new document starts on its top layer.
+function nextActive(d: DocInfo, sameDoc: boolean, cur: Active | null, saved: { active: Active | null } | undefined,
+  selectAfter?: SelectAfter): Active | null {
+  if (selectAfter) return selectAfter(d);
+  const keep = saved ? saved.active : sameDoc ? cur : undefined;
+  if (keep === null) return null;
+  return keep && nodeById(d.layers, keep.id) ? keep : fallbackActive(d);
 }
 
 const selectCreated: SelectAfter = d => ({ id: (d as CreateResult).created, target: 'pixels' });
@@ -196,8 +217,8 @@ type Run = (label: string | null, p: () => Promise<DocInfo | null>, selectAfter?
 type Show = (d: DocInfo | null, selectAfter?: SelectAfter) => void;
 
 export {
-  SAMPLE_SIZES, VIEWER_TOOL, SELECT_TOOLS, PAINT_LABELS, PAINT_TOOLS, MODIFY_OPS, COLOR_RANGE_PRESETS, makeLatch, FILL_KEY, FILL_CONTENTS,
-  loadFillForm, STROKE_DEFAULT, FILL_LAYERS, fillContentFromForm, formFromFillContent, fallbackActive, selectCreated, selectAfterDelete,
+  SAMPLE_SIZES, VIEWER_TOOL, SELECT_TOOLS, PAINT_LABELS, PAINT_TOOLS, SHAPE_NAMES, needsLayer, MODIFY_OPS, COLOR_RANGE_PRESETS, makeLatch, FILL_KEY, FILL_CONTENTS,
+  loadFillForm, STROKE_DEFAULT, FILL_LAYERS, fillContentFromForm, formFromFillContent, fallbackActive, nextActive, selectCreated, selectAfterDelete,
   AUTOSAVE_TEXT, pickPlaceFile, STACK_MODES, ALIGN_ITEMS, saveBlob,
 };
 export type { Rgba, TrimBase, FillContents, FillForm, StrokeForm, FillContentForm, FillDialogMode, SelectAfter, Item, Run, Show };

@@ -3647,6 +3647,10 @@ msgstr "取消选择"
 msgid "Deselect All"
 msgstr "全部取消选择"
 
+#: app/src/app/menus.ts
+msgid "Deselect Layers"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Despeckle"
 msgstr "去斑"
@@ -7976,6 +7980,10 @@ msgstr "没有图层包含可应用的蒙版。"
 #: app/src/i18n/errors.ts
 msgid "No layer has an effect to flatten."
 msgstr "没有图层包含可拼合的效果。"
+
+#: app/src/App.tsx
+msgid "No layer is selected"
+msgstr ""
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."

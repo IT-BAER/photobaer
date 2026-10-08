@@ -20,7 +20,7 @@ import { TOOLS } from '../shell/tools.ts';
 import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo, GradientParams } from '../worker/types.ts';
 import { sourceImage } from './transform.ts';
-import { PAINT_TOOLS, SAMPLE_SIZES, SELECT_TOOLS, makeLatch, selectCreated, type Run, type Show } from './helpers.ts';
+import { PAINT_TOOLS, SAMPLE_SIZES, SELECT_TOOLS, SHAPE_NAMES, makeLatch, selectCreated, type Run, type Show } from './helpers.ts';
 
 // Loads a drag's point snap targets (nothing moves yet, so no layer is excluded); `loaded` runs
 // when they arrive, a pointer event or two after the press.
@@ -236,15 +236,15 @@ export function useSelectionTools(c: SelectionToolsCtx) {
         }
         dragRef.current = null;
         overlayRef.current?.setPreview(null);
-        if (e.type === 'cancel' || !d || !activeRef.current) return;
-        client.call('quickSelect', activeRef.current.id, d.points, r, !!o.sampleAllLayers, d.mode, !!o.autoEnhance).then(show);
+        if (e.type === 'cancel' || !d) return;
+        client.call('quickSelect', activeRef.current?.id ?? 0, d.points, r, !!o.sampleAllLayers, d.mode, !!o.autoEnhance).then(show);
       };
     } else if (tool === 'magicWand') {
       v.onPointer = e => {
-        if (e.type !== 'down' || !activeRef.current) return;
+        if (e.type !== 'down') return;
         const o = toolOptionsRef.current;
         const mode = selectMode('new', e.shiftKey, e.altKey);
-        client.call('magicWand', activeRef.current.id, e.x, e.y, Number(o.tolerance), !!o.antiAlias, !!o.contiguous, !!o.sampleAllLayers, mode).then(show);
+        client.call('magicWand', activeRef.current?.id ?? 0, e.x, e.y, Number(o.tolerance), !!o.antiAlias, !!o.contiguous, !!o.sampleAllLayers, mode).then(show);
       };
     }
 
@@ -287,12 +287,12 @@ export function useMoveTool(c: MoveToolCtx) {
     // What a gesture moves, or null (after a message) when it cannot start. Nudges pass no point.
     async function plan(pt: [number, number] | null, alt: boolean, auto: boolean): Promise<Plan | null> {
       const d = docRef.current, a = activeRef.current;
-      if (!d || !a) return null;
-      let id = a.id;
-      let pixels = !!d.selection && (!pt || await client.call('selectionAt', pt[0], pt[1]) >= 128);
+      if (!d || (!a && !(auto && pt))) return null;
+      let id = a?.id ?? 0;
+      let pixels = !!a && !!d.selection && (!pt || await client.call('selectionAt', pt[0], pt[1]) >= 128);
       if (!pixels && auto && pt) {
         const hit = await client.call('hitTestLayer', pt[0], pt[1], toolOptionsRef.current.autoSelectTarget === 'group');
-        if (hit !== null && hit !== a.id) { id = hit; setActive({ id: hit, target: 'pixels' }); }
+        if (hit !== null && hit !== id) { id = hit; setActive({ id: hit, target: 'pixels' }); }
       }
       const n = nodeById(d.layers, id);
       if (!n) return null;
@@ -710,7 +710,6 @@ export interface ShapeToolsCtx {
   toolOptionsRef: RefObject<ToolOptions>; fgRef: RefObject<Rgb>; run: Run; docRef: RefObject<DocInfo | null>;
 }
 
-const SHAPE_NAMES: Record<string, string> = { rectangle: 'Rectangle', ellipse: 'Ellipse', triangle: 'Triangle', polygon: 'Polygon', line: 'Line', customShape: 'Shape' };
 
 export function useShapeTools(c: ShapeToolsCtx) {
   const { viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run, docRef } = c;

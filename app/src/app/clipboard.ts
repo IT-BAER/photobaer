@@ -33,10 +33,10 @@ async function systemImage(): Promise<Uint8Array | null> {
 
 // Edit > Paste variants. `bytes`: a paste event's image (null: the event had none); otherwise the internal
 // clipboard, and from the menu (undefined) the system clipboard when that is empty.
-export function paste(run: Run, active: Active, mode: PasteMode, bytes?: Uint8Array | null) {
+export function paste(run: Run, active: Active | null, mode: PasteMode, bytes?: Uint8Array | null) {
   return run(null, async () => {
-    const r = await client.call('paste', active.id, mode, bytes ?? null);
+    const r = await client.call('paste', active?.id ?? 0, mode, bytes ?? null);
     const b = !r.pasted && bytes === undefined ? await systemImage() : null;
-    return b ? client.call('paste', active.id, mode, b) : r;
+    return b ? client.call('paste', active?.id ?? 0, mode, b) : r;
   }, d => (d as { created?: number }).created ? selectCreated(d) : active);
 }

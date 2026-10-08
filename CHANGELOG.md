@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Select > Subject selects the most prominent subject of the active layer in one step, without a model:
   saliency on superpixels refined by a graph cut. It works for a distinct subject on a calmer background;
   it is not a semantic segmenter, so cluttered scenes, several subjects and hair detail fall short of Photoshop.
+- Select > Deselect Layers, or a click below the last row of the Layers panel, leaves no layer selected. Tools
+  that change a layer then say "No layer is selected"; selections, new layers, Paste and Place still work.
 
 ### Changed
 
