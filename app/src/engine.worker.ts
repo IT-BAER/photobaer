@@ -66,9 +66,9 @@ let vp: { data: Uint8Array; w: number; h: number; scale: number } | null = null;
 // `pixels`: a selected-pixels session; `floating`: the live document hides the moved pixels (moveFloat).
 // `patch` renders sharp images of an open float over other doc rects (moveFloatPatch); `base` its
 // whole-layer images when moveFloat returned only the view's; `reveal` shows the layers an open float
-// hides and returns the call that hides them again.
+// hides and returns the call that hides them again. `level`: the view's level of a split float (moveFloatAhead).
 let moveSession: {
-  liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number; pixels: boolean; floating: boolean;
+  liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number; pixels: boolean; floating: boolean; level?: number;
   patch?: (moved: Box | null, above: Box | null) => { moved: ReturnType<typeof liftPreview> | null; above: ReturnType<typeof liftPreview> | null };
   base?: () => { moved: ReturnType<typeof shiftedRegion>; above: ReturnType<typeof shiftedRegion> };
   reveal?: () => () => void;
@@ -145,6 +145,7 @@ function moveSplit(e: Engine, s: NonNullable<typeof moveSession>, tree: LayerNod
     }
   };
   s.reveal = () => { show(shown); return () => show(below); };
+  s.level = level;
   s.floating = true;
   version++;
   return { ...info()!, layers: tree, over: null, ...moved, above: top && { over: null, ...top }, pending };
@@ -2483,6 +2484,14 @@ const api = {
     return s.patch ? s.patch(moved, above) : null;
   },
 
+  // Renders at most one cached effect window the view `view` would show once the floating layer
+  // lands at (dx, dy), so the drop draws without rendering effects. False when none is missing.
+  moveFloatAhead(view: Box, dx: number, dy: number) {
+    const s = moveSession;
+    if (!s?.floating || s.level === undefined) return false;
+    return need().fx_prerender(s.targetId, s.level, ...view, dx, dy);
+  },
+
   // Opens a transform session on the layer, its selected pixels or the selection. The preview
   // source comes back as straight RGBA8 at scale f (longest side <= maxSide) over doc rect
   // (x, y, w, h) / f; the live document then shows the layer without the source.
@@ -3962,7 +3971,7 @@ const STROKE_OPS = new Set<keyof Api>(['layersBounds', 'cloneSample', 'strokeBeg
 const PREVIEW_OPS = new Set<keyof Api>(['layersBounds', 'applyImage', 'cloneSample', 'fillEx', 'strokeSelection', 'adjust', 'setAdjustment', 'setLayerStyle', 'previewEnd', 'sample', 'brushPreview', 'tipAdd', 'patternAdd', 'addDocumentPattern', 'patternPixels',
   'layerThumbs', 'navigatorThumb', 'histogram', 'documentHistogram', 'documentSample', 'channelMask', 'layerMask']);
 // An open move session commits before any other op, so history never sees a half move; panel refreshes only read.
-const MOVE_OPS = new Set<keyof Api>(['layersBounds', 'cloneSample', 'moveFloat', 'moveFloatPatch', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels',
+const MOVE_OPS = new Set<keyof Api>(['layersBounds', 'cloneSample', 'moveFloat', 'moveFloatPatch', 'moveFloatAhead', 'moveLayerStep', 'moveLayerCommit', 'moveLayerCancel', 'movePixelsStep', 'movePixelsCommit', 'movePixelsCancel', 'sample', 'snapTargets', 'movingBounds', 'patternPixels',
   'layerThumbs', 'navigatorThumb', 'histogram']);
 // App-scope font calls: never refused for a stale document id and never close an open session.
 const FONT_OPS = new Set<keyof Api>(['fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing', 'glyphCells', 'glyphAlternates', 'fontCovers']);

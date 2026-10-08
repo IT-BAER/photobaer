@@ -1,7 +1,7 @@
 //! Layer effects cached in layer space: a moved layer reuses its effect planes, and every tile
 //! matches the per-document-tile path (`FX_LEGACY`).
 
-use super::compositor::{FX_LEGACY, FX_RENDERS};
+use super::compositor::{FX_LEGACY, FX_RENDERS, SHAPE_RASTERS};
 use super::*;
 use serde_json::{json, Value};
 
@@ -256,15 +256,20 @@ fn masks_and_layer_options_match_the_per_tile_path() {
 }
 
 
-#[test]
-fn a_layer_over_many_tiles_reuses_its_effect_planes() {
-    let s = styles().into_iter().find(|s| s.0 == "shadow, gradient, stroke").unwrap().1;
+/// A 900 x 700 px pixel layer at (150, 120) on a 1400 x 1100 canvas.
+fn big_doc(style: &str) -> (Document, u32) {
     let mut d = Document::new(1400, 1100, 8).unwrap();
     let id = d.add_layer("big", 1).unwrap();
     let (w, h) = (900usize, 700usize);
     let px: Vec<u8> = (0..w * h).flat_map(|i| [(i % 251) as u8, (i / w % 253) as u8, 9, if (i % w + i / w) % 97 < 80 { 255 } else { 0 }]).collect();
     d.put_rgba8(id, 150, 120, w as u32, h as u32, &px).unwrap();
-    d.set_style(id, &s).unwrap();
+    d.set_style(id, style).unwrap();
+    (d, id)
+}
+
+#[test]
+fn a_layer_over_many_tiles_reuses_its_effect_planes() {
+    let (mut d, id) = big_doc(&styles().into_iter().find(|s| s.0 == "shadow, gradient, stroke").unwrap().1);
     let all = |d: &Document| {
         let (nx, ny) = d.level_tiles(0);
         (0..ny).flat_map(|ty| (0..nx).map(move |tx| (tx, ty))).map(|(tx, ty)| Document::run_program(&d.program(0, tx, ty).unwrap())).collect::<Vec<_>>()
@@ -364,3 +369,124 @@ fn a_shape_stroke_past_the_path_bounds_matches_the_per_tile_path() {
         }
     }
 }
+
+/// An ellipse at odd fractional bounds on a 2000 x 1600 canvas, so most windows stay clear of the edges.
+fn big_shape_doc(fill: Value, style: &str) -> (Document, u32) {
+    let mut d = Document::new(2000, 1600, 8).unwrap();
+    d.fill(1, Target::Pixels, 255, 255, 255, 255).unwrap();
+    let pat: Vec<u8> = (0..16 * 16).flat_map(|i| [(i * 13 % 256) as u8, (i * 7 % 256) as u8, 40, 255]).collect();
+    let blob = d.blob_add(&pat).unwrap();
+    d.set_document_m3(&json!({ "patterns": [{ "id": "p", "name": "P", "width": 16, "height": 16, "blob": blob }] }).to_string())
+        .unwrap();
+    let live = json!({ "type": "ellipse", "bounds": [700.3, 600.7, 1300.1, 1050.9] });
+    let id = d.new_shape(&json!({ "name": "Ellipse", "live": live, "fill": fill, "stroke": null }).to_string()).unwrap();
+    d.set_style(id, style).unwrap();
+    (d, id)
+}
+
+fn level0(d: &Document, legacy: bool) -> Vec<Vec<f32>> {
+    FX_LEGACY.with(|c| c.set(legacy));
+    let (nx, ny) = d.level_tiles(0);
+    let out = (0..ny).flat_map(|ty| (0..nx).map(move |tx| (tx, ty))).map(|(tx, ty)| Document::run_program(&d.program(0, tx, ty).unwrap())).collect();
+    FX_LEGACY.with(|c| c.set(false));
+    out
+}
+
+#[test]
+fn a_moved_shape_layer_reuses_its_rasters() {
+    let solid = json!({ "type": "solid", "color": [30, 140, 200] });
+    for name in ["drop shadow", "shadow, gradient, stroke"] {
+        let (mut d, id) = big_shape_doc(solid.clone(), &styles().into_iter().find(|s| s.0 == name).unwrap().1);
+        level0(&d, false);
+        for (dx, dy) in [(37, 13), (-5, 3)] {
+            d.offset_layer(id, dx, dy).unwrap();
+            SHAPE_RASTERS.with(|c| c.set(0));
+            FX_RENDERS.with(|c| c.set(0));
+            let moved = level0(&d, false);
+            let counts = (SHAPE_RASTERS.with(|c| c.get()), FX_RENDERS.with(|c| c.get()));
+            assert_eq!(counts, (0, 0), "{name} moved by ({dx}, {dy}): no shape raster and no plane render");
+            assert_same(&moved, &level0(&d, true), &format!("{name} after ({dx}, {dy})"));
+        }
+    }
+}
+
+#[test]
+fn a_moved_pattern_shape_matches_the_per_tile_path() {
+    // Pattern content is anchored at the document origin, so a move changes the pixels.
+    let mut fill = pattern(true);
+    fill["type"] = "pattern".into();
+    let (mut d, id) = big_shape_doc(fill, &styles().into_iter().find(|s| s.0 == "drop shadow").unwrap().1);
+    level0(&d, false);
+    for (dx, dy) in [(37, 13), (-5, 3)] {
+        d.offset_layer(id, dx, dy).unwrap();
+        assert_same(&level0(&d, false), &level0(&d, true), &format!("pattern shape after ({dx}, {dy})"));
+    }
+}
+
+/// The display tiles of `level` over doc rect `view` (document px).
+fn view_tiles(d: &Document, level: u32, view: [f64; 4], legacy: bool) -> Vec<Vec<f32>> {
+    FX_LEGACY.with(|c| c.set(legacy));
+    let (nx, ny) = d.level_tiles(level);
+    let t = (TILE << level) as f64;
+    let span = |a: f64, b: f64, n: u32| (a / t).floor().max(0.0) as u32..((b / t).ceil() as u32).min(n);
+    let (xs, ys) = (span(view[0], view[0] + view[2], nx), span(view[1], view[1] + view[3], ny));
+    let out = ys.flat_map(|ty| xs.clone().map(move |tx| (tx, ty))).map(|(tx, ty)| Document::run_program(&d.program(level, tx, ty).unwrap())).collect();
+    FX_LEGACY.with(|c| c.set(false));
+    out
+}
+
+fn fx_renders() -> usize {
+    FX_RENDERS.with(|c| c.get())
+}
+
+// Plane renders of the view after a drop by `by`, with the view drawn before the drag and, with
+// `ahead`, the windows rendered ahead one per call while the layer still sits where it started.
+fn drop_renders(d: &mut Document, id: u32, level: u32, view: [f64; 4], by: (i32, i32), ahead: bool) -> usize {
+    view_tiles(d, level, view, false);
+    for call in 0.. {
+        if !ahead {
+            break;
+        }
+        assert!(call < 500, "the prerender ends");
+        let before = fx_renders();
+        let more = d.fx_prerender(id, level, view, by.0, by.1).unwrap();
+        assert_eq!(fx_renders() - before, more as usize, "one window per call");
+        if !more {
+            break;
+        }
+    }
+    d.offset_layer(id, by.0, by.1).unwrap();
+    FX_RENDERS.with(|c| c.set(0));
+    let dropped = view_tiles(d, level, view, false);
+    let n = fx_renders();
+    assert_same(&dropped, &view_tiles(d, level, view, true), &format!("dropped by {by:?} at level {level}"));
+    n
+}
+
+#[test]
+fn effect_windows_rendered_ahead_draw_the_drop_with_no_plane_render() {
+    let s = styles().into_iter().find(|s| s.0 == "shadow, gradient, stroke").unwrap().1;
+    // Level px past the canvas differ from level px inside it, so the level 1 drop stays on the canvas.
+    for (level, view, by) in [(0, [0.0, 0.0, 500.0, 400.0], (-400, -350)), (0, [0.0, 0.0, 500.0, 400.0], (-37, -301)), (1, [800.0, 600.0, 500.0, 400.0], (300, 200))] {
+        let (mut d, id) = big_doc(&s);
+        assert!(drop_renders(&mut d, id, level, view, by, false) > 0, "{by:?} at level {level} shows windows not drawn before");
+        let (mut d, id) = big_doc(&s);
+        assert_eq!(drop_renders(&mut d, id, level, view, by, true), 0, "{by:?} at level {level}: every window was rendered ahead");
+    }
+    // A move off the level grid reads other windows, so nothing renders ahead.
+    let (d, id) = big_doc(&s);
+    FX_RENDERS.with(|c| c.set(0));
+    assert!(!d.fx_prerender(id, 1, [800.0, 600.0, 500.0, 400.0], 301, 200).unwrap());
+    assert_eq!(fx_renders(), 0);
+}
+
+#[test]
+fn shape_effect_windows_rendered_ahead_draw_the_drop_with_no_plane_render() {
+    let solid = json!({ "type": "solid", "color": [30, 140, 200] });
+    for name in ["drop shadow", "shadow, gradient, stroke"] {
+        let style = styles().into_iter().find(|s| s.0 == name).unwrap().1;
+        let (mut d, id) = big_shape_doc(solid.clone(), &style);
+        assert_eq!(drop_renders(&mut d, id, 0, [0.0, 0.0, 600.0, 500.0], (-500, -400), true), 0, "{name}");
+    }
+}
+

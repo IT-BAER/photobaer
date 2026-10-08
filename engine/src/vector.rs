@@ -117,6 +117,8 @@ impl Document {
         }
         let key = key | (1 << 63);
         let px = self.cached(key, level, || {
+            #[cfg(test)]
+            super::compositor::SHAPE_RASTERS.with(|c| c.set(c.get() + 1));
             let k = 0.5f64.powi(level as i32);
             let path = scaled(&s.path, k);
             let bx = geom::bounds(&s.path).map_or([0.0; 4], |[l, t, r, b]| [l, t, r - l, b - t]);

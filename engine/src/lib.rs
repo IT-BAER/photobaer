@@ -530,6 +530,13 @@ impl Engine {
         Ok(self.0.doc.node(id).map_err(err)?.effect_reach())
     }
 
+    /// Renders at most one cached effect window the view (x, y, w, h in document px) at `level`
+    /// would read once layer `id` moved by (dx, dy). False when none is missing.
+    #[allow(clippy::too_many_arguments)]
+    pub fn fx_prerender(&self, id: u32, level: u32, x: f64, y: f64, w: f64, h: f64, dx: i32, dy: i32) -> Result<bool, JsError> {
+        self.0.doc.fx_prerender(id, level, [x, y, w, h], dx, dy).map_err(err)
+    }
+
     // ---------- selection ----------
 
     /// `mode` is "new", "add", "subtract" or "intersect".

@@ -10,7 +10,7 @@ import { cursorOverrides, toolCursor, type CursorCtx } from '../shell/cursors.ts
 import type { Preferences } from '../shell/preferences.ts';
 import type { Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
-import { sharpPatch, withCoarse, type SelectionOverlay, type TransformImage } from '../shell/SelectionOverlay.ts';
+import { revealsPast, sharpPatch, withCoarse, type SelectionOverlay, type TransformImage } from '../shell/SelectionOverlay.ts';
 import { marqueeEnd, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from '../shell/selecttools.ts';
 import { draftPreview, dragEnd, dragLive, shapeStyle, type ShapeKind } from '../shell/shapetools.ts';
 import { shapeLibrary, toBounds } from '../shell/customShapes.ts';
@@ -20,7 +20,7 @@ import { TOOLS } from '../shell/tools.ts';
 import type { ToolPointerEvent, Viewer } from '../viewer.ts';
 import type { DocInfo, GradientParams } from '../worker/types.ts';
 import { sourceImage } from './transform.ts';
-import { PAINT_TOOLS, SAMPLE_SIZES, SELECT_TOOLS, SHAPE_NAMES, makeLatch, selectCreated, type Run, type Show } from './helpers.ts';
+import { PAINT_TOOLS, SAMPLE_SIZES, SELECT_TOOLS, SHAPE_NAMES, holdBackground, landFloat, makeLatch, selectCreated, type Run, type Show } from './helpers.ts';
 
 // Loads a drag's point snap targets (nothing moves yet, so no layer is excluded); `loaded` runs
 // when they arrive, a pointer event or two after the press.
@@ -280,11 +280,17 @@ export function useMoveTool(c: MoveToolCtx) {
       origin: [number, number]; pos: [number, number]; shift: boolean; plan: Plan | null; ready: boolean; busy: boolean; failed: boolean;
       want: [number, number]; sent: [number, number]; end: 'up' | 'cancel' | null; moving: Rect; tx: number[]; ty: number[]; lock: SnapAxes; grid: [number | undefined, number | undefined];
       float: TransformImage | null; settled: boolean; patching: boolean; asked: [Box4 | null, Box4 | null]; pending: boolean;
+      // A moveFloatAhead call in flight (stays set after a failure); the offset whose view has every effect window rendered.
+      ahead: boolean; done: [number, number] | null;
+      // Releases the hold on background reads, once the drag's commit settles (a floating drop: once it is drawn).
+      free: () => void;
     };
     type Box4 = [number, number, number, number];
     let drag: Drag | null = null;
     // A press while the previous drag still lands (its last step not yet on screen) starts after that commit.
     let queued: { g: Drag; e: ToolPointerEvent } | null = null;
+    // The drag whose float image the overlay shows; a landed drag clears it only while still its own.
+    let shown: Drag | null = null;
 
     // What a gesture moves, or null (after a message) when it cannot start. Nudges pass no point.
     async function plan(pt: [number, number] | null, alt: boolean, auto: boolean): Promise<Plan | null> {
@@ -323,19 +329,23 @@ export function useMoveTool(c: MoveToolCtx) {
       overlayRef.current?.setGuides(snapSettings().smartGuides ? lines : []);
       if (g.float) {
         const m = [1, 0, g.want[0], 0, 1, g.want[1], 0, 0, 1];
+        shown = g;
         overlayRef.current?.setImage({ ...g.float, m });
         if (g.plan!.pixels) overlayRef.current?.setAntsMatrix(m);
         refine(g);
+        ahead(g);
       }
       redrawOverlay();
     }
     // A drag past the sharp float images asks for sharp ones of what is on screen now, one request at
     // a time; the coarse image shows meanwhile. Selected pixels float without patches. A float that
-    // started with the view's sharp images only asks for the coarse whole-layer images first.
+    // started with the view's sharp images asks for the coarse whole-layer images first, once the drag
+    // shows canvas past them.
     function refine(g: Drag) {
       const f = g.float, view = v!.visibleRect();
       if (!f || !view || g.patching || g.end || g.plan!.pixels) return;
       if (g.pending) {
+        if (!revealsPast(f, view, ...g.want)) return;
         g.patching = true;
         client.call('moveFloatPatch', null, null, true).then(p => {
           g.patching = false;
@@ -360,19 +370,47 @@ export function useMoveTool(c: MoveToolCtx) {
         aim(g);
       }, () => { g.patching = false; });
     }
+    // While nothing else is in flight, the worker renders the effects the view shows at the current
+    // offset, one window per call, so the drop draws without rendering them.
+    function ahead(g: Drag) {
+      const view = v!.visibleRect(), [dx, dy] = g.want;
+      if (!view || g.ahead || g.patching || g.end || g.plan!.pixels || (g.done?.[0] === dx && g.done[1] === dy)) return;
+      g.ahead = true;
+      client.call('moveFloatAhead', view, dx, dy).then(more => {
+        g.ahead = false;
+        g.done = more ? null : [dx, dy];
+        if (drag === g) ahead(g);
+      }, () => {});
+    }
     // One step in flight at a time, always the latest offset, sent once the previous one is on
     // screen (the viewer holds partial versions back); the end commits after the last step. A
     // floating drag only moves the overlay image and lands with one step at the end.
     function pump(g: Drag) {
-      if (!g.ready || g.busy) return;
-      const to: [number, number] = g.float && g.end === 'cancel' ? [0, 0] : g.want;
-      const due = g.float ? !!g.end && !g.settled : to[0] !== g.sent[0] || to[1] !== g.sent[1];
-      if (!g.failed && due) {
-        g.busy = true;
+      if (!g.ready || g.busy || g.settled) return;
+      // The image and the hold stay until the view shows the landed step; a new press waits for the commit only.
+      if (g.float && g.end && !g.failed) {
         g.settled = true;
+        const p = g.plan!, to: [number, number] = g.end === 'cancel' ? [0, 0] : g.want;
+        overlayRef.current?.setGuides([]);
+        redrawOverlay();
+        const { landed, drawn, settled } = landFloat<DocInfo | null, DocInfo | null>(
+          () => step(p, ...to),
+          () => (g.end === 'cancel' ? cancel(p) : commit(p)),
+          d => { overlayRef.current?.setAntsMatrix(null); show(d); return d ? v!.drawn(d.version, Infinity) : undefined; },
+          err => setError((err as Error).message),
+        );
+        void drawn.then(() => {
+          if (shown === g) { shown = null; overlayRef.current?.setImage(null); overlayRef.current?.setAntsMatrix(null); redrawOverlay(); }
+          if (!drag) v!.hold(false);
+        });
+        release(g, run(null, () => landed), false, settled);
+        return;
+      }
+      const to = g.want;
+      if (!g.failed && !g.float && (to[0] !== g.sent[0] || to[1] !== g.sent[1])) {
+        g.busy = true;
         g.sent = to;
         step(g.plan!, ...to).then(d => {
-          if (g.float) overlayRef.current?.setAntsMatrix(null);
           show(d);
           return d && v!.drawn(d.version);
         }, err => { g.failed = true; setError((err as Error).message); }).finally(() => { g.busy = false; pump(g); });
@@ -386,15 +424,17 @@ export function useMoveTool(c: MoveToolCtx) {
       release(g, run(null, () => (g.failed || g.end === 'cancel' ? cancel(p) : commit(p))));
     }
     // Ends `g`; a queued press becomes the drag and starts once `landed` (the commit) settles.
-    function release(g: Drag, landed: Promise<unknown> = Promise.resolve()) {
+    // Background reads wait for `freed`.
+    function release(g: Drag, landed: Promise<unknown> = Promise.resolve(), unhold = true, freed = landed) {
       if (drag === g) drag = null;
-      v!.hold(false);
+      if (unhold) v!.hold(false);
+      void freed.then(g.free, g.free);
       const q = queued;
       queued = null;
       if (!q) return;
       drag = q.g;
       void landed.then(() => {
-        if (drag !== q.g) return;
+        if (drag !== q.g) { q.g.free(); return; }
         // Escape or a pointer cancel while queued ends the press before it reaches the worker.
         if (q.g.end === 'cancel') { release(q.g); return; }
         v!.hold(true);
@@ -404,21 +444,28 @@ export function useMoveTool(c: MoveToolCtx) {
     async function start(g: Drag, e: ToolPointerEvent) {
       const o = toolOptionsRef.current;
       const p = await plan(g.origin, e.altKey, !!o.autoSelect !== (e.ctrlKey || e.metaKey));
-      if (!p) { if (drag === g) release(g); return; }
+      if (!p) { g.free(); if (drag === g) release(g); return; }
       g.plan = p;
       try {
-        const d = await begin(p);
+        // Sent back to back, so the worker runs them while the main thread waits; snap targets go before
+        // moveFloat, which hides layers. A copy's id is known only from its begin.
+        const began = begin(p);
+        const id = p.alt ? movedId(await began, p) : p.id;
+        const snapping = o.snap && snapSettings().enabled;
+        const [d, targets, f] = await Promise.all([
+          began,
+          snapping && Promise.all([client.call('snapTargets', id, snapSettings()), p.pixels ? docRef.current?.selection?.bounds ?? null : client.call('movingBounds', id)]),
+          // When the worker can float the moved pixels, the drag only moves this image on the overlay.
+          client.call('moveFloat', v!.view.zoom * v!.dpr, v!.visibleRect()),
+        ]);
         afterBegin(d, p);
-        if (o.snap && snapSettings().enabled) {
-          const id = movedId(d, p);
-          const [t, b] = await Promise.all([client.call('snapTargets', id, snapSettings()), p.pixels ? docRef.current?.selection?.bounds ?? null : client.call('movingBounds', id)]);
+        if (targets) {
+          const [t, b] = targets;
           g.tx = t.x;
           g.ty = t.y;
           g.grid = snapGrid(docRef.current?.grid);
           if (b) g.moving = { x: b[0], y: b[1], w: b[2], h: b[3] };
         }
-        // When the worker can float the moved pixels, the drag only moves this image on the overlay.
-        const f = await client.call('moveFloat', v!.view.zoom * v!.dpr, v!.visibleRect());
         const img = f && sourceImage(f);
         if (f && img) {
           const { image: _i, data: _d, over, above, pending, ...info } = f;
@@ -444,7 +491,7 @@ export function useMoveTool(c: MoveToolCtx) {
         const g: Drag = {
           origin: [e.x, e.y], pos: [e.x, e.y], shift: e.shiftKey, plan: null, ready: false, busy: false, failed: false,
           want: [0, 0], sent: [0, 0], end: null, moving: { x: 0, y: 0, w: 0, h: 0 }, tx: [], ty: [], lock: { x: null, y: null }, grid: [undefined, undefined],
-          float: null, settled: false, patching: false, asked: [null, null], pending: false,
+          float: null, settled: false, patching: false, asked: [null, null], pending: false, ahead: false, done: null, free: holdBackground(),
         };
         if (drag) { queued = { g, e }; return; }
         drag = g;
@@ -456,8 +503,9 @@ export function useMoveTool(c: MoveToolCtx) {
       if (!g || g.end) return;
       g.pos = [e.x, e.y];
       g.shift = e.shiftKey;
-      if (g.ready && !g.failed) aim(g);
+      // The end is set first, so the release asks for no sharper float image ahead of the landing step.
       if (e.type !== 'move') g.end = e.type === 'cancel' ? 'cancel' : 'up';
+      if (g.ready && !g.failed) aim(g);
       pump(g);
     };
     // Escape ends the drag like a pointer cancel; the pointer events that follow are ignored.
@@ -484,6 +532,7 @@ export function useMoveTool(c: MoveToolCtx) {
       v.onPointer = () => {};
       window.removeEventListener('keydown', onKey);
       moveKeysRef.current = null;
+      queued?.g.free();
       queued = null;
       const g = drag;
       drag = null;

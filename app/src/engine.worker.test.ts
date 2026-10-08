@@ -1913,6 +1913,29 @@ test('moveFloat splits only when shadows blend exactly alone: black multiply yes
   }
 });
 
+test('moveFloatAhead renders the effect windows of the drop view one per call while the document stays as is', async () => {
+  await call('init');
+  // Big enough that the float starts with the view's images only (pending); the drop shows the layer's
+  // corner, whose windows differ from the uniform inside the view already rendered.
+  await call('newDoc', 4096, 2048, 8, [255, 255, 255, 255]);
+  await call('addLayer', 1);
+  await call('select', { kind: 'rect', x: 100, y: 100, w: 3800, h: 1800 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('command', 'fill', 2, 'pixels', [0, 0, 255, 255]);
+  await call('selectCommand', 'deselect');
+  await call('setLayerStyle', 2, { ...emptyStyle(), drop_shadows: [{ ...defaultEffect('drop_shadows'), color: [0, 0, 0] }] }, defaultBlending(), 1, null);
+  await call('moveLayerBegin', 2, false, 'Move');
+  assert.equal((await call('moveFloatAhead', [0, 0, 400, 300], -3600, -1700)).result, false, 'nothing before the float');
+  assert.equal(((await call('moveFloat', 1, [0, 0, 400, 300])).result as { pending: boolean }).pending, true, 'floats with the view images');
+  let rendered = 0;
+  while ((await call('moveFloatAhead', [0, 0, 400, 300], -3600, -1700)).result === true) assert.ok(++rendered < 50, 'ends');
+  assert.ok(rendered > 0, 'windows rendered ahead');
+  assert.equal((await call('moveFloatAhead', [0, 0, 400, 300], -3600, -1700)).result, false, 'none left at that offset');
+  assert.deepEqual((await call('sample', 300, 300, 1, null)).result, [255, 255, 255, 255], 'the document still shows what is below');
+  await call('moveLayerStep', -3600, -1700);
+  assert.equal((await call('moveFloatAhead', [0, 0, 400, 300], 0, 0)).result, false, 'nothing once a step landed');
+  await call('moveLayerCancel');
+});
+
 test('moveFloat refuses a split when a visible layer clips onto the moved one behind a hidden clipped layer', async () => {
   await call('init');
   await call('newDoc', 16, 16, 8, [255, 255, 255, 255]);

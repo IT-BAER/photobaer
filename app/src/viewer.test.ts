@@ -68,3 +68,21 @@ test('destroy releases Viewer lifecycle resources and ignores a late tile', asyn
   assert.equal(draws, drawsAtDestroy, 'a late tile does not redraw');
   assert.equal(raf.size, 0);
 });
+
+test('drawn without a cap waits until the version is drawn, a new document or destroy', async () => {
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { devicePixelRatio: 1 } });
+  Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: () => 1 });
+  Object.defineProperty(globalThis, 'cancelAnimationFrame', { configurable: true, value: () => {} });
+  Object.defineProperty(globalThis, 'ResizeObserver', { configurable: true, value: class { observe() {} disconnect() {} } });
+  const renderer: Renderer = { kind: 'webgl2', slots: 8, gpu: null, upload() {}, draw() {} };
+  const viewer = new Viewer(new FakeCanvas() as unknown as HTMLCanvasElement, renderer, () => new Promise(() => {}));
+  viewer.setDoc({ docId: 1, version: 1, width: 16, height: 16, maxLevel: 0 });
+  let done = false;
+  const waiter = viewer.drawn(2, Infinity).then(() => { done = true; });
+  await new Promise(r => setTimeout(r, 30));
+  assert.equal(done, false, 'no timeout resolves it');
+  viewer.setDoc({ docId: 2, version: 1, width: 16, height: 16, maxLevel: 0 });
+  await waiter;
+  assert.equal(done, true, 'a new document resolves it');
+  viewer.destroy();
+});

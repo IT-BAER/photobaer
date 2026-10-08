@@ -55,6 +55,14 @@ export function sharpPatch(img: TransformImage, over: TransformImage | undefined
   if (holds(docBox(over), need) || (asked && holds(asked, need))) return null;
   return [x0 - view[2] / 4, y0 - view[3] / 4, need[2] + view[2] / 2, need[3] + view[3] / 2];
 }
+/** Whether `view` shows canvas (`img.clip`) that the sharp view image `img`, drawn at offset (dx, dy), does not hold. */
+export function revealsPast(img: TransformImage, view: Box4, dx: number, dy: number): boolean {
+  const c = img.clip ?? view, x0 = Math.max(c[0], view[0]), y0 = Math.max(c[1], view[1]);
+  const x1 = Math.min(c[0] + c[2], view[0] + view[2]), y1 = Math.min(c[1] + c[3], view[1] + view[3]);
+  if (x1 <= x0 || y1 <= y0) return false;
+  const a = docBox(img);
+  return !holds([a[0] + dx, a[1] + dy, a[2], a[3]], [x0, y0, x1 - x0, y1 - y0]);
+}
 /** A float that started with sharp view images only (`f` and its `above`) with the whole-layer images
  * `moved` and `above` under them; a missing one keeps the sharp image as it is. */
 export function withCoarse(f: TransformImage, moved: TransformImage | null, above: TransformImage | null): TransformImage {
@@ -239,10 +247,8 @@ export class SelectionOverlay {
         p.forEach(([x, y], i) => (i ? ctx.lineTo(x * dpr, y * dpr) : ctx.moveTo(x * dpr, y * dpr)));
         ctx.clip();
       }
-      this.#drawImage(this.#image, view, cssW, cssH, dpr);
-      if (this.#image.over) this.#drawImage({ ...this.#image.over, m: this.#image.m }, view, cssW, cssH, dpr);
-      const a = this.#image.above;
-      if (a) { this.#drawImage(a, view, cssW, cssH, dpr); if (a.over) this.#drawImage({ ...a.over, m: a.m }, view, cssW, cssH, dpr); }
+      this.#drawTiers(this.#image, view, cssW, cssH, dpr);
+      if (this.#image.above) this.#drawTiers(this.#image.above, view, cssW, cssH, dpr);
       ctx.restore();
     }
     if (this.#crop) this.#drawCrop(this.#crop, view, cssW, cssH, dpr);
@@ -511,9 +517,29 @@ export class SelectionOverlay {
     }
   }
 
-  // Affine matrices draw in one call; a projective one is drawn as an 8 x 8 mesh of affine triangles.
-  #drawImage(img: TransformImage, view: View, cssW: number, cssH: number, dpr: number) {
-    const ctx = this.#ctx, m = img.m;
+  // An image and its sharp part `over` (drawn with the image's matrix). The image skips the rect `over`
+  // covers, so soft pixels (shadows, edges) are not drawn twice.
+  #drawTiers(img: TransformImage, view: View, cssW: number, cssH: number, dpr: number) {
+    if (!img.over) return this.#drawImage(img, view, cssW, cssH, dpr);
+    const over = { ...img.over, m: img.m }, ctx = this.#ctx, { at } = this.#deviceMap(over, view, cssW, cssH, dpr);
+    const { width: w, height: h } = this.#canvas;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.beginPath();
+    for (const p of [[[0, 0], [w, 0], [w, h], [0, h]], [at(0, 0), at(over.w, 0), at(over.w, over.h), at(0, over.h)]]) {
+      p.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+    }
+    ctx.clip('evenodd');
+    this.#drawImage(img, view, cssW, cssH, dpr);
+    ctx.restore();
+    this.#drawImage(over, view, cssW, cssH, dpr);
+  }
+
+  // Image px to device px (`toDevice`); `at` as drawn: an axis-aligned affine image (`axis`) lands its
+  // origin on a whole device pixel. `scale` is device px per document px.
+  #deviceMap(img: TransformImage, view: View, cssW: number, cssH: number, dpr: number) {
+    const m = img.m;
     const o = docToScreen(view, 0, 0, cssW, cssH), ex = docToScreen(view, 1, 0, cssW, cssH), ey = docToScreen(view, 0, 1, cssW, cssH);
     const [a, b, c, d, e, f] = [(ex[0] - o[0]) * dpr, (ex[1] - o[1]) * dpr, (ey[0] - o[0]) * dpr, (ey[1] - o[1]) * dpr, o[0] * dpr, o[1] * dpr];
     const toDevice = (i: number, j: number): [number, number] => {
@@ -523,17 +549,23 @@ export class SelectionOverlay {
       const u = (m[0] * x + m[1] * y + m[2]) / w, v = (m[3] * x + m[4] * y + m[5]) / w;
       return [a * u + c * v + e, b * u + d * v + f];
     };
+    const p0 = toDevice(0, 0), px = toDevice(1, 0), py = toDevice(0, 1);
+    const axis = !img.map && m[6] === 0 && m[7] === 0 && Math.abs(px[1] - p0[1]) < 1e-6 && Math.abs(py[0] - p0[0]) < 1e-6;
+    const [sx, sy] = axis ? [Math.round(p0[0]) - p0[0], Math.round(p0[1]) - p0[1]] : [0, 0];
+    const at = (i: number, j: number): [number, number] => { const [x, y] = toDevice(i, j); return [x + sx, y + sy]; };
+    return { toDevice, at, axis, scale: Math.hypot(a, b) };
+  }
+
+  // Affine matrices draw in one call; a projective one is drawn as an 8 x 8 mesh of affine triangles.
+  #drawImage(img: TransformImage, view: View, cssW: number, cssH: number, dpr: number) {
+    const ctx = this.#ctx, m = img.m, { toDevice, at, axis, scale } = this.#deviceMap(img, view, cssW, cssH, dpr);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'low';
     if (!img.map && m[6] === 0 && m[7] === 0) {
-      const p0 = toDevice(0, 0), px = toDevice(1, 0), py = toDevice(0, 1);
-      let [ox, oy] = p0;
+      const p0 = at(0, 0), px = at(1, 0), py = at(0, 1);
       // Axis aligned: lands on whole device pixels, nearest from 2 device px per document px like the stage.
-      if (Math.abs(px[1] - p0[1]) < 1e-6 && Math.abs(py[0] - p0[0]) < 1e-6) {
-        ctx.imageSmoothingEnabled = Math.hypot(a, b) < 2;
-        [ox, oy] = [Math.round(ox), Math.round(oy)];
-      }
-      ctx.setTransform(px[0] - p0[0], px[1] - p0[1], py[0] - p0[0], py[1] - p0[1], ox, oy);
+      if (axis) ctx.imageSmoothingEnabled = scale < 2;
+      ctx.setTransform(px[0] - p0[0], px[1] - p0[1], py[0] - p0[0], py[1] - p0[1], p0[0], p0[1]);
       ctx.drawImage(img.source, 0, 0);
       return;
     }

@@ -86,3 +86,12 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   tiles only.
 - Move tool queued drag: a failed drag without an end drops presses until it lands (not reproduced: a failed
   drag releases at once and `run` never rejects).
+- Move press latency (next): a press on a layer with effects shows the float 70-130 ms later (production, 214 %,
+  view 1015 x 493 doc px). `moveFloat` takes 39-90 ms, of which 15 `display_tile` calls with only the moved layer
+  visible take 40-65 ms (2.7-4.3 ms per 256 x 256 tile) and the JS unpremultiply copy 7-8 ms; then the redraw
+  without the layer (`v.drawn`) takes 28-36 ms. During a drag the main thread has no frame over 34 ms and one
+  overlay `drawImage` of <= 0.1 ms per move; the dev-mode long tasks do not occur in production. Options:
+  1. (preferred) profile `display_tile` natively for a layer with cached effect planes and speed it up;
+  2. prepare the float while the Move tool idles with an active layer (new cache, invalidate on edit and view change);
+  3. first float at level 1, sharp through `moveFloatPatch` (blurry start).
+  Open: `moveFloat` took up to 305 ms during long drags (cause not measured).

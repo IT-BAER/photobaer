@@ -14,7 +14,7 @@ import { BLEND_MODES, HDR_BLEND_MODES, nodeById, dropTarget, type Where } from '
 import type { DocInfo, LayerNode } from './engine.worker.ts';
 import { EFFECT_LABEL, effectRows, setEffectEnabled, type EffectKind } from './layerStyle.ts';
 import { pathData } from './app/svgcss.ts';
-import { itemId, type Item } from './app/helpers.ts';
+import { itemId, whenBackground, type Item } from './app/helpers.ts';
 import { filterByName, filterIds, filterLayers, KIND_FILTERS, type KindFilter } from './app/layerFilter.ts';
 
 export type Active = { id: number; target: 'pixels' | 'mask' };
@@ -146,10 +146,12 @@ export function LayersPanel(props: Props) {
   const [thumbs, setThumbs] = useState<Map<number, Thumb>>(new Map());
   const thumbDoc = useRef(doc.docId);
 
-  // Best-effort, debounced so a brush stroke does not request a thumbnail per dab.
+  // Best-effort, debounced so a brush stroke does not request a thumbnail per dab, and held while a Move drag lands.
   useEffect(() => {
     if (thumbDoc.current !== doc.docId) { thumbDoc.current = doc.docId; setThumbs(new Map()); }
-    const timer = setTimeout(() => {
+    let live = true;
+    const timer = setTimeout(() => void whenBackground().then(() => {
+      if (!live) return;
       const ids = thumbIds(doc.layers, collapsed);
       if (!ids.length) return;
       client.call('layerThumbs', ids, Math.round(26 * window.devicePixelRatio)).then(list => {
@@ -161,8 +163,8 @@ export function LayersPanel(props: Props) {
           return changed ? next : prev;
         });
       }).catch(err => { if (!thumbWarned) { thumbWarned = true; console.warn('layer thumbnails unavailable', err); } });
-    }, 150);
-    return () => clearTimeout(timer);
+    }), 150);
+    return () => { live = false; clearTimeout(timer); };
   }, [doc.docId, doc.version, collapsed]);
 
   const node = active ? nodeById(doc.layers, active.id) : undefined;

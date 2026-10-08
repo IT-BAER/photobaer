@@ -88,12 +88,13 @@ export class Viewer {
     this.redraw();
   }
 
-  // Resolves once `version` (or a newer one) is fully drawn, or after `ms` at the latest.
+  // Resolves once `version` (or a newer one) is fully drawn, or after `ms` at the latest
+  // (Infinity: no cap; a new document or destroy still resolves it).
   drawn(version: number, ms = 1000): Promise<void> {
     if (this.#destroyed) return Promise.resolve();
     return new Promise(res => {
       const w = { version, done: () => { clearTimeout(t); res(); } };
-      const t = setTimeout(() => { this.#waiters = this.#waiters.filter(x => x !== w); res(); }, ms);
+      const t = ms === Infinity ? undefined : setTimeout(() => { this.#waiters = this.#waiters.filter(x => x !== w); res(); }, ms);
       this.#waiters.push(w);
       this.redraw();
     });

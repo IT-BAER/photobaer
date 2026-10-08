@@ -213,6 +213,34 @@ async function saveBlob(blob: Blob, name: string, mime: string, ext: string): Pr
   setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
   return true;
 }
+// A floating Move drag lands with one step and the commit (or cancel) sent right behind it, so a
+// later press reaches the worker after them; `landed` never waits for the view to draw, `drawn` does,
+// `settled` waits for both and never rejects.
+export function landFloat<D, E>(step: () => Promise<D>, end: () => Promise<E>, shown: (d: D) => Promise<void> | void, failed: (e: unknown) => void = () => {}) {
+  const s = step();
+  const landed = end();
+  const drawn = s.then(shown, failed);
+  return { landed, drawn, settled: Promise.allSettled([landed, drawn]).then(() => {}) };
+}
+
+// Background reads (Layers panel thumbnails) wait while a Move drag holds, so they never queue in the
+// worker ahead of its commit. A hold's release runs once.
+let holds = 0;
+let idle: (() => void)[] = [];
+export function holdBackground(): () => void {
+  holds++;
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    if (--holds) return;
+    const w = idle;
+    idle = [];
+    for (const f of w) f();
+  };
+}
+export const whenBackground = (): Promise<void> => (holds ? new Promise(r => idle.push(r)) : Promise.resolve());
+
 type Run = (label: string | null, p: () => Promise<DocInfo | null>, selectAfter?: SelectAfter) => Promise<void>;
 type Show = (d: DocInfo | null, selectAfter?: SelectAfter) => void;
 

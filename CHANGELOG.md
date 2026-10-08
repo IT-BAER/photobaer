@@ -26,13 +26,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for pixel, type, Smart Object and shape layers. Fill layers, groups and effects that depend on where the layer
   sits (noise, inner shadows, knockout, vector masks, gradients aligned to the document, unlinked patterns)
   still render per tile.
+- A moved shape layer with effects is not rasterized again: the engine reuses its shape and effect pixels
+  wherever the grid that moves with the layer stays clear of the canvas edges (20 view tiles of a 4000 x 4000 px
+  document: about 16 ms of engine time per move instead of 85 to 95 ms; near the canvas edge about 35 ms).
+- While the Move tool drags a layer with effects, the engine renders the effects the view will show at the
+  current position in the background, one piece at a time, so the drop draws without rendering them.
 
 ### Fixed
 
+- The Move tool commits a dropped layer at once instead of after the whole view has rendered, so the next
+  click no longer waits for the tiles; the moved image stays on screen until the view shows the result.
+- A click with the Move tool on a zoomed-in layer with effects no longer waits for a whole-layer image it
+  does not need, and the Layers panel thumbnails update only after a dropped layer is drawn, so they never
+  delay the drop.
+- After a Move tool drop, the moved image stays on screen until the whole view shows the result, however long
+  that takes, instead of giving up after one second and showing the tiles render one by one. Releasing the
+  mouse no longer asks for a sharper image of the drag ahead of the drop, and a press sends its requests to
+  the engine together, so the layer starts to follow the pointer sooner.
 - A Move tool drag that starts right after the previous one, while that one is still landing, is no longer
   ignored: it starts as soon as the previous move is committed. Escape before it starts drops it.
 - Clicking or starting to drag a layer with effects with the Move tool no longer flashes a doubled, darker
   shadow: the floating layer shows only once the view has lifted the layer out.
+- Dragging a layer with effects with the Move tool no longer darkens its shadow and soft edges while the
+  layer floats: the coarse whole-layer image is no longer drawn under the sharp image of the view.
 
 ## [0.5.0] - 2026-10-08
 

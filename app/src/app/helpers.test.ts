@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { DocInfo } from '../worker/types.ts';
-import { FILL_CONTENTS, needsLayer, nextActive } from './helpers.ts';
+import { FILL_CONTENTS, holdBackground, landFloat, needsLayer, nextActive, whenBackground } from './helpers.ts';
 
 test('Fill contents list Content-Aware between Color… and Pattern', () => {
   assert.deepEqual(Object.values(FILL_CONTENTS).map(d => d.message), ['Foreground Color', 'Background Color', 'Color…', 'Content-Aware', 'Pattern', 'History', 'Black', '50% Gray', 'White']);
@@ -46,4 +46,68 @@ test('needsLayer: tools that change a layer refuse to start without one', () => 
   assert.equal(needsLayer('move', { autoSelect: true }, key), false);
   assert.equal(needsLayer('move', { autoSelect: true }, { ctrlKey: true, metaKey: false }), true);
   assert.equal(needsLayer('move', {}, { ctrlKey: false, metaKey: true }), false);
+});
+
+test('landFloat sends the commit right behind the step and settles without waiting for the view', async () => {
+  const log: string[] = [];
+  let draw!: () => void, reply!: (v: number) => void;
+  const { landed, drawn } = landFloat(
+    () => { log.push('step'); return new Promise<number>(r => { reply = r; }); },
+    async () => { log.push('end'); return 2; },
+    async d => { log.push(`show ${d}`); await new Promise<void>(r => { draw = r; }); log.push('drawn'); },
+  );
+  // A press after the drop must reach the worker after this commit, so it goes out before any reply.
+  assert.deepEqual(log, ['step', 'end']);
+  assert.equal(await landed, 2);
+  reply(1);
+  await new Promise(r => setTimeout(r, 0));
+  assert.deepEqual(log, ['step', 'end', 'show 1']);
+  draw();
+  await drawn;
+  assert.deepEqual(log, ['step', 'end', 'show 1', 'drawn']);
+});
+
+test('landFloat settles only once the commit settled and the view drew the drop', async () => {
+  let draw!: () => void, fail!: (e: Error) => void;
+  const { settled } = landFloat(
+    async () => 1,
+    () => new Promise<number>((_, j) => { fail = j; }),
+    () => new Promise<void>(r => { draw = r; }),
+  );
+  let done = false;
+  void settled.then(() => { done = true; });
+  await new Promise(r => setTimeout(r, 0));
+  draw();
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(done, false, 'the commit is still out');
+  fail(new Error('commit failed'));
+  await settled;
+  assert.equal(done, true, 'a failed commit still settles');
+});
+
+test('landFloat reports a failed step and still ends the session', async () => {
+  const log: string[] = [];
+  const { landed, drawn } = landFloat(
+    async () => { throw new Error('no'); },
+    async () => { log.push('end'); return null; },
+    () => { log.push('show'); },
+    e => log.push(`error ${(e as Error).message}`),
+  );
+  await landed;
+  await drawn;
+  assert.deepEqual(log, ['end', 'error no']);
+});
+
+test('background reads wait until every Move hold is released', async () => {
+  const order: string[] = [];
+  await whenBackground().then(() => order.push('free'));
+  const a = holdBackground(), b = holdBackground();
+  const waiting = whenBackground().then(() => order.push('after both'));
+  a();
+  a();
+  await Promise.resolve();
+  order.push('one left');
+  b();
+  await waiting;
+  assert.deepEqual(order, ['free', 'one left', 'after both'], 'a second release of the same hold does not count twice');
 });
