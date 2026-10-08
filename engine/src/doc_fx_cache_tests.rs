@@ -304,3 +304,63 @@ fn color_under_alpha_0_keeps_the_effect_planes_after_a_move() {
         assert_same(&render(&d, false), &render(&d, true), &format!("after ({dx}, {dy})"));
     }
 }
+
+/// An anti-aliased ellipse shape layer over 140 x 110 px at (60.5, 50.25) above a white background.
+fn shape_doc(style: &str) -> (Document, u32) {
+    let mut d = Document::new(W, H, 8).unwrap();
+    d.fill(1, Target::Pixels, 255, 255, 255, 255).unwrap();
+    let live = json!({ "type": "ellipse", "bounds": [60.5, 50.25, 200.5, 160.25] });
+    let fill = json!({ "type": "solid", "color": [30, 140, 200] });
+    let id = d.new_shape(&json!({ "name": "Ellipse", "live": live, "fill": fill, "stroke": null }).to_string()).unwrap();
+    let pat: Vec<u8> = (0..16 * 16).flat_map(|i| [(i * 13 % 256) as u8, (i * 7 % 256) as u8, 40, 255]).collect();
+    let blob = d.blob_add(&pat).unwrap();
+    d.set_document_m3(&json!({ "patterns": [{ "id": "p", "name": "P", "width": 16, "height": 16, "blob": blob }] }).to_string())
+        .unwrap();
+    d.set_style(id, style).unwrap();
+    (d, id)
+}
+
+#[test]
+fn shape_layer_effects_match_the_per_tile_path_after_moves() {
+    for (name, s) in styles() {
+        let (mut d, id) = shape_doc(&s);
+        assert_same(&render(&d, false), &render(&d, true), &format!("shape {name}"));
+        for (dx, dy) in MOVES {
+            d.offset_layer(id, dx, dy).unwrap();
+            assert_same(&render(&d, false), &render(&d, true), &format!("shape {name} after ({dx}, {dy})"));
+        }
+    }
+}
+
+#[test]
+fn a_moved_shape_layer_reuses_its_effect_planes() {
+    for name in ["shadow, gradient, stroke", "drop shadow", "outer glow softer"] {
+        let (mut d, id) = shape_doc(&styles().into_iter().find(|s| s.0 == name).unwrap().1);
+        render(&d, false);
+        for (dx, dy) in [(37, 13), (256, 0), (-5, 3)] {
+            d.offset_layer(id, dx, dy).unwrap();
+            FX_RENDERS.with(|c| c.set(0));
+            let (nx, ny) = d.level_tiles(0);
+            (0..ny).for_each(|ty| (0..nx).for_each(|tx| drop(Document::run_program(&d.program(0, tx, ty).unwrap()))));
+            assert_eq!(FX_RENDERS.with(|c| c.get()), 0, "shape {name} moved by ({dx}, {dy}): no effect plane renders again");
+        }
+    }
+}
+
+#[test]
+fn a_shape_stroke_past_the_path_bounds_matches_the_per_tile_path() {
+    // Miter tips of a thick outside stroke on a sharp star reach far past the path bounds.
+    // The largest valid miter limit must not overflow the reach to infinity.
+    for (name, miter) in [("drop shadow", 20.0), ("outer glow softer", 20.0), ("drop shadow", f64::MAX)] {
+        let (mut d, id) = shape_doc(&styles().into_iter().find(|s| s.0 == name).unwrap().1);
+        let star = json!({ "type": "polygon", "bounds": [70.0, 40.0, 230.0, 200.0], "sides": 5, "star_inset": 0.85, "radius": 0.0 });
+        let stroke = json!({ "enabled": true, "width": 14.0, "align": "outside", "cap": "butt", "join": "miter", "miter_limit": miter,
+            "dash": [], "dash_offset": 0.0, "content": { "type": "solid", "color": [200, 40, 0] }, "opacity": 1.0, "blend": "normal" });
+        d.set_shape(id, &json!({ "live": star, "fill": null, "stroke": stroke }).to_string()).unwrap();
+        assert_same(&render(&d, false), &render(&d, true), &format!("star {name}"));
+        for (dx, dy) in MOVES {
+            d.offset_layer(id, dx, dy).unwrap();
+            assert_same(&render(&d, false), &render(&d, true), &format!("star {name} after ({dx}, {dy})"));
+        }
+    }
+}

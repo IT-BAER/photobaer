@@ -22,9 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   0.35 s until the layer moves with the pointer).
 - Layer effects stay cached when a layer moves: shadows, glows, strokes, bevels, satin and overlays render on a
   grid that moves with the layer, so after a drop only the newly uncovered parts render again (on a 4000 x
-  4000 px document at 100 %, 0.2 to 0.6 s instead of 1.3 to 1.8 s until the view is sharp again). Effects that
-  depend on where the layer sits (noise, inner shadows, knockout, vector masks, gradients aligned to the
-  document, unlinked patterns) still render per tile.
+  4000 px document at 100 %, 0.2 to 0.6 s instead of 1.3 to 1.8 s until the view is sharp again). This works
+  for pixel, type, Smart Object and shape layers. Fill layers, groups and effects that depend on where the layer
+  sits (noise, inner shadows, knockout, vector masks, gradients aligned to the document, unlinked patterns)
+  still render per tile.
 
 ### Fixed
 

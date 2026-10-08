@@ -78,8 +78,9 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
 - Video layers and the Timeline panel last; drop if nobody needs them.
 
 ## Move performance
-- Effects of fill, shape and group layers, and effects that read the position (noise, inner shadows, knockout,
+- Effects of fill and group layers, and effects that read the position (noise, inner shadows, knockout,
   vector masks, document-aligned gradients, unlinked patterns), still render per document tile after a move.
+  Groups need window keys from child program keys, not pixels; fill layers gain nothing without a mask.
 - GPU layer effects: decide after measuring the cache in the browser.
 - Layer-space effect cache: widen `fx_layer_space` only together with `region_hash`, which accepts content
   tiles only.

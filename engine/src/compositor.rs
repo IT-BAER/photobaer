@@ -1362,7 +1362,8 @@ impl Document {
         planes
     }
 
-    // Whether a style's planes depend on the layer's pixels and bounds alone, not on where it sits:
+    // Whether a style's planes depend on the layer's pixels and bounds alone, not on where it sits
+    // (a shape's own fill may read the position, but the window key hashes the pixels it renders):
     // noise and jitter (checked by the caller), knockout, a vector mask, inner shadows (clamped at
     // the canvas), gradients laid out on the document and unlinked patterns read the position.
     fn fx_layer_space(node: &Node, style: &Style) -> bool {
@@ -1373,7 +1374,7 @@ impl Document {
             FillContent::Solid(_) => false,
         };
         let bevel = style.bevel.as_ref().is_some_and(|b| on(b.present, b.enabled));
-        matches!(node.kind, Kind::Pixel(_) | Kind::Smart(_) | Kind::Text(_))
+        matches!(node.kind, Kind::Pixel(_) | Kind::Smart(_) | Kind::Text(_) | Kind::Shape(_))
             && !Document::knocks_out(node)
             && !node.vector_mask.as_ref().is_some_and(|m| m.enabled)
             && !style.inner_shadows.iter().any(|e| on(e.present, e.enabled))
@@ -1404,7 +1405,7 @@ impl Document {
         let (rx, ry) = (tx as i64 * t - ax, ty as i64 * t - ay);
         let mut ckey = mix(mix(key, rx.rem_euclid(t) as u64), ry.rem_euclid(t) as u64);
         // Content bounds and the bounds the style reads, once per document tile, not per window.
-        let bounds = (self.tight_bounds(content_tiles(node)?).0, self.style_bounds(node, style));
+        let bounds = (self.fx_content_bounds(node)?, self.style_bounds(node, style));
         let mut out: Option<Vec<Pixels>> = None;
         for v in ry.div_euclid(t)..=(ry + t - 1).div_euclid(t) {
             for u in rx.div_euclid(t)..=(rx + t - 1).div_euclid(t) {
@@ -1422,6 +1423,16 @@ impl Document {
         }
         let keys = (0..count).map(|i| mix(ckey, i as u64) | (1 << 63)).collect();
         Some((keys, out?.into_iter().map(Arc::new).collect()))
+    }
+
+    // Document px a node's content can cover, for the window miss test: its tight tile bounds, or a
+    // shape's path grown by its stroke's miter or cap reach and 1 document px of anti-aliasing (the
+    // miss test floors and ceils at every level). The reach stays finite for a miter limit near f64::MAX.
+    fn fx_content_bounds(&self, node: &Node) -> Option<[f64; 4]> {
+        let Kind::Shape(s) = &node.kind else { return Some(self.tight_bounds(content_tiles(node)?).0) };
+        let reach = |k: &crate::path::ShapeStroke| (k.width * k.miter_limit.max(2.0)).min(1e9);
+        let g = s.stroke.as_ref().filter(|k| k.enabled).map_or(0.0, reach) + 1.0;
+        Some(geom::bounds(&s.path).map_or([0.0; 4], |[l, t, r, b]| [l - g, t - g, r - l + 2.0 * g, b - t + 2.0 * g]))
     }
 
     // One layer-space window: the planes of the 256 px tile at (x, y) level px, cached under the

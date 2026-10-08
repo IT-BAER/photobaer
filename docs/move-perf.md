@@ -39,6 +39,15 @@ Gradient Overlay in Linear Dodge and a 1 px outside Stroke), view 100.2 % on the
 
 No console errors. Three drags left three "Move" entries in History.
 
+Shape layers use the same grid since the next change (`fx_content_bounds` gives the miss test the path bounds
+grown by the stroke's miter or cap reach). Chrome, a 4000 x 4000 document with one 3000 x 2700 px ellipse shape
+layer (Drop Shadow 133 px, 1 px outside Stroke), view 107.5 % on the shadow edge, three drags each:
+
+| | per-tile effects | layer-space grid |
+|---|---|---|
+| last step to moveLayerCommit | 910 - 965 ms | 431 - 540 ms |
+| moveLayerCommit to the last view tile | 135 - 145 ms | 109 - 123 ms |
+
 ## Remaining
 
 Options 2 and 3 below. Browser breakdown before option 1, one drag at 100 %:
