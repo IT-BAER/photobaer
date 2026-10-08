@@ -62,23 +62,16 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   paragraph style only, and the type layer keeps its name.
 
 ## M9 Remaining
-- Edit: Toggle Last State (Ctrl+Alt+Z), Paste Outside, Check Spelling, Find and Replace Text, Purge.
-- Edit: Define Brush Preset, Define Pattern, Define Custom Shape; Preset Manager.
+- Edit: Check Spelling, Find and Replace Text, Preset Manager.
 - Edit: Keyboard Shortcuts editor, Menus and Toolbar customization, Preferences pages beyond Cursors, Units & Rulers and Guides, Grid & Slices.
 - Image: Duplicate, Trap.
-- Layer: Layer from Background, Frame from Layers, Hide Layers, Lock Layers,
-  Link Layers and Select Linked Layers, Arrange > Reverse, layer colors.
-- Layer > Layer Mask: Reveal/Hide Selection, From Transparency, Apply, Link.
-- Layer > Matting: Color Decontaminate, Defringe, Remove Black Matte, Remove White Matte.
-- Select: All Layers, Deselect Layers, Find Layers, Isolate Layers.
-- View: Fit Layer(s) on Screen, 200%, Print Size, Flip Horizontal, Screen Modes, Pixel Aspect Ratio,
-  Show submenu (Layer Edges, Target Path, Notes, Brush Preview, Mesh), Pattern Preview.
+- Layer: Frame from Layers, layer colors. Layer from Background, Link Layers, Select Linked Layers and
+  Layer Mask > Link need a Background layer and layer links in the document model.
+- Select: Deselect Layers (needs a document without an active layer).
+- View: Screen Modes, Pixel Aspect Ratio, Pattern Preview, Show > Target Path, Notes, Brush Preview, Mesh.
 - New Document dialog: presets by category (Photo, Print, Art and Illustration, Web, Mobile, Film and Video,
   Social), preset search, Clipboard preset, name, units, resolution, orientation, color mode, size estimate.
 - Start screen with New, Open and recent files with thumbnails.
 - Status bar: document size (flattened / with layers), units selector.
-- Localization: UI, menus and dialogs in the languages most Adobe users work in (for example German, French,
-  Spanish, Portuguese (BR), Italian, Japanese, Chinese, Korean), with a language picker; menu labels match
-  each language's Photoshop terms so users find commands by the names they know.
 - Help: Keyboard Shortcuts reference, System Info.
 - Video layers and the Timeline panel last; drop if nobody needs them.
