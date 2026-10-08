@@ -368,7 +368,7 @@ msgstr "2. 从此提示开始"
 
 #: app/src/app/menus.ts
 msgid "200%"
-msgstr ""
+msgstr "200%"
 
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
@@ -684,7 +684,7 @@ msgstr "全部"
 #: app/src/app/menus.ts
 msgctxt "purge"
 msgid "All"
-msgstr ""
+msgstr "全部"
 
 #: app/src/TypePanels.tsx
 msgid "All Caps"
@@ -889,7 +889,7 @@ msgstr "应用"
 #: app/src/app/menus.ts
 msgctxt "layer mask"
 msgid "Apply"
-msgstr ""
+msgstr "应用"
 
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
@@ -927,7 +927,7 @@ msgstr "应用图层复合"
 
 #: app/src/i18n/history.ts
 msgid "Apply Layer Mask"
-msgstr ""
+msgstr "应用图层蒙版"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -1800,7 +1800,7 @@ msgstr "画笔牵绳颜色"
 
 #: app/src/app/Dialogs.tsx
 msgid "Brush Name"
-msgstr ""
+msgstr "画笔名称"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
@@ -2269,7 +2269,7 @@ msgstr "剪贴到下方图层"
 #: app/src/app/menus.ts
 msgctxt "purge"
 msgid "Clipboard"
-msgstr ""
+msgstr "剪贴板"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Clipped"
@@ -2444,11 +2444,11 @@ msgstr "颜色校正"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Color Decontaminate"
-msgstr ""
+msgstr "颜色净化"
 
 #: app/src/app/menus.ts
 msgid "Color Decontaminate…"
-msgstr ""
+msgstr "颜色净化…"
 
 #: app/src/i18n/choices.ts
 msgid "Color Dodge"
@@ -3413,19 +3413,19 @@ msgstr "请先在“定义”选项卡上定义变量。"
 
 #: app/src/app/menus.ts
 msgid "Define Brush Preset…"
-msgstr ""
+msgstr "定义画笔预设…"
 
 #: app/src/app/menus.ts
 msgid "Define Custom Shape…"
-msgstr ""
+msgstr "定义自定形状…"
 
 #: app/src/i18n/errors.ts
 msgid "Define Pattern needs a rectangular selection without feathering."
-msgstr ""
+msgstr "定义图案需要一个没有羽化的矩形选区。"
 
 #: app/src/app/menus.ts
 msgid "Define Pattern…"
-msgstr ""
+msgstr "定义图案…"
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -3442,11 +3442,11 @@ msgstr "落叶"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Defringe"
-msgstr ""
+msgstr "去边"
 
 #: app/src/app/menus.ts
 msgid "Defringe…"
-msgstr ""
+msgstr "去边…"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
@@ -4695,11 +4695,11 @@ msgstr "按类型过滤图层"
 
 #: app/src/LayersPanel.tsx
 msgid "Filter layers by name"
-msgstr ""
+msgstr "按名称过滤图层"
 
 #: app/src/LayersPanel.tsx
 msgid "Filter type"
-msgstr ""
+msgstr "过滤类型"
 
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
@@ -4712,7 +4712,7 @@ msgstr "查找边缘"
 
 #: app/src/app/menus.ts
 msgid "Find Layers"
-msgstr ""
+msgstr "查找图层"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4728,7 +4728,7 @@ msgstr "手指绘画"
 
 #: app/src/i18n/errors.ts
 msgid "Finish the current edit before purging the history."
-msgstr ""
+msgstr "请先完成当前编辑，再清理历史记录。"
 
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
@@ -4751,7 +4751,7 @@ msgstr "按屏幕大小缩放画板"
 
 #: app/src/app/menus.ts
 msgid "Fit Layer(s) on Screen"
-msgstr ""
+msgstr "按屏幕大小缩放图层"
 
 #: app/src/app/menus.ts
 msgid "Fit on screen"
@@ -5068,7 +5068,7 @@ msgstr "从右侧"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "From Transparency"
-msgstr ""
+msgstr "从透明度"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5636,7 +5636,7 @@ msgstr "隐藏图层效果"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Hide Layers"
-msgstr ""
+msgstr "隐藏图层"
 
 #: app/src/app/menus.ts
 msgid "Hide Measurement Log"
@@ -5672,7 +5672,7 @@ msgstr "隐藏标尺"
 
 #: app/src/app/menus.ts
 msgid "Hide Selection"
-msgstr ""
+msgstr "隐藏选区"
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -5785,7 +5785,7 @@ msgstr "直方图像素计数超出了源文档面积。"
 
 #: app/src/app/menus.ts
 msgid "Histories"
-msgstr ""
+msgstr "历史记录"
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
@@ -6270,7 +6270,7 @@ msgstr "光圈模糊"
 
 #: app/src/app/menus.ts
 msgid "Isolate Layers"
-msgstr ""
+msgstr "隔离图层"
 
 #: app/src/TypePanels.tsx
 msgid "Italic"
@@ -6331,7 +6331,7 @@ msgstr "关键字"
 #: app/src/LayersPanel.tsx
 msgctxt "layer filter"
 msgid "Kind"
-msgstr ""
+msgstr "类型"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6446,7 +6446,7 @@ msgstr "图层内容选项…"
 
 #: app/src/app/menus.ts
 msgid "Layer Edges"
-msgstr ""
+msgstr "图层边缘"
 
 #: app/src/LayersPanel.tsx
 msgid "Layer filter"
@@ -6954,11 +6954,11 @@ msgstr "锁定图层"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Lock Layers"
-msgstr ""
+msgstr "锁定图层"
 
 #: app/src/app/menus.ts
 msgid "Lock Layers…"
-msgstr ""
+msgstr "锁定图层…"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7244,7 +7244,7 @@ msgstr "杂边颜色"
 
 #: app/src/app/menus.ts
 msgid "Matting"
-msgstr ""
+msgstr "修边"
 
 #: app/src/filters/labels.ts
 msgid "Max Radius"
@@ -7669,7 +7669,7 @@ msgstr "名称"
 #: app/src/LayersPanel.tsx
 msgctxt "layer filter"
 msgid "Name"
-msgstr ""
+msgstr "名称"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
@@ -8570,11 +8570,11 @@ msgstr "粘贴 Lorem Ipsum"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Paste Outside"
-msgstr ""
+msgstr "外部粘贴"
 
 #: app/src/i18n/errors.ts
 msgid "Paste Outside needs a selection."
-msgstr ""
+msgstr "外部粘贴需要选区。"
 
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
@@ -8661,7 +8661,7 @@ msgstr "图案填充"
 
 #: app/src/app/Dialogs.tsx
 msgid "Pattern Name"
-msgstr ""
+msgstr "图案名称"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -9151,7 +9151,7 @@ msgstr "印刷制作。较宽的 Adobe RGB 工作空间可保留印刷机能够�
 
 #: app/src/app/menus.ts
 msgid "Print Size"
-msgstr ""
+msgstr "打印尺寸"
 
 #: app/src/app/menus.ts
 msgid "Print…"
@@ -9254,7 +9254,7 @@ msgstr "操控变形"
 
 #: app/src/app/menus.ts
 msgid "Purge"
-msgstr ""
+msgstr "清理"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Purity"
@@ -9611,7 +9611,7 @@ msgstr "移去所有图钉"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove Black Matte"
-msgstr ""
+msgstr "移去黑色杂边"
 
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
@@ -9636,7 +9636,7 @@ msgstr "移去变形拆分"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove White Matte"
-msgstr ""
+msgstr "移去白色杂边"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"
@@ -9852,7 +9852,7 @@ msgstr "显示全部"
 
 #: app/src/app/menus.ts
 msgid "Reveal Selection"
-msgstr ""
+msgstr "显示选区"
 
 #: app/src/app/menus.ts
 msgid "Revealing…"
@@ -9869,7 +9869,7 @@ msgstr "反向"
 #: app/src/app/menus.ts
 msgctxt "arrange"
 msgid "Reverse"
-msgstr ""
+msgstr "反向"
 
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -10697,7 +10697,7 @@ msgstr "形状图层"
 
 #: app/src/app/Dialogs.tsx
 msgid "Shape Name"
-msgstr ""
+msgstr "形状名称"
 
 #: app/src/i18n/history.ts
 msgid "Shape Path"
@@ -10779,7 +10779,7 @@ msgstr "短描边"
 
 #: app/src/app/menus.ts
 msgid "Show"
-msgstr ""
+msgstr "显示"
 
 #: app/src/i18n/history.ts
 msgid "Show {effect}"
@@ -10874,7 +10874,7 @@ msgstr "显示图层效果"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Show Layers"
-msgstr ""
+msgstr "显示图层"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -11924,7 +11924,7 @@ msgstr "画板位于画布之外。"
 
 #: app/src/i18n/errors.ts
 msgid "The brush is larger than 5000 x 5000 pixels."
-msgstr ""
+msgstr "画笔大于5000 x 5000像素。"
 
 #: app/src/App.tsx
 msgid "The brush library is not available."
@@ -12009,7 +12009,7 @@ msgstr "密码错误。“{0}”受保护。"
 
 #: app/src/i18n/errors.ts
 msgid "The pattern is larger than 4000 x 4000 pixels."
-msgstr ""
+msgstr "图案大于4000 x 4000像素。"
 
 #: app/src/App.tsx
 msgid "The pattern is not available."
@@ -12053,7 +12053,7 @@ msgstr "已存储的工具预设库不是有效的 JSON。"
 
 #: app/src/i18n/errors.ts
 msgid "The selected area is empty."
-msgstr ""
+msgstr "所选区域为空。"
 
 #: app/src/i18n/errors.ts
 msgid "The source document is no longer open."
@@ -12279,7 +12279,7 @@ msgstr "要立即编辑文本，请将欠缺的字体替换为默认字体。您
 
 #: app/src/app/menus.ts
 msgid "Toggle Last State"
-msgstr ""
+msgstr "切换最终状态"
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"

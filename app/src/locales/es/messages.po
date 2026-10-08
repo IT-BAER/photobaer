@@ -371,7 +371,7 @@ msgstr "2. Comienza con este mensaje"
 
 #: app/src/app/menus.ts
 msgid "200%"
-msgstr ""
+msgstr "200 %"
 
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
@@ -687,7 +687,7 @@ msgstr "Todo"
 #: app/src/app/menus.ts
 msgctxt "purge"
 msgid "All"
-msgstr ""
+msgstr "Todo"
 
 #: app/src/TypePanels.tsx
 msgid "All Caps"
@@ -892,7 +892,7 @@ msgstr "Aplicar"
 #: app/src/app/menus.ts
 msgctxt "layer mask"
 msgid "Apply"
-msgstr ""
+msgstr "Aplicar"
 
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
@@ -930,7 +930,7 @@ msgstr "Aplicar composición de capas"
 
 #: app/src/i18n/history.ts
 msgid "Apply Layer Mask"
-msgstr ""
+msgstr "Aplicar máscara de capa"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -1803,7 +1803,7 @@ msgstr "Color de la correa del pincel"
 
 #: app/src/app/Dialogs.tsx
 msgid "Brush Name"
-msgstr ""
+msgstr "Nombre del pincel"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
@@ -2272,7 +2272,7 @@ msgstr "Recortar en la capa inferior"
 #: app/src/app/menus.ts
 msgctxt "purge"
 msgid "Clipboard"
-msgstr ""
+msgstr "Portapapeles"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Clipped"
@@ -2447,11 +2447,11 @@ msgstr "Corrección de color"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Color Decontaminate"
-msgstr ""
+msgstr "Descontaminar colores"
 
 #: app/src/app/menus.ts
 msgid "Color Decontaminate…"
-msgstr ""
+msgstr "Descontaminar colores…"
 
 #: app/src/i18n/choices.ts
 msgid "Color Dodge"
@@ -3416,19 +3416,19 @@ msgstr "Define primero una variable en la pestaña Definir."
 
 #: app/src/app/menus.ts
 msgid "Define Brush Preset…"
-msgstr ""
+msgstr "Definir valor de pincel preestablecido…"
 
 #: app/src/app/menus.ts
 msgid "Define Custom Shape…"
-msgstr ""
+msgstr "Definir forma personalizada…"
 
 #: app/src/i18n/errors.ts
 msgid "Define Pattern needs a rectangular selection without feathering."
-msgstr ""
+msgstr "Definir motivo requiere una selección rectangular sin calar."
 
 #: app/src/app/menus.ts
 msgid "Define Pattern…"
-msgstr ""
+msgstr "Definir motivo…"
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -3445,11 +3445,11 @@ msgstr "Defoliar"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Defringe"
-msgstr ""
+msgstr "Eliminar halos"
 
 #: app/src/app/menus.ts
 msgid "Defringe…"
-msgstr ""
+msgstr "Eliminar halos…"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
@@ -4698,11 +4698,11 @@ msgstr "Filtrar capas por tipo"
 
 #: app/src/LayersPanel.tsx
 msgid "Filter layers by name"
-msgstr ""
+msgstr "Filtrar capas por nombre"
 
 #: app/src/LayersPanel.tsx
 msgid "Filter type"
-msgstr ""
+msgstr "Tipo de filtro"
 
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
@@ -4715,7 +4715,7 @@ msgstr "Hallar bordes"
 
 #: app/src/app/menus.ts
 msgid "Find Layers"
-msgstr ""
+msgstr "Buscar capas"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4731,7 +4731,7 @@ msgstr "Pintura con los dedos"
 
 #: app/src/i18n/errors.ts
 msgid "Finish the current edit before purging the history."
-msgstr ""
+msgstr "Termina la edición actual antes de purgar la historia."
 
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
@@ -4754,7 +4754,7 @@ msgstr "Ajustar mesa de trabajo en pantalla"
 
 #: app/src/app/menus.ts
 msgid "Fit Layer(s) on Screen"
-msgstr ""
+msgstr "Ajustar capa(s) en pantalla"
 
 #: app/src/app/menus.ts
 msgid "Fit on screen"
@@ -5071,7 +5071,7 @@ msgstr "Desde la derecha"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "From Transparency"
-msgstr ""
+msgstr "Desde transparencia"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5639,7 +5639,7 @@ msgstr "Ocultar efectos de capa"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Hide Layers"
-msgstr ""
+msgstr "Ocultar capas"
 
 #: app/src/app/menus.ts
 msgid "Hide Measurement Log"
@@ -5675,7 +5675,7 @@ msgstr "Ocultar reglas"
 
 #: app/src/app/menus.ts
 msgid "Hide Selection"
-msgstr ""
+msgstr "Ocultar selección"
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -5788,7 +5788,7 @@ msgstr "El recuento de píxeles del histograma supera el área del documento de 
 
 #: app/src/app/menus.ts
 msgid "Histories"
-msgstr ""
+msgstr "Historiales"
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
@@ -6273,7 +6273,7 @@ msgstr "Desenfocar iris"
 
 #: app/src/app/menus.ts
 msgid "Isolate Layers"
-msgstr ""
+msgstr "Aislar capas"
 
 #: app/src/TypePanels.tsx
 msgid "Italic"
@@ -6334,7 +6334,7 @@ msgstr "Palabras clave"
 #: app/src/LayersPanel.tsx
 msgctxt "layer filter"
 msgid "Kind"
-msgstr ""
+msgstr "Clase"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6449,7 +6449,7 @@ msgstr "Opciones de contenido de capa…"
 
 #: app/src/app/menus.ts
 msgid "Layer Edges"
-msgstr ""
+msgstr "Bordes de capa"
 
 #: app/src/LayersPanel.tsx
 msgid "Layer filter"
@@ -6957,11 +6957,11 @@ msgstr "Bloquear capa"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Lock Layers"
-msgstr ""
+msgstr "Bloquear capas"
 
 #: app/src/app/menus.ts
 msgid "Lock Layers…"
-msgstr ""
+msgstr "Bloquear capas…"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7247,7 +7247,7 @@ msgstr "Color de mate"
 
 #: app/src/app/menus.ts
 msgid "Matting"
-msgstr ""
+msgstr "Halos"
 
 #: app/src/filters/labels.ts
 msgid "Max Radius"
@@ -7672,7 +7672,7 @@ msgstr "Nombre"
 #: app/src/LayersPanel.tsx
 msgctxt "layer filter"
 msgid "Name"
-msgstr ""
+msgstr "Nombre"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
@@ -8573,11 +8573,11 @@ msgstr "Pegar Lorem Ipsum"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Paste Outside"
-msgstr ""
+msgstr "Pegar fuera"
 
 #: app/src/i18n/errors.ts
 msgid "Paste Outside needs a selection."
-msgstr ""
+msgstr "Pegar fuera requiere una selección."
 
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
@@ -8664,7 +8664,7 @@ msgstr "Relleno de motivo"
 
 #: app/src/app/Dialogs.tsx
 msgid "Pattern Name"
-msgstr ""
+msgstr "Nombre del motivo"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -9154,7 +9154,7 @@ msgstr "Producción de impresión. El espacio de trabajo Adobe RGB, más amplio,
 
 #: app/src/app/menus.ts
 msgid "Print Size"
-msgstr ""
+msgstr "Tamaño de impresión"
 
 #: app/src/app/menus.ts
 msgid "Print…"
@@ -9257,7 +9257,7 @@ msgstr "Deformación de marioneta"
 
 #: app/src/app/menus.ts
 msgid "Purge"
-msgstr ""
+msgstr "Purgar"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Purity"
@@ -9614,7 +9614,7 @@ msgstr "Quitar todas las chinchetas"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove Black Matte"
-msgstr ""
+msgstr "Eliminar halo negro"
 
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
@@ -9639,7 +9639,7 @@ msgstr "Quitar división de deformación"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove White Matte"
-msgstr ""
+msgstr "Eliminar halo blanco"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"
@@ -9855,7 +9855,7 @@ msgstr "Mostrar todo"
 
 #: app/src/app/menus.ts
 msgid "Reveal Selection"
-msgstr ""
+msgstr "Mostrar selección"
 
 #: app/src/app/menus.ts
 msgid "Revealing…"
@@ -9872,7 +9872,7 @@ msgstr "Invertir"
 #: app/src/app/menus.ts
 msgctxt "arrange"
 msgid "Reverse"
-msgstr ""
+msgstr "Invertir"
 
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -10700,7 +10700,7 @@ msgstr "Capas de forma"
 
 #: app/src/app/Dialogs.tsx
 msgid "Shape Name"
-msgstr ""
+msgstr "Nombre de la forma"
 
 #: app/src/i18n/history.ts
 msgid "Shape Path"
@@ -10782,7 +10782,7 @@ msgstr "Trazos cortos"
 
 #: app/src/app/menus.ts
 msgid "Show"
-msgstr ""
+msgstr "Mostrar"
 
 #: app/src/i18n/history.ts
 msgid "Show {effect}"
@@ -10877,7 +10877,7 @@ msgstr "Mostrar efectos de capa"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Show Layers"
-msgstr ""
+msgstr "Mostrar capas"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -11927,7 +11927,7 @@ msgstr "La mesa de trabajo está fuera del lienzo."
 
 #: app/src/i18n/errors.ts
 msgid "The brush is larger than 5000 x 5000 pixels."
-msgstr ""
+msgstr "El pincel es mayor que 5000 x 5000 píxeles."
 
 #: app/src/App.tsx
 msgid "The brush library is not available."
@@ -12012,7 +12012,7 @@ msgstr "La contraseña es incorrecta. {0} está protegido."
 
 #: app/src/i18n/errors.ts
 msgid "The pattern is larger than 4000 x 4000 pixels."
-msgstr ""
+msgstr "El motivo es mayor que 4000 x 4000 píxeles."
 
 #: app/src/App.tsx
 msgid "The pattern is not available."
@@ -12056,7 +12056,7 @@ msgstr "La biblioteca guardada de herramientas preestablecidas no es un JSON vá
 
 #: app/src/i18n/errors.ts
 msgid "The selected area is empty."
-msgstr ""
+msgstr "El área seleccionada está vacía."
 
 #: app/src/i18n/errors.ts
 msgid "The source document is no longer open."
@@ -12282,7 +12282,7 @@ msgstr "Para editar el texto ahora, reemplaza la fuente que falta por la predete
 
 #: app/src/app/menus.ts
 msgid "Toggle Last State"
-msgstr ""
+msgstr "Alternar último estado"
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"

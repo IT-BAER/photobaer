@@ -368,7 +368,7 @@ msgstr "2. Bu istemle başla"
 
 #: app/src/app/menus.ts
 msgid "200%"
-msgstr ""
+msgstr "200%"
 
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
@@ -684,7 +684,7 @@ msgstr "Tümü"
 #: app/src/app/menus.ts
 msgctxt "purge"
 msgid "All"
-msgstr ""
+msgstr "Tümü"
 
 #: app/src/TypePanels.tsx
 msgid "All Caps"
@@ -889,7 +889,7 @@ msgstr "Uygula"
 #: app/src/app/menus.ts
 msgctxt "layer mask"
 msgid "Apply"
-msgstr ""
+msgstr "Uygula"
 
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
@@ -927,7 +927,7 @@ msgstr "Katman Kompozisyonunu Uygula"
 
 #: app/src/i18n/history.ts
 msgid "Apply Layer Mask"
-msgstr ""
+msgstr "Katman Maskesini Uygula"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -1800,7 +1800,7 @@ msgstr "Fırça Tasması Rengi"
 
 #: app/src/app/Dialogs.tsx
 msgid "Brush Name"
-msgstr ""
+msgstr "Fırça Adı"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
@@ -2269,7 +2269,7 @@ msgstr "Alttaki katmana kırp"
 #: app/src/app/menus.ts
 msgctxt "purge"
 msgid "Clipboard"
-msgstr ""
+msgstr "Pano"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Clipped"
@@ -2444,11 +2444,11 @@ msgstr "Renk Düzeltme"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Color Decontaminate"
-msgstr ""
+msgstr "Renkleri Arındır"
 
 #: app/src/app/menus.ts
 msgid "Color Decontaminate…"
-msgstr ""
+msgstr "Renkleri Arındır…"
 
 #: app/src/i18n/choices.ts
 msgid "Color Dodge"
@@ -3413,19 +3413,19 @@ msgstr "Önce Tanımla sekmesinde bir değişken tanımla."
 
 #: app/src/app/menus.ts
 msgid "Define Brush Preset…"
-msgstr ""
+msgstr "Fırça Hazır Ayarı Tanımla…"
 
 #: app/src/app/menus.ts
 msgid "Define Custom Shape…"
-msgstr ""
+msgstr "Özel Şekil Tanımla…"
 
 #: app/src/i18n/errors.ts
 msgid "Define Pattern needs a rectangular selection without feathering."
-msgstr ""
+msgstr "Desen Tanımla için geçiş yumuşatması olmayan dikdörtgen bir seçim gerekir."
 
 #: app/src/app/menus.ts
 msgid "Define Pattern…"
-msgstr ""
+msgstr "Desen Tanımla…"
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -3442,11 +3442,11 @@ msgstr "Yaprakları Dök"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Defringe"
-msgstr ""
+msgstr "Bordür Kaldır"
 
 #: app/src/app/menus.ts
 msgid "Defringe…"
-msgstr ""
+msgstr "Bordür Kaldır…"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
@@ -4695,11 +4695,11 @@ msgstr "Katmanları türe göre filtrele"
 
 #: app/src/LayersPanel.tsx
 msgid "Filter layers by name"
-msgstr ""
+msgstr "Katmanları ada göre filtrele"
 
 #: app/src/LayersPanel.tsx
 msgid "Filter type"
-msgstr ""
+msgstr "Filtre türü"
 
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
@@ -4712,7 +4712,7 @@ msgstr "Kenarları Bul"
 
 #: app/src/app/menus.ts
 msgid "Find Layers"
-msgstr ""
+msgstr "Katmanları Bul"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4728,7 +4728,7 @@ msgstr "Parmakla Boyama"
 
 #: app/src/i18n/errors.ts
 msgid "Finish the current edit before purging the history."
-msgstr ""
+msgstr "Geçmişi temizlemeden önce geçerli düzenlemeyi bitir."
 
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
@@ -4751,7 +4751,7 @@ msgstr "Çalışma Yüzeyini Ekrana Sığdır"
 
 #: app/src/app/menus.ts
 msgid "Fit Layer(s) on Screen"
-msgstr ""
+msgstr "Katman(lar)ı Ekrana Sığdır"
 
 #: app/src/app/menus.ts
 msgid "Fit on screen"
@@ -5068,7 +5068,7 @@ msgstr "Sağdan"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "From Transparency"
-msgstr ""
+msgstr "Saydamlıktan"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5636,7 +5636,7 @@ msgstr "Katman Efektlerini Gizle"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Hide Layers"
-msgstr ""
+msgstr "Katmanları Gizle"
 
 #: app/src/app/menus.ts
 msgid "Hide Measurement Log"
@@ -5672,7 +5672,7 @@ msgstr "Cetvelleri Gizle"
 
 #: app/src/app/menus.ts
 msgid "Hide Selection"
-msgstr ""
+msgstr "Seçimi Gizle"
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -5785,7 +5785,7 @@ msgstr "Histogram piksel sayısı kaynak belge alanını aşıyor."
 
 #: app/src/app/menus.ts
 msgid "Histories"
-msgstr ""
+msgstr "Geçmişler"
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
@@ -6270,7 +6270,7 @@ msgstr "İris Bulanıklaştırma"
 
 #: app/src/app/menus.ts
 msgid "Isolate Layers"
-msgstr ""
+msgstr "Katmanları Yalıt"
 
 #: app/src/TypePanels.tsx
 msgid "Italic"
@@ -6331,7 +6331,7 @@ msgstr "Anahtar Sözcükler"
 #: app/src/LayersPanel.tsx
 msgctxt "layer filter"
 msgid "Kind"
-msgstr ""
+msgstr "Tür"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6446,7 +6446,7 @@ msgstr "Katman İçeriği Seçenekleri…"
 
 #: app/src/app/menus.ts
 msgid "Layer Edges"
-msgstr ""
+msgstr "Katman Kenarları"
 
 #: app/src/LayersPanel.tsx
 msgid "Layer filter"
@@ -6954,11 +6954,11 @@ msgstr "Katmanı Kilitle"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Lock Layers"
-msgstr ""
+msgstr "Katmanları Kilitle"
 
 #: app/src/app/menus.ts
 msgid "Lock Layers…"
-msgstr ""
+msgstr "Katmanları Kilitle…"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7244,7 +7244,7 @@ msgstr "Mat Rengi"
 
 #: app/src/app/menus.ts
 msgid "Matting"
-msgstr ""
+msgstr "Örtü"
 
 #: app/src/filters/labels.ts
 msgid "Max Radius"
@@ -7669,7 +7669,7 @@ msgstr "Ad"
 #: app/src/LayersPanel.tsx
 msgctxt "layer filter"
 msgid "Name"
-msgstr ""
+msgstr "Ad"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
@@ -8570,11 +8570,11 @@ msgstr "Lorem Ipsum Yapıştır"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Paste Outside"
-msgstr ""
+msgstr "Dışarı Yapıştır"
 
 #: app/src/i18n/errors.ts
 msgid "Paste Outside needs a selection."
-msgstr ""
+msgstr "Dışına Yapıştır için bir seçim gerekir."
 
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
@@ -8661,7 +8661,7 @@ msgstr "Desen Dolgu"
 
 #: app/src/app/Dialogs.tsx
 msgid "Pattern Name"
-msgstr ""
+msgstr "Desen Adı"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -9151,7 +9151,7 @@ msgstr "Baskı üretimi. Geniş Adobe RGB çalışma alanı, bir baskı makinesi
 
 #: app/src/app/menus.ts
 msgid "Print Size"
-msgstr ""
+msgstr "Baskı Boyutu"
 
 #: app/src/app/menus.ts
 msgid "Print…"
@@ -9254,7 +9254,7 @@ msgstr "Kukla Eğriltme"
 
 #: app/src/app/menus.ts
 msgid "Purge"
-msgstr ""
+msgstr "Temizle"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Purity"
@@ -9611,7 +9611,7 @@ msgstr "Tüm Pinleri Kaldır"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove Black Matte"
-msgstr ""
+msgstr "Siyah Örtüyü Kaldır"
 
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
@@ -9636,7 +9636,7 @@ msgstr "Eğriltme Bölmesini Kaldır"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove White Matte"
-msgstr ""
+msgstr "Beyaz Örtüyü Kaldır"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"
@@ -9852,7 +9852,7 @@ msgstr "Tümünü Göster"
 
 #: app/src/app/menus.ts
 msgid "Reveal Selection"
-msgstr ""
+msgstr "Seçimi Göster"
 
 #: app/src/app/menus.ts
 msgid "Revealing…"
@@ -9869,7 +9869,7 @@ msgstr "Ters"
 #: app/src/app/menus.ts
 msgctxt "arrange"
 msgid "Reverse"
-msgstr ""
+msgstr "Ters Çevir"
 
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -10697,7 +10697,7 @@ msgstr "Şekil katmanları"
 
 #: app/src/app/Dialogs.tsx
 msgid "Shape Name"
-msgstr ""
+msgstr "Şekil Adı"
 
 #: app/src/i18n/history.ts
 msgid "Shape Path"
@@ -10779,7 +10779,7 @@ msgstr "Kısa Vuruşlar"
 
 #: app/src/app/menus.ts
 msgid "Show"
-msgstr ""
+msgstr "Göster"
 
 #: app/src/i18n/history.ts
 msgid "Show {effect}"
@@ -10874,7 +10874,7 @@ msgstr "Katman Efektlerini Göster"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Show Layers"
-msgstr ""
+msgstr "Katmanları Göster"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -11924,7 +11924,7 @@ msgstr "Çalışma yüzeyi tuvalin dışında."
 
 #: app/src/i18n/errors.ts
 msgid "The brush is larger than 5000 x 5000 pixels."
-msgstr ""
+msgstr "Fırça 5000 x 5000 pikselden büyük."
 
 #: app/src/App.tsx
 msgid "The brush library is not available."
@@ -12009,7 +12009,7 @@ msgstr "Parola yanlış. {0} korumalı."
 
 #: app/src/i18n/errors.ts
 msgid "The pattern is larger than 4000 x 4000 pixels."
-msgstr ""
+msgstr "Desen 4000 x 4000 pikselden büyük."
 
 #: app/src/App.tsx
 msgid "The pattern is not available."
@@ -12053,7 +12053,7 @@ msgstr "Kaydedilen araç hazır ayarı kitaplığı geçerli bir JSON değil."
 
 #: app/src/i18n/errors.ts
 msgid "The selected area is empty."
-msgstr ""
+msgstr "Seçili alan boş."
 
 #: app/src/i18n/errors.ts
 msgid "The source document is no longer open."
@@ -12279,7 +12279,7 @@ msgstr "Metni şimdi düzenlemek için eksik yazı tipini varsayılanla değişt
 
 #: app/src/app/menus.ts
 msgid "Toggle Last State"
-msgstr ""
+msgstr "Son Durumu Değiştir"
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"

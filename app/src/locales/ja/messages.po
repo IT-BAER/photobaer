@@ -371,7 +371,7 @@ msgstr "2. 次のプロンプトで開始します"
 
 #: app/src/app/menus.ts
 msgid "200%"
-msgstr ""
+msgstr "200%"
 
 #: app/src/i18n/choices.ts
 msgid "3 by 3 Average"
@@ -687,7 +687,7 @@ msgstr "すべて"
 #: app/src/app/menus.ts
 msgctxt "purge"
 msgid "All"
-msgstr ""
+msgstr "すべて"
 
 #: app/src/TypePanels.tsx
 msgid "All Caps"
@@ -892,7 +892,7 @@ msgstr "適用"
 #: app/src/app/menus.ts
 msgctxt "layer mask"
 msgid "Apply"
-msgstr ""
+msgstr "適用"
 
 #: app/src/i18n/history.ts
 msgid "Apply {style}"
@@ -930,7 +930,7 @@ msgstr "レイヤーカンプを適用"
 
 #: app/src/i18n/history.ts
 msgid "Apply Layer Mask"
-msgstr ""
+msgstr "レイヤーマスクを適用"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Apply Per Tip"
@@ -1803,7 +1803,7 @@ msgstr "ブラシリーシュのカラー"
 
 #: app/src/app/Dialogs.tsx
 msgid "Brush Name"
-msgstr ""
+msgstr "ブラシ名"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
@@ -2272,7 +2272,7 @@ msgstr "下のレイヤーでクリップ"
 #: app/src/app/menus.ts
 msgctxt "purge"
 msgid "Clipboard"
-msgstr ""
+msgstr "クリップボード"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Clipped"
@@ -2447,11 +2447,11 @@ msgstr "色調補正"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Color Decontaminate"
-msgstr ""
+msgstr "不要なカラーの除去"
 
 #: app/src/app/menus.ts
 msgid "Color Decontaminate…"
-msgstr ""
+msgstr "不要なカラーの除去…"
 
 #: app/src/i18n/choices.ts
 msgid "Color Dodge"
@@ -3416,19 +3416,19 @@ msgstr "先に定義タブで変数を定義してください。"
 
 #: app/src/app/menus.ts
 msgid "Define Brush Preset…"
-msgstr ""
+msgstr "ブラシを定義…"
 
 #: app/src/app/menus.ts
 msgid "Define Custom Shape…"
-msgstr ""
+msgstr "カスタムシェイプを定義…"
 
 #: app/src/i18n/errors.ts
 msgid "Define Pattern needs a rectangular selection without feathering."
-msgstr ""
+msgstr "パターンを定義するには、ぼかしのない長方形の選択範囲が必要です。"
 
 #: app/src/app/menus.ts
 msgid "Define Pattern…"
-msgstr ""
+msgstr "パターンを定義…"
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -3445,11 +3445,11 @@ msgstr "落葉"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Defringe"
-msgstr ""
+msgstr "フリンジ削除"
 
 #: app/src/app/menus.ts
 msgid "Defringe…"
-msgstr ""
+msgstr "フリンジ削除…"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
@@ -4698,11 +4698,11 @@ msgstr "種類でレイヤーをフィルター"
 
 #: app/src/LayersPanel.tsx
 msgid "Filter layers by name"
-msgstr ""
+msgstr "名前でレイヤーをフィルター"
 
 #: app/src/LayersPanel.tsx
 msgid "Filter type"
-msgstr ""
+msgstr "フィルターの種類"
 
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
@@ -4715,7 +4715,7 @@ msgstr "輪郭検出"
 
 #: app/src/app/menus.ts
 msgid "Find Layers"
-msgstr ""
+msgstr "レイヤーを検索"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -4731,7 +4731,7 @@ msgstr "フィンガーペイント"
 
 #: app/src/i18n/errors.ts
 msgid "Finish the current edit before purging the history."
-msgstr ""
+msgstr "ヒストリーを消去する前に、現在の編集を完了してください。"
 
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
@@ -4754,7 +4754,7 @@ msgstr "アートボードを画面サイズに合わせる"
 
 #: app/src/app/menus.ts
 msgid "Fit Layer(s) on Screen"
-msgstr ""
+msgstr "レイヤーを画面サイズに拡大"
 
 #: app/src/app/menus.ts
 msgid "Fit on screen"
@@ -5071,7 +5071,7 @@ msgstr "右から"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "From Transparency"
-msgstr ""
+msgstr "透明部分をマスク"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
@@ -5639,7 +5639,7 @@ msgstr "レイヤー効果を隠す"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Hide Layers"
-msgstr ""
+msgstr "レイヤーを非表示"
 
 #: app/src/app/menus.ts
 msgid "Hide Measurement Log"
@@ -5675,7 +5675,7 @@ msgstr "定規を隠す"
 
 #: app/src/app/menus.ts
 msgid "Hide Selection"
-msgstr ""
+msgstr "選択範囲をマスク"
 
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
@@ -5788,7 +5788,7 @@ msgstr "ヒストグラムのピクセル数がソースドキュメントの面
 
 #: app/src/app/menus.ts
 msgid "Histories"
-msgstr ""
+msgstr "ヒストリー"
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
@@ -6273,7 +6273,7 @@ msgstr "虹彩絞りぼかし"
 
 #: app/src/app/menus.ts
 msgid "Isolate Layers"
-msgstr ""
+msgstr "レイヤーを分離"
 
 #: app/src/TypePanels.tsx
 msgid "Italic"
@@ -6334,7 +6334,7 @@ msgstr "キーワード"
 #: app/src/LayersPanel.tsx
 msgctxt "layer filter"
 msgid "Kind"
-msgstr ""
+msgstr "種類"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Knockout"
@@ -6449,7 +6449,7 @@ msgstr "レイヤー内容のオプション…"
 
 #: app/src/app/menus.ts
 msgid "Layer Edges"
-msgstr ""
+msgstr "レイヤーの境界線"
 
 #: app/src/LayersPanel.tsx
 msgid "Layer filter"
@@ -6957,11 +6957,11 @@ msgstr "レイヤーをロック"
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Lock Layers"
-msgstr ""
+msgstr "レイヤーをロック"
 
 #: app/src/app/menus.ts
 msgid "Lock Layers…"
-msgstr ""
+msgstr "レイヤーをロック…"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Lock Offset"
@@ -7247,7 +7247,7 @@ msgstr "マットカラー"
 
 #: app/src/app/menus.ts
 msgid "Matting"
-msgstr ""
+msgstr "マッティング"
 
 #: app/src/filters/labels.ts
 msgid "Max Radius"
@@ -7672,7 +7672,7 @@ msgstr "名前"
 #: app/src/LayersPanel.tsx
 msgctxt "layer filter"
 msgid "Name"
-msgstr ""
+msgstr "名前"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
@@ -8573,11 +8573,11 @@ msgstr "Lorem Ipsum をペースト"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Paste Outside"
-msgstr ""
+msgstr "選択範囲外へペースト"
 
 #: app/src/i18n/errors.ts
 msgid "Paste Outside needs a selection."
-msgstr ""
+msgstr "選択範囲外へペーストするには選択範囲が必要です。"
 
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
@@ -8664,7 +8664,7 @@ msgstr "パターン塗りつぶし"
 
 #: app/src/app/Dialogs.tsx
 msgid "Pattern Name"
-msgstr ""
+msgstr "パターン名"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -9154,7 +9154,7 @@ msgstr "印刷用です。広い Adobe RGB 作業用スペースでは、印刷�
 
 #: app/src/app/menus.ts
 msgid "Print Size"
-msgstr ""
+msgstr "プリントサイズ"
 
 #: app/src/app/menus.ts
 msgid "Print…"
@@ -9257,7 +9257,7 @@ msgstr "パペットワープ"
 
 #: app/src/app/menus.ts
 msgid "Purge"
-msgstr ""
+msgstr "メモリをクリア"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Purity"
@@ -9614,7 +9614,7 @@ msgstr "すべてのピンを削除"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove Black Matte"
-msgstr ""
+msgstr "黒マットを削除"
 
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
@@ -9639,7 +9639,7 @@ msgstr "ワープ分割を削除"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove White Matte"
-msgstr ""
+msgstr "白マットを削除"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"
@@ -9855,7 +9855,7 @@ msgstr "すべてを表示"
 
 #: app/src/app/menus.ts
 msgid "Reveal Selection"
-msgstr ""
+msgstr "選択範囲外をマスク"
 
 #: app/src/app/menus.ts
 msgid "Revealing…"
@@ -9872,7 +9872,7 @@ msgstr "逆方向"
 #: app/src/app/menus.ts
 msgctxt "arrange"
 msgid "Reverse"
-msgstr ""
+msgstr "逆順"
 
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -10700,7 +10700,7 @@ msgstr "シェイプレイヤー"
 
 #: app/src/app/Dialogs.tsx
 msgid "Shape Name"
-msgstr ""
+msgstr "シェイプ名"
 
 #: app/src/i18n/history.ts
 msgid "Shape Path"
@@ -10782,7 +10782,7 @@ msgstr "短いストローク"
 
 #: app/src/app/menus.ts
 msgid "Show"
-msgstr ""
+msgstr "表示"
 
 #: app/src/i18n/history.ts
 msgid "Show {effect}"
@@ -10877,7 +10877,7 @@ msgstr "レイヤー効果を表示"
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Show Layers"
-msgstr ""
+msgstr "レイヤーを表示"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Mask"
@@ -11927,7 +11927,7 @@ msgstr "アートボードがカンバスの外側にあります。"
 
 #: app/src/i18n/errors.ts
 msgid "The brush is larger than 5000 x 5000 pixels."
-msgstr ""
+msgstr "ブラシが5000 x 5000ピクセルを超えています。"
 
 #: app/src/App.tsx
 msgid "The brush library is not available."
@@ -12012,7 +12012,7 @@ msgstr "パスワードが正しくありません。{0} は保護されてい�
 
 #: app/src/i18n/errors.ts
 msgid "The pattern is larger than 4000 x 4000 pixels."
-msgstr ""
+msgstr "パターンが4000 x 4000ピクセルを超えています。"
 
 #: app/src/App.tsx
 msgid "The pattern is not available."
@@ -12056,7 +12056,7 @@ msgstr "保存されたツールプリセットライブラリは有効な JSON 
 
 #: app/src/i18n/errors.ts
 msgid "The selected area is empty."
-msgstr ""
+msgstr "選択範囲が空です。"
 
 #: app/src/i18n/errors.ts
 msgid "The source document is no longer open."
@@ -12282,7 +12282,7 @@ msgstr "今すぐテキストを編集するには、見つからないフォン
 
 #: app/src/app/menus.ts
 msgid "Toggle Last State"
-msgstr ""
+msgstr "最後の状態を切り替え"
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"
