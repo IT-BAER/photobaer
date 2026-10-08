@@ -4526,3 +4526,32 @@ test('layersBounds unions the content bounds of the given layers, null when none
   assert.equal((await call('layersBounds', [empty.created])).result, null);
   assert.equal((await call('layersBounds', [])).result, null);
 });
+
+test('Select Subject selects a distinct subject in one step; a flat or empty layer adds none', async () => {
+  type D = { history: { labels: string[] }; selection: { bounds: number[] | null } | null; layers: { id: number }[] };
+  await call('init');
+  await call('newDoc', 160, 120, 8, [120, 140, 110, 255]);
+  await call('select', { kind: 'ellipse', x: 90, y: 30, w: 50, h: 50 }, 'new', false, 0, 'Elliptical Marquee');
+  await call('command', 'fill', 1, 'pixels', [200, 60, 50, 255]);
+  const before = ((await call('selectCommand', 'deselect')).result as D).history.labels.length;
+  const r = (await call('selectSubject', 1)).result as D;
+  assert.equal(r.history.labels.length, before + 1);
+  assert.equal(r.history.labels.at(-1), 'Select Subject');
+  const b = r.selection!.bounds!;
+  [90, 30, 50, 50].forEach((v, i) => assert.ok(Math.abs(b[i] - v) <= 2, `bounds ${b.join()}`));
+  const u = (await call('undo')).result as D;
+  assert.equal(u.selection, null);
+
+  const flat = (await call('newDoc', 160, 120, 8, [128, 128, 128, 255])).result as D;
+  await call('select', { kind: 'rect', x: 10, y: 10, w: 20, h: 20 }, 'new', false, 0, 'Rectangular Marquee');
+  const kept = (await call('selectSubject', flat.layers[0].id)).result as D;
+  assert.equal(kept.history.labels.length, 1, 'no step for a flat layer');
+  assert.deepEqual(kept.selection!.bounds, [10, 10, 20, 20]);
+  const top = Math.max(...((await call('addLayer', flat.layers[0].id)).result as D).layers.map(l => l.id));
+  const added = ((await call('selectSubject', top)).result as D).history.labels.length;
+  assert.equal(added, 2, 'no step for an empty layer');
+  const shown = ((await call('setProps', top, { visible: false })).result as D).history.labels.length;
+  const hidden = await call('selectSubject', top);
+  assert.ok(hidden.error, 'a hidden layer is an error');
+  assert.equal(((await call('selectCommand', 'inverse')).result as D).history.labels.length, shown + 1, 'the failed call left no open step');
+});

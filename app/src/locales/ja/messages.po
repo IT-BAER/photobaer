@@ -8048,6 +8048,10 @@ msgstr "スマートフィルターがありません。"
 msgid "No smart object contents are open."
 msgstr "開いているスマートオブジェクトのコンテンツがありません。"
 
+#: app/src/App.tsx
+msgid "No subject found"
+msgstr ""
+
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
 msgstr "ツールプリセットがありません。"
@@ -10511,6 +10515,10 @@ msgstr "変換するには、同じ階層にあるレイヤーを選択してく
 msgid "Select location to save processed images"
 msgstr "処理した画像を保存する場所を選択"
 
+#: app/src/i18n/history.ts
+msgid "Select Subject"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Select the area to fill."
 msgstr "塗りつぶす領域を選択してください。"
@@ -10526,6 +10534,10 @@ msgstr "コンテンツに応じた塗りつぶしを使用するには、レイ
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
 msgstr "結合するには、シェイプレイヤーを 2 つ以上選択してください。"
+
+#: app/src/App.tsx
+msgid "Selecting subject…"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11721,6 +11733,10 @@ msgstr "スタイラスの筆圧"
 #: app/src/shell/BrushPanels.tsx
 msgid "Stylus Wheel"
 msgstr "スタイラスホイール"
+
+#: app/src/app/menus.ts
+msgid "Subject"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

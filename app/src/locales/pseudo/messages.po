@@ -8045,6 +8045,10 @@ msgstr ""
 msgid "No smart object contents are open."
 msgstr ""
 
+#: app/src/App.tsx
+msgid "No subject found"
+msgstr ""
+
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
 msgstr ""
@@ -10508,6 +10512,10 @@ msgstr ""
 msgid "Select location to save processed images"
 msgstr ""
 
+#: app/src/i18n/history.ts
+msgid "Select Subject"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Select the area to fill."
 msgstr ""
@@ -10522,6 +10530,10 @@ msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
+msgstr ""
+
+#: app/src/App.tsx
+msgid "Selecting subject…"
 msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
@@ -11717,6 +11729,10 @@ msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Stylus Wheel"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Subject"
 msgstr ""
 
 #: app/src/i18n/history.ts

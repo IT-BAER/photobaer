@@ -65,7 +65,7 @@ export interface MenuCtx {
   openAnalysis: (kind: 'scale' | 'points' | 'marker') => void; recordMeasurements: () => void; chooseTool: (id: string) => void;
   openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; openImageCalc: (calc: boolean) => void; openModeDialog: (kind: ModeDialogKind) => void; convertDepth: (depth: 8 | 16 | 32) => void; openColorDialog: (kind: ColorDialogKind) => void; applyDestructive: (kind: DestructiveKind) => void;
   rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
-  featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; setQuickMask: SetState<boolean>;
+  featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; selectSubject: () => void; setQuickMask: SetState<boolean>;
   loadSelDialog: DialogRef; saveSelDialog: DialogRef; viewer: RefObject<Viewer | null>;
   filterSpecs: FilterSpec[]; openFilter: (spec: FilterSpec) => void; openLiquify: () => void; openVanishingPoint: () => void; openContentAwareScale: () => void; startDeform: (kind: 'puppet' | 'perspective') => void; lastFilter: () => void; openFade: () => void; openSearch: () => void;
   showAnts: boolean; setShowAnts: SetState<boolean>; showAdjustments: boolean; setShowAdjustments: SetState<boolean>;
@@ -139,7 +139,7 @@ export function buildMenus(c: MenuCtx) {
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
     openAutomate, openBatch, openImageProcessor, openLoadStack, browseScript, scriptRunning, assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo, openPrint, printOneCopy, openAnalysis, recordMeasurements, chooseTool, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, defringeDialog, decontaminateDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, convertDepth, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
-    openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
+    openColorRange, openModify, featherDialog, growOrSimilar, selectSubject, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, cursorPrefsDialog, snap, setSnap, openArtboard, activeArtboard,
@@ -475,6 +475,7 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Find Layers`), keys: 'Alt+Shift+Ctrl+F', run: () => { setMenu(null); findLayers(); }, off: !has },
       { ...tl(msg`Isolate Layers`, isolated), run: toggleIsolate, off: !has || (!isolated && !selectedNodes.length) },
       { ...tl(msg`Color Range…`), sep: true, run: () => openColorRange(), off: !has },
+      { ...tl(msg`Subject`), run: selectSubject, off: !has || node?.kind !== 'pixel' },
       { ...tl(msg`Border…`), run: () => openModify('border'), off: !doc?.selection },
       { ...tl(msg`Smooth…`), run: () => openModify('smooth'), off: !doc?.selection },
       { ...tl(msg`Expand…`), run: () => openModify('expand'), off: !doc?.selection },

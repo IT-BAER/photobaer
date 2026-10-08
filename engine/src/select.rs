@@ -392,6 +392,21 @@ impl Document {
         self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), mode)
     }
 
+    /// Select > Subject from one layer's pixels, replacing the selection; false (selection
+    /// untouched) when the layer shows no distinct subject.
+    pub fn select_subject(&mut self, layer_id: u32) -> Result<bool, String> {
+        self.check_idle()?;
+        if !self.node(layer_id)?.visible {
+            return Err("the layer is hidden".into());
+        }
+        let src = self.sample_rgba8(false, layer_id)?;
+        let Some(cov) = crate::subject::select_subject(&src, self.width, self.height) else {
+            return Ok(false);
+        };
+        self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), Mode::New)?;
+        Ok(true)
+    }
+
     /// Quick mask (docs/M2.md section 3): paints into the selection itself, as if it were a
     /// layer mask, through `blend::paint_mask_value`; `value` (the fill color's red channel) is
     /// the painted mask value. There is no outer selection to clip this by.

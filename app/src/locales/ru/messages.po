@@ -8048,6 +8048,10 @@ msgstr "Нет смарт-фильтров."
 msgid "No smart object contents are open."
 msgstr "Не открыто содержимое смарт-объекта."
 
+#: app/src/App.tsx
+msgid "No subject found"
+msgstr ""
+
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
 msgstr "Нет наборов инструментов."
@@ -10511,6 +10515,10 @@ msgstr "Выбери слои одного уровня для преобраз�
 msgid "Select location to save processed images"
 msgstr "Выбери папку для сохранения обработанных изображений"
 
+#: app/src/i18n/history.ts
+msgid "Select Subject"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Select the area to fill."
 msgstr "Выбери область для заливки."
@@ -10526,6 +10534,10 @@ msgstr "Выбери пикселы слоя для заливки с учето
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
 msgstr "Выбери два или несколько слоев-фигур, чтобы объединить их."
+
+#: app/src/App.tsx
+msgid "Selecting subject…"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11721,6 +11733,10 @@ msgstr "Нажим пера"
 #: app/src/shell/BrushPanels.tsx
 msgid "Stylus Wheel"
 msgstr "Колесико пера"
+
+#: app/src/app/menus.ts
+msgid "Subject"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

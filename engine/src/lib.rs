@@ -20,6 +20,7 @@ mod region;
 mod resample;
 mod selection;
 mod stroke;
+mod subject;
 mod styles;
 mod text;
 mod typeset;
@@ -593,6 +594,11 @@ impl Engine {
     /// Adds every pixel within the selection's seed colors' range, regardless of connectivity.
     pub fn similar(&mut self, tolerance: u8, sample_all: bool, layer_id: u32) -> Result<(), JsError> {
         self.0.doc.similar(tolerance, sample_all, layer_id).map_err(err)
+    }
+
+    /// Select > Subject from the layer's pixels (New selection); false when no subject was found.
+    pub fn select_subject(&mut self, layer_id: u32) -> Result<bool, JsError> {
+        self.0.doc.select_subject(layer_id).map_err(err)
     }
 
     /// Quick selection (docs/M2.md section 3): `points` are the stroke's flat document x, y

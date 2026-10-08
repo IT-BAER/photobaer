@@ -8048,6 +8048,10 @@ msgstr "Nenhum filtro inteligente."
 msgid "No smart object contents are open."
 msgstr "Nenhum conteúdo de objeto inteligente está aberto."
 
+#: app/src/App.tsx
+msgid "No subject found"
+msgstr ""
+
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
 msgstr "Nenhuma predefinição de ferramenta."
@@ -10511,6 +10515,10 @@ msgstr "Selecione camadas do mesmo nível para convertê-las."
 msgid "Select location to save processed images"
 msgstr "Selecione o local para salvar as imagens processadas"
 
+#: app/src/i18n/history.ts
+msgid "Select Subject"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Select the area to fill."
 msgstr "Selecione a área a preencher."
@@ -10526,6 +10534,10 @@ msgstr "Selecione os pixels da camada para usar o Preenchimento sensível ao con
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
 msgstr "Selecione duas ou mais camadas de forma para combiná-las."
+
+#: app/src/App.tsx
+msgid "Selecting subject…"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11721,6 +11733,10 @@ msgstr "Pressão da caneta stylus"
 #: app/src/shell/BrushPanels.tsx
 msgid "Stylus Wheel"
 msgstr "Roda da caneta stylus"
+
+#: app/src/app/menus.ts
+msgid "Subject"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

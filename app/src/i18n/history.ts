@@ -18,6 +18,7 @@ export const HISTORY_LABELS: Record<string, MessageDescriptor> = {
   Paste: msg({ message: 'Paste', context: 'history step' }), 'Magic Wand': msg`Magic Wand`,
   'Quick Selection': msg`Quick Selection`, Grow: msg({ message: 'Grow', context: 'history step' }),
   Similar: msg({ message: 'Similar', context: 'history step' }), 'Color Range': msg`Color Range`,
+  'Select Subject': msg`Select Subject`,
   'Save Selection': msg`Save Selection`, 'Load Selection': msg`Load Selection`, 'Apply Image': msg`Apply Image`,
   Calculations: msg`Calculations`, 'Color Table': msg`Color Table`, 'Assign Profile': msg`Assign Profile`,
   'Convert to Profile': msg`Convert to Profile`, 'New Channel': msg`New Channel`,

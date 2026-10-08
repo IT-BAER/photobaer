@@ -8048,6 +8048,10 @@ msgstr "Aucun filtre dynamique."
 msgid "No smart object contents are open."
 msgstr "Aucun contenu d’objet dynamique n’est ouvert."
 
+#: app/src/App.tsx
+msgid "No subject found"
+msgstr ""
+
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
 msgstr "Aucun paramètre prédéfini d’outil."
@@ -10511,6 +10515,10 @@ msgstr "Sélectionne des calques du même niveau pour les convertir."
 msgid "Select location to save processed images"
 msgstr "Sélectionne l’emplacement d’enregistrement des images traitées"
 
+#: app/src/i18n/history.ts
+msgid "Select Subject"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Select the area to fill."
 msgstr "Sélectionne la zone à remplir."
@@ -10526,6 +10534,10 @@ msgstr "Sélectionne les pixels du calque pour utiliser Remplissage d’après l
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
 msgstr "Sélectionne au moins deux calques de forme pour les combiner."
+
+#: app/src/App.tsx
+msgid "Selecting subject…"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11721,6 +11733,10 @@ msgstr "Pression du stylet"
 #: app/src/shell/BrushPanels.tsx
 msgid "Stylus Wheel"
 msgstr "Molette du stylet"
+
+#: app/src/app/menus.ts
+msgid "Subject"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

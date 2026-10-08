@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Select > Subject selects the most prominent subject of the active layer in one step, without a model:
+  saliency on superpixels refined by a graph cut. It works for a distinct subject on a calmer background;
+  it is not a semantic segmenter, so cluttered scenes, several subjects and hair detail fall short of Photoshop.
+
 ### Changed
 
 - The Move tool starts dragging a layer with effects sooner: the drag begins with a sharp image of the view

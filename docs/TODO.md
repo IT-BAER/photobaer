@@ -24,7 +24,8 @@ Missing features, grouped by when they fit. Milestones refer to `docs/PLAN.md` s
   smart filter masks of 16/32-bit documents are not stored in PSD (saving warns).
 
 ## M7 AI (local, in the browser)
-- Select > Subject, Object Selection tool, Select > Focus Area.
+- Object Selection tool, Select > Focus Area, and a model-based Select > Subject (the shipped one is model-free:
+  saliency and graph cut, fine for a distinct subject on a calm background, not for cluttered scenes or hair).
 - Remove Background and Separate Background.
 - Select and Mask workspace (refine edge brush, view modes, edge settings).
 - Face-Aware Liquify.

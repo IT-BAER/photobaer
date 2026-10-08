@@ -1621,6 +1621,17 @@ export function App() {
     };
   }
 
+  // Select > Subject samples the active layer only; a layer with no distinct subject adds no step.
+  function selectSubject() {
+    if (!active) return;
+    const id = active.id, before = JSON.stringify(docRef.current?.history);
+    run(t`Selecting subject…`, async () => {
+      const d = await client.call('selectSubject', id);
+      if (d && JSON.stringify(d.history) === before) setError(t`No subject found`);
+      return d;
+    });
+  }
+
   function openColorRange() {
     if (!active) return;
     setMenu(null);
@@ -1820,7 +1831,7 @@ export function App() {
     browseScript, scriptRunning: !!script,
     openModeDialog: kind => { setMenu(null); modeDialog.current?.open(kind); },
     openColorDialog: kind => { setMenu(null); colorDialog.current?.open(kind); },
-    openColorRange, openModify, featherDialog, growOrSimilar, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
+    openColorRange, openModify, featherDialog, growOrSimilar, selectSubject, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, showLayerEdges, setShowLayerEdges, flipped: !!fullView.flip,

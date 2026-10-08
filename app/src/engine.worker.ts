@@ -1301,6 +1301,13 @@ const api = {
     return changed();
   },
 
+  // Select > Subject from the layer's pixels; no step and the selection unchanged when no subject is found.
+  selectSubject(id: number) {
+    const e = need();
+    selGen++;
+    return stepIfChanged('Select Subject', () => e.select_subject(id));
+  },
+
   colorRange(id: number, sampleAll: boolean, preset: string, samples: number[], fuzziness: number, range: number, center: number[], localized: boolean, invert: boolean) {
     const e = need();
     history.run('Color Range', () => e.color_range(sampleAll, id, preset, Uint8Array.from(samples), fuzziness, range, Float64Array.from(center), localized, invert, 'new'));

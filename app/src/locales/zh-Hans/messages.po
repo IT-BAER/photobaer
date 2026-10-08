@@ -8045,6 +8045,10 @@ msgstr "无智能滤镜。"
 msgid "No smart object contents are open."
 msgstr "没有打开的智能对象内容。"
 
+#: app/src/App.tsx
+msgid "No subject found"
+msgstr ""
+
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
 msgstr "无工具预设。"
@@ -10508,6 +10512,10 @@ msgstr "选择同一层级的图层以进行转换。"
 msgid "Select location to save processed images"
 msgstr "选择存储已处理图像的位置"
 
+#: app/src/i18n/history.ts
+msgid "Select Subject"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Select the area to fill."
 msgstr "选择要填充的区域。"
@@ -10523,6 +10531,10 @@ msgstr "选择图层像素以使用内容识别填充。"
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
 msgstr "选择两个或更多形状图层以进行合并。"
+
+#: app/src/App.tsx
+msgid "Selecting subject…"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11718,6 +11730,10 @@ msgstr "光笔压力"
 #: app/src/shell/BrushPanels.tsx
 msgid "Stylus Wheel"
 msgstr "光笔轮"
+
+#: app/src/app/menus.ts
+msgid "Subject"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

@@ -8045,6 +8045,10 @@ msgstr "Nessun filtro avanzato."
 msgid "No smart object contents are open."
 msgstr "Nessun contenuto di oggetto avanzato aperto."
 
+#: app/src/App.tsx
+msgid "No subject found"
+msgstr ""
+
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
 msgstr "Nessuno strumento predefinito."
@@ -10508,6 +10512,10 @@ msgstr "Selezionare livelli dello stesso livello gerarchico per convertirli."
 msgid "Select location to save processed images"
 msgstr "Selezionare la posizione in cui salvare le immagini elaborate"
 
+#: app/src/i18n/history.ts
+msgid "Select Subject"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Select the area to fill."
 msgstr "Selezionare l'area da riempire."
@@ -10523,6 +10531,10 @@ msgstr "Selezionare i pixel del livello per usare Riempimento in base al contenu
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
 msgstr "Selezionare due o più livelli forma per combinarli."
+
+#: app/src/App.tsx
+msgid "Selecting subject…"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11718,6 +11730,10 @@ msgstr "Pressione penna"
 #: app/src/shell/BrushPanels.tsx
 msgid "Stylus Wheel"
 msgstr "Rotellina penna"
+
+#: app/src/app/menus.ts
+msgid "Subject"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

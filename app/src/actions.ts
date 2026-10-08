@@ -14,7 +14,7 @@ export interface Layers { ids: number[]; names: Map<number, string> }
 export const LAYER_ARGS: Record<string, string[]> = {
   command: ['1'], fillEx: ['0'], redEye: ['0'], patch: ['0'], contentAwareMove: ['0'], cloneSample: ['0'], contentAwareFill: ['0'],
   strokeSelection: ['0'], gradient: ['0'], clearSelected: ['0'], copy: ['0'], selectedPixels: ['0'], layerViaCopy: ['0'], layerViaCut: ['0'],
-  paste: ['0'], magicWand: ['0'], quickSelect: ['0'], magneticBegin: ['0'], bucket: ['0'], grow: ['0'], similar: ['0'], colorRange: ['0'],
+  paste: ['0'], magicWand: ['0'], quickSelect: ['0'], magneticBegin: ['0'], bucket: ['0'], grow: ['0'], similar: ['0'], selectSubject: ['0'], colorRange: ['0'],
   colorRangePreview: ['1'], layerMask: ['0'], applyImage: ['0'], addLayer: ['0'], addGroup: ['0'], groupNodes: ['0[]'], ungroup: ['0'],
   deleteNode: ['0'], duplicateNode: ['0'], moveNode: ['0', '1'], arrangeNodes: ['0[]'], mergeNodes: ['0[]'], alignLayers: ['0[]'],
   setLocks: ['0[]'], setVisibility: ['0[]'], newGuidesFromShape: ['0[]'], artboardFromGroup: ['0'], artboardFromLayers: ['0[]'], editArtboard: ['0'],

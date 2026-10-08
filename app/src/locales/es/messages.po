@@ -8048,6 +8048,10 @@ msgstr "No hay filtros inteligentes."
 msgid "No smart object contents are open."
 msgstr "No hay ningún contenido de objeto inteligente abierto."
 
+#: app/src/App.tsx
+msgid "No subject found"
+msgstr ""
+
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
 msgstr "No hay herramientas preestablecidas."
@@ -10511,6 +10515,10 @@ msgstr "Selecciona capas del mismo nivel para convertirlas."
 msgid "Select location to save processed images"
 msgstr "Selecciona la ubicación donde guardar las imágenes procesadas"
 
+#: app/src/i18n/history.ts
+msgid "Select Subject"
+msgstr ""
+
 #: app/src/App.tsx
 msgid "Select the area to fill."
 msgstr "Selecciona el área que deseas rellenar."
@@ -10526,6 +10534,10 @@ msgstr "Selecciona los píxeles de la capa para usar Relleno según el contenido
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
 msgstr "Selecciona dos o más capas de forma para combinarlas."
+
+#: app/src/App.tsx
+msgid "Selecting subject…"
+msgstr ""
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11721,6 +11733,10 @@ msgstr "Presión del lápiz óptico"
 #: app/src/shell/BrushPanels.tsx
 msgid "Stylus Wheel"
 msgstr "Rueda del lápiz óptico"
+
+#: app/src/app/menus.ts
+msgid "Subject"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
