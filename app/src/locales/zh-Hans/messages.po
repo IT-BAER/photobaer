@@ -677,6 +677,11 @@ msgstr "对齐并合并当前文档的像素图层。"
 msgid "All"
 msgstr "全部"
 
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "All"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "All Caps"
 msgstr "全部大写字母"
@@ -1789,6 +1794,10 @@ msgstr "画笔细节"
 msgid "Brush Leash Color"
 msgstr "画笔牵绳颜色"
 
+#: app/src/app/Dialogs.tsx
+msgid "Brush Name"
+msgstr ""
+
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
 msgstr "画笔笔势"
@@ -2252,6 +2261,11 @@ msgstr "单击形状可准备好自定形状工具。"
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
 msgstr "剪贴到下方图层"
+
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "Clipboard"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Clipped"
@@ -3392,6 +3406,22 @@ msgstr "定义"
 #: app/src/VariablesDialogs.tsx
 msgid "Define a variable on the Define tab first."
 msgstr "请先在“定义”选项卡上定义变量。"
+
+#: app/src/app/menus.ts
+msgid "Define Brush Preset…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Custom Shape…"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Define Pattern needs a rectangular selection without feathering."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Pattern…"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -4692,6 +4722,10 @@ msgstr "精细点"
 msgid "Finger Painting"
 msgstr "手指绘画"
 
+#: app/src/i18n/errors.ts
+msgid "Finish the current edit before purging the history."
+msgstr ""
+
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
 msgid "Fish"
@@ -5740,6 +5774,10 @@ msgstr "直方图色阶"
 #: app/src/InspectionPanels.tsx
 msgid "Histogram pixel count exceeds the source document area."
 msgstr "直方图像素计数超出了源文档面积。"
+
+#: app/src/app/menus.ts
+msgid "Histories"
+msgstr ""
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
@@ -8517,6 +8555,15 @@ msgstr "粘贴图层样式"
 msgid "Paste Lorem Ipsum"
 msgstr "粘贴 Lorem Ipsum"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Paste Outside"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Paste Outside needs a selection."
+msgstr ""
+
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
 msgid "Paste Shape Attributes"
@@ -8599,6 +8646,10 @@ msgstr "图案仿色"
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "图案填充"
+
+#: app/src/app/Dialogs.tsx
+msgid "Pattern Name"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -9184,6 +9235,10 @@ msgstr "操控模式"
 #: app/src/shell/DeformSession.tsx
 msgid "Puppet Warp"
 msgstr "操控变形"
+
+#: app/src/app/menus.ts
+msgid "Purge"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Purity"
@@ -10624,6 +10679,10 @@ msgstr "形状图层"
 msgid "Shape layers"
 msgstr "形状图层"
 
+#: app/src/app/Dialogs.tsx
+msgid "Shape Name"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Shape Path"
 msgstr "形状路径"
@@ -11843,6 +11902,10 @@ msgstr "该动作没有已启用的步骤。"
 msgid "The artboard is outside the canvas."
 msgstr "画板位于画布之外。"
 
+#: app/src/i18n/errors.ts
+msgid "The brush is larger than 5000 x 5000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The brush library is not available."
 msgstr "画笔库不可用。"
@@ -11924,6 +11987,10 @@ msgstr "原始智能对象已被移除或替换。请使用“存储为”保留
 msgid "The password is wrong. {0} is protected."
 msgstr "密码错误。“{0}”受保护。"
 
+#: app/src/i18n/errors.ts
+msgid "The pattern is larger than 4000 x 4000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The pattern is not available."
 msgstr "该图案不可用。"
@@ -11963,6 +12030,10 @@ msgstr "取样源必须是像素图层。"
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
 msgstr "已存储的工具预设库不是有效的 JSON。"
+
+#: app/src/i18n/errors.ts
+msgid "The selected area is empty."
+msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "The source document is no longer open."
@@ -12185,6 +12256,10 @@ msgstr "标题替代字"
 #: app/src/MissingFonts.tsx
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
 msgstr "要立即编辑文本，请将欠缺的字体替换为默认字体。您也可以管理整个文档中的欠缺字体。"
+
+#: app/src/app/menus.ts
+msgid "Toggle Last State"
+msgstr ""
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"

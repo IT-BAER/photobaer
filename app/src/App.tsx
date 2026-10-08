@@ -102,6 +102,7 @@ import { ShapesPanel } from './ShapesPanel.tsx';
 import { CharacterPanel, ParagraphPanel, TextStylesPanel, TypeProperties, WarpTextDialog } from './TypePanels.tsx';
 import { loadTypePrefs, typeContextItems, typeMenuItems, type TypeCtx, type TypePanel } from './app/typeMenu.ts';
 import { shapeLibrary } from './shell/customShapes.ts';
+import { addBrushPreset, addCustomShape, addPattern, customShapeSource } from './app/definePresets.ts';
 import { transformSession, type TSession } from './app/transform.ts';
 import { useBrushCursor, useBucket, useCanvasCursor, useEyedropper, useGradientTool, useMoveTool, useSelectionTools, useShapeTools } from './app/toolEffects.ts';
 import { usePenTools, type PathSel } from './app/penTools.ts';
@@ -128,7 +129,7 @@ import { schema, setColorSource, setSchema, type FilterSpec } from './filters/sc
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
   LoadSelectionDialog, ModifyDialog, ArtboardDialog, CursorPrefsDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, MergeDialog, type MergeChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, type AutomateKind, RotateDialog, SaveSelectionDialog,
-  AutomateDialog, ColorDecontaminateDialog, DefringeDialog, LockLayersDialog, ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
+  AutomateDialog, ColorDecontaminateDialog, DefringeDialog, LockLayersDialog, DefineDialog, type DefineKind, ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
 } from './app/Dialogs.tsx';
 
 // Set by vite.config.ts from CHANGELOG.md.
@@ -462,6 +463,9 @@ export function App() {
   const globalLightDialog = useRef<HTMLDialogElement>(null);
   const scaleEffectsDialog = useRef<HTMLDialogElement>(null);
   const lockLayersDialog = useRef<HTMLDialogElement>(null);
+  // Edit > Define Brush Preset / Pattern / Custom Shape: the kind and default name the name dialog shows.
+  const defineDialog = useRef<HTMLDialogElement>(null);
+  const [define, setDefine] = useState<{ kind: DefineKind; name: string }>({ kind: 'brush', name: '' });
   const defringeDialog = useRef<HTMLDialogElement>(null);
   const decontaminateDialog = useRef<HTMLDialogElement>(null);
   // The Filter menu's generic dialog (also Edit > Fade) and Layer > Smart Filter > Blending Options.
@@ -1824,6 +1828,21 @@ export function App() {
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
     workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
     arrangeMode, chooseArrangement, matchArrangement,
+    openDefine: kind => {
+      setMenu(null);
+      const count = (names: string[], base: string) => names.filter(n => n.startsWith(base)).length + 1;
+      const name = kind === 'brush' ? `Sampled Brush ${count(presets.map(p => p.name), 'Sampled Brush ')}`
+        : kind === 'pattern' ? (doc?.name ?? '').replace(/\.[^.]+$/, '')
+        : `Shape ${count(shapeLibrary().list().map(x => x.name), 'Shape ')}`;
+      setDefine({ kind, name });
+      defineDialog.current?.showModal();
+    },
+    canDefineShape: !!customShapeSource(doc, node, pathSel.selected),
+    purge: what => {
+      setMenu(null);
+      if (what !== 'clipboard' && !confirm(t`This cannot be undone.`)) return;
+      void run(null, () => client.call('purge', what));
+    },
     openLockLayers: () => { setMenu(null); lockLayersDialog.current?.showModal(); },
     selectAllLayers: () => {
       const ids = doc ? flatNodes(doc.layers).filter(n => n.kind !== 'group').map(n => n.id) : [];
@@ -2309,6 +2328,28 @@ export function App() {
     saveToolOptions(TOOLS[brushTarget], { ...targetOptions, ...patch });
     const c = p.captured?.color;
     if (c) setFg([c[0], c[1], c[2]]);
+  }
+  function defineNamed(name: string) {
+    const lib = brushLib.current;
+    if (define.kind === 'shape') {
+      const path = customShapeSource(doc, node, pathSel.selected);
+      if (path) addCustomShape(shapeLibrary(), name, path);
+      return;
+    }
+    if (!lib) { setError(t`The brush library is not available.`); return; }
+    void run(null, async () => {
+      if (define.kind === 'pattern') {
+        const r = await client.call('patternSample');
+        addPattern(lib.library, name, r.pattern);
+        bumpLib();
+        return r;
+      }
+      const r = await client.call('brushTipSample');
+      const p = addBrushPreset(lib.library, name, r.tip);
+      bumpLib();
+      if (p) selectPreset(p);
+      return r;
+    });
   }
   function deletePreset(id: string) {
     const lib = brushLib.current;
@@ -2851,6 +2892,7 @@ export function App() {
       <ScaleEffectsDialog scaleEffectsDialog={scaleEffectsDialog} node={node} run={run} />
       <DefringeDialog dialog={defringeDialog} node={node} run={run} />
       <ColorDecontaminateDialog dialog={decontaminateDialog} node={node} run={run} />
+      <DefineDialog dialog={defineDialog} kind={define.kind} name={define.name} ok={defineNamed} />
       <LockLayersDialog lockLayersDialog={lockLayersDialog} node={node} ids={selectedNodes.map(n => n.id)} run={run} />
       <RotateDialog rotateDialog={rotateDialog} run={run} />
       <AutomateDialog dialog={automateDialog} kind={automate} ids={selectedNodes.filter(n => n.kind === 'pixel').map(n => n.id)} docCount={doc?.docs.length ?? 0} run={run} />

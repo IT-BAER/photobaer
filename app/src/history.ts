@@ -17,6 +17,7 @@ export class History {
   #open: Step | null = null;
   // Stands for the state before the oldest kept step; replaced when that step is trimmed or the history cleared.
   #base: object | null = null;
+  #serial = 0;
 
   constructor(s: Snapshots, limit = 50) {
     this.#s = s;
@@ -32,6 +33,8 @@ export class History {
   get isOpen() { return this.#open !== null; }
   // Identity of the state the document is in: the last applied step (kept across undo/redo), else the base.
   get top(): object | null { return this.#undo.at(-1) ?? this.#base; }
+  // Changes with every new step, undo, redo and clear.
+  get serial() { return this.#serial; }
 
   goto(n: number) {
     let moved = false;
@@ -94,6 +97,7 @@ export class History {
   }
 
   #push(step: Step) {
+    this.#serial++;
     this.#undo.push(step);
     this.#free(this.#redo.splice(0));
     if (this.#undo.length > this.#limit) {
@@ -110,11 +114,13 @@ export class History {
     this.#free(this.#undo.splice(0));
     this.#free(this.#redo.splice(0));
     this.#base = {};
+    this.#serial++;
   }
 
   #move(from: Step[], to: Step[]) {
     const step = from.pop();
     if (!step) return false;
+    this.#serial++;
     const old = step.snap;
     step.snap = this.#s.snapshot();
     to.push(step);

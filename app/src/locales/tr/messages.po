@@ -677,6 +677,11 @@ msgstr "Etkin belgenin piksel katmanlarını hizalar ve birleştirir."
 msgid "All"
 msgstr "Tümü"
 
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "All"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "All Caps"
 msgstr "Tümü Büyük Harf"
@@ -1789,6 +1794,10 @@ msgstr "Fırça Ayrıntısı"
 msgid "Brush Leash Color"
 msgstr "Fırça Tasması Rengi"
 
+#: app/src/app/Dialogs.tsx
+msgid "Brush Name"
+msgstr ""
+
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
 msgstr "Fırça Duruşu"
@@ -2252,6 +2261,11 @@ msgstr "Bir şekle tıklamak Özel Şekil aracını etkinleştirir."
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
 msgstr "Alttaki katmana kırp"
+
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "Clipboard"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Clipped"
@@ -3392,6 +3406,22 @@ msgstr "Tanımla"
 #: app/src/VariablesDialogs.tsx
 msgid "Define a variable on the Define tab first."
 msgstr "Önce Tanımla sekmesinde bir değişken tanımla."
+
+#: app/src/app/menus.ts
+msgid "Define Brush Preset…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Custom Shape…"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Define Pattern needs a rectangular selection without feathering."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Pattern…"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -4692,6 +4722,10 @@ msgstr "İnce Noktalar"
 msgid "Finger Painting"
 msgstr "Parmakla Boyama"
 
+#: app/src/i18n/errors.ts
+msgid "Finish the current edit before purging the history."
+msgstr ""
+
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
 msgid "Fish"
@@ -5740,6 +5774,10 @@ msgstr "Histogram bölmesi"
 #: app/src/InspectionPanels.tsx
 msgid "Histogram pixel count exceeds the source document area."
 msgstr "Histogram piksel sayısı kaynak belge alanını aşıyor."
+
+#: app/src/app/menus.ts
+msgid "Histories"
+msgstr ""
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
@@ -8517,6 +8555,15 @@ msgstr "Katman Stilini Yapıştır"
 msgid "Paste Lorem Ipsum"
 msgstr "Lorem Ipsum Yapıştır"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Paste Outside"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Paste Outside needs a selection."
+msgstr ""
+
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
 msgid "Paste Shape Attributes"
@@ -8599,6 +8646,10 @@ msgstr "Desen Titremesi"
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "Desen Dolgu"
+
+#: app/src/app/Dialogs.tsx
+msgid "Pattern Name"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -9184,6 +9235,10 @@ msgstr "Kukla modu"
 #: app/src/shell/DeformSession.tsx
 msgid "Puppet Warp"
 msgstr "Kukla Eğriltme"
+
+#: app/src/app/menus.ts
+msgid "Purge"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Purity"
@@ -10624,6 +10679,10 @@ msgstr "Şekil Katmanı"
 msgid "Shape layers"
 msgstr "Şekil katmanları"
 
+#: app/src/app/Dialogs.tsx
+msgid "Shape Name"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Shape Path"
 msgstr "Şekil Yolu"
@@ -11843,6 +11902,10 @@ msgstr "Eylemde etkin adım yok."
 msgid "The artboard is outside the canvas."
 msgstr "Çalışma yüzeyi tuvalin dışında."
 
+#: app/src/i18n/errors.ts
+msgid "The brush is larger than 5000 x 5000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The brush library is not available."
 msgstr "Fırça kitaplığı kullanılamıyor."
@@ -11924,6 +11987,10 @@ msgstr "Özgün Akıllı Nesne kaldırıldı veya değiştirildi. Bu içeriği k
 msgid "The password is wrong. {0} is protected."
 msgstr "Parola yanlış. {0} korumalı."
 
+#: app/src/i18n/errors.ts
+msgid "The pattern is larger than 4000 x 4000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The pattern is not available."
 msgstr "Desen kullanılamıyor."
@@ -11963,6 +12030,10 @@ msgstr "Örnek kaynağı bir piksel katmanı olmalıdır."
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
 msgstr "Kaydedilen araç hazır ayarı kitaplığı geçerli bir JSON değil."
+
+#: app/src/i18n/errors.ts
+msgid "The selected area is empty."
+msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "The source document is no longer open."
@@ -12185,6 +12256,10 @@ msgstr "Başlık Alternatifleri"
 #: app/src/MissingFonts.tsx
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
 msgstr "Metni şimdi düzenlemek için eksik yazı tipini varsayılanla değiştir. Tüm belgendeki eksik yazı tiplerini de yönetebilirsin."
+
+#: app/src/app/menus.ts
+msgid "Toggle Last State"
+msgstr ""
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"

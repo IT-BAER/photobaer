@@ -150,6 +150,11 @@ let styleClipboard: string | null = null;
 // Edit > Copy / Cut / Copy Merged clipboard: straight RGBA8 with its document origin and the profile of
 // its numbers, kept across documents.
 let clipboard: { x: number; y: number; w: number; h: number; rgba: Uint8Array; icc?: Uint8Array } | null = null;
+// Edit > Toggle Last State: the history and its serial right after a toggle undid a step (the next toggle redoes).
+let toggled: { h: History; serial: number } | null = null;
+const toggleRedo = () => !!toggled && toggled.h === history && toggled.serial === history.serial;
+// Whether the selection is a hard-edged rectangle (Define Pattern), cached per selection generation.
+let rectSel = { gen: -1, rect: false };
 // Font registry and upload store: app scope, kept across documents; created on first use (after WASM init).
 let fonts: Fonts | null = null;
 const fontReg = () => fonts ??= new Fonts();
@@ -275,7 +280,8 @@ function info(): DocInfo | null {
     guidesLocked: vec.guides_locked, artboardsLocked: vec.artboards_locked, annotations: vec.annotations ?? emptyAnnotations(),
     docId, version, name,
     width: eng.width(), height: eng.height(), depth: eng.depth(), maxLevel: eng.max_level(),
-    undoLabel: history.undoLabel, redoLabel: history.redoLabel,
+    undoLabel: history.undoLabel, redoLabel: history.redoLabel, toggleRedo: toggleRedo(), hasClipboard: clipboard !== null,
+    selectionRect: !!ch.selection && rectSelection(eng, ch.selection.default),
     layers: JSON.parse(eng.layers_json()),
     history: { labels: history.labels, current: history.current },
     selection: ch.selection && { bounds: ch.selection.bounds, default: ch.selection.default },
@@ -393,6 +399,27 @@ function copyPixels(e: Engine, id: number | null) {
   }
   if (!b || !rgba || !rgba.some((v, i) => i % 4 === 3 && v > 0)) throw new Error('Could not copy: the selected area is empty.');
   return { x: b[0], y: b[1], w: b[2], h: b[3], rgba };
+}
+
+// True when every pixel inside the selection bounds is fully selected.
+function rectSelection(e: Engine, fill: number) {
+  if (rectSel.gen !== selGen) {
+    const sb = e.selection_bounds() as Int32Array | null;
+    const b = sb && intersect([0, 0, e.width(), e.height()], Array.from(sb) as Box);
+    const cov = b && gather(b, 1, (tx, ty) => e.selection_tile(0, tx, ty) as Uint8Array | null, fill > 0 ? 255 : 0);
+    rectSel = { gen: selGen, rect: !!cov && cov.every(v => v === 255) };
+  }
+  return rectSel.rect;
+}
+
+// Merged visible straight RGBA8 inside the selection bounds (the canvas without a selection), at most `max` px a side.
+function sampleMerged(e: Engine, max: number, tooLarge: () => never) {
+  const canvas: Box = [0, 0, e.width(), e.height()];
+  const sb = e.has_selection() ? e.selection_bounds() as Int32Array | null : undefined;
+  const b = sb === undefined ? canvas : sb && intersect(canvas, Array.from(sb) as Box);
+  if (!b) throw new Error('The selected area is empty.');
+  if (b[2] > max || b[3] > max) tooLarge();
+  return { b, rgba: gather(b, 4, (tx, ty) => e.flatten_tile_rgba8(tx, ty)) };
 }
 
 function need() {
@@ -1091,6 +1118,32 @@ const api = {
     return { ...(cut ? changed() : info())!, clip: { w: c.w, h: c.h, data: c.rgba.slice().buffer } };
   },
 
+  // Edit > Define Brush Preset: the merged image in the selection bounds as a tip; darkness is opacity
+  // (transparent pixels count as white), outside the selection is transparent.
+  brushTipSample() {
+    const e = need();
+    const { b, rgba } = sampleMerged(e, 5000, () => { throw new Error('The brush is larger than 5000 x 5000 pixels.'); });
+    const sel = JSON.parse(e.channels_json()).selection as { default: number } | null;
+    const cov = sel && gather(b, 1, (tx, ty) => e.selection_tile(0, tx, ty) as Uint8Array | null, sel.default > 0 ? 255 : 0);
+    const alpha = new Uint8Array(b[2] * b[3]);
+    for (let i = 0; i < alpha.length; i++) {
+      const a = rgba[i * 4 + 3] / 255, white = 255 * (1 - a);
+      const gray = 0.299 * (rgba[i * 4] * a + white) + 0.587 * (rgba[i * 4 + 1] * a + white) + 0.114 * (rgba[i * 4 + 2] * a + white);
+      alpha[i] = Math.round((255 - gray) * (cov ? cov[i] / 255 : 1));
+    }
+    return { ...info()!, tip: { width: b[2], height: b[3], alpha } };
+  },
+
+  // Edit > Define Pattern: the merged image in the bounds of a hard-edged rectangular selection (the canvas without one).
+  patternSample() {
+    const e = need();
+    if (e.has_selection() && !rectSelection(e, (JSON.parse(e.channels_json()).selection as { default: number }).default)) {
+      throw new Error('Define Pattern needs a rectangular selection without feathering.');
+    }
+    const { b, rgba } = sampleMerged(e, 4000, () => { throw new Error('The pattern is larger than 4000 x 4000 pixels.'); });
+    return { ...info()!, pattern: { width: b[2], height: b[3], data: rgba } };
+  },
+
   // The selected pixels of `id` as an overlay image (Content-Aware Move Transform On Drop); no history step.
   selectedPixels(id: number) {
     const c = copyPixels(need(), id);
@@ -1122,9 +1175,10 @@ const api = {
     return { ...changed(), created };
   },
 
-  // Edit > Paste / Paste in Place / Paste Into: a new layer above `above`. `bytes` is a system clipboard
+  // Edit > Paste / Paste in Place / Paste Into / Paste Outside: a new layer above `above`. `bytes` is a system clipboard
   // image; one sized like the internal clipboard is taken as that (it keeps the origin). `pasted`: false = nothing to paste.
-  async paste(above: number, mode: 'paste' | 'inPlace' | 'into', bytes: Uint8Array | null) {
+  // Into and Outside center on the selection and mask the layer to it (Outside: inverted), then deselect.
+  async paste(above: number, mode: 'paste' | 'inPlace' | 'into' | 'outside', bytes: Uint8Array | null) {
     const e = need();
     let src: { x: number; y: number; w: number; h: number; rgba: Uint8Array; icc?: Uint8Array } | null = clipboard;
     if (bytes) {
@@ -1137,25 +1191,28 @@ const api = {
     const c = s && src.icc?.length
       ? { ...src, rgba: e.convert_rgba8(src.rgba, src.icc, JSON.stringify({ intent: s.intent, blackPointCompensation: s.bpc, dither: false })) }
       : src;
+    const masked = mode === 'into' || mode === 'outside';
     if (mode === 'into' && !e.has_selection()) throw new Error('Paste Into needs a selection.');
+    if (mode === 'outside' && !e.has_selection()) throw new Error('Paste Outside needs a selection.');
     const sb = e.selection_bounds() as Int32Array | null;
-    const at = mode === 'into' && sb ? Array.from(sb) : [0, 0, e.width(), e.height()];
+    const at = masked && sb ? Array.from(sb) : [0, 0, e.width(), e.height()];
     const inPlace = mode === 'inPlace' && Number.isFinite(c.x);
     const x = inPlace ? c.x : at[0] + Math.floor((at[2] - c.w) / 2), y = inPlace ? c.y : at[1] + Math.floor((at[3] - c.h) / 2);
     let created = 0;
-    history.run(mode === 'into' ? 'Paste Into' : 'Paste', () => {
+    const inverted = mode === 'outside';
+    history.run(mode === 'into' ? 'Paste Into' : inverted ? 'Paste Outside' : 'Paste', () => {
       created = e.add_layer(nextName('Layer'), above);
       e.put_rgba8(created, x, y, c.w, c.h, c.rgba);
-      if (mode !== 'into') return;
+      if (!masked) return;
       const sel = JSON.parse(e.channels_json()).selection as { default: number };
-      e.add_mask(created, sel.default > 0);
+      e.add_mask(created, (sel.default > 0) !== inverted);
       tileLoop(e.width(), e.height(), (tx, ty) => {
         const t = e.selection_tile(0, tx, ty) as Uint8Array | null;
-        if (t) e.set_mask_tile8(created, tx, ty, t);
+        if (t) e.set_mask_tile8(created, tx, ty, inverted ? t.map(v => 255 - v) : t);
       });
       e.deselect();
     });
-    if (mode === 'into') selGen++;
+    if (masked) selGen++;
     return { ...changed(), created, pasted: true };
   },
 
@@ -3452,6 +3509,27 @@ const api = {
   },
 
   undo() { if (history.undo()) { selGen++; return changed(); } return info(); },
+  // Edit > Toggle Last State: redoes right after its own undo (nothing changed since), else undoes.
+  toggleLastState() {
+    need();
+    const redo = toggleRedo();
+    const moved = redo ? history.redo() : history.undo();
+    toggled = moved && !redo ? { h: history, serial: history.serial } : null;
+    if (!moved) return info();
+    selGen++;
+    return changed();
+  },
+  // Edit > Purge: the copy buffer, the active document's undo and redo steps, or both. The dirty state stays.
+  purge(what: 'clipboard' | 'histories' | 'all') {
+    need();
+    if (what !== 'histories') clipboard = null;
+    if (what === 'clipboard') return info();
+    if (history.isOpen) throw new Error('Finish the current edit before purging the history.');
+    const clean = !isDirty(active);
+    history.clear();
+    if (clean && !parents.length) saved = history.top;
+    return changed();
+  },
   redo() { if (history.redo()) { selGen++; return changed(); } return info(); },
   historyGoto(n: number) { need(); if (history.goto(n)) { selGen++; return changed(); } return info(); },
 

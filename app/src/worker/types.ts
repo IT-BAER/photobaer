@@ -143,6 +143,8 @@ export interface DocInfo {
   // View > Proof Setup, Proof Colors, Gamut Warning, 32-bit Preview Options (display only).
   view: ViewState;
   undoLabel: string | null; redoLabel: string | null;
+  // Edit > Toggle Last State redoes next; the internal copy buffer holds pixels; the selection is a hard rectangle.
+  toggleRedo: boolean; hasClipboard: boolean; selectionRect: boolean;
   layers: LayerNode[];
   history: { labels: string[]; current: number };
   selection: { bounds: [number, number, number, number] | null; default: number } | null;

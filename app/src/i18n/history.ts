@@ -14,7 +14,7 @@ export const HISTORY_LABELS: Record<string, MessageDescriptor> = {
   Gradient: msg({ message: 'Gradient', context: 'history step' }), Deselect: msg`Deselect`,
   Clear: msg({ message: 'Clear', context: 'history step' }),
   Cut: msg({ message: 'Cut', context: 'history step' }), 'Layer via Copy': msg`Layer via Copy`,
-  'Layer via Cut': msg`Layer via Cut`, 'Paste Into': msg`Paste Into`,
+  'Layer via Cut': msg`Layer via Cut`, 'Paste Into': msg`Paste Into`, 'Paste Outside': msg`Paste Outside`,
   Paste: msg({ message: 'Paste', context: 'history step' }), 'Magic Wand': msg`Magic Wand`,
   'Quick Selection': msg`Quick Selection`, Grow: msg({ message: 'Grow', context: 'history step' }),
   Similar: msg({ message: 'Similar', context: 'history step' }), 'Color Range': msg`Color Range`,

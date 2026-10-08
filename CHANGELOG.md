@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Find Layers (Alt+Shift+Ctrl+F) and Isolate Layers. The Layers panel filter can also filter by name.
 - Layer > Matting with Color Decontaminate…, Defringe…, Remove Black Matte and Remove White Matte for pixel
   layers, limited to the selection like other pixel edits.
+- Edit > Toggle Last State (Alt+Ctrl+Z), Paste Special > Paste Outside, Define Brush Preset…, Define Pattern…,
+  Define Custom Shape… and Purge (Clipboard, Histories, All).
 
 ## [0.4.2] - 2026-10-07
 

@@ -102,6 +102,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && !e.altKey && k === 's') triggerBy(l => l === 'Save', e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 'k') triggerBy(l => l === 'Color Settings…', e);
       else if (ctrl && !e.altKey && k === 'y') triggerBy(l => l.endsWith(e.shiftKey ? 'Gamut Warning' : 'Proof Colors'), e);
+      else if (ctrl && e.altKey && !e.shiftKey && k === 'z') triggerBy(l => l === 'Toggle Last State', e);
       else if (ctrl && k === 'z' && e.shiftKey) trigger('Redo', e);
       else if (ctrl && k === 'z') trigger('Undo', e);
       else if (ctrl && e.shiftKey && e.altKey && k === 'a') trigger('Adaptive Wide Angle', e);

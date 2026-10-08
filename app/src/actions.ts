@@ -41,7 +41,7 @@ export const NOT_LAYER_PARAMS = new Set([
 
 // Ops never recorded: documents, files, saving, history navigation, view and app state.
 export const NO_RECORD = new Set([
-  'init', 'newDoc', 'setColorSettings', 'setView', 'openProfileQuestion', 'openFile', 'revertDoc', 'setDocName', 'undo', 'redo', 'historyGoto',
+  'init', 'newDoc', 'setColorSettings', 'setView', 'openProfileQuestion', 'openFile', 'revertDoc', 'setDocName', 'undo', 'redo', 'historyGoto', 'toggleLastState', 'purge', 'brushTipSample', 'patternSample',
   'displayTile', 'documentDisplayTile', 'documentHistogram', 'documentSample', 'displayProgram', 'exportImage', 'exportLayerCompsToFiles', 'savePsd', 'saveFormat', 'saveEnd', 'switchDoc', 'moveDoc',
   'closeDoc', 'editContents', 'smartEditSave', 'smartEditClose', 'iccProfiles', 'loadProfile', 'photomerge', 'mergeHdr', 'loadStack', 'calculations',
   'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'recordStart', 'recordStop', 'playAction',

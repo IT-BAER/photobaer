@@ -677,6 +677,11 @@ msgstr "정렬"
 msgid "All"
 msgstr "모두"
 
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "All"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "All Caps"
 msgstr "모두 대문자"
@@ -1789,6 +1794,10 @@ msgstr "브러시 세부"
 msgid "Brush Leash Color"
 msgstr "브러시 끈 색상"
 
+#: app/src/app/Dialogs.tsx
+msgid "Brush Name"
+msgstr ""
+
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
 msgstr "브러시 포즈"
@@ -2252,6 +2261,11 @@ msgstr "모양을 클릭하면 사용자 지정 모양 도구가 준비됩니다
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
 msgstr "아래 레이어에 클리핑"
+
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "Clipboard"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Clipped"
@@ -3392,6 +3406,22 @@ msgstr "정의"
 #: app/src/VariablesDialogs.tsx
 msgid "Define a variable on the Define tab first."
 msgstr "먼저 정의 탭에서 변수를 정의하십시오."
+
+#: app/src/app/menus.ts
+msgid "Define Brush Preset…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Custom Shape…"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Define Pattern needs a rectangular selection without feathering."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Pattern…"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -4692,6 +4722,10 @@ msgstr "고운 점"
 msgid "Finger Painting"
 msgstr "손가락 페인팅"
 
+#: app/src/i18n/errors.ts
+msgid "Finish the current edit before purging the history."
+msgstr ""
+
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
 msgid "Fish"
@@ -5740,6 +5774,10 @@ msgstr "막대 그래프 구간"
 #: app/src/InspectionPanels.tsx
 msgid "Histogram pixel count exceeds the source document area."
 msgstr "막대 그래프 픽셀 수가 원본 문서 영역을 초과합니다."
+
+#: app/src/app/menus.ts
+msgid "Histories"
+msgstr ""
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
@@ -8517,6 +8555,15 @@ msgstr "레이어 스타일 붙여넣기"
 msgid "Paste Lorem Ipsum"
 msgstr "Lorem Ipsum 붙여넣기"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Paste Outside"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Paste Outside needs a selection."
+msgstr ""
+
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
 msgid "Paste Shape Attributes"
@@ -8599,6 +8646,10 @@ msgstr "패턴 디더"
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "패턴 칠"
+
+#: app/src/app/Dialogs.tsx
+msgid "Pattern Name"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -9184,6 +9235,10 @@ msgstr "퍼펫 모드"
 #: app/src/shell/DeformSession.tsx
 msgid "Puppet Warp"
 msgstr "퍼펫 뒤틀기"
+
+#: app/src/app/menus.ts
+msgid "Purge"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Purity"
@@ -10624,6 +10679,10 @@ msgstr "모양 레이어"
 msgid "Shape layers"
 msgstr "모양 레이어"
 
+#: app/src/app/Dialogs.tsx
+msgid "Shape Name"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Shape Path"
 msgstr "모양 패스"
@@ -11843,6 +11902,10 @@ msgstr "액션에 활성화된 단계가 없습니다."
 msgid "The artboard is outside the canvas."
 msgstr "대지가 캔버스 밖에 있습니다."
 
+#: app/src/i18n/errors.ts
+msgid "The brush is larger than 5000 x 5000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The brush library is not available."
 msgstr "브러시 라이브러리를 사용할 수 없습니다."
@@ -11924,6 +11987,10 @@ msgstr "원본 고급 개체가 제거되었거나 대체되었습니다. 이 �
 msgid "The password is wrong. {0} is protected."
 msgstr "암호가 잘못되었습니다. {0}은(는) 보호되어 있습니다."
 
+#: app/src/i18n/errors.ts
+msgid "The pattern is larger than 4000 x 4000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The pattern is not available."
 msgstr "패턴을 사용할 수 없습니다."
@@ -11963,6 +12030,10 @@ msgstr "샘플 소스는 픽셀 레이어여야 합니다."
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
 msgstr "저장된 도구 사전 설정 라이브러리가 유효한 JSON이 아닙니다."
+
+#: app/src/i18n/errors.ts
+msgid "The selected area is empty."
+msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "The source document is no longer open."
@@ -12185,6 +12256,10 @@ msgstr "제목 대체"
 #: app/src/MissingFonts.tsx
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
 msgstr "지금 텍스트를 편집하려면 누락된 글꼴을 기본 글꼴로 바꾸십시오. 문서 전체의 누락된 글꼴을 관리할 수도 있습니다."
+
+#: app/src/app/menus.ts
+msgid "Toggle Last State"
+msgstr ""
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"

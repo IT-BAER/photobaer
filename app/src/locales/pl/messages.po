@@ -677,6 +677,11 @@ msgstr "Wyrównuje i scala warstwy pikseli aktywnego dokumentu."
 msgid "All"
 msgstr "Wszystkie"
 
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "All"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "All Caps"
 msgstr "Wszystkie wersaliki"
@@ -1789,6 +1794,10 @@ msgstr "Szczegóły pędzla"
 msgid "Brush Leash Color"
 msgstr "Kolor smyczy pędzla"
 
+#: app/src/app/Dialogs.tsx
+msgid "Brush Name"
+msgstr ""
+
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
 msgstr "Pozycja pędzla"
@@ -2252,6 +2261,11 @@ msgstr "Kliknięcie kształtu aktywuje narzędzie Kształt niestandardowy."
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
 msgstr "Przytnij do warstwy poniżej"
+
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "Clipboard"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Clipped"
@@ -3392,6 +3406,22 @@ msgstr "Definiuj"
 #: app/src/VariablesDialogs.tsx
 msgid "Define a variable on the Define tab first."
 msgstr "Najpierw zdefiniuj zmienną na karcie Definiuj."
+
+#: app/src/app/menus.ts
+msgid "Define Brush Preset…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Custom Shape…"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Define Pattern needs a rectangular selection without feathering."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Pattern…"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -4692,6 +4722,10 @@ msgstr "Drobne kropki"
 msgid "Finger Painting"
 msgstr "Malowanie palcem"
 
+#: app/src/i18n/errors.ts
+msgid "Finish the current edit before purging the history."
+msgstr ""
+
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
 msgid "Fish"
@@ -5740,6 +5774,10 @@ msgstr "Przedział histogramu"
 #: app/src/InspectionPanels.tsx
 msgid "Histogram pixel count exceeds the source document area."
 msgstr "Liczba pikseli histogramu przekracza powierzchnię dokumentu źródłowego."
+
+#: app/src/app/menus.ts
+msgid "Histories"
+msgstr ""
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
@@ -8517,6 +8555,15 @@ msgstr "Wklej styl warstwy"
 msgid "Paste Lorem Ipsum"
 msgstr "Wklej Lorem Ipsum"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Paste Outside"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Paste Outside needs a selection."
+msgstr ""
+
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
 msgid "Paste Shape Attributes"
@@ -8599,6 +8646,10 @@ msgstr "Rozpraszanie wzorkiem"
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "Wypełnienie wzorkiem"
+
+#: app/src/app/Dialogs.tsx
+msgid "Pattern Name"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -9184,6 +9235,10 @@ msgstr "Tryb kukiełki"
 #: app/src/shell/DeformSession.tsx
 msgid "Puppet Warp"
 msgstr "Wypaczanie kukiełkowe"
+
+#: app/src/app/menus.ts
+msgid "Purge"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Purity"
@@ -10624,6 +10679,10 @@ msgstr "Warstwa kształtu"
 msgid "Shape layers"
 msgstr "Warstwy kształtów"
 
+#: app/src/app/Dialogs.tsx
+msgid "Shape Name"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Shape Path"
 msgstr "Ścieżka kształtu"
@@ -11843,6 +11902,10 @@ msgstr "Operacja nie ma włączonych kroków."
 msgid "The artboard is outside the canvas."
 msgstr "Obszar kompozycji znajduje się poza obszarem roboczym."
 
+#: app/src/i18n/errors.ts
+msgid "The brush is larger than 5000 x 5000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The brush library is not available."
 msgstr "Biblioteka pędzli jest niedostępna."
@@ -11924,6 +11987,10 @@ msgstr "Oryginalny obiekt inteligentny został usunięty lub zastąpiony. Użyj 
 msgid "The password is wrong. {0} is protected."
 msgstr "Hasło jest nieprawidłowe. Plik {0} jest chroniony."
 
+#: app/src/i18n/errors.ts
+msgid "The pattern is larger than 4000 x 4000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The pattern is not available."
 msgstr "Wzorek jest niedostępny."
@@ -11963,6 +12030,10 @@ msgstr "Źródłem próbki musi być warstwa pikselowa."
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
 msgstr "Zapisana biblioteka ustawień predefiniowanych narzędzi nie jest prawidłowym plikiem JSON."
+
+#: app/src/i18n/errors.ts
+msgid "The selected area is empty."
+msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "The source document is no longer open."
@@ -12185,6 +12256,10 @@ msgstr "Alternatywy tytułowe"
 #: app/src/MissingFonts.tsx
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
 msgstr "Aby edytować tekst teraz, zamień brakującą czcionkę na domyślną. Możesz też zarządzać brakującymi czcionkami w całym dokumencie."
+
+#: app/src/app/menus.ts
+msgid "Toggle Last State"
+msgstr ""
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"

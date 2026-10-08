@@ -3,7 +3,7 @@ import type { Active } from '../LayersPanel.tsx';
 import { selectCreated, type Run } from './helpers.ts';
 
 type Clip = { w: number; h: number; data: ArrayBuffer };
-export type PasteMode = 'paste' | 'inPlace' | 'into';
+export type PasteMode = 'paste' | 'inPlace' | 'into' | 'outside';
 
 // Edit > Copy / Copy Merged / Cut, then the copied pixels as PNG on the system clipboard. The write starts
 // before the worker answers so the key press still counts as user activation; any failure leaves the internal clipboard.

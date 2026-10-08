@@ -680,6 +680,11 @@ msgstr "作業中のドキュメントのピクセルレイヤーを整列して
 msgid "All"
 msgstr "すべて"
 
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "All"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "All Caps"
 msgstr "オールキャップス"
@@ -1792,6 +1797,10 @@ msgstr "ブラシの詳細"
 msgid "Brush Leash Color"
 msgstr "ブラシリーシュのカラー"
 
+#: app/src/app/Dialogs.tsx
+msgid "Brush Name"
+msgstr ""
+
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
 msgstr "ブラシポーズ"
@@ -2255,6 +2264,11 @@ msgstr "シェイプをクリックするとカスタムシェイプツールが
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
 msgstr "下のレイヤーでクリップ"
+
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "Clipboard"
+msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Clipped"
@@ -3395,6 +3409,22 @@ msgstr "定義"
 #: app/src/VariablesDialogs.tsx
 msgid "Define a variable on the Define tab first."
 msgstr "先に定義タブで変数を定義してください。"
+
+#: app/src/app/menus.ts
+msgid "Define Brush Preset…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Custom Shape…"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Define Pattern needs a rectangular selection without feathering."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Pattern…"
+msgstr ""
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -4695,6 +4725,10 @@ msgstr "細かいドット"
 msgid "Finger Painting"
 msgstr "フィンガーペイント"
 
+#: app/src/i18n/errors.ts
+msgid "Finish the current edit before purging the history."
+msgstr ""
+
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
 msgid "Fish"
@@ -5743,6 +5777,10 @@ msgstr "ヒストグラムのビン"
 #: app/src/InspectionPanels.tsx
 msgid "Histogram pixel count exceeds the source document area."
 msgstr "ヒストグラムのピクセル数がソースドキュメントの面積を超えています。"
+
+#: app/src/app/menus.ts
+msgid "Histories"
+msgstr ""
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
@@ -8520,6 +8558,15 @@ msgstr "レイヤースタイルをペースト"
 msgid "Paste Lorem Ipsum"
 msgstr "Lorem Ipsum をペースト"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Paste Outside"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Paste Outside needs a selection."
+msgstr ""
+
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
 msgid "Paste Shape Attributes"
@@ -8602,6 +8649,10 @@ msgstr "パターンディザ"
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "パターン塗りつぶし"
+
+#: app/src/app/Dialogs.tsx
+msgid "Pattern Name"
+msgstr ""
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -9187,6 +9238,10 @@ msgstr "パペットモード"
 #: app/src/shell/DeformSession.tsx
 msgid "Puppet Warp"
 msgstr "パペットワープ"
+
+#: app/src/app/menus.ts
+msgid "Purge"
+msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Purity"
@@ -10627,6 +10682,10 @@ msgstr "シェイプレイヤー"
 msgid "Shape layers"
 msgstr "シェイプレイヤー"
 
+#: app/src/app/Dialogs.tsx
+msgid "Shape Name"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Shape Path"
 msgstr "シェイプパス"
@@ -11846,6 +11905,10 @@ msgstr "このアクションには有効なステップがありません。"
 msgid "The artboard is outside the canvas."
 msgstr "アートボードがカンバスの外側にあります。"
 
+#: app/src/i18n/errors.ts
+msgid "The brush is larger than 5000 x 5000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The brush library is not available."
 msgstr "ブラシライブラリを使用できません。"
@@ -11927,6 +11990,10 @@ msgstr "元のスマートオブジェクトは削除されたか置き換えら
 msgid "The password is wrong. {0} is protected."
 msgstr "パスワードが正しくありません。{0} は保護されています。"
 
+#: app/src/i18n/errors.ts
+msgid "The pattern is larger than 4000 x 4000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The pattern is not available."
 msgstr "パターンを使用できません。"
@@ -11966,6 +12033,10 @@ msgstr "サンプルのソースはピクセルレイヤーである必要があ
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
 msgstr "保存されたツールプリセットライブラリは有効な JSON ではありません。"
+
+#: app/src/i18n/errors.ts
+msgid "The selected area is empty."
+msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "The source document is no longer open."
@@ -12188,6 +12259,10 @@ msgstr "タイトル用異体字"
 #: app/src/MissingFonts.tsx
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
 msgstr "今すぐテキストを編集するには、見つからないフォントをデフォルトのフォントに置き換えてください。ドキュメント全体の見つからないフォントを管理することもできます。"
+
+#: app/src/app/menus.ts
+msgid "Toggle Last State"
+msgstr ""
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"

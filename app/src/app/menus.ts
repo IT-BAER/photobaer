@@ -16,7 +16,7 @@ import type { Viewer } from '../viewer.ts';
 import { filterOff, GROUPS, menuId, menuLabel, type FilterSpec } from '../filters/schema.ts';
 import type { DocInfo, LayerNode, SmartFilterInfo, SmartInfo } from '../worker/types.ts';
 import type { SnapSettings } from '../shell/snapping.ts';
-import type { ArtboardMode, AutomateKind } from './Dialogs.tsx';
+import type { ArtboardMode, AutomateKind, DefineKind } from './Dialogs.tsx';
 import { exportPrefs, FORMAT_LABEL, type FilesKind } from '../ExportDialogs.tsx';
 export type ExportKind = 'as' | 'web' | 'prefs' | FilesKind;
 import { ALIGN_ITEMS, itemId, STACK_MODES, selectCreated, tl, type FillContentForm, type Item, type MODIFY_OPS, type Run } from './helpers.ts';
@@ -76,6 +76,7 @@ export interface MenuCtx {
   workspace: WorkspaceState; chooseWorkspace: (name: string) => void; openWorkspaceDialog: (mode: 'save' | 'delete') => void;
   resetCurrentWorkspace: () => void; toggleWorkspaceLock: () => void;
   arrangeMode: ArrangeMode; chooseArrangement: (mode: ArrangeMode) => void; matchArrangement: (kind: MatchKind) => void;
+  openDefine: (kind: DefineKind) => void; canDefineShape: boolean; purge: (what: 'clipboard' | 'histories' | 'all') => void;
   openLockLayers: () => void; selectAllLayers: () => void; findLayers: () => void; isolated: boolean; toggleIsolate: () => void;
   snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef; cursorPrefsDialog: DialogRef;
@@ -143,7 +144,7 @@ export function buildMenus(c: MenuCtx) {
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
     workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
-    arrangeMode, chooseArrangement, matchArrangement, openLockLayers, selectAllLayers, findLayers, isolated, toggleIsolate,
+    arrangeMode, chooseArrangement, matchArrangement, openDefine, canDefineShape, purge, openLockLayers, selectAllLayers, findLayers, isolated, toggleIsolate,
   } = c;
   const selectedIds = selectedNodes.map(n => n.id);
   const allHidden = selectedNodes.length > 0 && selectedNodes.every(n => !n.visible);
@@ -260,6 +261,7 @@ export function buildMenus(c: MenuCtx) {
     Edit: [
       { ...(doc?.undoLabel ? { id: `Undo ${doc.undoLabel}`, label: undoText(doc.undoLabel) } : tl(msg`Undo`)), keys: 'Ctrl+Z', run: () => run(null, () => client.call('undo')), off: !doc?.undoLabel },
       { ...(doc?.redoLabel ? { id: `Redo ${doc.redoLabel}`, label: redoText(doc.redoLabel) } : tl(msg`Redo`)), keys: 'Shift+Ctrl+Z', run: () => run(null, () => client.call('redo')), off: !doc?.redoLabel },
+      { ...tl(msg`Toggle Last State`), keys: 'Alt+Ctrl+Z', run: () => run(null, () => client.call('toggleLastState')), off: !doc?.undoLabel && !doc?.toggleRedo },
       { ...tl(msg`Fade…`), keys: 'Shift+Ctrl+F', run: openFade, off: !doc?.undoLabel || !active || node?.kind !== 'pixel' },
       { ...tl(msg`Cut`), keys: 'Ctrl+X', sep: true, run: () => active && copy(run, active, false, true), off: !doc?.selection || node?.kind !== 'pixel' },
       { ...tl(msg`Copy`), keys: 'Ctrl+C', run: () => active && copy(run, active, false, false), off: !has || !active },
@@ -269,6 +271,7 @@ export function buildMenus(c: MenuCtx) {
         ...tl(msg`Paste Special`), keys: '›', run: () => {}, off: !has || !active, sub: [
           { ...tl(msg`Paste in Place`), keys: 'Shift+Ctrl+V', run: () => active && paste(run, active, 'inPlace') },
           { ...tl(msg`Paste Into`), keys: 'Alt+Shift+Ctrl+V', run: () => active && paste(run, active, 'into'), off: !doc?.selection },
+          { ...tl(msg`Paste Outside`), run: () => active && paste(run, active, 'outside'), off: !doc?.selection },
         ],
       },
       { ...tl(msg`Fill…`), keys: 'Shift+F5', sep: true, run: () => openPreviewDialog('fill'), off: !has || !active },
@@ -297,6 +300,16 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Color Settings…`), keys: 'Shift+Ctrl+K', sep: true, run: () => openColorDialog('settings') },
       { ...tl(msg`Assign Profile…`), run: () => openColorDialog('assign'), off: !has || (!!doc?.mode && doc.mode.kind !== 'cmyk') },
       { ...tl(msg`Convert to Profile…`), run: () => openColorDialog('convert'), off: !has || (!!doc?.mode && doc.mode.kind !== 'cmyk') },
+      { ...tl(msg`Define Brush Preset…`), sep: true, run: () => openDefine('brush'), off: !has },
+      { ...tl(msg`Define Pattern…`), run: () => openDefine('pattern'), off: !has || (!!doc?.selection && !doc.selectionRect) },
+      { ...tl(msg`Define Custom Shape…`), run: () => openDefine('shape'), off: !has || !canDefineShape },
+      {
+        ...tl(msg`Purge`), keys: '›', sep: true, run: () => {}, sub: [
+          { ...tl(msg({ message: 'Clipboard', context: 'purge' })), id: 'Purge Clipboard', run: () => purge('clipboard'), off: !doc?.hasClipboard },
+          { ...tl(msg`Histories`), run: () => purge('histories'), off: !doc?.history.labels.length },
+          { ...tl(msg({ message: 'All', context: 'purge' })), id: 'Purge All', run: () => purge('all'), off: !doc },
+        ],
+      },
       { ...tl(msg`Search…`), keys: 'Ctrl+F', sep: true, run: () => { setMenu(null); openSearch(); } },
       { ...tl(msg`Preferences`), keys: '›', sep: true, run: () => {}, sub: [{ ...tl(msg`Cursors…`), run: () => { setMenu(null); cursorPrefsDialog.current?.showModal(); } }] },
     ],

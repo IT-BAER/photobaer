@@ -223,6 +223,11 @@
     "Shift+Ctrl+Z"
    ],
    [
+    "Toggle Last State",
+    "Toggle Last State",
+    "Alt+Ctrl+Z"
+   ],
+   [
     "Fade…",
     "Fade…",
     "Shift+Ctrl+F"
@@ -261,6 +266,10 @@
       "Paste Into",
       "Paste Into",
       "Alt+Shift+Ctrl+V"
+     ],
+     [
+      "Paste Outside",
+      "Paste Outside"
      ]
     ]
    ],
@@ -406,6 +415,37 @@
    [
     "Convert to Profile…",
     "Convert to Profile…"
+   ],
+   [
+    "Define Brush Preset…",
+    "Define Brush Preset…"
+   ],
+   [
+    "Define Pattern…",
+    "Define Pattern…"
+   ],
+   [
+    "Define Custom Shape…",
+    "Define Custom Shape…"
+   ],
+   [
+    "Purge",
+    "Purge",
+    "›",
+    [
+     [
+      "Purge Clipboard",
+      "Clipboard"
+     ],
+     [
+      "Histories",
+      "Histories"
+     ],
+     [
+      "Purge All",
+      "All"
+     ]
+    ]
    ],
    [
     "Search…",

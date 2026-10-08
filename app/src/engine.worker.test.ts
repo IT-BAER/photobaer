@@ -3474,6 +3474,96 @@ test('Paste Into masks the new layer to the selection and deselects', async () =
   assert.deepEqual(await at1(21, 21, p.created), RED);
 });
 
+test('Paste Outside masks the new layer to the inverted selection and deselects', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('copy', 1, false, false);
+  await call('selectCommand', 'deselect');
+  assert.match((await call('paste', 1, 'outside', null)).error ?? '', /selection/);
+  await call('select', { kind: 'rect', x: 22, y: 22, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+  const p = (await call('paste', 1, 'outside', null)).result as Pasted;
+  assert.deepEqual([p.undoLabel, p.selection, !!p.layers.at(-1)!.mask], ['Paste Outside', null, true]);
+  assert.deepEqual((await call('movingBounds', p.created)).result, [20, 20, 8, 8]);
+  await call('setProps', 1, { visible: false });
+  assert.deepEqual(await at1(21, 21, null), RED, 'shown outside the selection');
+  assert.equal((await at1(23, 23, null))[3], 0, 'hidden inside the selection');
+});
+
+type HistDoc = { undoLabel: string | null; redoLabel: string | null; toggleRedo: boolean; hasClipboard: boolean; dirty: boolean; history: { labels: string[]; current: number } };
+
+test('Toggle Last State undoes, then redoes its own undo; any other history change makes it undo again', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  assert.equal(((await call('toggleLastState')).result as HistDoc).undoLabel, null, 'nothing to toggle');
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  const a = (await call('toggleLastState')).result as HistDoc;
+  assert.deepEqual([a.undoLabel, a.redoLabel, a.toggleRedo], ['Fill', 'Rectangular Marquee', true]);
+  const b = (await call('toggleLastState')).result as HistDoc;
+  assert.deepEqual([b.undoLabel, b.redoLabel, b.toggleRedo], ['Rectangular Marquee', null, false]);
+  const c = (await call('toggleLastState')).result as HistDoc;
+  assert.deepEqual([c.undoLabel, c.toggleRedo], ['Fill', true]);
+  const n = (await call('command', 'fill', 1, 'pixels', [0, 0, 255, 255])).result as HistDoc;
+  assert.deepEqual([n.history.labels, n.toggleRedo], [['Fill', 'Fill'], false], 'a new step drops the redo and the toggle');
+  const d = (await call('toggleLastState')).result as HistDoc;
+  assert.deepEqual([d.history.current, d.redoLabel], [1, 'Fill'], 'after a new step it undoes');
+  await call('undo');
+  const e = (await call('toggleLastState')).result as HistDoc;
+  assert.equal(e.history.current, 0, 'after a plain undo it undoes again');
+});
+
+test('Purge Histories drops every undo and redo step and keeps the document state; Purge Clipboard empties the copy buffer', async () => {
+  await call('init');
+  await call('newDoc', 64, 64, 8, null);
+  await call('command', 'fill', 1, 'pixels', RED);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  const cp = (await call('copy', 1, false, false)).result as HistDoc;
+  assert.equal(cp.hasClipboard, true);
+  await call('undo');
+  const h = (await call('purge', 'histories')).result as HistDoc;
+  assert.deepEqual([h.undoLabel, h.redoLabel, h.history.labels, h.hasClipboard, h.dirty], [null, null, [], true, true]);
+  assert.deepEqual(await at1(30, 30, 1), RED);
+  const c = (await call('purge', 'clipboard')).result as HistDoc;
+  assert.equal(c.hasClipboard, false);
+  assert.equal(((await call('paste', 1, 'paste', null)).result as { pasted: boolean }).pasted, false);
+  await call('select', { kind: 'rect', x: 4, y: 4, w: 8, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('copy', 1, false, false);
+  const all = (await call('purge', 'all')).result as HistDoc;
+  assert.deepEqual([all.history.labels, all.hasClipboard], [[], false]);
+});
+
+test('Define Brush Preset samples the merged image in the selection bounds as darkness = opacity', async () => {
+  await call('init');
+  await call('newDoc', 64, 32, 8, [255, 255, 255, 255]);
+  await rectLayer(1, 10, 10, 4, 4, [0, 0, 0, 255]);
+  type Tip = { tip: { width: number; height: number; alpha: Uint8Array } };
+  const whole = ((await call('brushTipSample')).result as Tip).tip;
+  assert.deepEqual([whole.width, whole.height, whole.alpha.length], [64, 32, 64 * 32]);
+  await call('select', { kind: 'rect', x: 8, y: 8, w: 16, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  const r = (await call('brushTipSample')).result as Tip & HistDoc;
+  assert.deepEqual([r.tip.width, r.tip.height], [16, 8]);
+  assert.deepEqual([r.tip.alpha[2 * 16 + 2], r.tip.alpha[0]], [255, 0], 'black is opaque, white transparent');
+  assert.equal(r.undoLabel, 'Rectangular Marquee', 'no history step');
+});
+
+test('Define Pattern samples a rectangular selection and refuses a feathered one', async () => {
+  await call('init');
+  await call('newDoc', 64, 32, 8, [255, 255, 255, 255]);
+  await rectLayer(1, 10, 10, 4, 4, [255, 0, 0, 255]);
+  type Pat = { pattern: { width: number; height: number; data: Uint8Array }; selectionRect: boolean };
+  const whole = ((await call('patternSample')).result as Pat).pattern;
+  assert.deepEqual([whole.width, whole.height, whole.data.length], [64, 32, 64 * 32 * 4]);
+  const s = (await call('select', { kind: 'rect', x: 8, y: 8, w: 16, h: 8 }, 'new', false, 0, 'Rectangular Marquee')).result as Pat;
+  assert.equal(s.selectionRect, true);
+  const r = (await call('patternSample')).result as Pat;
+  assert.deepEqual([r.pattern.width, r.pattern.height, Array.from(r.pattern.data.slice((2 * 16 + 2) * 4, (2 * 16 + 3) * 4))], [16, 8, [255, 0, 0, 255]]);
+  const f = (await call('select', { kind: 'rect', x: 8, y: 8, w: 16, h: 8 }, 'new', false, 3, 'Rectangular Marquee')).result as Pat;
+  assert.equal(f.selectionRect, false);
+  assert.match((await call('patternSample')).error ?? '', /rectangular/);
+});
+
 test('Layer via Copy adds the selected pixels in place as one step and leaves the clipboard alone', async () => {
   await call('init');
   await call('newDoc', 64, 64, 8, null);

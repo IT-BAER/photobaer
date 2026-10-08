@@ -677,6 +677,11 @@ msgstr ""
 msgid "All"
 msgstr ""
 
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "All"
+msgstr ""
+
 #: app/src/TypePanels.tsx
 msgid "All Caps"
 msgstr ""
@@ -1789,6 +1794,10 @@ msgstr ""
 msgid "Brush Leash Color"
 msgstr ""
 
+#: app/src/app/Dialogs.tsx
+msgid "Brush Name"
+msgstr ""
+
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
 msgstr ""
@@ -2251,6 +2260,11 @@ msgstr ""
 
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "Clipboard"
 msgstr ""
 
 #: app/src/CloneSourcePanel.tsx
@@ -3391,6 +3405,22 @@ msgstr ""
 
 #: app/src/VariablesDialogs.tsx
 msgid "Define a variable on the Define tab first."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Brush Preset…"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Custom Shape…"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Define Pattern needs a rectangular selection without feathering."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Define Pattern…"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -4692,6 +4722,10 @@ msgstr ""
 msgid "Finger Painting"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Finish the current edit before purging the history."
+msgstr ""
+
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
 msgid "Fish"
@@ -5739,6 +5773,10 @@ msgstr ""
 
 #: app/src/InspectionPanels.tsx
 msgid "Histogram pixel count exceeds the source document area."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Histories"
 msgstr ""
 
 #: app/src/App.tsx
@@ -8517,6 +8555,15 @@ msgstr ""
 msgid "Paste Lorem Ipsum"
 msgstr ""
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Paste Outside"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Paste Outside needs a selection."
+msgstr ""
+
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
 msgid "Paste Shape Attributes"
@@ -8598,6 +8645,10 @@ msgstr ""
 
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
+msgstr ""
+
+#: app/src/app/Dialogs.tsx
+msgid "Pattern Name"
 msgstr ""
 
 #: app/src/i18n/history.ts
@@ -9183,6 +9234,10 @@ msgstr ""
 #: app/src/filters/labels.ts
 #: app/src/shell/DeformSession.tsx
 msgid "Puppet Warp"
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Purge"
 msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
@@ -10624,6 +10679,10 @@ msgstr ""
 msgid "Shape layers"
 msgstr ""
 
+#: app/src/app/Dialogs.tsx
+msgid "Shape Name"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Shape Path"
 msgstr ""
@@ -11843,6 +11902,10 @@ msgstr ""
 msgid "The artboard is outside the canvas."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "The brush is larger than 5000 x 5000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The brush library is not available."
 msgstr ""
@@ -11924,6 +11987,10 @@ msgstr ""
 msgid "The password is wrong. {0} is protected."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "The pattern is larger than 4000 x 4000 pixels."
+msgstr ""
+
 #: app/src/App.tsx
 msgid "The pattern is not available."
 msgstr ""
@@ -11962,6 +12029,10 @@ msgstr ""
 
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The selected area is empty."
 msgstr ""
 
 #: app/src/i18n/errors.ts
@@ -12184,6 +12255,10 @@ msgstr ""
 
 #: app/src/MissingFonts.tsx
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
+msgstr ""
+
+#: app/src/app/menus.ts
+msgid "Toggle Last State"
 msgstr ""
 
 #: app/src/shell/ToolBar.tsx

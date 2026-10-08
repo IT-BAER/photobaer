@@ -850,6 +850,30 @@ export function ColorDecontaminateDialog({ dialog, node, run }: { dialog: Dialog
   );
 }
 
+export type DefineKind = 'brush' | 'pattern' | 'shape';
+const DEFINE_TITLE: Record<DefineKind, MessageDescriptor> = { brush: msg`Brush Name`, pattern: msg`Pattern Name`, shape: msg`Shape Name` };
+
+// Edit > Define Brush Preset / Pattern / Custom Shape: the name, prefilled with `name`.
+export function DefineDialog({ dialog, kind, name, ok }: { dialog: DialogRef; kind: DefineKind; name: string; ok: (name: string) => void }) {
+  return (
+    <dialog ref={dialog}>
+      <form key={`${kind}/${name}`} onSubmit={e => {
+        e.preventDefault();
+        const n = String(new FormData(e.currentTarget).get('name')).trim();
+        dialog.current?.close();
+        ok(n || name);
+      }}>
+        <h2>{i18n._(DEFINE_TITLE[kind])}</h2>
+        <label><Trans>Name</Trans> <input name="name" type="text" defaultValue={name} autoFocus /></label>
+        <div className="actions">
+          <button type="button" onClick={() => dialog.current?.close()}><Trans>Cancel</Trans></button>
+          <button type="submit" className="primary"><Trans>OK</Trans></button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
 export function RotateDialog({ rotateDialog, run }: { rotateDialog: DialogRef; run: Run }) {
   return (
     <dialog ref={rotateDialog}>

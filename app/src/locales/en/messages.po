@@ -680,6 +680,11 @@ msgstr "Aligns and merges the pixel layers of the active document."
 msgid "All"
 msgstr "All"
 
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "All"
+msgstr "All"
+
 #: app/src/TypePanels.tsx
 msgid "All Caps"
 msgstr "All Caps"
@@ -1792,6 +1797,10 @@ msgstr "Brush Detail"
 msgid "Brush Leash Color"
 msgstr "Brush Leash Color"
 
+#: app/src/app/Dialogs.tsx
+msgid "Brush Name"
+msgstr "Brush Name"
+
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Pose"
 msgstr "Brush Pose"
@@ -2255,6 +2264,11 @@ msgstr "Clicking a shape arms the Custom Shape tool."
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
 msgstr "Clip to layer below"
+
+#: app/src/app/menus.ts
+msgctxt "purge"
+msgid "Clipboard"
+msgstr "Clipboard"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Clipped"
@@ -3395,6 +3409,22 @@ msgstr "Define"
 #: app/src/VariablesDialogs.tsx
 msgid "Define a variable on the Define tab first."
 msgstr "Define a variable on the Define tab first."
+
+#: app/src/app/menus.ts
+msgid "Define Brush Preset…"
+msgstr "Define Brush Preset…"
+
+#: app/src/app/menus.ts
+msgid "Define Custom Shape…"
+msgstr "Define Custom Shape…"
+
+#: app/src/i18n/errors.ts
+msgid "Define Pattern needs a rectangular selection without feathering."
+msgstr "Define Pattern needs a rectangular selection without feathering."
+
+#: app/src/app/menus.ts
+msgid "Define Pattern…"
+msgstr "Define Pattern…"
 
 #: app/src/app/menus.ts
 msgid "Define…"
@@ -4695,6 +4725,10 @@ msgstr "Fine Dots"
 msgid "Finger Painting"
 msgstr "Finger Painting"
 
+#: app/src/i18n/errors.ts
+msgid "Finish the current edit before purging the history."
+msgstr "Finish the current edit before purging the history."
+
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
 msgid "Fish"
@@ -5743,6 +5777,10 @@ msgstr "Histogram bin"
 #: app/src/InspectionPanels.tsx
 msgid "Histogram pixel count exceeds the source document area."
 msgstr "Histogram pixel count exceeds the source document area."
+
+#: app/src/app/menus.ts
+msgid "Histories"
+msgstr "Histories"
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
@@ -8520,6 +8558,15 @@ msgstr "Paste Layer Style"
 msgid "Paste Lorem Ipsum"
 msgstr "Paste Lorem Ipsum"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Paste Outside"
+msgstr "Paste Outside"
+
+#: app/src/i18n/errors.ts
+msgid "Paste Outside needs a selection."
+msgstr "Paste Outside needs a selection."
+
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
 msgid "Paste Shape Attributes"
@@ -8602,6 +8649,10 @@ msgstr "Pattern Dither"
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "Pattern Fill"
+
+#: app/src/app/Dialogs.tsx
+msgid "Pattern Name"
+msgstr "Pattern Name"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -9187,6 +9238,10 @@ msgstr "Puppet mode"
 #: app/src/shell/DeformSession.tsx
 msgid "Puppet Warp"
 msgstr "Puppet Warp"
+
+#: app/src/app/menus.ts
+msgid "Purge"
+msgstr "Purge"
 
 #: app/src/shell/BrushPanels.tsx
 msgid "Purity"
@@ -10627,6 +10682,10 @@ msgstr "Shape Layer"
 msgid "Shape layers"
 msgstr "Shape layers"
 
+#: app/src/app/Dialogs.tsx
+msgid "Shape Name"
+msgstr "Shape Name"
+
 #: app/src/i18n/history.ts
 msgid "Shape Path"
 msgstr "Shape Path"
@@ -11846,6 +11905,10 @@ msgstr "The action has no enabled steps."
 msgid "The artboard is outside the canvas."
 msgstr "The artboard is outside the canvas."
 
+#: app/src/i18n/errors.ts
+msgid "The brush is larger than 5000 x 5000 pixels."
+msgstr "The brush is larger than 5000 x 5000 pixels."
+
 #: app/src/App.tsx
 msgid "The brush library is not available."
 msgstr "The brush library is not available."
@@ -11927,6 +11990,10 @@ msgstr "The original Smart Object was removed or replaced. Use Save As to keep t
 msgid "The password is wrong. {0} is protected."
 msgstr "The password is wrong. {0} is protected."
 
+#: app/src/i18n/errors.ts
+msgid "The pattern is larger than 4000 x 4000 pixels."
+msgstr "The pattern is larger than 4000 x 4000 pixels."
+
 #: app/src/App.tsx
 msgid "The pattern is not available."
 msgstr "The pattern is not available."
@@ -11966,6 +12033,10 @@ msgstr "The sample source must be a pixel layer."
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
 msgstr "The saved tool preset library is not valid JSON."
+
+#: app/src/i18n/errors.ts
+msgid "The selected area is empty."
+msgstr "The selected area is empty."
 
 #: app/src/i18n/errors.ts
 msgid "The source document is no longer open."
@@ -12188,6 +12259,10 @@ msgstr "Titling Alternates"
 #: app/src/MissingFonts.tsx
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
 msgstr "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
+
+#: app/src/app/menus.ts
+msgid "Toggle Last State"
+msgstr "Toggle Last State"
 
 #: app/src/shell/ToolBar.tsx
 msgid "Toggle quick mask"
