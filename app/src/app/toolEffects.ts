@@ -395,6 +395,8 @@ export function useMoveTool(c: MoveToolCtx) {
       drag = q.g;
       void landed.then(() => {
         if (drag !== q.g) return;
+        // Escape or a pointer cancel while queued ends the press before it reaches the worker.
+        if (q.g.end === 'cancel') { release(q.g); return; }
         v!.hold(true);
         void start(q.g, q.e);
       });

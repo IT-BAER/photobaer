@@ -1,6 +1,6 @@
 # Move tool latency on styled layers
 
-Status: open (options 2 and 3). Measured 7 October 2026 on `baer4.psd` (4000 x 4000, 8-bit RGB). The one visible layer is
+Status: open (option 3). Measured 7 October 2026 on `baer4.psd` (4000 x 4000, 8-bit RGB). The one visible layer is
 3273 x 2992 px with Drop Shadow (size 133 px, normal), Gradient Overlay (linear dodge) and Stroke (1 px, outside).
 Browser: Chrome, WebGPU, devicePixelRatio 1.25, view zoom 100 %.
 
@@ -25,6 +25,19 @@ Tests in app/src/engine.worker.test.ts and app/src/shell/SelectionOverlay.test.t
 |---|---|---|
 | moveLayerBegin to moveFloat reply (drag moves) | 335 - 355 ms | 82 - 122 ms |
 | moveLayerBegin to coarse whole-layer image | 335 - 355 ms | 351 - 402 ms |
+
+Plan option 2, 8 October 2026 (`cbe47a2`): effects that read only the layer's pixels and bounds render on a
+layer-space grid (`fx_composed` / `fx_window` in engine/src/compositor.rs), so a moved layer keeps its planes.
+Chrome check on a generated stand-in for `baer4.psd` (4000 x 4000, one 3273 x 2992 layer with Drop Shadow 133 px,
+Gradient Overlay in Linear Dodge and a 1 px outside Stroke), view 100.2 % on the shadow edge, three drags:
+
+| Chrome, WebGPU, devicePixelRatio 1.25 | measured |
+|---|---|
+| moveLayerBegin to moveFloat reply (drag moves) | 171 - 264 ms |
+| last step to moveLayerCommit | 127 - 267 ms |
+| moveLayerCommit to the last view tile | 122 - 159 ms |
+
+No console errors. Three drags left three "Move" entries in History.
 
 ## Remaining
 

@@ -277,3 +277,30 @@ fn a_layer_over_many_tiles_reuses_its_effect_planes() {
     assert_same(&moved, &render(&d, true)[..moved.len()], "big layer");
     assert!(renders <= 8, "moved by (37, 13): only the windows at the new edge render, got {renders}");
 }
+
+#[test]
+fn color_under_alpha_0_keeps_the_effect_planes_after_a_move() {
+    // PSD layers keep color under alpha 0; tile (1, 0) holds only that, so a move may drop it.
+    let s = styles().into_iter().find(|s| s.0 == "shadow, gradient, stroke").unwrap().1;
+    let mut d = Document::new(W, H, 8).unwrap();
+    let id = d.add_layer("psd", 1).unwrap();
+    let (w, h) = (520usize, 300usize);
+    let px: Vec<u8> = (0..w * h)
+        .flat_map(|i| {
+            let (x, y) = (i % w, i / w);
+            let inside = (x as f64 - 100.0).hypot(y as f64 - 120.0) < 90.0;
+            [200, (x % 256) as u8, (y % 256) as u8, if inside { 255 } else { 0 }]
+        })
+        .collect();
+    d.put_rgba8(id, 0, 0, w as u32, h as u32, &px).unwrap();
+    d.set_style(id, &s).unwrap();
+    render(&d, false);
+    for (dx, dy) in [(37, 13), (-5, 3)] {
+        d.offset_layer(id, dx, dy).unwrap();
+        FX_RENDERS.with(|c| c.set(0));
+        let (nx, ny) = d.level_tiles(0);
+        (0..ny).for_each(|ty| (0..nx).for_each(|tx| drop(Document::run_program(&d.program(0, tx, ty).unwrap()))));
+        assert_eq!(FX_RENDERS.with(|c| c.get()), 0, "moved by ({dx}, {dy}): no effect plane renders again");
+        assert_same(&render(&d, false), &render(&d, true), &format!("after ({dx}, {dy})"));
+    }
+}

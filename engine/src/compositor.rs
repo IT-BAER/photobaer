@@ -1403,10 +1403,12 @@ impl Document {
         let [ax, ay] = node.fx_anchor.map(|v| (v as i64).div_euclid(1 << level));
         let (rx, ry) = (tx as i64 * t - ax, ty as i64 * t - ay);
         let mut ckey = mix(mix(key, rx.rem_euclid(t) as u64), ry.rem_euclid(t) as u64);
+        // Content bounds and the bounds the style reads, once per document tile, not per window.
+        let bounds = (self.tight_bounds(content_tiles(node)?).0, self.style_bounds(node, style));
         let mut out: Option<Vec<Pixels>> = None;
         for v in ry.div_euclid(t)..=(ry + t - 1).div_euclid(t) {
             for u in rx.div_euclid(t)..=(rx + t - 1).div_euclid(t) {
-                let window = self.fx_window(node, style, mode, key, pad, count, level, ax + u * t, ay + v * t);
+                let window = self.fx_window(node, style, mode, key, pad, count, level, bounds, ax + u * t, ay + v * t);
                 ckey = mix(ckey, window.as_ref().map_or(0, |w| w.0));
                 let Some((_, planes)) = window else { continue };
                 let out = out.get_or_insert_with(|| (0..count).map(|_| Pixels::transparent(self.depth)).collect());
@@ -1424,7 +1426,8 @@ impl Document {
 
     // One layer-space window: the planes of the 256 px tile at (x, y) level px, cached under the
     // style key, a hash of the pixels and mask values the render reads and the layer bounds
-    // relative to the window. None when the node has no content there.
+    // relative to the window. None when the node has no content there. `fx_bounds`: the content's
+    // tight bounds and the node's `style_bounds`.
     #[allow(clippy::too_many_arguments)]
     fn fx_window(
         &self,
@@ -1435,13 +1438,14 @@ impl Document {
         pad: usize,
         count: usize,
         level: u32,
+        fx_bounds: ([f64; 4], ([f64; 4], u64)),
         x: i64,
         y: i64,
     ) -> Option<(u64, Vec<Arc<Pixels>>)> {
         let n = TILE + 2 * pad;
         // A window that misses the content renders nothing, as it does at any other position.
         let k = 0.5f32.powi(level as i32) as f64;
-        let ([cx, cy, cw, ch], _) = self.tight_bounds(content_tiles(node)?);
+        let ([cx, cy, cw, ch], (bounds, bounds_key)) = fx_bounds;
         let (lo, hi) = (|v: f64| (v * k).floor() as i64, |v: f64| (v * k).ceil() as i64);
         let (p, t) = (pad as i64, TILE as i64);
         if cw <= 0.0 || x + t + p <= lo(cx) || hi(cx + cw) <= x - p || y + t + p <= lo(cy) || hi(cy + ch) <= y - p {
@@ -1456,7 +1460,6 @@ impl Document {
             h
         });
         // Key 0: no effect reads the bounds, so they stay out of the key.
-        let (bounds, bounds_key) = self.style_bounds(node, style);
         let rel = if bounds_key == 0 { [0.0; 4] } else { [bounds[0] * k - x as f64, bounds[1] * k - y as f64, bounds[2] * k, bounds[3] * k] };
         let wkey = rel.iter().fold(mix(key, input), |h, v| mix(h, v.to_bits()));
         let keys: Vec<u64> = (0..count).map(|i| mix(wkey, i as u64) | (1 << 63)).collect();

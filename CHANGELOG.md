@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - A Move tool drag that starts right after the previous one, while that one is still landing, is no longer
-  ignored: it starts as soon as the previous move is committed.
+  ignored: it starts as soon as the previous move is committed. Escape before it starts drops it.
 - Clicking or starting to drag a layer with effects with the Move tool no longer flashes a doubled, darker
   shadow: the floating layer shows only once the view has lifted the layer out.
 
