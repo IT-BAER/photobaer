@@ -3649,7 +3649,7 @@ msgstr "모두 선택 해제"
 
 #: app/src/app/menus.ts
 msgid "Deselect Layers"
-msgstr ""
+msgstr "레이어 선택 해제"
 
 #: app/src/filters/labels.ts
 msgid "Despeckle"
@@ -7983,7 +7983,7 @@ msgstr "병합할 효과가 있는 레이어가 없습니다."
 
 #: app/src/App.tsx
 msgid "No layer is selected"
-msgstr ""
+msgstr "선택된 레이어가 없습니다"
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
@@ -8055,7 +8055,7 @@ msgstr "열려 있는 고급 개체 내용이 없습니다."
 
 #: app/src/App.tsx
 msgid "No subject found"
-msgstr ""
+msgstr "피사체를 찾을 수 없습니다"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
@@ -10522,7 +10522,7 @@ msgstr "처리된 이미지를 저장할 위치 선택"
 
 #: app/src/i18n/history.ts
 msgid "Select Subject"
-msgstr ""
+msgstr "피사체 선택"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
@@ -10542,7 +10542,7 @@ msgstr "결합하려면 모양 레이어를 두 개 이상 선택하십시오."
 
 #: app/src/App.tsx
 msgid "Selecting subject…"
-msgstr ""
+msgstr "피사체 선택 중…"
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11741,7 +11741,7 @@ msgstr "스타일러스 휠"
 
 #: app/src/app/menus.ts
 msgid "Subject"
-msgstr ""
+msgstr "피사체"
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

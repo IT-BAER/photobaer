@@ -3649,7 +3649,7 @@ msgstr "Alle abwählen"
 
 #: app/src/app/menus.ts
 msgid "Deselect Layers"
-msgstr ""
+msgstr "Ebenenauswahl aufheben"
 
 #: app/src/filters/labels.ts
 msgid "Despeckle"
@@ -7983,7 +7983,7 @@ msgstr "Keine Ebene hat einen Effekt, der reduziert werden kann."
 
 #: app/src/App.tsx
 msgid "No layer is selected"
-msgstr ""
+msgstr "Keine Ebene ausgewählt"
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
@@ -8055,7 +8055,7 @@ msgstr "Es ist kein Smartobjekt-Inhalt geöffnet."
 
 #: app/src/App.tsx
 msgid "No subject found"
-msgstr ""
+msgstr "Kein Motiv gefunden"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
@@ -10522,7 +10522,7 @@ msgstr "Speicherort für verarbeitete Bilder auswählen"
 
 #: app/src/i18n/history.ts
 msgid "Select Subject"
-msgstr ""
+msgstr "Motiv auswählen"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
@@ -10542,7 +10542,7 @@ msgstr "Wähle zwei oder mehr Formebenen aus, um sie zu kombinieren."
 
 #: app/src/App.tsx
 msgid "Selecting subject…"
-msgstr ""
+msgstr "Motiv wird ausgewählt…"
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11741,7 +11741,7 @@ msgstr "Stiftrad"
 
 #: app/src/app/menus.ts
 msgid "Subject"
-msgstr ""
+msgstr "Motiv"
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

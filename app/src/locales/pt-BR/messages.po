@@ -3652,7 +3652,7 @@ msgstr "Desmarcar tudo"
 
 #: app/src/app/menus.ts
 msgid "Deselect Layers"
-msgstr ""
+msgstr "Desmarcar camadas"
 
 #: app/src/filters/labels.ts
 msgid "Despeckle"
@@ -7986,7 +7986,7 @@ msgstr "Nenhuma camada tem efeito para achatar."
 
 #: app/src/App.tsx
 msgid "No layer is selected"
-msgstr ""
+msgstr "Nenhuma camada selecionada"
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
@@ -8058,7 +8058,7 @@ msgstr "Nenhum conteúdo de objeto inteligente está aberto."
 
 #: app/src/App.tsx
 msgid "No subject found"
-msgstr ""
+msgstr "Nenhum assunto encontrado"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
@@ -10525,7 +10525,7 @@ msgstr "Selecione o local para salvar as imagens processadas"
 
 #: app/src/i18n/history.ts
 msgid "Select Subject"
-msgstr ""
+msgstr "Selecionar assunto"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
@@ -10545,7 +10545,7 @@ msgstr "Selecione duas ou mais camadas de forma para combiná-las."
 
 #: app/src/App.tsx
 msgid "Selecting subject…"
-msgstr ""
+msgstr "Selecionando assunto…"
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11744,7 +11744,7 @@ msgstr "Roda da caneta stylus"
 
 #: app/src/app/menus.ts
 msgid "Subject"
-msgstr ""
+msgstr "Assunto"
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

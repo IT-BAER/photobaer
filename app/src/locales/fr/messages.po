@@ -3652,7 +3652,7 @@ msgstr "Tout désélectionner"
 
 #: app/src/app/menus.ts
 msgid "Deselect Layers"
-msgstr ""
+msgstr "Désélectionner les calques"
 
 #: app/src/filters/labels.ts
 msgid "Despeckle"
@@ -7986,7 +7986,7 @@ msgstr "Aucun calque n’a d’effet à aplatir."
 
 #: app/src/App.tsx
 msgid "No layer is selected"
-msgstr ""
+msgstr "Aucun calque n’est sélectionné"
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
@@ -8058,7 +8058,7 @@ msgstr "Aucun contenu d’objet dynamique n’est ouvert."
 
 #: app/src/App.tsx
 msgid "No subject found"
-msgstr ""
+msgstr "Aucun sujet trouvé"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
@@ -10525,7 +10525,7 @@ msgstr "Sélectionne l’emplacement d’enregistrement des images traitées"
 
 #: app/src/i18n/history.ts
 msgid "Select Subject"
-msgstr ""
+msgstr "Sélectionner un sujet"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
@@ -10545,7 +10545,7 @@ msgstr "Sélectionne au moins deux calques de forme pour les combiner."
 
 #: app/src/App.tsx
 msgid "Selecting subject…"
-msgstr ""
+msgstr "Sélection du sujet…"
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11744,7 +11744,7 @@ msgstr "Molette du stylet"
 
 #: app/src/app/menus.ts
 msgid "Subject"
-msgstr ""
+msgstr "Sujet"
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

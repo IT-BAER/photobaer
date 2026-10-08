@@ -3649,7 +3649,7 @@ msgstr "Tümünün Seçimini Kaldır"
 
 #: app/src/app/menus.ts
 msgid "Deselect Layers"
-msgstr ""
+msgstr "Katmanların Seçimini Kaldır"
 
 #: app/src/filters/labels.ts
 msgid "Despeckle"
@@ -7983,7 +7983,7 @@ msgstr "Hiçbir katmanda düzleştirilecek efekt yok."
 
 #: app/src/App.tsx
 msgid "No layer is selected"
-msgstr ""
+msgstr "Hiçbir katman seçili değil"
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
@@ -8055,7 +8055,7 @@ msgstr "Açık akıllı nesne içeriği yok."
 
 #: app/src/App.tsx
 msgid "No subject found"
-msgstr ""
+msgstr "Özne bulunamadı"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
@@ -10522,7 +10522,7 @@ msgstr "İşlenen görüntülerin kaydedileceği konumu seç"
 
 #: app/src/i18n/history.ts
 msgid "Select Subject"
-msgstr ""
+msgstr "Özne Seç"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
@@ -10542,7 +10542,7 @@ msgstr "Birleştirmek için iki veya daha fazla şekil katmanı seç."
 
 #: app/src/App.tsx
 msgid "Selecting subject…"
-msgstr ""
+msgstr "Özne seçiliyor…"
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11741,7 +11741,7 @@ msgstr "Kalem Tekerleği"
 
 #: app/src/app/menus.ts
 msgid "Subject"
-msgstr ""
+msgstr "Özne"
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

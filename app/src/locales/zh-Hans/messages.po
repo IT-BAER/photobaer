@@ -3649,7 +3649,7 @@ msgstr "全部取消选择"
 
 #: app/src/app/menus.ts
 msgid "Deselect Layers"
-msgstr ""
+msgstr "取消选择图层"
 
 #: app/src/filters/labels.ts
 msgid "Despeckle"
@@ -7983,7 +7983,7 @@ msgstr "没有图层包含可拼合的效果。"
 
 #: app/src/App.tsx
 msgid "No layer is selected"
-msgstr ""
+msgstr "未选择图层"
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
@@ -8055,7 +8055,7 @@ msgstr "没有打开的智能对象内容。"
 
 #: app/src/App.tsx
 msgid "No subject found"
-msgstr ""
+msgstr "未找到主体"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
@@ -10522,7 +10522,7 @@ msgstr "选择存储已处理图像的位置"
 
 #: app/src/i18n/history.ts
 msgid "Select Subject"
-msgstr ""
+msgstr "选择主体"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
@@ -10542,7 +10542,7 @@ msgstr "选择两个或更多形状图层以进行合并。"
 
 #: app/src/App.tsx
 msgid "Selecting subject…"
-msgstr ""
+msgstr "正在选择主体…"
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11741,7 +11741,7 @@ msgstr "光笔轮"
 
 #: app/src/app/menus.ts
 msgid "Subject"
-msgstr ""
+msgstr "主体"
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

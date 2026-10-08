@@ -3652,7 +3652,7 @@ msgstr "Deseleccionar todo"
 
 #: app/src/app/menus.ts
 msgid "Deselect Layers"
-msgstr ""
+msgstr "Deseleccionar capas"
 
 #: app/src/filters/labels.ts
 msgid "Despeckle"
@@ -7986,7 +7986,7 @@ msgstr "Ninguna capa tiene un efecto que acoplar."
 
 #: app/src/App.tsx
 msgid "No layer is selected"
-msgstr ""
+msgstr "No hay ninguna capa seleccionada"
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
@@ -8058,7 +8058,7 @@ msgstr "No hay ningún contenido de objeto inteligente abierto."
 
 #: app/src/App.tsx
 msgid "No subject found"
-msgstr ""
+msgstr "No se ha encontrado ningún sujeto"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
@@ -10525,7 +10525,7 @@ msgstr "Selecciona la ubicación donde guardar las imágenes procesadas"
 
 #: app/src/i18n/history.ts
 msgid "Select Subject"
-msgstr ""
+msgstr "Seleccionar sujeto"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
@@ -10545,7 +10545,7 @@ msgstr "Selecciona dos o más capas de forma para combinarlas."
 
 #: app/src/App.tsx
 msgid "Selecting subject…"
-msgstr ""
+msgstr "Seleccionando sujeto…"
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11744,7 +11744,7 @@ msgstr "Rueda del lápiz óptico"
 
 #: app/src/app/menus.ts
 msgid "Subject"
-msgstr ""
+msgstr "Sujeto"
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

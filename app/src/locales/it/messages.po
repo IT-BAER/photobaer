@@ -3649,7 +3649,7 @@ msgstr "Deseleziona tutto"
 
 #: app/src/app/menus.ts
 msgid "Deselect Layers"
-msgstr ""
+msgstr "Deseleziona livelli"
 
 #: app/src/filters/labels.ts
 msgid "Despeckle"
@@ -7983,7 +7983,7 @@ msgstr "Nessun livello ha un effetto da appiattire."
 
 #: app/src/App.tsx
 msgid "No layer is selected"
-msgstr ""
+msgstr "Nessun livello selezionato"
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
@@ -8055,7 +8055,7 @@ msgstr "Nessun contenuto di oggetto avanzato aperto."
 
 #: app/src/App.tsx
 msgid "No subject found"
-msgstr ""
+msgstr "Nessun soggetto trovato"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
@@ -10522,7 +10522,7 @@ msgstr "Selezionare la posizione in cui salvare le immagini elaborate"
 
 #: app/src/i18n/history.ts
 msgid "Select Subject"
-msgstr ""
+msgstr "Seleziona soggetto"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
@@ -10542,7 +10542,7 @@ msgstr "Selezionare due o più livelli forma per combinarli."
 
 #: app/src/App.tsx
 msgid "Selecting subject…"
-msgstr ""
+msgstr "Selezione del soggetto…"
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11741,7 +11741,7 @@ msgstr "Rotellina penna"
 
 #: app/src/app/menus.ts
 msgid "Subject"
-msgstr ""
+msgstr "Soggetto"
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx

@@ -3652,7 +3652,7 @@ msgstr "Отменить выбор всех"
 
 #: app/src/app/menus.ts
 msgid "Deselect Layers"
-msgstr ""
+msgstr "Отменить выделение слоев"
 
 #: app/src/filters/labels.ts
 msgid "Despeckle"
@@ -7986,7 +7986,7 @@ msgstr "Ни у одного слоя нет эффекта для сведен�
 
 #: app/src/App.tsx
 msgid "No layer is selected"
-msgstr ""
+msgstr "Ни один слой не выбран"
 
 #: app/src/App.tsx
 msgid "No layer names look like assets (try naming a layer \"banner.png\")."
@@ -8058,7 +8058,7 @@ msgstr "Не открыто содержимое смарт-объекта."
 
 #: app/src/App.tsx
 msgid "No subject found"
-msgstr ""
+msgstr "Предмет не найден"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "No tool presets."
@@ -10525,7 +10525,7 @@ msgstr "Выбери папку для сохранения обработанн
 
 #: app/src/i18n/history.ts
 msgid "Select Subject"
-msgstr ""
+msgstr "Выделить предмет"
 
 #: app/src/App.tsx
 msgid "Select the area to fill."
@@ -10545,7 +10545,7 @@ msgstr "Выбери два или несколько слоев-фигур, ч�
 
 #: app/src/App.tsx
 msgid "Selecting subject…"
-msgstr ""
+msgstr "Выделение предмета…"
 
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ImageCalcDialog.tsx
@@ -11744,7 +11744,7 @@ msgstr "Колесико пера"
 
 #: app/src/app/menus.ts
 msgid "Subject"
-msgstr ""
+msgstr "Предмет"
 
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
