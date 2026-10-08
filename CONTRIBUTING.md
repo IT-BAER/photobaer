@@ -5,3 +5,6 @@
 3. Contributions are licensed to users under the AGPL-3.0 and may also be licensed by IT-BAER under commercial terms (CLA.md, section 2).
 
 Pull requests without the agreement comment are not merged.
+
+Build setup, repository map, rules and the checks to run before a pull request are in [AGENTS.md](AGENTS.md).
+Report security problems privately as described in [SECURITY.md](SECURITY.md).
