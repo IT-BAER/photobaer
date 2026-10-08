@@ -1,6 +1,6 @@
 # Move tool latency on styled layers
 
-Status: open. Measured 7 October 2026 on `baer4.psd` (4000 x 4000, 8-bit RGB). The one visible layer is
+Status: open (options 2 and 3). Measured 7 October 2026 on `baer4.psd` (4000 x 4000, 8-bit RGB). The one visible layer is
 3273 x 2992 px with Drop Shadow (size 133 px, normal), Gradient Overlay (linear dodge) and Stroke (1 px, outside).
 Browser: Chrome, WebGPU, devicePixelRatio 1.25, view zoom 100 %.
 
@@ -16,9 +16,19 @@ on new tile ids, every styled-tile cache key changed and the sharp view image re
 | Node harness (worker + WASM, real PSD) | 1.9 - 2.0 s | 0.5 - 0.6 s |
 | Browser, settled view | 2.7 - 3.2 s (may include queue wait) | 0.75 s |
 
+Plan option 1, 8 October 2026: when the whole-layer image would be coarser than the view, `moveSplit` returns
+only the sharp view images (`pending: true`) and the UI asks `moveFloatPatch(null, null, true)` for the coarse
+whole-layer images next, before any sharp patch. Until they arrive, parts outside the view may be missing.
+Tests in app/src/engine.worker.test.ts and app/src/shell/SelectionOverlay.test.ts (`withCoarse`).
+
+| Node harness, zoom 1, 1920 x 1000 view, warm view tiles | before | after |
+|---|---|---|
+| moveLayerBegin to moveFloat reply (drag moves) | 335 - 355 ms | 82 - 122 ms |
+| moveLayerBegin to coarse whole-layer image | 335 - 355 ms | 351 - 402 ms |
+
 ## Remaining
 
-Browser breakdown after the fix, one drag at 100 %:
+Options 2 and 3 below. Browser breakdown before option 1, one drag at 100 %:
 
 - Drag start, 0.75 s: coarse full-layer image at level 2 (`displayTiers` base, 2 MP cap) 524 ms, rendered
   cold on every drag because the layer sits at a new offset after each drop; sharp view image (`over`) 215 ms.
@@ -53,4 +63,8 @@ from an ignored folder through Vite `/@fs/` and drop it on `window` as a `DragEv
 
 ## Open question
 
-Two drags plus View > 100 % left six "Move" entries in History during the browser test. Not investigated.
+Two drags plus View > 100 % left six "Move" entries in History during the browser test. Does not reproduce in
+the Node harness (three drags, three "Move" entries). View > 100 % (`viewer.actualPixels`) sends nothing to the
+worker, and the only "Move" step comes from `moveLayerBegin` plus a commit with a non-zero offset, so six entries
+mean six drags or nudges reached the worker; likely the synthetic input of that browser test. Not confirmed in
+the browser.

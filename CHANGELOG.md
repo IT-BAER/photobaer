@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The Move tool starts dragging a layer with effects sooner: the drag begins with a sharp image of the view
+  and the whole layer follows (on a 3273 x 2992 px layer with three effects at 100 %, about 0.1 s instead of
+  0.35 s until the layer moves with the pointer).
+
 ## [0.5.0] - 2026-10-08
 
 ### Added

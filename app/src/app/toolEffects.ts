@@ -10,7 +10,7 @@ import { cursorOverrides, toolCursor, type CursorCtx } from '../shell/cursors.ts
 import type { Preferences } from '../shell/preferences.ts';
 import type { Rgb } from '../shell/color.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
-import { sharpPatch, type SelectionOverlay, type TransformImage } from '../shell/SelectionOverlay.ts';
+import { sharpPatch, withCoarse, type SelectionOverlay, type TransformImage } from '../shell/SelectionOverlay.ts';
 import { marqueeEnd, marqueeRect, MagneticLasso, PolygonLasso, selectMode, snap45, snap45Length, type SelectMode } from '../shell/selecttools.ts';
 import { draftPreview, dragEnd, dragLive, shapeStyle, type ShapeKind } from '../shell/shapetools.ts';
 import { shapeLibrary, toBounds } from '../shell/customShapes.ts';
@@ -279,7 +279,7 @@ export function useMoveTool(c: MoveToolCtx) {
     type Drag = {
       origin: [number, number]; pos: [number, number]; shift: boolean; plan: Plan | null; ready: boolean; busy: boolean; failed: boolean;
       want: [number, number]; sent: [number, number]; end: 'up' | 'cancel' | null; moving: Rect; tx: number[]; ty: number[]; lock: SnapAxes; grid: [number | undefined, number | undefined];
-      float: TransformImage | null; settled: boolean; patching: boolean; asked: [Box4 | null, Box4 | null];
+      float: TransformImage | null; settled: boolean; patching: boolean; asked: [Box4 | null, Box4 | null]; pending: boolean;
     };
     type Box4 = [number, number, number, number];
     let drag: Drag | null = null;
@@ -328,10 +328,22 @@ export function useMoveTool(c: MoveToolCtx) {
       redrawOverlay();
     }
     // A drag past the sharp float images asks for sharp ones of what is on screen now, one request at
-    // a time; the coarse image shows meanwhile. Selected pixels float without patches.
+    // a time; the coarse image shows meanwhile. Selected pixels float without patches. A float that
+    // started with the view's sharp images only asks for the coarse whole-layer images first.
     function refine(g: Drag) {
       const f = g.float, view = v!.visibleRect();
       if (!f || !view || g.patching || g.end || g.plan!.pixels) return;
+      if (g.pending) {
+        g.patching = true;
+        client.call('moveFloatPatch', null, null, true).then(p => {
+          g.patching = false;
+          g.pending = false;
+          if (drag !== g || g.end || !p || !g.float) return;
+          g.float = withCoarse(g.float, p.moved && sourceImage(p.moved), p.above && sourceImage(p.above));
+          aim(g);
+        }, () => { g.patching = false; g.pending = false; });
+        return;
+      }
       const moved = sharpPatch(f, f.over, g.asked[0], view, ...g.want);
       const above = f.above ? sharpPatch(f.above, f.above.over, g.asked[1], view, 0, 0) : null;
       if (!moved && !above) return;
@@ -393,7 +405,8 @@ export function useMoveTool(c: MoveToolCtx) {
         const f = await client.call('moveFloat', v!.view.zoom * v!.dpr, v!.visibleRect());
         const img = f && sourceImage(f);
         if (f && img) {
-          const { image: _i, data: _d, over, above, ...info } = f;
+          const { image: _i, data: _d, over, above, pending, ...info } = f;
+          g.pending = pending;
           const top = over && sourceImage(over), up = above && sourceImage(above), upOver = above?.over && sourceImage(above.over);
           g.float = { ...img, clip: [0, 0, info.width, info.height], ...(top ? { over: top } : {}), ...(up ? { above: { ...up, ...(upOver ? { over: upOver } : {}) } } : {}) };
           show(info);
@@ -413,7 +426,7 @@ export function useMoveTool(c: MoveToolCtx) {
         const g: Drag = {
           origin: [e.x, e.y], pos: [e.x, e.y], shift: e.shiftKey, plan: null, ready: false, busy: false, failed: false,
           want: [0, 0], sent: [0, 0], end: null, moving: { x: 0, y: 0, w: 0, h: 0 }, tx: [], ty: [], lock: { x: null, y: null }, grid: [undefined, undefined],
-          float: null, settled: false, patching: false, asked: [null, null],
+          float: null, settled: false, patching: false, asked: [null, null], pending: false,
         };
         drag = g;
         v.hold(true);

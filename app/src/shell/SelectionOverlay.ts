@@ -55,6 +55,13 @@ export function sharpPatch(img: TransformImage, over: TransformImage | undefined
   if (holds(docBox(over), need) || (asked && holds(asked, need))) return null;
   return [x0 - view[2] / 4, y0 - view[3] / 4, need[2] + view[2] / 2, need[3] + view[3] / 2];
 }
+/** A float that started with sharp view images only (`f` and its `above`) with the whole-layer images
+ * `moved` and `above` under them; a missing one keeps the sharp image as it is. */
+export function withCoarse(f: TransformImage, moved: TransformImage | null, above: TransformImage | null): TransformImage {
+  const { above: up, ...sharp } = f;
+  const top = above ? { ...above, ...(up ? { over: up } : {}) } : up;
+  return { ...(moved ? { ...moved, clip: f.clip, over: sharp } : sharp), ...(top ? { above: top } : {}) };
+}
 // Warp overlay: a (3 cols + 1) x (3 rows + 1) row-major grid of Bezier control points in document px.
 export interface WarpGrid { cols: number; rows: number; points: [number, number][] }
 // Crop tool: the box and the canvas (both document px), guide lines inside the box, the size

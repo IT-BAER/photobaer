@@ -109,10 +109,15 @@ function shiftedRegion(e: Engine, ids: number[], level: number, r: Box) {
 // `ids`, see shiftedRegion) at the finest level from `level` within 2 MP, plus `over` at `level` over
 // doc rect `near` when that is finer; null when it is all transparent.
 function displayTiers(e: Engine, level: number, near: Box | null, r: Box = [0, 0, e.width(), e.height()], ids: number[] = []) {
-  let c = level;
-  while (c < e.max_level() && Math.ceil(r[2] / (1 << c)) * Math.ceil(r[3] / (1 << c)) > 1 << 21) c++;
+  const c = tierLevel(e, level, r);
   const base = shiftedRegion(e, ids, c, r);
   return base && { ...base, over: near && c > level ? shiftedRegion(e, ids, level, near) : null };
+}
+// The finest level from `level` at which doc rect `r` fits in 2 MP.
+function tierLevel(e: Engine, level: number, r: Box) {
+  let c = level;
+  while (c < e.max_level() && Math.ceil(r[2] / (1 << c)) * Math.ceil(r[3] / (1 << c)) > 1 << 21) c++;
+  return c;
 }
 function intersect(a: Box | null, b: Box | null): Box | null {
   if (!a || !b) return null;
@@ -514,4 +519,4 @@ function smartWarpStart(e: Engine, id: number, maxSide: number) {
   return { bounds, ...lifted, mesh };
 }
 
-export { renderRgba, applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, shiftedRegion, docPatterns, encodeFlattened, exportAsset, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };
+export { renderRgba, applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, shiftedRegion, docPatterns, encodeFlattened, exportAsset, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tierLevel, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };

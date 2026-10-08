@@ -1775,6 +1775,7 @@ test('moveFloat splits a styled layer under a visible layer: moved and above ima
   assert.deepEqual(at(f, 1, 3).slice(2), [255, 255], 'the moved image has its stroke');
   assert.ok(f.image.x + f.image.w <= 11, 'the layer above is not in the moved image');
   assert.equal(f.over, null);
+  assert.equal((f as unknown as { pending: boolean }).pending, false, 'a small layer comes whole at once');
   assert.deepEqual(at(f.above!, 11, 11), [0, 255, 0, 128], 'the above image is straight alpha');
   assert.equal(at(f.above!, 3, 3)[3], 0);
   assert.ok(f.layers.every(n => n.visible), 'the Layers panel keeps its eyes');
@@ -1937,20 +1938,29 @@ test('moveFloat refuses a layer under a visible adjustment layer and leaves the 
   await call('moveLayerCancel');
 });
 
-test('moveFloat split on a big document: whole-document images within 2 MP plus sharp images of the view', async () => {
+test('moveFloat split on a big document: sharp images of the view first, whole-document images within 2 MP through the patch', async () => {
   type Img = { image: { x: number; y: number; w: number; h: number; f: number }; data: ArrayBuffer };
+  const box = (m: Img) => [m.image.x, m.image.y, m.image.w, m.image.h, m.image.f];
   await call('init');
   await call('newDoc', 4096, 2048, 8, [255, 0, 0, 255]);
   await call('addLayer', 1);
   await call('fillEx', 2, 'pixels', solid([0, 0, 255, 255]), 'Fill');
   await call('setProps', 2, { opacity: 0.5 });
   await call('moveLayerBegin', 1, false, 'Move');
-  const f = (await call('moveFloat', 1, [1000, 500, 400, 200])).result as Img & { over: Img | null; above: Img & { over: Img | null } };
-  assert.deepEqual([f.image.w, f.image.h, f.image.f], [2048, 1024, 0.5]);
-  assert.deepEqual([f.over!.image.x, f.over!.image.y, f.over!.image.w, f.over!.image.h, f.over!.image.f], [1000, 500, 400, 200, 1]);
-  assert.deepEqual([f.above.image.w, f.above.over!.image.w], [2048, 400]);
-  assert.deepEqual([...new Uint8Array(f.above.over!.data).slice(0, 4)], [0, 0, 255, 128]);
-  await call('moveLayerCancel');
+  const f = (await call('moveFloat', 1, [1000, 500, 400, 200])).result as Img & { over: Img | null; above: Img & { over: Img | null }; pending: boolean };
+  assert.equal(f.pending, true, 'the whole-document images follow');
+  assert.deepEqual(box(f), [1000, 500, 400, 200, 1], 'the moved image is the sharp view');
+  assert.equal(f.over, null);
+  assert.deepEqual(box(f.above), [1000, 500, 400, 200, 1]);
+  assert.deepEqual([...new Uint8Array(f.above.data).slice(0, 4)], [0, 0, 255, 128]);
+  const p = (await call('moveFloatPatch', null, null, true)).result as { moved: Img & { over: unknown }; above: Img & { over: unknown } };
+  assert.deepEqual(box(p.moved), [0, 0, 2048, 1024, 0.5]);
+  assert.deepEqual([box(p.above), p.moved.over, p.above.over], [[0, 0, 2048, 1024, 0.5], null, null], 'no second sharp image');
+  assert.deepEqual([...new Uint8Array(p.above.data).slice(0, 4)], [0, 0, 255, 128]);
+  assert.deepEqual((await call('sample', 3100, 1600, 1, null)).result, [0, 0, 0, 0], 'the document still shows only what is below');
+  await call('moveLayerCommit');
+  assert.equal((await call('moveFloatPatch', null, null, true)).result, null, 'a late request after the drag ended gets nothing');
+  assert.equal(((await call('sample', 3100, 1600, 1, null)).result as number[])[3], 255, 'the layers are back');
 });
 
 test('moveFloat on selected pixels clears them until a step; the release without a step restores them', async () => {

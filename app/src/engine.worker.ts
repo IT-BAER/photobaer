@@ -31,7 +31,7 @@ import { assetSpecs } from './app/webExport.ts';
 import { TILE, levelFor } from './view.ts';
 import { NO_RECORD, decodeCall, encodeCall, hot, newIds, recordable, type ActionStep, type Call, type Layers } from './actions.ts';
 import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, toLinear, type FloatImage } from './formats.ts';
-import { applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, shiftedRegion, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, icoEntries, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
+import { applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, shiftedRegion, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, icoEntries, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tierLevel, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
@@ -64,11 +64,13 @@ let vp: { data: Uint8Array; w: number; h: number; scale: number } | null = null;
 // Move tool live session: a snapshot taken right after any duplicate, restored and replayed
 // from on every step so the previewed offset never compounds.
 // `pixels`: a selected-pixels session; `floating`: the live document hides the moved pixels (moveFloat).
-// `patch` renders sharp images of an open float over other doc rects (moveFloatPatch); `reveal` shows
-// the layers an open float hides and returns the call that hides them again.
+// `patch` renders sharp images of an open float over other doc rects (moveFloatPatch); `base` its
+// whole-layer images when moveFloat returned only the view's; `reveal` shows the layers an open float
+// hides and returns the call that hides them again.
 let moveSession: {
   liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number; pixels: boolean; floating: boolean;
   patch?: (moved: Box | null, above: Box | null) => { moved: ReturnType<typeof liftPreview> | null; above: ReturnType<typeof liftPreview> | null };
+  base?: () => { moved: ReturnType<typeof shiftedRegion>; above: ReturnType<typeof shiftedRegion> };
   reveal?: () => () => void;
 } | null = null;
 // Runs `f` on the document as it is without an open layer float (Navigator, Histogram).
@@ -109,18 +111,28 @@ function moveSplit(e: Engine, s: NonNullable<typeof moveSession>, tree: LayerNod
   const shown = tree.filter(t => t.visible).map(t => t.id), up = above.filter(t => t.visible).map(t => t.id);
   const show = (ids: number[]) => { for (const id of shown) e.set_props(id, JSON.stringify({ visible: ids.includes(id) })); };
   const below = shown.filter(id => id !== n.id && !up.includes(id));
-  let moved: ReturnType<typeof displayTiers>, top: ReturnType<typeof displayTiers> = null;
-  try {
+  // The whole-layer images (coarse within 2 MP, sharp over `at` too), or with `only` the sharp images over `at` alone.
+  const images = (at: Box | null, only: boolean) => {
     show([n.id]);
-    moved = displayTiers(e, level, near, reach, ids);
+    const moved = only ? shiftedRegion(e, ids, level, at!) : displayTiers(e, level, at, reach, ids);
     show(up);
-    if (up.length) top = displayTiers(e, level, near);
+    const above = !up.length ? null : only ? displayRegion(e, level, at!) : displayTiers(e, level, at);
+    show(below);
+    return { moved, above };
+  };
+  // When the whole-layer image is coarser than the view, the drag starts with the sharp view images and
+  // the coarse ones follow through moveFloatPatch.
+  let pending = !!near && tierLevel(e, level, reach) > level, r: ReturnType<typeof images>;
+  try {
+    r = images(near, pending);
+    if (pending && !r.moved) { pending = false; r = images(near, false); }
   } catch (err) {
     show(shown);
     throw err;
   }
-  show(below);
+  const { moved, above: top } = r;
   if (!moved) { show(shown); return null; }
+  if (pending) s.base = () => { try { return images(null, false); } finally { show(below); } };
   s.patch = (mr, ar) => {
     const m = mr && intersect(reach, mr), a = up.length && ar ? intersect([0, 0, W, H], ar) : null;
     try {
@@ -135,7 +147,7 @@ function moveSplit(e: Engine, s: NonNullable<typeof moveSession>, tree: LayerNod
   s.reveal = () => { show(shown); return () => show(below); };
   s.floating = true;
   version++;
-  return { ...info()!, layers: tree, ...moved, above: top };
+  return { ...info()!, layers: tree, over: null, ...moved, above: top && { over: null, ...top }, pending };
 }
 // Free transform / Transform Selection / Warp session: one open history step. `hidden` is the document
 // with the source removed (the UI previews it), `refined` the matrix or warp mesh JSON last rendered for
@@ -2451,14 +2463,17 @@ const api = {
     };
     s.floating = true;
     version++;
-    return { ...info()!, image, data, over, above: null };
+    return { ...info()!, image, data, over, above: null, pending: false };
   },
 
   // Sharp images of the open float over doc rects `moved` (the moved pixels where they started) and
   // `above` (the layers above), for a drag that reaches past the sharp images moveFloat returned.
-  moveFloatPatch(moved: Box | null, above: Box | null) {
+  // `base`: the whole-layer images instead, after a moveFloat reply marked `pending`.
+  moveFloatPatch(moved: Box | null, above: Box | null, base = false) {
     const s = moveSession;
-    return s?.floating && s.patch ? s.patch(moved, above) : null;
+    if (!s?.floating) return null;
+    if (base) return s.base?.() ?? null;
+    return s.patch ? s.patch(moved, above) : null;
   },
 
   // Opens a transform session on the layer, its selected pixels or the selection. The preview

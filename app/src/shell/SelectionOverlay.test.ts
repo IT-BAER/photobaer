@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SelectionOverlay, sharpPatch } from './SelectionOverlay.ts';
+import { SelectionOverlay, sharpPatch, withCoarse } from './SelectionOverlay.ts';
 
 // A 2D context stub: every method is a no-op except clearRect, which counts redraws.
 function stubCanvas() {
@@ -66,6 +66,19 @@ test('sharpPatch asks for the moved image the view reveals past its sharp image,
   assert.deepEqual(sharpPatch(coarse, over, null, view, -1200, 0), [2900, 850, 600, 300], 'the moved pixels now on screen, plus a quarter view');
   assert.equal(sharpPatch(coarse, over, [2900, 850, 600, 300], view, -1200, 0), null, 'already asked for');
   assert.equal(sharpPatch(coarse, over, null, view, 2500, 0), null, 'nothing of the image on screen');
+});
+
+test('withCoarse puts the whole-layer images under the sharp view images a drag started with', () => {
+  const img = (x: number, y: number, w: number, h: number, f: number) => ({ source: null as unknown as CanvasImageSource, x, y, w, h, f, m: [1, 0, 0, 0, 1, 0, 0, 0, 1] });
+  const sharp = img(800, 400, 800, 400, 1), up = img(800, 400, 800, 400, 1), coarse = img(0, 0, 1000, 500, 0.25), top = img(0, 0, 1000, 500, 0.25);
+  const f = withCoarse({ ...sharp, clip: [0, 0, 4000, 2000], above: up }, coarse, top);
+  assert.deepEqual([f.x, f.w, f.f, f.clip], [0, 1000, 0.25, [0, 0, 4000, 2000]], 'the coarse image keeps the canvas clip');
+  assert.deepEqual([f.over?.x, f.over?.f, f.over?.above], [800, 1, undefined], 'the sharp image draws over it');
+  assert.deepEqual([f.above?.f, f.above?.over?.f], [0.25, 1]);
+  assert.equal(sharpPatch(f, f.over, null, [1800, 900, 400, 200], -1200, 0) !== null, true, 'patches resume');
+  const alone = withCoarse({ ...sharp }, coarse, null);
+  assert.deepEqual([alone.over?.x, alone.above], [800, undefined], 'nothing above stays nothing above');
+  assert.equal(withCoarse({ ...sharp, above: up }, null, null).above, up, 'no coarse image keeps the sharp ones');
 });
 
 test('the brush outline stays solid while marching ants are shown', () => {
