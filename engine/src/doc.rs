@@ -1945,33 +1945,29 @@ impl Document {
         match target {
             Target::Pixels => self.gradient_pixels(id, &sample, opacity),
             Target::Mask => self.gradient_mask(id, &sample, opacity),
-            Target::Selection => self.gradient_selection(id, &sample, opacity),
+            Target::Selection => self.gradient_selection(&sample, opacity),
         }
     }
 
-    /// The raster-mode region (B6 spec v1 Part E3): selection bounds ∩ doc, else the layer's
-    /// non-transparent tight bounds ∩ doc, else the doc.
-    fn gradient_region(&self, id: u32) -> Result<[i32; 4], String> {
+    /// The raster-mode region: selection bounds ∩ doc, else the whole doc (Photoshop fills the
+    /// entire layer when nothing is selected).
+    fn gradient_region(&self) -> [i32; 4] {
         let (w, h) = (self.width as i32, self.height as i32);
-        let clip = |b: [i32; 4]| -> [i32; 4] {
-            let (x0, y0) = (b[0].max(0), b[1].max(0));
-            let (x1, y1) = ((b[0] + b[2]).min(w), (b[1] + b[3]).min(h));
-            [x0, y0, (x1 - x0).max(0), (y1 - y0).max(0)]
-        };
-        if let Some(b) = self.selection_bounds() {
-            return Ok(clip(b));
+        match self.selection_bounds() {
+            Some(b) => {
+                let (x0, y0) = (b[0].max(0), b[1].max(0));
+                let (x1, y1) = ((b[0] + b[2]).min(w), (b[1] + b[3]).min(h));
+                [x0, y0, (x1 - x0).max(0), (y1 - y0).max(0)]
+            }
+            None => [0, 0, w, h],
         }
-        if let Some(b) = self.layer_bounds(id)? {
-            return Ok(clip(b));
-        }
-        Ok([0, 0, w, h])
     }
 
     fn gradient_pixels(&mut self, id: u32, sample: &impl Fn(i32, i32) -> [f32; 4], opacity: f32) -> Result<(), String> {
         self.check_pixel_paint(id)?;
         let keep_alpha = self.node(id)?.locks.transparency;
         let depth = self.depth;
-        let [rx, ry, rw, rh] = self.gradient_region(id)?;
+        let [rx, ry, rw, rh] = self.gradient_region();
         if rw <= 0 || rh <= 0 {
             return Ok(());
         }
@@ -2018,7 +2014,7 @@ impl Document {
     fn gradient_mask(&mut self, id: u32, sample: &impl Fn(i32, i32) -> [f32; 4], opacity: f32) -> Result<(), String> {
         let depth = self.depth;
         self.node(id)?.mask.as_ref().ok_or_else(|| format!("node {id} has no mask"))?;
-        let [rx, ry, rw, rh] = self.gradient_region(id)?;
+        let [rx, ry, rw, rh] = self.gradient_region();
         if rw <= 0 || rh <= 0 {
             return Ok(());
         }
@@ -2067,8 +2063,8 @@ impl Document {
 
     /// Selection / quick mask target: painted as the sampled colour's luminance, `u = 1` (mirrors
     /// `fill_ex_selection`), but still bounded by the same region as the other two targets.
-    fn gradient_selection(&mut self, id: u32, sample: &impl Fn(i32, i32) -> [f32; 4], opacity: f32) -> Result<(), String> {
-        let [rx, ry, rw, rh] = self.gradient_region(id)?;
+    fn gradient_selection(&mut self, sample: &impl Fn(i32, i32) -> [f32; 4], opacity: f32) -> Result<(), String> {
+        let [rx, ry, rw, rh] = self.gradient_region();
         if rw <= 0 || rh <= 0 {
             return Ok(());
         }

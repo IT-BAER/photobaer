@@ -28,6 +28,8 @@ export class Viewer {
   view: View = { zoom: 1, rot: 0, cx: 0, cy: 0 };
   onView: (v: View) => void = () => {};
   onPointer: (e: ToolPointerEvent) => void = () => {};
+  // Moves with no button pressed (a lasso between clicks); never sent while a modal session intercepts.
+  onHover: ((e: ToolPointerEvent) => void) | null = null;
   // A modal session (free transform) takes the pointer from any tool; Space and the middle button still pan.
   intercept: ((e: ToolPointerEvent) => void) | null = null;
   // Checked on a left-button pointerdown before any tool dispatch (docs/M4.md section 12: dragging an
@@ -407,7 +409,11 @@ export class Viewer {
       e.preventDefault();
     }, { signal: this.#inputAbort.signal });
     c.addEventListener('pointermove', e => {
-      if (!last) return;
+      if (!last) {
+        const mode = this.#mode();
+        if (this.onHover && !this.intercept && mode !== 'hand' && mode !== 'zoom' && mode !== 'zoomOut' && mode !== 'rotate') this.onHover(toolEvent('move', e, local(e)));
+        return;
+      }
       const p = local(e);
       const mode = e.buttons & 4 ? 'hand' : this.#mode();
       if (mode === 'rotate') {

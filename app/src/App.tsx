@@ -1560,7 +1560,7 @@ export function App() {
       if (e.type !== 'down') return;
       if (v.intercept === h) v.intercept = null;
       sampler.current = null;
-      client.call('sample', e.x, e.y, 1, null).then(([r, g, b]) => onSample([r, g, b]), err => setError((err as Error).message));
+      client.call('sample', e.x, e.y, 1, null).then(([r, g, b, a]) => { if (a) onSample([r, g, b]); }, err => setError((err as Error).message));
     };
     v.intercept = h;
   }).current;

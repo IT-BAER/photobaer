@@ -783,7 +783,7 @@ fn gradient_opacity_stops_scale_the_painted_alpha() {
 }
 
 #[test]
-fn gradient_region_uses_the_layers_tight_bounds_when_there_is_no_selection() {
+fn gradient_without_a_selection_fills_the_whole_canvas() {
     let mut d = Document::new(20, 20, 8).unwrap();
     // Paint only a 4x4 opaque block: the layer's tight bounds.
     d.set_tile_rgba8(1, 0, 0, &{
@@ -812,8 +812,9 @@ fn gradient_region_uses_the_layers_tight_bounds_when_there_is_no_selection() {
         1.0,
     )
     .unwrap();
-    assert_eq!(at(&d, 10, 10), [0, 0, 0, 0], "outside the layer's tight bounds, the gradient never touches this pixel");
-    assert_ne!(at(&d, 3, 3), [0, 0, 0, 255], "inside the tight bounds the gradient repainted the pixel");
+    assert_eq!(at(&d, 10, 10)[3], 255, "outside the painted block the gradient fills the transparent pixel");
+    assert_eq!(at(&d, 19, 19)[3], 255, "the gradient reaches the canvas corner");
+    assert_ne!(at(&d, 3, 3), [0, 0, 0, 255], "the gradient repainted the block");
 }
 
 #[test]

@@ -1,9 +1,12 @@
 //! Flood fill for the magic wand and paint bucket (docs/M2.md section 3 "Magic wand" and
 //! section 4 "Paint bucket"): both share the same color-distance test and flood.
 
+// Premultiplied RGB and alpha, so transparent pixels match whatever RGB they still hold.
 fn px_at(src: &[u8], p: usize) -> [u8; 4] {
     let o = p * 4;
-    [src[o], src[o + 1], src[o + 2], src[o + 3]]
+    let a = src[o + 3] as u32;
+    let m = |v: u8| ((v as u32 * a + 127) / 255) as u8;
+    [m(src[o]), m(src[o + 1]), m(src[o + 2]), src[o + 3]]
 }
 
 // Max channel difference over R,G,B,A, in 8-bit units: the magic wand / paint bucket color test.
@@ -545,6 +548,17 @@ mod tests {
                 assert_eq!(cov[y * 8 + x], if x < 4 { 1.0 } else { 0.0 }, "x={x} y={y}");
             }
         }
+    }
+
+    #[test]
+    fn flood_on_transparency_ignores_the_color_left_under_alpha_0() {
+        // Fully transparent, left half still holding red, right half blue: one transparent area.
+        let mut buf = two_regions();
+        for px in buf.chunks_exact_mut(4) {
+            px[3] = 0;
+        }
+        let cov = flood(&buf, 8, 8, (0, 0), 32, true, false);
+        assert!(cov.iter().all(|&c| c == 1.0), "{cov:?}");
     }
 
     #[test]

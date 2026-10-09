@@ -63,6 +63,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Content-Aware Move on a layer with transparency carries the content's transparency, so the moved object
   shows at its new place, and the vacated area takes transparent surroundings instead of opaque color; the
   selection follows the content, and partly selected edge pixels leave with it.
+- The Polygonal Lasso shows the segment from the last point to the pointer, and the Magnetic Lasso border
+  follows the pointer between clicks with the mouse button up, as in Photoshop.
+- The Magnetic Lasso snaps to the visible edge of a shape on a transparent layer; Magic Wand, Paint Bucket,
+  Grow, Similar and Quick Selection treat all fully transparent pixels as one color. Before, the color hidden
+  under transparent pixels drew invisible edges and regions.
+- The Gradient tool fills the whole layer when nothing is selected, as in Photoshop, instead of only the box
+  around the layer's existing pixels.
+- The Eyedropper sets the color again when it is selected after another tool (a selection tool reset its
+  click handler). A click on a fully transparent pixel leaves the color unchanged, and a larger sample size
+  averages only the visible pixels, as in Photoshop.
 
 ## [0.5.0] - 2026-10-08
 

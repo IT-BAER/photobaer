@@ -60,10 +60,11 @@ export function useSelectionTools(c: SelectionToolsCtx) {
     };
     cancelAll();
     if (!SELECT_TOOLS.includes(tool)) {
-      v.onPointer = () => {};
       polygonActionsRef.current = null;
       return cancelAll;
     }
+    // Cleared in the cleanup, never on setup: another tool's hook may run its setup before this one.
+    const off = () => { cancelAll(); v.onPointer = () => {}; v.onHover = null; };
 
     const shapeKind = () => (tool === 'marqueeEllipse' ? 'ellipse' as const : 'rect' as const);
     const marqueeOpts = () => {
@@ -157,6 +158,7 @@ export function useSelectionTools(c: SelectionToolsCtx) {
         lasso.add(e.shiftKey && prev ? snap45(prev, [e.x, e.y]) : [e.x, e.y]);
         overlayRef.current?.setPreview({ kind: 'path', points: lasso.flat(), closed: false });
       };
+      v.onHover = e => v.onPointer(e);
     } else if (tool === 'magneticLasso') {
       const finish = (points: number[], mode: SelectMode, handle: number) => {
         const o = toolOptionsRef.current;
@@ -204,6 +206,7 @@ export function useSelectionTools(c: SelectionToolsCtx) {
           overlayRef.current?.setPreview({ kind: 'path', points: st.lasso.committed, closed: false });
         });
       };
+      v.onHover = e => v.onPointer(e);
       polygonActionsRef.current = {
         active: () => !!magneticRef.current?.lasso.anchors.length,
         commit: () => { const st = magneticRef.current; if (st?.handle !== null && st) finish(st.lasso.committed, st.mode, st.handle); },
@@ -214,7 +217,7 @@ export function useSelectionTools(c: SelectionToolsCtx) {
           overlayRef.current?.setPreview(st?.lasso.anchors.length ? { kind: 'path', points: st.lasso.committed, closed: false } : null);
         },
       };
-      return cancelAll;
+      return off;
     } else if (tool === 'quickSelection') {
       const circle = (x: number, y: number, r: number) => ({ kind: 'ellipse' as const, x: x - r, y: y - r, w: r * 2, h: r * 2 });
       v.onPointer = e => {
@@ -239,6 +242,7 @@ export function useSelectionTools(c: SelectionToolsCtx) {
         if (e.type === 'cancel' || !d) return;
         client.call('quickSelect', activeRef.current?.id ?? 0, d.points, r, !!o.sampleAllLayers, d.mode, !!o.autoEnhance).then(show);
       };
+      v.onHover = e => v.onPointer(e);
     } else if (tool === 'magicWand') {
       v.onPointer = e => {
         if (e.type !== 'down') return;
@@ -257,7 +261,7 @@ export function useSelectionTools(c: SelectionToolsCtx) {
         overlayRef.current?.setPreview(polygonRef.current?.points.length ? { kind: 'path', points: polygonRef.current.flat(), closed: false } : null);
       },
     };
-    return cancelAll;
+    return off;
   }, [tool, doc?.docId]);
 }
 
@@ -703,7 +707,8 @@ export function useEyedropper(c: EyedropperCtx) {
       if (e.type !== 'down') return;
       const size = SAMPLE_SIZES[toolOptions.sampleSize as string] ?? 1;
       const layerId = toolOptions.sample === 'current layer' ? active?.id ?? null : null;
-      client.call('sample', e.x, e.y, size, layerId).then(([r, g, b]) => {
+      client.call('sample', e.x, e.y, size, layerId).then(([r, g, b, a]) => {
+        if (!a) return;
         if (e.altKey) setBg([r, g, b]); else setFg([r, g, b]);
       });
     };
@@ -726,7 +731,7 @@ export function useBucket(c: BucketCtx) {
     v.onPointer = e => {
       if (e.type !== 'down' || !active) return;
       if (e.altKey) {
-        client.call('sample', e.x, e.y, 1, null).then(([r, g, b]) => setFg([r, g, b]));
+        client.call('sample', e.x, e.y, 1, null).then(([r, g, b, a]) => { if (a) setFg([r, g, b]); });
         return;
       }
       const o = toolOptionsRef.current;

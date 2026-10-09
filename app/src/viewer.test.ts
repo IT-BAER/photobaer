@@ -69,6 +69,32 @@ test('destroy releases Viewer lifecycle resources and ignores a late tile', asyn
   assert.equal(raf.size, 0);
 });
 
+test('pointer moves with no button pressed go to onHover, not onPointer', () => {
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { devicePixelRatio: 1 } });
+  Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: () => 1 });
+  Object.defineProperty(globalThis, 'cancelAnimationFrame', { configurable: true, value: () => {} });
+  Object.defineProperty(globalThis, 'ResizeObserver', { configurable: true, value: class { observe() {} disconnect() {} } });
+  const renderer: Renderer = { kind: 'webgl2', slots: 8, gpu: null, upload() {}, draw() {} };
+  const canvas = new FakeCanvas();
+  const viewer = new Viewer(canvas as unknown as HTMLCanvasElement, renderer, () => new Promise(() => {}));
+  viewer.setDoc({ docId: 1, version: 1, width: 16, height: 16, maxLevel: 0 });
+  const pointer: string[] = [], hover: string[] = [];
+  viewer.onPointer = e => { pointer.push(e.type); };
+  viewer.onHover = e => { hover.push(e.type); };
+  const send = (type: string, buttons: number, x: number) => {
+    const ev = new Event(type, { cancelable: true });
+    Object.assign(ev, { button: 0, pointerId: 1, clientX: x, clientY: 4, pressure: buttons ? 1 : 0, tiltX: 0, tiltY: 0, twist: 0, pointerType: 'mouse', buttons, shiftKey: false, altKey: false, ctrlKey: false, metaKey: false });
+    canvas.dispatchEvent(ev);
+  };
+  send('pointermove', 0, 4);
+  send('pointerdown', 1, 4);
+  send('pointerup', 0, 4);
+  send('pointermove', 0, 9);
+  assert.deepEqual(pointer, ['down', 'up']);
+  assert.deepEqual(hover, ['move', 'move']);
+  viewer.destroy();
+});
+
 test('drawn without a cap waits until the version is drawn, a new document or destroy', async () => {
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { devicePixelRatio: 1 } });
   Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: () => 1 });

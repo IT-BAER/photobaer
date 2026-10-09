@@ -2085,6 +2085,20 @@ test('hitTestLayer picks the topmost visible layer with a pixel under the point,
   assert.equal((await call('hitTestLayer', 2, 2, true)).result, groupId);
 });
 
+test('a sample at the edge of transparency averages only the visible color', async () => {
+  await call('init');
+  await call('newDoc', 8, 8, 8, null);
+  await call('fillEx', 1, 'pixels', solid([0, 0, 255, 255]), 'Fill');
+  await call('select', { kind: 'rect', x: 4, y: 0, w: 4, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('clearSelected', 1, 'pixels');
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 4, h: 8 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  // 3x3 around (4, 4): three red pixels, six transparent ones.
+  assert.deepEqual((await call('sample', 4, 4, 3, 1)).result, [255, 0, 0, 85]);
+  assert.deepEqual((await call('sample', 4, 4, 3, null)).result, [255, 0, 0, 85]);
+  assert.deepEqual((await call('sample', 7, 4, 1, 1)).result, [0, 0, 0, 0]);
+});
+
 test('layer pixel reads (Eyedropper current layer, Move auto-select, magnetic pen) see 16 and 32-bit layers as 8-bit', async () => {
   for (const depth of [8, 16, 32]) {
     await call('init');

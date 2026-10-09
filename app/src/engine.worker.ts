@@ -627,13 +627,14 @@ function sampleDocument(e: Engine, x: number, y: number, size: number, layerId: 
       const tx = Math.floor(px / TILE), ty = Math.floor(py / TILE);
       const buf = layerId === null ? e.flatten_tile_rgba8(tx, ty) : layerTile(e, ids, tx, ty);
       if (buf) {
-        const o = ((py - ty * TILE) * TILE + (px - tx * TILE)) * 4;
-        r += buf[o]; g += buf[o + 1]; b += buf[o + 2]; a += buf[o + 3];
+        // Alpha-weighted: the color left under transparent pixels never counts.
+        const o = ((py - ty * TILE) * TILE + (px - tx * TILE)) * 4, w = buf[o + 3];
+        r += buf[o] * w; g += buf[o + 1] * w; b += buf[o + 2] * w; a += w;
       }
       n++;
     }
   }
-  return n ? [Math.round(r / n), Math.round(g / n), Math.round(b / n), Math.round(a / n)] : [0, 0, 0, 0];
+  return a ? [Math.round(r / a), Math.round(g / a), Math.round(b / a), Math.round(a / n)] : [0, 0, 0, 0];
 }
 
 // One step for an engine canvas op; a false result (nothing to change) records none.

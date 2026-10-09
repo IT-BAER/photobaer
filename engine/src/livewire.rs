@@ -3,8 +3,8 @@
 
 use std::collections::BinaryHeap;
 
-/// Sobel gradient of the image's luminance: `mag` normalized to 0..1 over the whole image,
-/// `gx`/`gy` raw so the live wire can use the gradient direction.
+/// Sobel gradient of the strongest premultiplied channel (R, G, B or alpha) per pixel: `mag`
+/// normalized to 0..1 over the whole image, `gx`/`gy` raw so the live wire can use the direction.
 pub struct LiveWire {
     w: i32,
     h: i32,
@@ -13,29 +13,37 @@ pub struct LiveWire {
     gy: Vec<f32>,
 }
 
-fn luma(src: &[u8], p: usize) -> f32 {
-    0.299 * src[p * 4] as f32 + 0.587 * src[p * 4 + 1] as f32 + 0.114 * src[p * 4 + 2] as f32
+// Premultiplied, so a shape on transparency has an edge and transparent pixels of different
+// colours (straight RGBA keeps the old RGB under alpha 0) do not.
+fn premultiplied(src: &[u8]) -> Vec<[f32; 4]> {
+    src.chunks_exact(4)
+        .map(|p| {
+            let a = p[3] as f32 / 255.0;
+            [p[0] as f32 * a, p[1] as f32 * a, p[2] as f32 * a, p[3] as f32]
+        })
+        .collect()
 }
 
 fn sobel(src: &[u8], w: i32, h: i32) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
-    let at = |x: i32, y: i32| luma(src, (y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize);
+    let ch = premultiplied(src);
+    let at = |x: i32, y: i32| ch[(y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize];
     let n = (w * h) as usize;
     let (mut gx, mut gy, mut mag) = (vec![0f32; n], vec![0f32; n], vec![0f32; n]);
     let mut top = 1e-6f32;
     for y in 0..h {
         for x in 0..w {
-            let dx = at(x + 1, y - 1) + 2.0 * at(x + 1, y) + at(x + 1, y + 1)
-                - at(x - 1, y - 1)
-                - 2.0 * at(x - 1, y)
-                - at(x - 1, y + 1);
-            let dy = at(x - 1, y + 1) + 2.0 * at(x, y + 1) + at(x + 1, y + 1)
-                - at(x - 1, y - 1)
-                - 2.0 * at(x, y - 1)
-                - at(x + 1, y - 1);
+            let (nw, nn, ne) = (at(x - 1, y - 1), at(x, y - 1), at(x + 1, y - 1));
+            let (ww, ee) = (at(x - 1, y), at(x + 1, y));
+            let (sw, ss, se) = (at(x - 1, y + 1), at(x, y + 1), at(x + 1, y + 1));
             let p = (y * w + x) as usize;
-            gx[p] = dx;
-            gy[p] = dy;
-            mag[p] = (dx * dx + dy * dy).sqrt();
+            for c in 0..4 {
+                let dx = ne[c] + 2.0 * ee[c] + se[c] - nw[c] - 2.0 * ww[c] - sw[c];
+                let dy = sw[c] + 2.0 * ss[c] + se[c] - nw[c] - 2.0 * nn[c] - ne[c];
+                let m = (dx * dx + dy * dy).sqrt();
+                if m > mag[p] {
+                    (gx[p], gy[p], mag[p]) = (dx, dy, m);
+                }
+            }
             top = top.max(mag[p]);
         }
     }
@@ -198,6 +206,16 @@ pub fn quick_select(
     if stroke.is_empty() {
         return Err("quick selection needs at least one stroke point".into());
     }
+    // Transparency is composited over mid gray, so it is a colour of its own and the RGB left
+    // under alpha 0 never matches.
+    let src: &[u8] = &src
+        .chunks_exact(4)
+        .flat_map(|p| {
+            let a = p[3] as u32;
+            let c = |v: u8| ((v as u32 * a + 128 * (255 - a) + 127) / 255) as u8;
+            [c(p[0]), c(p[1]), c(p[2]), 255]
+        })
+        .collect::<Vec<u8>>();
     let (wi, hi) = (w as i32, h as i32);
     let n = (wi * hi) as usize;
     let r = radius.max(0.5);
@@ -332,6 +350,27 @@ mod tests {
     }
 
     #[test]
+    fn path_follows_the_visible_edge_not_the_color_left_under_transparency() {
+        // Opaque orange square [10, 30) on a transparent layer; the transparent pixels at x in
+        // [30, 36) still hold the orange (the square was moved), the rest hold black.
+        let (w, h) = (48, 40);
+        let mut src = vec![0u8; (w * h * 4) as usize];
+        for y in 10..30 {
+            for x in 10..36 {
+                let p = ((y * w + x) * 4) as usize;
+                src[p..p + 3].copy_from_slice(&[230, 160, 60]);
+                src[p + 3] = if x < 30 { 255 } else { 0 };
+            }
+        }
+        let lw = LiveWire::new(&src, w as u32, h as u32);
+        let path = lw.path((25, 10), (25, 29), 12, 0);
+        for &(x, y) in &path {
+            let d = dist_to_edge(x, y, 10, 10, 30, 30);
+            assert!(d <= 1, "path pixel ({x}, {y}) is {d} px off the visible edge");
+        }
+    }
+
+    #[test]
     fn path_falls_back_to_the_straight_segment_when_the_corridor_is_blocked() {
         let src = square(8, 8, 2, 2, 6, 6);
         let lw = LiveWire::new(&src, 8, 8);
@@ -361,6 +400,26 @@ mod tests {
             }
         }
         src
+    }
+
+    #[test]
+    fn quick_select_on_transparency_takes_only_the_visible_shape() {
+        // Opaque orange [0, 10) x [0, 10); every transparent pixel still holds the same orange.
+        let (w, h) = (20, 10);
+        let mut src = vec![0u8; (w * h * 4) as usize];
+        for y in 0..h {
+            for x in 0..w {
+                let p = ((y * w + x) * 4) as usize;
+                src[p..p + 4].copy_from_slice(&[230, 160, 60, if x < 10 { 255 } else { 0 }]);
+            }
+        }
+        let cov = quick_select(&src, w as u32, h as u32, &[(3.5, 2.5), (3.5, 7.5)], 2.0, false).unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                let want = if x < 10 { 1.0 } else { 0.0 };
+                assert_eq!(cov[(y * w + x) as usize], want, "pixel ({x}, {y})");
+            }
+        }
     }
 
     #[test]
