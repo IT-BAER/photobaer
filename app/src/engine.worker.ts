@@ -1053,6 +1053,7 @@ const api = {
   },
   contentAwareMove(id: number, dx: number, dy: number, params: { extend: boolean; structure: number; color: number; scale?: number[] }) {
     const e = need();
+    selGen++; // the selection follows the moved content
     return stepIfChanged('Content-Aware Move', () => e.content_aware_move(id, dx, dy, JSON.stringify(params)));
   },
 

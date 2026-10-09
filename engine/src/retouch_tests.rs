@@ -628,3 +628,23 @@ fn spot_heal_next_to_transparency_ignores_the_color_under_alpha_0() {
         }
     }
 }
+
+#[test]
+fn content_aware_move_on_a_transparent_layer_carries_alpha_and_leaves_transparency() {
+    let mut d = doc_with(100, 60, |x, y| if (10..20).contains(&x) && (10..20).contains(&y) { [240, 140, 20, 255] } else { [0, 0, 0, 0] });
+    d.select_rect(6.0, 6.0, 18.0, 18.0, Mode::New).unwrap();
+    assert!(d.content_aware_move(1, 50, 0, r#"{"extend":false,"structure":4,"color":2}"#).unwrap());
+    for (x, y) in [(60, 10), (65, 15), (69, 19)] {
+        let v = at(&d, x, y);
+        assert!(v[3] == 255 && v[0] >= 200 && v[2] <= 60, "the object arrives at ({x}, {y}): {v:?}");
+    }
+    for (x, y) in [(10, 10), (15, 15), (19, 19), (7, 7)] {
+        assert_eq!(at(&d, x, y)[3], 0, "the vacated ({x}, {y}) takes the transparent surroundings");
+    }
+    assert_eq!(d.selection_bounds(), Some([56, 6, 18, 18]), "the selection follows the content");
+    // A selection edge through the object: its partly selected column leaves too.
+    let mut d = doc_with(100, 60, |x, y| if (10..20).contains(&x) && (10..20).contains(&y) { [240, 140, 20, 255] } else { [0, 0, 0, 0] });
+    d.select_polygon(&[10.7, 6.0, 24.0, 6.0, 24.0, 24.0, 10.7, 24.0], true, Mode::New).unwrap();
+    assert!(d.content_aware_move(1, 50, 0, r#"{"extend":false,"structure":4,"color":2}"#).unwrap());
+    assert_eq!(at(&d, 10, 15)[3], 0, "the partly selected edge is vacated: {:?}", at(&d, 10, 15));
+}

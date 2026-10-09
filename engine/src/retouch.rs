@@ -372,11 +372,17 @@ fn scale_drop(e: &Plane, f: &[f32], c: (f64, f64), (dx, dy): (i32, i32), k: [f32
 fn move_blend(e: &Plane, f: &[f32], s: &Plane, c: &[f32], extend: bool, mixed: bool, structure: f32, color: f32, seed: u32) -> Plane {
     let mut g = e.clone();
     heal::poisson(&mut g, s, c, &PoissonOpts { mixed, ..PoissonOpts::default() });
+    for (i, &m) in c.iter().enumerate() {
+        let a = i * 4 + 3;
+        g.data[a] += (s.data[a] - g.data[a]) * m.clamp(0.0, 1.0);
+    }
     if extend {
         return g;
     }
-    let hole: Vec<f32> = f.iter().zip(c).map(|(&f, &c)| if f > 0.5 && c <= 0.5 { 1.0 } else { 0.0 }).collect();
-    heal::content_aware_fill(&g, &hole, structure, color, seed, None)
+    let hole: Vec<f32> = f.iter().zip(c).map(|(&f, &c)| if f > 0.0 && c <= 0.5 { 1.0 } else { 0.0 }).collect();
+    // The fill samples transparent surroundings too, never the landed content.
+    let src: Vec<f32> = c.iter().map(|&c| if c > 0.5 { 0.0 } else { 1.0 }).collect();
+    heal::content_aware_fill(&g, &hole, structure, color, seed, Some(&src))
 }
 
 fn drag_seed(dx: i32, dy: i32) -> u32 {
@@ -584,7 +590,8 @@ impl Document {
                 for j in 0..h {
                     for i in 0..w {
                         let (qi, qj) = (i + dx, j + dy);
-                        if f[(j * w + i) as usize] > 0.0 && qi >= 0 && qj >= 0 && qi < w && qj < h {
+                        let lit = |x: i32, y: i32| e.data[(y * w + x) as usize * 4 + 3] > 1e-6;
+                        if f[(j * w + i) as usize] > 0.0 && qi >= 0 && qj >= 0 && qi < w && qj < h && lit(qi, qj) {
                             q[(qj * w + qi) as usize] = 1.0;
                         }
                     }
@@ -625,7 +632,12 @@ impl Document {
             scale_drop(&e, &f, (cx - b[0] as f64, cy - b[1] as f64), (dx, dy), p.scale)
         };
         let out = move_blend(&e, &f, &s, &c, p.extend, true, p.structure, p.color, drag_seed(dx, dy));
-        self.put_plane(id, &out, None)
+        let changed = self.put_plane(id, &out, None)?;
+        // The selection follows the content, ready for another drag.
+        let (sx, sy) = (p.scale[0] as f64, p.scale[1] as f64);
+        let m = [sx, 0.0, cx - cx * sx + dx as f64, 0.0, sy, cy - cy * sy + dy as f64, 0.0, 0.0, 1.0];
+        self.transform_selection(&m, if plain { crate::resample::Interp::Nearest } else { crate::resample::Interp::Bilinear })?;
+        Ok(changed)
     }
 
     /// The clone overlay: straight RGBA8 `out_w` x `out_h` of the clone source as it reads at the

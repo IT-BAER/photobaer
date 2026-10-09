@@ -60,6 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   layer floats: the coarse whole-layer image is no longer drawn under the sharp image of the view.
 - Spot Healing Brush, Healing Brush, Patch and Content-Aware Move no longer paint dark or blue colors next to
   transparent pixels: the color hidden under fully transparent pixels no longer takes part in the healing.
+- Content-Aware Move on a layer with transparency carries the content's transparency, so the moved object
+  shows at its new place, and the vacated area takes transparent surroundings instead of opaque color; the
+  selection follows the content, and partly selected edge pixels leave with it.
 
 ## [0.5.0] - 2026-10-08
 

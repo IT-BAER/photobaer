@@ -761,12 +761,13 @@ pub fn spot_heal(img: &Plane, mask: &[f32], kind: HealKind, seed: u32) -> Plane 
 
 /// Content-Aware Fill of the coverage (docs/M5.md section 10): structure 1..7 sets the patch size
 /// and iterations, color 0..10 the Poisson color adaptation; the result mixes in by coverage.
+/// `source_mask` is where the fill may sample; None samples every pixel with alpha.
 pub fn content_aware_fill(img: &Plane, cov: &[f32], structure: f32, color: f32, seed: u32, source_mask: Option<&[f32]>) -> Plane {
     let n = img.w * img.h;
     let hole: Vec<f32> = cov.iter().map(|&v| if v > 0.0 { 1.0 } else { 0.0 }).collect();
     let s = structure.round().clamp(1.0, 7.0) as usize;
     let a = color.clamp(0.0, 10.0) / 10.0;
-    let src: Vec<f32> = (0..n).map(|i| if on(source_mask, i) && img.data[i * 4 + 3] > 1e-6 { 1.0 } else { 0.0 }).collect();
+    let src: Vec<f32> = (0..n).map(|i| if source_mask.map_or(img.data[i * 4 + 3] > 1e-6, |m| m[i] > 0.5) { 1.0 } else { 0.0 }).collect();
     let opts = FillOpts {
         patch: 5 + 2 * (s - 1),
         iterations: 3 + s,
