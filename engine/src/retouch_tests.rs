@@ -514,29 +514,40 @@ fn red_bar() -> EngineCore {
     EngineCore::new(doc_with(40, 40, |x, _| if (18..=20).contains(&x) { [0, 200, 0, 255] } else { [200, 0, 0, 255] }))
 }
 
+fn lum8(p: [u8; 4]) -> f32 {
+    crate::blend::lum([p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0])
+}
+
 #[test]
-fn color_replace_modes_take_the_named_hsb_parts_of_the_color() {
+fn color_replace_modes_are_the_nonseparable_blend_modes() {
+    let near = |a: f32, b: f32| (a - b).abs() < 1.5 / 255.0;
     let mut e = flat([200, 0, 0, 255]);
     fx(&mut e, 9.0, 20, 20, replace("color", [0, 0, 255], "discontiguous")).unwrap();
-    assert_eq!(at(&e.doc, 20, 20), [0, 0, 200, 255], "hue and saturation from the color, brightness kept");
+    let p = at(&e.doc, 20, 20);
+    assert!(p[2] > p[0] && near(lum8(p), lum8([200, 0, 0, 255])), "blue hue, luminosity kept: {p:?}");
+    let mut e = flat([255, 255, 255, 255]);
+    fx(&mut e, 9.0, 20, 20, replace("color", [232, 162, 58], "discontiguous")).unwrap();
+    assert_eq!(at(&e.doc, 20, 20), [255, 255, 255, 255], "white keeps its luminosity");
     let mut e = flat([200, 0, 0, 255]);
     fx(&mut e, 9.0, 20, 20, replace("luminosity", [0, 0, 100], "discontiguous")).unwrap();
-    assert_eq!(at(&e.doc, 20, 20), [100, 0, 0, 255]);
+    let p = at(&e.doc, 20, 20);
+    assert!(p[0] > p[2] && near(lum8(p), lum8([0, 0, 100, 255])), "red hue, luminosity of the color: {p:?}");
     let mut e = flat([200, 100, 100, 255]);
     fx(&mut e, 9.0, 20, 20, replace("saturation", [0, 255, 0], "discontiguous")).unwrap();
-    assert_eq!(at(&e.doc, 20, 20), [200, 0, 0, 255]);
+    let p = at(&e.doc, 20, 20);
+    assert!(p[0] - p[1] > 100 && near(lum8(p), lum8([200, 100, 100, 255])), "more saturated, luminosity kept: {p:?}");
 }
 
 #[test]
 fn color_replace_limits_stop_at_pixels_outside_the_tolerance() {
     let mut e = red_bar();
     fx(&mut e, 15.0, 15, 20, replace("color", [0, 0, 255], "contiguous")).unwrap();
-    assert_eq!(at(&e.doc, 15, 20), [0, 0, 200, 255]);
+    assert_eq!(at(&e.doc, 15, 20), [36, 36, 255, 255], "blue at the luminosity of the red");
     assert_eq!(at(&e.doc, 19, 20), [0, 200, 0, 255], "green is outside the tolerance");
     assert_eq!(at(&e.doc, 21, 20), [200, 0, 0, 255], "contiguous stops at the bar");
     let mut e = red_bar();
     fx(&mut e, 15.0, 15, 20, replace("color", [0, 0, 255], "discontiguous")).unwrap();
-    assert_eq!(at(&e.doc, 21, 20), [0, 0, 200, 255]);
+    assert_eq!(at(&e.doc, 21, 20), [36, 36, 255, 255]);
 }
 
 #[test]

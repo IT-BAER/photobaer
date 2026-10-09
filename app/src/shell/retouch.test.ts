@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CloneSources, cloneOverlaySource, emptySlot, mapPoint, redEyeRect, sourceMap, tintOverlay } from './retouch.ts';
+import { CloneSources, cloneOverlaySource, emptySlot, mapPoint, patchPress, redEyeRect, sourceMap, tintOverlay } from './retouch.ts';
 
 test('aligned strokes keep the first stroke origin, non-aligned strokes restart at the anchor', () => {
   const c = new CloneSources();
@@ -85,4 +85,12 @@ test('a clone source belongs to its document key and is not used from another ta
   c.setAnchor({ x: 10, y: 10 }, 'a', null);
   assert.equal(cloneOverlaySource(c, [5, 5], 'b', true), null);
   assert.ok(cloneOverlaySource(c, [5, 5], 'a', true));
+});
+
+test('a Patch press drags the selection only from inside it without Shift or Alt, else draws a lasso', () => {
+  assert.deepEqual(patchPress(false, false, false), { probe: false, mode: 'new' });
+  assert.deepEqual(patchPress(true, false, false), { probe: true, mode: 'new' });
+  assert.deepEqual(patchPress(true, true, false), { probe: false, mode: 'add' });
+  assert.deepEqual(patchPress(true, false, true), { probe: false, mode: 'subtract' });
+  assert.deepEqual(patchPress(true, true, true), { probe: false, mode: 'intersect' });
 });

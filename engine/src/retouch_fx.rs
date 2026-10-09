@@ -46,14 +46,6 @@ pub(super) struct Match {
     limits: Limits,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub(super) enum Replace {
-    Hue,
-    Saturation,
-    Color,
-    Luminosity,
-}
-
 /// The mixer brush paint well: `d` x `d` straight RGB centered on the dab.
 #[derive(Clone)]
 pub(super) struct Reservoir {
@@ -83,7 +75,7 @@ pub(super) enum Effect {
     Sponge { saturate: bool, vibrance: bool, strength: f32 },
     Focus { sharpen: bool, all: bool },
     Smudge { strength: f32, all: bool, blend: Blend, finger: Option<[f32; 3]> },
-    ColorReplace { mode: Replace, color: [f32; 3], m: Match },
+    ColorReplace { mode: Blend, color: [f32; 3], m: Match },
     BgErase { m: Match, protect: Option<[f32; 3]> },
     Mixer { wet: f32, load: f32, mix: f32, all: bool, blend: Blend, color: Option<[f32; 3]>, clean: bool },
 }
@@ -119,10 +111,10 @@ impl EffectIn {
         Ok(match self {
             EffectIn::ColorReplace { mode, color, tolerance, sampling, limits, sample } => Effect::ColorReplace {
                 mode: match mode.as_str() {
-                    "hue" => Replace::Hue,
-                    "saturation" => Replace::Saturation,
-                    "color" => Replace::Color,
-                    "luminosity" => Replace::Luminosity,
+                    "hue" => Blend::Hue,
+                    "saturation" => Blend::Saturation,
+                    "color" => Blend::Color,
+                    "luminosity" => Blend::Luminosity,
                     other => return Err(format!("unknown color replacement mode {other}")),
                 },
                 color: rgb01(Some(color))?.unwrap(),
@@ -255,29 +247,6 @@ fn sponge(back: [f32; 3], saturate: bool, vibrance: bool) -> [f32; 3] {
     let k = if vibrance { 1.0 - s } else { 1.0 };
     let s2 = (if saturate { s + (1.0 - s) * k } else { s * (1.0 - k) }).clamp(0.0, 1.0);
     back.map(|c| max - (max - c) * (s2 / s))
-}
-
-fn to_hsb(c: [f32; 3]) -> [f32; 3] {
-    let (max, min) = (c[0].max(c[1]).max(c[2]), c[0].min(c[1]).min(c[2]));
-    let d = max - min;
-    let h = if d <= 0.0 {
-        0.0
-    } else if max == c[0] {
-        ((c[1] - c[2]) / d).rem_euclid(6.0)
-    } else if max == c[1] {
-        (c[2] - c[0]) / d + 2.0
-    } else {
-        (c[0] - c[1]) / d + 4.0
-    };
-    [h / 6.0, if max > 0.0 { d / max } else { 0.0 }, max]
-}
-
-fn from_hsb([h, s, b]: [f32; 3]) -> [f32; 3] {
-    let f = |n: f32| {
-        let k = (n + h * 6.0).rem_euclid(6.0);
-        b - b * s * k.min(4.0 - k).clamp(0.0, 1.0)
-    };
-    [f(5.0), f(3.0), f(1.0)]
 }
 
 fn dist(a: [f32; 3], b: [f32; 3]) -> f32 {
@@ -560,17 +529,7 @@ impl Document {
                     if f <= 0.0 {
                         return None;
                     }
-                    let (mut h, c) = (to_hsb(rgb), to_hsb(color));
-                    if matches!(mode, Replace::Hue | Replace::Color) {
-                        h[0] = c[0];
-                    }
-                    if matches!(mode, Replace::Saturation | Replace::Color) {
-                        h[1] = c[1];
-                    }
-                    if mode == Replace::Luminosity {
-                        h[2] = c[2];
-                    }
-                    straight(f, from_hsb(h), a)
+                    straight(f, blend_rgb(mode, rgb, color), a)
                 }
                 Effect::BgErase { .. } => {
                     let f = tip * aux[i][0];

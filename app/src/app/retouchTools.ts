@@ -3,7 +3,8 @@
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { client } from '../client.ts';
 import type { Active } from '../LayersPanel.tsx';
-import { cloneOverlaySource, cloneSources, redEyeRect, tintOverlay } from '../shell/retouch.ts';
+import { cloneOverlaySource, cloneSources, patchPress, redEyeRect, tintOverlay } from '../shell/retouch.ts';
+import type { SelectMode } from '../shell/selecttools.ts';
 import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import type { BoxRect, SelectionOverlay, TransformImage } from '../shell/SelectionOverlay.ts';
 import { sourceImage } from './transform.ts';
@@ -22,14 +23,17 @@ export interface RetouchCtx {
 
 export function useRetouchTools(c: RetouchCtx) {
   const { viewer, overlayRef, redrawOverlay, tool, active, docRef, toolOptionsRef, run, setError } = c;
-  // Patch and Content-Aware Move drag the selection's bounds (dashed box) and apply on release;
-  // Red Eye takes a click box or a dragged box. Content-Aware Move with Transform On Drop keeps the
+  // Patch and Content-Aware Move: a drag from inside the selection drags its bounds (dashed box) and
+  // applies on release; any other drag draws a lasso. Red Eye takes a click box or a dragged box. Content-Aware Move with Transform On Drop keeps the
   // dropped box with 8 handles: Enter or a click outside applies the scaled move, Escape cancels,
   // a tool change applies.
   useEffect(() => {
     const v = viewer.current;
     if (!v || !(tool === 'patch' || tool === 'contentAwareMove' || tool === 'redEye')) return;
     let start: [number, number] | null = null;
+    // inside: null while the press is probed, then true = patch drag, false = lasso.
+    type Gesture = { s: [number, number]; points: number[]; mode: SelectMode; inside: boolean | null; end: { x: number; y: number; cancel: boolean } | null };
+    let g: Gesture | null = null;
     let drop: { id: number; base: BoxRect; box: BoxRect; hit: CropHit | null; from: [number, number]; startBox: BoxRect; img?: TransformImage | null } | null = null;
     const preview = (r: Rect | null) => {
       overlayRef.current?.setPreview(r && { kind: 'rect', x: r[0], y: r[1], w: r[2], h: r[3] });
@@ -79,30 +83,67 @@ export function useRetouchTools(c: RetouchCtx) {
         }
         return;
       }
+      if (tool !== 'redEye') { patchPointer(e); return; }
       if (e.type === 'down') {
         if (!active) return;
-        if (tool !== 'redEye' && !docRef.current?.selection?.bounds) { setError('Make a selection first.'); return; }
         start = [e.x, e.y];
         return;
       }
       if (!start || !active) return;
-      const s = start, b = docRef.current?.selection?.bounds;
-      const dx = Math.round(e.x - s[0]), dy = Math.round(e.y - s[1]);
+      const s = start;
       if (e.type === 'move') {
-        if (tool === 'redEye') preview([Math.min(s[0], e.x), Math.min(s[1], e.y), Math.abs(e.x - s[0]), Math.abs(e.y - s[1])]);
-        else if (b) preview([b[0] + dx, b[1] + dy, b[2], b[3]]);
+        preview([Math.min(s[0], e.x), Math.min(s[1], e.y), Math.abs(e.x - s[0]), Math.abs(e.y - s[1])]);
         return;
       }
       start = null;
       preview(null);
       if (e.type === 'cancel') return;
-      const o = toolOptionsRef.current, id = active.id;
-      if (tool === 'redEye') {
-        const r = redEyeRect(s, [e.x, e.y]);
-        run(null, () => client.call('redEye', id, r, Number(o.pupilSize) / 100, Number(o.darken) / 100));
+      const o = toolOptionsRef.current, r = redEyeRect(s, [e.x, e.y]);
+      run(null, () => client.call('redEye', active.id, r, Number(o.pupilSize) / 100, Number(o.darken) / 100));
+    };
+    const patchPointer = (e: { type: string; x: number; y: number; shiftKey: boolean; altKey: boolean }) => {
+      if (e.type === 'down') {
+        if (!active) return;
+        const p = patchPress(!!docRef.current?.selection?.bounds, e.shiftKey, e.altKey);
+        const cur: Gesture = g = { s: [e.x, e.y], points: [e.x, e.y], mode: p.mode, inside: p.probe ? null : false, end: null };
+        if (p.probe) {
+          client.call('selectionAt', e.x, e.y).then(v => v >= 128, () => false).then(inside => {
+            if (g !== cur) return;
+            cur.inside = inside;
+            if (cur.end) finish(cur);
+          });
+        }
         return;
       }
+      const cur = g;
+      if (!cur || cur.end) return;
+      if (e.type === 'move') {
+        const b = docRef.current?.selection?.bounds;
+        if (cur.inside && b) preview([b[0] + Math.round(e.x - cur.s[0]), b[1] + Math.round(e.y - cur.s[1]), b[2], b[3]]);
+        else if (cur.inside === false || cur.inside === null) {
+          const lx = cur.points[cur.points.length - 2], ly = cur.points[cur.points.length - 1];
+          if (Math.hypot(e.x - lx, e.y - ly) >= 0.5) cur.points.push(e.x, e.y);
+          if (cur.inside === false) { overlayRef.current?.setPreview({ kind: 'path', points: cur.points, closed: false }); redrawOverlay(); }
+        }
+        return;
+      }
+      cur.end = { x: e.x, y: e.y, cancel: e.type === 'cancel' };
+      if (cur.inside !== null) finish(cur);
+    };
+    const finish = (cur: Gesture) => {
+      g = null;
+      preview(null);
+      const end = cur.end!;
+      if (end.cancel || !active) return;
+      const id = active.id;
+      if (!cur.inside) {
+        run(null, () => client.call('select', { kind: 'polygon', points: cur.points }, cur.mode, true, 0, 'Lasso'));
+        return;
+      }
+      const b = docRef.current?.selection?.bounds;
+      const dx = Math.round(end.x - cur.s[0]), dy = Math.round(end.y - cur.s[1]);
       if (!dx && !dy) return;
+      const o = toolOptionsRef.current;
       const base = { structure: Number(o.structure), color: Number(o.color) };
       if (tool === 'patch') {
         const mode = o.mode === 'destination' ? 'destination' : 'source';

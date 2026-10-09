@@ -39,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The Color Replacement tool's modes are Photoshop's Hue, Saturation, Color and Luminosity blend modes, so
+  Color keeps each pixel's luminosity and leaves white and black unchanged instead of painting them.
+- The Patch and Content-Aware Move tools draw their own lasso selection when a drag starts outside the
+  selection (Shift adds, Alt subtracts); a drag from inside it patches or moves as before.
 - The Move tool commits a dropped layer at once instead of after the whole view has rendered, so the next
   click no longer waits for the tiles; the moved image stays on screen until the view shows the result.
 - A click with the Move tool on a zoomed-in layer with effects no longer waits for a whole-layer image it

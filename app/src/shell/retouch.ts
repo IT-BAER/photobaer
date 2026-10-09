@@ -1,6 +1,8 @@
 // Retouch tool logic (docs/M5.md section 9). Clone Source slots (D12): 5 app-wide slots, not saved with the document.
 // A slot maps destination point p to source anchor + M (p - origin); M undoes the slot's scale,
 // flip and rotation, so scale 50 % reads 2 source px per destination px.
+import { selectMode, type SelectMode } from './selecttools.ts';
+
 export interface Point { x: number; y: number }
 export type OverlayMode = 'normal' | 'darken' | 'lighten' | 'difference';
 export interface CloneSlot {
@@ -79,6 +81,12 @@ export class CloneSources {
 }
 
 export const cloneSources = new CloneSources();
+
+// Patch / Content-Aware Move press: `probe` = drag the patch if the press lands inside the selection;
+// otherwise the drag draws a lasso, Shift adding and Alt subtracting.
+export function patchPress(hasSelection: boolean, shift: boolean, alt: boolean): { probe: boolean; mode: SelectMode } {
+  return { probe: hasSelection && !shift && !alt, mode: selectMode('new', shift, alt) };
+}
 
 // A click (under 2 px of drag on an axis) takes the 40 x 40 box around it.
 export function redEyeRect(a: [number, number], b: [number, number]): [number, number, number, number] {
