@@ -398,6 +398,13 @@ impl Document {
         Ok(Plane { x: r[0], y: r[1], w, h, data })
     }
 
+    // `layer_plane` for the healing tools: alpha 0 pixels carry the RGB of their visible neighbours.
+    fn heal_plane(&self, id: u32, r: [i32; 4]) -> Result<Plane, String> {
+        let mut p = self.layer_plane(id, r)?;
+        heal::bleed_rgb(&mut p);
+        Ok(p)
+    }
+
     // The selection coverage over `r`; all 1 without a selection.
     pub(super) fn selection_plane(&self, r: [i32; 4]) -> Vec<f32> {
         let mut out = Vec::with_capacity(((r[2] - r[0]) * (r[3] - r[1])) as usize);
@@ -484,7 +491,7 @@ impl Document {
         for &(x, y, v) in &cells {
             k[(y - r[1]) as usize * (r[2] - r[0]) as usize + (x - r[0]) as usize] = v;
         }
-        let c = self.layer_plane(st.layer, r)?;
+        let c = self.heal_plane(st.layer, r)?;
         let out = match heal {
             Heal::ContentAware => heal::content_aware_fill(&c, &k, 4.0, 10.0, st.seed, None),
             Heal::Proximity | Heal::Texture => {
@@ -559,7 +566,7 @@ impl Document {
         }
         let pad = if p.content_aware { 24.max((hb[2].max(hb[3]) + 1) / 2) } else { 8 };
         let Some(b) = self.drag_region(hb, (dx, dy), pad) else { return Ok(false) };
-        let e = self.layer_plane(id, b)?;
+        let e = self.heal_plane(id, b)?;
         let f = self.selection_plane(b);
         let (w, h, seed) = (e.w as i32, e.h as i32, drag_seed(dx, dy));
         let out = match (destination, p.content_aware) {
@@ -610,7 +617,7 @@ impl Document {
         let u = [hb[0].min(x0), hb[1].min(y0), (hb[0] + hb[2]).max(x1), (hb[1] + hb[3]).max(y1)];
         let pad = 24.max(((x1 - x0).max(y1 - y0).max(hb[2]).max(hb[3]) + 1) / 2);
         let Some(b) = grow(u, pad, self.width as i32, self.height as i32) else { return Ok(false) };
-        let e = self.layer_plane(id, b)?;
+        let e = self.heal_plane(id, b)?;
         let f = self.selection_plane(b);
         let (s, c) = if plain {
             (shift_plane(&e, -dx, -dy), shift_mask(&f, e.w as i32, e.h as i32, -dx, -dy))

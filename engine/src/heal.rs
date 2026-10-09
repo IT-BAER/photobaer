@@ -645,6 +645,29 @@ fn edge_distance(inside: &[bool], w: usize, h: usize) -> Vec<f32> {
     d
 }
 
+/// Gives each alpha 0 pixel the RGB of the nearest (N4 steps) pixel with alpha, so the color
+/// math of healing never reads leftover RGB under transparency; a plane without alpha stays.
+pub fn bleed_rgb(p: &mut Plane) {
+    let (w, h) = (p.w as i32, p.h as i32);
+    let mut done: Vec<bool> = p.data.chunks_exact(4).map(|v| v[3] > 0.0).collect();
+    let mut queue: VecDeque<usize> = (0..done.len()).filter(|&i| done[i]).collect();
+    while let Some(i) = queue.pop_front() {
+        let (x, y) = (i as i32 % w, i as i32 / w);
+        for (dx, dy) in N4 {
+            let (qx, qy) = (x + dx, y + dy);
+            if qx < 0 || qy < 0 || qx >= w || qy >= h {
+                continue;
+            }
+            let q = (qy * w + qx) as usize;
+            if !done[q] {
+                done[q] = true;
+                p.data.copy_within(i * 4..i * 4 + 3, q * 4);
+                queue.push_back(q);
+            }
+        }
+    }
+}
+
 /// Proximity Match: the mask (coverage 0..1) takes the mean color of the known pixels bordering
 /// it, then 8 shrinking box blurs, each followed by restoring the unmasked part.
 pub fn proximity_match(img: &Plane, mask: &[f32]) -> Plane {

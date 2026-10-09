@@ -613,3 +613,18 @@ fn mixer_brush_without_reload_keeps_the_dirty_reservoir_unless_cleaned() {
     fx(&mut e, 9.0, 30, 30, keep).unwrap();
     assert_eq!(at(&e.doc, 30, 30), gray(255), "a cleaned brush paints only the canvas");
 }
+
+#[test]
+fn spot_heal_next_to_transparency_ignores_the_color_under_alpha_0() {
+    // Above y = 32 the layer is transparent with leftover blue RGB; below it is orange.
+    for kind in ["contentAware", "proximityMatch", "createTexture"] {
+        let mut e = EngineCore::new(doc_with(64, 64, |_, y| if y < 32 { [0, 0, 255, 0] } else { [240, 140, 20, 255] }));
+        dab(&mut e, 15.0, 32, 32, json!({ "heal": kind })).unwrap();
+        for y in 20..45 {
+            for x in 20..45 {
+                let v = at(&e.doc, x, y);
+                assert!(v[3] == 0 || (v[0] >= 200 && v[1].abs_diff(140) <= 25 && v[2] <= 60), "{kind}: ({x}, {y}) is {v:?}");
+            }
+        }
+    }
+}

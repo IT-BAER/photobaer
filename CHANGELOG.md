@@ -58,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shadow: the floating layer shows only once the view has lifted the layer out.
 - Dragging a layer with effects with the Move tool no longer darkens its shadow and soft edges while the
   layer floats: the coarse whole-layer image is no longer drawn under the sharp image of the view.
+- Spot Healing Brush, Healing Brush, Patch and Content-Aware Move no longer paint dark or blue colors next to
+  transparent pixels: the color hidden under fully transparent pixels no longer takes part in the healing.
 
 ## [0.5.0] - 2026-10-08
 
