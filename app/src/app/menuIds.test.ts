@@ -12,7 +12,7 @@ const tr = (id: string, extra: Partial<Item> = {}): Item => ({ id, label: `«${i
 let ran = '';
 const menus: Record<string, Item[]> = {
   Layer: [tr('Layer via Copy', { run: () => { ran = 'copy'; } }), tr('Rasterize', { sub: [tr('Type', { off: true }), tr('Shape')] })],
-  Select: [tr('All'), tr('Deselect'), tr('Inverse'), tr('Feather…'), tr('Reselect')],
+  Select: [tr('All'), tr('Deselect'), tr('Inverse'), tr('Modify', { sub: [tr('Feather…')] }), tr('Reselect')],
   Edit: [tr('Free Transform'), tr('Fill…'), tr('Stroke…')],
   Image: [tr('Adjustments', { sub: [tr('Invert', { run: () => { ran = 'invert'; } })] })],
   View: [{ id: 'Snap', label: '✓ «Snap»', run: () => {} }],

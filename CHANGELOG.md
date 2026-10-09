@@ -14,9 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it is not a semantic segmenter, so cluttered scenes, several subjects and hair detail fall short of Photoshop.
 - Select > Deselect Layers, or a click below the last row of the Layers panel, leaves no layer selected. Tools
   that change a layer then say "No layer is selected"; selections, new layers, Paste and Place still work.
+- Window lists every panel by name with a check mark while it is shown, sorted by name in the interface
+  language as in Photoshop: Brush Settings (F5), Brushes, Color (F6), Swatches, Layers (F7), History, Info (F8),
+  the type panels, Options (the options bar) and Tools (the toolbar) can now be hidden and shown there too.
 
 ### Changed
 
+- Select > Border, Smooth, Expand, Contract and Feather moved into Select > Modify, and Edit in Quick Mask Mode
+  is a checked item, as in Photoshop. Type > Panels names the panels "Character Panel" and so on.
 - The Move tool starts dragging a layer with effects sooner: the drag begins with a sharp image of the view
   and the whole layer follows (on a 3273 x 2992 px layer with three effects at 100 %, about 0.1 s instead of
   0.35 s until the layer moves with the pointer).

@@ -496,6 +496,7 @@ msgstr "动作名称"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 msgid "Actions"
 msgstr "动作"
 
@@ -1827,6 +1828,7 @@ msgid "Brush Reconstruct Options"
 msgstr "画笔重建选项"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Settings"
 msgstr "画笔设置"
@@ -1880,6 +1882,7 @@ msgid "Brush view"
 msgstr "画笔视图"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/BrushPanels.tsx
 msgid "Brushes"
 msgstr "画笔"
@@ -2083,13 +2086,14 @@ msgid "Channel Options"
 msgstr "通道选项"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Channels"
 msgstr "通道"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Character"
 msgstr "字符"
@@ -2097,6 +2101,10 @@ msgstr "字符"
 #: app/src/i18n/history.ts
 msgid "Character Formatting"
 msgstr "字符格式"
+
+#: app/src/app/typeMenu.ts
+msgid "Character Panel"
+msgstr "字符面板"
 
 #: app/src/TypePanels.tsx
 msgid "Character style name"
@@ -2107,10 +2115,14 @@ msgid "Character styles"
 msgstr "字符样式"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Character Styles"
 msgstr "字符样式"
+
+#: app/src/app/typeMenu.ts
+msgid "Character Styles Panel"
+msgstr "字符样式面板"
 
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/labels.ts
@@ -2288,6 +2300,7 @@ msgid "clockwise"
 msgstr "顺时针"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/CloneSourcePanel.tsx
 msgid "Clone Source"
 msgstr "仿制源"
@@ -2393,6 +2406,7 @@ msgstr "折叠 {title}"
 #: app/src/AnalysisDialogs.tsx
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/ColorDialog.tsx
 #: app/src/i18n/choices.ts
@@ -4325,10 +4339,6 @@ msgstr "排除重叠形状"
 msgid "Exclusion"
 msgstr "排除"
 
-#: app/src/app/menus.ts
-msgid "Exit Quick Mask Mode"
-msgstr "退出快速蒙版模式"
-
 #: app/src/app/helpers.ts
 msgid "Expand"
 msgstr "扩展"
@@ -5198,10 +5208,14 @@ msgid "Glyph Scaling Minimum %"
 msgstr "字形缩放最小 %"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/GlyphsPanel.tsx
 msgid "Glyphs"
 msgstr "字形"
+
+#: app/src/app/typeMenu.ts
+msgid "Glyphs Panel"
+msgstr "字形面板"
 
 #: app/src/i18n/choices.ts
 msgid "Golden Ratio"
@@ -5250,6 +5264,7 @@ msgid "Gradient…"
 msgstr "渐变…"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PresetPanels.tsx
 msgid "Gradients"
 msgstr "渐变"
@@ -5576,14 +5591,6 @@ msgid "Hide {shown}"
 msgstr "隐藏 {shown}"
 
 #: app/src/app/menus.ts
-msgid "Hide Actions"
-msgstr "隐藏动作"
-
-#: app/src/app/menus.ts
-msgid "Hide Adjustments"
-msgstr "隐藏调整"
-
-#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "全部隐藏"
@@ -5593,21 +5600,9 @@ msgstr "全部隐藏"
 msgid "Hide All Effects"
 msgstr "隐藏所有效果"
 
-#: app/src/app/menus.ts
-msgid "Hide Channels"
-msgstr "隐藏通道"
-
-#: app/src/app/menus.ts
-msgid "Hide Clone Source"
-msgstr "隐藏仿制源"
-
 #: app/src/LayersPanel.tsx
 msgid "Hide effects of {name}"
 msgstr "隐藏 {name} 的效果"
-
-#: app/src/app/menus.ts
-msgid "Hide Gradients"
-msgstr "隐藏渐变"
 
 #: app/src/app/menus.ts
 msgid "Hide Grid"
@@ -5617,21 +5612,9 @@ msgstr "隐藏网格"
 msgid "Hide Guides"
 msgstr "隐藏参考线"
 
-#: app/src/app/menus.ts
-msgid "Hide Histogram"
-msgstr "隐藏直方图"
-
-#: app/src/app/menus.ts
-msgid "Hide Info"
-msgstr "隐藏信息"
-
 #: app/src/i18n/history.ts
 msgid "Hide Layer"
 msgstr "隐藏图层"
-
-#: app/src/app/menus.ts
-msgid "Hide Layer Comps"
-msgstr "隐藏图层复合"
 
 #: app/src/i18n/history.ts
 msgid "Hide Layer Effects"
@@ -5643,32 +5626,8 @@ msgid "Hide Layers"
 msgstr "隐藏图层"
 
 #: app/src/app/menus.ts
-msgid "Hide Measurement Log"
-msgstr "隐藏测量记录"
-
-#: app/src/app/menus.ts
-msgid "Hide Navigator"
-msgstr "隐藏导航器"
-
-#: app/src/app/menus.ts
-msgid "Hide Notes"
-msgstr "隐藏注释"
-
-#: app/src/app/menus.ts
-msgid "Hide Paths"
-msgstr "隐藏路径"
-
-#: app/src/app/menus.ts
-msgid "Hide Patterns"
-msgstr "隐藏图案"
-
-#: app/src/app/menus.ts
 msgid "Hide Pixel Grid"
 msgstr "隐藏像素网格"
-
-#: app/src/app/menus.ts
-msgid "Hide Properties"
-msgstr "隐藏属性"
 
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
@@ -5681,18 +5640,6 @@ msgstr "隐藏选区"
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
 msgstr "隐藏选区边缘"
-
-#: app/src/app/menus.ts
-msgid "Hide Shapes"
-msgstr "隐藏形状"
-
-#: app/src/app/menus.ts
-msgid "Hide Styles"
-msgstr "隐藏样式"
-
-#: app/src/app/menus.ts
-msgid "Hide Tool Presets"
-msgstr "隐藏工具预设"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "High"
@@ -5774,6 +5721,7 @@ msgid "Highlights Yellow-Blue"
 msgstr "高光 黄色-蓝色"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/InspectionPanels.tsx
 #: app/src/LevelsCurvesBody.tsx
 msgid "Histogram"
@@ -5793,6 +5741,7 @@ msgstr "历史记录"
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
+#: app/src/app/menus.ts
 #: app/src/HistoryPanel.tsx
 msgid "History"
 msgstr "历史记录"
@@ -6090,6 +6039,7 @@ msgid "Inflate"
 msgstr "膨胀"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/InspectionPanels.tsx
 msgid "Info"
 msgstr "信息"
@@ -6424,6 +6374,7 @@ msgid "Layer Comp Options"
 msgstr "图层复合选项"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/LayerCompsPanel.tsx
 msgid "Layer Comps"
 msgstr "图层复合"
@@ -7277,6 +7228,7 @@ msgid "Measurement"
 msgstr "测量"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
 msgid "Measurement Log"
 msgstr "测量记录"
@@ -7527,6 +7479,10 @@ msgctxt "color mode"
 msgid "Mode"
 msgstr "模式"
 
+#: app/src/app/menus.ts
+msgid "Modify"
+msgstr "修改"
+
 #: app/src/app/colorSettings.ts
 msgid "Monitor Color"
 msgstr "显示器颜色"
@@ -7680,6 +7636,7 @@ msgid "Names use letters, digits and underscore, not starting with a digit. Pixe
 msgstr "名称只能使用字母、数字和下划线，且不能以数字开头。像素替换不可用。"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NavigatorPanel.tsx
 msgid "Navigator"
 msgstr "导航器"
@@ -8148,6 +8105,7 @@ msgid "Note text"
 msgstr "注释文本"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
 #: app/src/shell/tools.ts
 msgid "Notes"
@@ -8328,6 +8286,10 @@ msgstr "OpenType"
 #: app/src/app/Dialogs.tsx
 msgid "Operation"
 msgstr "操作"
+
+#: app/src/app/menus.ts
+msgid "Options"
+msgstr "选项"
 
 #: app/src/LevelsCurvesBody.tsx
 msgid "Options…"
@@ -8516,7 +8478,7 @@ msgid "Paper Brightness"
 msgstr "纸张亮度"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Paragraph"
 msgstr "段落"
@@ -8524,6 +8486,10 @@ msgstr "段落"
 #: app/src/i18n/history.ts
 msgid "Paragraph Formatting"
 msgstr "段落格式"
+
+#: app/src/app/typeMenu.ts
+msgid "Paragraph Panel"
+msgstr "段落面板"
 
 #: app/src/TypePanels.tsx
 msgid "Paragraph style name"
@@ -8534,10 +8500,14 @@ msgid "Paragraph styles"
 msgstr "段落样式"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Paragraph Styles"
 msgstr "段落样式"
+
+#: app/src/app/typeMenu.ts
+msgid "Paragraph Styles Panel"
+msgstr "段落样式面板"
 
 #: app/src/TypePanels.tsx
 msgid "Paragraph Text"
@@ -8636,6 +8606,7 @@ msgid "Pathfinder"
 msgstr "路径查找器"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/filters/labels.ts
 #: app/src/PathsPanel.tsx
 msgid "Paths"
@@ -8695,6 +8666,7 @@ msgid "Pattern…"
 msgstr "图案…"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PresetPanels.tsx
 msgid "Patterns"
 msgstr "图案"
@@ -9208,6 +9180,7 @@ msgid "Proof Setup"
 msgstr "校样设置"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PropertiesPanel.tsx
 #: app/src/TypePanels.tsx
 msgid "Properties"
@@ -10728,6 +10701,7 @@ msgid "Shape Stroke"
 msgstr "形状描边"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ShapesPanel.tsx
 msgid "Shapes"
 msgstr "形状"
@@ -10818,14 +10792,6 @@ msgid "Show {shown}"
 msgstr "显示{shown}"
 
 #: app/src/app/menus.ts
-msgid "Show Actions"
-msgstr "显示动作"
-
-#: app/src/app/menus.ts
-msgid "Show Adjustments"
-msgstr "显示调整"
-
-#: app/src/app/menus.ts
 msgid "Show All Effects"
 msgstr "显示所有效果"
 
@@ -10837,14 +10803,6 @@ msgstr "显示背景"
 msgid "Show Brush Leash While Smoothing"
 msgstr "平滑时显示画笔带"
 
-#: app/src/app/menus.ts
-msgid "Show Channels"
-msgstr "显示通道"
-
-#: app/src/app/menus.ts
-msgid "Show Clone Source"
-msgstr "显示仿制源"
-
 #: app/src/app/Dialogs.tsx
 msgid "Show Crosshair in Brush Tip"
 msgstr "在画笔笔尖显示十字线"
@@ -10852,10 +10810,6 @@ msgstr "在画笔笔尖显示十字线"
 #: app/src/LayersPanel.tsx
 msgid "Show effects of {name}"
 msgstr "显示“{name}”的效果"
-
-#: app/src/app/menus.ts
-msgid "Show Gradients"
-msgstr "显示渐变"
 
 #: app/src/app/menus.ts
 #: app/src/filters/VanishingPointDialog.tsx
@@ -10867,25 +10821,13 @@ msgstr "显示网格"
 msgid "Show Guides"
 msgstr "显示参考线"
 
-#: app/src/app/menus.ts
-msgid "Show Histogram"
-msgstr "显示直方图"
-
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Image"
 msgstr "显示图像"
 
-#: app/src/app/menus.ts
-msgid "Show Info"
-msgstr "显示信息"
-
 #: app/src/i18n/history.ts
 msgid "Show Layer"
 msgstr "显示图层"
-
-#: app/src/app/menus.ts
-msgid "Show Layer Comps"
-msgstr "显示图层复合"
 
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
@@ -10900,22 +10842,10 @@ msgstr "显示图层"
 msgid "Show Mask"
 msgstr "显示蒙版"
 
-#: app/src/app/menus.ts
-msgid "Show Measurement Log"
-msgstr "显示测量记录"
-
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Show Mesh"
 msgstr "显示网格"
-
-#: app/src/app/menus.ts
-msgid "Show Navigator"
-msgstr "显示导航器"
-
-#: app/src/app/menus.ts
-msgid "Show Notes"
-msgstr "显示注释"
 
 #: app/src/app/Dialogs.tsx
 msgid "Show Only Crosshair While Painting"
@@ -10926,20 +10856,8 @@ msgid "Show Overlay"
 msgstr "显示叠加"
 
 #: app/src/app/menus.ts
-msgid "Show Paths"
-msgstr "显示路径"
-
-#: app/src/app/menus.ts
-msgid "Show Patterns"
-msgstr "显示图案"
-
-#: app/src/app/menus.ts
 msgid "Show Pixel Grid"
 msgstr "显示像素网格"
-
-#: app/src/app/menus.ts
-msgid "Show Properties"
-msgstr "显示属性"
 
 #: app/src/app/menus.ts
 msgid "Show Rulers"
@@ -10949,21 +10867,9 @@ msgstr "显示标尺"
 msgid "Show selection edges"
 msgstr "显示选区边缘"
 
-#: app/src/app/menus.ts
-msgid "Show Shapes"
-msgstr "显示形状"
-
-#: app/src/app/menus.ts
-msgid "Show Styles"
-msgstr "显示样式"
-
 #: app/src/ActionsPanel.tsx
 msgid "Show the action tree"
 msgstr "显示动作树"
-
-#: app/src/app/menus.ts
-msgid "Show Tool Presets"
-msgstr "显示工具预设"
 
 #: app/src/shell/tools.ts
 msgid "Show transform controls"
@@ -11713,6 +11619,7 @@ msgid "Style name"
 msgstr "样式名称"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PresetPanels.tsx
 msgid "Styles"
@@ -11817,6 +11724,7 @@ msgid "Swash"
 msgstr "花饰字"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/SwatchesPanel.tsx
 msgid "Swatches"
 msgstr "色板"
@@ -12363,6 +12271,7 @@ msgid "Tool preset tool is invalid."
 msgstr "工具预设的工具无效。"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ToolPresetsPanel.tsx
 msgid "Tool Presets"
 msgstr "工具预设"
@@ -12375,6 +12284,7 @@ msgstr "无法加载工具预设。"
 msgid "Tool presets could not be saved: {reason}"
 msgstr "无法存储工具预设：{reason}"
 
+#: app/src/app/menus.ts
 #: app/src/shell/ToolBar.tsx
 msgid "Tools"
 msgstr "工具"

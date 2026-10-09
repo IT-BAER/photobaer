@@ -81,6 +81,9 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 
 .workspace { display: grid; grid-template-columns: 48px 1fr; grid-template-rows: minmax(0, 1fr); min-height: 0; }
 .workspace.with-sidebar { grid-template-columns: 48px 1fr 260px; }
+/* Window > Tools hides the toolbar column. */
+.workspace.no-tools { grid-template-columns: minmax(0, 1fr); }
+.workspace.no-tools.with-sidebar { grid-template-columns: minmax(0, 1fr) 260px; }
 .stage-column { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .document-arrangement { position: relative; display: grid; flex: 1; min-width: 0; min-height: 0; gap: 2px; overflow: hidden; background: var(--line); }
 .arrange-pane { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
@@ -423,6 +426,7 @@ dialog .copy-row input, .copy-row textarea { flex: 1; min-width: 0; font: 12px/1
 @media (max-width: 640px) {
   .workspace.with-sidebar { grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 40%); }
   .workspace.with-sidebar > .toolbar { grid-row: 1 / 3; }
+  .workspace.no-tools.with-sidebar { grid-template-columns: minmax(0, 1fr); }
   .workspace.with-sidebar > .sidebar { border-left: 0; border-top: 1px solid var(--line); }
   .color-picker .picker-fields { column-gap: 4px; }
 }

@@ -7,9 +7,13 @@ export const PANEL_KEYS = [
   'actions', 'adjustments', 'channels', 'cloneSource', 'navigator', 'layerComps', 'paths', 'properties', 'styles', 'patterns', 'gradients', 'shapes',
   'character', 'paragraph', 'characterStyles', 'paragraphStyles', 'glyphs', 'histogram', 'info', 'toolPresets', 'notes', 'measurementLog',
 ] as const;
-export type WorkspacePanel = typeof PANEL_KEYS[number];
+// Parts shown by default that Window can hide: the Color/Swatches/Brush group, Layers, History, options bar, toolbar.
+export const FRAME_KEYS = ['tabs', 'layers', 'history', 'options', 'tools'] as const;
+export type FrameKey = typeof FRAME_KEYS[number];
+export const SHOWN_KEYS = [...PANEL_KEYS, ...FRAME_KEYS] as const;
+export type WorkspacePanel = typeof SHOWN_KEYS[number];
 export type WorkspaceDockTab = 'color' | 'swatches' | 'brushSettings' | 'brushes';
-// Sidebar sections: 'tabs' is the Color/Swatches/Brush group; layers and history are always shown with a document.
+// Sidebar sections: 'tabs' is the Color/Swatches/Brush group; layers and history need a document.
 export const DOCK_KEYS = ['tabs', 'layers', 'history', ...PANEL_KEYS] as const;
 export type DockKey = typeof DOCK_KEYS[number];
 // Default top-to-bottom order of the sidebar sections; the user's order is kept per browser.
@@ -27,6 +31,7 @@ export interface WorkspaceSettings extends Record<WorkspacePanel, boolean> {
   dockTab: WorkspaceDockTab;
   dock: DockLayout;
 }
+export const frameOf = (s: WorkspaceSettings) => Object.fromEntries(FRAME_KEYS.map(k => [k, s[k]])) as Record<FrameKey, boolean>;
 export interface NamedWorkspace { name: string; settings: WorkspaceSettings }
 export interface WorkspaceState {
   selected: string;
@@ -44,6 +49,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   paths: false, properties: false, styles: false, patterns: false, gradients: false, shapes: false, dockTab: 'color',
   character: false, paragraph: false, characterStyles: false, paragraphStyles: false, glyphs: false,
   histogram: false, info: false, toolPresets: false, notes: false, measurementLog: false, dock: {},
+  tabs: true, layers: true, history: true, options: true, tools: true,
 };
 
 const preset = (name: string, patch: Partial<WorkspaceSettings> = {}): NamedWorkspace => ({
@@ -110,15 +116,16 @@ const builtIn = (name: string) => BUILTIN_WORKSPACES.find(w => w.name === name);
 const customWorkspace = (state: Pick<WorkspaceState, 'custom'>, name: string) => state.custom.find(w => w.name === name);
 const named = (state: Pick<WorkspaceState, 'custom'>, name: string) => builtIn(name) ?? customWorkspace(state, name);
 
-const ADDED_PANEL_KEYS = new Set<WorkspacePanel>(['histogram', 'info', 'toolPresets', 'notes', 'measurementLog']);
+// Keys newer than the first stored format; a stored workspace without them takes the default.
+const ADDED_PANEL_KEYS = new Set<WorkspacePanel>(['histogram', 'info', 'toolPresets', 'notes', 'measurementLog', ...FRAME_KEYS]);
 
 function normalizeSettings(value: unknown): WorkspaceSettings | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const settings = value as Record<string, unknown>;
   if (!DOCK_TABS.includes(settings.dockTab as WorkspaceDockTab)) return null;
   const out = { dockTab: settings.dockTab, dock: normalizeDock(settings.dock) } as WorkspaceSettings;
-  for (const key of PANEL_KEYS) {
-    if (settings[key] === undefined && ADDED_PANEL_KEYS.has(key)) out[key] = false;
+  for (const key of SHOWN_KEYS) {
+    if (settings[key] === undefined && ADDED_PANEL_KEYS.has(key)) out[key] = DEFAULT_WORKSPACE_SETTINGS[key];
     else if (typeof settings[key] === 'boolean') out[key] = settings[key];
     else return null;
   }

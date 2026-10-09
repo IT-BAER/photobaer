@@ -496,6 +496,7 @@ msgstr "액션 이름"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 msgid "Actions"
 msgstr "액션"
 
@@ -1827,6 +1828,7 @@ msgid "Brush Reconstruct Options"
 msgstr "브러시 재구성 옵션"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Settings"
 msgstr "브러시 설정"
@@ -1880,6 +1882,7 @@ msgid "Brush view"
 msgstr "브러시 보기"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/BrushPanels.tsx
 msgid "Brushes"
 msgstr "브러시"
@@ -2083,13 +2086,14 @@ msgid "Channel Options"
 msgstr "채널 옵션"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Channels"
 msgstr "채널"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Character"
 msgstr "문자"
@@ -2097,6 +2101,10 @@ msgstr "문자"
 #: app/src/i18n/history.ts
 msgid "Character Formatting"
 msgstr "문자 서식"
+
+#: app/src/app/typeMenu.ts
+msgid "Character Panel"
+msgstr "문자 패널"
 
 #: app/src/TypePanels.tsx
 msgid "Character style name"
@@ -2107,10 +2115,14 @@ msgid "Character styles"
 msgstr "문자 스타일"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Character Styles"
 msgstr "문자 스타일"
+
+#: app/src/app/typeMenu.ts
+msgid "Character Styles Panel"
+msgstr "문자 스타일 패널"
 
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/labels.ts
@@ -2288,6 +2300,7 @@ msgid "clockwise"
 msgstr "시계 방향"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/CloneSourcePanel.tsx
 msgid "Clone Source"
 msgstr "복제 원본"
@@ -2393,6 +2406,7 @@ msgstr "{title} 축소"
 #: app/src/AnalysisDialogs.tsx
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/ColorDialog.tsx
 #: app/src/i18n/choices.ts
@@ -4325,10 +4339,6 @@ msgstr "오버랩되는 모양 제외"
 msgid "Exclusion"
 msgstr "제외"
 
-#: app/src/app/menus.ts
-msgid "Exit Quick Mask Mode"
-msgstr "빠른 마스크 모드 종료"
-
 #: app/src/app/helpers.ts
 msgid "Expand"
 msgstr "확대"
@@ -5198,10 +5208,14 @@ msgid "Glyph Scaling Minimum %"
 msgstr "글리프 비율 조정 최소값 %"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/GlyphsPanel.tsx
 msgid "Glyphs"
 msgstr "글리프"
+
+#: app/src/app/typeMenu.ts
+msgid "Glyphs Panel"
+msgstr "글리프 패널"
 
 #: app/src/i18n/choices.ts
 msgid "Golden Ratio"
@@ -5250,6 +5264,7 @@ msgid "Gradient…"
 msgstr "그레이디언트…"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PresetPanels.tsx
 msgid "Gradients"
 msgstr "그레이디언트"
@@ -5576,14 +5591,6 @@ msgid "Hide {shown}"
 msgstr "{shown} 숨기기"
 
 #: app/src/app/menus.ts
-msgid "Hide Actions"
-msgstr "액션 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Adjustments"
-msgstr "조정 숨기기"
-
-#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "모두 숨기기"
@@ -5593,21 +5600,9 @@ msgstr "모두 숨기기"
 msgid "Hide All Effects"
 msgstr "모든 효과 숨기기"
 
-#: app/src/app/menus.ts
-msgid "Hide Channels"
-msgstr "채널 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Clone Source"
-msgstr "복제 원본 숨기기"
-
 #: app/src/LayersPanel.tsx
 msgid "Hide effects of {name}"
 msgstr "{name}의 효과 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Gradients"
-msgstr "그레이디언트 숨기기"
 
 #: app/src/app/menus.ts
 msgid "Hide Grid"
@@ -5617,21 +5612,9 @@ msgstr "격자 숨기기"
 msgid "Hide Guides"
 msgstr "안내선 숨기기"
 
-#: app/src/app/menus.ts
-msgid "Hide Histogram"
-msgstr "막대 그래프 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Info"
-msgstr "정보 숨기기"
-
 #: app/src/i18n/history.ts
 msgid "Hide Layer"
 msgstr "레이어 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Layer Comps"
-msgstr "레이어 구성 숨기기"
 
 #: app/src/i18n/history.ts
 msgid "Hide Layer Effects"
@@ -5643,32 +5626,8 @@ msgid "Hide Layers"
 msgstr "레이어 숨기기"
 
 #: app/src/app/menus.ts
-msgid "Hide Measurement Log"
-msgstr "측정 로그 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Navigator"
-msgstr "내비게이터 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Notes"
-msgstr "메모 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Paths"
-msgstr "패스 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Patterns"
-msgstr "패턴 숨기기"
-
-#: app/src/app/menus.ts
 msgid "Hide Pixel Grid"
 msgstr "픽셀 격자 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Properties"
-msgstr "속성 숨기기"
 
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
@@ -5681,18 +5640,6 @@ msgstr "선택 영역 숨기기"
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
 msgstr "선택 영역 가장자리 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Shapes"
-msgstr "모양 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Styles"
-msgstr "스타일 숨기기"
-
-#: app/src/app/menus.ts
-msgid "Hide Tool Presets"
-msgstr "도구 사전 설정 숨기기"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "High"
@@ -5774,6 +5721,7 @@ msgid "Highlights Yellow-Blue"
 msgstr "밝은 영역 노랑-파랑"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/InspectionPanels.tsx
 #: app/src/LevelsCurvesBody.tsx
 msgid "Histogram"
@@ -5793,6 +5741,7 @@ msgstr "작업 내역"
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
+#: app/src/app/menus.ts
 #: app/src/HistoryPanel.tsx
 msgid "History"
 msgstr "작업 내역"
@@ -6090,6 +6039,7 @@ msgid "Inflate"
 msgstr "부풀리기"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/InspectionPanels.tsx
 msgid "Info"
 msgstr "정보"
@@ -6424,6 +6374,7 @@ msgid "Layer Comp Options"
 msgstr "레이어 구성 옵션"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/LayerCompsPanel.tsx
 msgid "Layer Comps"
 msgstr "레이어 구성"
@@ -7277,6 +7228,7 @@ msgid "Measurement"
 msgstr "측정"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
 msgid "Measurement Log"
 msgstr "측정 로그"
@@ -7527,6 +7479,10 @@ msgctxt "color mode"
 msgid "Mode"
 msgstr "모드"
 
+#: app/src/app/menus.ts
+msgid "Modify"
+msgstr "수정"
+
 #: app/src/app/colorSettings.ts
 msgid "Monitor Color"
 msgstr "모니터 색상"
@@ -7680,6 +7636,7 @@ msgid "Names use letters, digits and underscore, not starting with a digit. Pixe
 msgstr "이름에는 문자, 숫자 및 밑줄을 사용하며 숫자로 시작할 수 없습니다. 픽셀 대체는 사용할 수 없습니다."
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NavigatorPanel.tsx
 msgid "Navigator"
 msgstr "내비게이터"
@@ -8148,6 +8105,7 @@ msgid "Note text"
 msgstr "메모 텍스트"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
 #: app/src/shell/tools.ts
 msgid "Notes"
@@ -8328,6 +8286,10 @@ msgstr "OpenType"
 #: app/src/app/Dialogs.tsx
 msgid "Operation"
 msgstr "작업"
+
+#: app/src/app/menus.ts
+msgid "Options"
+msgstr "옵션"
 
 #: app/src/LevelsCurvesBody.tsx
 msgid "Options…"
@@ -8516,7 +8478,7 @@ msgid "Paper Brightness"
 msgstr "용지 명도"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Paragraph"
 msgstr "단락"
@@ -8524,6 +8486,10 @@ msgstr "단락"
 #: app/src/i18n/history.ts
 msgid "Paragraph Formatting"
 msgstr "단락 서식"
+
+#: app/src/app/typeMenu.ts
+msgid "Paragraph Panel"
+msgstr "단락 패널"
 
 #: app/src/TypePanels.tsx
 msgid "Paragraph style name"
@@ -8534,10 +8500,14 @@ msgid "Paragraph styles"
 msgstr "단락 스타일"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Paragraph Styles"
 msgstr "단락 스타일"
+
+#: app/src/app/typeMenu.ts
+msgid "Paragraph Styles Panel"
+msgstr "단락 스타일 패널"
 
 #: app/src/TypePanels.tsx
 msgid "Paragraph Text"
@@ -8636,6 +8606,7 @@ msgid "Pathfinder"
 msgstr "패스파인더"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/filters/labels.ts
 #: app/src/PathsPanel.tsx
 msgid "Paths"
@@ -8695,6 +8666,7 @@ msgid "Pattern…"
 msgstr "패턴…"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PresetPanels.tsx
 msgid "Patterns"
 msgstr "패턴"
@@ -9208,6 +9180,7 @@ msgid "Proof Setup"
 msgstr "저해상도 인쇄 설정"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PropertiesPanel.tsx
 #: app/src/TypePanels.tsx
 msgid "Properties"
@@ -10728,6 +10701,7 @@ msgid "Shape Stroke"
 msgstr "모양 획"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ShapesPanel.tsx
 msgid "Shapes"
 msgstr "모양"
@@ -10818,14 +10792,6 @@ msgid "Show {shown}"
 msgstr "{shown} 표시"
 
 #: app/src/app/menus.ts
-msgid "Show Actions"
-msgstr "액션 표시"
-
-#: app/src/app/menus.ts
-msgid "Show Adjustments"
-msgstr "조정 표시"
-
-#: app/src/app/menus.ts
 msgid "Show All Effects"
 msgstr "모든 효과 표시"
 
@@ -10837,14 +10803,6 @@ msgstr "배경 표시"
 msgid "Show Brush Leash While Smoothing"
 msgstr "스무딩 시 브러시 가죽끈 표시"
 
-#: app/src/app/menus.ts
-msgid "Show Channels"
-msgstr "채널 표시"
-
-#: app/src/app/menus.ts
-msgid "Show Clone Source"
-msgstr "복제 원본 표시"
-
 #: app/src/app/Dialogs.tsx
 msgid "Show Crosshair in Brush Tip"
 msgstr "브러시 팁에 십자선 표시"
@@ -10852,10 +10810,6 @@ msgstr "브러시 팁에 십자선 표시"
 #: app/src/LayersPanel.tsx
 msgid "Show effects of {name}"
 msgstr "{name} 효과 표시"
-
-#: app/src/app/menus.ts
-msgid "Show Gradients"
-msgstr "그레이디언트 표시"
 
 #: app/src/app/menus.ts
 #: app/src/filters/VanishingPointDialog.tsx
@@ -10867,25 +10821,13 @@ msgstr "격자 표시"
 msgid "Show Guides"
 msgstr "안내선 표시"
 
-#: app/src/app/menus.ts
-msgid "Show Histogram"
-msgstr "막대 그래프 표시"
-
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Image"
 msgstr "이미지 표시"
 
-#: app/src/app/menus.ts
-msgid "Show Info"
-msgstr "정보 표시"
-
 #: app/src/i18n/history.ts
 msgid "Show Layer"
 msgstr "레이어 표시"
-
-#: app/src/app/menus.ts
-msgid "Show Layer Comps"
-msgstr "레이어 구성 표시"
 
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
@@ -10900,22 +10842,10 @@ msgstr "레이어 표시"
 msgid "Show Mask"
 msgstr "마스크 표시"
 
-#: app/src/app/menus.ts
-msgid "Show Measurement Log"
-msgstr "측정 로그 표시"
-
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Show Mesh"
 msgstr "메시 표시"
-
-#: app/src/app/menus.ts
-msgid "Show Navigator"
-msgstr "내비게이터 표시"
-
-#: app/src/app/menus.ts
-msgid "Show Notes"
-msgstr "메모 표시"
 
 #: app/src/app/Dialogs.tsx
 msgid "Show Only Crosshair While Painting"
@@ -10926,20 +10856,8 @@ msgid "Show Overlay"
 msgstr "오버레이 표시"
 
 #: app/src/app/menus.ts
-msgid "Show Paths"
-msgstr "패스 표시"
-
-#: app/src/app/menus.ts
-msgid "Show Patterns"
-msgstr "패턴 표시"
-
-#: app/src/app/menus.ts
 msgid "Show Pixel Grid"
 msgstr "픽셀 격자 표시"
-
-#: app/src/app/menus.ts
-msgid "Show Properties"
-msgstr "속성 표시"
 
 #: app/src/app/menus.ts
 msgid "Show Rulers"
@@ -10949,21 +10867,9 @@ msgstr "눈금자 표시"
 msgid "Show selection edges"
 msgstr "선택 영역 가장자리 표시"
 
-#: app/src/app/menus.ts
-msgid "Show Shapes"
-msgstr "모양 표시"
-
-#: app/src/app/menus.ts
-msgid "Show Styles"
-msgstr "스타일 표시"
-
 #: app/src/ActionsPanel.tsx
 msgid "Show the action tree"
 msgstr "액션 트리 표시"
-
-#: app/src/app/menus.ts
-msgid "Show Tool Presets"
-msgstr "도구 사전 설정 표시"
 
 #: app/src/shell/tools.ts
 msgid "Show transform controls"
@@ -11713,6 +11619,7 @@ msgid "Style name"
 msgstr "스타일 이름"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PresetPanels.tsx
 msgid "Styles"
@@ -11817,6 +11724,7 @@ msgid "Swash"
 msgstr "장식체"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/SwatchesPanel.tsx
 msgid "Swatches"
 msgstr "견본"
@@ -12363,6 +12271,7 @@ msgid "Tool preset tool is invalid."
 msgstr "도구 사전 설정 도구가 잘못되었습니다."
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ToolPresetsPanel.tsx
 msgid "Tool Presets"
 msgstr "도구 사전 설정"
@@ -12375,6 +12284,7 @@ msgstr "도구 사전 설정을 불러올 수 없습니다."
 msgid "Tool presets could not be saved: {reason}"
 msgstr "도구 사전 설정을 저장할 수 없습니다: {reason}"
 
+#: app/src/app/menus.ts
 #: app/src/shell/ToolBar.tsx
 msgid "Tools"
 msgstr "도구"

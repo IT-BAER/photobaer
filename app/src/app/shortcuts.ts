@@ -19,7 +19,7 @@ export function exportShortcut(e: ExportKey): 'quick' | 'as' | null {
 export interface ShortcutCtx {
   menusRef: RefObject<Record<string, Item[]>>; capsLockRef: RefObject<boolean>; polygonActionsRef: RefObject<(Session & { removeLast: () => void }) | null>;
   transformKey: (e: KeyboardEvent, k: string, ctrl: boolean) => boolean; cropSession: RefObject<Session | null>;
-  setDockTab: SetState<'color' | 'swatches' | 'brushSettings' | 'brushes'>; setMenu: SetState<string | null>; viewer: RefObject<Viewer | null>;
+  setMenu: SetState<string | null>; viewer: RefObject<Viewer | null>;
   setFg: SetState<Rgb>; setBg: SetState<Rgb>; bgRef: RefObject<Rgb>; fgRef: RefObject<Rgb>; setQuickMask: SetState<boolean>;
   toolRef: RefObject<string>; toolOptionsRef: RefObject<ToolOptions>;
   patchToolOptions: (toolId: string, patch: Record<string, number | string | boolean>) => void;
@@ -35,7 +35,7 @@ export interface ShortcutCtx {
 
 export function useShortcuts(c: ShortcutCtx) {
   const {
-    menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setDockTab, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
+    menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
     toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef, setChannelView,
   } = c;
   useEffect(() => {
@@ -52,6 +52,12 @@ export function useShortcuts(c: ShortcutCtx) {
     };
     const triggerLayer = (label: string, e: KeyboardEvent) => {
       const it = menusRef.current.Layer.find(i => itemId(i).startsWith(label));
+      e.preventDefault();
+      if (it && !it.off) it.run();
+    };
+    // Window panel toggles by exact id: other menus carry the same names (View > Snap To > Layers).
+    const panel = (id: string, e: KeyboardEvent) => {
+      const it = menusRef.current.Window.find(i => itemId(i) === id);
       e.preventDefault();
       if (it && !it.off) it.run();
     };
@@ -137,10 +143,12 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && e.shiftKey && k === 't') triggerBy(l => l === 'Again', e);
       else if (ctrl && k === 't') trigger('Free Transform', e);
       else if (e.shiftKey && k === 'f6') trigger('Feather', e);
-      else if (e.altKey && !ctrl && k === 'f9') triggerBy(l => l === 'Show Actions' || l === 'Hide Actions', e);
+      else if (e.altKey && !ctrl && k === 'f9') panel('Actions', e);
       else if (e.shiftKey && !ctrl && k === 'f5') triggerBy(l => l === 'Fill…', e);
       else if (k === 'f12' && !ctrl && !e.shiftKey && !e.altKey && find(l => l === 'Revert')?.off === false) triggerBy(l => l === 'Revert', e);
-      else if (k === 'f5' && !ctrl) { e.preventDefault(); setDockTab(t => (t === 'brushSettings' ? 'color' : 'brushSettings')); }
+      else if (!ctrl && !e.altKey && !e.shiftKey && (k === 'f5' || k === 'f6' || k === 'f7' || k === 'f8')) {
+        panel(({ f5: 'Brush Settings', f6: 'Color', f7: 'Layers', f8: 'Info' } as const)[k], e);
+      }
       else if (ctrl && k === 'h') triggerBy(l => l.endsWith('selection edges'), e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 'r') trigger('Lens Correction', e);
       else if (ctrl && k === 'r') triggerBy(l => l.endsWith('Rulers'), e);

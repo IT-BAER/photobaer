@@ -35,7 +35,7 @@ import { ToolPresetsPanel } from './ToolPresetsPanel.tsx';
 import { MeasurementLogPanel, NotesPanel } from './NotesPanels.tsx';
 import { useMeasureTools } from './app/measureTools.tsx';
 import { runScript } from './app/scripting.ts';
-import { DOCK_DEFAULT_ORDER, PANEL_KEYS, addWorkspace, deleteWorkspace, loadWorkspaces, lockWorkspace, resetWorkspace, resizeDock, saveWorkspaces, selectWorkspace, toggleDock, type DockKey, type WorkspaceSettings, type WorkspaceState } from './app/workspaces.ts';
+import { DOCK_DEFAULT_ORDER, SHOWN_KEYS, frameOf, type FrameKey, type WorkspaceDockTab, addWorkspace, deleteWorkspace, loadWorkspaces, lockWorkspace, resetWorkspace, resizeDock, saveWorkspaces, selectWorkspace, toggleDock, type DockKey, type WorkspaceSettings, type WorkspaceState } from './app/workspaces.ts';
 import { loadOrder, moveItem, saveOrder } from './app/panelOrder.ts';
 import { matchDocumentViews, type ArrangeMode, type MatchKind } from './app/arrange.ts';
 import { addToolPreset, applyToolPreset, deleteToolPreset, exportToolPresets, importToolPresets, loadToolPresets, renameToolPreset, saveToolPresets, snapshotToolPreset, validateBrushPresetAssets, validateToolOptionAssets } from './app/toolPresets.ts';
@@ -314,6 +314,7 @@ export function App() {
     character: workspace.settings.character, paragraph: workspace.settings.paragraph,
     characterStyles: workspace.settings.characterStyles, paragraphStyles: workspace.settings.paragraphStyles, glyphs: workspace.settings.glyphs,
   });
+  const [frame, setFrame] = useState(() => frameOf(workspace.settings));
   const workspaceLockedRef = useRef(workspace.locked);
   workspaceLockedRef.current = workspace.locked;
   const currentWorkspaceSettings = (): WorkspaceSettings => ({
@@ -321,7 +322,7 @@ export function App() {
     layerComps: showLayerComps, paths: showPaths, properties: showProperties, styles: showStyles, patterns: showPatterns,
     gradients: showGradients, shapes: showShapes, character: typePanels.character, paragraph: typePanels.paragraph,
     characterStyles: typePanels.characterStyles, paragraphStyles: typePanels.paragraphStyles, glyphs: typePanels.glyphs,
-    histogram: showHistogram, info: showInfo, toolPresets: showToolPresets, notes: showNotes, measurementLog: showMeasurementLog, dockTab, dock,
+    histogram: showHistogram, info: showInfo, toolPresets: showToolPresets, notes: showNotes, measurementLog: showMeasurementLog, dockTab, dock, ...frame,
   });
   const storeWorkspace = (next: WorkspaceState) => {
     setWorkspace(next);
@@ -336,6 +337,15 @@ export function App() {
     setShowStyles(s.styles); setShowPatterns(s.patterns); setShowGradients(s.gradients); setShowShapes(s.shapes); setDockTab(s.dockTab); setDock(s.dock);
     setShowHistogram(s.histogram); setShowInfo(s.info); setShowToolPresets(s.toolPresets); setShowNotes(s.notes); setShowMeasurementLog(s.measurementLog);
     setTypePanels({ character: s.character, paragraph: s.paragraph, characterStyles: s.characterStyles, paragraphStyles: s.paragraphStyles, glyphs: s.glyphs });
+    setFrame(frameOf(s));
+  };
+  const toggleFrame = (k: FrameKey) => { if (!workspaceLockedRef.current) setFrame(f => ({ ...f, [k]: !f[k] })); };
+  // Window > Color, Swatches, Brushes, Brush Settings: shows the group on that tab, or hides the group when it is in front.
+  const showDockTab = (k: WorkspaceDockTab) => {
+    if (workspaceLockedRef.current) return;
+    if (frame.tabs && dockTab === k) { setFrame(f => ({ ...f, tabs: false })); return; }
+    setFrame(f => ({ ...f, tabs: true }));
+    setDockTab(k);
   };
   const guardedSetDockTab: typeof setDockTab = value => { if (!workspaceLockedRef.current) setDockTab(value); };
   const dockResize = (id: DockKey, height: number | null) => { if (!workspaceLockedRef.current) setDock(d => resizeDock(d, id, height)); };
@@ -376,9 +386,9 @@ export function App() {
   useEffect(() => {
     const settings = currentWorkspaceSettings();
     if (workspace.settings.dockTab === settings.dockTab && JSON.stringify(workspace.settings.dock) === JSON.stringify(settings.dock)
-      && PANEL_KEYS.every(key => workspace.settings[key] === settings[key])) return;
+      && SHOWN_KEYS.every(key => workspace.settings[key] === settings[key])) return;
     storeWorkspace({ ...workspace, settings });
-  }, [dockTab, dock, showActions, showAdjustments, showChannels, showCloneSource, showNavigator, showLayerComps, showPaths, showProperties, showStyles, showPatterns, showGradients, showShapes, showHistogram, showInfo, showToolPresets, showNotes, showMeasurementLog, typePanels]);
+  }, [dockTab, dock, showActions, showAdjustments, showChannels, showCloneSource, showNavigator, showLayerComps, showPaths, showProperties, showStyles, showPatterns, showGradients, showShapes, showHistogram, showInfo, showToolPresets, showNotes, showMeasurementLog, typePanels, frame]);
   const [typePrefs, setTypePrefs] = useState(loadTypePrefs);
   // Changes with the type session and its selection, so the type panels re-read it.
   const [, setTypeSel] = useState('');
@@ -1837,6 +1847,7 @@ export function App() {
     },
     newGuideDialog, newGuideLayoutDialog, cursorPrefsDialog, snap, setSnap, filterSpecs, openFilter, openLiquify: () => openLiquify(), openVanishingPoint: () => openVanishingPoint(), openContentAwareScale, startDeform: k => void startDeform(k), lastFilter, openFade, openSearch: () => setSearchOpen(true),
     openArtboard: mode => { setMenu(null); setArtboardMode(mode); artboardDialog.current?.showModal(); }, activeArtboard,
+    frame, toggleFrame, dockTab, showDockTab, typePanels, toggleTypePanel: k => typeCtx.togglePanel(k),
     selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems: typeMenuItems(typeCtx),
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
     workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
@@ -2334,7 +2345,7 @@ export function App() {
   }
 
   useShortcuts({
-    menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setDockTab: guardedSetDockTab, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
+    menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
     toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef, setChannelView,
   });
 
@@ -2633,14 +2644,14 @@ export function App() {
           </>
         );
       })()}
-      <main className={`workspace${doc || showHistogram || showInfo || showToolPresets || showNotes || showMeasurementLog ? ' with-sidebar' : ''}${doc ? '' : ' no-doc'}`}>
-        <ToolBar
+      <main className={`workspace${doc || showHistogram || showInfo || showToolPresets || showNotes || showMeasurementLog ? ' with-sidebar' : ''}${doc ? '' : ' no-doc'}${frame.tools ? '' : ' no-tools'}`}>
+        {frame.tools && <ToolBar
           active={tool} setActive={setTool} lastUsed={lastUsed} setLastUsed={setLastUsed}
           fg={fg} bg={bg} openPicker={openPicker} swap={swapColors} reset={resetColors}
           quickMask={quickMask} setQuickMask={setQuickMask}
-        />
+        />}
         <div className="stage-column">
-          {deform ? <DeformSession req={deform} viewer={viewer} show={d => show(d)} setError={m => setError(m)} onEnd={() => setDeform(null)} /> : transformStore ? (
+          {deform ? <DeformSession req={deform} viewer={viewer} show={d => show(d)} setError={m => setError(m)} onEnd={() => setDeform(null)} /> : !frame.options ? null : transformStore ? (
             <TransformBar
               store={transformStore}
               setMode={m => withTransform(t => setTransformMode(t, m))}
@@ -2730,7 +2741,7 @@ export function App() {
           />
         </div>
         <aside className="sidebar">
-          <DockSection {...sec('tabs', msg`Color panels`)} header={<div className="panel-tabs dock-tabs">
+          {frame.tabs && <DockSection {...sec('tabs', msg`Color panels`)} header={<div className="panel-tabs dock-tabs">
             <button className={`panel-tab${dockTab === 'color' ? ' active' : ''}`} disabled={workspace.locked} title={t`Color`} onClick={() => guardedSetDockTab('color')}><Trans>Color</Trans></button>
             <button className={`panel-tab${dockTab === 'swatches' ? ' active' : ''}`} disabled={workspace.locked} title={t`Swatches`} onClick={() => guardedSetDockTab('swatches')}><Trans>Swatches</Trans></button>
             <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} disabled={workspace.locked} title={t`Brush Settings (F5)`} onClick={() => guardedSetDockTab('brushSettings')}><Trans>Brush Settings</Trans></button>
@@ -2753,7 +2764,7 @@ export function App() {
               openSettings={() => guardedSetDockTab('brushSettings')}
             />
           )}
-          </DockSection>
+          </DockSection>}
           {doc && showAdjustments && <DockSection {...sec('adjustments', msg`Adjustments`)}><AdjustmentsPanel create={newAdjustmentLayer} fill={quickFillLayer} patternOff={!doc.patterns.length} /></DockSection>}
           {doc && showStyles && <DockSection {...sec('styles', msg`Styles`)}><StylesPanel styles={styleLib.current} node={node ?? null} apply={applySavedStyle} /></DockSection>}
           {doc && showPatterns && (
@@ -2799,7 +2810,7 @@ export function App() {
           {doc && typePanels.glyphs && <DockSection {...sec('glyphs', msg`Glyphs`)}><GlyphsPanel c={typeCtx} faces={pickFaces} /></DockSection>}
           {doc && (
             <>
-              <DockSection {...sec('layers', msg`Layers`)}><LayersPanel
+              {frame.layers && <DockSection {...sec('layers', msg`Layers`)}><LayersPanel
                 doc={doc} active={active} setActive={setActive} run={run}
                 selected={selectedNodes.map(n => n.id)} setPicked={setPicked}
                 contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerRowItems(menus, layerContextItems(n, nodes, run, setError))]}
@@ -2807,8 +2818,8 @@ export function App() {
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
                 openProperties={() => setShowProperties(true)} renameTick={renameTick} findTick={findTick} isolated={isolated}
                 openLayerStyle={(id, page) => openLayerStyle(page, id)}
-              /></DockSection>
-              <DockSection {...sec('history', msg`History`)}><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>
+              /></DockSection>}
+              {frame.history && <DockSection {...sec('history', msg`History`)}><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>}
               {showChannels && <DockSection {...sec('channels', msg`Channels`)}><ChannelsPanel doc={doc} run={run} live={selEdit ? liveTick : 0} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} /></DockSection>}
               {showLayerComps && <DockSection {...sec('layerComps', msg`Layer Comps`)}><LayerCompsPanel doc={doc} run={run} /></DockSection>}
               {showActions && <DockSection {...sec('actions', msg`Actions`)}><ActionsPanel has active={active} run={run} setError={setError} /></DockSection>}

@@ -28,7 +28,8 @@ import type { ModeDialogKind } from '../ModeDialog.tsx';
 import type { ColorDialogKind } from '../ColorDialog.tsx';
 import { DEFAULT_VIEW, PROOF_PRESETS, presetSetup, type ViewState } from './proof.ts';
 import { printSizeZoom } from '../view.ts';
-import { BUILTIN_WORKSPACES, workspaceLabel, type WorkspaceState } from './workspaces.ts';
+import { BUILTIN_WORKSPACES, workspaceLabel, type FrameKey, type WorkspaceDockTab, type WorkspaceState } from './workspaces.ts';
+import type { TypePanel } from './typeMenu.ts';
 import type { ArrangeMode, MatchKind } from './arrange.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
@@ -85,6 +86,8 @@ export interface MenuCtx {
   openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null; selectedNodes: LayerNode[];
   showShapes: boolean; setShowShapes: SetState<boolean>; showCloneSource: boolean; setShowCloneSource: SetState<boolean>; showNavigator: boolean; setShowNavigator: SetState<boolean>; typeItems: Item[]; aboutDialog: DialogRef; agentDialog: DialogRef;
   showHistogram: boolean; setShowHistogram: SetState<boolean>; showInfo: boolean; setShowInfo: SetState<boolean>; showToolPresets: boolean; setShowToolPresets: SetState<boolean>; showNotes: boolean; setShowNotes: SetState<boolean>; showMeasurementLog: boolean; setShowMeasurementLog: SetState<boolean>;
+  frame: Record<FrameKey, boolean>; toggleFrame: (k: FrameKey) => void; dockTab: WorkspaceDockTab; showDockTab: (k: WorkspaceDockTab) => void;
+  typePanels: Record<TypePanel, boolean>; toggleTypePanel: (k: TypePanel) => void;
 }
 
 // Image > Mode: the modes a conversion from the current one allows, the bit depths, and the Color Table.
@@ -145,7 +148,7 @@ export function buildMenus(c: MenuCtx) {
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, cursorPrefsDialog, snap, setSnap, openArtboard, activeArtboard,
     showLayerEdges, setShowLayerEdges, flipped, fitLayers, selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
-    workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock,
+    workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock, frame, toggleFrame, dockTab, showDockTab, typePanels, toggleTypePanel,
     arrangeMode, chooseArrangement, matchArrangement, openDefine, canDefineShape, purge, openLockLayers, selectAllLayers, deselectLayers, findLayers, isolated, toggleIsolate,
   } = c;
   const selectedIds = selectedNodes.map(n => n.id);
@@ -161,6 +164,13 @@ export function buildMenus(c: MenuCtx) {
   const workspaceTypeItems = typeItems.map(item => itemId(item) === 'Panels'
     ? { ...item, sub: item.sub?.map(panel => ({ ...panel, off: workspace.locked })) }
     : item);
+  // Window: panels by name with a check mark while shown, sorted by the shown name as Photoshop does per language;
+  // each list starts a section.
+  const byName = new Intl.Collator(i18n.locale);
+  const windowPanels = (rows: [MessageDescriptor, boolean, () => void, string?][], sort = false): Item[] => rows
+    .map(([label, on, toggle, keys]) => ({ ...tl(label, on), keys, run: () => { setMenu(null); toggle(); }, off: workspace.locked, name: i18n._(label) }))
+    .sort((a, b) => (sort ? byName.compare(a.name, b.name) : 0))
+    .map(({ name: _, ...item }, i) => ({ ...item, sep: i === 0 }));
   const smartItems: Item[] = [
     { ...tl(msg`Convert to Smart Object`), run: () => node && run(t`Converting…`, () => client.call('convertToSmart', [node.id]), selectCreated), off: !node },
     { ...tl(msg`New Smart Object via Copy`), run: () => node && run(null, () => client.call('smartViaCopy', node.id), selectCreated), off: !smart },
@@ -477,17 +487,21 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Isolate Layers`, isolated), run: toggleIsolate, off: !has || (!isolated && !selectedNodes.length) },
       { ...tl(msg`Color Range…`), sep: true, run: () => openColorRange(), off: !has },
       { ...tl(msg`Subject`), run: selectSubject, off: !has || node?.kind !== 'pixel' },
-      { ...tl(msg`Border…`), run: () => openModify('border'), off: !doc?.selection },
-      { ...tl(msg`Smooth…`), run: () => openModify('smooth'), off: !doc?.selection },
-      { ...tl(msg`Expand…`), run: () => openModify('expand'), off: !doc?.selection },
-      { ...tl(msg`Contract…`), run: () => openModify('contract'), off: !doc?.selection },
-      { ...tl(msg`Feather…`), keys: 'Shift+F6', run: () => { setMenu(null); featherDialog.current?.showModal(); }, off: !doc?.selection },
-      { ...tl(msg`Grow`), run: growOrSimilar('grow'), off: !doc?.selection },
+      {
+        ...tl(msg`Modify`), keys: '›', sep: true, run: () => {}, off: !doc?.selection, sub: [
+          { ...tl(msg`Border…`), run: () => openModify('border') },
+          { ...tl(msg`Smooth…`), run: () => openModify('smooth') },
+          { ...tl(msg`Expand…`), run: () => openModify('expand') },
+          { ...tl(msg`Contract…`), run: () => openModify('contract') },
+          { ...tl(msg`Feather…`), keys: 'Shift+F6', run: () => { setMenu(null); featherDialog.current?.showModal(); } },
+        ],
+      },
+      { ...tl(msg`Grow`), sep: true, run: growOrSimilar('grow'), off: !doc?.selection },
       { ...tl(msg`Similar`), run: growOrSimilar('similar'), off: !doc?.selection },
-      { ...tl(quickMask ? msg`Exit Quick Mask Mode` : msg`Edit in Quick Mask Mode`), keys: 'Q', run: () => { setMenu(null); setQuickMask(v => !v); }, off: !has },
-      { ...tl(msg`Load Selection…`), run: () => { setMenu(null); loadSelDialog.current?.showModal(); }, off: !doc?.channels.length },
+      { ...tl(msg`Transform Selection`), sep: true, run: () => void startTransform('free', true), off: !has || !!transformStore },
+      { ...tl(msg`Edit in Quick Mask Mode`, quickMask), keys: 'Q', sep: true, run: () => { setMenu(null); setQuickMask(v => !v); }, off: !has },
+      { ...tl(msg`Load Selection…`), sep: true, run: () => { setMenu(null); loadSelDialog.current?.showModal(); }, off: !doc?.channels.length },
       { ...tl(msg`Save Selection…`), run: () => { setMenu(null); saveSelDialog.current?.showModal(); }, off: !doc?.selection },
-      { ...tl(msg`Transform Selection`), run: () => void startTransform('free', true), off: !has || !!transformStore },
     ],
     Filter: [
       { ...tl(msg`Last Filter`), keys: 'Alt+Ctrl+F', run: lastFilter, off: !has || !active },
@@ -578,23 +592,37 @@ export function buildMenus(c: MenuCtx) {
           { ...tl(msg`Lock Workspace`, workspace.locked), run: toggleWorkspaceLock },
         ],
       },
-      { ...tl(showActions ? msg`Hide Actions` : msg`Show Actions`), keys: 'Alt+F9', sep: true, run: () => { setMenu(null); setShowActions(v => !v); }, off: workspace.locked },
-      { ...tl(showAdjustments ? msg`Hide Adjustments` : msg`Show Adjustments`), run: () => { setMenu(null); setShowAdjustments(v => !v); }, off: workspace.locked },
-      { ...tl(showChannels ? msg`Hide Channels` : msg`Show Channels`), run: () => { setMenu(null); setShowChannels(v => !v); }, off: workspace.locked },
-      { ...tl(showCloneSource ? msg`Hide Clone Source` : msg`Show Clone Source`), run: () => { setMenu(null); setShowCloneSource(v => !v); }, off: workspace.locked },
-      { ...tl(showNavigator ? msg`Hide Navigator` : msg`Show Navigator`), run: () => { setMenu(null); setShowNavigator(v => !v); }, off: workspace.locked },
-      { ...tl(showLayerComps ? msg`Hide Layer Comps` : msg`Show Layer Comps`), run: () => { setMenu(null); setShowLayerComps(v => !v); }, off: workspace.locked },
-      { ...tl(showPaths ? msg`Hide Paths` : msg`Show Paths`), run: () => { setMenu(null); setShowPaths(v => !v); }, off: workspace.locked },
-      { ...tl(showProperties ? msg`Hide Properties` : msg`Show Properties`), run: () => { setMenu(null); setShowProperties(v => !v); }, off: workspace.locked },
-      { ...tl(showStyles ? msg`Hide Styles` : msg`Show Styles`), run: () => { setMenu(null); setShowStyles(v => !v); }, off: workspace.locked },
-      { ...tl(showPatterns ? msg`Hide Patterns` : msg`Show Patterns`), run: () => { setMenu(null); setShowPatterns(v => !v); }, off: workspace.locked },
-      { ...tl(showGradients ? msg`Hide Gradients` : msg`Show Gradients`), run: () => { setMenu(null); setShowGradients(v => !v); }, off: workspace.locked },
-      { ...tl(showShapes ? msg`Hide Shapes` : msg`Show Shapes`), run: () => { setMenu(null); setShowShapes(v => !v); }, off: workspace.locked },
-      { ...tl(showHistogram ? msg`Hide Histogram` : msg`Show Histogram`), run: () => { setMenu(null); setShowHistogram(v => !v); }, off: workspace.locked },
-      { ...tl(showInfo ? msg`Hide Info` : msg`Show Info`), run: () => { setMenu(null); setShowInfo(v => !v); }, off: workspace.locked },
-      { ...tl(showToolPresets ? msg`Hide Tool Presets` : msg`Show Tool Presets`), run: () => { setMenu(null); setShowToolPresets(v => !v); }, off: workspace.locked },
-      { ...tl(showNotes ? msg`Hide Notes` : msg`Show Notes`), run: () => { setMenu(null); setShowNotes(v => !v); }, off: workspace.locked },
-      { ...tl(showMeasurementLog ? msg`Hide Measurement Log` : msg`Show Measurement Log`), run: () => { setMenu(null); setShowMeasurementLog(v => !v); }, off: workspace.locked },
+      ...windowPanels([
+        [msg`Actions`, showActions, () => setShowActions(v => !v), 'Alt+F9'],
+        [msg`Adjustments`, showAdjustments, () => setShowAdjustments(v => !v)],
+        [msg`Brush Settings`, frame.tabs && dockTab === 'brushSettings', () => showDockTab('brushSettings'), 'F5'],
+        [msg`Brushes`, frame.tabs && dockTab === 'brushes', () => showDockTab('brushes')],
+        [msg`Channels`, showChannels, () => setShowChannels(v => !v)],
+        [msg`Character`, typePanels.character, () => toggleTypePanel('character')],
+        [msg`Character Styles`, typePanels.characterStyles, () => toggleTypePanel('characterStyles')],
+        [msg`Clone Source`, showCloneSource, () => setShowCloneSource(v => !v)],
+        [msg`Color`, frame.tabs && dockTab === 'color', () => showDockTab('color'), 'F6'],
+        [msg`Glyphs`, typePanels.glyphs, () => toggleTypePanel('glyphs')],
+        [msg`Gradients`, showGradients, () => setShowGradients(v => !v)],
+        [msg`Histogram`, showHistogram, () => setShowHistogram(v => !v)],
+        [msg`History`, frame.history, () => toggleFrame('history')],
+        [msg`Info`, showInfo, () => setShowInfo(v => !v), 'F8'],
+        [msg`Layer Comps`, showLayerComps, () => setShowLayerComps(v => !v)],
+        [msg`Layers`, frame.layers, () => toggleFrame('layers'), 'F7'],
+        [msg`Measurement Log`, showMeasurementLog, () => setShowMeasurementLog(v => !v)],
+        [msg`Navigator`, showNavigator, () => setShowNavigator(v => !v)],
+        [msg`Notes`, showNotes, () => setShowNotes(v => !v)],
+        [msg`Paragraph`, typePanels.paragraph, () => toggleTypePanel('paragraph')],
+        [msg`Paragraph Styles`, typePanels.paragraphStyles, () => toggleTypePanel('paragraphStyles')],
+        [msg`Paths`, showPaths, () => setShowPaths(v => !v)],
+        [msg`Patterns`, showPatterns, () => setShowPatterns(v => !v)],
+        [msg`Properties`, showProperties, () => setShowProperties(v => !v)],
+        [msg`Shapes`, showShapes, () => setShowShapes(v => !v)],
+        [msg`Styles`, showStyles, () => setShowStyles(v => !v)],
+        [msg`Swatches`, frame.tabs && dockTab === 'swatches', () => showDockTab('swatches')],
+        [msg`Tool Presets`, showToolPresets, () => setShowToolPresets(v => !v)],
+      ], true),
+      ...windowPanels([[msg`Options`, frame.options, () => toggleFrame('options')], [msg`Tools`, frame.tools, () => toggleFrame('tools')]]),
       { ...tl(msg`Next Document`), keys: 'Ctrl+Tab', sep: true, run: () => switchStep(1), off: (doc?.docs.length ?? 0) < 2 },
       { ...tl(msg`Previous Document`), keys: 'Shift+Ctrl+Tab', run: () => switchStep(-1), off: (doc?.docs.length ?? 0) < 2 },
       ...(doc?.docs ?? []).map((d, i) => ({

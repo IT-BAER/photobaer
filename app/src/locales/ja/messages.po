@@ -499,6 +499,7 @@ msgstr "アクション名"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 msgid "Actions"
 msgstr "アクション"
 
@@ -1830,6 +1831,7 @@ msgid "Brush Reconstruct Options"
 msgstr "ブラシ再構築オプション"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Settings"
 msgstr "ブラシ設定"
@@ -1883,6 +1885,7 @@ msgid "Brush view"
 msgstr "ブラシ表示"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/BrushPanels.tsx
 msgid "Brushes"
 msgstr "ブラシ"
@@ -2086,13 +2089,14 @@ msgid "Channel Options"
 msgstr "チャンネルオプション"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Channels"
 msgstr "チャンネル"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Character"
 msgstr "文字"
@@ -2100,6 +2104,10 @@ msgstr "文字"
 #: app/src/i18n/history.ts
 msgid "Character Formatting"
 msgstr "文字の書式"
+
+#: app/src/app/typeMenu.ts
+msgid "Character Panel"
+msgstr "文字パネル"
 
 #: app/src/TypePanels.tsx
 msgid "Character style name"
@@ -2110,10 +2118,14 @@ msgid "Character styles"
 msgstr "文字スタイル"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Character Styles"
 msgstr "文字スタイル"
+
+#: app/src/app/typeMenu.ts
+msgid "Character Styles Panel"
+msgstr "文字スタイルパネル"
 
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/labels.ts
@@ -2291,6 +2303,7 @@ msgid "clockwise"
 msgstr "時計回り"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/CloneSourcePanel.tsx
 msgid "Clone Source"
 msgstr "コピーソース"
@@ -2396,6 +2409,7 @@ msgstr "{title} を折りたたむ"
 #: app/src/AnalysisDialogs.tsx
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/ColorDialog.tsx
 #: app/src/i18n/choices.ts
@@ -4328,10 +4342,6 @@ msgstr "重なり合う形状を除外"
 msgid "Exclusion"
 msgstr "除外"
 
-#: app/src/app/menus.ts
-msgid "Exit Quick Mask Mode"
-msgstr "クイックマスクモードを終了"
-
 #: app/src/app/helpers.ts
 msgid "Expand"
 msgstr "拡張"
@@ -5201,10 +5211,14 @@ msgid "Glyph Scaling Minimum %"
 msgstr "字形のスケール 最小 %"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/GlyphsPanel.tsx
 msgid "Glyphs"
 msgstr "字形"
+
+#: app/src/app/typeMenu.ts
+msgid "Glyphs Panel"
+msgstr "字形パネル"
 
 #: app/src/i18n/choices.ts
 msgid "Golden Ratio"
@@ -5253,6 +5267,7 @@ msgid "Gradient…"
 msgstr "グラデーション…"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PresetPanels.tsx
 msgid "Gradients"
 msgstr "グラデーション"
@@ -5579,14 +5594,6 @@ msgid "Hide {shown}"
 msgstr "{shown} を非表示"
 
 #: app/src/app/menus.ts
-msgid "Hide Actions"
-msgstr "アクションを隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Adjustments"
-msgstr "色調補正を隠す"
-
-#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "すべてを隠す"
@@ -5596,21 +5603,9 @@ msgstr "すべてを隠す"
 msgid "Hide All Effects"
 msgstr "すべての効果を隠す"
 
-#: app/src/app/menus.ts
-msgid "Hide Channels"
-msgstr "チャンネルを隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Clone Source"
-msgstr "コピーソースを隠す"
-
 #: app/src/LayersPanel.tsx
 msgid "Hide effects of {name}"
 msgstr "{name} の効果を隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Gradients"
-msgstr "グラデーションを隠す"
 
 #: app/src/app/menus.ts
 msgid "Hide Grid"
@@ -5620,21 +5615,9 @@ msgstr "グリッドを隠す"
 msgid "Hide Guides"
 msgstr "ガイドを隠す"
 
-#: app/src/app/menus.ts
-msgid "Hide Histogram"
-msgstr "ヒストグラムを隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Info"
-msgstr "情報を隠す"
-
 #: app/src/i18n/history.ts
 msgid "Hide Layer"
 msgstr "レイヤーを非表示"
-
-#: app/src/app/menus.ts
-msgid "Hide Layer Comps"
-msgstr "レイヤーカンプを隠す"
 
 #: app/src/i18n/history.ts
 msgid "Hide Layer Effects"
@@ -5646,32 +5629,8 @@ msgid "Hide Layers"
 msgstr "レイヤーを非表示"
 
 #: app/src/app/menus.ts
-msgid "Hide Measurement Log"
-msgstr "測定ログを隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Navigator"
-msgstr "ナビゲーターを隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Notes"
-msgstr "注釈を隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Paths"
-msgstr "パスを隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Patterns"
-msgstr "パターンを隠す"
-
-#: app/src/app/menus.ts
 msgid "Hide Pixel Grid"
 msgstr "ピクセルグリッドを隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Properties"
-msgstr "プロパティを隠す"
 
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
@@ -5684,18 +5643,6 @@ msgstr "選択範囲をマスク"
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
 msgstr "選択範囲の境界線を隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Shapes"
-msgstr "シェイプを隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Styles"
-msgstr "スタイルを隠す"
-
-#: app/src/app/menus.ts
-msgid "Hide Tool Presets"
-msgstr "ツールプリセットを隠す"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "High"
@@ -5777,6 +5724,7 @@ msgid "Highlights Yellow-Blue"
 msgstr "ハイライト イエロー-ブルー"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/InspectionPanels.tsx
 #: app/src/LevelsCurvesBody.tsx
 msgid "Histogram"
@@ -5796,6 +5744,7 @@ msgstr "ヒストリー"
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
+#: app/src/app/menus.ts
 #: app/src/HistoryPanel.tsx
 msgid "History"
 msgstr "ヒストリー"
@@ -6093,6 +6042,7 @@ msgid "Inflate"
 msgstr "膨張"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/InspectionPanels.tsx
 msgid "Info"
 msgstr "情報"
@@ -6427,6 +6377,7 @@ msgid "Layer Comp Options"
 msgstr "レイヤーカンプオプション"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/LayerCompsPanel.tsx
 msgid "Layer Comps"
 msgstr "レイヤーカンプ"
@@ -7280,6 +7231,7 @@ msgid "Measurement"
 msgstr "計測"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
 msgid "Measurement Log"
 msgstr "測定ログ"
@@ -7530,6 +7482,10 @@ msgctxt "color mode"
 msgid "Mode"
 msgstr "モード"
 
+#: app/src/app/menus.ts
+msgid "Modify"
+msgstr "選択範囲を変更"
+
 #: app/src/app/colorSettings.ts
 msgid "Monitor Color"
 msgstr "モニターカラー"
@@ -7683,6 +7639,7 @@ msgid "Names use letters, digits and underscore, not starting with a digit. Pixe
 msgstr "名前には英字、数字、アンダースコアを使用し、数字で始めることはできません。ピクセルの置き換えは使用できません。"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NavigatorPanel.tsx
 msgid "Navigator"
 msgstr "ナビゲーター"
@@ -8151,6 +8108,7 @@ msgid "Note text"
 msgstr "注釈テキスト"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
 #: app/src/shell/tools.ts
 msgid "Notes"
@@ -8331,6 +8289,10 @@ msgstr "OpenType"
 #: app/src/app/Dialogs.tsx
 msgid "Operation"
 msgstr "操作"
+
+#: app/src/app/menus.ts
+msgid "Options"
+msgstr "オプション"
 
 #: app/src/LevelsCurvesBody.tsx
 msgid "Options…"
@@ -8519,7 +8481,7 @@ msgid "Paper Brightness"
 msgstr "用紙の明るさ"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Paragraph"
 msgstr "段落"
@@ -8527,6 +8489,10 @@ msgstr "段落"
 #: app/src/i18n/history.ts
 msgid "Paragraph Formatting"
 msgstr "段落書式"
+
+#: app/src/app/typeMenu.ts
+msgid "Paragraph Panel"
+msgstr "段落パネル"
 
 #: app/src/TypePanels.tsx
 msgid "Paragraph style name"
@@ -8537,10 +8503,14 @@ msgid "Paragraph styles"
 msgstr "段落スタイル"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Paragraph Styles"
 msgstr "段落スタイル"
+
+#: app/src/app/typeMenu.ts
+msgid "Paragraph Styles Panel"
+msgstr "段落スタイルパネル"
 
 #: app/src/TypePanels.tsx
 msgid "Paragraph Text"
@@ -8639,6 +8609,7 @@ msgid "Pathfinder"
 msgstr "パスファインダー"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/filters/labels.ts
 #: app/src/PathsPanel.tsx
 msgid "Paths"
@@ -8698,6 +8669,7 @@ msgid "Pattern…"
 msgstr "パターン…"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PresetPanels.tsx
 msgid "Patterns"
 msgstr "パターン"
@@ -9211,6 +9183,7 @@ msgid "Proof Setup"
 msgstr "校正設定"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PropertiesPanel.tsx
 #: app/src/TypePanels.tsx
 msgid "Properties"
@@ -10731,6 +10704,7 @@ msgid "Shape Stroke"
 msgstr "シェイプの線"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ShapesPanel.tsx
 msgid "Shapes"
 msgstr "シェイプ"
@@ -10821,14 +10795,6 @@ msgid "Show {shown}"
 msgstr "{shown} を表示"
 
 #: app/src/app/menus.ts
-msgid "Show Actions"
-msgstr "アクションを表示"
-
-#: app/src/app/menus.ts
-msgid "Show Adjustments"
-msgstr "色調補正を表示"
-
-#: app/src/app/menus.ts
 msgid "Show All Effects"
 msgstr "すべての効果を表示"
 
@@ -10840,14 +10806,6 @@ msgstr "背景を表示"
 msgid "Show Brush Leash While Smoothing"
 msgstr "スムージング時にブラシリーシュを表示"
 
-#: app/src/app/menus.ts
-msgid "Show Channels"
-msgstr "チャンネルを表示"
-
-#: app/src/app/menus.ts
-msgid "Show Clone Source"
-msgstr "コピーソースを表示"
-
 #: app/src/app/Dialogs.tsx
 msgid "Show Crosshair in Brush Tip"
 msgstr "ブラシ先端に十字を表示"
@@ -10855,10 +10813,6 @@ msgstr "ブラシ先端に十字を表示"
 #: app/src/LayersPanel.tsx
 msgid "Show effects of {name}"
 msgstr "{name} の効果を表示"
-
-#: app/src/app/menus.ts
-msgid "Show Gradients"
-msgstr "グラデーションを表示"
 
 #: app/src/app/menus.ts
 #: app/src/filters/VanishingPointDialog.tsx
@@ -10870,25 +10824,13 @@ msgstr "グリッドを表示"
 msgid "Show Guides"
 msgstr "ガイドを表示"
 
-#: app/src/app/menus.ts
-msgid "Show Histogram"
-msgstr "ヒストグラムを表示"
-
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Image"
 msgstr "画像を表示"
 
-#: app/src/app/menus.ts
-msgid "Show Info"
-msgstr "情報を表示"
-
 #: app/src/i18n/history.ts
 msgid "Show Layer"
 msgstr "レイヤーを表示"
-
-#: app/src/app/menus.ts
-msgid "Show Layer Comps"
-msgstr "レイヤーカンプを表示"
 
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
@@ -10903,22 +10845,10 @@ msgstr "レイヤーを表示"
 msgid "Show Mask"
 msgstr "マスクを表示"
 
-#: app/src/app/menus.ts
-msgid "Show Measurement Log"
-msgstr "測定ログを表示"
-
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Show Mesh"
 msgstr "メッシュを表示"
-
-#: app/src/app/menus.ts
-msgid "Show Navigator"
-msgstr "ナビゲーターを表示"
-
-#: app/src/app/menus.ts
-msgid "Show Notes"
-msgstr "注釈を表示"
 
 #: app/src/app/Dialogs.tsx
 msgid "Show Only Crosshair While Painting"
@@ -10929,20 +10859,8 @@ msgid "Show Overlay"
 msgstr "オーバーレイを表示"
 
 #: app/src/app/menus.ts
-msgid "Show Paths"
-msgstr "パスを表示"
-
-#: app/src/app/menus.ts
-msgid "Show Patterns"
-msgstr "パターンを表示"
-
-#: app/src/app/menus.ts
 msgid "Show Pixel Grid"
 msgstr "ピクセルグリッドを表示"
-
-#: app/src/app/menus.ts
-msgid "Show Properties"
-msgstr "プロパティを表示"
 
 #: app/src/app/menus.ts
 msgid "Show Rulers"
@@ -10952,21 +10870,9 @@ msgstr "定規を表示"
 msgid "Show selection edges"
 msgstr "選択範囲の境界線を表示"
 
-#: app/src/app/menus.ts
-msgid "Show Shapes"
-msgstr "シェイプを表示"
-
-#: app/src/app/menus.ts
-msgid "Show Styles"
-msgstr "スタイルを表示"
-
 #: app/src/ActionsPanel.tsx
 msgid "Show the action tree"
 msgstr "アクションツリーを表示"
-
-#: app/src/app/menus.ts
-msgid "Show Tool Presets"
-msgstr "ツールプリセットを表示"
 
 #: app/src/shell/tools.ts
 msgid "Show transform controls"
@@ -11716,6 +11622,7 @@ msgid "Style name"
 msgstr "スタイル名"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PresetPanels.tsx
 msgid "Styles"
@@ -11820,6 +11727,7 @@ msgid "Swash"
 msgstr "スワッシュ字形"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/SwatchesPanel.tsx
 msgid "Swatches"
 msgstr "スウォッチ"
@@ -12366,6 +12274,7 @@ msgid "Tool preset tool is invalid."
 msgstr "ツールプリセットのツールが無効です。"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ToolPresetsPanel.tsx
 msgid "Tool Presets"
 msgstr "ツールプリセット"
@@ -12378,6 +12287,7 @@ msgstr "ツールプリセットを読み込めませんでした。"
 msgid "Tool presets could not be saved: {reason}"
 msgstr "ツールプリセットを保存できませんでした：{reason}"
 
+#: app/src/app/menus.ts
 #: app/src/shell/ToolBar.tsx
 msgid "Tools"
 msgstr "ツール"

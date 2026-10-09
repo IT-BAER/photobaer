@@ -41,7 +41,8 @@ export function saveStyles(kind: 'character' | 'paragraph', list: TextStyle[]) {
 
 export type TypePanel = 'character' | 'paragraph' | 'characterStyles' | 'paragraphStyles' | 'glyphs';
 export const TYPE_PANELS: [TypePanel, MessageDescriptor][] = [
-  ['character', msg`Character`], ['paragraph', msg`Paragraph`], ['characterStyles', msg`Character Styles`], ['paragraphStyles', msg`Paragraph Styles`], ['glyphs', msg`Glyphs`],
+  ['character', msg`Character Panel`], ['paragraph', msg`Paragraph Panel`], ['glyphs', msg`Glyphs Panel`],
+  ['characterStyles', msg`Character Styles Panel`], ['paragraphStyles', msg`Paragraph Styles Panel`],
 ];
 export interface TypeCtx {
   typeRef: RefObject<TypeApi | null>; selected: LayerNode[]; anyText: boolean; run: Run; setError: (m: string) => void;

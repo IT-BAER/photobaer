@@ -499,6 +499,7 @@ msgstr "Action name"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 msgid "Actions"
 msgstr "Actions"
 
@@ -1830,6 +1831,7 @@ msgid "Brush Reconstruct Options"
 msgstr "Brush Reconstruct Options"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush Settings"
 msgstr "Brush Settings"
@@ -1883,6 +1885,7 @@ msgid "Brush view"
 msgstr "Brush view"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/BrushPanels.tsx
 msgid "Brushes"
 msgstr "Brushes"
@@ -2086,13 +2089,14 @@ msgid "Channel Options"
 msgstr "Channel Options"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Channels"
 msgstr "Channels"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Character"
 msgstr "Character"
@@ -2100,6 +2104,10 @@ msgstr "Character"
 #: app/src/i18n/history.ts
 msgid "Character Formatting"
 msgstr "Character Formatting"
+
+#: app/src/app/typeMenu.ts
+msgid "Character Panel"
+msgstr "Character Panel"
 
 #: app/src/TypePanels.tsx
 msgid "Character style name"
@@ -2110,10 +2118,14 @@ msgid "Character styles"
 msgstr "Character styles"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Character Styles"
 msgstr "Character Styles"
+
+#: app/src/app/typeMenu.ts
+msgid "Character Styles Panel"
+msgstr "Character Styles Panel"
 
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/labels.ts
@@ -2291,6 +2303,7 @@ msgid "clockwise"
 msgstr "clockwise"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/CloneSourcePanel.tsx
 msgid "Clone Source"
 msgstr "Clone Source"
@@ -2396,6 +2409,7 @@ msgstr "Collapse {title}"
 #: app/src/AnalysisDialogs.tsx
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
+#: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/ColorDialog.tsx
 #: app/src/i18n/choices.ts
@@ -4328,10 +4342,6 @@ msgstr "Exclude Overlapping Shapes"
 msgid "Exclusion"
 msgstr "Exclusion"
 
-#: app/src/app/menus.ts
-msgid "Exit Quick Mask Mode"
-msgstr "Exit Quick Mask Mode"
-
 #: app/src/app/helpers.ts
 msgid "Expand"
 msgstr "Expand"
@@ -5201,10 +5211,14 @@ msgid "Glyph Scaling Minimum %"
 msgstr "Glyph Scaling Minimum %"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/GlyphsPanel.tsx
 msgid "Glyphs"
 msgstr "Glyphs"
+
+#: app/src/app/typeMenu.ts
+msgid "Glyphs Panel"
+msgstr "Glyphs Panel"
 
 #: app/src/i18n/choices.ts
 msgid "Golden Ratio"
@@ -5253,6 +5267,7 @@ msgid "Gradient…"
 msgstr "Gradient…"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PresetPanels.tsx
 msgid "Gradients"
 msgstr "Gradients"
@@ -5579,14 +5594,6 @@ msgid "Hide {shown}"
 msgstr "Hide {shown}"
 
 #: app/src/app/menus.ts
-msgid "Hide Actions"
-msgstr "Hide Actions"
-
-#: app/src/app/menus.ts
-msgid "Hide Adjustments"
-msgstr "Hide Adjustments"
-
-#: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
 msgid "Hide All"
 msgstr "Hide All"
@@ -5596,21 +5603,9 @@ msgstr "Hide All"
 msgid "Hide All Effects"
 msgstr "Hide All Effects"
 
-#: app/src/app/menus.ts
-msgid "Hide Channels"
-msgstr "Hide Channels"
-
-#: app/src/app/menus.ts
-msgid "Hide Clone Source"
-msgstr "Hide Clone Source"
-
 #: app/src/LayersPanel.tsx
 msgid "Hide effects of {name}"
 msgstr "Hide effects of {name}"
-
-#: app/src/app/menus.ts
-msgid "Hide Gradients"
-msgstr "Hide Gradients"
 
 #: app/src/app/menus.ts
 msgid "Hide Grid"
@@ -5620,21 +5615,9 @@ msgstr "Hide Grid"
 msgid "Hide Guides"
 msgstr "Hide Guides"
 
-#: app/src/app/menus.ts
-msgid "Hide Histogram"
-msgstr "Hide Histogram"
-
-#: app/src/app/menus.ts
-msgid "Hide Info"
-msgstr "Hide Info"
-
 #: app/src/i18n/history.ts
 msgid "Hide Layer"
 msgstr "Hide Layer"
-
-#: app/src/app/menus.ts
-msgid "Hide Layer Comps"
-msgstr "Hide Layer Comps"
 
 #: app/src/i18n/history.ts
 msgid "Hide Layer Effects"
@@ -5646,32 +5629,8 @@ msgid "Hide Layers"
 msgstr "Hide Layers"
 
 #: app/src/app/menus.ts
-msgid "Hide Measurement Log"
-msgstr "Hide Measurement Log"
-
-#: app/src/app/menus.ts
-msgid "Hide Navigator"
-msgstr "Hide Navigator"
-
-#: app/src/app/menus.ts
-msgid "Hide Notes"
-msgstr "Hide Notes"
-
-#: app/src/app/menus.ts
-msgid "Hide Paths"
-msgstr "Hide Paths"
-
-#: app/src/app/menus.ts
-msgid "Hide Patterns"
-msgstr "Hide Patterns"
-
-#: app/src/app/menus.ts
 msgid "Hide Pixel Grid"
 msgstr "Hide Pixel Grid"
-
-#: app/src/app/menus.ts
-msgid "Hide Properties"
-msgstr "Hide Properties"
 
 #: app/src/app/menus.ts
 msgid "Hide Rulers"
@@ -5684,18 +5643,6 @@ msgstr "Hide Selection"
 #: app/src/app/menus.ts
 msgid "Hide selection edges"
 msgstr "Hide selection edges"
-
-#: app/src/app/menus.ts
-msgid "Hide Shapes"
-msgstr "Hide Shapes"
-
-#: app/src/app/menus.ts
-msgid "Hide Styles"
-msgstr "Hide Styles"
-
-#: app/src/app/menus.ts
-msgid "Hide Tool Presets"
-msgstr "Hide Tool Presets"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "High"
@@ -5777,6 +5724,7 @@ msgid "Highlights Yellow-Blue"
 msgstr "Highlights Yellow-Blue"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/InspectionPanels.tsx
 #: app/src/LevelsCurvesBody.tsx
 msgid "Histogram"
@@ -5796,6 +5744,7 @@ msgstr "Histories"
 
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
+#: app/src/app/menus.ts
 #: app/src/HistoryPanel.tsx
 msgid "History"
 msgstr "History"
@@ -6093,6 +6042,7 @@ msgid "Inflate"
 msgstr "Inflate"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/InspectionPanels.tsx
 msgid "Info"
 msgstr "Info"
@@ -6427,6 +6377,7 @@ msgid "Layer Comp Options"
 msgstr "Layer Comp Options"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/LayerCompsPanel.tsx
 msgid "Layer Comps"
 msgstr "Layer Comps"
@@ -7280,6 +7231,7 @@ msgid "Measurement"
 msgstr "Measurement"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
 msgid "Measurement Log"
 msgstr "Measurement Log"
@@ -7530,6 +7482,10 @@ msgctxt "color mode"
 msgid "Mode"
 msgstr "Mode"
 
+#: app/src/app/menus.ts
+msgid "Modify"
+msgstr "Modify"
+
 #: app/src/app/colorSettings.ts
 msgid "Monitor Color"
 msgstr "Monitor Color"
@@ -7683,6 +7639,7 @@ msgid "Names use letters, digits and underscore, not starting with a digit. Pixe
 msgstr "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NavigatorPanel.tsx
 msgid "Navigator"
 msgstr "Navigator"
@@ -8151,6 +8108,7 @@ msgid "Note text"
 msgstr "Note text"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/NotesPanels.tsx
 #: app/src/shell/tools.ts
 msgid "Notes"
@@ -8331,6 +8289,10 @@ msgstr "OpenType"
 #: app/src/app/Dialogs.tsx
 msgid "Operation"
 msgstr "Operation"
+
+#: app/src/app/menus.ts
+msgid "Options"
+msgstr "Options"
 
 #: app/src/LevelsCurvesBody.tsx
 msgid "Options…"
@@ -8519,7 +8481,7 @@ msgid "Paper Brightness"
 msgstr "Paper Brightness"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Paragraph"
 msgstr "Paragraph"
@@ -8527,6 +8489,10 @@ msgstr "Paragraph"
 #: app/src/i18n/history.ts
 msgid "Paragraph Formatting"
 msgstr "Paragraph Formatting"
+
+#: app/src/app/typeMenu.ts
+msgid "Paragraph Panel"
+msgstr "Paragraph Panel"
 
 #: app/src/TypePanels.tsx
 msgid "Paragraph style name"
@@ -8537,10 +8503,14 @@ msgid "Paragraph styles"
 msgstr "Paragraph styles"
 
 #: app/src/App.tsx
-#: app/src/app/typeMenu.ts
+#: app/src/app/menus.ts
 #: app/src/TypePanels.tsx
 msgid "Paragraph Styles"
 msgstr "Paragraph Styles"
+
+#: app/src/app/typeMenu.ts
+msgid "Paragraph Styles Panel"
+msgstr "Paragraph Styles Panel"
 
 #: app/src/TypePanels.tsx
 msgid "Paragraph Text"
@@ -8639,6 +8609,7 @@ msgid "Pathfinder"
 msgstr "Pathfinder"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/filters/labels.ts
 #: app/src/PathsPanel.tsx
 msgid "Paths"
@@ -8698,6 +8669,7 @@ msgid "Pattern…"
 msgstr "Pattern…"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PresetPanels.tsx
 msgid "Patterns"
 msgstr "Patterns"
@@ -9211,6 +9183,7 @@ msgid "Proof Setup"
 msgstr "Proof Setup"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/PropertiesPanel.tsx
 #: app/src/TypePanels.tsx
 msgid "Properties"
@@ -10731,6 +10704,7 @@ msgid "Shape Stroke"
 msgstr "Shape Stroke"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ShapesPanel.tsx
 msgid "Shapes"
 msgstr "Shapes"
@@ -10821,14 +10795,6 @@ msgid "Show {shown}"
 msgstr "Show {shown}"
 
 #: app/src/app/menus.ts
-msgid "Show Actions"
-msgstr "Show Actions"
-
-#: app/src/app/menus.ts
-msgid "Show Adjustments"
-msgstr "Show Adjustments"
-
-#: app/src/app/menus.ts
 msgid "Show All Effects"
 msgstr "Show All Effects"
 
@@ -10840,14 +10806,6 @@ msgstr "Show Backdrop"
 msgid "Show Brush Leash While Smoothing"
 msgstr "Show Brush Leash While Smoothing"
 
-#: app/src/app/menus.ts
-msgid "Show Channels"
-msgstr "Show Channels"
-
-#: app/src/app/menus.ts
-msgid "Show Clone Source"
-msgstr "Show Clone Source"
-
 #: app/src/app/Dialogs.tsx
 msgid "Show Crosshair in Brush Tip"
 msgstr "Show Crosshair in Brush Tip"
@@ -10855,10 +10813,6 @@ msgstr "Show Crosshair in Brush Tip"
 #: app/src/LayersPanel.tsx
 msgid "Show effects of {name}"
 msgstr "Show effects of {name}"
-
-#: app/src/app/menus.ts
-msgid "Show Gradients"
-msgstr "Show Gradients"
 
 #: app/src/app/menus.ts
 #: app/src/filters/VanishingPointDialog.tsx
@@ -10870,25 +10824,13 @@ msgstr "Show Grid"
 msgid "Show Guides"
 msgstr "Show Guides"
 
-#: app/src/app/menus.ts
-msgid "Show Histogram"
-msgstr "Show Histogram"
-
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Show Image"
 msgstr "Show Image"
 
-#: app/src/app/menus.ts
-msgid "Show Info"
-msgstr "Show Info"
-
 #: app/src/i18n/history.ts
 msgid "Show Layer"
 msgstr "Show Layer"
-
-#: app/src/app/menus.ts
-msgid "Show Layer Comps"
-msgstr "Show Layer Comps"
 
 #: app/src/i18n/history.ts
 msgid "Show Layer Effects"
@@ -10903,22 +10845,10 @@ msgstr "Show Layers"
 msgid "Show Mask"
 msgstr "Show Mask"
 
-#: app/src/app/menus.ts
-msgid "Show Measurement Log"
-msgstr "Show Measurement Log"
-
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Show Mesh"
 msgstr "Show Mesh"
-
-#: app/src/app/menus.ts
-msgid "Show Navigator"
-msgstr "Show Navigator"
-
-#: app/src/app/menus.ts
-msgid "Show Notes"
-msgstr "Show Notes"
 
 #: app/src/app/Dialogs.tsx
 msgid "Show Only Crosshair While Painting"
@@ -10929,20 +10859,8 @@ msgid "Show Overlay"
 msgstr "Show Overlay"
 
 #: app/src/app/menus.ts
-msgid "Show Paths"
-msgstr "Show Paths"
-
-#: app/src/app/menus.ts
-msgid "Show Patterns"
-msgstr "Show Patterns"
-
-#: app/src/app/menus.ts
 msgid "Show Pixel Grid"
 msgstr "Show Pixel Grid"
-
-#: app/src/app/menus.ts
-msgid "Show Properties"
-msgstr "Show Properties"
 
 #: app/src/app/menus.ts
 msgid "Show Rulers"
@@ -10952,21 +10870,9 @@ msgstr "Show Rulers"
 msgid "Show selection edges"
 msgstr "Show selection edges"
 
-#: app/src/app/menus.ts
-msgid "Show Shapes"
-msgstr "Show Shapes"
-
-#: app/src/app/menus.ts
-msgid "Show Styles"
-msgstr "Show Styles"
-
 #: app/src/ActionsPanel.tsx
 msgid "Show the action tree"
 msgstr "Show the action tree"
-
-#: app/src/app/menus.ts
-msgid "Show Tool Presets"
-msgstr "Show Tool Presets"
 
 #: app/src/shell/tools.ts
 msgid "Show transform controls"
@@ -11716,6 +11622,7 @@ msgid "Style name"
 msgstr "Style name"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PresetPanels.tsx
 msgid "Styles"
@@ -11820,6 +11727,7 @@ msgid "Swash"
 msgstr "Swash"
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/shell/SwatchesPanel.tsx
 msgid "Swatches"
 msgstr "Swatches"
@@ -12366,6 +12274,7 @@ msgid "Tool preset tool is invalid."
 msgstr "Tool preset tool is invalid."
 
 #: app/src/App.tsx
+#: app/src/app/menus.ts
 #: app/src/ToolPresetsPanel.tsx
 msgid "Tool Presets"
 msgstr "Tool Presets"
@@ -12378,6 +12287,7 @@ msgstr "Tool presets could not be loaded."
 msgid "Tool presets could not be saved: {reason}"
 msgstr "Tool presets could not be saved: {reason}"
 
+#: app/src/app/menus.ts
 #: app/src/shell/ToolBar.tsx
 msgid "Tools"
 msgstr "Tools"

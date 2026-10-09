@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DOCK_DEFAULT_ORDER, DOCK_KEYS,
+import { DOCK_DEFAULT_ORDER, DOCK_KEYS, FRAME_KEYS,
   BUILTIN_WORKSPACES, DEFAULT_WORKSPACE_SETTINGS, addWorkspace, deleteWorkspace, loadWorkspaces, lockWorkspace,
   DOCK_MAX_HEIGHT, DOCK_MIN_HEIGHT, resetWorkspace, resizeDock, saveWorkspaces, selectWorkspace, toggleDock, type WorkspaceSettings, type WorkspaceStorage,
 } from './workspaces.ts';
@@ -126,6 +126,19 @@ test('legacy saved and custom workspaces gain new inspection panels without losi
   const invalid = JSON.parse(raw);
   invalid.custom[0].settings.info = 'yes';
   assert.deepEqual(loadWorkspaces(storage(JSON.stringify(invalid))).custom, []);
+});
+
+test('workspaces stored before the Window frame toggles show the color group, Layers, History, options bar and toolbar', () => {
+  const legacy = changed() as unknown as Record<string, unknown>;
+  for (const k of FRAME_KEYS) delete legacy[k];
+  const loaded = loadWorkspaces(storage(JSON.stringify({ selected: 'Old', settings: legacy, custom: [{ name: 'Old', settings: legacy }] })));
+  for (const k of FRAME_KEYS) {
+    assert.equal(loaded.settings[k], true, k);
+    assert.equal(loaded.custom[0].settings[k], true, k);
+  }
+  const hidden = saveWorkspaces(storage(), addWorkspace(loaded, 'Bare', { ...loaded.settings, layers: false, tools: false }));
+  assert.equal(hidden.settings.layers, false);
+  assert.equal(hidden.custom.find(w => w.name === 'Bare')!.settings.tools, false);
 });
 
 test('dock layout loads empty for legacy data, normalizes bad entries, and round-trips per workspace', () => {

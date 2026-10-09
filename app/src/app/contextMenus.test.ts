@@ -6,7 +6,7 @@ import type { Item } from './helpers.ts';
 const it = (label: string, off = false, sub?: Item[]): Item => ({ label, run: () => {}, off, sub });
 const menus = {
   Layer: [it('Layer via Copy'), it('Duplicate Layer'), it('Merge Layers'), it('Add Layer Mask', true), it('Rasterize', false, [it('Type', true), it('Shape')]), it('Layer Style', false, [it('Blending Options…')])],
-  Select: [it('All'), it('Deselect'), it('Inverse'), it('Feather…'), it('Reselect', true)],
+  Select: [it('All'), it('Deselect'), it('Inverse'), it('Modify', false, [it('Feather…')]), it('Reselect', true)],
   Edit: [it('Free Transform'), it('Fill…'), it('Stroke…')],
 };
 

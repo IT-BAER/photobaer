@@ -1149,24 +1149,24 @@
     "›",
     [
      [
-      "Character",
-      "✓ Character"
+      "Character Panel",
+      "✓ Character Panel"
      ],
      [
-      "Paragraph",
-      "✓ Paragraph"
+      "Paragraph Panel",
+      "✓ Paragraph Panel"
      ],
      [
-      "Character Styles",
-      "✓ Character Styles"
+      "Glyphs Panel",
+      "✓ Glyphs Panel"
      ],
      [
-      "Paragraph Styles",
-      "✓ Paragraph Styles"
+      "Character Styles Panel",
+      "✓ Character Styles Panel"
      ],
      [
-      "Glyphs",
-      "✓ Glyphs"
+      "Paragraph Styles Panel",
+      "✓ Paragraph Styles Panel"
      ]
     ]
    ],
@@ -1708,25 +1708,32 @@
     "Subject"
    ],
    [
-    "Border…",
-    "Border…"
-   ],
-   [
-    "Smooth…",
-    "Smooth…"
-   ],
-   [
-    "Expand…",
-    "Expand…"
-   ],
-   [
-    "Contract…",
-    "Contract…"
-   ],
-   [
-    "Feather…",
-    "Feather…",
-    "Shift+F6"
+    "Modify",
+    "Modify",
+    "›",
+    [
+     [
+      "Border…",
+      "Border…"
+     ],
+     [
+      "Smooth…",
+      "Smooth…"
+     ],
+     [
+      "Expand…",
+      "Expand…"
+     ],
+     [
+      "Contract…",
+      "Contract…"
+     ],
+     [
+      "Feather…",
+      "Feather…",
+      "Shift+F6"
+     ]
+    ]
    ],
    [
     "Grow",
@@ -1737,8 +1744,12 @@
     "Similar"
    ],
    [
-    "Exit Quick Mask Mode",
-    "Exit Quick Mask Mode",
+    "Transform Selection",
+    "Transform Selection"
+   ],
+   [
+    "Edit in Quick Mask Mode",
+    "✓ Edit in Quick Mask Mode",
     "Q"
    ],
    [
@@ -1748,10 +1759,6 @@
    [
     "Save Selection…",
     "Save Selection…"
-   ],
-   [
-    "Transform Selection",
-    "Transform Selection"
    ]
   ],
   "Filter": [
@@ -2452,73 +2459,129 @@
     ]
    ],
    [
-    "Hide Actions",
-    "Hide Actions",
+    "Actions",
+    "✓ Actions",
     "Alt+F9"
    ],
    [
-    "Hide Adjustments",
-    "Hide Adjustments"
+    "Adjustments",
+    "✓ Adjustments"
    ],
    [
-    "Hide Channels",
-    "Hide Channels"
+    "Brush Settings",
+    "Brush Settings",
+    "F5"
    ],
    [
-    "Hide Clone Source",
-    "Hide Clone Source"
+    "Brushes",
+    "Brushes"
    ],
    [
-    "Hide Navigator",
-    "Hide Navigator"
+    "Channels",
+    "✓ Channels"
    ],
    [
-    "Hide Layer Comps",
-    "Hide Layer Comps"
+    "Character",
+    "✓ Character"
    ],
    [
-    "Hide Paths",
-    "Hide Paths"
+    "Character Styles",
+    "✓ Character Styles"
    ],
    [
-    "Hide Properties",
-    "Hide Properties"
+    "Clone Source",
+    "✓ Clone Source"
    ],
    [
-    "Hide Styles",
-    "Hide Styles"
+    "Color",
+    "Color",
+    "F6"
    ],
    [
-    "Hide Patterns",
-    "Hide Patterns"
+    "Glyphs",
+    "✓ Glyphs"
    ],
    [
-    "Hide Gradients",
-    "Hide Gradients"
+    "Gradients",
+    "✓ Gradients"
    ],
    [
-    "Hide Shapes",
-    "Hide Shapes"
+    "Histogram",
+    "✓ Histogram"
    ],
    [
-    "Hide Histogram",
-    "Hide Histogram"
+    "History",
+    "✓ History"
    ],
    [
-    "Hide Info",
-    "Hide Info"
+    "Info",
+    "✓ Info",
+    "F8"
    ],
    [
-    "Hide Tool Presets",
-    "Hide Tool Presets"
+    "Layer Comps",
+    "✓ Layer Comps"
    ],
    [
-    "Hide Notes",
-    "Hide Notes"
+    "Layers",
+    "✓ Layers",
+    "F7"
    ],
    [
-    "Hide Measurement Log",
-    "Hide Measurement Log"
+    "Measurement Log",
+    "✓ Measurement Log"
+   ],
+   [
+    "Navigator",
+    "✓ Navigator"
+   ],
+   [
+    "Notes",
+    "✓ Notes"
+   ],
+   [
+    "Paragraph",
+    "✓ Paragraph"
+   ],
+   [
+    "Paragraph Styles",
+    "✓ Paragraph Styles"
+   ],
+   [
+    "Paths",
+    "✓ Paths"
+   ],
+   [
+    "Patterns",
+    "✓ Patterns"
+   ],
+   [
+    "Properties",
+    "✓ Properties"
+   ],
+   [
+    "Shapes",
+    "✓ Shapes"
+   ],
+   [
+    "Styles",
+    "✓ Styles"
+   ],
+   [
+    "Swatches",
+    "Swatches"
+   ],
+   [
+    "Tool Presets",
+    "✓ Tool Presets"
+   ],
+   [
+    "Options",
+    "✓ Options"
+   ],
+   [
+    "Tools",
+    "✓ Tools"
    ],
    [
     "Next Document",

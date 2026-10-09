@@ -50,7 +50,7 @@ export function layerRowItems(menus: Menus, extra: Item[]): Item[] {
   return [...picked, ...extra.map((i, k) => (k === 0 && picked.length ? { ...i, sep: true } : i))];
 }
 
-const SELECTION: string[][] = [['Select/Deselect', 'Select/Inverse=Select Inverse', 'Select/Feather…'], ['Layer/Layer via Copy', 'Edit/Free Transform', 'Edit/Fill…', 'Edit/Stroke…']];
+const SELECTION: string[][] = [['Select/Deselect', 'Select/Inverse=Select Inverse', 'Select/Modify/Feather…'], ['Layer/Layer via Copy', 'Edit/Free Transform', 'Edit/Fill…', 'Edit/Stroke…']];
 const NO_SELECTION: string[][] = [['Select/All=Select All', 'Select/Reselect'], ['Edit/Free Transform']];
 
 /** The canvas menu: selection commands when a pixel selection exists, else Select All / Reselect. */
