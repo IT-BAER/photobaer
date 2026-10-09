@@ -15,18 +15,14 @@ pub struct LiveWire {
 
 // Premultiplied, so a shape on transparency has an edge and transparent pixels of different
 // colours (straight RGBA keeps the old RGB under alpha 0) do not.
-fn premultiplied(src: &[u8]) -> Vec<[f32; 4]> {
-    src.chunks_exact(4)
-        .map(|p| {
-            let a = p[3] as f32 / 255.0;
-            [p[0] as f32 * a, p[1] as f32 * a, p[2] as f32 * a, p[3] as f32]
-        })
-        .collect()
+// Computed per read: a premultiplied copy of a big canvas would cost 16 bytes per pixel.
+fn premultiplied(src: &[u8], p: usize) -> [f32; 4] {
+    let a = src[p * 4 + 3] as f32 / 255.0;
+    [src[p * 4] as f32 * a, src[p * 4 + 1] as f32 * a, src[p * 4 + 2] as f32 * a, src[p * 4 + 3] as f32]
 }
 
 fn sobel(src: &[u8], w: i32, h: i32) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
-    let ch = premultiplied(src);
-    let at = |x: i32, y: i32| ch[(y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize];
+    let at = |x: i32, y: i32| premultiplied(src, (y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize);
     let n = (w * h) as usize;
     let (mut gx, mut gy, mut mag) = (vec![0f32; n], vec![0f32; n], vec![0f32; n]);
     let mut top = 1e-6f32;
@@ -196,7 +192,7 @@ pub fn suggest_anchor(path: &[(i32, i32)], frequency: u8) -> Option<usize> {
 /// and stddev, then a contiguous grow accepts neighbours within 2.5 stddevs that are not sitting
 /// on a strong edge. `auto_enhance` rounds the result off (smooth 2) and feathers it by 1 px.
 pub fn quick_select(
-    src: &[u8],
+    mut src: Vec<u8>,
     w: u32,
     h: u32,
     stroke: &[(f64, f64)],
@@ -208,14 +204,14 @@ pub fn quick_select(
     }
     // Transparency is composited over mid gray, so it is a colour of its own and the RGB left
     // under alpha 0 never matches.
-    let src: &[u8] = &src
-        .chunks_exact(4)
-        .flat_map(|p| {
-            let a = p[3] as u32;
-            let c = |v: u8| ((v as u32 * a + 128 * (255 - a) + 127) / 255) as u8;
-            [c(p[0]), c(p[1]), c(p[2]), 255]
-        })
-        .collect::<Vec<u8>>();
+    for p in src.chunks_exact_mut(4) {
+        let a = p[3] as u32;
+        for v in &mut p[..3] {
+            *v = ((*v as u32 * a + 128 * (255 - a) + 127) / 255) as u8;
+        }
+        p[3] = 255;
+    }
+    let src = &src[..];
     let (wi, hi) = (w as i32, h as i32);
     let n = (wi * hi) as usize;
     let r = radius.max(0.5);
@@ -413,7 +409,7 @@ mod tests {
                 src[p..p + 4].copy_from_slice(&[230, 160, 60, if x < 10 { 255 } else { 0 }]);
             }
         }
-        let cov = quick_select(&src, w as u32, h as u32, &[(3.5, 2.5), (3.5, 7.5)], 2.0, false).unwrap();
+        let cov = quick_select(src.clone(), w as u32, h as u32, &[(3.5, 2.5), (3.5, 7.5)], 2.0, false).unwrap();
         for y in 0..h {
             for x in 0..w {
                 let want = if x < 10 { 1.0 } else { 0.0 };
@@ -426,22 +422,22 @@ mod tests {
     fn quick_select_takes_exactly_one_side_of_a_split() {
         let (w, h, mid) = (20, 10, 10);
         let src = split(w, h, mid);
-        let cov = quick_select(&src, w as u32, h as u32, &[(3.5, 2.5), (3.5, 7.5)], 2.0, false).unwrap();
+        let cov = quick_select(src.clone(), w as u32, h as u32, &[(3.5, 2.5), (3.5, 7.5)], 2.0, false).unwrap();
         for y in 0..h {
             for x in 0..w {
                 let want = if x < mid { 1.0 } else { 0.0 };
                 assert_eq!(cov[(y * w + x) as usize], want, "pixel ({x}, {y})");
             }
         }
-        assert!(quick_select(&src, w as u32, h as u32, &[], 2.0, false).is_err());
-        assert!(quick_select(&src, w as u32, h as u32, &[(-50.0, -50.0)], 2.0, false).is_err());
+        assert!(quick_select(src.clone(), w as u32, h as u32, &[], 2.0, false).is_err());
+        assert!(quick_select(src.clone(), w as u32, h as u32, &[(-50.0, -50.0)], 2.0, false).is_err());
     }
 
     #[test]
     fn quick_select_auto_enhance_softens_the_edge() {
         let (w, h, mid) = (20, 10, 10);
         let src = split(w, h, mid);
-        let cov = quick_select(&src, w as u32, h as u32, &[(3.5, 2.5), (3.5, 7.5)], 2.0, true).unwrap();
+        let cov = quick_select(src.clone(), w as u32, h as u32, &[(3.5, 2.5), (3.5, 7.5)], 2.0, true).unwrap();
         let soft = cov.iter().filter(|v| **v > 0.0 && **v < 1.0).count();
         assert!(soft > 0, "auto enhance should feather the border");
         assert!(cov[5 * w as usize + 2] > 0.9, "the stroke's own side stays selected");
@@ -451,7 +447,7 @@ mod tests {
     #[test]
     fn quick_select_auto_enhance_keeps_the_canvas_edge_selected() {
         let src = split(12, 12, 12);
-        let cov = quick_select(&src, 12, 12, &[(5.5, 5.5)], 2.0, true).unwrap();
+        let cov = quick_select(src.clone(), 12, 12, &[(5.5, 5.5)], 2.0, true).unwrap();
         assert!(cov.iter().all(|&v| v == 1.0), "a uniform image selects fully, edges included");
     }
 
@@ -460,7 +456,7 @@ mod tests {
         let (w, h) = (2000, 2000);
         let src = split(w, h, 1000);
         let stroke: Vec<(f64, f64)> = (0..200).map(|i| (10.0 + i as f64 * 4.0, 10.0 + i as f64 * 9.0)).collect();
-        let cov = quick_select(&src, w as u32, h as u32, &stroke, 5.0, false).unwrap();
+        let cov = quick_select(src.clone(), w as u32, h as u32, &stroke, 5.0, false).unwrap();
         assert_eq!(cov[1999 * w as usize], 1.0);
         assert_eq!(cov[1000], 0.0);
     }
@@ -479,3 +475,4 @@ mod tests {
         assert!(ms < 16.0, "magnetic_path took {ms} ms");
     }
 }
+

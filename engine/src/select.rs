@@ -388,7 +388,7 @@ impl Document {
         }
         let stroke: Vec<(f64, f64)> = points.chunks_exact(2).map(|p| (p[0], p[1])).collect();
         let src = self.sample_rgba8(sample_all, layer_id)?;
-        let cov = livewire::quick_select(&src, self.width, self.height, &stroke, radius, auto_enhance)?;
+        let cov = livewire::quick_select(src, self.width, self.height, &stroke, radius, auto_enhance)?;
         self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), mode)
     }
 

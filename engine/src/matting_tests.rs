@@ -185,3 +185,14 @@ fn doc_matting_refuses_locked_pixels_bad_values_and_non_pixel_layers() {
     let g = d.add_group("G", 1).unwrap();
     assert!(d.remove_matte(g, true).unwrap_err().contains("pixel layer"));
 }
+
+#[test]
+fn doc_matting_refuses_a_layer_too_large_for_memory() {
+    let mut d = Document::new(7200, 7200, 8).unwrap();
+    let buf = vec![200u8; TILE_BYTES_U8];
+    let last = (7200 / TILE) as u32;
+    d.set_tile_rgba8(1, 0, 0, &buf).unwrap();
+    d.set_tile_rgba8(1, last, last, &buf).unwrap();
+    assert!(d.remove_matte(1, false).unwrap_err().contains("too large"));
+    assert!(d.defringe(1, 2).unwrap_err().contains("too large"));
+}

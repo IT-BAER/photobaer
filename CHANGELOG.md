@@ -7,8 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-09
+
 ### Added
 
+- View > 200%, Print Size, Fit Layer(s) on Screen, Flip Horizontal (mirrors the view only, tools, rulers and
+  overlays follow it) and Show > Layer Edges (outlines the selected layers).
+- Layer > Layer Mask with Reveal All, Hide All, Reveal Selection, Hide Selection, From Transparency and Apply;
+  Layer > Hide Layers (Ctrl+,), Lock Layers… (Ctrl+/) and Arrange > Reverse; Select > All Layers (Alt+Ctrl+A),
+  Find Layers (Alt+Shift+Ctrl+F) and Isolate Layers. The Layers panel filter can also filter by name.
+- Layer > Matting with Color Decontaminate…, Defringe…, Remove Black Matte and Remove White Matte for pixel
+  layers, limited to the selection like other pixel edits. Layers with more than 50 megapixels on the canvas
+  are refused with a message, because the browser cannot hold the working copy.
+- Edit > Toggle Last State (Alt+Ctrl+Z), Paste Special > Paste Outside, Define Brush Preset…, Define Pattern…,
+  Define Custom Shape… and Purge (Clipboard, Histories, All).
 - Select > Subject selects the most prominent subject of the active layer in one step, without a model:
   saliency on superpixels refined by a graph cut. It works for a distinct subject on a calmer background;
   it is not a semantic segmenter, so cluttered scenes, several subjects and hair detail fall short of Photoshop.
@@ -73,20 +85,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Eyedropper sets the color again when it is selected after another tool (a selection tool reset its
   click handler). A click on a fully transparent pixel leaves the color unchanged, and a larger sample size
   averages only the visible pixels, as in Photoshop.
-
-## [0.5.0] - 2026-10-08
-
-### Added
-
-- View > 200%, Print Size, Fit Layer(s) on Screen, Flip Horizontal (mirrors the view only, tools, rulers and
-  overlays follow it) and Show > Layer Edges (outlines the selected layers).
-- Layer > Layer Mask with Reveal All, Hide All, Reveal Selection, Hide Selection, From Transparency and Apply;
-  Layer > Hide Layers (Ctrl+,), Lock Layers… (Ctrl+/) and Arrange > Reverse; Select > All Layers (Alt+Ctrl+A),
-  Find Layers (Alt+Shift+Ctrl+F) and Isolate Layers. The Layers panel filter can also filter by name.
-- Layer > Matting with Color Decontaminate…, Defringe…, Remove Black Matte and Remove White Matte for pixel
-  layers, limited to the selection like other pixel edits.
-- Edit > Toggle Last State (Alt+Ctrl+Z), Paste Special > Paste Outside, Define Brush Preset…, Define Pattern…,
-  Define Custom Shape… and Purge (Clipboard, Histories, All).
 
 ## [0.4.2] - 2026-10-07
 

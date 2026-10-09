@@ -194,6 +194,8 @@ fn slic(work: &Work) -> Vec<u32> {
     let step = (n as f32 / SUPERPIXELS as f32).sqrt().max(1.0);
     let nx = ((w as f32 / step).round() as usize).max(1);
     let ny = ((h as f32 / step).round() as usize).max(1);
+    // A strip a few pixels high would seed thousands of centres; saliency is cubic in their count.
+    let nx = nx.min(SUPERPIXELS / ny).max(1);
     let (sx, sy) = (w as f32 / nx as f32, h as f32 / ny as f32);
     let grad = |x: usize, y: usize| {
         let at = |x: usize, y: usize| work.lab[y * w + x];

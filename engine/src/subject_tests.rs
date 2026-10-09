@@ -241,3 +241,11 @@ fn a_black_shape_on_a_transparent_layer_is_selected() {
     println!("IoU {v:.4}");
     assert!(v >= 0.9, "IoU {v}");
 }
+
+#[test]
+fn an_elongated_image_keeps_the_superpixel_count_bounded() {
+    let (w, h) = (20000usize, 2usize);
+    let src: Vec<u8> = (0..w * h).flat_map(|i| [(i / 40 % 2 * 200) as u8, 90, 40, 255]).collect();
+    let sp = super::Superpixels::new(&super::Work::new(&src, w, h));
+    assert!(sp.n <= 2 * super::SUPERPIXELS, "{} superpixels", sp.n);
+}

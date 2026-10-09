@@ -4,6 +4,9 @@
 use super::*;
 use crate::region::edt2;
 
+// About 40 bytes per pixel of float planes; more would exhaust the 4 GB wasm heap.
+const MATTING_MAX_PIXELS: usize = 50_000_000;
+
 /// Recovers the color of semi-transparent pixels composited over black (`white` false) or white:
 /// c / a or (c - (1 - a)) / a, clamped to 0..1. Alpha unchanged.
 pub(super) fn remove_matte(px: &mut [[f32; 4]], white: bool) {
@@ -122,7 +125,10 @@ impl Document {
         let tiles: Vec<(i32, i32)> =
             node.pixel_tiles()?.coords().into_iter().filter(|(tx, ty)| self.on_canvas(*tx, *ty)).collect();
         let area: Vec<(i32, i32)> = match self.selected_tiles() {
-            Some(sel) => sel.into_iter().filter(|c| tiles.contains(c)).collect(),
+            Some(sel) => {
+                let on: HashSet<(i32, i32)> = tiles.iter().copied().collect();
+                sel.into_iter().filter(|c| on.contains(c)).collect()
+            }
             None => tiles.clone(),
         };
         if area.is_empty() {
@@ -136,6 +142,9 @@ impl Document {
             ((tiles.iter().map(|c| c.1).max().expect("non-empty") + 1) * ti + 1).min(self.height as i32),
         ];
         let (w, h) = ((r[2] - r[0]) as usize, (r[3] - r[1]) as usize);
+        if w * h > MATTING_MAX_PIXELS {
+            return Err("the layer is too large for Matting".into());
+        }
         let mut plane = self.read_region(id, false, r)?;
         let max = max_value(self.depth) as f32;
         let mask: Vec<f32> = match &self.node(id)?.mask {
