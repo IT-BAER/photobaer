@@ -10,7 +10,6 @@ PSD fidelity. A Rust engine compiled to WebAssembly runs in a web worker; a Reac
 |---|---|
 | `docs/PLAN.md` | Ground rules, scope, architecture, libraries and their licenses, milestones, quality gates |
 | `docs/M1.md` … `docs/M5.md` | Milestone specs and their decisions |
-| `docs/TODO.md` | Open work per milestone |
 | `docs/I18N.md` | Localization: Lingui 6, PO catalogs, glossary, wording rules |
 | `docs/scripting.md` | The `app` object for user scripts (File > Scripts) |
 | `mcp/README.md` | photobaer-mcp: how agents drive a photobaer tab |
