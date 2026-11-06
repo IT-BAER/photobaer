@@ -141,6 +141,17 @@ fn quantize(x: f32, max: f32) -> u32 {
     }
 }
 
+// v / 255 for every byte: the compositor reads four per pixel, and a table read costs less than a division.
+static UNIT8: [f32; 256] = {
+    let mut t = [0f32; 256];
+    let mut i = 0;
+    while i < 256 {
+        t[i] = i as f32 / 255.0;
+        i += 1;
+    }
+    t
+};
+
 #[derive(Clone)]
 pub enum Pixels {
     U8(Box<[u8]>),
@@ -157,10 +168,10 @@ impl Pixels {
         let o = p * 4;
         match self {
             Pixels::U8(d) => [
-                d[o] as f32 / 255.0,
-                d[o + 1] as f32 / 255.0,
-                d[o + 2] as f32 / 255.0,
-                d[o + 3] as f32 / 255.0,
+                UNIT8[d[o] as usize],
+                UNIT8[d[o + 1] as usize],
+                UNIT8[d[o + 2] as usize],
+                UNIT8[d[o + 3] as usize],
             ],
             Pixels::U16(d) => [
                 d[o] as f32 / 65535.0,

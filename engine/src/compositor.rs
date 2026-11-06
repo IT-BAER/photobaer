@@ -1941,7 +1941,7 @@ pub(super) fn quantize_premul(out: &[f32]) -> Option<Vec<u8>> {
     for p in 0..TILE_PIXELS {
         let o = p * 4;
         for c in 0..4 {
-            bytes[o + c] = (out[o + c] * 255.0).round().clamp(0.0, 255.0) as u8;
+            bytes[o + c] = quantize(out[o + c], 255.0) as u8;
         }
         if bytes[o + 3] != 0 {
             any_alpha = true;

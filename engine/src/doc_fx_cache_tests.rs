@@ -423,6 +423,72 @@ fn a_moved_pattern_shape_matches_the_per_tile_path() {
     }
 }
 
+// The Move tool's float: the 15 level 0 display tiles of a 1015 x 493 px view with only a styled layer
+// visible and its effect planes cached, on the window grid and after a move off it.
+// cargo test --release --manifest-path engine/Cargo.toml bench_float_tiles -- --ignored --nocapture
+#[test]
+#[ignore = "timing guide, not a gate"]
+fn bench_float_tiles() {
+    use std::time::Instant;
+    let median = |mut v: Vec<f64>| {
+        v.sort_by(f64::total_cmp);
+        v[v.len() / 2]
+    };
+    for name in ["drop shadow", "shadow, gradient, stroke"] {
+        let mut d = Document::new(2000, 1600, 8).unwrap();
+        d.fill(1, Target::Pixels, 255, 255, 255, 255).unwrap();
+        let id = d.add_layer("big", 1).unwrap();
+        let (w, h) = (1500usize, 1200usize);
+        let px: Vec<u8> = (0..w * h).flat_map(|i| [(i % 251) as u8, (i / w % 253) as u8, 9, if (i % w + i / w) % 97 < 80 { 255 } else { 0 }]).collect();
+        d.put_rgba8(id, 150, 120, w as u32, h as u32, &px).unwrap();
+        d.set_style(id, &styles().into_iter().find(|s| s.0 == name).unwrap().1).unwrap();
+        d.set_props(1, r#"{"visible":false}"#).unwrap();
+        // 1015 x 493 px at (300, 200): tiles 1..=5 x 0..=2.
+        let tiles: Vec<(u32, u32)> = (0..3).flat_map(|ty| (1..6).map(move |tx| (tx, ty))).collect();
+        for moved in [false, true] {
+            if moved {
+                d.offset_layer(id, 37, 13).unwrap();
+            }
+            tiles.iter().for_each(|&(tx, ty)| drop(d.display_tile(0, tx, ty).unwrap()));
+            FX_RENDERS.with(|c| c.set(0));
+            let (mut whole, mut prog, mut run, mut rest) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+            for _ in 0..40 {
+                let t = Instant::now();
+                tiles.iter().for_each(|&(tx, ty)| drop(d.display_tile(0, tx, ty).unwrap()));
+                whole.push(t.elapsed().as_secs_f64() * 1000.0 / tiles.len() as f64);
+                let (mut a, mut b, mut c) = (0.0, 0.0, 0.0);
+                for &(tx, ty) in &tiles {
+                    let t = Instant::now();
+                    let p = d.program(0, tx, ty).unwrap();
+                    a += t.elapsed().as_secs_f64();
+                    let t = Instant::now();
+                    let v = Document::run_program(&p);
+                    b += t.elapsed().as_secs_f64();
+                    let t = Instant::now();
+                    drop(compositor::quantize_premul(&d.profile_map(d.mode_map(0, v))));
+                    c += t.elapsed().as_secs_f64();
+                }
+                let per = 1000.0 / tiles.len() as f64;
+                (prog.push(a * per), run.push(b * per), rest.push(c * per));
+            }
+            assert_eq!(fx_renders(), 0, "every plane comes from the cache");
+            println!(
+                "bench_float_tiles: {name}{}: {:.3} ms/tile (program {:.3}, run {:.3}, map and quantize {:.3})",
+                if moved { ", moved" } else { "" }, median(whole), median(prog), median(run), median(rest)
+            );
+        }
+        // Quantizing a display tile costs about what quantizing a plane of the same floats does.
+        let v = Document::run_program(&d.program(0, 2, 1).unwrap());
+        let time = |f: &dyn Fn()| {
+            median((0..40).map(|_| (Instant::now(), f()).0.elapsed().as_secs_f64() * 1000.0).collect())
+        };
+        let tile = time(&|| drop(std::hint::black_box(compositor::quantize_premul(&v))));
+        let plane = time(&|| drop(std::hint::black_box(Pixels::from_straight(8, &v))));
+        println!("bench_float_tiles: {name}: quantizing a tile {tile:.3} ms, a plane {plane:.3} ms");
+        assert!(tile < 2.0 * plane, "{name}: quantizing a tile takes {tile:.3} ms, a plane {plane:.3} ms");
+    }
+}
+
 /// The display tiles of `level` over doc rect `view` (document px).
 fn view_tiles(d: &Document, level: u32, view: [f64; 4], legacy: bool) -> Vec<Vec<f32>> {
     FX_LEGACY.with(|c| c.set(legacy));

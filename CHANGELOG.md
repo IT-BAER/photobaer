@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- A press with the Move tool on a layer with effects shows the moving layer sooner: display tiles composited
+  on the CPU take less time to composite and to round to 8 bits. The pixels are the same.
+
 ## [0.5.0] - 2026-10-09
 
 ### Added

@@ -1170,6 +1170,30 @@ fn display_tile_level0_is_unchanged() {
     assert_eq!(scene_checksum(&program_doc()), 9894974724174265876);
 }
 
+#[test]
+fn stored_bytes_read_as_the_byte_over_255() {
+    for v in 0..=255u8 {
+        let px = Pixels::U8(vec![v; TILE_PIXELS * 4].into_boxed_slice());
+        let want = std::hint::black_box(v) as f32 / 255.0;
+        assert_eq!(px.rgba_f32(7).map(f32::to_bits), [want.to_bits(); 4], "byte {v}");
+    }
+}
+
+#[test]
+fn display_tiles_round_halves_away_from_zero() {
+    // Per value: round(v * 255) with halves away from zero; NaN and negatives give 0, values past 1 give 255.
+    let mut v = vec![0.5, 1.0, 1.7, -0.3, -0.0, f32::NAN, f32::INFINITY, f32::NEG_INFINITY, f32::MIN_POSITIVE];
+    for m in 0..255 {
+        let half = (m as f32 + 0.5) / 255.0;
+        v.extend([f32::from_bits(half.to_bits() - 1), half, f32::from_bits(half.to_bits() + 1)]);
+    }
+    let n = TILE_PIXELS * 4;
+    v.extend((v.len()..n).map(|i| i as f32 / (n - 1) as f32 * 1.02 - 0.01));
+    let want: Vec<u8> = v.iter().map(|x| (x * 255.0).round().clamp(0.0, 255.0) as u8).collect();
+    assert_eq!(&want[..4], [128, 255, 255, 0]);
+    assert_eq!(quantize_premul(&v).unwrap(), want);
+}
+
 // cargo test --release bench_pan_zoom -- --ignored --nocapture
 #[test]
 #[ignore]
