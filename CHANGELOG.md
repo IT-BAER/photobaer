@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-13
+
+### Added
+
+- OpenEXR files with PIZ, DWAA and DWAB compression open (half and float channels, scanline and tiled).
+- Import PDF crops to the Bounding Box, Media Box, Crop Box, Bleed Box, Trim Box or Art Box.
+- In 32-bit documents a Gradient Editor color stop takes the Color Picker's Intensity and keeps it in presets.
+- File > Save As and Export As write TIFF (no compression, LZW or ZIP; 8, 16 or 32 bits; ICC profile and File Info),
+  BMP and Targa (raw or RLE). Save As keeps the document as it is and writes a flattened copy.
+- PNG and JPEG exports with File Info carry EXIF (description, author, copyright, software, resolution).
+- File > Export > Export As: Image Size (width, height, scale) with Resample, Canvas Size, and a preview of the selected
+  row. Save for Web: Original, Optimized, 2-Up and 4-Up views (picking a pane takes its settings) and Matte.
+- File > Scripts > Image Processor: Save as TIFF (with LZW), Copyright Info and Include ICC Profile.
+- File > File Info: Basic, Camera Data (read from the EXIF of opened JPEG, PNG, WebP and PSD files), Origin, IPTC and
+  an editable Raw Data tab; metadata templates can be saved, applied (replace all, replace matching, append), imported
+  and exported as .xmp.
+- Image > Variables: Pixel Replacement variables (Fit, Fill, As Is, Conform, alignment, Clip to Bounding Box). Images
+  are chosen with Select File or Load Images and stay loaded until the page is reloaded.
+- Variables and data sets are saved in PSD files and come back when photobaer opens them; Photoshop does not read them.
+
 ### Changed
 
 - A press with the Move tool on a layer with effects shows the moving layer sooner: display tiles composited
@@ -14,14 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The moving layer of a Move tool press is converted for display in the engine instead of in JavaScript, so it
   shows sooner. A layer with an inner shadow or knockout keeps its rendered effects when it moves inside the
   canvas. After a change, the view asks for its next tiles as soon as one arrives instead of a frame later.
-### Added
-
-- OpenEXR files with PIZ, DWAA and DWAB compression open (half and float channels, scanline and tiled).
-- Import PDF crops to the Bounding Box, Media Box, Crop Box, Bleed Box, Trim Box or Art Box.
-- In 32-bit documents a Gradient Editor color stop takes the Color Picker's Intensity and keeps it in presets.
-
-### Changed
-
 - Import PDF opens each page directly in the chosen mode and bit depth, without undo steps.
 - Enter in a size field of Import PDF and Rasterize SVG Format presses OK.
 - Convert to Profile, profile conversion at open and mode conversions also convert the colors of text, shape and
@@ -35,20 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - File > Revert of an SVG renders it again at the size and resolution chosen when it was opened.
-### Added
-
-- File > Save As and Export As write TIFF (no compression, LZW or ZIP; 8, 16 or 32 bits; ICC profile and File Info),
-  BMP and Targa (raw or RLE). Save As keeps the document as it is and writes a flattened copy.
-- PNG and JPEG exports with File Info carry EXIF (description, author, copyright, software, resolution).
-- File > Export > Export As: Image Size (width, height, scale) with Resample, Canvas Size, and a preview of the selected
-  row. Save for Web: Original, Optimized, 2-Up and 4-Up views (picking a pane takes its settings) and Matte.
-- File > Scripts > Image Processor: Save as TIFF (with LZW), Copyright Info and Include ICC Profile.
-- File > File Info: Basic, Camera Data (read from the EXIF of opened JPEG, PNG, WebP and PSD files), Origin, IPTC and
-  an editable Raw Data tab; metadata templates can be saved, applied (replace all, replace matching, append), imported
-  and exported as .xmp.
-- Image > Variables: Pixel Replacement variables (Fit, Fill, As Is, Conform, alignment, Clip to Bounding Box). Images
-  are chosen with Select File or Load Images and stay loaded until the page is reloaded.
-- Variables and data sets are saved in PSD files and come back when photobaer opens them; Photoshop does not read them.
 
 ## [0.5.0] - 2026-10-09
 
@@ -560,7 +558,8 @@ First public release.
 - Retouching: healing core and Content-Aware Fill.
 - Welcome screen and Help > About dialog.
 
-[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.5.0...HEAD
+[unreleased]: https://github.com/IT-BAER/photobaer/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/IT-BAER/photobaer/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/IT-BAER/photobaer/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/IT-BAER/photobaer/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/IT-BAER/photobaer/compare/v0.4.0...v0.4.1
