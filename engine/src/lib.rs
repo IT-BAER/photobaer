@@ -1119,6 +1119,11 @@ impl Engine {
         self.0.doc.set_tile_bytes(target, id, tx, ty, bytes).map_err(err)
     }
 
+    /// `set_tile_bytes` at a signed tile coordinate: 'pixels' and 'mask' tiles may lie past the canvas.
+    pub fn set_tile_bytes_at(&mut self, target: &str, id: u32, tx: i32, ty: i32, bytes: &[u8]) -> Result<(), JsError> {
+        self.0.doc.set_tile_bytes_at(target, id, tx, ty, bytes).map_err(err)
+    }
+
     /// Straight RGBA8 (w x h) written into a pixel layer at (x, y), past the canvas too.
     pub fn put_rgba8(&mut self, id: u32, x: i32, y: i32, w: u32, h: u32, data: &[u8]) -> Result<(), JsError> {
         self.0.doc.put_rgba8(id, x, y, w, h, data).map_err(err)

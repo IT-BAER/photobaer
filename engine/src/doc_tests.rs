@@ -1896,6 +1896,13 @@ fn set_tile_bytes_writes_native_pixels_masks_and_channels() {
     assert!(d.set_tile_bytes("channel", 99, 0, 0, &m).is_err());
     assert!(d.set_tile_bytes("other", 1, 0, 0, &m).is_err());
     assert!(d.set_tile_bytes("mask", 1, 2, 2, &m).is_err(), "outside the tile grid");
+
+    d.set_tile_bytes_at("pixels", 1, -1, 5, &px).unwrap();
+    assert_eq!(d.node(1).unwrap().pixel_tiles().unwrap().get(-1, 5).unwrap().px.to_bytes(), px);
+    d.set_tile_bytes_at("mask", 1, 4, -3, &m).unwrap();
+    assert_eq!(d.node(1).unwrap().mask.as_ref().unwrap().tiles.get(4, -3).unwrap().px.to_bytes(), m);
+    assert!(d.set_tile_bytes_at("channel", c, -1, 0, &m).is_err(), "saved channels stay on the canvas");
+    assert!(d.set_tile_bytes_at("pixels", 1, MAX_TILE_COORD as i32, 0, &px).is_err());
 }
 
 #[test]

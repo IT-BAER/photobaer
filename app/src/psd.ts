@@ -499,21 +499,25 @@ function smartIn(e: Engine, l: Layer, files: Map<string, LinkedFile>, warn: Warn
 }
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// A layer's straight RGBA8 tile, cropped to the document, written into `id`'s tiles.
+// A layer's straight pixels written into `id`'s tiles, past the canvas too.
 // 16-bit samples as Uint16Array, 32-bit as Float32Array (ag-psd), 8-bit as bytes.
 type Samples = Uint8ClampedArray | Uint8Array | Uint16Array | Float32Array;
 const asBytes = (a: Uint16Array | Float32Array) => new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
 const toRgba8 = (d: Samples) =>
   d instanceof Uint16Array ? Uint8Array.from(d, v => Math.round(v / 257)) : d instanceof Float32Array ? Uint8Array.from(d, v => Math.round(Math.min(1, Math.max(0, v)) * 255)) : d;
+// The engine's tile coordinate limit (MAX_TILE_COORD) in px; a crafted rect beyond it is cropped.
+const FAR = 256 * (1 << 20);
 
-// Straight RGBA into layer `id`: 16/32-bit samples as the document's own tiles, unless `rgba8` (text layer caches).
+// Straight RGBA into layer `id`: 16/32-bit samples as the document's own tiles, unless `rgba8` (text layer
+// caches, which stay cropped to the canvas).
 export function place(e: Engine, id: number, l: { imageData?: PixelData; left?: number; top?: number }, w: number, h: number, rgba8 = false) {
   const img = l.imageData;
   if (!img || img.width === 0 || img.height === 0) return;
   const src = (rgba8 ? toRgba8(img.data as Samples) : img.data) as Samples;
   const left = l.left ?? 0, top = l.top ?? 0;
-  const x0 = Math.max(0, left), x1 = Math.min(w, left + img.width);
-  const y0 = Math.max(0, top), y1 = Math.min(h, top + img.height);
+  const [minX, minY, maxX, maxY] = rgba8 ? [0, 0, w, h] : [-FAR, -FAR, FAR, FAR];
+  const x0 = Math.max(minX, left), x1 = Math.min(maxX, left + img.width);
+  const y0 = Math.max(minY, top), y1 = Math.min(maxY, top + img.height);
   if (x0 >= x1 || y0 >= y1) return;
   for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y1 - 1) / 256); ty++) {
     for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x1 - 1) / 256); tx++) {
@@ -523,36 +527,36 @@ export function place(e: Engine, id: number, l: { imageData?: PixelData; left?: 
         const s = ((y - top) * img.width + (cx0 - left)) * 4;
         buf.set(src.subarray(s, s + (cx1 - cx0) * 4), ((y - ty * 256) * 256 + (cx0 - tx * 256)) * 4);
       }
-      if (buf instanceof Uint8Array) e.set_tile_rgba8(id, tx, ty, buf);
-      else e.set_tile_bytes('pixels', id, tx, ty, asBytes(buf));
+      if (rgba8) e.set_tile_rgba8(id, tx, ty, buf as Uint8Array);
+      else e.set_tile_bytes_at('pixels', id, tx, ty, buf instanceof Uint8Array ? buf : asBytes(buf));
     }
   }
 }
 
-// Mask pixels (red channel) cropped to the document; tiles outside the mask rect keep the node's default.
-function placeMask(e: Engine, id: number, m: NonNullable<Layer['mask']>, w: number, h: number) {
+// Mask pixels (red channel), past the canvas too; tiles outside the mask rect keep the node's default.
+function placeMask(e: Engine, id: number, m: NonNullable<Layer['mask']>) {
   const img = m.imageData;
   if (!img || img.width === 0 || img.height === 0) return;
   const def = m.defaultColor ?? 0;
   const left = m.left ?? 0, top = m.top ?? 0;
-  const x0 = Math.max(0, left), x1 = Math.min(w, left + img.width);
-  const y0 = Math.max(0, top), y1 = Math.min(h, top + img.height);
+  const x0 = Math.max(-FAR, left), x1 = Math.min(FAR, left + img.width);
+  const y0 = Math.max(-FAR, top), y1 = Math.min(FAR, top + img.height);
   if (x0 >= x1 || y0 >= y1) return;
-  // 16/32-bit masks (Uint16Array, Float32Array) go in as 16-bit mask tiles.
+  // 16/32-bit masks (Uint16Array, Float32Array) and 16/32-bit documents take 16-bit mask tiles.
   const data = img.data as Samples;
   const wide = data instanceof Uint16Array || data instanceof Float32Array;
-  const at = (i: number) => (data instanceof Float32Array ? Math.round(Math.min(1, Math.max(0, data[i])) * 65535) : data[i]);
+  const wideTile = wide || e.depth() !== 8;
+  const at = (i: number) => (data instanceof Float32Array ? Math.round(Math.min(1, Math.max(0, data[i])) * 65535) : wide ? data[i] : wideTile ? data[i] * 257 : data[i]);
   for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y1 - 1) / 256); ty++) {
     for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x1 - 1) / 256); tx++) {
-      const buf = wide ? new Uint16Array(256 * 256).fill(def * 257) : new Uint8Array(256 * 256).fill(def);
+      const buf = wideTile ? new Uint16Array(256 * 256).fill(def * 257) : new Uint8Array(256 * 256).fill(def);
       const cx0 = Math.max(x0, tx * 256), cx1 = Math.min(x1, tx * 256 + 256);
       for (let y = Math.max(y0, ty * 256); y < Math.min(y1, ty * 256 + 256); y++) {
         for (let x = cx0; x < cx1; x++) {
           buf[(y - ty * 256) * 256 + (x - tx * 256)] = at(((y - top) * img.width + (x - left)) * 4);
         }
       }
-      if (buf instanceof Uint16Array) e.set_tile_bytes('mask', id, tx, ty, asBytes(buf));
-      else e.set_mask_tile8(id, tx, ty, buf);
+      e.set_tile_bytes_at('mask', id, tx, ty, buf instanceof Uint16Array ? asBytes(buf) : buf);
     }
   }
 }
@@ -562,12 +566,12 @@ function locksOf(l: Layer) {
   return { transparency: !!p?.transparency, pixels: !!p?.composite, position: !!p?.position };
 }
 
-function addMaskIfAny(e: Engine, id: number, l: Layer, w: number, h: number) {
+function addMaskIfAny(e: Engine, id: number, l: Layer) {
   const m = rasterMaskOf(l);
   if (!m) return;
   e.add_mask(id, (m.defaultColor ?? 0) !== 0);
   if (m.disabled) e.set_props(id, JSON.stringify({ mask_enabled: false }));
-  placeMask(e, id, m, w, h);
+  placeMask(e, id, m);
 }
 
 
@@ -728,7 +732,7 @@ function addNode(c: ImportCtx, l: Layer): number {
     }));
     let idx = 0;
     for (const child of l.children) e.move_node(addNode(c, child), id, idx++);
-    addMaskIfAny(e, id, l, w, h);
+    addMaskIfAny(e, id, l);
     const vm = vectorMaskIn(l, w, h);
     if (vm) e.set_vector_mask(id, JSON.stringify(vm));
     addM3Props(c, id, l, false);
@@ -757,7 +761,7 @@ function addNode(c: ImportCtx, l: Layer): number {
   }));
   // Smart object and text layer pixels become their cache (D5); fill and adjustment layers render from their params.
   if (!shape && (!special || 'smart' in special || 'text' in special)) place(e, id, l, w, h, !!special && 'text' in special);
-  addMaskIfAny(e, id, l, w, h);
+  addMaskIfAny(e, id, l);
   const vm = shape ? null : vectorMaskIn(l, w, h);
   if (vm) e.set_vector_mask(id, JSON.stringify(vm));
   addM3Props(c, id, l, !!adj);
@@ -787,7 +791,7 @@ function importLayerComps(c: ImportCtx, psd: Psd) {
   const defaults = new Map<number, Default>();
   const walk = (nodes: ManifestNode[]) => {
     for (const n of nodes) {
-      const rect = tileBounds(n.tiles, w, h);
+      const rect = pixelRect(e, n, w, h);
       defaults.set(n.id, { visible: n.visible, position: rect ? [rect.left, rect.top] : null, opacity: n.opacity, fill: n.fill, blend: n.blend, style: n.style ?? null });
       if (n.children) walk(n.children);
     }
@@ -933,7 +937,7 @@ function assembleImage(tile: (tx: number, ty: number) => Uint8Array | null, rect
   return out;
 }
 
-// Manifest v3 tile list: [tx, ty, id] with signed tile coordinates; tiles outside the canvas are not exported.
+// Manifest v3 tile list: [tx, ty, id] with signed tile coordinates.
 type Sparse = [number, number, number][];
 
 const tileMap = (ids: Sparse | undefined) => new Map((ids ?? []).map(([tx, ty, id]) => [`${tx},${ty}`, id]));
@@ -943,7 +947,7 @@ function tileAt(e: Engine, map: Map<string, number>, tx: number, ty: number): Ui
   return id ? e.tile_bytes(BigInt(id)) : null;
 }
 
-// Bounding rect (document pixel space, cropped to the canvas) of the non-empty tiles in `ids`, or null if none.
+// Bounding rect (document pixel space, cropped to the canvas) of the non-empty canvas tiles in `ids`, or null if none.
 function tileBounds(ids: Sparse | undefined, w: number, h: number): Rect | null {
   const txN = Math.ceil(w / 256), tyN = Math.ceil(h / 256);
   let minTx = Infinity, minTy = Infinity, maxTx = -1, maxTy = -1;
@@ -956,10 +960,41 @@ function tileBounds(ids: Sparse | undefined, w: number, h: number): Rect | null 
   return { left: minTx * 256, top: minTy * 256, right: Math.min((maxTx + 1) * 256, w), bottom: Math.min((maxTy + 1) * 256, h) };
 }
 
+const union = (a: Rect | null, b: Rect | null): Rect | null => (!a ? b : !b ? a : {
+  left: Math.min(a.left, b.left), top: Math.min(a.top, b.top), right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom),
+});
+
+// The rect a pixel, smart object or text layer is saved with: its canvas tiles plus its pixels past the canvas.
+function pixelRect(e: Engine, n: ManifestNode, w: number, h: number): Rect | null {
+  const r = tileBounds(n.tiles, w, h);
+  if (!n.tiles?.length || !['pixel', 'smart', 'text'].includes(n.kind)) return r;
+  const b = e.layer_bounds(n.id) as Int32Array | null;
+  return union(r, b && { left: b[0], top: b[1], right: b[0] + b[2], bottom: b[1] + b[3] });
+}
+
+// The rect a layer mask is saved with: its canvas tiles plus its values past the canvas that differ from the default.
+function maskRect(e: Engine, m: NonNullable<ManifestNode['mask']>, w: number, h: number): Rect | null {
+  let r = tileBounds(m.tiles, w, h);
+  for (const [tx, ty, id] of m.tiles ?? []) {
+    const ox = tx * 256, oy = ty * 256;
+    if (!id || (ox >= 0 && oy >= 0 && ox + 256 <= w && oy + 256 <= h)) continue;
+    const b = e.tile_bytes(BigInt(id));
+    const v = e.depth() === 8 ? b : new Uint16Array(b.slice().buffer);
+    let x0 = 256, y0 = 256, x1 = -1, y1 = -1;
+    for (let i = 0; i < 256 * 256; i++) {
+      if (v[i] === m.default) continue;
+      const x = i & 255, y = i >> 8;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+    if (x1 >= 0) r = union(r, { left: ox + x0, top: oy + y0, right: ox + x1 + 1, bottom: oy + y1 + 1 });
+  }
+  return r;
+}
+
 // ag-psd writes a zero-size rect and no channel data for a mask/layer with no imageData (psdWriter.js getLayerChannels/getMaskChannels).
 function maskFields(e: Engine, n: ManifestNode, w: number, h: number, hi = false) {
   if (!n.mask) return {};
-  const rect = tileBounds(n.mask.tiles, w, h);
+  const rect = maskRect(e, n.mask, w, h);
   const base = { defaultColor: n.mask.default, disabled: !n.mask.enabled };
   // `hiLayer` writes 16/32-bit and Grayscale masks itself.
   if (!rect || hi) return { mask: { top: 0, left: 0, ...base } };
@@ -1030,7 +1065,7 @@ function hiLayer({ e, w, h, hi }: ExportCtx, n: ManifestNode, l: Layer, rect: Re
   } else {
     channels.push(...[-1, ...colors].map(id => chan(id)));
   }
-  const mr = n.mask && tileBounds(n.mask.tiles, w, h);
+  const mr = n.mask && maskRect(e, n.mask, w, h);
   const raster = n.mask && mr && {
     rect: mr, data: maskPlane(assembleImage((tx, ty) => tileAt(e, tileMap(n.mask!.tiles), tx, ty), mr, depth === 8 ? 1 : 2, n.mask.default ? 255 : 0), depth),
   };
@@ -1095,8 +1130,8 @@ function channelsOut(e: Engine, list: ChannelOut[], depth: Depth): PsdChannel[] 
 
 // Per-layer `comps.settings`: one entry per comp, `enabled` its captured visibility, `offset` the
 // captured position as a delta from this layer's current bounds origin (M3.md section 8).
-function compsOut(n: ManifestNode, comps: LayerCompOut[], w: number, h: number) {
-  const rect = tileBounds(n.tiles, w, h);
+function compsOut(e: Engine, n: ManifestNode, comps: LayerCompOut[], w: number, h: number) {
+  const rect = pixelRect(e, n, w, h);
   const origin: [number, number] | null = rect ? [rect.left, rect.top] : null;
   return {
     settings: comps.map(c => {
@@ -1162,7 +1197,7 @@ function exportNode(x: ExportCtx, n: ManifestNode): Layer {
     protected: { transparency: n.locks.transparency, composite: n.locks.pixels, position: n.locks.position, ...(n.artboard ? { artboards: x.artboardsLocked } : {}) },
     ...masks, ...blendingOut(n.blending, warn), ...(n.style ? { effects: styleOut(n.style, x.names, warn) } : {}),
     // ag-psd needs a layer id on every layer of a document with comps.
-    ...(x.comps.length ? { id: n.id, comps: compsOut(n, x.comps, w, h) } : {}),
+    ...(x.comps.length ? { id: n.id, comps: compsOut(e, n, x.comps, w, h) } : {}),
   };
   const hi = (l: Layer, rect: Rect | null = null) => (x.hi ? hiLayer(x, n, l, rect) : l);
   if (n.kind === 'group') {
@@ -1173,7 +1208,7 @@ function exportNode(x: ExportCtx, n: ManifestNode): Layer {
   if (n.content) return hi({ ...common, top: 0, left: 0, vectorFill: fillOut(n.content, x.names, warn) });
   const { rawSoLd, ...placed } = n.smart ? smartOut(x, n) : n.text ? { text: textOut(n.text, x.res, warn) } : ({} as { rawSoLd?: Uint8Array });
   const done = (l: Layer) => { if (rawSoLd) x.raws.set(l.placedLayer!, rawSoLd); return l; };
-  const rect = tileBounds(n.tiles, w, h);
+  const rect = pixelRect(e, n, w, h);
   if (!rect || x.hi) return done(hi({ ...common, ...placed, top: 0, left: 0 }, rect));
   const map = tileMap(n.tiles);
   const data = assembleImage((tx, ty) => tileAt(e, map, tx, ty), rect, 4, 0);

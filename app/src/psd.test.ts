@@ -69,7 +69,7 @@ test('import maps groups, masks, clipping, blend, opacity, fill, visibility and 
   engine.free();
 });
 
-test('a layer partly outside the canvas is cropped on import', () => {
+test('a layer partly outside the canvas composites only its canvas part on import', () => {
   const psd: Psd = {
     width: 8, height: 8, colorMode: 3, bitsPerChannel: 8,
     children: [{ name: 'L', top: -4, left: -4, imageData: solid(8, 8, [200, 100, 50, 255]) }],
@@ -404,6 +404,78 @@ test('layer comps survive save, open with names, flags, visibility and position'
   assert.deepEqual(state(m.layer_comps[1]), [false, [40, 15]]);
   back.free();
 });
+
+// A 300 x 200 document whose layer 'L' (a 190 x 140 gradient, optionally masked) is moved by (dx, dy).
+function offCanvasDoc(depth: 8 | 16 | 32, dx: number, dy: number, masked = false) {
+  const e = new Engine(300, 200, depth);
+  const id = e.add_layer('L', 1);
+  const t = new Uint8Array(256 * 256 * 4);
+  for (let y = 10; y < 150; y++) for (let x = 10; x < 200; x++) t.set([x, y, 255 - x, 255], (y * 256 + x) * 4);
+  e.set_tile_rgba8(id, 0, 0, t);
+  if (masked) {
+    e.add_mask(id, true);
+    const m = new Uint8Array(256 * 256).fill(255);
+    for (let y = 0; y < 100; y++) for (let x = 0; x < 100; x++) m[y * 256 + x] = 40 + x;
+    e.set_mask_tile8(id, 0, 0, m);
+  }
+  e.offset_layer(id, dx, dy);
+  return { e, id };
+}
+
+// Samples of layer `name` at document (x, y), from its pixel or mask tiles, as numbers in 0..1.
+function sampleAt(e: Engine, name: string, x: number, y: number, mask = false): number[] {
+  type N = { name: string; tiles?: [number, number, number][]; mask: { default: number; tiles?: [number, number, number][] } | null };
+  const n = (JSON.parse(e.manifest()) as { layers: N[] }).layers.find(l => l.name === name)!;
+  const [tx, ty] = [Math.floor(x / 256), Math.floor(y / 256)];
+  const tile = (mask ? n.mask!.tiles : n.tiles)?.find(([a, b]) => a === tx && b === ty);
+  const d = e.depth(), i = (y - ty * 256) * 256 + (x - tx * 256), k = mask ? 1 : 4;
+  if (!tile || !tile[2]) return mask ? [n.mask!.default / (d === 8 ? 255 : 65535)] : [0, 0, 0, 0];
+  const b = e.tile_bytes(BigInt(tile[2])).slice();
+  const v = d === 8 ? b : mask || d === 16 ? new Uint16Array(b.buffer) : new Float32Array(b.buffer);
+  const max = d === 8 ? 255 : mask || d === 16 ? 65535 : 1;
+  return Array.from(v.subarray(i * k, i * k + k), s => s / max);
+}
+
+for (const depth of [8, 16, 32] as const) {
+  for (const [what, dx, dy, points] of [
+    ['partly outside left and above', -40, -30, [[-25, -15], [-1, -1], [5, 5]]],
+    ['partly outside right and below within the edge tiles', 170, 100, [[310, 120], [360, 240], [200, 150]]],
+    ['fully outside right and below', 400, 300, [[420, 320], [590, 440]]],
+    ['fully outside left and above', -500, -400, [[-480, -380], [-310, -260]]],
+  ] as const) {
+    test(`PSD save and open keep a ${depth}-bit layer ${what}`, () => {
+      const { e, id } = offCanvasDoc(depth, dx, dy);
+      const bounds = [...e.layer_bounds(id)];
+      const { bytes, warnings } = exportPsd(e);
+      assert.deepEqual(warnings, []);
+      const back = importPsd(bytes).engine;
+      const bid = (JSON.parse(back.manifest()) as { layers: { id: number; name: string }[] }).layers.find(l => l.name === 'L')!.id;
+      assert.deepEqual([back.width(), back.height()], [300, 200], 'the canvas keeps its size');
+      assert.deepEqual([...back.layer_bounds(bid)], bounds, 'the reopened layer bounds');
+      for (const [x, y] of points) {
+        // 32-bit PSD layers hold linear values (the profile is the document's linear twin).
+        const src = sampleAt(e, 'L', x, y), want = depth === 32 ? [...e.to_linear_f32(Float32Array.from(src))] : src;
+        const got = sampleAt(back, 'L', x, y);
+        assert.equal(want[3], 1, `the source has a pixel at ${x},${y}`);
+        got.forEach((v, c) => assert.ok(Math.abs(v - want[c]) < 1e-3, `${x},${y} channel ${c}: ${v} vs ${want[c]}`));
+      }
+      if (depth !== 32) assert.deepEqual([...back.flatten_tile_rgba8(0, 0)], [...e.flatten_tile_rgba8(0, 0)], 'the composite');
+      e.free(); back.free();
+    });
+  }
+  test(`PSD save and open keep a ${depth}-bit layer mask outside the canvas`, () => {
+    const { e } = offCanvasDoc(depth, -60, -50, true);
+    const { bytes, warnings } = exportPsd(e);
+    assert.deepEqual(warnings, []);
+    const back = importPsd(bytes).engine;
+    for (const [x, y] of [[-50, -40], [-1, -45], [-30, -1], [20, 20], [-55, 100], [120, 160]]) {
+      const want = sampleAt(e, 'L', x, y, true)[0], got = sampleAt(back, 'L', x, y, true)[0];
+      assert.ok(Math.abs(got - want) < 1e-3, `mask at ${x},${y}: ${got} vs ${want}`);
+    }
+    assert.ok(sampleAt(e, 'L', -50, -40, true)[0] < 0.5, 'the source mask is painted outside the canvas');
+    e.free(); back.free();
+  });
+}
 
 test('a PSD layer comp captured in place applies without moving a layer off the tile grid', () => {
   const psd: Psd = {

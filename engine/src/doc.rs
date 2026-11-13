@@ -2399,8 +2399,19 @@ impl Document {
     pub fn set_tile_bytes(&mut self, target: &str, id: u32, tx: u32, ty: u32, bytes: &[u8]) -> Result<(), String> {
         self.check_idle()?;
         self.check_tile_coord(tx, ty)?;
+        self.set_tile_bytes_at(target, id, tx as i32, ty as i32, bytes)
+    }
+
+    /// `set_tile_bytes` at a signed tile coordinate: pixel and mask tiles may lie past the canvas,
+    /// saved channel tiles may not.
+    pub fn set_tile_bytes_at(&mut self, target: &str, id: u32, tx: i32, ty: i32, bytes: &[u8]) -> Result<(), String> {
+        self.check_idle()?;
+        let lim = MAX_TILE_COORD as i32;
+        let on_canvas = tx >= 0 && ty >= 0 && (tx as u32) < self.tiles_x() && (ty as u32) < self.tiles_y();
+        if !(-lim..lim).contains(&tx) || !(-lim..lim).contains(&ty) || (target == "channel" && !on_canvas) {
+            return Err("tile coordinate out of range".into());
+        }
         let px = Pixels::from_bytes(self.depth, target != "pixels", bytes)?;
-        let (tx, ty) = (tx as i32, ty as i32);
         if target == "pixels" {
             self.node(id)?.pixel_tiles()?;
             let tile = px.any_alpha().then(|| Tile { id: self.alloc_tile_id(), px: Arc::new(px) });
