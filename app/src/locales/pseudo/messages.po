@@ -986,6 +986,10 @@ msgstr ""
 msgid "Arrows"
 msgstr ""
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr ""
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1491,6 +1495,10 @@ msgstr ""
 msgid "Bleed"
 msgstr ""
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr ""
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr ""
@@ -1719,6 +1727,10 @@ msgstr ""
 
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -2968,7 +2980,7 @@ msgid "Could not read the images: {reason}"
 msgstr ""
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
+msgid "Could not read the page boxes: {reason}"
 msgstr ""
 
 #: app/src/App.tsx
@@ -11926,6 +11938,10 @@ msgstr ""
 msgid "The measured line is already straight."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr ""
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr ""
@@ -12416,6 +12432,10 @@ msgstr ""
 
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
+msgstr ""
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
 msgstr ""
 
 #: app/src/ExportDialogs.tsx

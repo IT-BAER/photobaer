@@ -43,6 +43,32 @@ export async function renderPage(pdf: PDFDocumentProxy, n: number, sx: number, s
   return toPng(canvas, `Page ${n}`);
 }
 
+// The smallest box around what page `n` paints inside `media`, in PDF units, found on a render with at most
+// `side` px on its long side (so it is exact to one render pixel, rounded outward); null for an empty page.
+export async function contentBox(pdf: PDFDocumentProxy, n: number, media: number[], side = 2048): Promise<number[] | null> {
+  const page = await pdf.getPage(n);
+  const one = boxViewport(page, 1, media), scale = Math.min(8, side / Math.max(one.width, one.height));
+  const viewport = boxViewport(page, scale, media);
+  const w = Math.max(1, Math.ceil(viewport.width)), h = Math.max(1, Math.ceil(viewport.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  await page.render({ canvas: null, canvasContext: ctx, viewport, background: 'rgba(0,0,0,0)' }).promise;
+  const a = ctx.getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = 0, y1 = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!a[(y * w + x) * 4 + 3]) continue;
+    if (x < x0) x0 = x;
+    if (x >= x1) x1 = x + 1;
+    if (y < y0) y0 = y;
+    if (y >= y1) y1 = y + 1;
+  }
+  if (x1 <= x0) return null;
+  const [p, q] = [viewport.convertToPdfPoint(x0, y0), viewport.convertToPdfPoint(x1, y1)];
+  return [Math.max(media[0], Math.min(p[0], q[0])), Math.max(media[1], Math.min(p[1], q[1])), Math.min(media[2], Math.max(p[0], q[0])), Math.min(media[3], Math.max(p[1], q[1]))];
+}
+
 type PdfImage = { width: number; height: number; bitmap?: ImageBitmap; kind?: number; data?: Uint8Array | Uint8ClampedArray };
 
 function imageCanvas(img: PdfImage): HTMLCanvasElement {

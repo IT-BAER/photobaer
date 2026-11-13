@@ -989,6 +989,10 @@ msgstr "Arrangement"
 msgid "Arrows"
 msgstr "Arrows"
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr "Art Box"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1494,6 +1498,10 @@ msgstr "Blast"
 msgid "Bleed"
 msgstr "Bleed"
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr "Bleed Box"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr "Blend Clipped Layers as Group"
@@ -1723,6 +1731,10 @@ msgstr "Bottom Right"
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
 msgstr "Bottom Right Pixel Color"
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
+msgstr "Bounding Box"
 
 #: app/src/filters/labels.ts
 msgid "Box Blur"
@@ -2971,8 +2983,8 @@ msgid "Could not read the images: {reason}"
 msgstr "Could not read the images: {reason}"
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
-msgstr "Could not read the media boxes: {reason}"
+msgid "Could not read the page boxes: {reason}"
+msgstr "Could not read the page boxes: {reason}"
 
 #: app/src/App.tsx
 msgid "Could not save {name}: {reason}"
@@ -11929,6 +11941,10 @@ msgstr "The linked source is unavailable: {name}. Relink the Smart Object to an 
 msgid "The measured line is already straight."
 msgstr "The measured line is already straight."
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr "The mode or bit depth was not applied: {reason}"
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr "The new tool preset id is invalid or already exists."
@@ -12420,6 +12436,10 @@ msgstr "Trim"
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
 msgstr "Trim Away"
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
+msgstr "Trim Box"
 
 #: app/src/ExportDialogs.tsx
 msgid "Trim to layer pixels"

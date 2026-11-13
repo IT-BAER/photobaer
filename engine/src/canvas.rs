@@ -33,7 +33,7 @@ impl At {
     }
 }
 
-fn collect_ids(nodes: &[Node], out: &mut Vec<u32>) {
+pub(super) fn collect_ids(nodes: &[Node], out: &mut Vec<u32>) {
     for n in nodes {
         out.push(n.id);
         if let Kind::Group(ch) = &n.kind {

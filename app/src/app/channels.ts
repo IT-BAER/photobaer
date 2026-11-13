@@ -93,6 +93,12 @@ export function paintColor(c: [number, number, number], t: ReturnType<typeof edi
   return [g, g, g];
 }
 
+// The foreground and background swatches show: the gray painting uses while one color channel or saved
+// channels are the edit target (saved channels take the same gray of the color), else the color.
+export function swatchColor(c: [number, number, number], t: ReturnType<typeof editChannels>): [number, number, number] {
+  return t.alpha.length ? paintColor(c, { rgb: [true, false, false], alpha: [] }) : paintColor(c, t);
+}
+
 // A spot channel value (white: no ink) as printed: the ink multiplies the image by (1 - solidity) of
 // its coverage and covers it by solidity of it.
 export function spotInk(value: number, ink: [number, number, number], solidity: number) {

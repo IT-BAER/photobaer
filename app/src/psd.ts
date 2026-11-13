@@ -8,7 +8,7 @@ import { artboardIn, artboardOut, layoutIn, layoutOut } from './psd/layout.ts';
 import { rasterMaskOf, readSavedPaths, shapeIn, shapeOut, vectorMaskIn, vectorMaskOut, writeSavedPaths } from './psd/vector.ts';
 import { textIn, textOut } from './psd/text.ts';
 import { filterIn, filterOut, prepareList, opaqueFilter, readPsdRaw, writePsdRaw, type FilterJson, type RawSoLd, type SmartFilterOut } from './psd/filters.ts';
-import { compositeFit, duotoneData, finishPsd, PSD_MAX_CHANNELS, psdForAgPsd, psdLayerCount, psdTransparency, readDuotone, readPsdChannels, type Depth, type DuotoneSpec, type PsdChannel } from './psd/depth.ts';
+import { compositeFit, duotoneData, finishPsd, PSD_MAX_CHANNELS, psdForAgPsd, psdLayerCount, psdTransparency, readDuotone, readPsdChannels, zipPredicted, type Depth, type DuotoneSpec, type PsdChannel } from './psd/depth.ts';
 
 export { filterIn };
 
@@ -641,9 +641,13 @@ function filtersIn(c: ImportCtx, id: number, l: Layer) {
   const m = c.fx.find(x => x.id === pid);
   const ch = m?.channels[m.channels.length - 2];
   if (!m || !ch) return;
-  const mw = m.right - m.left, mh = m.bottom - m.top;
-  const data = ch.compressionMode === 0 ? ch.data : ch.compressionMode === 1 ? unpackRows(ch.data, mw, mh) : null;
-  if (!data || data.length < mw * mh) { c.warn('smart filter masks were not imported'); return; }
+  const mw = m.right - m.left, mh = m.bottom - m.top, size = m.depth === 16 ? 2 : m.depth === 32 ? 4 : 1;
+  const stored = ch.compressionMode === 0 ? ch.data : ch.compressionMode === 1 ? unpackRows(ch.data, mw * size, mh) : null;
+  if (!stored || stored.length < mw * mh * size) { c.warn('smart filter masks were not imported'); return; }
+  // 16-bit and 32-bit (0..1 float) samples, big-endian, to 8 bits.
+  const sv = new DataView(stored.buffer, stored.byteOffset, stored.byteLength);
+  const data = size === 1 ? stored : Uint8Array.from({ length: mw * mh }, (_, i) => (
+    size === 2 ? Math.round(sv.getUint16(i * 2) / 257) : Math.round(Math.min(1, Math.max(0, sv.getFloat32(i * 4))) * 255)));
   const def = pf.maskExtendWithWhite === false ? 0 : 255;
   c.e.add_filter_mask(id, 0, def === 255);
   const x0 = Math.max(0, m.left), x1 = Math.min(c.w, m.right), y0 = Math.max(0, m.top), y1 = Math.min(c.h, m.bottom);
@@ -1005,20 +1009,23 @@ function maskPlane(le: Uint8Array, depth: Depth): Uint8Array {
   return out;
 }
 
-// Layer channels at 16/32 bits or in Grayscale, raw, as ag-psd's `rawData` (its writer copies them):
-// transparency, gray or red/green/blue (linear at 32 bits), then the masks. `rect` is the pixel rect.
+// Layer channels at 16/32 bits or in Grayscale as ag-psd's `rawData` (its writer copies them): transparency,
+// gray or red/green/blue (linear at 32 bits), then the masks. `rect` is the pixel rect. 16/32-bit channels are
+// ZIP with prediction as in Photoshop's files; 8-bit Grayscale channels stay raw.
 function hiLayer({ e, w, h, hi }: ExportCtx, n: ManifestNode, l: Layer, rect: Rect | null): Layer {
   const { depth, gray } = hi!;
   const size = depth / 8;
   const colors = gray ? [0] : [0, 1, 2];
-  const chan = (id: number, data: Uint8Array = new Uint8Array(0)) => ({ id, compression: 0, data });
+  const chan = (id: number, data: Uint8Array = new Uint8Array(0), cw = 0, ch = 0) => (
+    depth === 8 || !data.length ? { id, compression: 0, data } : { id, compression: 3, data: zipPredicted(data, cw, ch, depth) });
   const channels: ReturnType<typeof chan>[] = [];
   if (rect) {
     const map = tileMap(n.tiles);
     let px = assembleImage((tx, ty) => tileAt(e, map, tx, ty), rect, size * 4, 0);
     if (depth === 32) px = asBytes(e.to_linear_f32(new Float32Array(px.buffer, px.byteOffset, px.length / 4)));
     const p = planesOf(px, size, 4);
-    channels.push(chan(-1, p[3]), ...colors.map(c => chan(c, p[c])));
+    const [rw, rh] = [rect.right - rect.left, rect.bottom - rect.top];
+    channels.push(chan(-1, p[3], rw, rh), ...colors.map(c => chan(c, p[c], rw, rh)));
     Object.assign(l, { top: rect.top, left: rect.left, bottom: rect.bottom, right: rect.right });
   } else {
     channels.push(...[-1, ...colors].map(id => chan(id)));
@@ -1035,7 +1042,7 @@ function hiLayer({ e, w, h, hi }: ExportCtx, n: ManifestNode, l: Layer, rect: Re
     m.defaultColor = m.defaultColor ? 255 : 0;
     if (r) {
       Object.assign(m, { top: r.rect.top, left: r.rect.left, bottom: r.rect.bottom, right: r.rect.right });
-      channels.push(chan(id, r.data));
+      channels.push(chan(id, r.data, r.rect.right - r.rect.left, r.rect.bottom - r.rect.top));
     } else {
       Object.assign(m, { bottom: m.top ?? 0, right: m.left ?? 0 });
       channels.push(chan(id));
@@ -1131,11 +1138,12 @@ function smartOut({ e, w, h, warn, files, fx }: ExportCtx, n: ManifestNode): Par
   const rect = sm && tileBounds(sm.tiles, w, h);
   const [txN, tyN] = [Math.ceil(w / 256), Math.ceil(h / 256)];
   if (sm?.tiles?.some(([tx, ty]) => tx < 0 || ty < 0 || tx >= txN || ty >= tyN)) warn('smart filter mask areas outside the canvas are not stored in PSD');
-  if (sm && rect && e.depth() !== 8) warn('smart filter masks of 16-bit and 32-bit documents are not stored in PSD');
-  else if (sm && rect) {
-    const data = assembleImage((tx, ty) => tileAt(e, tileMap(sm.tiles), tx, ty), rect, 1, sm.default);
+  if (sm && rect) {
+    // At the document depth, as layer masks: 16-bit samples, or 32-bit floats in 32-bit documents.
+    const depth = e.depth() as Depth;
+    const data = maskPlane(assembleImage((tx, ty) => tileAt(e, tileMap(sm.tiles), tx, ty), rect, depth === 8 ? 1 : 2, sm.default), depth);
     // Channels: the user mask then the sheet mask, no color channels.
-    fx.push({ id, ...rect, depth: 8, channels: [{ compressionMode: 0, data }, undefined] });
+    fx.push({ id, ...rect, depth, channels: [{ compressionMode: 0, data }, undefined] });
   }
   return {
     placedLayer: { id, placed: id, type: 'raster', transform: q, nonAffineTransform: q, width: sw, height: sh, ...(filter ? { filter } : {}) },

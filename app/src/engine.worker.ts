@@ -978,7 +978,8 @@ const api = {
 
   // `action` (from the open dialogs) or, without one, the policy decides about the embedded profile.
   // `resolution` (ppi) is set for rasterized PDF pages.
-  async openFile(file: File, action?: OpenAction, resolution?: number): Promise<OpenResult> {
+  // `convert`: Import PDF's mode and bit depth, applied as part of the open (no undo steps, clean).
+  async openFile(file: File, action?: OpenAction, resolution?: number, convert?: { mode: 'rgb' | 'gray' | 'cmyk' | 'lab'; depth: 8 | 16 }): Promise<OpenResult> {
     const { e, name: n, warnings } = await engineOf(file);
     if (resolution) e.set_document_vector(JSON.stringify({ ...JSON.parse(e.vector_json()), resolution }));
     if (colorSettings) {
@@ -990,15 +991,28 @@ const api = {
         warnings.push(`The color profile was not applied: ${(err as Error).message}`);
       }
     }
-    return { ...adopt(e, n), warnings };
+    adopt(e, n);
+    if (convert) {
+      try {
+        if (convert.mode !== 'rgb') api.setColorMode({ mode: convert.mode });
+        if (convert.depth !== 8) api.convertDepth(convert.depth);
+      } catch (err) {
+        warnings.push(`The mode or bit depth was not applied: ${(err as Error).message}`);
+      }
+      history.clear();
+      saved = history.top;
+    }
+    return { ...info()!, warnings };
   },
 
   // File > Revert: tab `key` (the active one) becomes `file`'s content at the same place and name, history
   // cleared and clean. A new key: autosave tiles are immutable per key and tile id. A failed load keeps the document.
-  async revertDoc(file: File, key: string): Promise<OpenResult> {
+  // `resolution` (ppi) is set for a rasterized SVG, as at open.
+  async revertDoc(file: File, key: string, resolution?: number): Promise<OpenResult> {
     if (docs[active]?.key !== key) throw new Error('The document to revert is no longer active.');
     if (parents.length) throw new Error('Close Edit Contents before reverting.');
     const { e, warnings } = await engineOf(file);
+    if (resolution) e.set_document_vector(JSON.stringify({ ...JSON.parse(e.vector_json()), resolution }));
     if (colorSettings) {
       const p = await embeddedProfile(new Uint8Array(await file.arrayBuffer()));
       const policy = p.space === 'gray' ? colorSettings.grayPolicy : colorSettings.rgbPolicy;

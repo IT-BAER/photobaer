@@ -989,6 +989,10 @@ msgstr "Размещение"
 msgid "Arrows"
 msgstr "Стрелки"
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr "ArtBox"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1494,6 +1498,10 @@ msgstr "Взрыв"
 msgid "Bleed"
 msgstr "Припуск"
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr "BleedBox"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr "Смешивать обтравленные слои как группу"
@@ -1723,6 +1731,10 @@ msgstr "Внизу справа"
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
 msgstr "Цвет правого нижнего пиксела"
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
+msgstr "Ограничительная рамка"
 
 #: app/src/filters/labels.ts
 msgid "Box Blur"
@@ -2971,8 +2983,8 @@ msgid "Could not read the images: {reason}"
 msgstr "Не удалось прочитать изображения: {reason}"
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
-msgstr "Не удалось прочитать рамки MediaBox: {reason}"
+msgid "Could not read the page boxes: {reason}"
+msgstr "Не удалось прочитать области страницы: {reason}"
 
 #: app/src/App.tsx
 msgid "Could not save {name}: {reason}"
@@ -11929,6 +11941,10 @@ msgstr "Связанный источник недоступен: {name}. Вос
 msgid "The measured line is already straight."
 msgstr "Измеренная линия уже прямая."
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr "Режим или глубина цвета не применены: {reason}"
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr "Идентификатор нового набора инструмента недопустим или уже существует."
@@ -12420,6 +12436,10 @@ msgstr "Тримминг"
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
 msgstr "Обрезать"
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
+msgstr "TrimBox"
 
 #: app/src/ExportDialogs.tsx
 msgid "Trim to layer pixels"

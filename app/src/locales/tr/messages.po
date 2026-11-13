@@ -986,6 +986,10 @@ msgstr "Düzenleme"
 msgid "Arrows"
 msgstr "Oklar"
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr "Resim Kutusu"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1491,6 +1495,10 @@ msgstr "Patlama"
 msgid "Bleed"
 msgstr "Taşma Payı"
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr "Taşma Kutusu"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr "Kırpılmış Katmanları Grup Olarak Karıştır"
@@ -1720,6 +1728,10 @@ msgstr "Sağ Alt"
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
 msgstr "Sağ Alt Piksel Rengi"
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
+msgstr "Sınırlayıcı Kutu"
 
 #: app/src/filters/labels.ts
 msgid "Box Blur"
@@ -2968,8 +2980,8 @@ msgid "Could not read the images: {reason}"
 msgstr "Görüntüler okunamadı: {reason}"
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
-msgstr "Ortam kutuları okunamadı: {reason}"
+msgid "Could not read the page boxes: {reason}"
+msgstr "Sayfa kutuları okunamadı: {reason}"
 
 #: app/src/App.tsx
 msgid "Could not save {name}: {reason}"
@@ -11926,6 +11938,10 @@ msgstr "Bağlı kaynak kullanılamıyor: {name}. Akıllı Nesneyi mevcut bir dos
 msgid "The measured line is already straight."
 msgstr "Ölçülen çizgi zaten düz."
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr "Mod veya bit derinliği uygulanmadı: {reason}"
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr "Yeni araç hazır ayarı kimliği geçersiz veya zaten var."
@@ -12417,6 +12433,10 @@ msgstr "Kenar Boşluklarını Kırp"
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
 msgstr "Kırp"
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
+msgstr "Son Boyut Kutusu"
 
 #: app/src/ExportDialogs.tsx
 msgid "Trim to layer pixels"

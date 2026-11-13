@@ -44,10 +44,10 @@ import { actions } from './app/actionsStore.ts';
 import { ImageCalcDialog, type ImageCalcHandle } from './ImageCalcDialog.tsx';
 import { ModeDialog, type ModeDialogHandle } from './ModeDialog.tsx';
 import { ColorDialog, type ColorDialogHandle } from './ColorDialog.tsx';
-import { PdfDialog, type PdfDialogHandle } from './PdfDialog.tsx';
+import { PdfDialog, type PdfDialogHandle, type PdfMode } from './PdfDialog.tsx';
 import { SvgDialog, type SvgDialogHandle } from './SvgDialog.tsx';
 import type { OpenAction } from './app/colorSettings.ts';
-import { COMPOSITE, editChannels, GRAY_MATRIX, paintColor, viewState, type ChannelView } from './app/channels.ts';
+import { COMPOSITE, editChannels, GRAY_MATRIX, paintColor, swatchColor, viewState, type ChannelView } from './app/channels.ts';
 import { PathsPanel } from './PathsPanel.tsx';
 import { ArtboardPanel, PropertiesPanel, ShapePanel, SmartFiltersPanel, VectorMaskPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
@@ -669,28 +669,23 @@ export function App() {
 
   // `handle`: the file's File System Access handle (picker, drop, launch, Open Recent), kept for Save and Revert.
   // True when the file opened as the active document.
-  async function open(file: File, handle?: FileSystemFileHandle | null, ppi?: number): Promise<boolean> {
+  async function open(file: File, handle?: FileSystemFileHandle | null, ppi?: number, convert?: { mode: PdfMode; depth: 8 | 16 }): Promise<boolean> {
     setMenu(null);
     if (/\.pdf$/i.test(file.name)) {
       // PDF pages open as rasterized documents without the PDF as their file.
       const r = await pdfDialog.current?.ask(file);
       if (!r) return false;
       if (handle) remember(handle);
-      for (const p of r.files) {
-        if (!await open(p, null, r.ppi)) continue;
-        try {
-          if (r.mode !== 'rgb') show(await client.call('setColorMode', { mode: r.mode }));
-          if (r.depth !== 8) show(await client.call('convertDepth', r.depth));
-        } catch (e) { setError((e as Error).message); }
-      }
+      for (const p of r.files) await open(p, null, r.ppi, { mode: r.mode, depth: r.depth });
       return true;
     }
-    let f = file;
+    let f = file, raster: Origin['raster'];
     if (/\.svg$/i.test(file.name) || file.type === 'image/svg+xml') {
       const r = await svgDialog.current?.ask(file);
       if (!r) return false;
       f = r.file;
       ppi = r.ppi;
+      raster = { size: r.size, ppi: r.ppi };
     }
     let action: OpenAction | undefined;
     try {
@@ -703,9 +698,9 @@ export function App() {
     } catch { /* unreadable profile: the policy decides in openFile */ }
     setBusy(t`Opening ${f.name}…`);
     try {
-      const d = await client.call('openFile', f, action, ppi);
+      const d = await client.call('openFile', f, action, ppi, convert);
       if (handle) {
-        origins.current.set(d.key, { handle, kind: kindOf(f.name), warned: d.warnings.length > 0 });
+        origins.current.set(d.key, { handle, kind: kindOf(f.name), warned: d.warnings.length > 0, ...(raster ? { raster } : {}) });
         remember(handle);
       }
       show(d);
@@ -1284,7 +1279,7 @@ export function App() {
     if (!confirm(`${t`Revert to the saved version of ${name}?`} ${t`This cannot be undone.`}`)) return;
     let warnings: string[] = [];
     await run(t`Reverting…`, async () => {
-      const r = await client.call('revertDoc', await rasterSvg(await o.handle.getFile()), d.key);
+      const r = await client.call('revertDoc', await rasterSvg(await o.handle.getFile(), o.raster?.size), d.key, o.raster?.ppi);
       origins.current.set(r.key, { ...o, warned: r.warnings.length > 0 });
       warnings = r.warnings;
       return r;
@@ -2647,7 +2642,7 @@ export function App() {
       <main className={`workspace${doc || showHistogram || showInfo || showToolPresets || showNotes || showMeasurementLog ? ' with-sidebar' : ''}${doc ? '' : ' no-doc'}${frame.tools ? '' : ' no-tools'}`}>
         {frame.tools && <ToolBar
           active={tool} setActive={setTool} lastUsed={lastUsed} setLastUsed={setLastUsed}
-          fg={fg} bg={bg} openPicker={openPicker} swap={swapColors} reset={resetColors}
+          fg={swatchColor(fg, chTarget)} bg={swatchColor(bg, chTarget)} openPicker={openPicker} swap={swapColors} reset={resetColors}
           quickMask={quickMask} setQuickMask={setQuickMask}
         />}
         <div className="stage-column">
@@ -2747,7 +2742,7 @@ export function App() {
             <button className={`panel-tab${dockTab === 'brushSettings' ? ' active' : ''}`} disabled={workspace.locked} title={t`Brush Settings (F5)`} onClick={() => guardedSetDockTab('brushSettings')}><Trans>Brush Settings</Trans></button>
             <button className={`panel-tab${dockTab === 'brushes' ? ' active' : ''}`} disabled={workspace.locked} title={t`Brushes`} onClick={() => guardedSetDockTab('brushes')}><Trans>Brushes</Trans></button>
           </div>}>
-          {dockTab === 'color' && <ColorPanel fg={fg} bg={bg} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} doc={doc} convert={convertColor} />}
+          {dockTab === 'color' && <ColorPanel fg={swatchColor(fg, chTarget)} bg={swatchColor(bg, chTarget)} setFg={setFg} setBg={setBg} swap={swapColors} reset={resetColors} doc={doc} convert={convertColor} />}
           {dockTab === 'swatches' && <SwatchesPanel fg={fg} setFg={setFg} setBg={setBg} />}
           {dockTab === 'brushSettings' && (
             <BrushSettingsPanel
@@ -2837,7 +2832,7 @@ export function App() {
         <span>{renderer}</span>
       </footer>
       <ColorPicker ref={picker} convert={convertColor} />
-      <GradientEditor ref={gradEditor} presets={gradLib.current.list()} fg={fg} bg={bg} pickColor={(rgb, title, commit) => picker.current?.open(rgb, title, commit)} />
+      <GradientEditor ref={gradEditor} presets={gradLib.current.list()} fg={fg} bg={bg} hdr={doc?.depth === 32} pickColor={(rgb, title, commit, opts) => picker.current?.open(rgb, title, commit, opts)} />
       <FillDialog
         fillDialog={fillDialog} endPreviewDialog={endPreviewDialog} previewRef={previewRef} fillForm={fillForm} setFillForm={setFillForm}
         picker={picker} brushLib={brushLib} depth={doc?.depth}

@@ -1,4 +1,8 @@
 // OpenEXR, Radiance HDR and ICO codecs. Float images are straight linear RGBA (w x h x 4).
+import { halfToFloat, unpredict } from './exr/common.ts';
+import { unDwa } from './exr/dwa.ts';
+import { unPiz } from './exr/piz.ts';
+
 export interface FloatImage { width: number; height: number; data: Float32Array }
 
 // 32-bit documents hold sRGB-encoded floats with values above 1 kept; EXR and HDR hold linear light.
@@ -12,29 +16,16 @@ async function deflate(b: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await new Response(new Blob([b as Uint8Array<ArrayBuffer>]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
 }
 
-function halfToFloat(h: number) {
-  const e = h >> 10 & 31, m = h & 1023, s = h >> 15 ? -1 : 1;
-  if (e === 0) return s * m * 2 ** -24;
-  if (e === 31) return m ? NaN : s * Infinity;
-  return s * (1 + m / 1024) * 2 ** (e - 15);
-}
-
-// ---------- OpenEXR (scanline and level 0 of tiled, first part; NONE, RLE, ZIPS, ZIP, PXR24, B44, B44A; HALF, FLOAT, UINT) ----------
+// ---------- OpenEXR (scanline and level 0 of tiled, first part; NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA, DWAB; HALF, FLOAT, UINT) ----------
 
 const EXR_MAGIC = 20000630;
 const COMPRESSIONS = ['NONE', 'RLE', 'ZIPS', 'ZIP', 'PIZ', 'PXR24', 'B44', 'B44A', 'DWAA', 'DWAB'];
-const SUPPORTED = [0, 1, 2, 3, 5, 6, 7];
+const SUPPORTED = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const LINES = [1, 1, 1, 16, 32, 16, 32, 32, 32, 256];
 type ExrChannel = { name: string; type: number; linear: boolean };
 const typeSize = (t: number) => t === 1 ? 2 : 4;
 
-// ZIP and RLE store bytes split into even/odd halves, then as differences.
-function unpredict(t: Uint8Array): Uint8Array {
-  for (let i = 1; i < t.length; i++) t[i] = (t[i - 1] + t[i] - 128) & 255;
-  const out = new Uint8Array(t.length), half = (t.length + 1) >> 1;
-  for (let i = 0; i < t.length; i++) out[i] = i & 1 ? t[half + (i >> 1)] : t[i >> 1];
-  return out;
-}
+// ZIP and RLE store bytes split into even/odd halves, then as differences (`unpredict` in exr/common.ts).
 function predict(b: Uint8Array): Uint8Array {
   const t = new Uint8Array(b.length), half = (b.length + 1) >> 1;
   for (let i = 0; i < b.length; i++) t[i & 1 ? half + (i >> 1) : i >> 1] = b[i];
@@ -154,7 +145,7 @@ export async function decodeExr(bytes: Uint8Array): Promise<FloatImage> {
   const tiled = multi ? type.startsWith('tiledimage') : !!(flags & 0x200);
   if (!win) throw new Error('The EXR header has no dataWindow.');
   if (tiled && (!tiles || tiles[0] < 1 || tiles[1] < 1)) throw new Error('The tiled EXR header has no tile size.');
-  if (!SUPPORTED.includes(compression)) throw new Error(`EXR compression ${COMPRESSIONS[compression] ?? compression} is not supported (use NONE, RLE, ZIPS, ZIP, PXR24, B44 or B44A).`);
+  if (!SUPPORTED.includes(compression)) throw new Error(`EXR compression ${COMPRESSIONS[compression] ?? compression} is not supported (use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB).`);
   const width = win[2] - win[0] + 1, height = win[3] - win[1] + 1;
   if (width < 1 || height < 1 || width > 300000 || height > 300000) throw new Error('The EXR image size is out of range.');
   const sizes = channels.map(c => typeSize(c.type));
@@ -179,7 +170,9 @@ export async function decodeExr(bytes: Uint8Array): Promise<FloatImage> {
     const start = off + (tiled ? 20 : 8);
     let block = bytes.subarray(start, start + n);
     if (n < raw) block = compression === 1 ? unpredict(unRle(block, raw)) : compression <= 3 ? unpredict(await inflate(block))
-      : compression === 5 ? unPxr24(await inflate(block), w, rows, channels) : unB44(block, w, rows, channels);
+      : compression === 4 ? unPiz(block, w, rows, channels.map(c => (c.type === 1 ? 1 : 2)))
+      : compression === 5 ? unPxr24(await inflate(block), w, rows, channels)
+      : compression >= 8 ? unDwa(block, w, rows, channels) : unB44(block, w, rows, channels);
     if (block.length < raw) throw new Error('The EXR file is truncated.');
     const bv = new DataView(block.buffer, block.byteOffset, block.byteLength);
     let q = 0;

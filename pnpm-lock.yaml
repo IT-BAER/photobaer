@@ -20,6 +20,9 @@ importers:
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
+      pako:
+        specifier: 2.1.0
+        version: 2.1.0
       pdfjs-dist:
         specifier: 6.3.289
         version: 6.3.289

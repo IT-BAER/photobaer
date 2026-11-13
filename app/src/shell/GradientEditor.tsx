@@ -2,7 +2,7 @@ import { useImperativeHandle, useRef, useState, type KeyboardEvent, type Pointer
 import { Plus, Trash2 } from 'lucide-react';
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
-import { rgbToHex, type Rgb } from './color.ts';
+import { intensityOf, rgbToHex, withIntensity, type Rgb } from './color.ts';
 import { clamp01, defaultNoise, evaluate, largestGapMid, normalize, rampCss, resolveStops, type Gradient, type Method, type NoiseParams } from '../gradients/gradient.ts';
 import { resolvePreset, type GradientPreset } from '../gradients/presets.ts';
 import { NumberInput } from './NumberInput.tsx';
@@ -10,9 +10,10 @@ import { NumberInput } from './NumberInput.tsx';
 export interface GradientEditorHandle { open(g: Gradient, onOk: (g: Gradient) => void): void }
 type Rail = 'stops' | 'opacityStops';
 interface Sel { rail: Rail; i: number; midpoint?: boolean }
+// `hdr` (a 32-bit document): a stop color is picked with the Color Picker's Intensity, which the stop keeps.
 interface Props {
-  ref: Ref<GradientEditorHandle>; presets: GradientPreset[]; fg: Rgb; bg: Rgb;
-  pickColor: (rgb: Rgb, title: string, commit: (rgb: Rgb) => void) => void;
+  ref: Ref<GradientEditorHandle>; presets: GradientPreset[]; fg: Rgb; bg: Rgb; hdr?: boolean;
+  pickColor: (rgb: Rgb, title: string, commit: (rgb: Rgb) => void, opts?: { hdr?: boolean }) => void;
 }
 
 const CHANNELS: Record<NoiseParams['colorModel'], string[]> = { rgb: ['R', 'G', 'B'], hsb: ['H', 'S', 'B'], lab: ['L', 'a', 'b'] };
@@ -28,7 +29,7 @@ function Percent({ label, value, min = 0, max = 100, set }: { label: string; val
   );
 }
 
-export function GradientEditor({ ref, presets, fg, bg, pickColor }: Props) {
+export function GradientEditor({ ref, presets, fg, bg, hdr, pickColor }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [g, setG] = useState<Gradient>(() => normalize({ stops: [], opacityStops: [], kind: 'solid', interpolation: 'classic' }));
   const [sel, setSel] = useState<Sel | null>(null);
@@ -38,7 +39,8 @@ export function GradientEditor({ ref, presets, fg, bg, pickColor }: Props) {
   useImperativeHandle(ref, () => ({
     open(initial, ok) {
       onOk.current = ok;
-      setG(structuredClone(initial));
+      // A Foreground or Background stop's Intensity rides on its color array, which the clone drops.
+      setG(structuredClone({ ...initial, stops: initial.stops.map(st => ({ ...st, ...(intensityOf(st.color) && st.intensity === undefined ? { intensity: intensityOf(st.color) } : {}) })) }));
       setSel({ rail: 'stops', i: 0 });
       dialog.current?.showModal();
     },
@@ -52,6 +54,10 @@ export function GradientEditor({ ref, presets, fg, bg, pickColor }: Props) {
     const r = g[rail].map((s, k) => (k === i ? { ...s, ...patch } : s));
     setG({ ...g, [rail]: r });
   }
+  const pickStop = (i: number) => {
+    const s = g.stops[i];
+    pickColor(withIntensity(s.color, s.intensity ?? 0), t`Stop Color`, c => setStop('stops', i, { color: [c[0], c[1], c[2]], intensity: hdr ? intensityOf(c) : undefined }), { hdr });
+  };
   function add(rail: Rail, at = largestGapMid(g[rail].map(s => s.position))) {
     const [r, gg, b, a] = valueAt(at);
     const stop = rail === 'stops'
@@ -126,7 +132,7 @@ export function GradientEditor({ ref, presets, fg, bg, pickColor }: Props) {
             aria-label={stopLabel(r, pct(s.position))}
             style={{ left: `${s.position * 100}%`, ...(r === 'stops' ? { background: rgbToHex((s as Gradient['stops'][number]).color) } : { background: `rgb(${Math.round(255 * (1 - (s as Gradient['opacityStops'][number]).opacity))} ${Math.round(255 * (1 - (s as Gradient['opacityStops'][number]).opacity))} ${Math.round(255 * (1 - (s as Gradient['opacityStops'][number]).opacity))})` }) }}
             onPointerDown={e => drag(r, i, e)} onFocus={() => setSel({ rail: r, i })}
-            onDoubleClick={() => r === 'stops' && pickColor((s as Gradient['stops'][number]).color, t`Stop Color`, c => setStop('stops', i, { color: c }))}
+            onDoubleClick={() => r === 'stops' && pickStop(i)}
             onKeyDown={e => nudge({ rail: r, i }, e)} />
         ))}
         {sel?.rail === r && order.slice(0, -1).map((i, k) => {
@@ -186,7 +192,7 @@ export function GradientEditor({ ref, presets, fg, bg, pickColor }: Props) {
               <Percent label={t`Location`} value={cur.position} set={v => setStop(sel.rail, sel.i, { position: v })} />
               {sel.rail === 'stops'
                 ? <label><Trans>Color</Trans> <button type="button" className="gradient-swatch" aria-label={t`Stop color`} style={{ background: rgbToHex((cur as Gradient['stops'][number]).color) }}
-                    onClick={() => pickColor((cur as Gradient['stops'][number]).color, t`Stop Color`, c => setStop('stops', sel.i, { color: c }))} /></label>
+                    onClick={() => pickStop(sel.i)} /></label>
                 : <Percent label={t`Opacity`} value={(cur as Gradient['opacityStops'][number]).opacity} set={v => setStop('opacityStops', sel.i, { opacity: v })} />}
               <Percent label={t`Midpoint`} value={cur.midpoint} min={1} max={99} set={v => setStop(sel.rail, sel.i, { midpoint: v })} />
             </div>

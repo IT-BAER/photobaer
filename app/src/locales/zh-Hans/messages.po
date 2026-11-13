@@ -986,6 +986,10 @@ msgstr "排列"
 msgid "Arrows"
 msgstr "箭头"
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr "作品框"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1491,6 +1495,10 @@ msgstr "冲击"
 msgid "Bleed"
 msgstr "出血"
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr "出血框"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr "将剪贴图层混合成组"
@@ -1720,6 +1728,10 @@ msgstr "右下"
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
 msgstr "右下角像素颜色"
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
+msgstr "边界框"
 
 #: app/src/filters/labels.ts
 msgid "Box Blur"
@@ -2968,8 +2980,8 @@ msgid "Could not read the images: {reason}"
 msgstr "无法读取图像：{reason}"
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
-msgstr "无法读取媒体框：{reason}"
+msgid "Could not read the page boxes: {reason}"
+msgstr "无法读取页面框：{reason}"
 
 #: app/src/App.tsx
 msgid "Could not save {name}: {reason}"
@@ -11926,6 +11938,10 @@ msgstr "链接的源不可用：{name}。请将智能对象重新链接到现有
 msgid "The measured line is already straight."
 msgstr "测量的直线已经是直的。"
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr "未应用模式或位深度：{reason}"
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr "新工具预设 ID 无效或已存在。"
@@ -12417,6 +12433,10 @@ msgstr "裁切"
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
 msgstr "裁切掉"
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
+msgstr "裁切框"
 
 #: app/src/ExportDialogs.tsx
 msgid "Trim to layer pixels"

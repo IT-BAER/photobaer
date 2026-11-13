@@ -221,8 +221,7 @@ impl Document {
             h ^= h >> 31;
             (h >> 54) as f64 / 1024.0 - 0.5
         };
-        let mut d = self.clone();
-        d.map_layers(|c| {
+        let convert = |c: [f32; 4]| {
             let mut o = [0.0f64; 3];
             if from == Space::Gray {
                 t(&[c[0] as f64], &mut o);
@@ -232,7 +231,15 @@ impl Document {
             if to_gray {
                 o = [o[0]; 3];
             }
-            let v = o.map(|v| (v + noise() * step) as f32);
+            o
+        };
+        let mut d = self.clone();
+        d.map_layers(|c| {
+            let v = convert(c).map(|v| (v + noise() * step) as f32);
+            [v[0], v[1], v[2], c[3]]
+        })?;
+        d.map_layer_colors(&|c| {
+            let v = convert(c).map(|v| v as f32);
             [v[0], v[1], v[2], c[3]]
         })?;
         d.vector.gray = to_gray;
@@ -240,6 +247,75 @@ impl Document {
         d.vector.profile = Some(tag);
         *self = d;
         Ok(true)
+    }
+
+    /// Straight RGBA `f` (0..1) over the colors text, shape and fill layers and layer styles hold, and over
+    /// rendered text, so a profile conversion keeps how they look. Adjustment layers keep their numbers, as
+    /// Photoshop's Convert to Profile does without Flatten; smart objects keep their own source profile.
+    fn map_layer_colors(&mut self, f: &dyn Fn([f32; 4]) -> [f32; 4]) -> Result<(), String> {
+        const KEYS: [&str; 3] = ["color", "highlight_color", "shadow_color"];
+        let rgb = |c: [u8; 3]| {
+            let o = f([c[0] as f32 / 255.0, c[1] as f32 / 255.0, c[2] as f32 / 255.0, 1.0]);
+            [0, 1, 2].map(|i| (o[i].clamp(0.0, 1.0) * 255.0).round() as u8)
+        };
+        // Every 8-bit RGB triple under a color key, outside the imported PSD text object.
+        fn walk(v: &mut serde_json::Value, rgb: &dyn Fn([u8; 3]) -> [u8; 3]) {
+            match v {
+                serde_json::Value::Object(m) => {
+                    for (k, x) in m.iter_mut() {
+                        let triple = x.as_array().filter(|a| a.len() == 3).and_then(|a| {
+                            let c: Vec<u8> = a.iter().filter_map(|n| n.as_u64().and_then(|n| u8::try_from(n).ok())).collect();
+                            <[u8; 3]>::try_from(c).ok()
+                        });
+                        match triple {
+                            Some(c) if KEYS.contains(&k.as_str()) => *x = serde_json::json!(rgb(c)),
+                            _ if k != "psd" => walk(x, rgb),
+                            _ => {}
+                        }
+                    }
+                }
+                serde_json::Value::Array(a) => a.iter_mut().for_each(|x| walk(x, rgb)),
+                _ => {}
+            }
+        }
+        fn map<T: Serialize + serde::de::DeserializeOwned>(v: &mut T, rgb: &dyn Fn([u8; 3]) -> [u8; 3]) -> Result<(), String> {
+            let mut j = serde_json::to_value(&*v).map_err(|e| e.to_string())?;
+            walk(&mut j, rgb);
+            *v = serde_json::from_value(j).map_err(|e| e.to_string())?;
+            Ok(())
+        }
+        let mut ids = Vec::new();
+        super::canvas::collect_ids(&self.nodes, &mut ids);
+        let depth = self.depth;
+        for id in ids {
+            let cache = match &self.node(id)?.kind {
+                Kind::Text(t) => t.cache.as_ref().map(|c| c.coords().into_iter().filter_map(|(tx, ty)| c.get(tx, ty).map(|t| ((tx, ty), t.px.clone()))).collect::<Vec<_>>()),
+                _ => None,
+            };
+            let fresh: Vec<_> = cache
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(at, px)| (at, edit_rgba(depth, Some(&px), &Cov::Uniform(1.0), true, &|_, c| f(c)).map(|px| Tile { id: self.alloc_tile_id(), px: Arc::new(px) })))
+                .collect();
+            let n = self.node_mut(id)?;
+            if let Some(st) = n.style.as_mut() {
+                map(st, &rgb)?;
+            }
+            match &mut n.kind {
+                Kind::Fill(c) => map(c, &rgb)?,
+                Kind::Shape(s) => map(&mut **s, &rgb)?,
+                Kind::Text(t) => {
+                    map(&mut t.data, &rgb)?;
+                    if let Some(c) = t.cache.as_mut() {
+                        for ((tx, ty), tile) in fresh {
+                            c.put(tx, ty, tile);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 
     /// The profile of the stored numbers as ICC bytes, for pixels copied out of this document.
@@ -504,6 +580,48 @@ mod tests {
         let p = get_px(&d, 1, 0, 0);
         assert!(d.vector.gray && p[0] == p[1] && p[1] == p[2], "{p:?}");
         assert!(d.convert_to_profile(&Profile::builtin(crate::icc::LAB).unwrap(), ConvertOpts::default()).is_err());
+    }
+
+    #[test]
+    fn convert_keeps_how_text_shape_fill_and_style_colors_look_and_adjustment_numbers() {
+        use crate::content::{FillContent, SolidFill};
+        use crate::path::ShapeData;
+        use serde_json::json;
+        let red = [255u8, 0, 0];
+        let solid = |color| FillContent::Solid(SolidFill { color });
+        let mut d = Document::new(64, 64, 8).unwrap();
+        let fill = d.add_fill_layer(1, &json!({ "name": "f", "content": { "type": "solid", "color": red } }).to_string()).unwrap();
+        let style = json!({
+            "enabled": true, "scale": 1.0, "drop_shadows": [], "inner_shadows": [], "gradient_overlays": [], "pattern_overlays": [], "strokes": [],
+            "color_overlays": [{ "present": true, "enabled": true, "blend": "normal", "opacity": 1.0, "color": red }],
+            "outer_glow": null, "inner_glow": null, "bevel": null, "contour": null, "texture": null, "satin": null,
+        });
+        d.set_style(fill, &style.to_string()).unwrap();
+        let shape = d.add_layer("s", fill).unwrap();
+        d.node_mut(shape).unwrap().kind = Kind::Shape(Box::new(ShapeData { path: crate::geom::rect([1.0, 1.0, 9.0, 9.0], [0.0; 4]), live: None, fill: Some(solid(red)), stroke: None }));
+        let text = d.add_layer("t", shape).unwrap();
+        put_px(&mut d, text, 0, 0, [255, 0, 0, 255]);
+        let mut data: crate::text::TextData = serde_json::from_value(super::super::m4_tests::text(json!({ "type": "point" }))).unwrap();
+        data.runs[0].color = red;
+        let n = d.node_mut(text).unwrap();
+        let Kind::Pixel(cache) = std::mem::replace(&mut n.kind, Kind::Group(vec![])) else { unreachable!() };
+        n.kind = Kind::Text(Box::new(Text { data, cache: Some(cache) }));
+        let adj = d.add_layer("a", text).unwrap();
+        d.node_mut(adj).unwrap().kind = Kind::Adjustment(serde_json::from_value(json!({ "kind": "photo_filter", "params": { "color": red, "density": 25.0, "preserve_luminosity": true } })).unwrap());
+
+        assert!(d.convert_to_profile(&Profile::builtin("Adobe RGB (1998)").unwrap(), ConvertOpts::default()).unwrap());
+        let conv = [219u8, 0, 0];
+        let kind = |d: &Document, id: u32| d.node(id).unwrap().kind.clone();
+        assert!(matches!(kind(&d, fill), Kind::Fill(FillContent::Solid(SolidFill { color })) if color == conv));
+        assert_eq!(d.node(fill).unwrap().style.as_ref().unwrap().color_overlays[0].color, conv);
+        let Kind::Shape(s) = kind(&d, shape) else { unreachable!() };
+        assert!(matches!(s.fill, Some(FillContent::Solid(SolidFill { color })) if color == conv));
+        let Kind::Text(t) = kind(&d, text) else { unreachable!() };
+        assert_eq!(t.data.runs[0].color, conv);
+        let cached = t.cache.as_ref().unwrap().get(0, 0).unwrap().px.rgba_f32(0);
+        assert_eq!(cached.map(|v| (v * 255.0).round() as u8), [219, 0, 0, 255], "the rendered text converts with its color");
+        let Kind::Adjustment(a) = kind(&d, adj) else { unreachable!() };
+        assert_eq!(serde_json::to_value(&a).unwrap()["params"]["color"], json!(red), "adjustment layers keep their numbers");
     }
 
     #[test]

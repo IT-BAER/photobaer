@@ -1,13 +1,13 @@
-// File > Open of a .pdf: Import PDF picks pages (rendered over the crop or media box at a chosen size) or the
-// images in the file; each opens as its own document, then converts to the chosen mode and bit depth.
-import { useImperativeHandle, useRef, useState, type Ref } from 'react';
+// File > Open of a .pdf: Import PDF picks pages (rendered over a chosen page box at a chosen size) or the
+// images in the file; each opens as its own document in the chosen mode and bit depth.
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg, plural, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { i18n } from './i18n/index.ts';
 import type { PdfImageRef } from './app/pdf.ts';
-import { boxReader } from './app/pdfBoxes.ts';
+import { boxReader, type PageBoxes } from './app/pdfBoxes.ts';
 import { pixels, rasterSize, type RasterSize } from './app/rasterSize.ts';
 import { RasterFields } from './SvgDialog.tsx';
 
@@ -20,6 +20,11 @@ export interface PdfDialogHandle {
 const pdfjs = () => import('./app/pdf.ts');
 const isPassword = (e: unknown) => (e as Error)?.name === 'PasswordException';
 const MODES: [PdfMode, MessageDescriptor][] = [['gray', msg`Grayscale`], ['rgb', msg`RGB Color`], ['cmyk', msg`CMYK Color`], ['lab', msg`Lab Color`]];
+// Bounding Box: the smallest box around the page's text and graphics; the others are the page boxes.
+type CropTo = 'bounding' | 'media' | 'crop' | 'bleed' | 'trim' | 'art';
+const CROPS: [CropTo, MessageDescriptor][] = [
+  ['bounding', msg`Bounding Box`], ['media', msg`Media Box`], ['crop', msg`Crop Box`], ['bleed', msg`Bleed Box`], ['trim', msg`Trim Box`], ['art', msg`Art Box`],
+];
 
 export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setError: (msg: string) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -31,11 +36,15 @@ export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setErr
   const [password, setPassword] = useState<{ value: string; wrong: boolean } | null>(null);
   const [thumbs, setThumbs] = useState<string[]>([]);
   const [sizes, setSizes] = useState<[number, number][]>([]);
-  // Media box and its rotated size per page; null where the file gives none (the crop is used).
-  const [media, setMedia] = useState<({ box: number[]; size: [number, number] } | null)[] | null>(null);
+  // The page boxes per page; null where the file gives none (the crop is used).
+  const [boxes, setBoxes] = useState<(PageBoxes | null)[] | null>(null);
+  // Bounding boxes found so far, by page (null: nothing painted).
+  const bounds = useRef(new Map<number, number[] | null>());
+  // The first picked page's size in pt over the chosen box, under `key` (crop box and page).
+  const [shown, setShown] = useState<{ key: string; size: [number, number] } | null>(null);
   const [picked, setPicked] = useState<Set<number>>(new Set([1]));
   const [select, setSelect] = useState<'pages' | 'images'>('pages');
-  const [cropTo, setCropTo] = useState<'crop' | 'media'>('crop');
+  const [cropTo, setCropTo] = useState<CropTo>('crop');
   const [images, setImages] = useState<{ img: PdfImageRef; url: string }[] | null>(null);
   const [pickedImages, setPickedImages] = useState<Set<string>>(new Set());
   const [imagesDone, setImagesDone] = useState(false);
@@ -74,20 +83,44 @@ export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setErr
     }
   }
 
-  async function loadMedia() {
-    if (!pdf || !file || media) return;
+  async function loadBoxes() {
+    if (!pdf || !file || boxes) return;
     const j = job.current;
     try {
-      const { pageSize } = await pdfjs();
       const read = boxReader(new Uint8Array(await file.arrayBuffer()));
-      const out: ({ box: number[]; size: [number, number] } | null)[] = [];
+      const out: (PageBoxes | null)[] = [];
       for (let n = 1; n <= pdf.numPages; n++) {
-        const page = await pdf.getPage(n), b = page.ref ? await read(page.ref) : null;
-        out.push(b ? { box: b.media, size: await pageSize(pdf, n, b.media) } : null);
+        const page = await pdf.getPage(n);
+        out.push(page.ref ? await read(page.ref) : null);
       }
-      if (j === job.current) setMedia(out);
-    } catch (e) { { const reason = (e as Error).message; setError(t`Could not read the media boxes: ${reason}`); }; }
+      if (j === job.current) setBoxes(out);
+    } catch (e) { { const reason = (e as Error).message; setError(t`Could not read the page boxes: ${reason}`); }; }
   }
+
+  // The box page `n` renders over in PDF units; undefined renders the crop as pdf.js shows it.
+  async function boxFor(doc: PDFDocumentProxy, n: number, c: CropTo): Promise<number[] | undefined> {
+    if (c === 'crop') return undefined;
+    const b = boxes?.[n - 1];
+    if (c !== 'bounding') return b?.[c];
+    if (!bounds.current.has(n)) {
+      const { contentBox } = await pdfjs();
+      bounds.current.set(n, await contentBox(doc, n, b?.media ?? (await doc.getPage(n)).view));
+    }
+    return bounds.current.get(n) ?? undefined;
+  }
+
+  const firstPage = [...picked].sort((a, b) => a - b)[0];
+  const shownKey = `${cropTo}:${firstPage}`;
+  useEffect(() => {
+    if (!pdf || !firstPage || (cropTo !== 'crop' && !boxes)) return;
+    let live = true;
+    (async () => {
+      const box = await boxFor(pdf, firstPage, cropTo);
+      const size = box ? await (await pdfjs()).pageSize(pdf, firstPage, box) : sizes[firstPage - 1];
+      if (live && size) setShown({ key: shownKey, size });
+    })().catch(e => { const reason = (e as Error).message; setError(t`Could not read the page boxes: ${reason}`); });
+    return () => { live = false; };
+  }, [pdf, boxes, shownKey, sizes]);
 
   async function loadImages() {
     if (!pdf || images) return;
@@ -113,7 +146,7 @@ export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setErr
   useImperativeHandle(ref, () => ({
     ask(f) {
       answer.current?.(null);
-      setFile(f); setPdf(null); setThumbs([]); setSizes([]); setMedia(null); setPicked(new Set([1])); setPassword(null); setBusy(false);
+      setFile(f); setPdf(null); setThumbs([]); setSizes([]); setBoxes(null); bounds.current.clear(); setShown(null); setPicked(new Set([1])); setPassword(null); setBusy(false);
       setSelect('pages'); setCropTo('crop'); setImages(null); setPickedImages(new Set()); setImagesDone(false);
       dialog.current?.showModal();
       void load(f);
@@ -152,8 +185,7 @@ export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setErr
       }
       const s = latest.current;
       for (const n of [...picked].sort((a, b) => a - b)) {
-        const box = cropTo === 'media' ? media?.[n - 1]?.box : undefined;
-        const png = await renderPage(pdf, n, s.sx, s.sy, box);
+        const png = await renderPage(pdf, n, s.sx, s.sy, await boxFor(pdf, n, cropTo));
         files.push(new File([png], `${base}${pdf.numPages > 1 ? `-${n}` : ''}.png`, { type: 'image/png' }));
       }
       close({ files, ppi: s.ppi, mode, depth });
@@ -165,9 +197,8 @@ export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setErr
 
   const toggle = (n: number) => setPicked(p => { const s = new Set(p); if (s.has(n)) s.delete(n); else s.add(n); return s; });
   const toggleImage = (k: string) => setPickedImages(p => { const s = new Set(p); if (s.has(k)) s.delete(k); else s.add(k); return s; });
-  const firstPage = [...picked].sort((a, b) => a - b)[0];
-  const base = (cropTo === 'media' && media?.[firstPage - 1]?.size) || sizes[firstPage - 1];
-  const ready = select === 'images' ? pickedImages.size > 0 : !!pdf && picked.size > 0 && (cropTo === 'crop' || !!media);
+  const base = shown?.key === shownKey ? shown.size : cropTo === 'crop' ? sizes[firstPage - 1] : undefined;
+  const ready = select === 'images' ? pickedImages.size > 0 : !!pdf && picked.size > 0 && !!base;
 
   return (
     <dialog ref={dialog} className="mode-dialog pdf-dialog" aria-label={t`Import PDF`} onClose={() => { if (answer.current) close(null); }}>
@@ -196,9 +227,8 @@ export function PdfDialog({ ref, setError }: { ref: Ref<PdfDialogHandle>; setErr
                 <button type="button" onClick={() => setPicked(new Set(sizes.map((_, i) => i + 1)))}><Trans>Select All</Trans></button>
                 <button type="button" onClick={() => setPicked(new Set())}><Trans>Deselect All</Trans></button>
               </div>
-              <label><Trans>Crop To</Trans> <select aria-label={t`Crop To`} value={cropTo} onChange={e => { const v = e.currentTarget.value as 'crop' | 'media'; setCropTo(v); if (v === 'media') void loadMedia(); }}>
-                <option value="crop">{t`Crop Box`}</option>
-                <option value="media">{t`Media Box`}</option>
+              <label><Trans>Crop To</Trans> <select aria-label={t`Crop To`} value={cropTo} onChange={e => { const v = e.currentTarget.value as CropTo; setCropTo(v); if (v !== 'crop') void loadBoxes(); }}>
+                {CROPS.map(([v, l]) => <option key={v} value={v}>{i18n._(l)}</option>)}
               </select></label>
               {base && <RasterFields base={base} size={size} set={set} />}
               {base && picked.size > 1 && <p className="hint">{plural(picked.size, { one: `Page ${firstPage} shown; # page at the same scale.`, other: `Page ${firstPage} shown; # pages at the same scale.` })}</p>}

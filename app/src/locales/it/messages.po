@@ -986,6 +986,10 @@ msgstr "Disposizione"
 msgid "Arrows"
 msgstr "Frecce"
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr "Riquadro grafica"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1491,6 +1495,10 @@ msgstr "Esplosione"
 msgid "Bleed"
 msgstr "Abbondanza"
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr "Riquadro pagina al vivo"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr "Fondi livelli ritagliati come gruppo"
@@ -1720,6 +1728,10 @@ msgstr "In basso a destra"
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
 msgstr "Colore del pixel in basso a destra"
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
+msgstr "Riquadro di delimitazione"
 
 #: app/src/filters/labels.ts
 msgid "Box Blur"
@@ -2968,8 +2980,8 @@ msgid "Could not read the images: {reason}"
 msgstr "Impossibile leggere le immagini: {reason}"
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
-msgstr "Impossibile leggere i riquadri multimediali: {reason}"
+msgid "Could not read the page boxes: {reason}"
+msgstr "Impossibile leggere i riquadri della pagina: {reason}"
 
 #: app/src/App.tsx
 msgid "Could not save {name}: {reason}"
@@ -11926,6 +11938,10 @@ msgstr "La sorgente collegata non è disponibile: {name}. Ricollegare l'oggetto 
 msgid "The measured line is already straight."
 msgstr "La linea misurata è già dritta."
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr "Il metodo o la profondità in bit non è stato applicato: {reason}"
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr "L'ID del nuovo strumento predefinito non è valido o esiste già."
@@ -12417,6 +12433,10 @@ msgstr "Rifila"
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
 msgstr "Rifila"
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
+msgstr "Riquadro rifilo"
 
 #: app/src/ExportDialogs.tsx
 msgid "Trim to layer pixels"

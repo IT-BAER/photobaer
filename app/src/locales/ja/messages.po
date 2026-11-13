@@ -989,6 +989,10 @@ msgstr "配置"
 msgid "Arrows"
 msgstr "矢印"
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr "アートサイズ"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1494,6 +1498,10 @@ msgstr "ブラスト"
 msgid "Bleed"
 msgstr "裁ち落とし"
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr "裁ち落としサイズ"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr "クリッピングされたレイヤーをグループとして描画"
@@ -1723,6 +1731,10 @@ msgstr "右下"
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
 msgstr "右下のピクセルカラー"
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
+msgstr "バウンディングボックス"
 
 #: app/src/filters/labels.ts
 msgid "Box Blur"
@@ -2971,8 +2983,8 @@ msgid "Could not read the images: {reason}"
 msgstr "画像を読み取れませんでした: {reason}"
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
-msgstr "メディアボックスを読み取れませんでした: {reason}"
+msgid "Could not read the page boxes: {reason}"
+msgstr "ページのボックスを読み取れませんでした: {reason}"
 
 #: app/src/App.tsx
 msgid "Could not save {name}: {reason}"
@@ -11929,6 +11941,10 @@ msgstr "リンクされたソースを使用できません：{name}。スマー
 msgid "The measured line is already straight."
 msgstr "計測した線は既にまっすぐです。"
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr "モードまたはビット数を適用できませんでした: {reason}"
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr "新しいツールプリセットの ID が無効か、既に存在します。"
@@ -12420,6 +12436,10 @@ msgstr "トリミング"
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
 msgstr "削除する部分"
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
+msgstr "仕上がりサイズ"
 
 #: app/src/ExportDialogs.tsx
 msgid "Trim to layer pixels"

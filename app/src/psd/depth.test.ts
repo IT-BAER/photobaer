@@ -38,6 +38,35 @@ function sameTile(got: Uint8Array | null, want: Uint8Array | null, msg = '') {
 }
 type Chan = { id: number; name: string; default: number; spot: { color: number[]; solidity: number } | null; tiles?: [number, number, number][] };
 const channelsOf = (e: Engine) => (JSON.parse(e.manifest()) as { channels: Chan[] }).channels;
+// The compression of every non-empty channel in the Lr16/Lr32 block of a PSD (not PSB).
+function layerCompressions(b: Uint8Array): number[] {
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  let p = 26 + 4 + v.getUint32(26);
+  p += 4 + v.getUint32(p);
+  const end = p + 4 + v.getUint32(p);
+  p += 4;
+  p += 4 + v.getUint32(p);
+  p += 4 + v.getUint32(p);
+  const out: number[] = [];
+  while (p + 12 <= end) {
+    const key = String.fromCharCode(...b.subarray(p + 4, p + 8)), n = v.getUint32(p + 8), d = p + 12;
+    if (key === 'Lr16' || key === 'Lr32') {
+      let r = d + 2;
+      const lens: number[] = [];
+      for (let i = 0; i < Math.abs(v.getInt16(d)); i++) {
+        r += 16;
+        const nc = v.getUint16(r);
+        r += 2;
+        for (let c = 0; c < nc; c++, r += 6) lens.push(v.getUint32(r + 2));
+        r += 12;
+        r += 4 + v.getUint32(r);
+      }
+      for (const len of lens) { if (len > 2) out.push(v.getUint16(r)); r += len; }
+    }
+    p = d + n + (n & 1);
+  }
+  return out;
+}
 
 // A 16-bit tile of `w` x `h` canvas pixels at tile (tx, ty); `f` gives RGBA, pixels past the canvas stay 0.
 function tile16(w: number, h: number, tx: number, ty: number, f: (x: number, y: number) => number[]) {
@@ -95,6 +124,8 @@ test('16-bit documents save in an Lr16 block and reopen with exact values, masks
   const { bytes } = exportPsd(e);
   assert.deepEqual(header(bytes), { channels: 4, depth: 16, mode: 3 });
   assert.ok(has(bytes, '8BIMLr16'));
+  const comps = layerCompressions(bytes);
+  assert.ok(comps.length >= 9 && comps.every(c => c === 3), `ZIP with prediction, as Photoshop writes 16-bit layers: ${comps}`);
   const ag = readPsd(bytes.slice(), { useImageData: true, skipThumbnail: true, skipCompositeImageData: true });
   const bg = ag.children!.find(l => l.name === 'Background')!;
   assert.ok(bg.imageData!.data instanceof Uint16Array);
@@ -120,6 +151,7 @@ test('32-bit documents save linear floats in an Lr32 block under the linear twin
   const { bytes } = exportPsd(e);
   assert.deepEqual(header(bytes), { channels: 4, depth: 32, mode: 3 });
   assert.ok(has(bytes, '8BIMLr32'));
+  assert.deepEqual(layerCompressions(bytes), [3, 3, 3, 3]);
   const lin = e.to_linear_f32(px.slice(0, 8));
   assert.ok(Math.abs(lin[0] - 0.214) < 1e-3 && lin[3] === 1 && lin[7] === 0.5);
   const ag = readPsd(bytes.slice(), { useImageData: true, skipThumbnail: true, skipCompositeImageData: true });

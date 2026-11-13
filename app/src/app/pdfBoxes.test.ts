@@ -10,6 +10,7 @@ const bytes = (...parts: (string | Uint8Array)[]) => {
   for (const b of bs) { out.set(b, o); o += b.length; }
   return out;
 };
+const boxes = (media: number[], crop: number[]) => ({ media, crop, bleed: crop, trim: crop, art: crop });
 
 test('pageBoxes: an inherited MediaBox, the page CropBox, and the later object of an incremental update', async () => {
   const pdf = bytes(
@@ -20,8 +21,8 @@ test('pageBoxes: an inherited MediaBox, the page CropBox, and the later object o
     'trailer << /Root 1 0 R >>\n%%EOF\n',
     '3 0 obj << /Type /Page /Parent 2 0 R /CropBox [ 72 72 540 720 ] >> endobj\n%%EOF\n',
   );
-  assert.deepEqual(await pageBoxes(pdf, { num: 3, gen: 0 }), { media: [0, 0, 612, 792], crop: [72, 72, 540, 720] });
-  assert.deepEqual(await pageBoxes(pdf, { num: 13, gen: 0 }), { media: [0, 0, 1, 1], crop: [0, 0, 1, 1] });
+  assert.deepEqual(await pageBoxes(pdf, { num: 3, gen: 0 }), boxes([0, 0, 612, 792], [72, 72, 540, 720]));
+  assert.deepEqual(await pageBoxes(pdf, { num: 13, gen: 0 }), boxes([0, 0, 1, 1], [0, 0, 1, 1]));
 });
 
 test('pageBoxes: a page in a compressed object stream with an indirect, unordered MediaBox', async () => {
@@ -32,6 +33,20 @@ test('pageBoxes: a page in a compressed object stream with an indirect, unordere
     '%PDF-1.7\n5 0 obj << /Type /Pages /Kids [7 0 R] /Count 1 >> endobj\n',
     `9 0 obj << /Type /ObjStm /N 2 /First ${head.length} /Filter /FlateDecode /Length ${data.length} >>\nstream\r\n`, data, '\r\nendstream\nendobj\n',
   );
-  assert.deepEqual(await pageBoxes(pdf, { num: 7, gen: 0 }), { media: [0, 0, 595, 842], crop: [0, 0, 595, 842] });
+  assert.deepEqual(await pageBoxes(pdf, { num: 7, gen: 0 }), boxes([0, 0, 595, 842], [0, 0, 595, 842]));
   assert.equal(await pageBoxes(pdf, { num: 4, gen: 0 }), null);
+});
+
+test('pageBoxes: Bleed, Trim and Art boxes come from the page only, default to the crop, and are cut to the media box', async () => {
+  const pdf = bytes(
+    '%PDF-1.7\n2 0 obj << /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 600 800] /TrimBox [1 1 2 2] >> endobj\n',
+    '3 0 obj << /Type /Page /Parent 2 0 R /CropBox [-10 -10 590 790] /BleedBox [10 10 590 790] /TrimBox [19 19 581 781] /ArtBox [700 900 50 60] >> endobj\n',
+    '4 0 obj << /Type /Page /Parent 2 0 R /CropBox [20 20 580 780] /ArtBox [700 900 800 1000] >> endobj\n',
+  );
+  assert.deepEqual(await pageBoxes(pdf, { num: 3, gen: 0 }), {
+    media: [0, 0, 600, 800], crop: [0, 0, 590, 790], bleed: [10, 10, 590, 790], trim: [19, 19, 581, 781], art: [50, 60, 600, 800],
+  });
+  // Not inherited from /Parent; a box outside the media box falls back to the crop.
+  const crop = [20, 20, 580, 780];
+  assert.deepEqual(await pageBoxes(pdf, { num: 4, gen: 0 }), { media: [0, 0, 600, 800], crop, bleed: crop, trim: crop, art: crop });
 });

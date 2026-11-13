@@ -986,6 +986,10 @@ msgstr "Anordnung"
 msgid "Arrows"
 msgstr "Pfeile"
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr "Objektrahmen"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1491,6 +1495,10 @@ msgstr "Sturm"
 msgid "Bleed"
 msgstr "Beschnittzugabe"
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr "Anschnittrahmen"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr "Beschnittene Ebenen als Gruppe überblenden"
@@ -1720,6 +1728,10 @@ msgstr "Unten rechts"
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
 msgstr "Farbe des Pixels unten rechts"
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
+msgstr "Begrenzungsrahmen"
 
 #: app/src/filters/labels.ts
 msgid "Box Blur"
@@ -2968,8 +2980,8 @@ msgid "Could not read the images: {reason}"
 msgstr "Die Bilder konnten nicht gelesen werden: {reason}"
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
-msgstr "Die Medienrahmen konnten nicht gelesen werden: {reason}"
+msgid "Could not read the page boxes: {reason}"
+msgstr "Die Seitenrahmen konnten nicht gelesen werden: {reason}"
 
 #: app/src/App.tsx
 msgid "Could not save {name}: {reason}"
@@ -11926,6 +11938,10 @@ msgstr "Die verknüpfte Quelle ist nicht verfügbar: {name}. Verknüpfe das Smar
 msgid "The measured line is already straight."
 msgstr "Die gemessene Linie ist bereits gerade."
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr "Modus oder Bittiefe wurde nicht angewendet: {reason}"
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr "Die ID des neuen Werkzeug-Presets ist ungültig oder existiert bereits."
@@ -12417,6 +12433,10 @@ msgstr "Beschneiden"
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
 msgstr "Wegschneiden"
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
+msgstr "Endformatrahmen"
 
 #: app/src/ExportDialogs.tsx
 msgid "Trim to layer pixels"

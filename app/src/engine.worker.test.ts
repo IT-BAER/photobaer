@@ -3892,6 +3892,19 @@ test('dirty: new and opened documents are clean; a history step dirties; undo to
   assert.equal(o.docs.find(d => d.active)!.dirty, false);
 });
 
+test('openFile with an Import PDF mode and bit depth converts before the first step: clean, no undo steps', async () => {
+  await call('init');
+  await closeAll();
+  await dirtyOf('newDoc', 16, 16, 8, null);
+  const { blob } = (await call('savePsd')).result as { blob: Blob };
+  type I = DirtyTab & { depth: number; resolution: number; mode: { kind: string } | null; gray: boolean; history: { labels: string[] } };
+  const o = (await res(call('openFile', new File([blob], 'page.psd'), undefined, 150, { mode: 'cmyk', depth: 16 }))) as I;
+  assert.deepEqual([o.mode?.kind, o.depth, o.resolution], ['cmyk', 16, 150]);
+  assert.deepEqual([o.dirty, o.undoLabel, o.history.labels.length], [false, null, 0]);
+  const g = (await res(call('openFile', new File([blob], 'gray.psd'), undefined, 72, { mode: 'gray', depth: 8 }))) as I;
+  assert.deepEqual([g.gray, g.depth, g.dirty, g.undoLabel], [true, 8, false, null]);
+});
+
 test('dirty: savePsd cleans the document, export does not, saveEnd(false) restores', async () => {
   await call('init');
   await closeAll();
@@ -4089,6 +4102,9 @@ test('revertDoc replaces the active tab with the file under a new key at the sam
   assert.ok((await call('revertDoc', new File([new Uint8Array([1, 2, 3])], 'bad.psd'), r.key)).error);
   const after = await dirtyOf('addLayer', 0);
   assert.equal(after.layers.length, 2, 'a failed revert keeps the reverted document');
+  // A rasterized SVG reverts at the resolution its Rasterize dialog chose.
+  const ppi = (await res(call('revertDoc', new File([blob], 'x.psd'), after.key, 150))) as Named & { resolution: number };
+  assert.equal(ppi.resolution, 150);
 });
 
 test('saveEnd(false) restores only the tab whose save it ends; a save under Edit Contents changes nothing', async () => {
