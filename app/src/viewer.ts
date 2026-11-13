@@ -382,6 +382,9 @@ export class Viewer {
     let last: [number, number] | null = null;
     let downAt: [number, number] | null = null;
     let lastMove: PointerEvent | null = null;
+    // The open gesture's button and latest event: a gesture whose pointerup never arrived ends from it.
+    let downButton = 0;
+    let lastEv: PointerEvent | null = null;
     let scrolling = 0;
     // While a tool drag holds the pointer outside the viewport, the view scrolls and the tool sees a move each frame.
     const scrollStep = () => {
@@ -408,8 +411,11 @@ export class Viewer {
     };
     c.addEventListener('pointerdown', e => {
       if (e.button !== 0 && e.button !== 1) return;
+      if (lastEv) end(lastEv);
       last = local(e);
       downAt = last;
+      downButton = e.button;
+      lastEv = e;
       if (e.button === 0 && this.guideHit?.(last[0], last[1])) { c.setPointerCapture(e.pointerId); e.preventDefault(); return; }
       c.setPointerCapture(e.pointerId);
       const mode = e.button === 1 ? 'hand' : this.#mode();
@@ -422,6 +428,9 @@ export class Viewer {
         if (this.onHover && !this.intercept && mode !== 'hand' && mode !== 'zoom' && mode !== 'zoomOut' && mode !== 'rotate') this.onHover(toolEvent('move', e, local(e)));
         return;
       }
+      // A mouse with no button down released it unseen (outside the window, after a focus change).
+      if (e.pointerType === 'mouse' && !e.buttons && lastEv) return end(lastEv);
+      lastEv = e;
       const p = local(e);
       const mode = e.buttons & 4 ? 'hand' : this.#mode();
       if (mode === 'rotate') {
@@ -438,9 +447,9 @@ export class Viewer {
       }
       last = p;
     }, { signal: this.#inputAbort.signal });
-    const end = (e: PointerEvent) => {
+    const end = (e: PointerEvent, type: 'up' | 'cancel' = e.type === 'pointercancel' ? 'cancel' : 'up') => {
       if (last && downAt) {
-        const mode = e.button === 1 ? 'hand' : this.#mode();
+        const mode = downButton === 1 ? 'hand' : this.#mode();
         const clicked = Math.hypot(last[0] - downAt[0], last[1] - downAt[1]) < 3;
         if (mode === 'zoom' || mode === 'zoomOut') {
           if (clicked) {
@@ -448,17 +457,20 @@ export class Viewer {
             this.animateView(zoomAt(this.#anim?.to ?? this.view, out ? 0.5 : 2, last[0], last[1], this.#w, this.#h), last[0], last[1]);
           }
         } else if (mode !== 'hand' && mode !== 'rotate') {
-          this.#emit(toolEvent(e.type === 'pointercancel' ? 'cancel' : 'up', e, last));
+          this.#emit(toolEvent(type, e, last));
         }
       }
       last = null;
       downAt = null;
       lastMove = null;
+      lastEv = null;
       cancelAnimationFrame(scrolling);
       scrolling = 0;
     };
     c.addEventListener('pointerup', end, { signal: this.#inputAbort.signal });
     c.addEventListener('pointercancel', end, { signal: this.#inputAbort.signal });
+    // Capture lost without a pointerup (it follows a pointerup otherwise): the gesture was interrupted.
+    c.addEventListener('lostpointercapture', () => { if (lastEv) end(lastEv, 'cancel'); }, { signal: this.#inputAbort.signal });
     c.addEventListener('wheel', e => {
       e.preventDefault();
       const [x, y] = local(e);

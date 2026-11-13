@@ -95,6 +95,45 @@ test('pointer moves with no button pressed go to onHover, not onPointer', () => 
   viewer.destroy();
 });
 
+test('a gesture whose pointerup was lost ends at its last point before the next press or on a buttonless move; lost capture cancels it', () => {
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { devicePixelRatio: 1 } });
+  Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: () => 1 });
+  Object.defineProperty(globalThis, 'cancelAnimationFrame', { configurable: true, value: () => {} });
+  Object.defineProperty(globalThis, 'ResizeObserver', { configurable: true, value: class { observe() {} disconnect() {} } });
+  const renderer: Renderer = { kind: 'webgl2', slots: 8, gpu: null, upload() {}, draw() {} };
+  const canvas = new FakeCanvas();
+  const viewer = new Viewer(canvas as unknown as HTMLCanvasElement, renderer, () => new Promise(() => {}));
+  viewer.setDoc({ docId: 1, version: 1, width: 16, height: 16, maxLevel: 0 });
+  const got: { type: string; x: number }[] = [], hover: string[] = [];
+  viewer.onPointer = e => { got.push({ type: e.type, x: e.x }); };
+  viewer.onHover = e => { hover.push(e.type); };
+  const send = (type: string, buttons: number, x: number) => {
+    const ev = new Event(type, { cancelable: true });
+    Object.assign(ev, { button: type === 'pointermove' ? -1 : 0, pointerId: 1, clientX: x, clientY: 4, pressure: buttons ? 1 : 0, tiltX: 0, tiltY: 0, twist: 0, pointerType: 'mouse', buttons, shiftKey: false, altKey: false, ctrlKey: false, metaKey: false });
+    canvas.dispatchEvent(ev);
+  };
+  const types = () => got.splice(0).map(g => g.type);
+  send('pointerdown', 1, 4);
+  send('pointermove', 1, 9);
+  send('pointerdown', 1, 20);
+  assert.deepEqual(got.map(g => g.type), ['down', 'move', 'up', 'down']);
+  assert.equal(got[2].x, got[1].x, 'the lost gesture ends where it was last seen');
+  got.length = 0;
+  send('pointermove', 0, 30);
+  send('pointermove', 0, 31);
+  assert.deepEqual(types(), ['up'], 'a move with no button down ends the open gesture');
+  assert.deepEqual(hover, ['move'], 'the next move hovers');
+  send('pointerdown', 1, 4);
+  canvas.dispatchEvent(new Event('lostpointercapture'));
+  send('pointerup', 0, 4);
+  assert.deepEqual(types(), ['down', 'cancel'], 'lost capture cancels; the late pointerup does nothing');
+  send('pointerdown', 1, 4);
+  send('pointerup', 0, 4);
+  canvas.dispatchEvent(new Event('lostpointercapture'));
+  assert.deepEqual(types(), ['down', 'up'], 'capture released after a pointerup changes nothing');
+  viewer.destroy();
+});
+
 test('a finished tile request starts the next stale visible tile without waiting for a frame', async () => {
   const raf: FrameRequestCallback[] = [];
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { devicePixelRatio: 1 } });

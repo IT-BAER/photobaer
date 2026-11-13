@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - File > Revert of an SVG renders it again at the size and resolution chosen when it was opened.
 
+### Fixed
+
+- A drag whose mouse release the canvas never saw (released outside the window, after a focus change) ends where it
+  was last shown when the mouse moves without a button or the next press starts, so the next press starts a new drag
+  instead of continuing the old one. A lost pointer capture cancels the drag.
+
 ## [0.5.0] - 2026-10-09
 
 ### Added
