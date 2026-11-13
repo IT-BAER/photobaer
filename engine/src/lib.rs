@@ -1148,6 +1148,14 @@ impl Engine {
         }
     }
 
+    /// Straight RGBA8 of the display over the level px rect (x0, y0, w, h); null when it is all transparent.
+    pub fn display_region(&self, level: u32, x0: u32, y0: u32, w: u32, h: u32) -> Result<JsValue, JsError> {
+        match self.0.doc.display_region(&self.0.view, level, x0, y0, w, h).map_err(err)? {
+            Some(bytes) => Ok(js_sys::Uint8Array::from(bytes.as_slice()).into()),
+            None => Ok(JsValue::NULL),
+        }
+    }
+
     /// The encoded draw program for one display tile (8-bit only); `known` lists payload keys
     /// the caller already holds, whose bytes are then left out.
     pub fn display_program(&self, level: u32, tx: u32, ty: u32, known: Vec<u64>) -> Result<Vec<u8>, JsError> {

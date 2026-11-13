@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A press with the Move tool on a layer with effects shows the moving layer sooner: display tiles composited
   on the CPU take less time to composite and to round to 8 bits. The pixels are the same.
+- The moving layer of a Move tool press is converted for display in the engine instead of in JavaScript, so it
+  shows sooner. A layer with an inner shadow or knockout keeps its rendered effects when it moves inside the
+  canvas. After a change, the view asks for its next tiles as soon as one arrives instead of a frame later.
 
 ## [0.5.0] - 2026-10-09
 

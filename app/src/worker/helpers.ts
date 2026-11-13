@@ -6,7 +6,6 @@ import { embedIcc } from '../app/iccFiles.ts';
 import { embedInfo, hasInfo, type FileInfo } from '../app/fileInfo.ts';
 import { encodeGif, encodeGrayPng, encodePng8, quantize, type Dither } from '../app/webExport.ts';
 import { icoSizes, type IcoEntry } from '../formats.ts';
-import { TILE } from '../view.ts';
 import type { Box, GlobalLight, LayerNode, SmartInfo, SmartLink, TransformKind, TransformOp } from './types.ts';
 
 // Global Light: angle mod 360, altitude clamped to 0..90.
@@ -55,21 +54,8 @@ function liftPreview(e: Engine, id: number, bounds: Box, selected: boolean, maxS
 function displayRegion(e: Engine, level: number, r: Box) {
   const f = 1 / (1 << level), x0 = Math.floor(r[0] * f), y0 = Math.floor(r[1] * f);
   const w = Math.ceil((r[0] + r[2]) * f) - x0, h = Math.ceil((r[1] + r[3]) * f) - y0;
-  const out = new Uint8ClampedArray(w * h * 4);
-  let any = false;
-  for (let ty = Math.floor(y0 / TILE); ty <= Math.floor((y0 + h - 1) / TILE); ty++) for (let tx = Math.floor(x0 / TILE); tx <= Math.floor((x0 + w - 1) / TILE); tx++) {
-    const t = e.display_tile(level, tx, ty) as Uint8Array | null | undefined;
-    if (!t) continue;
-    const ax = Math.max(x0, tx * TILE), bx = Math.min(x0 + w, tx * TILE + TILE), by = Math.min(y0 + h, ty * TILE + TILE);
-    for (let y = Math.max(y0, ty * TILE); y < by; y++) for (let x = ax; x < bx; x++) {
-      const i = ((y - ty * TILE) * TILE + x - tx * TILE) * 4, a = t[i + 3];
-      if (!a) continue;
-      const o = ((y - y0) * w + x - x0) * 4;
-      out[o] = (t[i] * 255) / a; out[o + 1] = (t[i + 1] * 255) / a; out[o + 2] = (t[i + 2] * 255) / a; out[o + 3] = a;
-      any = true;
-    }
-  }
-  return any ? { image: { x: x0, y: y0, w, h, f }, data: out.buffer as ArrayBuffer } : null;
+  const data = e.display_region(level, x0, y0, w, h) as Uint8Array | null | undefined;
+  return data ? { image: { x: x0, y: y0, w, h, f }, data: data.buffer as ArrayBuffer } : null;
 }
 // displayRegion over doc rect `r` anywhere: the parts outside the canvas render with the layers `ids`
 // shifted onto it in canvas-sized cells (multiples of 2^level, so pyramid tiles stay aligned), then back.

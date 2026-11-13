@@ -95,6 +95,28 @@ test('pointer moves with no button pressed go to onHover, not onPointer', () => 
   viewer.destroy();
 });
 
+test('a finished tile request starts the next stale visible tile without waiting for a frame', async () => {
+  const raf: FrameRequestCallback[] = [];
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { devicePixelRatio: 1 } });
+  Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: (cb: FrameRequestCallback) => raf.push(cb) });
+  Object.defineProperty(globalThis, 'cancelAnimationFrame', { configurable: true, value: () => {} });
+  Object.defineProperty(globalThis, 'ResizeObserver', { configurable: true, value: class { observe() {} disconnect() {} } });
+  class WideCanvas extends FakeCanvas { getBoundingClientRect() { return { left: 0, top: 0, width: 1000, height: 600 }; } }
+  const renderer: Renderer = { kind: 'webgl2', slots: 64, gpu: null, upload() {}, draw() {} };
+  const asked: { key: string; finish: (t: TileResult) => void }[] = [];
+  const viewer = new Viewer(new WideCanvas() as unknown as HTMLCanvasElement, renderer, (level, tx, ty) =>
+    new Promise(finish => asked.push({ key: `${level}/${tx}/${ty}`, finish })));
+  viewer.setDoc({ docId: 1, version: 1, width: 2000, height: 1600, maxLevel: 3 });
+  viewer.setView({ zoom: 1, rot: 0, cx: 1000, cy: 800 });
+  raf.splice(0).forEach(f => f(0));
+  assert.equal(asked.length, 4, 'four requests in flight');
+  asked[0].finish({ docId: 1, version: 1, fill: null });
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(asked.length, 5, 'the next visible tile is asked for before the next frame');
+  assert.ok(asked.slice(0, 4).every(a => a.key !== asked[4].key), 'a new tile');
+  viewer.destroy();
+});
+
 test('drawn without a cap waits until the version is drawn, a new document or destroy', async () => {
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { devicePixelRatio: 1 } });
   Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: () => 1 });

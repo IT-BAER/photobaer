@@ -489,6 +489,89 @@ fn bench_float_tiles() {
     }
 }
 
+/// A 600 x 450 px layer with an inner and a drop shadow, knocking out shallow, at (700, 600) on a white
+/// 2000 x 1600 canvas: every effect window stays clear of the canvas edges.
+fn inner_doc() -> (Document, u32) {
+    let mut s: Value = serde_json::from_str(&styles().into_iter().find(|s| s.0 == "inner shadow").unwrap().1).unwrap();
+    s["drop_shadows"] = json!([shadow(0.0)]);
+    let mut d = Document::new(2000, 1600, 8).unwrap();
+    d.fill(1, Target::Pixels, 255, 255, 255, 255).unwrap();
+    let id = d.add_layer("inner", 1).unwrap();
+    let (w, h) = (600usize, 450usize);
+    let px: Vec<u8> = (0..w * h).flat_map(|i| [(i % 251) as u8, (i / w % 253) as u8, 9, if (i % w + i / w) % 97 < 80 { 255 } else { 0 }]).collect();
+    d.put_rgba8(id, 700, 600, w as u32, h as u32, &px).unwrap();
+    d.set_style(id, &s.to_string()).unwrap();
+    let mut b = serde_json::to_value(Blending::default()).unwrap();
+    b["knockout"] = "shallow".into();
+    d.set_blending(id, &b.to_string()).unwrap();
+    (d, id)
+}
+
+#[test]
+fn inner_shadows_and_knockout_reuse_their_planes_inside_the_canvas() {
+    let (mut d, id) = inner_doc();
+    level0(&d, false);
+    for (dx, dy) in [(37, 13), (-5, 3)] {
+        d.offset_layer(id, dx, dy).unwrap();
+        FX_RENDERS.with(|c| c.set(0));
+        let moved = level0(&d, false);
+        assert_eq!(fx_renders(), 0, "moved by ({dx}, {dy}): no effect plane renders again");
+        assert_same(&moved, &level0(&d, true), &format!("after ({dx}, {dy})"));
+    }
+}
+
+// Level 0 tiles of a moved layer with an inner shadow: per document tile (the path inner shadows took
+// before) and from layer-space windows.
+// cargo test --release --manifest-path engine/Cargo.toml bench_inner_shadow_move -- --ignored --nocapture
+#[test]
+#[ignore = "timing guide, not a gate"]
+fn bench_inner_shadow_move() {
+    use std::time::Instant;
+    for legacy in [true, false] {
+        let (mut d, id) = inner_doc();
+        level0(&d, legacy);
+        let mut ms: Vec<f64> = (0..8)
+            .map(|i| {
+                let by = if i % 2 == 0 { 37 } else { -37 };
+                d.offset_layer(id, by, by / 3).unwrap();
+                let t = Instant::now();
+                level0(&d, legacy);
+                t.elapsed().as_secs_f64() * 1000.0
+            })
+            .collect();
+        ms.sort_by(f64::total_cmp);
+        let (nx, ny) = d.level_tiles(0);
+        println!("bench_inner_shadow_move: {}: {:.1} ms for {} tiles after a move", if legacy { "per tile" } else { "layer space" }, ms[ms.len() / 2], nx * ny);
+    }
+}
+
+#[test]
+fn display_region_is_the_display_tiles_unpremultiplied_like_image_data() {
+    let (mut d, _) = doc_with(&styles().into_iter().find(|s| s.0 == "drop shadow").unwrap().1);
+    d.set_props(1, r#"{"visible":false}"#).unwrap();
+    // A canvas ImageData stores c * 255 / a rounded half to even, clamped.
+    let even = |v: f64| {
+        let f = v.floor();
+        (if v - f > 0.5 || (v - f == 0.5 && f % 2.0 == 1.0) { f + 1.0 } else { f }).min(255.0) as u8
+    };
+    for (level, x0, y0, w, h) in [(0u32, 37u32, 21u32, 300u32, 260u32), (1, 0, 0, 300, 250)] {
+        let got = d.display_region(&Default::default(), level, x0, y0, w, h).unwrap().expect("the layer shows");
+        let tiles: HashMap<(u32, u32), Option<Vec<u8>>> = (0..2).flat_map(|ty| (0..3).map(move |tx| (tx, ty))).map(|(tx, ty)| ((tx, ty), d.display_tile(level, tx, ty).unwrap())).collect();
+        for y in y0..y0 + h {
+            for x in x0..x0 + w {
+                let i = ((y % 256) * 256 + x % 256) as usize * 4;
+                let want = tiles[&(x / 256, y / 256)].as_ref().map_or([0; 4], |t| match t[i + 3] {
+                    0 => [0; 4],
+                    a => [0, 1, 2].map(|c| even(t[i + c] as f64 * 255.0 / a as f64)).into_iter().chain([a]).collect::<Vec<_>>().try_into().unwrap(),
+                });
+                let o = ((y - y0) * w + x - x0) as usize * 4;
+                assert_eq!(got[o..o + 4], want, "level {level} at ({x}, {y})");
+            }
+        }
+    }
+    assert!(d.display_region(&Default::default(), 0, 450, 380, 60, 60).unwrap().is_none(), "nothing shows there");
+}
+
 /// The display tiles of `level` over doc rect `view` (document px).
 fn view_tiles(d: &Document, level: u32, view: [f64; 4], legacy: bool) -> Vec<Vec<f32>> {
     FX_LEGACY.with(|c| c.set(legacy));
