@@ -84,6 +84,21 @@ fn draw(
     let dissolve = mode == Blend::Dissolve;
     let plain = mode.is_passthrough_of_source();
     let hdr = c.hdr && hdr_mode(mode);
+    // An 8-bit tile with no mask, Blend If or dissolve (display tiles, effect planes): the same
+    // arithmetic without the per-pixel source and mask dispatch.
+    if let (Src::Tile(Pixels::U8(px)), MaskSrc::Full, None, false) = (src, mask, blend_if, dissolve) {
+        for y in 0..c.vh {
+            let (row, d) = (&px[y * TILE * 4..(y * TILE + c.vw) * 4], &mut dst[y * TILE * 4..(y * TILE + c.vw) * 4]);
+            for (s, d) in row.chunks_exact(4).zip(d.chunks_exact_mut(4)) {
+                let a = UNIT8[s[3] as usize];
+                let cov = a * scale;
+                if a > 0.0 && cov > 0.0 {
+                    over(d, cov, [UNIT8[s[0] as usize], UNIT8[s[1] as usize], UNIT8[s[2] as usize]], plain, hdr, mode);
+                }
+            }
+        }
+        return;
+    }
     for y in 0..c.vh {
         for x in 0..c.vw {
             let p = y * TILE + x;
@@ -107,31 +122,32 @@ fn draw(
                     continue;
                 }
             }
-            let o = p * 4;
-            let ab = dst[o + 3];
-            // W3C: Cm = (1 - ab) * Cs + ab * B(Cb, Cs); with ab = 0 that is Cs.
-            let cm = if plain || ab <= 0.0 {
-                [r, g, b]
-            } else {
-                let inv = 1.0 / ab;
-                let bl = if hdr {
-                    blend_hdr(mode, std::array::from_fn(|i| (dst[o + i] * inv).max(0.0)), [r, g, b])
-                } else {
-                    blend_rgb(mode, std::array::from_fn(|i| (dst[o + i] * inv).clamp(0.0, 1.0)), [r, g, b])
-                };
-                [
-                    (1.0 - ab) * r + ab * bl[0],
-                    (1.0 - ab) * g + ab * bl[1],
-                    (1.0 - ab) * b + ab * bl[2],
-                ]
-            };
-            let inv = 1.0 - cov;
-            dst[o] = cov * cm[0] + inv * dst[o];
-            dst[o + 1] = cov * cm[1] + inv * dst[o + 1];
-            dst[o + 2] = cov * cm[2] + inv * dst[o + 2];
-            dst[o + 3] = cov + inv * ab;
+            over(&mut dst[p * 4..p * 4 + 4], cov, [r, g, b], plain, hdr, mode);
         }
     }
+}
+
+// Straight color `s` at coverage `cov` over the premultiplied pixel `d`.
+#[inline(always)]
+fn over(d: &mut [f32], cov: f32, [r, g, b]: [f32; 3], plain: bool, hdr: bool, mode: Blend) {
+    let ab = d[3];
+    // W3C: Cm = (1 - ab) * Cs + ab * B(Cb, Cs); with ab = 0 that is Cs.
+    let cm = if plain || ab <= 0.0 {
+        [r, g, b]
+    } else {
+        let inv = 1.0 / ab;
+        let bl = if hdr {
+            blend_hdr(mode, std::array::from_fn(|i| (d[i] * inv).max(0.0)), [r, g, b])
+        } else {
+            blend_rgb(mode, std::array::from_fn(|i| (d[i] * inv).clamp(0.0, 1.0)), [r, g, b])
+        };
+        [(1.0 - ab) * r + ab * bl[0], (1.0 - ab) * g + ab * bl[1], (1.0 - ab) * b + ab * bl[2]]
+    };
+    let inv = 1.0 - cov;
+    d[0] = cov * cm[0] + inv * d[0];
+    d[1] = cov * cm[1] + inv * d[1];
+    d[2] = cov * cm[2] + inv * d[2];
+    d[3] = cov + inv * ab;
 }
 
 // Straight color of a premultiplied buffer pixel, clamped; black where transparent.
@@ -1447,8 +1463,8 @@ impl Document {
 
     // Whether a style's planes depend on the layer's pixels and bounds alone, not on where it sits
     // (a shape's own fill may read the position, but the window key hashes the pixels it renders):
-    // noise and jitter (checked by the caller), knockout, a vector mask, inner shadows (clamped at
-    // the canvas), gradients laid out on the document and unlinked patterns read the position.
+    // noise and jitter (checked by the caller), a vector mask, gradients laid out on the document and
+    // unlinked patterns read the position. Inner shadows read it only past the canvas (`fx_window`).
     fn fx_layer_space(node: &Node, style: &Style) -> bool {
         let on = |present: bool, enabled: bool| present && enabled;
         let positioned = |f: &FillContent| match f {
@@ -1458,9 +1474,7 @@ impl Document {
         };
         let bevel = style.bevel.as_ref().is_some_and(|b| on(b.present, b.enabled));
         matches!(node.kind, Kind::Pixel(_) | Kind::Smart(_) | Kind::Text(_) | Kind::Shape(_))
-            && !Document::knocks_out(node)
             && !node.vector_mask.as_ref().is_some_and(|m| m.enabled)
-            && !style.inner_shadows.iter().any(|e| on(e.present, e.enabled))
             && !style.gradient_overlays.iter().any(|o| on(o.present, o.enabled) && !o.gradient.align_with_layer)
             && !style.pattern_overlays.iter().any(|o| on(o.present, o.enabled) && !o.pattern.linked)
             && !style.strokes.iter().any(|s| on(s.present, s.enabled) && positioned(&s.fill))
@@ -1578,7 +1592,12 @@ impl Document {
         };
         // Key 0: no effect reads the bounds, so they stay out of the key.
         let rel = if bounds_key == 0 { [0.0; 4] } else { [bounds[0] * k - x as f64, bounds[1] * k - y as f64, bounds[2] * k, bounds[3] * k] };
-        let wkey = rel.iter().fold(mix(key, input), |h, &v| mix(h, quantized(v)));
+        let mut wkey = rel.iter().fold(mix(key, input), |h, &v| mix(h, quantized(v)));
+        // Inner shadows clamp the shape at the canvas edge, so a window reaching past it keys its position.
+        let (dw, dh) = (self.width as f64 * k, self.height as f64 * k);
+        if style.inner_shadows.iter().any(|e| e.present && e.enabled) && (x < p || y < p || (x + t + p) as f64 > dw || (y + t + p) as f64 > dh) {
+            wkey = mix(mix(wkey, x as u64), y as u64);
+        }
         let keys: Vec<u64> = (0..count).map(|i| mix(wkey, i as u64) | (1 << 63)).collect();
         let hits: Option<Vec<Arc<Pixels>>> = keys.iter().map(|k| self.tile_cache.borrow_mut().get(*k)).collect();
         if let Some(planes) = hits {
@@ -1941,7 +1960,7 @@ pub(super) fn quantize_premul(out: &[f32]) -> Option<Vec<u8>> {
     for p in 0..TILE_PIXELS {
         let o = p * 4;
         for c in 0..4 {
-            bytes[o + c] = (out[o + c] * 255.0).round().clamp(0.0, 255.0) as u8;
+            bytes[o + c] = quantize(out[o + c], 255.0) as u8;
         }
         if bytes[o + 3] != 0 {
             any_alpha = true;

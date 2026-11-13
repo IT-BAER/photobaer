@@ -315,6 +315,45 @@ impl Document {
         }
         Ok(quantize_premul(&desaturate(v, view.desaturate)))
     }
+
+    /// Straight RGBA8 of the display tiles under `view` over the level px rect (x0, y0, w, h), or None
+    /// when every pixel is transparent. Color is v * 255 / alpha rounded half to even, as a canvas
+    /// ImageData stores it.
+    pub fn display_region(&self, view: &View, level: u32, x0: u32, y0: u32, w: u32, h: u32) -> Result<Option<Vec<u8>>, String> {
+        static UNPREMUL: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+        let lut = UNPREMUL.get_or_init(|| {
+            (0..65536u32)
+                .map(|i| {
+                    let (a, n) = (i >> 8, (i & 255) * 255);
+                    let (q, r) = if a == 0 { (0, 0) } else { (n / a, n % a) };
+                    (q + u32::from(2 * r > a || (2 * r == a && a > 0 && q & 1 == 1))).min(255) as u8
+                })
+                .collect()
+        });
+        let t = TILE as u32;
+        let mut out = vec![0u8; w as usize * h as usize * 4];
+        let mut any = false;
+        for ty in y0 / t..(y0 + h).div_ceil(t) {
+            for tx in x0 / t..(x0 + w).div_ceil(t) {
+                let Some(tile) = self.display_tile_view(view, level, tx, ty)? else { continue };
+                let (xa, xb) = (x0.max(tx * t), (x0 + w).min(tx * t + t));
+                for y in y0.max(ty * t)..(y0 + h).min(ty * t + t) {
+                    let s = ((y - ty * t) * t + xa - tx * t) as usize * 4;
+                    let d = ((y - y0) * w + xa - x0) as usize * 4;
+                    let n = (xb - xa) as usize * 4;
+                    for (o, p) in out[d..d + n].chunks_exact_mut(4).zip(tile[s..s + n].chunks_exact(4)) {
+                        if p[3] == 0 {
+                            continue;
+                        }
+                        let row = &lut[(p[3] as usize) << 8..];
+                        o.copy_from_slice(&[row[p[0] as usize], row[p[1] as usize], row[p[2] as usize], p[3]]);
+                        any = true;
+                    }
+                }
+            }
+        }
+        Ok(any.then_some(out))
+    }
 }
 
 #[cfg(test)]

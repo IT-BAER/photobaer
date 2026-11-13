@@ -123,10 +123,17 @@ export class Viewer {
     if (!this.#doc) return;
     this.#doc = { ...this.#doc, version };
     invalidateEntries(this.#cache, version, rect);
-    // Fetch the stale visible tiles now, so they are drawn in the next frame, not the one after.
-    const { level, tiles } = this.#visible(this.#doc);
-    this.#pump(tiles.filter(([tx, ty]) => this.#cache.get(`${level}/${tx}/${ty}`)?.version !== version).map(([tx, ty]) => [level, tx, ty]));
+    this.#fetchStale();
     this.redraw();
+  }
+
+  // Asks for the visible tiles not at the document's version now, so they are drawn in the next frame, not the one after.
+  #fetchStale() {
+    const d = this.#doc;
+    if (!d) return;
+    const { level, tiles } = this.#visible(d);
+    const stale = (e: Entry | undefined) => !e || (e.version !== d.version && e.next?.version !== d.version);
+    this.#pump(tiles.filter(([tx, ty]) => stale(this.#cache.get(`${level}/${tx}/${ty}`))).map(([tx, ty]) => [level, tx, ty]));
   }
 
   setView(v: View) {
@@ -286,6 +293,7 @@ export class Viewer {
         this.#inflight.delete(key);
         if (this.#doc?.docId !== r.docId || r.docId !== d.docId) return;
         this.#store(key, r);
+        this.#fetchStale();
         this.redraw();
       }, err => {
         if (this.#destroyed) return;
