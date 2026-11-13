@@ -43,6 +43,8 @@ interface Props {
   findTick: number;
   // Select > Isolate Layers: only these layers (and their groups) show; null shows all.
   isolated: number[] | null;
+  // Receives the collapsed groups (Alt+[ ] walk the shown rows).
+  collapsedRef?: { current: ReadonlySet<number> };
 }
 
 const ICON = { size: 16, strokeWidth: 1.75 };
@@ -108,6 +110,7 @@ function LayerThumb({ thumb }: { thumb: Thumb }) {
 export function LayersPanel(props: Props) {
   const { doc, active, setActive, run } = props;
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  if (props.collapsedRef) props.collapsedRef.current = collapsed;
   const [renaming, setRenaming] = useState<number | null>(null);
   const [filterOn, setFilterOn] = useState(false);
   const [kinds, setKinds] = useState<Set<KindFilter>>(new Set());

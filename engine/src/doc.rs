@@ -62,6 +62,8 @@ mod retouch_tests;
 mod mask_tests;
 #[path = "matting.rs"]
 mod matting;
+#[path = "trap.rs"]
+mod trap;
 #[cfg(test)]
 #[path = "matting_tests.rs"]
 mod matting_tests;

@@ -991,11 +991,29 @@ const api = {
     return restored;
   },
 
-  newDoc(width: number, height: number, depth: number, bg: [number, number, number, number] | null) {
+  // File > New; `opts` from the New Document dialog. The color mode converts the new RGB document before
+  // it has any history (Bitmap goes through Grayscale, as Image > Mode requires).
+  newDoc(width: number, height: number, depth: number, bg: [number, number, number, number] | null,
+    opts?: { name?: string; resolution?: number; mode?: 'rgb' | 'gray' | 'cmyk' | 'lab' | 'bitmap' }) {
     const e = new Engine(width, height, depth);
     if (bg) e.fill(BACKGROUND, 'pixels', ...bg);
     if (colorSettings && colorSettings.rgbPolicy !== 'off') e.assign_profile(colorSettings.rgb, profileBytes(colorSettings.rgb));
-    return adopt(e, 'Untitled');
+    if (opts?.resolution) e.set_document_vector(JSON.stringify({ ...JSON.parse(e.vector_json()), resolution: opts.resolution }));
+    const d = adopt(e, opts?.name?.trim() || 'Untitled');
+    const mode = opts?.mode ?? 'rgb';
+    if (mode === 'rgb') return d;
+    if (mode === 'bitmap') {
+      api.setColorMode({ mode: 'gray' });
+      api.setColorMode({ mode: 'bitmap', method: 'threshold' });
+    } else api.setColorMode({ mode });
+    history.clear();
+    version++;
+    return info();
+  },
+
+  // The internal copy buffer's size (File > New's Clipboard preset), or null.
+  clipboardSize(): [number, number] | null {
+    return clipboard ? [clipboard.w, clipboard.h] : null;
   },
 
   // Color Picker and Color panel numbers (0..1) between the active document's RGB (CMYK and Lab
@@ -2404,6 +2422,17 @@ const api = {
   // has any pixels (View > Fit Layer(s) on Screen, Show > Layer Edges).
   layersBounds(ids: number[]) {
     return unionBounds(need(), ids);
+  },
+
+  // Content bounds of every layer that holds pixels, text or a path (status bar Document Sizes).
+  layerBoxes(): Box[] {
+    const e = need(), boxes: Box[] = [];
+    for (const n of flatNodes(JSON.parse(e.layers_json()) as LayerNode[])) {
+      if (n.kind === 'group' || n.kind === 'adjustment' || n.kind === 'fill') continue;
+      const b = e.layer_bounds(n.id) as Box | null;
+      if (b) boxes.push([...b] as Box);
+    }
+    return boxes;
   },
 
   // Move tool auto-select: the topmost visible pixel layer with a non-transparent pixel at (x, y),
@@ -3861,6 +3890,29 @@ const api = {
       }
     }
     return files;
+  },
+
+  // Image > Trap on pixel layer `id` (CMYK documents), `width` px; no step when nothing changes.
+  trap(id: number, width: number) {
+    const e = need();
+    return stepIfChanged('Trap', () => e.trap(id, width));
+  },
+
+  // Image > Duplicate: a copy of the document as a new tab named `name`; `mergedOnly` merges the drawn layers into
+  // one Background layer and drops the hidden ones (none drawn: a flattened white Background).
+  duplicateDoc(name: string, mergedOnly: boolean) {
+    const e = need();
+    const c = loadEngine(e.manifest(), t => e.tile_bytes(BigInt(t)));
+    if (mergedOnly) {
+      const tree = JSON.parse(c.layers_json()) as LayerNode[], visible = drawnRoots(tree);
+      if (!visible.length) flattenImage(c, tree);
+      else {
+        const id = c.merge_nodes(Uint32Array.from(visible), false, false);
+        for (const n of tree) if (!visible.includes(n.id)) c.delete_node(n.id);
+        c.set_props(id, JSON.stringify({ name: 'Background', visible: true, opacity: 1, fill: 1, blend: 'normal', clipping: false }));
+      }
+    }
+    return adopt(c, name.trim() || `${tabName(active)} copy`);
   },
 
   // Marks the outermost document saved (an open Edit Contents saves the nested one, which is not the tab's file).

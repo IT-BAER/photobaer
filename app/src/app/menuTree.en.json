@@ -1605,6 +1605,10 @@
     "Reveal All"
    ],
    [
+    "Duplicate…",
+    "Duplicate…"
+   ],
+   [
     "Apply Image…",
     "Apply Image…"
    ],
@@ -1630,6 +1634,10 @@
    [
     "Apply Data Set…",
     "Apply Data Set…"
+   ],
+   [
+    "Trap…",
+    "Trap…"
    ],
    [
     "Analysis",
@@ -2263,6 +2271,25 @@
     "✓ Flip Horizontal"
    ],
    [
+    "Screen Mode",
+    "Screen Mode",
+    "›",
+    [
+     [
+      "Standard Screen Mode",
+      "Standard Screen Mode"
+     ],
+     [
+      "Full Screen Mode With Menu Bar",
+      "Full Screen Mode With Menu Bar"
+     ],
+     [
+      "Full Screen Mode",
+      "Full Screen Mode"
+     ]
+    ]
+   ],
+   [
     "Reset rotation",
     "Reset rotation",
     "Esc"
@@ -2280,6 +2307,22 @@
      [
       "Layer Edges",
       "✓ Layer Edges"
+     ],
+     [
+      "Target Path",
+      "✓ Target Path"
+     ],
+     [
+      "Notes",
+      "✓ Notes"
+     ],
+     [
+      "Brush Preview",
+      "✓ Brush Preview"
+     ],
+     [
+      "Mesh",
+      "✓ Mesh"
      ]
     ]
    ],
@@ -2609,12 +2652,20 @@
   ],
   "Help": [
    [
+    "Keyboard Shortcuts…",
+    "Keyboard Shortcuts…"
+   ],
+   [
     "Use with AI Agents…",
     "Use with AI Agents…"
    ],
    [
     "About photobaer…",
     "About photobaer…"
+   ],
+   [
+    "System Info…",
+    "System Info…"
    ]
   ]
  },

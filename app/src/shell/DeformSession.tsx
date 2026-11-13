@@ -25,9 +25,13 @@ const PLACE = msg`Place pins inside the mesh, away from existing pins.`;
 const HINT = { layout: msg`Draw planes over the image. Join corners to link planes.`, warp: msg`Drag pins. Shift-click an edge to straighten and lock it.` };
 const deg = (r: number) => Math.round(r * 180 / Math.PI * 10) / 10;
 
-export function DeformSession({ req, viewer, show, setError, onEnd }: {
+export function DeformSession({ req, viewer, show, setError, onEnd, showMesh, setShowMesh }: {
   req: DeformRequest; viewer: RefObject<Viewer | null>; show: (d: DocInfo | null) => void; setError: (m: string) => void; onEnd: () => void;
+  // Show Mesh is View > Show > Mesh.
+  showMesh: boolean; setShowMesh: (on: boolean) => void;
 }) {
+  const showMeshRef = useRef(showMesh);
+  showMeshRef.current = showMesh;
   const s: Session = useMemo(() => (req.kind === 'puppet' ? new PuppetSession(req.mesh) : new PerspectiveSession(req.bounds)), [req]);
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const [note, setNote] = useState<string | null>(null);
@@ -135,7 +139,7 @@ export function DeformSession({ req, viewer, show, setError, onEnd }: {
         return;
       }
       const geo = s.geometry;
-      if (s.options.showMesh && geo) {
+      if (showMeshRef.current && geo) {
         const d = geo.deformed, t = geo.triangles;
         g.beginPath();
         for (let k = 0; k < t.length; k += 3) {
@@ -241,7 +245,7 @@ export function DeformSession({ req, viewer, show, setError, onEnd }: {
           <NumberInput aria-label={t`Mesh expansion`} min={-50} max={50} step={1} value={s.options.expansion}
             onValue={v => setOptions({ expansion: Math.max(-50, Math.min(50, Math.round(v))) })} /> px
         </label>
-        <label className="opt-bool"><input type="checkbox" checked={s.options.showMesh} onChange={e => setOptions({ showMesh: e.currentTarget.checked })} /><Trans>Show Mesh</Trans></label>
+        <label className="opt-bool"><input type="checkbox" checked={showMesh} onChange={e => setShowMesh(e.currentTarget.checked)} /><Trans>Show Mesh</Trans></label>
         <span><Trans>Pin Depth</Trans></span>
         <button type="button" disabled={!first} title={t`Move the selected pins forward`} onClick={() => pins(p => ({ ...p, depth: p.depth + 1 }))}><Trans>Forward</Trans></button>
         <button type="button" disabled={!first} title={t`Move the selected pins backward`} onClick={() => pins(p => ({ ...p, depth: p.depth - 1 }))}><Trans>Backward</Trans></button>

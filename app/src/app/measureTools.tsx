@@ -29,6 +29,8 @@ export interface MeasureCtx {
   viewer: RefObject<Viewer | null>; tool: string; doc: DocInfo | null; docRef: RefObject<DocInfo | null>; active: Active | null;
   overlayRef: RefObject<SelectionOverlay | null>; redrawOverlay: () => void; toolOptions: ToolOptions; toolOptionsRef: RefObject<ToolOptions>;
   run: Run; setError: (m: string | null) => void; openNotes: () => void;
+  // View > Show > Notes; the Note tool always shows them.
+  showNoteMarks?: boolean;
 }
 
 const fmt = (v: number) => (Math.round(v * 10) / 10).toString();
@@ -72,12 +74,12 @@ export function useMeasureTools(c: MeasureCtx) {
       ruler: tool === 'ruler' ? ruler : null,
       counts: ann.counts, markerSize: Number(toolOptions.markerSize ?? 3), labelSize: Number(toolOptions.labelSize ?? 12),
       samplers: sampling ? ann.samplers : [],
-      notes: ann.notes, selectedNote,
+      notes: c.showNoteMarks === false && tool !== 'note' ? [] : ann.notes, selectedNote,
       slices: tool === 'slice' || tool === 'sliceSelect' ? ann.slices : null, selectedSlice,
       drag,
     });
     redrawOverlay();
-  }, [doc, ann, tool, ruler, drag, selectedNote, selectedSlice, toolOptions.markerSize, toolOptions.labelSize]);
+  }, [doc, ann, tool, ruler, drag, selectedNote, selectedSlice, toolOptions.markerSize, toolOptions.labelSize, c.showNoteMarks]);
   useEffect(() => () => { overlayRef.current?.setMarks(null); }, []);
 
   useEffect(() => {

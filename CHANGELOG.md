@@ -26,6 +26,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Filter > Liquify: Face-Aware Liquify and the Face Tool (A). Eyes (size, height, width, tilt per eye with a link,
   distance), Nose, Mouth and Face Shape sliders for every face found, Select Face, Reset and All. The face model (3.8 MB)
   is downloaded once after you confirm.
+- Alt+] and Alt+[ select the layer above and below (Alt+. and Alt+, the top and bottom layer, with Shift the layer
+  joins the selection); they follow the Layers panel's rows, so a collapsed group is one row.
+- Help > Keyboard Shortcuts… lists every shortcut by menu, the tool keys and the keys without a menu item, with a
+  search field and Summarize… to save the list as an HTML page.
+- Help > System Info… shows the browser, processor threads, memory, screen, renderer, GPU adapter, isolation and
+  storage facts as text to copy.
+- Image > Duplicate… opens a copy of the document in a new tab; Duplicate Merged Layers Only merges the shown layers
+  into one Background layer.
+- Image > Trap… for CMYK documents: at color edges lighter inks spread under darker ones by 1 to 10 pixels (width in
+  pixels, points or millimeters), black does not spread, paper stays paper.
+- The status bar shows the zoom, then one document fact chosen in its Show menu (Document Sizes as flattened / with
+  layers, Document Profile, Document Dimensions, Measurement Scale, Current Tool, Layer Count), and a units selector
+  that sets the ruler units.
+- View > Screen Mode: Standard, Full Screen Mode With Menu Bar (no document tabs) and Full Screen Mode (only the
+  canvas); F cycles them, Shift+F backward.
+- View > Show > Target Path, Notes, Brush Preview and Mesh show or hide the target path outline, note icons, the
+  brush resize preview and the Puppet Warp mesh; the choice is kept.
+- File > New opens a New Document dialog: presets by category (Photo, Print, Art & Illustration, Web, Mobile, Film &
+  Video, Social), preset search, recent sizes and a Clipboard preset, name, units, resolution, orientation, color
+  mode, bit depth, background contents and the image size estimate.
 
 ## [0.5.1] - 2026-11-14
 

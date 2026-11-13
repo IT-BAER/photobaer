@@ -1063,6 +1063,11 @@ impl Engine {
         self.0.doc.cmyk_separation(grid)
     }
 
+    /// Image > Trap on pixel layer `id` by `width` px (1..=10); false when nothing changed.
+    pub fn trap(&mut self, id: u32, width: u32) -> Result<bool, JsError> {
+        self.0.doc.trap(id, width).map_err(err)
+    }
+
     /// L*, a*, b* (ICC 8-bit encoding, 0..1) of stored sRGB in D50 on a `grid`^3 table, red slowest,
     /// for the Lab channel views; empty unless the document is Lab.
     pub fn lab_table(&self, grid: usize) -> Vec<f32> {

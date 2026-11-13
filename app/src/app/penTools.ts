@@ -29,6 +29,8 @@ export interface PenToolsCtx {
   redrawOverlay: () => void; toolOptionsRef: RefObject<ToolOptions>; fgRef: RefObject<Rgb>; bgRef: RefObject<Rgb>; run: Run;
   pathSelRef: RefObject<PathSel>; selectPath: (id: number) => void; setError: Dispatch<SetStateAction<string | null>>;
   penKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>; redrawRef: RefObject<(() => void) | null>;
+  // View > Show > Target Path off hides the target path's outline (a path being drawn still shows).
+  viewShowRef?: RefObject<{ targetPath: boolean }>;
 }
 
 const mods = (e: ToolPointerEvent | KeyboardEvent): Mods => ({ shift: e.shiftKey, alt: e.altKey, ctrl: e.ctrlKey || e.metaKey });
@@ -198,7 +200,7 @@ export function usePenTools(c: PenToolsCtx) {
       } else if (free) {
         ov.setPathEdit({ lines: [free.pts.flat()], anchors: [], handles: [], band: null });
       } else {
-        const path = sd?.preview ?? conv?.preview ?? t?.path;
+        const path = sd?.preview ?? conv?.preview ?? (c.viewShowRef?.current?.targetPath === false ? undefined : t?.path);
         const direct = tool === 'directSelection' || tempDirect;
         ov.setPathEdit(path ? { ...editOverlay(path, direct ? selA : [], tool === 'pathSelection' ? selS : [], direct ? 'selected' : 'none'), band: null } : null);
       }

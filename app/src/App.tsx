@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg, plural, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
@@ -36,6 +36,12 @@ import { defaultPrint, printHtml, printLayout, printPage, type PrintSettings } f
 import { ImageProcessorDialog, LoadStackDialog, type ImageProcessorOptions, type ScriptDialogHandle } from './ScriptDialogs.tsx';
 import { WorkspaceDialog, type WorkspaceDialogAction, type WorkspaceDialogHandle } from './WorkspaceDialog.tsx';
 import { AnalysisDialogs, type AnalysisDialogHandle } from './AnalysisDialogs.tsx';
+import { ShortcutsDialog, SystemInfoDialog } from './HelpDialogs.tsx';
+import { StatusInfoField } from './StatusInfoField.tsx';
+import { NewDocumentDialog, type NewDocSpec } from './NewDocumentDialog.tsx';
+import { nextScreenMode, type ScreenMode } from './app/screenMode.ts';
+import { loadViewShow, saveViewShow, type ShowKey } from './app/viewShow.ts';
+import { DuplicateDialog, TrapDialog, type DuplicateHandle, type TrapHandle } from './DocumentDialogs.tsx';
 import { DocumentArrangement } from './DocumentArrangement.tsx';
 import { HistogramPanel, InfoPanel } from './InspectionPanels.tsx';
 import { ToolPresetsPanel } from './ToolPresetsPanel.tsx';
@@ -99,7 +105,7 @@ import { BUILTIN_GRADIENTS, GradientLibrary, resolvePreset, type GradientPreset 
 import {
   AUTOSAVE_TEXT, FILL_KEY, FILL_LAYERS, MODIFY_OPS, PAINT_TOOLS, SELECT_TOOLS, STROKE_DEFAULT, VIEWER_TOOL, needsLayer, nextActive,
   fillContentFromForm, formFromFillContent, itemId, loadFillForm, pickPlaceFile, saveBlob, selectAfterDelete, selectCreated, tl,
-  type FillContentForm, type FillDialogMode, type FillForm, type Item, type Rgba, type SelectAfter, type StrokeForm,
+  type FillContentForm, type FillDialogMode, type FillForm, type Item, type SelectAfter, type StrokeForm,
 } from './app/helpers.ts';
 import { buildMenus, type ExportKind } from './app/menus.ts';
 import { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, rasterSvg, saveFormat, saveRoute, storeRecent, writeFile, type Origin, type Recent, type SaveFormat } from './app/files.ts';
@@ -127,6 +133,7 @@ import { useCloneOverlay, useRetouchTools } from './app/retouchTools.ts';
 import { CloneSourcePanel } from './CloneSourcePanel.tsx';
 import { NavigatorPanel } from './NavigatorPanel.tsx';
 import { useShortcuts } from './app/shortcuts.ts';
+import { layerStep, type LayerStep } from './app/layerNav.ts';
 import { FilterDialog, runFilter, type FilterDialogHandle } from './filters/FilterDialog.tsx';
 import { LiquifyDialog, type LiquifyDialogHandle } from './filters/LiquifyDialog.tsx';
 import { VanishingPointDialog, type VanishingPointDialogHandle } from './filters/VanishingPointDialog.tsx';
@@ -137,7 +144,7 @@ import { connectBridge, pairing, toBase64, type Format } from './app/agentBridge
 import { schema, setColorSource, setSchema, type FilterSpec } from './filters/schema.ts';
 import {
   AdjustDialog, ColorRangeDialog, ContentAwareFillDialog, FeatherDialog, FillContentDialog, FillDialog, FilterBlendDialog, GlobalLightDialog,
-  LoadSelectionDialog, ModifyDialog, ArtboardDialog, CursorPrefsDialog, NewGuideDialog, NewGuideLayoutDialog, NewImageDialog, CloseDialog, type CloseChoice, MergeDialog, type MergeChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, type AutomateKind, RotateDialog, SaveSelectionDialog,
+  LoadSelectionDialog, ModifyDialog, ArtboardDialog, CursorPrefsDialog, NewGuideDialog, NewGuideLayoutDialog, CloseDialog, type CloseChoice, MergeDialog, type MergeChoice, AboutDialog, AgentDialog, DonateDialog, SearchDialog, type ArtboardMode, type AutomateKind, RotateDialog, SaveSelectionDialog,
   AutomateDialog, ColorDecontaminateDialog, DefringeDialog, LockLayersDialog, DefineDialog, type DefineKind, ScaleEffectsDialog, StrokeDialog, TrimDialog, CanvasSizeDialog, ImageSizeDialog,
 } from './app/Dialogs.tsx';
 
@@ -152,6 +159,7 @@ const MENU_TITLE: Record<string, MessageDescriptor> = {
   File: msg`File`, Edit: msg({ message: 'Edit', context: 'menu' }), Layer: msg`Layer`, Type: msg({ message: 'Type', context: 'menu' }), Image: msg`Image`,
   Select: msg({ message: 'Select', context: 'menu' }), Filter: msg`Filter`, View: msg`View`, Window: msg`Window`, Help: msg`Help`,
 };
+const menuTitle = (name: string) => (MENU_TITLE[name] ? i18n._(MENU_TITLE[name]) : name);
 // File > Generate > Image Assets on/off.
 const ASSETS_KEY = 'photobaer.imageAssets';
 
@@ -171,6 +179,9 @@ function placeSubmenu(li: HTMLElement) {
   ul.style.left = `${r.right + 2 + w <= innerWidth ? r.right + 2 : Math.max(0, r.left - 2 - w)}px`;
   ul.style.top = `${Math.max(4, Math.min(r.top - 5, innerHeight - 4 - ul.offsetHeight))}px`;
 }
+
+// File > New's Clipboard preset: the size of photobaer's own copy buffer.
+const clipboardSize = () => client.call('clipboardSize');
 
 export function App() {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -197,6 +208,25 @@ export function App() {
   const newGuideDialog = useRef<HTMLDialogElement>(null);
   const cursorPrefsDialog = useRef<HTMLDialogElement>(null);
   const [cursorRev, setCursorRev] = useState(0);
+  const [rulerUnit, setRulerUnit] = useState(prefs.current.rulerUnit);
+  const [viewShow, setViewShow] = useState(loadViewShow);
+  const viewShowRef = useRef(viewShow);
+  viewShowRef.current = viewShow;
+  const toggleShow = (k: ShowKey) => setViewShow(s => { const n = { ...s, [k]: !s[k] }; saveViewShow(n); return n; });
+  const [screenMode, setScreenModeState] = useState<ScreenMode>('standard');
+  const screenModeRef = useRef(screenMode);
+  screenModeRef.current = screenMode;
+  // Both full screen modes ask the browser for full screen; leaving it (Esc) returns to Standard Screen Mode.
+  const setScreenMode = (m: ScreenMode) => {
+    setScreenModeState(m);
+    if (m !== 'standard' && !document.fullscreenElement) void document.documentElement.requestFullscreen?.().catch(() => {});
+    else if (m === 'standard' && document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  };
+  useEffect(() => {
+    const change = () => { if (!document.fullscreenElement) setScreenModeState('standard'); };
+    document.addEventListener('fullscreenchange', change);
+    return () => document.removeEventListener('fullscreenchange', change);
+  }, []);
   const artboardDialog = useRef<HTMLDialogElement>(null);
   const [artboardMode, setArtboardMode] = useState<ArtboardMode>('new');
   const newGuideLayoutDialog = useRef<HTMLDialogElement>(null);
@@ -223,6 +253,8 @@ export function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const donateDialog = useRef<HTMLDialogElement>(null);
   const agentDialog = useRef<HTMLDialogElement>(null);
+  const shortcutsDialog = useRef<HTMLDialogElement>(null);
+  const systemInfoDialog = useRef<HTMLDialogElement>(null);
   const featherDialog = useRef<HTMLDialogElement>(null);
   const modifyDialog = useRef<HTMLDialogElement>(null);
   const colorRangeDialog = useRef<HTMLDialogElement>(null);
@@ -425,6 +457,8 @@ export function App() {
   const [picked, setPicked] = useState<number[]>([]);
   const pickedRef = useRef(picked);
   pickedRef.current = picked;
+  // The Layers panel's collapsed groups, for the Alt+[ ] row walk.
+  const collapsedRef = useRef<ReadonlySet<number>>(new Set());
   const tabState = useRef(new Map<string, { view: View; active: Active | null; picked: number[] }>());
   const [arrangeMode, setArrangeMode] = useState<ArrangeMode>('tabs');
   const [arrangeRevision, setArrangeRevision] = useState(0);
@@ -531,6 +565,8 @@ export function App() {
   const exportPrefsDialog = useRef<ExportDialogHandle>(null);
   const filesExportDialog = useRef<FilesDialogHandle>(null);
   const fileInfoDialog = useRef<FileInfoHandle>(null);
+  const duplicateDialog = useRef<DuplicateHandle>(null);
+  const trapDialog = useRef<TrapHandle>(null);
   const variablesDialog = useRef<VariablesHandle>(null);
   const analysisDialog = useRef<AnalysisDialogHandle>(null);
   const importSetsDialog = useRef<ImportSetsHandle>(null);
@@ -1856,13 +1892,8 @@ export function App() {
     return Math.max(0, Math.ceil(Math.log2(Math.max(w, h) / 400)));
   }
 
-  function createNew(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    const bg = String(f.get('bg'));
-    const fill: Rgba | null = bg === 'white' ? [255, 255, 255, 255] : bg === 'black' ? [0, 0, 0, 255] : null;
-    newDialog.current?.close();
-    run(t`Creating…`, () => client.call('newDoc', Number(f.get('w')), Number(f.get('h')), Number(f.get('depth')), fill));
+  function createNew(s: NewDocSpec) {
+    run(t`Creating…`, () => client.call('newDoc', s.w, s.h, s.depth, s.fill, { name: s.name, resolution: s.resolution, mode: s.mode }));
   }
 
   const has = !!doc;
@@ -2018,7 +2049,7 @@ export function App() {
     setArrangeRevision(n => n + 1);
   };
   const menus = buildMenus({
-    setMenu, newDialog, aboutDialog, agentDialog, openFiles, placeFile, has, active, save, saveAs: () => void saveAs(), saveCopy: () => void saveAs(true),
+    setMenu, newDialog, aboutDialog, agentDialog, shortcutsDialog, systemInfoDialog, openFiles, placeFile, has, active, save, saveAs: () => void saveAs(), saveCopy: () => void saveAs(true),
     revert, revertOff: !doc || !origins.current.has(doc.key) || !doc.dirty || doc.parents.length > 0,
     recent: fsAccess() ? recent : null, openRecent, clearRecent: () => { setMenu(null); updateRecent(() => []); }, quickExport: () => quickExport(), quickExportLayer, openLayerExport, openExport, pathsToSvg, exportLayerComps, doc, closeTab, closeTabs, renameLayer: () => setRenameTick(n => n + 1), run,
     openPreviewDialog, contentAwareFill, quickFill, fg, bg, quickMask, selEdit, startTransform, transformAgain, transformStore, transformMode, warping, warpMenuSplit,
@@ -2081,6 +2112,9 @@ export function App() {
     deselectLayers: () => { setMenu(null); setPicked([]); setActive(null); },
     findLayers: () => setFindTick(n => n + 1),
     isolated: !!isolated, toggleIsolate: () => setIsolated(cur => (cur ? null : selectedNodes.map(n => n.id))),
+    openDuplicate: () => doc && duplicateDialog.current?.open(doc.name, flatNodes(doc.layers).length),
+    openTrap: () => trapDialog.current?.open(doc?.resolution ?? 72),
+    screenMode, setScreenMode, viewShow, toggleShow,
   });
   const menusRef = useRef(menus);
   menusRef.current = menus;
@@ -2382,14 +2416,15 @@ export function App() {
   useShapeTools({ viewer, tool, active, overlayRef, toolOptionsRef, fgRef, run, docRef });
   const measure = useMeasureTools({
     viewer, tool, doc, docRef, active, overlayRef, redrawOverlay, toolOptions, toolOptionsRef, run, setError, openNotes: () => setShowNotes(true),
+    showNoteMarks: viewShow.notes,
   });
   const penKeysRef = useRef<((e: KeyboardEvent) => boolean) | null>(null);
   const penRedrawRef = useRef<(() => void) | null>(null);
   usePenTools({
     viewer, canvas, tool, doc, docRef, activeRef, overlayRef, redrawOverlay, toolOptionsRef, fgRef, bgRef, run, pathSelRef,
-    selectPath: id => setPathSel({ selected: id, cleared: false }), setError, penKeysRef, redrawRef: penRedrawRef,
+    selectPath: id => setPathSel({ selected: id, cleared: false }), setError, penKeysRef, redrawRef: penRedrawRef, viewShowRef,
   });
-  useEffect(() => { penRedrawRef.current?.(); }, [doc?.version, active?.id, pathSel]);
+  useEffect(() => { penRedrawRef.current?.(); }, [doc?.version, active?.id, pathSel, viewShow.targetPath]);
   const typeKeysRef = useRef<((e: KeyboardEvent) => boolean) | null>(null);
   const [typeEditing, setTypeEditing] = useState(false);
   useTypeTools({
@@ -2505,7 +2540,7 @@ export function App() {
   useCloneOverlay(retouch);
 
   useBrushCursor({
-    viewer, canvas, overlayRef, tool, redrawOverlay, toolOptionsRef, capsLockRef, prefsRef: prefs, docId: doc?.docId, patchToolOptions,
+    viewer, canvas, overlayRef, tool, redrawOverlay, toolOptionsRef, capsLockRef, prefsRef: prefs, docId: doc?.docId, patchToolOptions, viewShowRef,
   });
   useCanvasCursor({ viewer, canvas, tool, mode: String(toolOptions.mode ?? ''), toolOptionsRef, capsLockRef, prefsRef: prefs, cursorRev, docId: doc?.docId });
 
@@ -2548,9 +2583,21 @@ export function App() {
     return true;
   }
 
+  // Alt+[ ] , . walk the Layers panel's rows; with Shift the layer joins the selection.
+  function stepLayer(step: LayerStep, add: boolean) {
+    const d = docRef.current, a = activeRef.current;
+    const id = d && layerStep(d.layers, collapsedRef.current, a?.id ?? null, step);
+    if (!d || id === null || id === undefined) return;
+    const sel = a ? (pickedRef.current.includes(a.id) ? pickedRef.current : [a.id]) : [];
+    setPicked(add ? [...sel.filter(x => x !== id), id] : []);
+    setActive({ id, target: 'pixels' });
+  }
+
   useShortcuts({
     menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
     toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open: openAll, penKeysRef, typeKeysRef, setChannelView, actionKeyRef,
+    cycleScreenMode: back => setScreenMode(nextScreenMode(screenModeRef.current, back)),
+    stepLayer,
   });
 
   // Brush presets: the selected preset (with a protected texture carried over) and the Brushes/Brush Settings panels.
@@ -2777,11 +2824,10 @@ export function App() {
       </li>
     </Fragment>
   ));
-  const docWidth = doc?.width ?? 0, docHeight = doc?.height ?? 0, docDepth = doc?.depth ?? 0, toolName = i18n._(activeTool.label);
-  const sizeText = t`${docWidth} × ${docHeight} px, ${docDepth}-bit`;
+  const toolName = i18n._(activeTool.label);
   const hintText = SELECT_TOOLS.includes(tool) ? t`drag to select, Shift add, Alt subtract` : t`${toolName}: drag to use, Space to pan, wheel to zoom`;
   return (
-    <div className="app">
+    <div className={`app screen-${screenMode}`}>
       <header className="menubar">
         <img className="brand" src="./logo-light.png" alt="photobaer" width={24} height={24} />
         {Object.entries(menus).map(([name, items]) => (
@@ -2860,7 +2906,7 @@ export function App() {
           quickMask={quickMask} setQuickMask={setQuickMask}
         />}
         <div className="stage-column">
-          {deform ? <DeformSession req={deform} viewer={viewer} show={d => show(d)} setError={m => setError(m)} onEnd={() => setDeform(null)} /> : !frame.options ? null : transformStore ? (
+          {deform ? <DeformSession req={deform} viewer={viewer} show={d => show(d)} setError={m => setError(m)} onEnd={() => setDeform(null)} showMesh={viewShow.mesh} setShowMesh={on => { if (on !== viewShow.mesh) toggleShow('mesh'); }} /> : !frame.options ? null : transformStore ? (
             <TransformBar
               store={transformStore}
               setMode={m => withTransform(t => setTransformMode(t, m))}
@@ -3029,7 +3075,7 @@ export function App() {
                 newLayer={newLayer} newGroup={newGroup}
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
                 openProperties={() => setShowProperties(true)} renameTick={renameTick} findTick={findTick} isolated={isolated}
-                openLayerStyle={(id, page) => openLayerStyle(page, id)}
+                openLayerStyle={(id, page) => openLayerStyle(page, id)} collapsedRef={collapsedRef}
               /></DockSection>}
               {frame.history && <DockSection {...sec('history', msg`History`)}><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>}
               {showChannels && <DockSection {...sec('channels', msg`Channels`)}><ChannelsPanel doc={doc} run={run} live={selEdit ? liveTick : 0} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} /></DockSection>}
@@ -3041,8 +3087,13 @@ export function App() {
         </aside>
       </main>
       <footer className="status">
-        <span>{doc ? sizeText : t`No document`}</span>
         <span>{formatPercent(view.zoom * 100, 1)}</span>
+        {doc ? <StatusInfoField doc={doc} toolName={toolName} unit={rulerUnit} setUnit={u => {
+          prefs.current = { ...prefs.current, rulerUnit: u };
+          savePreferences(prefs.current);
+          setRulerUnit(u);
+          redrawRulers();
+        }} /> : <span>{t`No document`}</span>}
         <span>{deg ? `${deg}°` : ''}</span>
         <span className="grow">{doc ? hintText : ''}</span>
         <span className="shrink">{i18n._(AUTOSAVE_TEXT[autosave])}</span>
@@ -3085,13 +3136,17 @@ export function App() {
       }} />
       <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,image/svg+xml,image/x-icon,application/pdf,.psd,.psb,.exr,.hdr,.svg,.ico,.pdf,.pbdroplet"
         onChange={async e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; await openAll(fs.map(file => ({ file, handle: null }))); }} />
-      <NewImageDialog newDialog={newDialog} createNew={createNew} />
+      <NewDocumentDialog dialog={newDialog} create={createNew} bgColor={bg} clipboardSize={clipboardSize} />
       <CloseDialog closeDialog={closeDialog} name={closeName} choose={chooseClose} />
       <MergeDialog mergeDialog={mergeDialog} depth={mergeDepth} choose={chooseMerge} />
       <AboutDialog aboutDialog={aboutDialog} />
       {searchOpen && <SearchDialog menus={menus} close={() => setSearchOpen(false)} />}
       <DonateDialog donateDialog={donateDialog} />
       <AgentDialog agentDialog={agentDialog} />
+      <ShortcutsDialog dialog={shortcutsDialog} menus={menus} title={menuTitle} download={downloadBlob} />
+      <SystemInfoDialog dialog={systemInfoDialog} renderer={renderer} />
+      <DuplicateDialog ref={duplicateDialog} duplicate={(name, merged) => void run(t`Duplicating…`, () => client.call('duplicateDoc', name, merged))} />
+      <TrapDialog ref={trapDialog} trap={px => { if (active) void run(t`Trapping…`, () => client.call('trap', active.id, px)); }} />
       <FeatherDialog featherDialog={featherDialog} run={run} />
       <ContentAwareFillDialog dialog={contentAwareDialog} submit={(structure, color) => {
         const id = active?.id;

@@ -580,13 +580,15 @@ export interface BrushCursorCtx {
   viewer: RefObject<Viewer | null>; canvas: RefObject<HTMLCanvasElement | null>; overlayRef: RefObject<SelectionOverlay | null>; tool: string;
   redrawOverlay: () => void; toolOptionsRef: RefObject<ToolOptions>; capsLockRef: RefObject<boolean>; prefsRef: RefObject<Preferences>; docId?: number;
   patchToolOptions: (toolId: string, patch: Record<string, number | string | boolean>) => void;
+  // View > Show > Brush Preview: the colored fill while Ctrl+Alt+right dragging the size and hardness.
+  viewShowRef?: RefObject<{ brushPreview: boolean }>;
 }
 
 const SAMPLES_WITH_ALT = new Set(['cloneStamp', 'healingBrush']);
 const OUTLINE_PX = { thin: 1, normal: 1.5, bold: 2, extraBold: 3 };
 
 export function useBrushCursor(c: BrushCursorCtx) {
-  const { viewer, canvas, overlayRef, tool, redrawOverlay, toolOptionsRef, capsLockRef, prefsRef, docId, patchToolOptions } = c;
+  const { viewer, canvas, overlayRef, tool, redrawOverlay, toolOptionsRef, capsLockRef, prefsRef, docId, patchToolOptions, viewShowRef } = c;
   // Brush cursor outline (tracks the pointer independent of any drag) and Ctrl+Alt+right-drag
   // resize/hardness, with the outline doubling as the drag's live preview. The canvas cursor is 'none' meanwhile.
   useEffect(() => {
@@ -615,7 +617,7 @@ export function useBrushCursor(c: BrushCursorCtx) {
         x, y, sizeDoc, shape: block ? 'square' as const : 'round' as const,
         crosshair: showCrosshair(sizeDoc * zoom, scale === 0) || (painting && prefs.crosshairWhilePainting),
         center: prefs.brushCrosshair || tool === 'backgroundEraser', mark: mode === 'add' ? '+' as const : mode === 'subtract' ? '-' as const : undefined,
-        weight: OUTLINE_PX[prefs.brushOutline] ?? 1.5, preview: drag ? { color: prefs.brushPreviewColor, hardness: Number(o.hardness ?? 100) } : undefined,
+        weight: OUTLINE_PX[prefs.brushOutline] ?? 1.5, preview: drag && viewShowRef?.current?.brushPreview !== false ? { color: prefs.brushPreviewColor, hardness: Number(o.hardness ?? 100) } : undefined,
       };
     };
     const update = () => { overlayRef.current?.setCursor(cursorFor()); redrawOverlay(); };

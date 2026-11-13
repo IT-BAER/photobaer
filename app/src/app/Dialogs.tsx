@@ -211,24 +211,6 @@ export function FillContentDialog({ fillContentDialog, submitFillContent, fillCo
   );
 }
 
-export function NewImageDialog({ newDialog, createNew }: { newDialog: DialogRef; createNew: (e: FormEvent<HTMLFormElement>) => void }) {
-  return (
-    <dialog ref={newDialog}>
-      <form onSubmit={createNew}>
-        <h2><Trans>New image</Trans></h2>
-        <label><Trans>Width</Trans> <FormNumber name="w" min={1} max={65536} defaultValue={1920} required /> px</label>
-        <label><Trans>Height</Trans> <FormNumber name="h" min={1} max={65536} defaultValue={1080} required /> px</label>
-        <label><Trans>Bit depth</Trans> <select name="depth" defaultValue="8"><option value="8">{t`8-bit`}</option><option value="16">{t`16-bit`}</option><option value="32">{t`32-bit`}</option></select></label>
-        <label><Trans>Background</Trans> <select name="bg" defaultValue="white"><option value="white">{t`White`}</option><option value="black">{t`Black`}</option><option value="transparent">{t`Transparent`}</option></select></label>
-        <div className="actions">
-          <button type="button" onClick={() => newDialog.current?.close()}><Trans>Cancel</Trans></button>
-          <button type="submit" className="primary"><Trans>Create</Trans></button>
-        </div>
-      </form>
-    </dialog>
-  );
-}
-
 export type CloseChoice = 'save' | 'discard' | 'cancel';
 
 // Close prompt for a dirty tab; Escape cancels and Save has the focus.

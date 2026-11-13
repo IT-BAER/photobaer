@@ -29,6 +29,8 @@ import type { ColorDialogKind } from '../ColorDialog.tsx';
 import { DEFAULT_VIEW, PROOF_PRESETS, presetSetup, type ViewState } from './proof.ts';
 import { printSizeZoom } from '../view.ts';
 import { BUILTIN_WORKSPACES, workspaceLabel, type FrameKey, type WorkspaceDockTab, type WorkspaceState } from './workspaces.ts';
+import { SCREEN_MODE_LABEL, SCREEN_MODES, type ScreenMode } from './screenMode.ts';
+import { SHOW_KEYS, SHOW_LABEL, type ShowKey, type ViewShow } from './viewShow.ts';
 import type { TypePanel } from './typeMenu.ts';
 import type { ArrangeMode, MatchKind } from './arrange.ts';
 
@@ -88,6 +90,8 @@ export interface MenuCtx {
   showHistogram: boolean; setShowHistogram: SetState<boolean>; showInfo: boolean; setShowInfo: SetState<boolean>; showToolPresets: boolean; setShowToolPresets: SetState<boolean>; showNotes: boolean; setShowNotes: SetState<boolean>; showMeasurementLog: boolean; setShowMeasurementLog: SetState<boolean>;
   frame: Record<FrameKey, boolean>; toggleFrame: (k: FrameKey) => void; dockTab: WorkspaceDockTab; showDockTab: (k: WorkspaceDockTab) => void;
   typePanels: Record<TypePanel, boolean>; toggleTypePanel: (k: TypePanel) => void;
+  shortcutsDialog: DialogRef; systemInfoDialog: DialogRef; openDuplicate: () => void; openTrap: () => void;
+  screenMode: ScreenMode; setScreenMode: (m: ScreenMode) => void; viewShow: ViewShow; toggleShow: (k: ShowKey) => void;
 }
 
 // Image > Mode: the modes a conversion from the current one allows, the bit depths, and the Color Table.
@@ -457,7 +461,8 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Crop`), run: () => run(t`Cropping…`, () => client.call('cropToSelection')), off: !doc?.selection },
       { ...tl(msg`Trim…`), run: () => { setMenu(null); trimDialog.current?.showModal(); }, off: !has },
       { ...tl(msg`Reveal All`), run: () => run(t`Revealing…`, () => client.call('revealAll')), off: !has },
-      { ...tl(msg`Apply Image…`), sep: true, run: () => openImageCalc(false), off: pixelsOff },
+      { ...tl(msg`Duplicate…`), sep: true, run: () => { setMenu(null); c.openDuplicate(); }, off: !has },
+      { ...tl(msg`Apply Image…`), run: () => openImageCalc(false), off: pixelsOff },
       { ...tl(msg`Calculations…`), run: () => openImageCalc(true), off: !has },
       {
         ...tl(msg`Variables`), keys: '›', sep: true, run: () => {}, off: !has, sub: [
@@ -466,6 +471,7 @@ export function buildMenus(c: MenuCtx) {
         ],
       },
       { ...tl(msg`Apply Data Set…`), run: openApplyDataSet, off: !has },
+      { ...tl(msg`Trap…`), sep: true, run: () => { setMenu(null); c.openTrap(); }, off: doc?.mode?.kind !== 'cmyk' || node?.kind !== 'pixel' },
       {
         ...tl(msg`Analysis`), keys: '›', sep: true, run: () => {}, off: !has, sub: [
           { ...tl(msg`Set Measurement Scale…`), run: () => openAnalysis('scale') },
@@ -540,11 +546,16 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`200%`), run: () => { setMenu(null); const v = viewer.current; v?.zoomTo(2 / v.dpr); }, off: !has },
       { ...tl(msg`Print Size`), run: () => { setMenu(null); if (doc?.resolution) viewer.current?.zoomTo(printSizeZoom(doc.resolution)); }, off: !doc?.resolution },
       { ...tl(msg`Flip Horizontal`, flipped), run: () => { setMenu(null); viewer.current?.toggleFlip(); }, off: !has },
+      {
+        ...tl(msg`Screen Mode`), keys: '›', run: () => {},
+        sub: SCREEN_MODES.map(m => ({ ...tl(SCREEN_MODE_LABEL[m], c.screenMode === m), run: () => { setMenu(null); c.setScreenMode(m); } })),
+      },
       { ...tl(msg`Reset rotation`), keys: 'Esc', run: () => { setMenu(null); viewer.current?.resetRotation(); }, off: !has },
       { ...tl(showAnts ? msg`Hide selection edges` : msg`Show selection edges`), keys: 'Ctrl+H', run: () => { setMenu(null); setShowAnts(v => !v); }, off: !has },
       {
         ...tl(msg`Show`), keys: '›', run: () => {}, sub: [
           { ...tl(msg`Layer Edges`, showLayerEdges), run: () => { setMenu(null); setShowLayerEdges(v => !v); } },
+          ...SHOW_KEYS.map(k => ({ ...tl(SHOW_LABEL[k], c.viewShow[k]), run: () => { setMenu(null); c.toggleShow(k); } })),
         ],
       },
       { ...tl(showRulers ? msg`Hide Rulers` : msg`Show Rulers`), keys: 'Ctrl+R', run: () => { setMenu(null); setShowRulers(v => !v); } },
@@ -633,8 +644,10 @@ export function buildMenus(c: MenuCtx) {
       })),
     ],
     Help: [
+      { ...tl(msg`Keyboard Shortcuts…`), run: () => { setMenu(null); c.shortcutsDialog.current?.showModal(); } },
       { ...tl(msg`Use with AI Agents…`), run: () => { setMenu(null); agentDialog.current?.showModal(); agentDialog.current?.querySelector<HTMLButtonElement>('.actions button')?.focus(); } },
-      { ...tl(msg`About photobaer…`), run: () => { setMenu(null); aboutDialog.current?.showModal(); aboutDialog.current?.querySelector('button')?.focus(); } },
+      { ...tl(msg`About photobaer…`), sep: true, run: () => { setMenu(null); aboutDialog.current?.showModal(); aboutDialog.current?.querySelector('button')?.focus(); } },
+      { ...tl(msg`System Info…`), run: () => { setMenu(null); c.systemInfoDialog.current?.showModal(); } },
     ],
   };
   return menus;

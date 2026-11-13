@@ -6,8 +6,11 @@ import type { Viewer } from '../viewer.ts';
 import { findMenuItem, itemId, PAINT_TOOLS, type Item } from './helpers.ts';
 import { COMPOSITE, type ChannelView } from './channels.ts';
 import { actionKeyOf } from '../actions.ts';
+import type { LayerStep } from './layerNav.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
+// Alt + the physical key: the layer above / below, the top / bottom layer (Photoshop).
+const LAYER_KEYS: Record<string, LayerStep> = { BracketRight: 'above', BracketLeft: 'below', Period: 'top', Comma: 'bottom' };
 type Session = { active: () => boolean; commit: () => void; cancel: () => void };
 type ExportKey = Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'>;
 
@@ -35,12 +38,15 @@ export interface ShortcutCtx {
   setChannelView: SetState<ChannelView>;
   // Window > Actions function keys; true = the key belongs to an action.
   actionKeyRef: RefObject<(key: string) => boolean>;
+  stepLayer: (step: LayerStep, add: boolean) => void;
+  cycleScreenMode: (back: boolean) => void;
 }
 
 export function useShortcuts(c: ShortcutCtx) {
   const {
     menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
     toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef, setChannelView, actionKeyRef,
+    stepLayer, cycleScreenMode,
   } = c;
   useEffect(() => {
     const find = (pred: (id: string) => boolean) => findMenuItem(menusRef.current, pred);
@@ -177,6 +183,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (ctrl && !e.altKey && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
         trigger(e.code === 'BracketRight' ? (e.shiftKey ? 'Bring to Front' : 'Bring Forward') : (e.shiftKey ? 'Send to Back' : 'Send Backward'), e);
       }
+      else if (e.altKey && !ctrl && LAYER_KEYS[e.code]) { e.preventDefault(); stepLayer(LAYER_KEYS[e.code], e.shiftKey); }
       else if (ctrl && (k === '+' || k === '=')) trigger('Zoom in', e);
       else if (ctrl && k === '-') trigger('Zoom out', e);
       else if (ctrl && k === '0') trigger('Fit', e);
@@ -196,6 +203,7 @@ export function useShortcuts(c: ShortcutCtx) {
       else if (!ctrl && !e.altKey && k === 'x') { e.preventDefault(); setFg(bgRef.current); setBg(fgRef.current); }
       else if (!ctrl && !e.altKey && k === 'd') { e.preventDefault(); setFg([0, 0, 0]); setBg([255, 255, 255]); }
       else if (!ctrl && !e.altKey && k === 'q') { e.preventDefault(); setQuickMask(v => !v); }
+      else if (!ctrl && !e.altKey && k === 'f') { e.preventDefault(); if (!e.repeat) cycleScreenMode(e.shiftKey); }
       else if (!ctrl && !e.altKey && (e.key === '[' || e.key === ']' || e.key === '{' || e.key === '}' || /^Digit[0-9]$/.test(e.code))) {
         // Brush shortcuts (docs/M2.md section 4): only mutate options for the active paint tool,
         // but always swallow these keys so they never reach selectByKey (no slot uses them anyway).
