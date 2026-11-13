@@ -1,6 +1,6 @@
 // OpenEXR DWAA and DWAB decompression (32 and 256 rows per block). Channels follow rules stored in the block:
 // lossy DCT (8x8 blocks of nonlinear halves, R/G/B sets as Y'CbCr), RLE (byte planes), or zlib (as stored).
-import { inflate } from 'pako';
+import { Inflate } from 'pako';
 import { floatToHalf, halfToFloat, unpredict } from './common.ts';
 import { hufDecode } from './piz.ts';
 
@@ -75,6 +75,11 @@ class Reader {
 export function unDwa(src: Uint8Array, w: number, rows: number, chans: { name: string; type: number; linear: boolean }[]): Uint8Array {
   const r = new Reader(src);
   const [version, unknownRaw, unknownSize, acSize, dcSize, rleSize, rleRaw, rleFull, acCount, dcCount, acCompression] = Array.from({ length: 11 }, () => r.u64());
+  // Counts the block cannot hold are refused before anything is allocated: at most 64 AC words and one DC
+  // word per 8x8 block and channel, the uncompressed block size, twice that for RLE data.
+  const size = (t: number) => (t === 1 ? 2 : 4);
+  const raw = w * rows * chans.reduce((a, c) => a + size(c.type), 0), blocks = Math.ceil(w / 8) * Math.ceil(rows / 8) * chans.length;
+  if (acCount > 64 * blocks || dcCount > blocks || unknownRaw > raw || rleFull > raw || rleRaw > 2 * raw) throw damaged('sizes');
   let rules = LEGACY;
   if (version >= 2) {
     let left = r.u16() - 2;
@@ -93,7 +98,6 @@ export function unDwa(src: Uint8Array, w: number, rows: number, chans: { name: s
   const unknown = r.bytes(unknownSize), ac = r.bytes(acSize), dc = r.bytes(dcSize), rle = r.bytes(rleSize);
 
   // Each channel's scheme by the last rule its name suffix and type match; R, G and B indices group by prefix.
-  const size = (t: number) => (t === 1 ? 2 : 4);
   const scheme = chans.map(() => UNKNOWN);
   const sets = new Map<string, number[]>();
   chans.forEach((c, i) => {
@@ -107,11 +111,11 @@ export function unDwa(src: Uint8Array, w: number, rows: number, chans: { name: s
   });
   const groups = [...sets.keys()].sort().map(k => sets.get(k)!).filter(s => s.every(i => i >= 0));
 
-  const acWords = !acSize ? new Uint16Array(0) : acCompression === 0 ? hufDecode(ac, acCount) : asWords(inflate(ac), acCount);
-  const dcWords = !dcSize ? new Uint16Array(0) : asWords(unpredict(inflate(dc)), dcCount);
-  const unknownBytes = unknownSize ? inflate(unknown) : new Uint8Array(0);
+  const acWords = !acSize ? new Uint16Array(0) : acCompression === 0 ? hufDecode(ac, acCount) : asWords(inflateMax(ac, acCount * 2), acCount);
+  const dcWords = !dcSize ? new Uint16Array(0) : asWords(unpredict(inflateMax(dc, dcCount * 2)), dcCount);
+  const unknownBytes = unknownSize ? inflateMax(unknown, unknownRaw) : new Uint8Array(0);
   if (unknownBytes.length !== unknownRaw) throw damaged('zlib data');
-  const rleBytes = rleFull ? unRle(inflate(rle), rleRaw, rleFull) : new Uint8Array(0);
+  const rleBytes = rleFull ? unRle(inflateMax(rle, rleRaw), rleRaw, rleFull) : new Uint8Array(0);
 
   // Output rows: per row, each channel's samples.
   const rowBytes = chans.reduce((a, c) => a + w * size(c.type), 0), out = new Uint8Array(rowBytes * rows), ov = new DataView(out.buffer);
@@ -151,6 +155,23 @@ export function unDwa(src: Uint8Array, w: number, rows: number, chans: { name: s
       else throw damaged('lossy UINT channel');
     }
   });
+  return out;
+}
+
+// zlib data `b` inflated, refused as soon as it grows past `max` bytes.
+function inflateMax(b: Uint8Array, max: number): Uint8Array {
+  const z = new Inflate({ chunkSize: 1 << 16 }), parts: Uint8Array[] = [];
+  let n = 0;
+  z.onData = c => {
+    n += c.length;
+    if (n > max) throw damaged('zlib data');
+    parts.push(c);
+  };
+  z.push(b, true);
+  if (z.err) throw damaged('zlib data');
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const c of parts) { out.set(c, o); o += c.length; }
   return out;
 }
 
