@@ -590,6 +590,18 @@ test('16-bit and 32-bit smart filter stack masks save in PSD at the document dep
   }
 });
 
+test('a gradient fill layer stop with a 32-bit Intensity warns on PSD export', () => {
+  const e = new Engine(8, 8, 32);
+  const g = (intensity: number) => ({ name: 'g', content: { type: 'gradient', gradient: { method: 'classic', color_stops: [{ position: 0, color: [9, 9, 9], midpoint: 0.5, intensity }, { position: 1, color: [255, 255, 255], midpoint: 0.5 }],
+    opacity_stops: [{ position: 0, opacity: 1, midpoint: 0.5 }, { position: 1, opacity: 1, midpoint: 0.5 }] }, style: 'linear', angle: 0, scale: 1, reverse: false, dither: false, align_with_layer: false, offset: [0, 0] } });
+  const id = e.add_fill_layer(1, JSON.stringify(g(0)));
+  assert.ok(!exportPsd(e).warnings.some(w => /Intensity/.test(w)));
+  e.delete_node(id);
+  e.add_fill_layer(1, JSON.stringify(g(1.5)));
+  assert.ok(exportPsd(e).warnings.includes('the Intensity of 32-bit gradient stops is not stored in PSD'));
+  e.free();
+});
+
 test('a smart object stack mask with tiles outside the canvas warns on PSD export', () => {
   const { e, id } = psbSmartDoc();
   e.add_smart_filter(id, JSON.stringify({ kind: 'brightness_contrast', params: { brightness: 20, contrast: 0, legacy: false } }));

@@ -1,3 +1,4 @@
+// Ported from OpenEXR (ImfDwaCompressor), BSD-3-Clause; see app/src/exr/LICENSE.
 // OpenEXR DWAA and DWAB decompression (32 and 256 rows per block). Channels follow rules stored in the block:
 // lossy DCT (8x8 blocks of nonlinear halves, R/G/B sets as Y'CbCr), RLE (byte planes), or zlib (as stored).
 import { Inflate } from 'pako';

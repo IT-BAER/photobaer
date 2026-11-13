@@ -70,6 +70,7 @@ Key points:
 | ICC, CMYK, soft proof | Little CMS 2 → WASM | MIT | |
 | PDF import | pdfjs-dist (v6.x) | Apache-2.0 | lazy-loaded when a PDF is opened |
 | Deflate (synchronous) | pako (v2.1) | MIT AND Zlib | already shipped inside ag-psd; PSD ZIP channels, EXR DWA |
+| EXR PIZ and DWA decoding | ported from OpenEXR | BSD-3-Clause | app/src/exr/piz.ts, dwa.ts; notice in app/src/exr/LICENSE |
 | Text shaping | HarfBuzz (harfbuzzjs) | MIT | plus own line breaking and paragraph composer |
 | Spell check | nspell / Hunspell WASM | MIT / MPL-LGPL | dictionary licenses vary per language |
 | RAW | LibRaw → WASM | LGPL-2.1 or CDDL | ship as separate module, publish its source |

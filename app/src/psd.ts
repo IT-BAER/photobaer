@@ -1261,6 +1261,10 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
   };
   const { angle, altitude } = manifest.global_light;
   if (manifest.layer_comps.length) warn('layer comp appearance is not stored in PSD');
+  // Gradient stops of fill layers, styles and adjustments with a 32-bit Intensity (Photoshop's encoding is unverified).
+  const stopIntensity = (v: unknown): boolean => typeof v === 'object' && v !== null && (Array.isArray(v) ? v.some(stopIntensity)
+    : Object.entries(v).some(([k, x]) => (k === 'color_stops' && Array.isArray(x) ? x.some(st => st?.intensity) : stopIntensity(x))));
+  if (stopIntensity(manifest.layers)) warn('the Intensity of 32-bit gradient stops is not stored in PSD');
   const psd: Psd = {
     width: w, height: h, colorMode: 3, bitsPerChannel: 8,
     children: manifest.layers.map(n => exportNode(x, n)),

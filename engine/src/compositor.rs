@@ -921,7 +921,7 @@ impl Document {
                 let rgba = [s.color[0], s.color[1], s.color[2], 255].map(|v| v as f32 / 255.0);
                 Box::new(move |_, _| rgba)
             }
-            FillContent::Gradient(g) => Box::new(g.sampler(bx)),
+            FillContent::Gradient(g) => Box::new(g.sampler(bx, self.depth == 32)),
             FillContent::Pattern(p) => match c.pattern_id().and_then(|id| self.patterns.iter().find(|e| e.id == id)) {
                 Some(e) => {
                     let bytes = self.blobs.get(&e.blob).map_or(&[][..], |b| &b[..]);

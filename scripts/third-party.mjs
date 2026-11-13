@@ -55,6 +55,7 @@ export function thirdPartyNotices(root) {
   const fonts = [
     { name: 'Noto Sans, Noto Sans Mono, Noto Serif', version: '', license: 'OFL-1.1', dir: join(root, 'app/public/fonts') },
     { name: 'Comfortaa', version: '', license: 'OFL-1.1', dir: join(root, 'app/src/assets/comfortaa') },
+    { name: 'OpenEXR (PIZ and DWA decoders, ported)', version: '', license: 'BSD-3-Clause', dir: join(root, 'app/src/exr') },
   ];
   const all = [...npmPackages(root), ...crates(root), ...fonts].sort((a, b) => a.name.localeCompare(b.name));
   const parts = all.map(p => {

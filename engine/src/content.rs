@@ -15,6 +15,14 @@ pub struct ColorStop {
     pub position: f32,
     pub color: [u8; 3],
     pub midpoint: f32,
+    /// The 32-bit Color Picker's Intensity in stops: the color times 2^intensity in linear light, in 32-bit
+    /// documents only.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub intensity: f32,
+}
+
+fn is_zero(v: &f32) -> bool {
+    *v == 0.0
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -75,9 +83,10 @@ pub enum FillContent {
 }
 
 impl GradientDef {
-    /// The normalized (and optionally reversed) stops as a gradient LUT.
-    pub fn lut(&self, reverse: bool) -> Vec<[f32; 4]> {
-        let cs = self.color_stops(reverse);
+    /// The normalized (and optionally reversed) stops as a gradient LUT; `hdr` (a 32-bit document) applies
+    /// the stops' Intensity.
+    pub fn lut(&self, reverse: bool, hdr: bool) -> Vec<[f32; 4]> {
+        let cs = self.color_stops(reverse, hdr);
         let os = self.opacity_stops.iter().map(|s| gradient::OpacityStop {
             position: s.position,
             opacity: s.opacity,
@@ -92,14 +101,17 @@ impl GradientDef {
 
     /// `n` colours of the normalized (and optionally reversed) color stops, opacity ignored.
     pub fn color_table(&self, reverse: bool, n: usize) -> Vec<[f32; 3]> {
-        gradient::color_table(&self.color_stops(reverse), self.method, n)
+        gradient::color_table(&self.color_stops(reverse, false), self.method, n)
     }
 
-    fn color_stops(&self, reverse: bool) -> Vec<gradient::ColorStop> {
-        let cs = self.color_stops.iter().map(|s| gradient::ColorStop {
-            position: s.position,
-            rgb: s.color.map(|v| v as f32 / 255.0),
-            midpoint: s.midpoint,
+    fn color_stops(&self, reverse: bool, hdr: bool) -> Vec<gradient::ColorStop> {
+        let cs = self.color_stops.iter().map(|s| {
+            let k = if hdr && s.intensity != 0.0 { s.intensity.clamp(-20.0, 20.0).exp2() } else { 1.0 };
+            gradient::ColorStop {
+                position: s.position,
+                rgb: s.color.map(|v| v as f32 / 255.0).map(|c| if k == 1.0 { c } else { gradient::exposed(c, k) }),
+                midpoint: s.midpoint,
+            }
         });
         let cs = gradient::normalize_color_stops(cs.collect());
         if reverse { gradient::reverse_color_stops(&cs) } else { cs }
@@ -108,9 +120,10 @@ impl GradientDef {
 
 impl GradientFill {
     /// Straight RGBA at document point (x, y), laid out over the box [x, y, w, h] (docs/M3.md
-    /// section 5): center = box center + offset * half size, length (|w cos A| + |h sin A|) * scale.
-    pub fn sampler(&self, bx: [f64; 4]) -> impl Fn(f64, f64) -> [f32; 4] {
-        let lut = self.gradient.lut(self.reverse);
+    /// section 5): center = box center + offset * half size, length (|w cos A| + |h sin A|) * scale. `hdr`: a
+    /// 32-bit document (stop Intensity applies, dither keeps values above 1).
+    pub fn sampler(&self, bx: [f64; 4], hdr: bool) -> impl Fn(f64, f64) -> [f32; 4] {
+        let lut = self.gradient.lut(self.reverse, hdr);
         let a = (self.angle as f64).to_radians();
         let (dx, dy) = (a.cos(), -a.sin());
         let half = (bx[2] * dx.abs() + bx[3] * dy.abs()) * self.scale as f64 / 2.0;
@@ -125,7 +138,8 @@ impl GradientFill {
             let mut c = gradient::lut_lookup(&lut, t);
             if dither {
                 let d = gradient::dither_delta(x.floor() as i32, y.floor() as i32);
-                c[..3].iter_mut().for_each(|v| *v = (*v + d).clamp(0.0, 1.0));
+                let top = if hdr { f32::MAX } else { 1.0 };
+                c[..3].iter_mut().for_each(|v| *v = (*v + d).clamp(0.0, top));
             }
             c
         }
@@ -306,4 +320,58 @@ pub struct Smart {
     pub cache: Tiles,
     /// The layer mask fingerprint `cache` was rendered with (0 = unknown; see `settle_smart`).
     pub mask_key: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn def(intensity: f32) -> GradientDef {
+        serde_json::from_value(serde_json::json!({
+            "method": "classic",
+            "color_stops": [
+                { "position": 0.0, "color": [128, 64, 32], "midpoint": 0.5, "intensity": intensity },
+                { "position": 1.0, "color": [255, 255, 255], "midpoint": 0.5 }
+            ],
+            "opacity_stops": [{ "position": 0.0, "opacity": 1.0, "midpoint": 0.5 }, { "position": 1.0, "opacity": 1.0, "midpoint": 0.5 }]
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn a_stop_intensity_exposes_its_color_in_32_bit_documents_only() {
+        let c = [128.0f32, 64.0, 32.0].map(|v| v / 255.0);
+        let hdr = def(1.0).lut(false, true)[0];
+        for i in 0..3 {
+            assert!((hdr[i] - gradient::exposed(c[i], 2.0)).abs() < 1e-5, "{hdr:?}");
+        }
+        assert!(hdr[0] > 1.0 - 1e-6 || hdr[0] > c[0], "brighter than the stop color");
+        let flat = def(1.0).lut(false, false)[0];
+        assert!((0..3).all(|i| (flat[i] - c[i]).abs() < 1e-6), "8/16-bit documents ignore it: {flat:?}");
+        // Zero is not written, and files without the field read as zero.
+        let j = serde_json::to_value(def(0.0)).unwrap();
+        assert!(j["color_stops"][0].get("intensity").is_none());
+        assert_eq!(serde_json::to_value(def(2.0)).unwrap()["color_stops"][0]["intensity"], 2.0);
+        let hdr_dither = GradientFill {
+            gradient: def(3.0), style: gradient::Style::Linear, angle: 0.0, scale: 1.0, reverse: false, dither: true, align_with_layer: true, offset: [0.0, 0.0],
+        }
+        .sampler([0.0, 0.0, 100.0, 1.0], true)(0.5, 0.5);
+        assert!(hdr_dither[0] > 1.0, "dither keeps values above 1: {hdr_dither:?}");
+    }
+
+    #[test]
+    fn a_32_bit_gradient_fill_layer_composites_its_stop_intensity() {
+        let fill = |depth: u8| {
+            let mut d = crate::doc::Document::new(16, 16, depth).unwrap();
+            let g = serde_json::json!({ "name": "g", "content": { "type": "gradient", "gradient": def(2.0), "style": "linear", "angle": 0.0, "scale": 1.0,
+                "reverse": false, "dither": false, "align_with_layer": false, "offset": [0.0, 0.0] } });
+            d.add_fill_layer(1, &g.to_string()).unwrap();
+            d
+        };
+        let hdr = fill(32).flatten_tile_f32(0, 0).unwrap();
+        let want = gradient::exposed(128.0 / 255.0, 4.0);
+        assert!((hdr[0] - want).abs() < 0.01, "the left edge holds the stop color times 4 in linear light: {:?} vs {want}", &hdr[..4]);
+        let eight = fill(8).flatten_tile_rgba8(0, 0).unwrap();
+        assert!(eight[0] < 160, "8-bit documents ignore it: {:?}", &eight[..4]);
+    }
 }

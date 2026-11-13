@@ -734,7 +734,7 @@ pub fn glow_rgba(g: &Glow, inner: bool, shape: &Shape, cx: &Ctx) -> Vec<[f32; 4]
     match &g.fill {
         GlowFill::Color { color } => colorize(&v, *color),
         GlowFill::Gradient { gradient: def } => {
-            let lut = def.lut(false);
+            let lut = def.lut(false, cx.hdr);
             let seed = if inner { SEED_INNER_GLOW } else { SEED_OUTER_GLOW };
             let jit = |i: usize| if g.jitter > 0.0 { (hash_at(i, v.w, cx.origin, cx.level, seed) - 0.5) * g.jitter } else { 0.0 };
             v.v.iter()
@@ -781,7 +781,7 @@ pub fn fill_plane(fill: &FillContent, cov: &Plane, cx: &Ctx) -> Vec<[f32; 4]> {
             Box::new(move |_, _| [r, g, b, 1.0])
         }
         FillContent::Gradient(g) => {
-            Box::new(g.sampler(if g.align_with_layer { cx.bounds } else { [0.0, 0.0, cx.doc[0], cx.doc[1]] }))
+            Box::new(g.sampler(if g.align_with_layer { cx.bounds } else { [0.0, 0.0, cx.doc[0], cx.doc[1]] }, cx.hdr))
         }
         FillContent::Pattern(p) => match pattern_sampler(p, cx) {
             Some(f) => Box::new(f),

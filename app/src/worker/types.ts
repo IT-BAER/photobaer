@@ -11,7 +11,8 @@ export type AlignMode = `${'align' | 'distribute'}-${'top' | 'vcenter' | 'bottom
 // A fill layer's content (docs/M3.md section 4); field names match the engine JSON verbatim.
 export interface GradientDef {
   method: 'classic' | 'linear' | 'perceptual';
-  color_stops: { position: number; color: [number, number, number]; midpoint: number }[];
+  // `intensity`: the 32-bit Color Picker's Intensity in stops (32-bit documents).
+  color_stops: { position: number; color: [number, number, number]; midpoint: number; intensity?: number }[];
   opacity_stops: { position: number; opacity: number; midpoint: number }[];
 }
 export type FillContent =

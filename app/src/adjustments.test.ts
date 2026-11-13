@@ -44,3 +44,14 @@ test('fieldLabel shows the active language, option values stay English', () => {
   const mode = FIELD_SPECS.selective_color!.find(s => s.path === 'mode')!;
   assert.deepEqual(mode.type === 'select' && mode.options.map(([v]) => v), ['relative', 'absolute']);
 });
+
+test('a gradient stop keeps its 32-bit Intensity between the Gradient Editor and the engine gradient', async () => {
+  const { gradientDefToUi, uiToGradientDef } = await import('./adjustments.ts');
+  const { withIntensity } = await import('./shell/color.ts');
+  const ui = { stops: [{ position: 0, color: [10, 20, 30] as [number, number, number], midpoint: 0.5, intensity: 1.5 }, { position: 1, color: withIntensity([1, 2, 3], -2), midpoint: 0.5 }],
+    opacityStops: [{ position: 0, opacity: 1, midpoint: 0.5 }], kind: 'solid' as const, interpolation: 'classic' as const };
+  const def = uiToGradientDef(ui);
+  assert.deepEqual(def.color_stops.map(s => s.intensity), [1.5, -2], 'own Intensity, or a Foreground/Background color\'s');
+  assert.equal('intensity' in uiToGradientDef({ ...ui, stops: [{ position: 0, color: [0, 0, 0], midpoint: 0.5 }] }).color_stops[0], false);
+  assert.deepEqual(gradientDefToUi(def).stops.map(s => s.intensity), [1.5, -2]);
+});

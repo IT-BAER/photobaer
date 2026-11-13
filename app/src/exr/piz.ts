@@ -1,3 +1,4 @@
+// Ported from OpenEXR (ImfPizCompressor, ImfHuf, ImfWav), BSD-3-Clause; see app/src/exr/LICENSE.
 // OpenEXR PIZ decompression: a bitmap of the 16-bit values in use, Huffman-coded 16-bit words (with a
 // run-length symbol), a 2D Haar wavelet per channel, then the values mapped back through the bitmap.
 // Channels are 16-bit words: one per HALF sample, two per FLOAT or UINT sample (low word first).

@@ -7,6 +7,7 @@ import { i18n } from '@lingui/core';
 import { engineLabel } from './filters/labels.ts';
 import type { Adjustment, DestructiveAdjustment, GradientDef, HueRange } from './engine.worker.ts';
 import type { Gradient } from './gradients/gradient.ts';
+import { intensityOf } from './shell/color.ts';
 
 export type Kind = Adjustment['kind'];
 export type DestructiveKind = DestructiveAdjustment['kind'];
@@ -238,14 +239,18 @@ export function setPath<A extends Adjustment | DestructiveAdjustment>(adjustment
   return { ...adjustment, params: clone(adjustment.params, 0) } as A;
 }
 
+// A stop's 32-bit Intensity rides along: its own, or that of a Foreground/Background color.
 export const gradientDefToUi = (g: GradientDef): Gradient => ({
-  stops: g.color_stops.map(s => ({ position: s.position, color: s.color, midpoint: s.midpoint })),
+  stops: g.color_stops.map(s => ({ position: s.position, color: s.color, midpoint: s.midpoint, ...(s.intensity ? { intensity: s.intensity } : {}) })),
   opacityStops: g.opacity_stops.map(s => ({ position: s.position, opacity: s.opacity, midpoint: s.midpoint })),
   kind: 'solid', interpolation: g.method === 'classic' || g.method === 'linear' || g.method === 'perceptual' ? g.method : 'classic',
 });
 
 export const uiToGradientDef = (g: Gradient): GradientDef => ({
   method: g.interpolation,
-  color_stops: g.stops.map(s => ({ position: s.position, color: s.color, midpoint: s.midpoint })),
+  color_stops: g.stops.map(s => {
+    const intensity = s.intensity ?? intensityOf(s.color);
+    return { position: s.position, color: [s.color[0], s.color[1], s.color[2]], midpoint: s.midpoint, ...(intensity ? { intensity } : {}) };
+  }),
   opacity_stops: g.opacityStops.map(s => ({ position: s.position, opacity: s.opacity, midpoint: s.midpoint })),
 });
