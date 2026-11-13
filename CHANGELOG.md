@@ -14,6 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The moving layer of a Move tool press is converted for display in the engine instead of in JavaScript, so it
   shows sooner. A layer with an inner shadow or knockout keeps its rendered effects when it moves inside the
   canvas. After a change, the view asks for its next tiles as soon as one arrives instead of a frame later.
+### Added
+
+- OpenEXR files with PIZ, DWAA and DWAB compression open (half and float channels, scanline and tiled).
+- Import PDF crops to the Bounding Box, Media Box, Crop Box, Bleed Box, Trim Box or Art Box.
+- In 32-bit documents a Gradient Editor color stop takes the Color Picker's Intensity and keeps it in presets.
+
+### Changed
+
+- Import PDF opens each page directly in the chosen mode and bit depth, without undo steps.
+- Enter in a size field of Import PDF and Rasterize SVG Format presses OK.
+- Convert to Profile, profile conversion at open and mode conversions also convert the colors of text, shape and
+  fill layers and of layer styles, so they keep their look; adjustment layers keep their settings.
+- 16-bit and 32-bit PSD files store their layer channels compressed (ZIP with prediction, as Photoshop does) and
+  keep smart filter masks.
+- JPEG export of a Grayscale document writes a one-channel JPEG with the document's Gray profile.
+- While one color channel or saved channels are targeted, the foreground and background swatches show the gray
+  that painting uses.
+
+### Fixed
+
+- File > Revert of an SVG renders it again at the size and resolution chosen when it was opened.
 
 ## [0.5.0] - 2026-10-09
 

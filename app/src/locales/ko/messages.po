@@ -986,6 +986,10 @@ msgstr "배열"
 msgid "Arrows"
 msgstr "화살표"
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr "아트 상자"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1491,6 +1495,10 @@ msgstr "폭발"
 msgid "Bleed"
 msgstr "도련"
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr "도련 상자"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr "클리핑된 레이어를 그룹으로 혼합"
@@ -1720,6 +1728,10 @@ msgstr "오른쪽 아래"
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
 msgstr "오른쪽 아래 픽셀 색상"
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
+msgstr "경계 상자"
 
 #: app/src/filters/labels.ts
 msgid "Box Blur"
@@ -2968,8 +2980,8 @@ msgid "Could not read the images: {reason}"
 msgstr "이미지를 읽을 수 없습니다: {reason}"
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
-msgstr "미디어 상자를 읽을 수 없습니다: {reason}"
+msgid "Could not read the page boxes: {reason}"
+msgstr "페이지 상자를 읽을 수 없습니다: {reason}"
 
 #: app/src/App.tsx
 msgid "Could not save {name}: {reason}"
@@ -11926,6 +11938,10 @@ msgstr "연결된 소스를 사용할 수 없습니다: {name}. 고급 개체를
 msgid "The measured line is already straight."
 msgstr "측정한 선이 이미 똑바릅니다."
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr "모드 또는 비트 심도를 적용하지 못했습니다: {reason}"
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr "새 도구 사전 설정 ID가 잘못되었거나 이미 있습니다."
@@ -12417,6 +12433,10 @@ msgstr "재단"
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
 msgstr "재단할 영역"
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
+msgstr "재단 상자"
 
 #: app/src/ExportDialogs.tsx
 msgid "Trim to layer pixels"

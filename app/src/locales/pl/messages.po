@@ -986,6 +986,10 @@ msgstr "Rozmieszczenie"
 msgid "Arrows"
 msgstr "Strzałki"
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr "Obszar grafiki"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1491,6 +1495,10 @@ msgstr "Podmuch"
 msgid "Bleed"
 msgstr "Spad"
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr "Obszar spadu"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr "Mieszaj przycięte warstwy jako grupę"
@@ -1720,6 +1728,10 @@ msgstr "Prawy dolny"
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
 msgstr "Kolor prawego dolnego piksela"
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
+msgstr "Obwiednia"
 
 #: app/src/filters/labels.ts
 msgid "Box Blur"
@@ -2968,8 +2980,8 @@ msgid "Could not read the images: {reason}"
 msgstr "Nie udało się odczytać obrazów: {reason}"
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
-msgstr "Nie udało się odczytać obszarów nośnika: {reason}"
+msgid "Could not read the page boxes: {reason}"
+msgstr "Nie udało się odczytać obszarów strony: {reason}"
 
 #: app/src/App.tsx
 msgid "Could not save {name}: {reason}"
@@ -11926,6 +11938,10 @@ msgstr "Połączone źródło jest niedostępne: {name}. Połącz ponownie obiek
 msgid "The measured line is already straight."
 msgstr "Zmierzona linia jest już prosta."
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr "Nie zastosowano trybu ani głębi bitowej: {reason}"
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr "Identyfikator nowego ustawienia predefiniowanego narzędzia jest nieprawidłowy lub już istnieje."
@@ -12417,6 +12433,10 @@ msgstr "Przytnij"
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
 msgstr "Przytnij obszary"
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
+msgstr "Obszar przycięcia"
 
 #: app/src/ExportDialogs.tsx
 msgid "Trim to layer pixels"

@@ -989,6 +989,10 @@ msgstr "Disposition"
 msgid "Arrows"
 msgstr "Flèches"
 
+#: app/src/PdfDialog.tsx
+msgid "Art Box"
+msgstr "Zone de graphique"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
@@ -1494,6 +1498,10 @@ msgstr "Souffle"
 msgid "Bleed"
 msgstr "Fond perdu"
 
+#: app/src/PdfDialog.tsx
+msgid "Bleed Box"
+msgstr "Zone de fond perdu"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Blend Clipped Layers as Group"
 msgstr "Fusionner les calques écrêtés en tant que groupe"
@@ -1723,6 +1731,10 @@ msgstr "En bas à droite"
 #: app/src/app/Dialogs.tsx
 msgid "Bottom Right Pixel Color"
 msgstr "Couleur du pixel en bas à droite"
+
+#: app/src/PdfDialog.tsx
+msgid "Bounding Box"
+msgstr "Cadre de sélection"
 
 #: app/src/filters/labels.ts
 msgid "Box Blur"
@@ -2971,8 +2983,8 @@ msgid "Could not read the images: {reason}"
 msgstr "Impossible de lire les images : {reason}"
 
 #: app/src/PdfDialog.tsx
-msgid "Could not read the media boxes: {reason}"
-msgstr "Impossible de lire les zones de média : {reason}"
+msgid "Could not read the page boxes: {reason}"
+msgstr "Impossible de lire les zones de la page : {reason}"
 
 #: app/src/App.tsx
 msgid "Could not save {name}: {reason}"
@@ -11929,6 +11941,10 @@ msgstr "La source liée n’est pas disponible : {name}. Rétablis le lien de l
 msgid "The measured line is already straight."
 msgstr "La ligne mesurée est déjà droite."
 
+#: app/src/i18n/errors.ts
+msgid "The mode or bit depth was not applied: {reason}"
+msgstr "Le mode ou la profondeur de bits n’a pas été appliqué : {reason}"
+
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
 msgstr "L’identifiant du nouveau paramètre prédéfini d’outil est invalide ou existe déjà."
@@ -12420,6 +12436,10 @@ msgstr "Rognage"
 #: app/src/app/Dialogs.tsx
 msgid "Trim Away"
 msgstr "Rogner"
+
+#: app/src/PdfDialog.tsx
+msgid "Trim Box"
+msgstr "Zone de rognage"
 
 #: app/src/ExportDialogs.tsx
 msgid "Trim to layer pixels"

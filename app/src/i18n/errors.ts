@@ -117,6 +117,7 @@ const PATTERNS: [RegExp, (m: string[]) => string][] = [
   [/^Cannot save linked \.(.+) contents\. Use Save As to keep your edits\.$/, ([ext]) => i18n._(msg`Cannot save linked .${ext} contents. Use Save As to keep your edits.`)],
   [/^The linked source is unavailable: (.+)\. Relink the Smart Object to an existing file\.$/, ([name]) => i18n._(msg`The linked source is unavailable: ${name}. Relink the Smart Object to an existing file.`)],
   [/^(.+) export is not supported by this browser$/, ([type]) => i18n._(msg`${type} export is not supported by this browser`)],
+  [/^The mode or bit depth was not applied: (.+)$/, ([reason]) => i18n._(msg`The mode or bit depth was not applied: ${reason}`)],
   [/^"(.+)" is already a smart object\.$/, ([name]) => i18n._(msg`"${name}" is already a smart object.`)],
   [/^(.+) is not a shape layer\.$/, ([name]) => i18n._(msg`${name} is not a shape layer.`)],
   [/^(.+) is not a type layer\.$/, ([name]) => i18n._(msg`${name} is not a type layer.`)],

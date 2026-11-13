@@ -420,13 +420,13 @@ test('a PSD layer comp captured in place applies without moving a layer off the 
 });
 
 // A smart object whose source is a 3 x 2 PSB (as Convert to Smart Object writes it) placed at 2x.
-function psbSmartDoc() {
+function psbSmartDoc(depth: 8 | 16 | 32 = 8) {
   const src = new Engine(3, 2, 8);
   src.set_tile_rgba8(1, 0, 0, new Uint8Array(256 * 256 * 4).map((_, i) => (i % 4 === 3 ? 255 : i % 4 === 0 ? 200 : 10)));
   const psb = exportPsd(src, { psb: true }).bytes;
   src.free();
   assert.deepEqual([psb[4], psb[5]], [0, 2], 'a PSB header');
-  const e = new Engine(16, 16, 8);
+  const e = new Engine(16, 16, depth);
   const blob = e.blob_add(psb);
   const id = e.place_smart(0, JSON.stringify({
     name: 'Smart', link: { type: 'embedded', id: SO_ID }, source_blob: Number(blob), source_size: [3, 2], transform: [2, 0, 4, 0, 2, 4, 0, 0, 1],
@@ -496,6 +496,26 @@ test('a curves filter channel outside composite/red/green/blue is dropped with a
   const a = filterIn(f, m => warnings.push(m))!;
   assert.deepEqual(a.params, { mode: 'point', composite: [[0, 10], [255, 255]], red: null, green: null, blue: null });
   assert.deepEqual(warnings, ['curves smart filter channels other than composite, red, green and blue were not imported']);
+});
+
+test('16-bit and 32-bit smart filter stack masks save in PSD at the document depth and reopen', () => {
+  for (const depth of [16, 32] as const) {
+    const { e, id } = psbSmartDoc(depth);
+    e.add_smart_filter(id, JSON.stringify({ kind: 'brightness_contrast', params: { brightness: 20, contrast: 0, legacy: false } }));
+    e.add_filter_mask(id, 0, true);
+    e.set_filter_mask_tile8(id, 0, 0, 0, new Uint8Array(256 * 256).map((_, i) => (i % 256 < 7 ? 255 : i % 256 < 12 ? 128 : 0)));
+    const { bytes, warnings } = exportPsd(e);
+    assert.deepEqual(warnings, [], `${depth}-bit`);
+    const fx = readPsd(bytes.slice(), { skipLayerImageData: true, skipCompositeImageData: true, skipThumbnail: true }).filterEffectsMasks!;
+    assert.deepEqual([fx.length, fx[0].depth, fx[0].channels.at(-2)!.data.length], [1, depth, 16 * 16 * (depth === 16 ? 2 : 4)]);
+    const { engine: again, warnings: back } = importPsd(bytes);
+    assert.deepEqual(back, [], `${depth}-bit reopen`);
+    const tile = (x: Engine) => x.tile_bytes(BigInt((m3Of(x).layers[0].smart.stack_mask.tiles as number[][])[0][2]));
+    // Canvas pixels only (16 x 16, 2 bytes each): outside the canvas the importer keeps the mask default.
+    const [got, want] = [tile(again), tile(e)], at = got.findIndex((v, i) => (i >> 1) % 256 < 16 && i >> 9 < 16 && v !== want[i]);
+    assert.deepEqual([got.length, at, got[at], want[at]], [want.length, -1, undefined, undefined], `${depth}-bit stack mask values`);
+    e.free(); again.free();
+  }
 });
 
 test('a smart object stack mask with tiles outside the canvas warns on PSD export', () => {

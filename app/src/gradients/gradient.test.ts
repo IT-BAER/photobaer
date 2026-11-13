@@ -70,3 +70,13 @@ test('engineStops sends the 32-bit Color Picker Intensity of a stop color, none 
   assert.equal(s[0].intensity, 2);
   assert.equal('intensity' in s[1], false);
 });
+
+test('a Gradient Editor stop keeps its own 32-bit Intensity through normalize, JSON and engineStops', () => {
+  const grad = g({ stops: [{ position: 0, color: [232, 162, 58], midpoint: 0.5, intensity: 1.5 }, { position: 1, color: [1, 2, 3], midpoint: 0.5, intensity: 0 }] });
+  const kept = normalize(JSON.parse(JSON.stringify(grad)));
+  assert.equal(kept.stops[0].intensity, 1.5);
+  assert.equal('intensity' in kept.stops[1], false, 'zero stops are no Intensity');
+  const s = engineStops(kept).stops;
+  assert.deepEqual([s[0].intensity, 'intensity' in s[1]], [1.5, false]);
+  assert.equal(engineStops(reverse(kept)).stops[1].intensity, 1.5);
+});

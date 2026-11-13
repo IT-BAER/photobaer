@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { channelMatrix, channelThumb, COMPOSITE, editChannels, inkGray, paintColor, pickChannel, spotInk, inkThumb, viewState } from './channels.ts';
+import { channelMatrix, channelThumb, COMPOSITE, editChannels, inkGray, paintColor, pickChannel, spotInk, inkThumb, swatchColor, viewState } from './channels.ts';
 
 test('channelMatrix: all channels need no filter, one channel is gray, two keep their color', () => {
   assert.equal(channelMatrix([true, true, true]), null);
@@ -58,6 +58,13 @@ test('painting one targeted color channel uses the paint color\'s gray; several 
   assert.deepEqual(paintColor([10, 200, 30], { rgb: [false, true, false], alpha: [] }), [124, 124, 124]);
   assert.deepEqual(paintColor([255, 0, 0], { rgb: [true, true, false], alpha: [] }), [255, 0, 0]);
   assert.deepEqual(paintColor([255, 0, 0], { rgb: [true, false, false], alpha: [2] }), [255, 0, 0], 'a saved channel paints by its own rules');
+});
+
+test('the swatches show the gray painting uses while one color channel or saved channels are targeted', () => {
+  assert.deepEqual(swatchColor([255, 0, 0], { rgb: [true, false, false], alpha: [] }), [77, 77, 77]);
+  assert.deepEqual(swatchColor([255, 0, 0], editChannels(pickChannel(COMPOSITE, { alpha: 4 }, false))), [77, 77, 77]);
+  assert.deepEqual(swatchColor([255, 0, 0], { rgb: [true, true, false], alpha: [] }), [255, 0, 0]);
+  assert.deepEqual(swatchColor([255, 0, 0], editChannels(COMPOSITE)), [255, 0, 0]);
 });
 
 test('Shift+click targets several channels: color channels toggle, saved channels add and remove', () => {

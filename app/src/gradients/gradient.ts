@@ -1,7 +1,8 @@
 import { hsbToRgb, intensityOf, labToRgb, type Rgb } from '../shell/color.ts';
 
 export type Method = 'perceptual' | 'linear' | 'classic';
-export interface ColorStop { position: number; color: Rgb; midpoint: number }
+// `intensity`: the stop's 32-bit Color Picker Intensity in stops (Gradient Editor of a 32-bit document).
+export interface ColorStop { position: number; color: Rgb; midpoint: number; intensity?: number }
 export interface OpacityStop { position: number; opacity: number; midpoint: number }
 export interface NoiseParams {
   seed: number; roughness: number; colorModel: 'rgb' | 'hsb' | 'lab';
@@ -22,7 +23,9 @@ export const defaultNoise = (): NoiseParams => ({
 
 // Clamps and sorts both rails; 0 color stops -> black at 0 and 1, 1 stop -> duplicated at 1; same for opacity (default 1).
 export function normalize(g: Gradient): Gradient {
-  const stops = g.stops.map(s => ({ position: clamp01(s.position), color: s.color, midpoint: midpoint(s.midpoint) })).sort((a, b) => a.position - b.position);
+  const stops: ColorStop[] = g.stops.map(s => ({
+    position: clamp01(s.position), color: s.color, midpoint: midpoint(s.midpoint), ...(Number.isFinite(s.intensity) && s.intensity ? { intensity: s.intensity } : {}),
+  })).sort((a, b) => a.position - b.position);
   const opacityStops = g.opacityStops.map(s => ({ position: clamp01(s.position), opacity: clamp01(s.opacity), midpoint: midpoint(s.midpoint) })).sort((a, b) => a.position - b.position);
   if (!stops.length) stops.push({ position: 0, color: [0, 0, 0], midpoint: 0.5 });
   if (stops.length === 1) stops.push({ position: 1, color: stops[0].color, midpoint: 0.5 });
@@ -162,7 +165,7 @@ export function engineStops(g: Gradient) {
   const r = resolveStops(g);
   return {
     stops: r.stops.map(s => {
-      const intensity = intensityOf(s.color);
+      const intensity = s.intensity ?? intensityOf(s.color);
       return { position: s.position, rgb: s.color.map(c => Math.round(c)) as Rgb, midpoint: s.midpoint, ...(intensity ? { intensity } : {}) };
     }),
     opacityStops: r.opacityStops.map(s => ({ position: s.position, opacity: s.opacity, midpoint: s.midpoint })),

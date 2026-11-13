@@ -1,6 +1,7 @@
 // What ag-psd's RGB/8-bit writer cannot do, as a pass over its output: Grayscale, 16 and 32 bits per
 // channel (layers in an Lr16/Lr32 block, as Photoshop writes them), and alpha and spot channels in the
 // composite (names in 1006/1045/1053 through ag-psd, display info 1077 here). Also reads those channels.
+import { deflate } from 'pako';
 import { concat, psdResources, psdWithResource, view } from '../app/iccFiles.ts';
 import { hsbToRgb, labToRgb } from '../shell/color.ts';
 
@@ -126,6 +127,32 @@ function packRows(plane: Uint8Array, w: number, h: number): { counts: number[]; 
     data.push(out.slice(0, o));
   }
   return { counts, data };
+}
+
+/** One `w` x `h` channel of big-endian samples as ZIP with prediction (compression 3), as Photoshop writes
+ * 16/32-bit layer channels: per row, 16-bit samples as differences to the sample on their left; 32-bit rows
+ * split into byte planes (all high bytes first), then each byte as the difference to the byte before it. */
+export function zipPredicted(plane: Uint8Array, w: number, h: number, depth: 16 | 32): Uint8Array {
+  const out = new Uint8Array(w * h * bytesOf(depth));
+  for (let y = 0; y < h; y++) {
+    if (depth === 16) {
+      for (let x = 0, prev = 0, o = y * w * 2; x < w; x++, o += 2) {
+        const s = (plane[o] << 8) | plane[o + 1], d = (s - prev) & 0xffff;
+        out[o] = d >> 8;
+        out[o + 1] = d & 0xff;
+        prev = s;
+      }
+    } else {
+      const row = y * w * 4;
+      let prev = 0;
+      for (let k = 0; k < 4; k++) for (let x = 0; x < w; x++) {
+        const s = plane[row + x * 4 + k];
+        out[row + k * w + x] = (s - prev) & 0xff;
+        prev = s;
+      }
+    }
+  }
+  return deflate(out);
 }
 
 /** The composite image data section: RLE at 8 bits, raw at 16 and 32 (as Photoshop writes them). */

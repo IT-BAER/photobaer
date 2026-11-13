@@ -286,13 +286,19 @@ export function ColorInput({ value, label, onCommit }: { value: [number, number,
   return <input ref={ref} type="color" aria-label={label} defaultValue={rgbToHex(value)} />;
 }
 
-// A number field that commits once on blur or Enter.
+// A number field that commits once on blur or Enter; in a dialog form, Enter then presses its OK button.
 export function Num({ label, value, min, max, step, onCommit }: { label: string; value: number; min: number; max: number; step?: number; onCommit: (v: number) => void }) {
   return (
     <label>{label} <NumberInput
       key={`${label}-${value}`} min={min} max={max} step={step} value={value} onValue={() => {}} aria-label={label}
       onBlur={e => { const v = parseNumber(e.currentTarget.value) ?? NaN; if (Number.isFinite(v) && v !== value) onCommit(Math.min(max, Math.max(min, v))); }}
-      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+      onKeyDown={e => {
+        if (e.key !== 'Enter') return;
+        const input = e.currentTarget, form = input.form, ok = form?.querySelector<HTMLButtonElement>('button[type=submit]');
+        e.preventDefault();
+        input.blur();
+        if (form && ok && !ok.disabled) form.requestSubmit(ok);
+      }}
     /></label>
   );
 }

@@ -4,7 +4,8 @@ import { svgAtSize, svgSize } from './rasterSize.ts';
 type Kind = 'psd' | 'image';
 type SaveFormat = 'psd' | 'psb' | 'exr' | 'hdr' | 'ico';
 // The file a tab was opened from or saved as; `warned`: the open reported content the PSD writer cannot store.
-interface Origin { handle: FileSystemFileHandle; kind: Kind; warned: boolean }
+// `raster`: the pixel size and resolution an SVG was rasterized at, which Revert keeps.
+interface Origin { handle: FileSystemFileHandle; kind: Kind; warned: boolean; raster?: { size: [number, number]; ppi: number } }
 interface Recent { name: string; kind: Kind; handle: FileSystemFileHandle; time: number }
 type Mode = { mode: 'read' | 'readwrite' };
 type PermHandle = FileSystemFileHandle & { queryPermission?(m: Mode): Promise<PermissionState>; requestPermission?(m: Mode): Promise<PermissionState> };

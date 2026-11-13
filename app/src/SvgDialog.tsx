@@ -7,8 +7,10 @@ import { rasterSvg } from './app/files.ts';
 import { formatNumber } from './i18n/numbers.ts';
 import { Num } from './PropertiesPanel.tsx';
 
+// `size`: the pixel size `file` was rasterized at.
+type Rasterized = { file: File; ppi: number; size: [number, number] };
 export interface SvgDialogHandle {
-  ask(file: File): Promise<{ file: File; ppi: number } | null>;
+  ask(file: File): Promise<Rasterized | null>;
 }
 
 // Width, Height (px), Resolution (ppi) and Constrain Proportions over a base size at 72 ppi.
@@ -24,7 +26,7 @@ export function RasterFields({ base, size, set }: { base: [number, number]; size
 
 export function SvgDialog({ ref, setError }: { ref: Ref<SvgDialogHandle>; setError: (msg: string) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const answer = useRef<((a: { file: File; ppi: number } | null) => void) | null>(null);
+  const answer = useRef<((a: Rasterized | null) => void) | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [base, setBase] = useState<[number, number]>([300, 150]);
   const [size, setSize] = useState(rasterSize(72));
@@ -43,7 +45,7 @@ export function SvgDialog({ ref, setError }: { ref: Ref<SvgDialogHandle>; setErr
     },
   }));
 
-  function close(a: { file: File; ppi: number } | null) {
+  function close(a: Rasterized | null) {
     const r = answer.current;
     answer.current = null;
     dialog.current?.close();
@@ -54,8 +56,8 @@ export function SvgDialog({ ref, setError }: { ref: Ref<SvgDialogHandle>; setErr
     if (!file) return;
     setBusy(true);
     try {
-      const s = latest.current;
-      close({ file: await rasterSvg(file, pixels(s, base)), ppi: s.ppi });
+      const s = latest.current, size = pixels(s, base);
+      close({ file: await rasterSvg(file, size), ppi: s.ppi, size });
     } catch (e) {
       setBusy(false);
       setError((e as Error).message);
