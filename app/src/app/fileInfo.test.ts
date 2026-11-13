@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { crc32, deflateSync } from 'node:zlib';
-import { embedInfo, parseXmp, readInfo, xmpPacket, type FileInfo } from './fileInfo.ts';
+import { applyTemplate, embedInfo, parseXmp, rawXmpInfo, readInfo, xmpPacket, type FileInfo } from './fileInfo.ts';
 
 const INFO: FileInfo = {
   title: 'Sunset & <Sea>', author: 'Ann "B" Muster', description: 'Line 1\nLine 2', keywords: ['beach', 'evening sky'],
@@ -40,6 +40,21 @@ test('XMP packet round-trips every field, escaped', () => {
   assert.deepEqual(parseXmp(x), INFO);
 });
 
+test('XMP round-trips IPTC fields (text, bag, alternative, contact struct) and Camera Data; namespaces only when used', () => {
+  const i: FileInfo = {
+    ...INFO,
+    extra: { 'Iptc4xmpCore:CiAdrCity': 'Graz', 'Iptc4xmpCore:CiEmailWork': 'a@b.example', 'Iptc4xmpCore:SubjectCode': '04000000; 11000000', 'photoshop:Headline': 'Hi & <you>', 'xmpRights:UsageTerms': 'No reuse' },
+    camera: { DateTimeOriginal: '2026:01:02 10:11:12', FNumber: '28/10', GPSLatitude: '48,8.5N', ISOSpeedRatings: '400', Make: 'Canon' },
+  };
+  const x = xmpPacket(i);
+  assert.match(x, /<Iptc4xmpCore:CreatorContactInfo rdf:parseType="Resource">\s*<Iptc4xmpCore:CiAdrCity>Graz</);
+  assert.match(x, /<exif:DateTimeOriginal>2026-01-02T10:11:12<\/exif:DateTimeOriginal>/);
+  assert.match(x, /<exif:ISOSpeedRatings><rdf:Seq><rdf:li>400<\/rdf:li><\/rdf:Seq>/);
+  assert.match(x, /xmlns:tiff=/);
+  assert.deepEqual(parseXmp(x), i);
+  assert.doesNotMatch(xmpPacket(INFO), /xmlns:(photoshop|tiff|exif|Iptc4xmpCore)=/);
+});
+
 test('XMP written by other tools: attribute form, language alternatives, several creators', () => {
   const x = `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
     <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xmpRights="http://ns.adobe.com/xap/1.0/rights/"
@@ -50,6 +65,40 @@ test('XMP written by other tools: attribute form, language alternatives, several
     </rdf:Description></rdf:RDF></x:xmpmeta>`;
   assert.deepEqual(parseXmp(x), { title: 'Title & co', author: 'Ann; Bob', description: '', keywords: [], copyright: '', copyright_url: 'https://a.example/A' });
   assert.equal(parseXmp('<x:xmpmeta/>'), null, 'no fields');
+});
+
+test('Templates: clear and replace, replace matching, append matching; Camera Data always kept from the document', () => {
+  const cur: FileInfo = {
+    ...INFO, keywords: ['beach'], extra: { 'photoshop:City': 'Graz', 'Iptc4xmpCore:Scene': '011100' }, camera: { Make: 'Canon' },
+  };
+  const tpl: FileInfo = {
+    title: '', author: 'Studio B', description: '', keywords: ['beach', 'travel'], copyright: '© Studio B', copyright_url: '',
+    extra: { 'photoshop:Credit': 'Studio B', 'photoshop:City': 'Wien', 'Iptc4xmpCore:Scene': '011100; 011200' }, camera: { Make: 'Nikon' },
+  };
+  assert.deepEqual(applyTemplate(cur, tpl, 'clear'), {
+    title: '', author: 'Studio B', description: '', keywords: ['beach', 'travel'], copyright: '© Studio B', copyright_url: '',
+    extra: { 'Iptc4xmpCore:Scene': '011100; 011200', 'photoshop:City': 'Wien', 'photoshop:Credit': 'Studio B' }, camera: { Make: 'Canon' },
+  });
+  assert.deepEqual(applyTemplate(cur, tpl, 'replace'), {
+    ...cur, author: 'Studio B', keywords: ['beach', 'travel'], copyright: '© Studio B',
+    extra: { 'Iptc4xmpCore:Scene': '011100; 011200', 'photoshop:City': 'Wien', 'photoshop:Credit': 'Studio B' },
+  });
+  // Append keeps every filled single value and adds the template's new list items.
+  assert.deepEqual(applyTemplate(cur, tpl, 'append'), {
+    ...cur, keywords: ['beach', 'travel'],
+    extra: { 'Iptc4xmpCore:Scene': '011100; 011200', 'photoshop:City': 'Graz', 'photoshop:Credit': 'Studio B' },
+  });
+});
+
+test('Raw XMP: an edited packet is read back, Camera Data outside XMP is kept, malformed XML is refused', () => {
+  const cur: FileInfo = { ...INFO, camera: { Make: 'Canon', Flash: '16' } };
+  const edited = xmpPacket(cur).replace('Sunset &amp; &lt;Sea&gt;', 'Dawn').replace(/\s*<tiff:Make>Canon<\/tiff:Make>/, '');
+  assert.deepEqual(rawXmpInfo(edited, cur), { ...INFO, title: 'Dawn', camera: { Flash: '16' } });
+  assert.deepEqual(rawXmpInfo('', cur), { ...INFO, title: '', author: '', description: '', keywords: [], copyright: '', copyright_url: '', camera: { Flash: '16' } }, 'an empty packet clears the fields');
+  assert.equal(rawXmpInfo(edited.replace('</dc:title>', ''), cur), null, 'unbalanced tags');
+  assert.equal(rawXmpInfo('<rdf:RDF><a></b></rdf:RDF>', cur), null, 'mismatched tags');
+  assert.equal(rawXmpInfo('just text', cur), null, 'no RDF');
+  assert.equal(rawXmpInfo('<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="r"/></x:xmpmeta>', cur)?.title, '', 'an empty RDF is valid');
 });
 
 test('PNG: iTXt XML:com.adobe.xmp after IHDR, replaced on a second embed, read back', () => {

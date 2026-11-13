@@ -108,6 +108,7 @@ export const ERROR_LABELS: Record<string, MessageDescriptor> = {
   'This type layer has no outline.': msg`This type layer has no outline.`,
   'Unlock the group before converting it to an artboard.': msg`Unlock the group before converting it to an artboard.`,
   'Variables are limited to 1000 bindings and 10000 data sets': msg`Variables are limited to 1000 bindings and 10000 data sets`,
+  'At most 1000 replacement images can be loaded.': msg`At most 1000 replacement images can be loaded.`,
 };
 
 // Messages with a variable part: the pattern captures it, the message takes it by name.

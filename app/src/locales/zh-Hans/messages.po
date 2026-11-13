@@ -358,6 +358,10 @@ msgstr "180 度"
 msgid "2-up"
 msgstr "双联"
 
+#: app/src/ExportDialogs.tsx
+msgid "2-Up"
+msgstr "2-Up"
+
 #: app/src/i18n/choices.ts
 msgid "2:3"
 msgstr "2:3"
@@ -397,6 +401,10 @@ msgstr "32 位预览选项…"
 #: app/src/app/menus.ts
 msgid "4-up"
 msgstr "四联"
+
+#: app/src/ExportDialogs.tsx
+msgid "4-Up"
+msgstr "4-Up"
 
 #: app/src/i18n/choices.ts
 msgid "4:5"
@@ -494,6 +502,10 @@ msgstr "动作 {next}"
 msgid "Action name"
 msgstr "动作名称"
 
+#: app/src/app/cameraData.ts
+msgid "Action program"
+msgstr "动作程序"
+
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -576,6 +588,10 @@ msgstr "添加到选区"
 #: app/src/shell/GradientEditor.tsx
 msgid "Add transparency"
 msgstr "添加透明度"
+
+#: app/src/FileDialogs.tsx
+msgid "Address"
+msgstr "地址"
 
 #: app/src/app/toolPresets.ts
 #: app/src/shell/BrushPanels.tsx
@@ -670,6 +686,7 @@ msgstr "正在对齐…"
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 #: app/src/TypePanels.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Alignment"
 msgstr "对齐"
 
@@ -742,6 +759,7 @@ msgstr "按住 Alt 键拖动手柄以将其拆分。"
 msgid "Alternates for {altName}"
 msgstr "{altName} 的替代字"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Altitude"
@@ -873,12 +891,17 @@ msgstr "消除锯齿"
 msgid "Anti-aliased"
 msgstr "消除锯齿"
 
+#: app/src/app/cameraData.ts
+msgid "Aperture priority"
+msgstr "光圈优先"
+
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Appearance"
 msgstr "外观"
 
 #: app/src/App.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/TransformBar.tsx
@@ -1084,6 +1107,10 @@ msgstr "画板至 PDF…"
 msgid "Artistic"
 msgstr "艺术效果"
 
+#: app/src/VariablesDialogs.tsx
+msgid "As Is"
+msgstr "保持原样"
+
 #: app/src/ExportDialogs.tsx
 msgid "Ask where to export each time"
 msgstr "每次导出时询问导出位置"
@@ -1105,6 +1132,10 @@ msgstr "指定配置文件…"
 msgid "Assign working {askSpace}: {askWorking}"
 msgstr "指定工作{askSpace}：{askWorking}"
 
+#: app/src/i18n/errors.ts
+msgid "At most 1000 replacement images can be loaded."
+msgstr "最多只能加载 1000 张替换图像。"
+
 #: app/src/ScriptDialogs.tsx
 msgid "Attempt to Automatically Align Source Images"
 msgstr "尝试自动对齐源图像"
@@ -1114,6 +1145,11 @@ msgstr "尝试自动对齐源图像"
 msgid "Author"
 msgstr "作者"
 
+#: app/src/FileDialogs.tsx
+msgid "Author Title"
+msgstr "作者职称"
+
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/LevelsCurvesBody.tsx
@@ -1124,6 +1160,10 @@ msgstr "自动"
 #: app/src/shell/tools.ts
 msgid "Auto Add/Delete"
 msgstr "自动添加/删除"
+
+#: app/src/app/cameraData.ts
+msgid "Auto bracket"
+msgstr "自动包围曝光"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
@@ -1194,6 +1234,7 @@ msgid "Automate"
 msgstr "自动"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Automatic"
 msgstr "自动"
 
@@ -1225,6 +1266,7 @@ msgstr "自动存储已开启"
 msgid "Autosave unavailable in this browser"
 msgstr "此浏览器不支持自动存储"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/labels.ts
 msgid "Average"
 msgstr "平均"
@@ -1306,6 +1348,7 @@ msgstr "基线"
 msgid "Baseline Shift"
 msgstr "基线偏移"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "Basic"
 msgstr "基本"
@@ -1362,18 +1405,22 @@ msgid "Bevel & Emboss"
 msgstr "斜面和浮雕"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic"
 msgstr "两次立方"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic Sharper"
 msgstr "两次立方（较锐利）"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic Smoother"
 msgstr "两次立方（较平滑）"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bilinear"
 msgstr "两次线性"
 
@@ -1419,6 +1466,7 @@ msgstr "位图…"
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
 #: app/src/ChannelsPanel.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
@@ -1704,6 +1752,10 @@ msgstr "两轴"
 msgid "Bottom"
 msgstr "底"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Bottom Center"
+msgstr "底部居中"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 msgid "Bottom Edges"
@@ -1714,6 +1766,7 @@ msgid "Bottom left"
 msgstr "左下"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Bottom Left"
 msgstr "左下"
 
@@ -1722,6 +1775,7 @@ msgid "Bottom right"
 msgstr "右下"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Bottom Right"
 msgstr "右下"
 
@@ -1940,6 +1994,10 @@ msgstr "计算需要单个通道，而不是 RGB"
 msgid "Calculations…"
 msgstr "计算…"
 
+#: app/src/FileDialogs.tsx
+msgid "Camera Data"
+msgstr "相机数据"
+
 #: app/src/filters/labels.ts
 msgid "Camera Raw Filter"
 msgstr "Camera Raw 滤镜"
@@ -2006,7 +2064,12 @@ msgstr "画布"
 msgid "Canvas extension color"
 msgstr "画布扩展颜色"
 
+#: app/src/ExportDialogs.tsx
+msgid "Canvas height"
+msgstr "画布高度"
+
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Canvas Size"
 msgstr "画布大小"
@@ -2014,6 +2077,10 @@ msgstr "画布大小"
 #: app/src/app/menus.ts
 msgid "Canvas Size…"
 msgstr "画布大小…"
+
+#: app/src/ExportDialogs.tsx
+msgid "Canvas width"
+msgstr "画布宽度"
 
 #: app/src/app/Dialogs.tsx
 msgid "Caps Lock switches between the brush tip and the crosshair, and between the tool icon and the crosshair."
@@ -2033,6 +2100,7 @@ msgstr "单元格大小"
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Center"
 msgstr "中心"
 
@@ -2041,9 +2109,21 @@ msgctxt "text alignment"
 msgid "Center"
 msgstr "居中"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Center Left"
+msgstr "左侧居中"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Center Right"
+msgstr "右侧居中"
+
 #: app/src/FileDialogs.tsx
 msgid "Center the image on the page"
 msgstr "在页面上居中图像"
+
+#: app/src/app/cameraData.ts
+msgid "Center-weighted average"
+msgstr "中央重点平均测光"
 
 #: app/src/filters/labels.ts
 msgid "Centered Blur"
@@ -2169,6 +2249,10 @@ msgstr "请选择 .psd、.psb、.exr、.hdr 或 .ico 文件名，而不是 {name
 msgid "Choose a pattern first."
 msgstr "请先选择图案。"
 
+#: app/src/FileDialogs.tsx
+msgid "Choose a template"
+msgstr "选择模板"
+
 #: app/src/i18n/errors.ts
 msgid "Choose at least one file."
 msgstr "请至少选择一个文件。"
@@ -2186,6 +2270,10 @@ msgstr "铬黄渐变"
 #: app/src/filters/GalleryStack.tsx
 msgid "Circle"
 msgstr "圆形"
+
+#: app/src/FileDialogs.tsx
+msgid "City"
+msgstr "城市"
 
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
@@ -2241,6 +2329,10 @@ msgstr "清除计数"
 msgid "Clear existing guides"
 msgstr "清除现有参考线"
 
+#: app/src/FileDialogs.tsx
+msgid "Clear existing properties and replace with template properties"
+msgstr "清除现有属性并替换为模板属性"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Clear Guides"
@@ -2285,6 +2377,10 @@ msgstr "使用注释工具单击以添加注释。"
 #: app/src/ShapesPanel.tsx
 msgid "Clicking a shape arms the Custom Shape tool."
 msgstr "单击形状可准备好自定形状工具。"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Clip to Bounding Box"
+msgstr "剪切到定界框"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
@@ -2368,6 +2464,10 @@ msgstr "正在关闭内容…"
 #: app/src/filters/labels.ts
 msgid "Clouds"
 msgstr "云彩"
+
+#: app/src/app/cameraData.ts
+msgid "Cloudy"
+msgstr "阴天"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Clumped"
@@ -2562,6 +2662,10 @@ msgstr "颜色设置…"
 msgid "Color sliders"
 msgstr "颜色滑块"
 
+#: app/src/app/cameraData.ts
+msgid "Color Space"
+msgstr "色彩空间"
+
 #: app/src/shell/GradientEditor.tsx
 msgid "Color stop at {position}%"
 msgstr "位于 {position}% 的颜色色标"
@@ -2660,6 +2764,10 @@ msgstr "锥形"
 #: app/src/layerStyle.ts
 msgid "Cone - Inverted"
 msgstr "锥形 - 反转"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Conform"
+msgstr "符合"
 
 #: app/src/app/menus.ts
 msgid "Consolidate All to Tabs"
@@ -2913,6 +3021,10 @@ msgstr "拷贝形状属性"
 msgid "Copy SVG"
 msgstr "拷贝 SVG"
 
+#: app/src/ScriptDialogs.tsx
+msgid "Copyright Info"
+msgstr "版权信息"
+
 #: app/src/FileDialogs.tsx
 msgid "Copyright Info URL"
 msgstr "版权信息 URL"
@@ -2920,6 +3032,14 @@ msgstr "版权信息 URL"
 #: app/src/FileDialogs.tsx
 msgid "Copyright Notice"
 msgstr "版权公告"
+
+#: app/src/FileDialogs.tsx
+msgid "Copyright Status"
+msgstr "版权状态"
+
+#: app/src/FileDialogs.tsx
+msgid "Copyrighted"
+msgstr "有版权"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Corner radius"
@@ -3027,6 +3147,10 @@ msgstr "计数工具"
 msgid "Count: {markCount}"
 msgstr "计数：{markCount}"
 
+#: app/src/FileDialogs.tsx
+msgid "Country"
+msgstr "国家/地区"
+
 #: app/src/layerStyle.ts
 msgid "Cove - Deep"
 msgstr "凹槽 - 深"
@@ -3105,6 +3229,22 @@ msgstr "正在创建图层…"
 #: app/src/App.tsx
 msgid "Creating…"
 msgstr "正在创建…"
+
+#: app/src/app/cameraData.ts
+msgid "Creative program"
+msgstr "创意程序"
+
+#: app/src/FileDialogs.tsx
+msgid "Creator"
+msgstr "创建者"
+
+#: app/src/FileDialogs.tsx
+msgid "Creator's Job Title"
+msgstr "创建者职务"
+
+#: app/src/FileDialogs.tsx
+msgid "Credit Line"
+msgstr "署名行"
 
 #: app/src/shell/typecommands.ts
 #: app/src/TypePanels.tsx
@@ -3241,6 +3381,7 @@ msgid "Curves"
 msgstr "曲线"
 
 #: app/src/ColorDialog.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/FileDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/levelsCurves.ts
@@ -3411,6 +3552,18 @@ msgstr "数据组…"
 msgid "Date and Time"
 msgstr "日期和时间"
 
+#: app/src/FileDialogs.tsx
+msgid "Date Created"
+msgstr "创建日期"
+
+#: app/src/app/cameraData.ts
+msgid "Date Time Original"
+msgstr "原始日期时间"
+
+#: app/src/app/cameraData.ts
+msgid "Daylight"
+msgstr "日光"
+
 #: app/src/filters/labels.ts
 msgid "De-Interlace"
 msgstr "逐行"
@@ -3477,6 +3630,7 @@ msgstr "去边…"
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/RenderEditors.tsx
 #: app/src/NotesPanels.tsx
@@ -3664,6 +3818,10 @@ msgstr "显示器颜色去饱和度："
 msgid "Description"
 msgstr "说明"
 
+#: app/src/FileDialogs.tsx
+msgid "Description Writer"
+msgstr "说明撰写者"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Deselect"
@@ -3718,6 +3876,10 @@ msgstr "直径"
 #: app/src/ModeDialog.tsx
 msgid "Diamond"
 msgstr "菱形"
+
+#: app/src/app/cameraData.ts
+msgid "Did not fire"
+msgstr "闪光灯未闪光"
 
 #: app/src/i18n/choices.ts
 msgid "Difference"
@@ -4169,6 +4331,10 @@ msgstr "椭圆"
 msgid "Elliptical Marquee"
 msgstr "椭圆选框"
 
+#: app/src/FileDialogs.tsx
+msgid "Email(s)"
+msgstr "电子邮件"
+
 #: app/src/ExportDialogs.tsx
 msgid "Embed File Info: copyright and contact (PNG and JPEG)"
 msgstr "嵌入文件简介：版权和联系方式（PNG 和 JPEG）"
@@ -4433,6 +4599,10 @@ msgstr "导出首选项"
 msgid "Export Preferences…"
 msgstr "导出首选项…"
 
+#: app/src/FileDialogs.tsx
+msgid "Export..."
+msgstr "导出…"
+
 #: app/src/NotesPanels.tsx
 msgid "Export…"
 msgstr "导出…"
@@ -4458,6 +4628,22 @@ msgstr "曝光度"
 #: app/src/ColorDialog.tsx
 msgid "Exposure and Gamma"
 msgstr "曝光度和灰度系数"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Bias Value"
+msgstr "曝光偏差值"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Mode"
+msgstr "曝光模式"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Program"
+msgstr "曝光程序"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Time"
+msgstr "曝光时间"
 
 #: app/src/ColorDialog.tsx
 msgid "Exposure value"
@@ -4486,6 +4672,10 @@ msgstr "凸出"
 #: app/src/shell/tools.ts
 msgid "Eyedropper"
 msgstr "吸管"
+
+#: app/src/app/cameraData.ts
+msgid "F-Stop"
+msgstr "光圈值"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Face Tool (Face-Aware Liquify comes with M7)"
@@ -4600,6 +4790,10 @@ msgstr "文件"
 #: app/src/BatchDialog.tsx
 msgid "Files from the Files source close after they are saved; open documents stay open."
 msgstr "来自“文件”源的文件在存储后关闭；已打开的文档保持打开。"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Fill"
+msgstr "填充"
 
 #: app/src/app/Dialogs.tsx
 msgctxt "command"
@@ -4748,6 +4942,10 @@ msgstr "精细"
 msgid "Fine Dots"
 msgstr "精细点"
 
+#: app/src/app/cameraData.ts
+msgid "Fine weather"
+msgstr "晴天"
+
 #: app/src/shell/tools.ts
 msgid "Finger Painting"
 msgstr "手指绘画"
@@ -4755,6 +4953,10 @@ msgstr "手指绘画"
 #: app/src/i18n/errors.ts
 msgid "Finish the current edit before purging the history."
 msgstr "请先完成当前编辑，再清理历史记录。"
+
+#: app/src/app/cameraData.ts
+msgid "Fired"
+msgstr "闪光灯已闪光"
 
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
@@ -4768,6 +4970,7 @@ msgid "Fisheye"
 msgstr "鱼眼"
 
 #: app/src/filters/LiquifyDialog.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Fit"
 msgstr "适合"
 
@@ -4840,6 +5043,10 @@ msgstr "火焰类型"
 msgid "Flare Center"
 msgstr "光晕中心"
 
+#: app/src/app/cameraData.ts
+msgid "Flash"
+msgstr "闪光灯"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Flatten All Layer Effects"
@@ -4870,15 +5077,25 @@ msgid "Flip Canvas Vertical"
 msgstr "垂直翻转画布"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Flip Horizontal"
 msgstr "水平翻转"
+
+#: app/src/app/cameraData.ts
+msgid "Flip Horizontal, Rotate 90° CCW"
+msgstr "水平翻转，逆时针旋转 90°"
+
+#: app/src/app/cameraData.ts
+msgid "Flip Horizontal, Rotate 90° CW"
+msgstr "水平翻转，顺时针旋转 90°"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Flip horizontally"
 msgstr "水平翻转"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Flip Vertical"
 msgstr "垂直翻转"
@@ -4919,9 +5136,18 @@ msgstr "使所有内容在窗口中浮动"
 msgid "Flow"
 msgstr "流量"
 
+#: app/src/app/cameraData.ts
+msgid "Fluorescent"
+msgstr "荧光灯"
+
+#: app/src/app/cameraData.ts
 #: app/src/filters/labels.ts
 msgid "Focal Length"
 msgstr "焦距"
+
+#: app/src/app/cameraData.ts
+msgid "Focal Length in 35mm Film"
+msgstr "35 毫米胶片等效焦距"
 
 #: app/src/filters/labels.ts
 msgid "Focus"
@@ -5477,6 +5703,7 @@ msgstr "扩大选取"
 msgid "Guides"
 msgstr "参考线"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/ScriptDialogs.tsx
 #: app/src/shell/tools.ts
@@ -5544,6 +5771,10 @@ msgstr "HDR 色调"
 #: app/src/app/menus.ts
 msgid "HDR Toning…"
 msgstr "HDR 色调…"
+
+#: app/src/FileDialogs.tsx
+msgid "Headline"
+msgstr "标题"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -5653,6 +5884,7 @@ msgstr "隐藏选区"
 msgid "Hide selection edges"
 msgstr "隐藏选区边缘"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "High"
 msgstr "高"
@@ -5896,6 +6128,10 @@ msgstr "图像平衡"
 msgid "Image editing in your browser"
 msgstr "在浏览器中编辑图像"
 
+#: app/src/ExportDialogs.tsx
+msgid "Image height"
+msgstr "图像高度"
+
 #: app/src/App.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "Image Processor"
@@ -5909,7 +6145,12 @@ msgstr "图像处理器…"
 msgid "Image Rotation"
 msgstr "图像旋转"
 
+#: app/src/ExportDialogs.tsx
+msgid "Image scale"
+msgstr "图像比例"
+
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Image Size"
 msgstr "图像大小"
@@ -5921,6 +6162,10 @@ msgstr "图像大小：{sizeText}"
 #: app/src/app/menus.ts
 msgid "Image Size…"
 msgstr "图像大小…"
+
+#: app/src/ExportDialogs.tsx
+msgid "Image width"
+msgstr "图像宽度"
 
 #: app/src/app/helpers.ts
 #: app/src/PdfDialog.tsx
@@ -5948,6 +6193,10 @@ msgstr "导入数据组"
 msgid "Import JSON…"
 msgstr "导入 JSON…"
 
+#: app/src/FileDialogs.tsx
+msgid "Import metadata template"
+msgstr "导入元数据模板"
+
 #: app/src/PdfDialog.tsx
 msgid "Import PDF"
 msgstr "导入 PDF"
@@ -5960,6 +6209,10 @@ msgstr "导入色板"
 msgid "Import warnings ({warningCount})"
 msgstr "导入警告（{warningCount}）"
 
+#: app/src/FileDialogs.tsx
+msgid "Import..."
+msgstr "导入…"
+
 #: app/src/VariablesDialogs.tsx
 msgid "Import…"
 msgstr "导入…"
@@ -5969,8 +6222,8 @@ msgid "Impressionist"
 msgstr "印象派"
 
 #: app/src/ScriptDialogs.tsx
-msgid "In a folder each type goes into a subfolder named JPEG, PSD or PNG."
-msgstr "在文件夹中，每种类型存入名为 JPEG、PSD 或 PNG 的子文件夹。"
+msgid "In a folder each type goes into a subfolder named JPEG, PSD, TIFF or PNG."
+msgstr "在文件夹中，每种类型会存入名为 JPEG、PSD、TIFF 或 PNG 的子文件夹。"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "In Front"
@@ -5983,6 +6236,10 @@ msgstr "非活动文档预览"
 #: app/src/ToolPresetsPanel.tsx
 msgid "Include Colors"
 msgstr "包含颜色"
+
+#: app/src/ScriptDialogs.tsx
+msgid "Include ICC Profile"
+msgstr "包含 ICC 配置文件"
 
 #: app/src/ExportDialogs.tsx
 msgid "Include layers inside groups"
@@ -6129,6 +6386,14 @@ msgstr "插入停止"
 msgid "Inside"
 msgstr "内部"
 
+#: app/src/FileDialogs.tsx
+msgid "Instructions"
+msgstr "说明"
+
+#: app/src/FileDialogs.tsx
+msgid "Intellectual Genre"
+msgstr "内容类型"
+
 #: app/src/filters/labels.ts
 #: app/src/filters/RenderEditors.tsx
 #: app/src/shell/ColorPicker.tsx
@@ -6230,9 +6495,41 @@ msgstr "正在反相…"
 msgid "IPA Extensions"
 msgstr "国际音标扩展"
 
+#: app/src/FileDialogs.tsx
+msgid "IPTC Contact"
+msgstr "IPTC 联系人"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Content"
+msgstr "IPTC 内容"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Image"
+msgstr "IPTC 图像"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Scene Code"
+msgstr "IPTC 场景代码"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Status"
+msgstr "IPTC 状态"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Subject Code"
+msgstr "IPTC 主题代码"
+
 #: app/src/filters/labels.ts
 msgid "Iris Blur"
 msgstr "光圈模糊"
+
+#: app/src/FileDialogs.tsx
+msgid "ISO Country Code"
+msgstr "ISO 国家/地区代码"
+
+#: app/src/app/cameraData.ts
+msgid "ISO Speed Ratings"
+msgstr "ISO 感光度"
 
 #: app/src/app/menus.ts
 msgid "Isolate Layers"
@@ -6253,6 +6550,10 @@ msgstr "锯齿"
 #: app/src/LayerStyleDialog.tsx
 msgid "Jitter"
 msgstr "抖动"
+
+#: app/src/FileDialogs.tsx
+msgid "Job Identifier"
+msgstr "作业标识符"
 
 #: app/src/ScriptDialogs.tsx
 msgid "JPEG quality"
@@ -6281,6 +6582,14 @@ msgstr "最后一行左对齐"
 #: app/src/TypePanels.tsx
 msgid "Justify Last Right"
 msgstr "最后一行右对齐"
+
+#: app/src/FileDialogs.tsx
+msgid "Keep original metadata but replace matching properties from template"
+msgstr "保留原始元数据，但用模板中的匹配属性替换"
+
+#: app/src/FileDialogs.tsx
+msgid "Keep original metadata, but append matching properties from template"
+msgstr "保留原始元数据，并追加模板中的匹配属性"
 
 #: app/src/shell/TransformBar.tsx
 msgid "Keep width and height proportional"
@@ -6331,12 +6640,17 @@ msgid "Label Size"
 msgstr "标签大小"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Lanczos 3"
 msgstr "Lanczos 3"
 
 #: app/src/FileDialogs.tsx
 msgid "Landscape"
 msgstr "横向"
+
+#: app/src/app/cameraData.ts
+msgid "Landscape mode"
+msgstr "风景模式"
 
 #: app/src/app/typeMenu.ts
 msgid "Language Options"
@@ -6367,6 +6681,10 @@ msgstr "拉丁文扩展-B"
 #: app/src/GlyphsPanel.tsx
 msgid "Latin-1 Supplement"
 msgstr "拉丁文-1 补充"
+
+#: app/src/app/cameraData.ts
+msgid "Latitude"
+msgstr "纬度"
 
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -6550,6 +6868,10 @@ msgstr "长度"
 msgid "Length:"
 msgstr "长度："
 
+#: app/src/app/cameraData.ts
+msgid "Lens"
+msgstr "镜头"
+
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/labels.ts
 msgid "Lens Blur"
@@ -6566,6 +6888,10 @@ msgstr "镜头校正…"
 #: app/src/filters/labels.ts
 msgid "Lens Flare"
 msgstr "镜头光晕"
+
+#: app/src/app/cameraData.ts
+msgid "Lens Make"
+msgstr "镜头制造商"
 
 #: app/src/filters/labels.ts
 msgid "Lens Type"
@@ -6647,6 +6973,10 @@ msgstr "最小光照范围"
 #: app/src/filters/GalleryStack.tsx
 msgid "Light Rough"
 msgstr "浅色粗糙"
+
+#: app/src/app/cameraData.ts
+msgid "Light Source"
+msgstr "光源"
 
 #: app/src/filters/RenderEditors.tsx
 msgid "Light type"
@@ -6831,6 +7161,10 @@ msgstr "载入默认文字样式"
 msgid "Load Files into Stack…"
 msgstr "将文件载入堆栈…"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Load Images..."
+msgstr "载入图像…"
+
 #: app/src/ScriptDialogs.tsx
 msgid "Load Layers"
 msgstr "载入图层"
@@ -6975,6 +7309,10 @@ msgstr "长线条"
 msgid "Long Strokes"
 msgstr "长描边"
 
+#: app/src/app/cameraData.ts
+msgid "Longitude"
+msgstr "经度"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Loose"
 msgstr "松散"
@@ -6995,6 +7333,7 @@ msgstr "松散长"
 msgid "Loose Medium"
 msgstr "松散中等"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "Low"
 msgstr "低"
@@ -7019,6 +7358,10 @@ msgstr "明亮度"
 #: app/src/i18n/choices.ts
 msgid "Luminosity"
 msgstr "明度"
+
+#: app/src/ScriptDialogs.tsx
+msgid "LZW Compression"
+msgstr "LZW 压缩"
 
 #: app/src/ChannelsPanel.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -7077,6 +7420,10 @@ msgstr "磁性"
 msgid "Magnetic Lasso"
 msgstr "磁性套索"
 
+#: app/src/app/cameraData.ts
+msgid "Make"
+msgstr "制造商"
+
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/errors.ts
 msgid "Make a selection first."
@@ -7117,6 +7464,10 @@ msgstr "从选区生成工作路径"
 #: app/src/MissingFonts.tsx
 msgid "Manage"
 msgstr "管理"
+
+#: app/src/app/cameraData.ts
+msgid "Manual"
+msgstr "手动"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Maple"
@@ -7196,11 +7547,13 @@ msgstr "材料"
 msgid "Mathematical Operators"
 msgstr "数学运算符"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/levelsCurves.ts
 #: app/src/ModeDialog.tsx
 msgid "Matte"
 msgstr "杂边"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/ModeDialog.tsx
 msgid "Matte color"
 msgstr "杂边颜色"
@@ -7212,6 +7565,10 @@ msgstr "杂边颜色"
 #: app/src/app/menus.ts
 msgid "Matting"
 msgstr "修边"
+
+#: app/src/app/cameraData.ts
+msgid "Max Aperture Value"
+msgstr "最大光圈值"
 
 #: app/src/filters/labels.ts
 msgid "Max Radius"
@@ -7370,6 +7727,10 @@ msgstr "网格大小"
 msgid "Message shown when playback reaches this stop"
 msgstr "播放到此停止时显示的消息"
 
+#: app/src/app/cameraData.ts
+msgid "Metering Mode"
+msgstr "测光模式"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/ColorDialog.tsx
@@ -7377,6 +7738,7 @@ msgstr "播放到此停止时显示的消息"
 #: app/src/LayerStyleDialog.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/shell/tools.ts
+#: app/src/VariablesDialogs.tsx
 msgid "Method"
 msgstr "方法"
 
@@ -7490,6 +7852,10 @@ msgstr "模式"
 msgctxt "color mode"
 msgid "Mode"
 msgstr "模式"
+
+#: app/src/app/cameraData.ts
+msgid "Model"
+msgstr "型号"
 
 #: app/src/app/menus.ts
 msgid "Modify"
@@ -7606,6 +7972,10 @@ msgstr "上移"
 msgid "Movie Prime"
 msgstr "电影定焦镜头"
 
+#: app/src/app/cameraData.ts
+msgid "Multi-spot"
+msgstr "多点测光"
+
 #: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/history.ts
@@ -7644,8 +8014,8 @@ msgid "Name"
 msgstr "名称"
 
 #: app/src/VariablesDialogs.tsx
-msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
-msgstr "名称只能使用字母、数字和下划线，且不能以数字开头。像素替换不可用。"
+msgid "Names use letters, digits and underscore, not starting with a digit."
+msgstr "名称可使用字母、数字和下划线，不能以数字开头。"
 
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -7654,6 +8024,7 @@ msgid "Navigator"
 msgstr "导航器"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Nearest Neighbor"
 msgstr "邻近（硬边缘）"
 
@@ -8059,6 +8430,7 @@ msgstr "杂色数量"
 #: app/src/app/typeMenu.ts
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/i18n/choices.ts
 #: app/src/InspectionPanels.tsx
@@ -8077,7 +8449,9 @@ msgctxt "liquify mask"
 msgid "None"
 msgstr "无"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/i18n/choices.ts
 #: app/src/shell/DeformSession.tsx
@@ -8087,6 +8461,10 @@ msgstr "正常"
 #: app/src/app/Dialogs.tsx
 msgid "Normal Brush Tip"
 msgstr "正常画笔笔尖"
+
+#: app/src/app/cameraData.ts
+msgid "Normal program"
+msgstr "标准程序"
 
 #: app/src/app/colorSettings.ts
 msgid "North America General Purpose 2"
@@ -8099,6 +8477,14 @@ msgstr "北美印前 2"
 #: app/src/app/colorSettings.ts
 msgid "North America Web/Internet"
 msgstr "北美 Web/Internet"
+
+#: app/src/app/cameraData.ts
+msgid "Not defined"
+msgstr "未定义"
+
+#: app/src/VariablesDialogs.tsx
+msgid "not loaded"
+msgstr "未载入"
 
 #: app/src/shell/ColorPicker.tsx
 msgid "Not web-safe: click to snap"
@@ -8299,6 +8685,10 @@ msgstr "OpenType"
 msgid "Operation"
 msgstr "操作"
 
+#: app/src/ExportDialogs.tsx
+msgid "Optimized"
+msgstr "优化"
+
 #: app/src/app/menus.ts
 msgid "Options"
 msgstr "选项"
@@ -8311,6 +8701,7 @@ msgstr "选项…"
 msgid "Ordinals"
 msgstr "序数字"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts
 #: app/src/FileDialogs.tsx
@@ -8318,6 +8709,11 @@ msgstr "序数字"
 msgid "Orientation"
 msgstr "方向"
 
+#: app/src/FileDialogs.tsx
+msgid "Origin"
+msgstr "来源"
+
+#: app/src/ExportDialogs.tsx
 #: app/src/shell/ColorPicker.tsx
 msgid "Original"
 msgstr "原稿"
@@ -8334,6 +8730,7 @@ msgstr "装饰密度"
 msgid "Ornaments"
 msgstr "装饰字"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/schema.ts
 msgid "Other"
 msgstr "其它"
@@ -8525,6 +8922,10 @@ msgstr "段落样式面板"
 msgid "Paragraph Text"
 msgstr "段落文本"
 
+#: app/src/app/cameraData.ts
+msgid "Partial"
+msgstr "局部测光"
+
 #: app/src/LayersPanel.tsx
 msgid "Pass Through"
 msgstr "穿透"
@@ -8630,6 +9031,7 @@ msgstr "将路径导出为 SVG…"
 
 #: app/src/AdjustmentsPanel.tsx
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
 #: app/src/ExportDialogs.tsx
@@ -8763,6 +9165,10 @@ msgstr "透视裁剪"
 msgid "Perspective Warp"
 msgstr "透视变形"
 
+#: app/src/FileDialogs.tsx
+msgid "Phone(s)"
+msgstr "电话"
+
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 msgid "Photo Filter"
@@ -8845,6 +9251,14 @@ msgstr "松木"
 msgid "Pins"
 msgstr "图钉"
 
+#: app/src/app/cameraData.ts
+msgid "Pixel Dimension X"
+msgstr "像素尺寸 X"
+
+#: app/src/app/cameraData.ts
+msgid "Pixel Dimension Y"
+msgstr "像素尺寸 Y"
+
 #: app/src/app/layerFilter.ts
 msgid "Pixel layers"
 msgstr "像素图层"
@@ -8856,6 +9270,14 @@ msgstr "像素长度来自标尺线。"
 #: app/src/AnalysisDialogs.tsx
 msgid "Pixel Length:"
 msgstr "像素长度："
+
+#: app/src/VariablesDialogs.tsx
+msgid "Pixel Replacement"
+msgstr "像素替换"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Pixel Replacement values are file names. Images you select or load stay available until the page is reloaded."
+msgstr "像素替换的值为文件名。您选择或载入的图像在页面重新载入前一直可用。"
 
 #: app/src/filters/schema.ts
 msgid "Pixelate"
@@ -9007,10 +9429,18 @@ msgstr "杨树"
 msgid "Portrait"
 msgstr "纵向"
 
+#: app/src/app/cameraData.ts
+msgid "Portrait mode"
+msgstr "人像模式"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Position"
 msgstr "位置"
+
+#: app/src/FileDialogs.tsx
+msgid "Postal Code"
+msgstr "邮政编码"
 
 #: app/src/filters/labels.ts
 msgid "Poster Edges"
@@ -9218,6 +9648,10 @@ msgstr "保护色调"
 msgid "Proximity Match"
 msgstr "近似匹配"
 
+#: app/src/FileDialogs.tsx
+msgid "Public Domain"
+msgstr "公共领域"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Pucker"
 msgstr "褶皱"
@@ -9369,6 +9803,10 @@ msgstr "正在栅格化…"
 msgid "Rate"
 msgstr "速率"
 
+#: app/src/FileDialogs.tsx
+msgid "Rating"
+msgstr "评级"
+
 #: app/src/shell/tools.ts
 msgid "Ratio"
 msgstr "比例"
@@ -9382,8 +9820,8 @@ msgid "Ratio W"
 msgstr "比例宽度"
 
 #: app/src/FileDialogs.tsx
-msgid "Raw XMP"
-msgstr "原始 XMP"
+msgid "Raw Data"
+msgstr "原始数据"
 
 #: app/src/filters/labels.ts
 msgid "Reach"
@@ -9562,6 +10000,10 @@ msgstr "套准标记"
 msgid "Regular"
 msgstr "常规"
 
+#: app/src/FileDialogs.tsx
+msgid "Reject"
+msgstr "拒绝"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Relative"
@@ -9721,6 +10163,10 @@ msgstr "替换为"
 msgid "Replacement for {name}"
 msgstr "{name} 的替换字体"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Replacement images"
+msgstr "替换图像"
+
 #: app/src/MissingFonts.tsx
 msgid "Replacement style for {name}"
 msgstr "{name} 的替换样式"
@@ -9747,6 +10193,7 @@ msgid "Reposition"
 msgstr "重新定位"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Resample"
 msgstr "重新采样"
 
@@ -9755,6 +10202,7 @@ msgstr "重新采样"
 msgid "Reselect"
 msgstr "重新选择"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/FilterDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/ToolBar.tsx
@@ -9949,6 +10397,10 @@ msgstr "右键单击字形可列出其 OpenType 替代字。"
 msgid "Right-to-Left"
 msgstr "从右到左"
 
+#: app/src/FileDialogs.tsx
+msgid "Rights Usage Terms"
+msgstr "权利使用条款"
+
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Rigid"
@@ -9994,11 +10446,13 @@ msgid "Rotate"
 msgstr "旋转"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Rotate 180°"
 msgstr "旋转 180 度"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 msgid "Rotate 90° CCW"
 msgstr "逆时针旋转 90 度"
 
@@ -10011,6 +10465,7 @@ msgid "Rotate 90° Counter Clockwise"
 msgstr "逆时针 90 度"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 msgid "Rotate 90° CW"
 msgstr "顺时针旋转 90 度"
 
@@ -10192,6 +10647,10 @@ msgstr "存储为 PNG"
 msgid "Save as PSD"
 msgstr "存储为 PSD"
 
+#: app/src/ScriptDialogs.tsx
+msgid "Save as TIFF"
+msgstr "存储为 TIFF"
+
 #: app/src/app/menus.ts
 msgid "Save As…"
 msgstr "存储为…"
@@ -10240,6 +10699,10 @@ msgstr "将选区存储为通道"
 #: app/src/app/menus.ts
 msgid "Save Selection…"
 msgstr "存储选区…"
+
+#: app/src/FileDialogs.tsx
+msgid "Save Template"
+msgstr "存储模板"
 
 #: app/src/PresetPanels.tsx
 msgid "Save the layer style"
@@ -10492,6 +10955,10 @@ msgstr "选择数据点"
 msgid "Select Data Points…"
 msgstr "选择数据点…"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Select File..."
+msgstr "选择文件…"
+
 #: app/src/app/contextMenus.ts
 #: app/src/i18n/history.ts
 msgid "Select Inverse"
@@ -10558,6 +11025,14 @@ msgstr "置为底层"
 msgid "Separate keywords with commas or semicolons."
 msgstr "用逗号或分号分隔关键字。"
 
+#: app/src/FileDialogs.tsx
+msgid "Separate several subject codes, scene codes, phones, emails or websites with semicolons."
+msgstr "多个主题代码、场景代码、电话、电子邮件或网站请用分号分隔。"
+
+#: app/src/app/cameraData.ts
+msgid "Serial Number"
+msgstr "序列号"
+
 #: app/src/BatchDialog.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "Set"
@@ -10591,6 +11066,10 @@ msgstr "设置为背景"
 #: app/src/ColorDialog.tsx
 msgid "Settings"
 msgstr "设置"
+
+#: app/src/app/cameraData.ts
+msgid "Shade"
+msgstr "阴影"
 
 #: app/src/adjustments.ts
 msgid "Shadow"
@@ -10887,6 +11366,10 @@ msgstr "显示动作树"
 msgid "Show transform controls"
 msgstr "显示变换控件"
 
+#: app/src/app/cameraData.ts
+msgid "Shutter priority"
+msgstr "快门优先"
+
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Sides"
@@ -11120,6 +11603,10 @@ msgstr "柔和"
 msgid "Softness"
 msgstr "柔和度"
 
+#: app/src/app/cameraData.ts
+msgid "Software"
+msgstr "软件"
+
 #: app/src/filters/labels.ts
 msgid "Solarize"
 msgstr "曝光过度"
@@ -11149,6 +11636,7 @@ msgstr "密度"
 
 #: app/src/app/measure.ts
 #: app/src/BatchDialog.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/i18n/choices.ts
 #: app/src/ImageCalcDialog.tsx
@@ -11261,6 +11749,7 @@ msgstr "垂直拆分变形"
 msgid "Sponge"
 msgstr "海绵"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/RenderEditors.tsx
 msgid "Spot"
 msgstr "聚光灯"
@@ -11380,6 +11869,10 @@ msgstr "正在启动…"
 #: app/src/filters/labels.ts
 msgid "State"
 msgstr "状态"
+
+#: app/src/FileDialogs.tsx
+msgid "State/Province"
+msgstr "省/自治区/直辖市"
 
 #: app/src/InspectionPanels.tsx
 msgid "Std Dev"
@@ -11662,6 +12155,10 @@ msgstr "光笔轮"
 msgid "Subject"
 msgstr "主体"
 
+#: app/src/FileDialogs.tsx
+msgid "Sublocation"
+msgstr "详细地点"
+
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Subscript"
@@ -11768,6 +12265,18 @@ msgstr "方法"
 #: app/src/filters/labels.ts
 msgid "Temperature"
 msgstr "色温"
+
+#: app/src/FileDialogs.tsx
+msgid "Template"
+msgstr "模板"
+
+#: app/src/FileDialogs.tsx
+msgid "Template name"
+msgstr "模板名称"
+
+#: app/src/FileDialogs.tsx
+msgid "Templates"
+msgstr "模板"
 
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -12019,6 +12528,10 @@ msgstr "源文件无法存储："
 msgid "The straighten angle must be a number."
 msgstr "拉直角度必须是数字。"
 
+#: app/src/FileDialogs.tsx
+msgid "The template is not a well-formed XMP file."
+msgstr "该模板不是格式正确的 XMP 文件。"
+
 #: app/src/i18n/errors.ts
 msgid "The transform was cancelled."
 msgstr "变换已取消。"
@@ -12030,6 +12543,10 @@ msgstr "该文字图层没有文本。"
 #: app/src/i18n/errors.ts
 msgid "The warped image exceeds the rendering limit."
 msgstr "变形后的图像超出了渲染限制。"
+
+#: app/src/FileDialogs.tsx
+msgid "The XMP is not well-formed. Correct it before you leave Raw Data."
+msgstr "XMP 格式不正确。请在离开“原始数据”之前更正。"
 
 #: app/src/App.tsx
 msgid "There are no data sets to apply."
@@ -12086,6 +12603,10 @@ msgstr "此浏览器无法链接文件，因此文件已以嵌入方式置入。
 #: app/src/App.tsx
 msgid "This cannot be undone."
 msgstr "此操作无法撤消。"
+
+#: app/src/FileDialogs.tsx
+msgid "This document has no camera data. It is read from the EXIF data of opened JPEG, PNG, WebP and PSD files."
+msgstr "此文档没有相机数据。相机数据读取自已打开的 JPEG、PNG、WebP 和 PSD 文件的 EXIF 数据。"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "This filter has no options."
@@ -12217,6 +12738,10 @@ msgstr "笔尖"
 msgid "Tip thumbnails"
 msgstr "笔尖缩览图"
 
+#: app/src/FileDialogs.tsx
+msgid "Title"
+msgstr "标题"
+
 #: app/src/shell/typecommands.ts
 msgid "Titling Alternates"
 msgstr "标题替代字"
@@ -12312,6 +12837,10 @@ msgstr "工具"
 msgid "Top"
 msgstr "顶部"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Top Center"
+msgstr "顶部居中"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 msgid "Top Edges"
@@ -12322,6 +12851,7 @@ msgid "Top left"
 msgstr "左上"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Top Left"
 msgstr "左上"
 
@@ -12334,6 +12864,7 @@ msgid "Top right"
 msgstr "右上"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Top Right"
 msgstr "右上"
 
@@ -12383,6 +12914,10 @@ msgstr "变换选项"
 #: app/src/i18n/history.ts
 msgid "Transform Selection"
 msgstr "变换选区"
+
+#: app/src/FileDialogs.tsx
+msgid "Transmission Reference"
+msgstr "传输参考"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -12458,6 +12993,10 @@ msgstr "三色调"
 msgid "Tsume %"
 msgstr "比例间距 %"
 
+#: app/src/app/cameraData.ts
+msgid "Tungsten"
+msgstr "钨丝灯"
+
 #: app/src/filters/labels.ts
 msgid "Turbulent"
 msgstr "湍流"
@@ -12512,6 +13051,10 @@ msgstr "文字选项"
 #: app/src/filters/GalleryStack.tsx
 msgid "Unaltered Image"
 msgstr "未改变的图像"
+
+#: app/src/app/cameraData.ts
+msgid "Uncalibrated"
+msgstr "未校准"
 
 #: app/src/filters/labels.ts
 msgid "Undefined Areas"
@@ -12569,6 +13112,11 @@ msgstr "合并形状"
 #: app/src/app/measure.ts
 msgid "Units"
 msgstr "单位"
+
+#: app/src/app/cameraData.ts
+#: app/src/FileDialogs.tsx
+msgid "Unknown"
+msgstr "未知"
 
 #: app/src/app/toolPresets.ts
 msgid "Unknown tool option: {key}"
@@ -12669,6 +13217,10 @@ msgstr "花冠"
 #: app/src/TypePanels.tsx
 msgid "Uppercase"
 msgstr "全部大写字母"
+
+#: app/src/FileDialogs.tsx
+msgid "Urgency"
+msgstr "紧急程度"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Use"
@@ -12889,6 +13441,7 @@ msgstr "仅可见图层"
 msgid "Vivid Light"
 msgstr "亮光"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/ScriptDialogs.tsx
 #: app/src/shell/tools.ts
@@ -12973,6 +13526,10 @@ msgstr "最小波长"
 msgid "Web"
 msgstr "Web"
 
+#: app/src/FileDialogs.tsx
+msgid "Website(s)"
+msgstr "网站"
+
 #: app/src/shell/tools.ts
 msgid "Wet"
 msgstr "潮湿"
@@ -12987,15 +13544,24 @@ msgstr "湿边"
 msgid "What's new"
 msgstr "新增功能"
 
+#: app/src/FileDialogs.tsx
+msgid "When applying a template"
+msgstr "应用模板时"
+
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/ModeDialog.tsx
 msgid "White"
 msgstr "白色"
+
+#: app/src/app/cameraData.ts
+msgid "White Balance"
+msgstr "白平衡"
 
 #: app/src/adjustments.ts
 msgid "White Clip %"

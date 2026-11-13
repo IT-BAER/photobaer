@@ -23,15 +23,18 @@ import { inkGray } from './app/channels.ts';
 import { CMYK_SPACES, DEFAULT_COLOR_SETTINGS, RGB_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
 import { openProfileStore, type ProfileStore } from './app/profileStore.ts';
 import { DEFAULT_VIEW, engineView, proofLabel, sanitizeHdr, type ViewState } from './app/proof.ts';
-import { grayFile, psdWithIcc, readIcc } from './app/iccFiles.ts';
-import { embedInfo, hasInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
+import { grayFile, isPsd, psdResources, psdWithIcc, psdWithResource, readIcc } from './app/iccFiles.ts';
+import { embedInfo, emptyInfo, hasInfo, normInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
+import { fileExif, readExif } from './app/exif.ts';
 import { emptyAnnotations, framePath, rotationAbout, type Annotations } from './app/measure.ts';
-import { emptyVariables, planDataSet, replaceText, type Variables } from './app/variables.ts';
+import {
+  emptyVariables, imageKey, pixelPlacement, planDataSet, readVariablesResource, replaceText, VARIABLES_RESOURCE, variablesResource, type PixelOptions, type Variables,
+} from './app/variables.ts';
 import { assetSpecs } from './app/webExport.ts';
 import { TILE, levelFor } from './view.ts';
 import { NO_RECORD, decodeCall, encodeCall, hot, newIds, recordable, type ActionStep, type Call, type Layers } from './actions.ts';
 import { decodeExr, decodeHdr, encodeExr, encodeHdr, encodeIco, fromLinear, toLinear, type FloatImage } from './formats.ts';
-import { applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, shiftedRegion, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, icoEntries, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tierLevel, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
+import { applyTransform, renderRgba, collectPixelIds, decodeSource, displayRegion, displayTiers, shiftedRegion, docInfo, docPatterns, encodeFlattened, exportAsset, type ExportOptions, ensurePatterns, extOf, icoEntries, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, resampleRgba, sameOp, saveRaster, smartOf, smartWarpStart, sourceBytes, tierLevel, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle } from './worker/helpers.ts';
 
 export type { GradientDef, FillContent, LevelsRecord, Hsl, HueRange, Adjustment, DestructiveAdjustment, SmartLink, SmartWarp, SmartFilterKind, SmartFilterInfo, SmartInfo, LayerNode, DocInfo, GlobalLight, ArtboardBackground, Guide, PathRole, SavedPathInfo, VectorPath, SelectShape, OpenResult, AutosaveState, WorkerEvent, StrokeParams, FillParams, StrokeSelectionParams, GradientParams } from './worker/types.ts';
 
@@ -486,6 +489,8 @@ function psdFile(e: Engine, psb = false): { blob: Blob; warnings: string[] } {
   const icc = psdIcc(e), i = docInfo(e);
   let b: Uint8Array = icc.length ? psdWithIcc(bytes, icc) : bytes;
   if (hasInfo(i)) b = embedInfo(b, 'image/vnd.adobe.photoshop', i);
+  const vars: Variables | undefined = JSON.parse(e.vector_json()).variables;
+  if (vars) b = psdWithResource(b, VARIABLES_RESOURCE, variablesResource(vars, flatNodes(JSON.parse(e.layers_json()) as LayerNode[])));
   return { blob: new Blob([b as Uint8Array<ArrayBuffer>], { type: 'image/vnd.adobe.photoshop' }), warnings };
 }
 
@@ -585,8 +590,37 @@ function endPreview(commit: boolean) {
   if (commit) { const e = previewError; previewError = null; throw new Error(e!); }
 }
 
+// Pixel Replacement images loaded in this session, by imageKey of their file name.
+const variableImages = new Map<string, Uint8Array>();
+type Decoded = { w: number; h: number; rgba: Uint8Array };
+
+// The decoded images data set `name` of `e` replaces pixels with; a missing or unreadable one is left out.
+async function dataSetImages(e: Engine, name: string): Promise<Map<string, Decoded>> {
+  const m: Variables = JSON.parse(e.vector_json()).variables ?? emptyVariables();
+  const out = new Map<string, Decoded>();
+  for (const [, file] of planDataSet(m, flatNodes(JSON.parse(e.layers_json()) as LayerNode[]), name).pixels) {
+    const key = imageKey(file), bytes = variableImages.get(key);
+    if (bytes && !out.has(key)) await decodeSource(bytes).then(d => out.set(key, d), () => {});
+  }
+  return out;
+}
+
+// Layer `id`'s pixels become `img`, scaled and aligned in the layer's content bounds (the canvas when empty).
+function replacePixels(e: Engine, id: number, img: Decoded, o: PixelOptions) {
+  const b = e.layer_bounds(id) as [number, number, number, number] | null;
+  const p = pixelPlacement(b ? { x: b[0], y: b[1], w: b[2], h: b[3] } : { x: 0, y: 0, w: e.width(), h: e.height() }, img, o);
+  const src = { data: new Uint8ClampedArray(img.rgba.buffer as ArrayBuffer, img.rgba.byteOffset, img.rgba.length), w: img.w, h: img.h };
+  const s = p.w === img.w && p.h === img.h ? src : resampleRgba(src, p.w, p.h, 'bicubic');
+  const c = p.clip ?? p, x0 = Math.max(p.x, c.x), y0 = Math.max(p.y, c.y), x1 = Math.min(p.x + p.w, c.x + c.w), y1 = Math.min(p.y + p.h, c.y + c.h);
+  if (b) e.put_rgba8(id, b[0], b[1], b[2], b[3], new Uint8Array(b[2] * b[3] * 4));
+  if (x1 <= x0 || y1 <= y0) return;
+  const out = new Uint8Array((x1 - x0) * (y1 - y0) * 4);
+  for (let y = y0; y < y1; y++) out.set(s.data.subarray(((y - p.y) * p.w + x0 - p.x) * 4, ((y - p.y) * p.w + x1 - p.x) * 4), (y - y0) * (x1 - x0) * 4);
+  e.put_rgba8(id, x0, y0, x1 - x0, y1 - y0, out);
+}
+
 // Applies data set `name` in place and makes it the active one; returns the bindings that could not be applied.
-function applyDataSet(e: Engine, name: string): string[] {
+function applyDataSet(e: Engine, name: string, images: Map<string, Decoded>): string[] {
   const v = JSON.parse(e.vector_json());
   const m: Variables = v.variables ?? emptyVariables();
   const plan = planDataSet(m, flatNodes(JSON.parse(e.layers_json()) as LayerNode[]), name);
@@ -594,6 +628,11 @@ function applyDataSet(e: Engine, name: string): string[] {
   for (const [id, text] of plan.text) {
     e.set_text(id, JSON.stringify(replaceText(findNode(e, id)!.text as TextJson, text)));
     e.render_text(id, fontReg(), resolution(e));
+  }
+  for (const [id, file, o] of plan.pixels) {
+    const img = images.get(imageKey(file));
+    if (!img) { plan.errors.push(`The image "${file}" is not loaded or cannot be read; choose it with Select File in Image > Variables > Data Sets.`); continue; }
+    try { replacePixels(e, id, img, o); } catch (err) { plan.errors.push(`"${file}": ${(err as Error).message}`); }
   }
   e.set_document_vector(JSON.stringify({ ...v, variables: { ...m, active: name } }));
   return plan.errors;
@@ -836,11 +875,24 @@ async function recorded(op: keyof Api, args: unknown[], run: () => Promise<void>
 async function engineOf(file: File): Promise<{ e: Engine; name: string; warnings: string[] }> {
   const r = await decodeFile(file);
   const b = new Uint8Array(await file.arrayBuffer());
-  const i = readInfo(b);
+  // File Info from the XMP packet, with the Camera Data of the EXIF block over the XMP camera fields.
+  const xmp = readInfo(b), exif = fileExif(b), cam = exif ? Object.fromEntries(Object.entries(readExif(exif)).map(([k, v]) => [k, v.slice(0, 1000)])) : {};
+  const i = xmp || Object.keys(cam).length ? normInfo({ ...(xmp ?? emptyInfo()), camera: { ...xmp?.camera, ...cam } }) : null;
   try {
     if (i || grayFile(b)) r.e.set_document_vector(JSON.stringify({ ...JSON.parse(r.e.vector_json()), ...(i ? { info: i } : {}), ...(grayFile(b) ? { gray: true } : {}) }));
   } catch (err) {
     r.warnings.push(`The File Info was not kept: ${(err as Error).message}`);
+  }
+  // Variables and data sets a photobaer PSD stores in its private image resource.
+  const res = isPsd(b) ? [...psdResources(b)].find(([id]) => id === VARIABLES_RESOURCE) : undefined;
+  const vars = res && readVariablesResource(b.subarray(res[3], res[3] + res[4]), flatNodes(JSON.parse(r.e.layers_json()) as LayerNode[]));
+  if (vars) {
+    try {
+      r.e.set_document_vector(JSON.stringify({ ...JSON.parse(r.e.vector_json()), variables: vars.model }));
+      if (vars.lost.length) r.warnings.push(`variables bound to layers that were not found were dropped: ${vars.lost.join(', ')}`);
+    } catch (err) {
+      r.warnings.push(`The variables were not kept: ${(err as Error).message}`);
+    }
   }
   return r;
 }
@@ -3622,6 +3674,11 @@ const api = {
   exportAsset(o: ExportOptions) {
     return exportAsset(need(), o);
   },
+  // Export As: the rendered size of the canvas, layers or artboard before any resize; null when empty.
+  exportSize(o: Pick<ExportOptions, 'layer' | 'layers' | 'trim' | 'artboard' | 'reveal'>): [number, number] | null {
+    const r = renderRgba(need(), o);
+    return r ? [r.w, r.h] : null;
+  },
 
   // File > Export > Artboards to PDF: each root artboard on the canvas as one JPEG page at the document resolution.
   async artboardsPdf(quality: number) {
@@ -3688,7 +3745,7 @@ const api = {
     const e = need();
     const v = JSON.parse(e.vector_json());
     const before = JSON.stringify(v.info ?? null);
-    if (hasInfo(i)) v.info = i; else delete v.info;
+    if (hasInfo(i)) v.info = normInfo(i); else delete v.info;
     if (JSON.stringify(v.info ?? null) === before) return info();
     history.run('File Info', () => e.set_document_vector(JSON.stringify(v)));
     return changed();
@@ -3759,12 +3816,22 @@ const api = {
     return { ...changed(), created };
   },
   // Image > Apply Data Set; the errors name bindings that could not be applied.
-  applyDataSet(name: string) {
+  async applyDataSet(name: string) {
     const e = need();
+    const images = await dataSetImages(e, name);
     let errors: string[] = [];
-    history.run('Apply Data Set', () => { errors = applyDataSet(e, name); });
+    history.run('Apply Data Set', () => { errors = applyDataSet(e, name, images); });
     return { doc: changed(), errors };
   },
+  // Pixel Replacement images for this session, found by file name; returns the names loaded so far.
+  loadVariableImages(files: { name: string; bytes: Uint8Array }[]) {
+    for (const f of files) {
+      if (variableImages.size >= 1000 && !variableImages.has(imageKey(f.name))) throw new Error('At most 1000 replacement images can be loaded.');
+      variableImages.set(imageKey(f.name), f.bytes);
+    }
+    return [...variableImages.keys()];
+  },
+  variableImageNames() { return [...variableImages.keys()]; },
   // File > Export > Data Sets as Files: each set applied to a clone, which is then encoded and discarded.
   async exportDataSets(format: 'psd' | 'png' | 'jpeg', quality: number) {
     const e = need();
@@ -3773,7 +3840,7 @@ const api = {
     for (const d of (JSON.parse(e.vector_json()).variables as Variables | undefined)?.data_sets ?? []) {
       const c = loadEngine(manifest, id => e.tile_bytes(BigInt(id)));
       try {
-        applyDataSet(c, d.name);
+        applyDataSet(c, d.name, await dataSetImages(c, d.name));
         files.push({ name: d.name, blob: format === 'psd' ? psdFile(c).blob : await encodeFlattened(c, `image/${format}`, quality) });
       } finally {
         c.free();
@@ -3839,15 +3906,16 @@ const api = {
     return info();
   },
 
-  // Save As by extension. PSB marks the document saved like savePsd; EXR, HDR and ICO are
+  // Save As by extension. PSB marks the document saved like savePsd; EXR, HDR, ICO, TIFF, BMP and Targa are
   // flattened copies, so the document keeps its dirty state.
-  async saveFormat(format: 'psb' | 'exr' | 'hdr' | 'ico'): Promise<{ blob: Blob; warnings: string[] }> {
+  async saveFormat(format: 'psb' | 'exr' | 'hdr' | 'ico' | 'tiff' | 'bmp' | 'tga'): Promise<{ blob: Blob; warnings: string[] }> {
     const e = need();
     if (format === 'psb') {
       const r = psdFile(e, true);
       markSaved();
       return r;
     }
+    if (format === 'tiff' || format === 'bmp' || format === 'tga') return { blob: await saveRaster(e, format), warnings: [] };
     if (format === 'ico') {
       return { blob: new Blob([encodeIco(await icoEntries(e))], { type: 'image/x-icon' }), warnings: [] };
     }

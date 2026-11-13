@@ -20,7 +20,7 @@ import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { ChannelsPanel } from './ChannelsPanel.tsx';
 import { ActionsPanel, playSteps } from './ActionsPanel.tsx';
 import { BatchDialog, type BatchDialogHandle, type BatchOptions } from './BatchDialog.tsx';
-import { assetOptions, canFolder, EXT, ExportAsDialog, exportPrefs, ExportPrefsDialog, FilesExportDialog, SaveForWebDialog, type ExportDialogHandle, type ExportRow, type ExportTarget, type FilesDialogHandle, type FilesOptions, type WebOptions } from './ExportDialogs.tsx';
+import { assetOptions, canFolder, EXT, ExportAsDialog, exportPrefs, ExportPrefsDialog, FilesExportDialog, SaveForWebDialog, sizingOptions, webOptions, type ExportDialogHandle, type ExportRow, type ExportSizing, type ExportTarget, type FilesDialogHandle, type FilesOptions, type WebOptions } from './ExportDialogs.tsx';
 import { assetSpecs, fileStem, pathsSvg } from './app/webExport.ts';
 import { FileInfoDialog, PrintDialog, type FileInfoHandle, type PrintHandle } from './FileDialogs.tsx';
 import { ApplyDataSetDialog, ImportDataSetsDialog, VariablesDialog, type ApplySetHandle, type ImportSetsHandle, type VariablesHandle } from './VariablesDialogs.tsx';
@@ -95,6 +95,7 @@ import {
 } from './app/helpers.ts';
 import { buildMenus, type ExportKind } from './app/menus.ts';
 import { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, rasterSvg, saveFormat, saveRoute, storeRecent, writeFile, type Origin, type Recent, type SaveFormat } from './app/files.ts';
+import { emptyInfo } from './app/fileInfo.ts';
 import { agentTools, registerWebMcp, type ModelContext, type WebMcpCtx } from './app/webmcp.ts';
 import { layerContextItems } from './app/vectorCommands.ts';
 import { canvasItems, layerRowItems } from './app/contextMenus.ts';
@@ -845,7 +846,7 @@ export function App() {
   }
   // Export As: one row asks for the file; several go into one folder (picked first, while the click still counts)
   // or downloads.
-  async function runExportAs(rows: ExportRow[], target?: ExportTarget) {
+  async function runExportAs(rows: ExportRow[], target: ExportTarget | undefined, sizing: ExportSizing) {
     let dir: FileSystemDirectoryHandle | null = null;
     if (rows.length > 1 && canFolder()) {
       try { dir = await (window as unknown as { showDirectoryPicker(o: object): Promise<FileSystemDirectoryHandle> }).showDirectoryPicker({ mode: 'readwrite' }); } catch { return; }
@@ -853,7 +854,7 @@ export function App() {
     await exporting(async d => {
       const used = new Set<string>();
       for (const r of rows) {
-        const options = target ? { layers: target.layers, trim: true, reveal: true } : {};
+        const options = { ...(target ? { layers: target.layers, trim: true, reveal: true } : {}), ...sizingOptions(sizing) };
         const { blob } = await client.call('exportAsset', assetOptions(r.format, r.scale, r.quality, options));
         const name = `${fileStem((target?.name ?? d.name) + r.suffix, used)}.${EXT[r.format]}`;
         if (rows.length === 1) await saveBlob(blob, name, blob.type, EXT[r.format]);
@@ -863,7 +864,7 @@ export function App() {
   }
   function runSaveForWeb(o: WebOptions) {
     void exporting(async d => {
-      const { blob } = await client.call('exportAsset', assetOptions(o.format, o.scale, o.quality, { colors: o.colors, dither: o.dither }));
+      const { blob } = await client.call('exportAsset', webOptions(o));
       await saveBlob(blob, `${d.name}.${EXT[o.format]}`, blob.type, EXT[o.format]);
     });
   }
@@ -1079,11 +1080,11 @@ export function App() {
     });
   }
 
-  // File > Scripts > Image Processor: per image the action, then per file type an optional fit and sRGB
-  // conversion that are undone after the file is written (counted by version: a full history trims, keeps `current`).
+  // File > Scripts > Image Processor: per image the action, then per file type an optional fit, sRGB conversion
+  // and Copyright Info that are undone after the file is written (counted by version: a full history trims, keeps `current`).
   async function runImageProcessor(o: ImageProcessorOptions) {
     const steps = o.action.on ? enabledSteps(o.action.setId, o.action.actionId) : [];
-    const types = [['JPEG', 'jpg', o.jpeg], ['PSD', 'psd', o.psd], ['PNG', 'png', o.png]] as const;
+    const types = [['JPEG', 'jpg', o.jpeg], ['PSD', 'psd', o.psd], ['TIFF', 'tif', o.tiff], ['PNG', 'png', o.png]] as const;
     const dirs = new Map<string, FileSystemDirectoryHandle>();
     for (const [name, , t] of types) if (t.on && o.dest === 'folder') dirs.set(name, await o.folder!.getDirectoryHandle(name, { create: true }));
     await eachDoc(t`Image Processor`, o.source, o.files, false, async d => {
@@ -1099,12 +1100,16 @@ export function App() {
             const w = Math.max(1, Math.round(cur.width * f)), h = Math.max(1, Math.round(cur.height * f));
             if (w !== cur.width || h !== cur.height) await step(client.call('imageSize', w, h, 'bicubic', true, null));
           }
+          if (o.copyright.trim()) await step(client.call('setFileInfo', { ...(await client.call('fileInfo') ?? emptyInfo()), copyright: o.copyright.trim() }).then(r => r ?? docRef.current!));
+          const flat = (format: 'jpeg' | 'png' | 'tiff', quality: number) => client.call('exportAsset', {
+            format, quality, scale: 1, colors: 256, dither: 'none', icc: o.icc, meta: true, compression: o.tiff.lzw ? 'lzw' : 'none',
+          }).then(a => a.blob);
           let blob: Blob;
           if (name === 'JPEG') {
             if (o.jpeg.srgb) await step(client.call('convertToProfile', 'sRGB IEC61966-2.1', { intent: 'relativeColorimetric', blackPointCompensation: true, dither: false, flatten: false }));
-            blob = await client.call('exportImage', 'image/jpeg', o.jpeg.quality / 12);
+            blob = await flat('jpeg', o.jpeg.quality / 12);
           } else if (name === 'PSD') { blob = (await client.call('savePsd')).blob; show(await client.call('saveEnd', false)); }
-          else blob = await client.call('exportImage', 'image/png', 1);
+          else blob = await flat(name === 'TIFF' ? 'tiff' : 'png', 1);
           await saveOut(o.dest, dirs.get(name) ?? null, `${cur.name}.${ext}`, blob);
         } finally {
           for (; undo > 0; undo--) show(await client.call('undo'));
@@ -2914,7 +2919,7 @@ export function App() {
       <ImageProcessorDialog ref={imageProcessorDialog} start={o => void runImageProcessor(o)} />
       <LoadStackDialog ref={loadStackDialog} start={(f, a, sm) => void loadStack(f, a, sm)} />
       <WorkspaceDialog ref={workspaceDialog} act={workspaceAction} />
-      <ExportAsDialog ref={exportAsDialog} start={(rows, target) => void runExportAs(rows, target)} />
+      <ExportAsDialog ref={exportAsDialog} start={(rows, target, sizing) => void runExportAs(rows, target, sizing)} />
       <SaveForWebDialog ref={saveForWebDialog} size={[doc?.width ?? 1, doc?.height ?? 1]} start={runSaveForWeb} />
       <ExportPrefsDialog ref={exportPrefsDialog} />
       <FilesExportDialog ref={filesExportDialog} start={runFilesExport} />

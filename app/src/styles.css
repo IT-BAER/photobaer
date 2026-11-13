@@ -795,6 +795,8 @@ dialog.vp-dialog h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); }
 .batch-dialog .hint.bad { color: var(--danger); }
 .variables-values { display: grid; gap: 4px; max-height: 40vh; overflow: auto; }
 .variables-values textarea { width: 100%; box-sizing: border-box; }
+.align-grid { display: grid; grid-template-columns: repeat(3, 18px); gap: 2px; margin: 4px 0; }
+.align-grid button { width: 18px; height: 18px; padding: 0; border: 1px solid var(--line); border-radius: 2px; }
 .variables-preview { margin: 6px 0; max-height: 30vh; overflow: auto; }
 .variables-preview div { display: flex; gap: 8px; }
 .variables-preview dt { color: var(--dim); min-width: 30%; }
@@ -804,6 +806,29 @@ dialog.vp-dialog h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); }
 .export-rows th { text-align: left; font-weight: normal; color: var(--dim); padding: 0 6px 2px 0; }
 .export-rows td { padding: 2px 6px 2px 0; white-space: nowrap; }
 .export-rows input:not([type=number], .number-input) { width: 72px; }
+.export-rows tr.selected td { background: var(--panel-hi); }
+.export-as-body { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.export-as-body > .export-preview { flex: 1 1 240px; }
+.export-as-settings { flex: 1 1 260px; }
+.export-preview { margin: 0 0 8px; cursor: default; }
+.export-preview.active .export-preview-image { outline: 2px solid var(--accent); }
+.export-preview-image {
+  display: flex; align-items: center; justify-content: center; height: 220px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+  background: repeating-conic-gradient(#8884 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+}
+.export-preview-image img { max-width: 100%; max-height: 100%; object-fit: contain; image-rendering: auto; }
+.web-views { display: grid; gap: 8px; margin: 8px 0; }
+.web-2up, .web-4up { grid-template-columns: 1fr 1fr; }
+.web-4up .export-preview-image { height: 160px; }
+.file-info-dialog { width: min(620px, calc(100vw - 32px)); }
+.file-info-body { max-height: min(56vh, 560px); overflow: auto; padding-right: 4px; margin-top: 8px; }
+.file-info-body label { display: grid; grid-template-columns: 160px 1fr; }
+.file-info-dialog textarea { min-width: 0; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; resize: vertical; }
+.file-info-dialog textarea.xmp { width: 100%; box-sizing: border-box; font: 12px/1.4 ui-monospace, monospace; }
+.file-info-dialog fieldset > select { width: 100%; margin: 4px 0; }
+.camera-data { width: 100%; border-collapse: collapse; }
+.camera-data th { text-align: left; font-weight: normal; color: var(--dim); padding: 3px 12px 3px 0; white-space: nowrap; vertical-align: top; }
+.camera-data td { padding: 3px 0; overflow-wrap: anywhere; }
 .measure-bar { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .measure-bar label { display: inline-flex; align-items: center; gap: 4px; }
 .measure-bar input[type="text"] { width: 140px; }

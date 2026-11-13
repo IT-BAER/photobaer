@@ -12,7 +12,8 @@ test('kindOf and saveFormat follow the extension, case-insensitive', () => {
   assert.equal(kindOf('a.PSB'), 'psd');
   assert.equal(saveFormat('x.PSD'), 'psd');
   assert.equal(saveFormat('x.Exr'), 'exr');
-  for (const f of ['psb', 'hdr', 'ico'] as const) assert.equal(saveFormat(`x.${f}`), f);
+  for (const f of ['psb', 'hdr', 'ico', 'tiff', 'bmp', 'tga'] as const) assert.equal(saveFormat(`x.${f}`), f);
+  assert.equal(saveFormat('x.TIF'), 'tiff');
   assert.equal(saveFormat('x'), null);
   assert.equal(saveFormat('x.png'), null);
 });

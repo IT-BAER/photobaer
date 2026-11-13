@@ -1255,7 +1255,6 @@ export function exportPsd(e: Engine, opts: { psb?: boolean } = {}): { bytes: Uin
   }
   const extras = channelsOut(e, saved, depth);
   if (extras.length) Object.assign(psd.imageResources!, { alphaChannelNames: extras.map(c => c.name), alphaIdentifiers: saved.map(c => c.id) });
-  if (JSON.parse(e.vector_json()).variables) warn('variables and data sets are not stored in PSD');
   let bytes: Uint8Array<ArrayBuffer> = new Uint8Array(writePsdRaw(psd, { generateThumbnail: false, psb: !!opts.psb }, x.raws));
   if (out) {
     bytes = finishPsd(bytes, { psb: !!opts.psb, depth, gray, width: w, height: h, ...out, extras, ...(duotone ? { duotone: duotoneData(duotone) } : {}) }) as Uint8Array<ArrayBuffer>;

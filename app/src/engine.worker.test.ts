@@ -969,6 +969,55 @@ test('an Exposure layer in a 32-bit document exports values above 1 to EXR', asy
   assert.ok(Math.abs(img.data[0] - want) < 0.01, `linear red ${img.data[0]}, want ${want}`);
 });
 
+test('Save As TIFF keeps 16 bits, File Info and the profile; BMP and Targa are 8-bit flattened copies', async () => {
+  const { readBmp, readTga, readTiff } = await import('./encoders.fixtures.ts');
+  await call('init');
+  await call('newDoc', 5, 3, 16, null);
+  await call('command', 'fill', 1, 'pixels', [204, 102, 51, 255]);
+  await call('setFileInfo', { title: 'T', author: 'Ann', description: 'D', keywords: [], copyright: '© C', copyright_url: '' });
+  await call('assignProfile', 'Adobe RGB (1998)');
+  const bytes = async (f: string) => new Uint8Array(await ((await call('saveFormat', f)).result as { blob: Blob }).blob.arrayBuffer());
+  const t = readTiff(await bytes('tiff'));
+  assert.deepEqual([t.w, t.h, t.c, t.bits, t.comp], [5, 3, 3, 16, 5]);
+  assert.deepEqual([...t.data.subarray(0, 3)], [204 * 257, 102 * 257, 51 * 257]);
+  const text = (tag: number) => new TextDecoder().decode((t.tags.get(tag) as Uint8Array).subarray(0, -1));
+  assert.deepEqual([text(315), text(33432), text(270)], ['Ann', '© C', 'D']);
+  assert.match(new TextDecoder().decode(t.tags.get(700) as Uint8Array), /<dc:rights>/);
+  assert.ok((t.tags.get(34675) as Uint8Array | undefined)?.length! > 100, 'the assigned profile is embedded');
+  const b = readBmp(await bytes('bmp'));
+  assert.deepEqual([b.w, b.h, b.bpp, ...b.data.subarray(0, 3)], [5, 3, 24, 204, 102, 51]);
+  const g = readTga(await bytes('tga'));
+  assert.deepEqual([g.w, g.h, g.type, ...g.data.subarray(0, 3)], [5, 3, 10, 204, 102, 51]);
+  await call('closeDoc');
+  await call('newDoc', 4, 2, 32, null);
+  await call('command', 'fill', 1, 'pixels', [255, 255, 255, 128]);
+  const f = readTiff(await bytes('tiff'));
+  assert.deepEqual([f.c, f.bits, f.tags.get(34675)], [4, 32, undefined], '32 bits: linear float RGBA, no profile');
+  assert.ok(Math.abs(f.data[0] - 1) < 1e-4 && Math.abs(f.data[3] - 128 / 255) < 0.01, `float pixel ${[...f.data.subarray(0, 4)]}`);
+});
+
+test('Export As sizing: engine resample keeps color and alpha, canvas centers or crops, matte fills transparency', async () => {
+  const { placeRgba, matteRgba, resampleRgba } = await import('./worker/helpers.ts');
+  const solid = (w: number, h: number, p: number[]) => ({ w, h, data: new Uint8ClampedArray(Array.from({ length: w * h }, () => p).flat()) });
+  for (const method of ['auto', 'nearest', 'bilinear', 'bicubic', 'lanczos3']) {
+    const down = resampleRgba(solid(8, 6, [200, 40, 10, 255]), 4, 3, method);
+    assert.deepEqual([down.w, down.h, ...down.data.subarray(0, 4)], [4, 3, 200, 40, 10, 255], method);
+    const up = resampleRgba(solid(3, 3, [0, 0, 0, 0]), 7, 5, method);
+    assert.deepEqual([up.w, up.h, Math.max(...up.data)], [7, 5, 0], `${method}: transparent stays transparent`);
+  }
+  const two = { w: 2, h: 1, data: new Uint8ClampedArray([1, 2, 3, 255, 4, 5, 6, 255]) };
+  const wide = placeRgba(two, 4, 3);
+  assert.deepEqual([...wide.data.subarray((1 * 4 + 1) * 4, (1 * 4 + 3) * 4)], [1, 2, 3, 255, 4, 5, 6, 255], 'centered one row down, one column in');
+  assert.equal(wide.data.reduce((a, b) => a + b, 0), 1 + 2 + 3 + 255 + 4 + 5 + 6 + 255, 'the rest is transparent');
+  assert.deepEqual([...placeRgba(two, 1, 1).data], [1, 2, 3, 255], 'a smaller canvas crops around the center (an odd pixel rounds left)');
+  const soft = { w: 2, h: 1, data: new Uint8ClampedArray([10, 20, 30, 128, 9, 9, 9, 0]) };
+  assert.deepEqual([...matteRgba(soft, [255, 255, 255], false).data], [132, 137, 142, 255, 255, 255, 255, 255]);
+  assert.deepEqual([...matteRgba(soft, [0, 0, 0], true).data], [5, 10, 15, 255, 9, 9, 9, 0], 'GIF/PNG-8 keep clear pixels clear');
+  await call('init');
+  await call('newDoc', 10, 6, 8, null);
+  assert.deepEqual((await call('exportSize', {})).result, [10, 6]);
+});
+
 test('EXR export linearizes through the document profile: Adobe RGB green leaves the Rec. 709 gamut', async () => {
   await call('init');
   await call('newDoc', 8, 8, 32, null);
@@ -4471,9 +4520,13 @@ test('Variables: Apply Data Set sets visibility and type text in one step, and D
   assert.deepEqual(psd.map(f => [f.name, f.blob.type]), [['One', 'image/vnd.adobe.photoshop'], ['Two', 'image/vnd.adobe.photoshop']]);
   const saved = (await call('savePsd')).result as { warnings: string[] };
   await call('saveEnd', false);
-  assert.ok(saved.warnings.includes('variables and data sets are not stored in PSD'));
+  assert.ok(!saved.warnings.some(w => w.includes('variables')), 'variables and data sets are stored in PSD');
   const back = await call('openFile', new File([psd[1].blob], 'two.psd'));
-  assert.equal((back.result as Info).layers.find(l => l.kind === 'text')!.text!.text, 'B', 'the second file has the second set');
+  const backDoc = back.result as Info;
+  assert.equal(backDoc.layers.find(l => l.kind === 'text')!.text!.text, 'B', 'the second file has the second set');
+  const kept = (await call('variables')).result as { variables: { name: string; layer: number }[]; data_sets: unknown[]; active: string };
+  assert.deepEqual([kept.data_sets.length, kept.active], [2, 'Two'], 'the data sets come back from the PSD');
+  assert.equal(kept.variables.find(v => v.name === 'title')!.layer, backDoc.layers.find(l => l.kind === 'text')!.id, 'bindings follow the new layer ids');
   await call('closeDoc');
   const now = ((await call('undo')).result as Info);
   assert.equal(now.layers.find(l => l.id === id)!.text!.text, 'Hi', 'one undo restores the text');
@@ -4481,6 +4534,38 @@ test('Variables: Apply Data Set sets visibility and type text in one step, and D
   await call('setVariables', { variables: [], data_sets: [], active: null }, 'Define Variables');
   assert.ok(!((await call('savePsd')).result as { warnings: string[] }).warnings.some(w => w.includes('variables')), 'an empty model is removed');
   await call('saveEnd', false);
+});
+
+test('Variables: Pixel Replacement fits, aligns and clears the layer, reports a missing image, and survives a PSD round trip', async () => {
+  await call('init');
+  await call('newDoc', 20, 10, 8, null);
+  const L = ((await call('addLayer', 0, 'Photo')).result as { created: number }).created;
+  const opts = (method: string, align: number[]) => ({
+    variables: [{ kind: 'pixels', name: 'photo', layer: L, pixels: { method, align, clip: false } }],
+    data_sets: [{ name: 'Cat', values: { photo: 'C:\\pics\\Cat.png' } }, { name: 'Dog', values: { photo: 'dog.png' } }], active: null,
+  });
+  assert.equal((await call('setVariables', opts('fit', [0.5, 0.5]), 'Define Variables')).error, undefined);
+  // The faked decoder turns any file into 4 x 2 pixels: a red top row over a blue bottom row.
+  assert.deepEqual((await call('loadVariableImages', [{ name: 'cat.png', bytes: new Uint8Array([1, 2, 3]) }])).result, ['cat.png']);
+  const fit = (await call('applyDataSet', 'Cat')).result as { doc: { undoLabel: string }; errors: string[] };
+  assert.deepEqual([fit.doc.undoLabel, fit.errors], ['Apply Data Set', []]);
+  assert.deepEqual(await pixelAt(10, 1, L), [255, 0, 0, 255], 'an empty layer takes the canvas as its bounds; Fit scales 4 x 2 to 20 x 10');
+  assert.deepEqual(await pixelAt(10, 8, L), [0, 0, 255, 255]);
+  await call('setVariables', opts('as_is', [1, 1]), 'Define Variables');
+  assert.deepEqual(((await call('applyDataSet', 'Cat')).result as { errors: string[] }).errors, []);
+  assert.deepEqual(await pixelAt(17, 8, L), [255, 0, 0, 255], 'As Is keeps 4 x 2 at the bottom right of the old bounds');
+  assert.deepEqual(await pixelAt(17, 9, L), [0, 0, 255, 255]);
+  assert.deepEqual(await pixelAt(2, 2, L), [0, 0, 0, 0], 'the old pixels are cleared');
+  const dog = (await call('applyDataSet', 'Dog')).result as { errors: string[] };
+  assert.match(dog.errors[0], /dog\.png" is not loaded/);
+  assert.deepEqual(await pixelAt(17, 8, L), [255, 0, 0, 255], 'a missing image leaves the layer alone');
+  const files = (await call('exportDataSets', 'psd', 1)).result as { name: string; blob: Blob }[];
+  const opened = (await call('openFile', new File([files[0].blob], 'cat.psd'))).result as { layers: { id: number; name: string }[] };
+  const m = (await call('variables')).result as { variables: { layer: number; pixels: unknown }[]; data_sets: unknown[] };
+  assert.equal(m.variables[0].layer, opened.layers.find(l => l.name === 'Photo')!.id);
+  assert.deepEqual(m.variables[0].pixels, { method: 'as_is', align: [1, 1], clip: false });
+  assert.equal(m.data_sets.length, 2);
+  await call('closeDoc');
 });
 
 test('M9 tools: annotations are one undoable step, Straighten Layer levels pixels, New Frame and artboard at a rect', async () => {

@@ -3,7 +3,9 @@ import { tileIds } from '../project.ts';
 import { importPsd, compositeRgba, grayIcc, isPsdBytes, type PendingSource } from '../psd.ts';
 import { getHandle } from '../links.ts';
 import { embedIcc } from '../app/iccFiles.ts';
-import { embedInfo, hasInfo, type FileInfo } from '../app/fileInfo.ts';
+import { embedExif, embedInfo, hasInfo, xmpPacket, type FileInfo } from '../app/fileInfo.ts';
+import { exifBlock } from '../app/exif.ts';
+import { encodeBmp, encodeTga, encodeTiff, type Raster, type TiffCompression } from '../encoders.ts';
 import { encodeGif, encodeGrayPng, encodePng8, quantize, type Dither } from '../app/webExport.ts';
 import { encodeGrayJpeg } from '../app/grayJpeg.ts';
 import { icoSizes, type IcoEntry } from '../formats.ts';
@@ -158,17 +160,80 @@ async function encodeFlattened(e: Engine, type: 'image/png' | 'image/jpeg' | 'im
   return icc.length ? new Blob([await embedIcc(new Uint8Array(await blob.arrayBuffer()), type, icc) as Uint8Array<ArrayBuffer>], { type }) : blob;
 }
 
-export type ExportFormat = 'png' | 'jpeg' | 'webp' | 'gif' | 'png8';
+export type ExportFormat = 'png' | 'jpeg' | 'webp' | 'gif' | 'png8' | 'tiff' | 'bmp' | 'tga';
 /** File > Export: `layer` renders that layer alone (trimmed to its pixels with `trim`), `artboard` that
  * artboard cropped to its rect; neither renders the canvas. `reveal` shows a hidden target and its hidden
- * ancestors. quality 0-1; colors/dither for GIF and PNG-8. */
+ * ancestors. quality 0-1; colors/dither for GIF and PNG-8; `compression` for TIFF, Targa RLE when not 'none'.
+ * `size` is the image size at scale 1 (default: the rendered size) and `canvas` the canvas around it (centered,
+ * cropping or extending with transparency); either one resamples with the engine's `resample` method ('auto'
+ * picks Bicubic Sharper to shrink, Smoother to enlarge). `matte` fills transparency: JPEG and opaque formats
+ * flatten onto it, GIF and PNG-8 blend soft edges onto it and keep clear pixels clear. */
 export interface ExportOptions {
   format: ExportFormat; quality: number; scale: number; colors: number; dither: Dither; icc: boolean;
   layer?: number; layers?: number[]; trim?: boolean; artboard?: number; reveal?: boolean; meta?: boolean;
+  compression?: TiffCompression; size?: [number, number]; canvas?: [number, number]; resample?: string; matte?: [number, number, number];
 }
 
 /** The document's File > File Info, or null when it has none. */
 export const docInfo = (e: Engine): FileInfo | null => (JSON.parse(e.vector_json()) as { info?: FileInfo }).info ?? null;
+const docDpi = (e: Engine) => (JSON.parse(e.vector_json()) as { resolution: number }).resolution;
+
+/** 8-bit samples of straight RGBA for TIFF, BMP and Targa: one gray channel for gray documents, alpha only
+ * when a pixel is not opaque. */
+export function rasterOf(rgba: Uint8ClampedArray | Uint8Array, w: number, h: number, gray: boolean): Raster {
+  let alpha = false;
+  for (let i = 3; i < rgba.length; i += 4) if (rgba[i] !== 255) { alpha = true; break; }
+  const c = ((gray ? 1 : 3) + (alpha ? 1 : 0)) as Raster['channels'];
+  if (c === 4) return { width: w, height: h, channels: 4, data: new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.length) };
+  const out = new Uint8Array(w * h * c);
+  for (let p = 0, o = 0; p < w * h; p++) {
+    const i = p * 4;
+    out[o++] = rgba[i];
+    if (!gray) { out[o++] = rgba[i + 1]; out[o++] = rgba[i + 2]; } else if (alpha) out[o++] = rgba[i + 3];
+  }
+  return { width: w, height: h, channels: c, data: out };
+}
+
+/** The composite at the document's depth: 8 and 16-bit samples as stored, 32-bit as linear floats (like EXR). */
+function flatRaster(e: Engine): Raster {
+  const W = e.width(), H = e.height(), depth = e.depth(), gray = grayIcc(e) !== null;
+  if (depth === 8) return rasterOf(renderRgba(e, {})!.data, W, H, gray);
+  const f = new Float32Array(W * H * 4);
+  tileLoop(W, H, (tx, ty) => {
+    const t = depth === 16 ? e.flatten_tile_f32(tx, ty) : e.flatten_tile_linear(tx, ty), w = Math.min(256, W - tx * 256);
+    for (let y = 0; y < 256 && ty * 256 + y < H; y++) f.set(t.subarray(y * 1024, y * 1024 + w * 4), ((ty * 256 + y) * W + tx * 256) * 4);
+  });
+  let alpha = false;
+  for (let i = 3; i < f.length; i += 4) if (f[i] < 1) { alpha = true; break; }
+  const c = ((gray ? 1 : 3) + (alpha ? 1 : 0)) as Raster['channels'], n = W * H;
+  const data = depth === 16 ? new Uint16Array(n * c) : new Float32Array(n * c);
+  // 16-bit samples and float alpha are clamped to 0..1; float color keeps values above 1.
+  const put = (o: number, v: number, a = false) => { data[o] = depth === 16 ? Math.round(Math.min(1, Math.max(0, v)) * 65535) : a ? Math.min(1, Math.max(0, v)) : v; };
+  for (let p = 0, o = 0; p < n; p++) {
+    const i = p * 4;
+    put(o++, f[i]);
+    if (!gray) { put(o++, f[i + 1]); put(o++, f[i + 2]); }
+    if (alpha) put(o++, f[i + 3], true);
+  }
+  return { width: W, height: H, channels: c, data };
+}
+
+/** TIFF tags and XMP from File Info; empty without it. */
+function tiffMeta(info: FileInfo | null) {
+  return hasInfo(info) ? { xmp: xmpPacket(info), description: info.description, artist: info.author, copyright: info.copyright } : {};
+}
+
+/** Save As TIFF, BMP or Targa: a flattened copy; TIFF keeps 16 and 32 bits, the profile and File Info. */
+export async function saveRaster(e: Engine, format: 'tiff' | 'bmp' | 'tga'): Promise<Blob> {
+  const dpi = docDpi(e);
+  if (format === 'tiff') {
+    const img = flatRaster(e), gray = grayIcc(e);
+    const icc = e.depth() === 32 ? undefined : gray ?? e.profile_icc();
+    return new Blob([await encodeTiff(img, { compression: 'lzw', dpi, icc, software: 'photobaer', ...tiffMeta(docInfo(e)) })], { type: 'image/tiff' });
+  }
+  const img = rasterOf(renderRgba(e, {})!.data, e.width(), e.height(), grayIcc(e) !== null);
+  return format === 'bmp' ? new Blob([encodeBmp(img, dpi)], { type: 'image/bmp' }) : new Blob([encodeTga(img, true)], { type: 'image/x-tga' });
+}
 interface Rgba { data: Uint8ClampedArray<ArrayBuffer>; w: number; h: number }
 
 // The composite of `e`, or of some layers (ancestors kept, every other branch hidden in a clone) or one
@@ -215,14 +280,84 @@ function renderRgba(e: Engine, o: Pick<ExportOptions, 'layer' | 'layers' | 'trim
   }
 }
 
-// Scales `img` (smoothed) and encodes it; JPEG flattens onto white, GIF/PNG-8 keep alpha < 50% as transparent.
-async function encodeRgba(e: Engine, img: Rgba, o: ExportOptions): Promise<{ blob: Blob; width: number; height: number }> {
+// `img` resized to w x h through a smoothed canvas.
+function scaleRgba(img: Rgba, w: number, h: number): Uint8ClampedArray {
+  const c = new OffscreenCanvas(img.w, img.h);
+  c.getContext('2d')!.putImageData(new ImageData(img.data, img.w, img.h), 0, 0);
+  const s = new OffscreenCanvas(w, h), ctx = s.getContext('2d')!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(c, 0, 0, w, h);
+  return ctx.getImageData(0, 0, w, h).data;
+}
+
+async function encodeRaster(e: Engine, rgba: Uint8ClampedArray, width: number, height: number, dpi: number, o: ExportOptions) {
+  const gray = grayIcc(e), ras = rasterOf(rgba, width, height, gray !== null);
+  if (o.format === 'bmp') return { blob: new Blob([encodeBmp(ras, dpi)], { type: 'image/bmp' }), width, height };
+  if (o.format === 'tga') return { blob: new Blob([encodeTga(ras, (o.compression ?? 'lzw') !== 'none')], { type: 'image/x-tga' }), width, height };
+  const icc = o.icc ? gray ?? e.profile_icc() : undefined;
+  const meta = o.meta ? tiffMeta(docInfo(e)) : {};
+  return { blob: new Blob([await encodeTiff(ras, { compression: o.compression ?? 'lzw', dpi, icc, ...meta })], { type: 'image/tiff' }), width, height };
+}
+
+/** `img` resampled to w x h by the engine's Image Size (`method` as there, or 'auto'). */
+export function resampleRgba(img: Rgba, w: number, h: number, method: string): Rgba {
+  const interp = method !== 'auto' ? method : w <= img.w && h <= img.h ? 'bicubicSharper' : w >= img.w && h >= img.h ? 'bicubicSmoother' : 'bicubic';
+  const t = new Engine(img.w, img.h, 8);
+  try {
+    const tile = new Uint8Array(256 * 256 * 4);
+    tileLoop(img.w, img.h, (tx, ty) => {
+      tile.fill(0);
+      const cw = Math.min(256, img.w - tx * 256);
+      for (let y = 0; y < 256 && ty * 256 + y < img.h; y++) tile.set(img.data.subarray(((ty * 256 + y) * img.w + tx * 256) * 4, ((ty * 256 + y) * img.w + tx * 256 + cw) * 4), y * 1024);
+      t.set_tile_rgba8(1, tx, ty, tile);
+    });
+    t.image_size(w, h, interp, false);
+    return renderRgba(t, {})!;
+  } finally {
+    t.free();
+  }
+}
+
+/** `img` centered on a transparent w x h canvas (cropped where it is larger). */
+export function placeRgba(img: Rgba, w: number, h: number): Rgba {
+  if (w === img.w && h === img.h) return img;
+  const out = new Uint8ClampedArray(w * h * 4), ox = Math.round((w - img.w) / 2), oy = Math.round((h - img.h) / 2);
+  const x0 = Math.max(0, ox), x1 = Math.min(w, ox + img.w);
+  if (x1 > x0) for (let y = Math.max(0, oy); y < Math.min(h, oy + img.h); y++) out.set(img.data.subarray(((y - oy) * img.w + x0 - ox) * 4, ((y - oy) * img.w + x1 - ox) * 4), (y * w + x0) * 4);
+  return { data: out, w, h };
+}
+
+/** `img` over `matte`: every pixel made opaque, or with `keepClear` only the partly transparent ones. */
+export function matteRgba(img: Rgba, matte: [number, number, number], keepClear: boolean): Rgba {
+  const d = new Uint8ClampedArray(img.data);
+  for (let i = 0; i < d.length; i += 4) {
+    const a = d[i + 3];
+    if (a === 255 || (keepClear && a === 0)) continue;
+    for (let k = 0; k < 3; k++) d[i + k] = Math.round((d[i + k] * a + matte[k] * (255 - a)) / 255);
+    d[i + 3] = 255;
+  }
+  return { data: d, w: img.w, h: img.h };
+}
+
+// Sizes and encodes `src`: canvas smoothing for a plain scale, the engine for `size`/`canvas`/`resample`;
+// JPEG flattens onto the matte (white by default), GIF/PNG-8 keep alpha < 50% as transparent.
+async function encodeRgba(e: Engine, src: Rgba, o: ExportOptions): Promise<{ blob: Blob; width: number; height: number }> {
+  const base = o.size ?? [src.w, src.h];
+  let img = src, width = Math.max(1, Math.round(base[0] * o.scale)), height = Math.max(1, Math.round(base[1] * o.scale));
+  if (o.resample || o.canvas || o.size) {
+    if (width !== img.w || height !== img.h) img = resampleRgba(img, width, height, o.resample ?? 'auto');
+    if (o.canvas) img = placeRgba(img, Math.max(1, Math.round(o.canvas[0] * o.scale)), Math.max(1, Math.round(o.canvas[1] * o.scale)));
+    width = img.w; height = img.h;
+  }
+  if (o.matte && o.format !== 'jpeg') img = matteRgba(img, o.matte, o.format === 'gif' || o.format === 'png8');
+  const scaled = width !== img.w || height !== img.h, dpi = docDpi(e);
+  // TIFF, BMP and Targa encode unscaled pixels directly: the canvas's premultiplied storage rounds soft edges.
+  if (o.format === 'tiff' || o.format === 'bmp' || o.format === 'tga') return encodeRaster(e, scaled ? scaleRgba(img, width, height) : img.data, width, height, dpi, o);
   let c = new OffscreenCanvas(img.w, img.h);
   c.getContext('2d')!.putImageData(new ImageData(img.data, img.w, img.h), 0, 0);
-  const width = Math.max(1, Math.round(img.w * o.scale)), height = Math.max(1, Math.round(img.h * o.scale));
-  if (width !== img.w || height !== img.h || o.format === 'jpeg') {
+  if (scaled || o.format === 'jpeg') {
     const s = new OffscreenCanvas(width, height), ctx = s.getContext('2d')!;
-    if (o.format === 'jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height); }
+    if (o.format === 'jpeg') { const [r, g, b] = o.matte ?? [255, 255, 255]; ctx.fillStyle = `rgb(${r} ${g} ${b})`; ctx.fillRect(0, 0, width, height); }
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(c, 0, 0, width, height);
     c = s;
@@ -243,7 +378,11 @@ async function encodeRgba(e: Engine, img: Rgba, o: ExportOptions): Promise<{ blo
   if (!icc.length && !hasInfo(info)) return { blob, width, height };
   let bytes: Uint8Array = new Uint8Array(await blob.arrayBuffer());
   if (icc.length) bytes = await embedIcc(bytes, type, icc);
-  if (hasInfo(info)) bytes = embedInfo(bytes, type, info);
+  if (hasInfo(info)) {
+    bytes = embedInfo(bytes, type, info);
+    const exif = exifBlock({ description: info.description, artist: info.author, copyright: info.copyright, dpi });
+    if (exif) bytes = embedExif(bytes, type, exif);
+  }
   return { blob: new Blob([bytes as Uint8Array<ArrayBuffer>], { type }), width, height };
 }
 

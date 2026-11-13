@@ -2,7 +2,7 @@
 // Without it (Firefox, Safari) Open uses the file input and saving downloads.
 import { svgAtSize, svgSize } from './rasterSize.ts';
 type Kind = 'psd' | 'image';
-type SaveFormat = 'psd' | 'psb' | 'exr' | 'hdr' | 'ico';
+type SaveFormat = 'psd' | 'psb' | 'exr' | 'hdr' | 'ico' | 'tiff' | 'bmp' | 'tga';
 // The file a tab was opened from or saved as; `warned`: the open reported content the PSD writer cannot store.
 // `raster`: the pixel size and resolution an SVG was rasterized at, which Revert keeps.
 interface Origin { handle: FileSystemFileHandle; kind: Kind; warned: boolean; raster?: { size: [number, number]; ppi: number } }
@@ -25,11 +25,17 @@ const SAVE_TYPES = [
   { description: 'OpenEXR (flattened copy)', accept: { 'image/x-exr': ['.exr'] } },
   { description: 'Radiance HDR (flattened copy)', accept: { 'image/vnd.radiance': ['.hdr'] } },
   { description: 'Windows Icon (flattened copy)', accept: { 'image/x-icon': ['.ico'] } },
+  { description: 'TIFF (flattened copy)', accept: { 'image/tiff': ['.tif', '.tiff'] } },
+  { description: 'BMP (flattened copy)', accept: { 'image/bmp': ['.bmp'] } },
+  { description: 'Targa (flattened copy)', accept: { 'image/x-tga': ['.tga'] } },
 ];
 
 const kindOf = (name: string): Kind => /\.ps[db]$/i.test(name) ? 'psd' : 'image';
 // The format Save As writes, by extension; null for any other name.
-const saveFormat = (name: string): SaveFormat | null => (/\.(psd|psb|exr|hdr|ico)$/i.exec(name)?.[1].toLowerCase() as SaveFormat | undefined) ?? null;
+const saveFormat = (name: string): SaveFormat | null => {
+  const x = /\.(psd|psb|exr|hdr|ico|tiff?|bmp|tga)$/i.exec(name)?.[1].toLowerCase();
+  return x === 'tif' ? 'tiff' : (x as SaveFormat | undefined) ?? null;
+};
 const baseName = (name: string) => name.replace(/\.[^.]+$/, '');
 
 // Ctrl+S writes back only to a .psd that opened without warnings (D3); Edit Contents

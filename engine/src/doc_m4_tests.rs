@@ -1012,6 +1012,30 @@ fn file_info_is_stored_in_the_manifest_and_limited() {
 }
 
 #[test]
+fn file_info_extra_properties_and_camera_data_round_trip_and_are_checked() {
+    let mut d = Document::new(16, 16, 8).unwrap();
+    let mut v: Value = serde_json::from_str(&d.vector_json()).unwrap();
+    let info = json!({ "title": "T", "author": "", "description": "", "keywords": [], "copyright": "", "copyright_url": "",
+        "extra": { "photoshop:Headline": "H", "Iptc4xmpCore:CiAdrCity": "Graz" }, "camera": { "Make": "Canon", "FNumber": "28/10" } });
+    v["info"] = info.clone();
+    d.set_document_vector(&v.to_string()).unwrap();
+    let e = Document::from_manifest(&d.manifest()).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&e.vector_json()).unwrap()["info"], info);
+    let plain = json!({ "title": "T", "author": "", "description": "", "keywords": [], "copyright": "", "copyright_url": "" });
+    v["info"] = plain.clone();
+    d.set_document_vector(&v.to_string()).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&d.vector_json()).unwrap()["info"], plain, "empty maps are not written");
+    for (field, k, val) in [("extra", "no-colon key", "x"), ("extra", "a:b:c", "x"), ("extra", "photoshop:Headline", &"x".repeat(65537)[..]), ("camera", "Make", &"x".repeat(4097)[..])] {
+        let mut w = v.clone();
+        w["info"][field] = json!({ k: val });
+        assert!(d.set_document_vector(&w.to_string()).is_err(), "{field} {k} is refused");
+    }
+    let mut many = v.clone();
+    many["info"]["extra"] = Value::Object((0..201).map(|i| (format!("photoshop:K{i}"), json!("v"))).collect());
+    assert!(d.set_document_vector(&many.to_string()).is_err());
+}
+
+#[test]
 fn variables_are_stored_in_the_manifest_and_checked() {
     let mut d = Document::new(16, 16, 8).unwrap();
     let mut v: Value = serde_json::from_str(&d.vector_json()).unwrap();
@@ -1042,6 +1066,29 @@ fn variables_are_stored_in_the_manifest_and_checked() {
     let mut big = v.clone();
     big["variables"]["data_sets"][0]["values"]["title"] = json!("x".repeat(65537));
     assert!(d.set_document_vector(&big.to_string()).is_err());
+}
+
+#[test]
+fn pixel_replacement_variables_round_trip_and_their_options_are_checked() {
+    let mut d = Document::new(16, 16, 8).unwrap();
+    let mut v: Value = serde_json::from_str(&d.vector_json()).unwrap();
+    let vars = json!({
+        "variables": [{ "kind": "pixels", "name": "photo", "layer": 2, "pixels": { "method": "as_is", "align": [0.0, 1.0], "clip": true } }],
+        "data_sets": [{ "name": "A", "values": { "photo": "cat.png" } }],
+        "active": null,
+    });
+    v["variables"] = vars.clone();
+    d.set_document_vector(&v.to_string()).unwrap();
+    let e = Document::from_manifest(&d.manifest()).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&e.vector_json()).unwrap()["variables"], vars);
+    for (path, bad) in [("/align", json!([1.5, 0.0])), ("/align", json!([0.0, -0.1])), ("/method", json!("stretch"))] {
+        let mut w = v.clone();
+        *w["variables"]["variables"][0]["pixels"].pointer_mut(path).unwrap() = bad;
+        assert!(d.set_document_vector(&w.to_string()).is_err(), "{path}");
+    }
+    let mut wrong = v.clone();
+    wrong["variables"]["variables"][0]["kind"] = json!("text");
+    assert!(d.set_document_vector(&wrong.to_string()).unwrap_err().contains("ariable"), "pixel options only on a Pixel Replacement variable");
 }
 
 #[test]
