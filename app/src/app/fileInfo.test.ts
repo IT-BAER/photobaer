@@ -152,3 +152,22 @@ test('PSD: image resource 1060 holds the XMP, other resources and the rest kept'
   assert.deepEqual([...b.subarray(34 + len)], [0xaa, 0xbb]);
   assert.deepEqual(readInfo(b), INFO);
 });
+
+const xmp = (body: string) => `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/">${body}</rdf:Description></rdf:RDF></x:xmpmeta>`;
+
+test('parseXmp: invalid numeric character references become U+FFFD and the rest of the packet is kept', () => {
+  const r = parseXmp(xmp('<photoshop:Headline>a&#x110000;b&#xD800;c&#0;d&#99999999999;e&#x41;</photoshop:Headline><dc:rights><rdf:Alt><rdf:li xml:lang="x-default">ok</rdf:li></rdf:Alt></dc:rights>'))!;
+  assert.equal(r.extra!['photoshop:Headline'], 'a\uFFFDb\uFFFDc\uFFFDd\uFFFDeA');
+  assert.equal(r.copyright, 'ok');
+});
+
+test('parseXmp: values are cut by UTF-8 bytes at a character boundary to the engine limits', () => {
+  const bytes = (s: string) => new TextEncoder().encode(s).length;
+  const r = parseXmp(xmp(`<photoshop:Headline>${'Ä'.repeat(40000)}</photoshop:Headline><photoshop:CaptionWriter>${'😀'.repeat(20000)}</photoshop:CaptionWriter>`
+    + `<dc:title><rdf:Alt><rdf:li xml:lang="x-default">${'Ä'.repeat(40000)}</rdf:li></rdf:Alt></dc:title><dc:subject><rdf:Bag><rdf:li>${'Ä'.repeat(600)}</rdf:li></rdf:Bag></dc:subject>`))!;
+  assert.equal(bytes(r.extra!['photoshop:Headline']), 65536);
+  assert.equal(bytes(r.extra!['photoshop:CaptionWriter']), 65536);
+  assert.ok(!r.extra!['photoshop:CaptionWriter'].includes('\uFFFD'));
+  assert.equal(bytes(r.title), 65536);
+  assert.equal(bytes(r.keywords[0]), 1024);
+});

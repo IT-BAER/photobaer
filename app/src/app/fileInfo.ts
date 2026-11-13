@@ -62,7 +62,10 @@ const fromXmpDate = (v: string) => { const d = exifDate(v); return d ? `${d[0]}:
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const unesc = (s: string) => s.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (_, e: string) => {
   const k = e.toLowerCase();
-  if (k[0] === '#') return String.fromCodePoint(k[1] === 'x' ? parseInt(k.slice(2), 16) : parseInt(k.slice(1), 10));
+  if (k[0] === '#') {
+    const n = k[1] === 'x' ? parseInt(k.slice(2), 16) : parseInt(k.slice(1), 10);
+    return n > 0 && n <= 0x10ffff && (n < 0xd800 || n > 0xdfff) ? String.fromCodePoint(n) : '\uFFFD';
+  }
   return ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" } as Record<string, string>)[k];
 });
 
@@ -110,17 +113,27 @@ function prop(x: string, tag: string): string[] {
   return at ? [unesc(at[1] ?? at[2])] : [];
 }
 
+// `s` cut to at most `max` UTF-8 bytes at a character boundary (the engine limits by bytes).
+function cutBytes(s: string, max: number): string {
+  const b = new TextEncoder().encode(s);
+  if (b.length <= max) return s;
+  let n = max;
+  while (n > 0 && (b[n] & 0xc0) === 0x80) n--;
+  return new TextDecoder().decode(b.subarray(0, n));
+}
+
 /** The File Info fields of an XMP packet; null when it has none. Values are cut to the engine's limits. */
 export function parseXmp(x: string): FileInfo | null {
   const one = (tag: string, alt = false) => { const v = prop(x, tag); return alt ? v[0] ?? '' : v.join('; '); };
   const i: FileInfo = {
     title: one('dc:title', true), author: one('dc:creator'), description: one('dc:description', true),
-    keywords: prop(x, 'dc:subject'), copyright: one('dc:rights', true), copyright_url: one('xmpRights:WebStatement'),
+    keywords: prop(x, 'dc:subject').slice(0, 1000).map(k => cutBytes(k, 1024)), copyright: one('dc:rights', true), copyright_url: one('xmpRights:WebStatement'),
   };
+  for (const k of ['title', 'author', 'description', 'copyright', 'copyright_url'] as const) i[k] = cutBytes(i[k], 65536);
   const extra: Record<string, string> = {}, camera: Record<string, string> = {};
-  for (const [k, kind] of Object.entries(XMP_FIELDS)) { const v = one(k, kind === 'alt').slice(0, 65536); if (v) extra[k] = v; }
+  for (const [k, kind] of Object.entries(XMP_FIELDS)) { const v = cutBytes(one(k, kind === 'alt'), 65536); if (v) extra[k] = v; }
   for (const [k, tag] of Object.entries(CAMERA_XMP)) {
-    const v = (k === 'ISOSpeedRatings' ? prop(x, tag).join(' ') : one(tag)).slice(0, 4096);
+    const v = cutBytes(k === 'ISOSpeedRatings' ? prop(x, tag).join(' ') : one(tag), 4096);
     if (v) camera[k] = k === 'DateTimeOriginal' ? fromXmpDate(v) : v;
   }
   const r = normInfo({ ...i, extra, camera });

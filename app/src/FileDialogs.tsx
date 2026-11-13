@@ -218,7 +218,7 @@ export function FileInfoDialog({ ref, commit }: { ref: Ref<FileInfoHandle>; comm
             <button type="button" onClick={() => importInput.current?.click()}><Trans>Import...</Trans></button>
             <button type="button" onClick={exportTemplate}><Trans>Export...</Trans></button>
             <input ref={importInput} type="file" hidden accept=".xmp,application/rdf+xml" aria-label={t`Import metadata template`}
-              onChange={e => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void f.text().then(apply); }} />
+              onChange={e => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void f.text().then(apply, () => setError(t`The template is not a well-formed XMP file.`)); }} />
           </div>
         </fieldset>
         <div className="actions">

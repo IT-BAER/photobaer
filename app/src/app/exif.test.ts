@@ -90,3 +90,22 @@ test('Camera Data of damaged blocks: truncated, bad offsets, not TIFF', () => {
   assert.deepEqual(readExif(new Uint8Array(0)), {});
   assert.equal(fileExif(png()), null);
 });
+
+test('EXIF block: non-ASCII text is UTF-8 with a byte count that includes the NUL, values at even offsets', () => {
+  const t = { description: 'Désc', artist: 'Jürgen Ä', copyright: '© 2026 Ünal', dpi: 300 };
+  const b = exifBlock(t)!, v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const n = v.getUint16(8);
+  const seen: Record<number, string> = {};
+  for (let i = 0; i < n; i++) {
+    const o = 10 + i * 12, tag = v.getUint16(o), type = v.getUint16(o + 2), cnt = v.getUint32(o + 4);
+    if (type !== 2) continue;
+    const bytes = Buffer.from([...new TextEncoder().encode(({ 270: t.description, 315: t.artist, 33432: t.copyright } as Record<number, string>)[tag]), 0]);
+    assert.equal(cnt, bytes.length, `tag ${tag} count`);
+    const at = cnt <= 4 ? o + 8 : v.getUint32(o + 8);
+    if (cnt > 4) assert.equal(at % 2, 0, `tag ${tag} offset is even`);
+    assert.deepEqual([...b.subarray(at, at + cnt)], [...bytes], `tag ${tag} bytes`);
+    seen[tag] = new TextDecoder().decode(b.subarray(at, at + cnt - 1));
+  }
+  assert.deepEqual(seen, { 270: 'Désc', 315: 'Jürgen Ä', 33432: '© 2026 Ünal' });
+  assert.deepEqual(readExif(b), { ImageDescription: 'Désc', Artist: 'Jürgen Ä', Copyright: '© 2026 Ünal', XResolution: '300/1', YResolution: '300/1', ResolutionUnit: '2' });
+});
