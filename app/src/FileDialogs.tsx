@@ -4,43 +4,223 @@ import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
 import { formatNumber } from './i18n/numbers.ts';
-import { emptyInfo, xmpPacket, type FileInfo } from './app/fileInfo.ts';
+import { applyTemplate, emptyInfo, rawXmpInfo, xmpPacket, type FileInfo, type TemplateMode } from './app/fileInfo.ts';
+import { cameraRows } from './app/cameraData.ts';
 import { PAPERS, printLayout, type PrintSettings } from './app/print.ts';
 import { NumberInput } from './shell/NumberInput.tsx';
 
 export interface FileInfoHandle { open(info: FileInfo | null): void }
 
+type InfoTab = 'basic' | 'camera' | 'origin' | 'iptc' | 'xmp';
+type Core = Exclude<keyof FileInfo, 'keywords' | 'extra' | 'camera'>;
+const CORE = new Set<string>(['title', 'author', 'description', 'copyright', 'copyright_url']);
+
+// Saved templates (name to XMP packet) stay in this browser, like Photoshop's metadata template folder.
+const TEMPLATES = 'photobaer.fileInfoTemplates';
+function loadTemplates(): Record<string, string> {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(TEMPLATES) ?? '{}');
+    return v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === 'string')) : {};
+  } catch { return {}; }
+}
+function storeTemplates(m: Record<string, string>) { try { localStorage.setItem(TEMPLATES, JSON.stringify(m)); } catch { /* storage blocked */ } }
+
 export function FileInfoDialog({ ref, commit }: { ref: Ref<FileInfoHandle>; commit: (i: FileInfo) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const importInput = useRef<HTMLInputElement>(null);
   const [i, setI] = useState(emptyInfo);
   const [keywords, setKeywords] = useState('');
-  const [tab, setTab] = useState<'description' | 'xmp'>('description');
+  const [tab, setTab] = useState<InfoTab>('basic');
+  const [raw, setRaw] = useState<{ text: string; edited: boolean }>({ text: '', edited: false });
+  const [error, setError] = useState('');
+  const [templates, setTemplates] = useState<Record<string, string>>({});
+  const [template, setTemplate] = useState('');
+  const [mode, setMode] = useState<TemplateMode>('replace');
+  const [name, setName] = useState('');
+  const show = (v: FileInfo) => { setI(v); setKeywords(v.keywords.join(', ')); };
   useImperativeHandle(ref, () => ({
-    open(info) { const v = info ?? emptyInfo(); setI(v); setKeywords(v.keywords.join(', ')); setTab('description'); dialog.current?.showModal(); },
+    open(info) {
+      show(info ?? emptyInfo()); setTab('basic'); setError(''); setTemplates(loadTemplates()); setTemplate(''); setName('');
+      dialog.current?.showModal();
+    },
   }));
   const value = (): FileInfo => ({ ...i, keywords: keywords.split(/[,;]/).map(k => k.trim()).filter(Boolean) });
-  const text = (label: string, k: Exclude<keyof FileInfo, 'keywords'>) =>
-    <label>{label} <input value={i[k]} onChange={e => setI({ ...i, [k]: e.currentTarget.value })} /></label>;
+  // The edited Raw Data read back; false (with the message shown) while it is not well-formed.
+  const leaveRaw = (): FileInfo | false => {
+    if (tab !== 'xmp' || !raw.edited) return value();
+    const v = rawXmpInfo(raw.text, value());
+    if (!v) { setError(t`The XMP is not well-formed. Correct it before you leave Raw Data.`); return false; }
+    show(v);
+    return v;
+  };
+  const go = (to: InfoTab) => {
+    const v = leaveRaw();
+    if (!v) return;
+    setError('');
+    if (to === 'xmp') setRaw({ text: xmpPacket(v), edited: false });
+    setTab(to);
+  };
+  const get = (k: string) => (CORE.has(k) ? i[k as Core] : i.extra?.[k] ?? '');
+  const set = (k: string, v: string) => setI(CORE.has(k) ? { ...i, [k]: v } : { ...i, extra: { ...i.extra, [k]: v } });
+  const field = (label: string, k: string) => <label>{label} <input value={get(k)} onChange={e => set(k, e.currentTarget.value)} /></label>;
+  const area = (label: string, k: string) => <label>{label} <textarea rows={3} value={get(k)} onChange={e => set(k, e.currentTarget.value)} /></label>;
+  const choice = (label: string, k: string, options: [string, string][]) =>
+    <label>{label} <select value={get(k)} onChange={e => set(k, e.currentTarget.value)}>{options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>;
+  const date = (label: string, k: string) => {
+    const v = get(k), d = /^\d{4}-\d\d-\d\d/.test(v) ? v.slice(0, 10) : '';
+    return <label>{label} <input type="date" value={d} onChange={e => set(k, e.currentTarget.value ? e.currentTarget.value + (d ? v.slice(10) : '') : '')} /></label>;
+  };
+  const keywordField = <>
+    <label><Trans>Keywords</Trans> <input value={keywords} onChange={e => setKeywords(e.currentTarget.value)} /></label>
+    <p className="hint"><Trans>Separate keywords with commas or semicolons.</Trans></p>
+  </>;
+  const tabButton = (id: InfoTab, label: string) =>
+    <button type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'primary' : ''} onClick={() => go(id)}>{label}</button>;
+  // A template never carries Camera Data.
+  const packet = (v: FileInfo) => xmpPacket({ ...v, camera: undefined });
+  const apply = (x: string) => {
+    const v = leaveRaw();
+    if (!v) return;
+    const tpl = rawXmpInfo(x, emptyInfo());
+    if (!tpl) { setError(t`The template is not a well-formed XMP file.`); return; }
+    const r = applyTemplate(v, tpl, mode);
+    show(r);
+    if (tab === 'xmp') setRaw({ text: xmpPacket(r), edited: false });
+    setError('');
+  };
+  const saveTemplate = () => {
+    const v = leaveRaw(), n = name.trim();
+    if (!v || !n) return;
+    const m = { ...templates, [n]: packet(v) };
+    storeTemplates(m); setTemplates(m); setTemplate(n); setName('');
+  };
+  const deleteTemplate = () => {
+    if (!template) return;
+    const m = { ...templates };
+    delete m[template];
+    storeTemplates(m); setTemplates(m); setTemplate('');
+  };
+  const exportTemplate = () => {
+    const v = leaveRaw();
+    if (!v) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([packet(v)], { type: 'application/rdf+xml' }));
+    a.download = `${(name.trim() || template || 'metadata').replace(/[\\/:*?"<>|]/g, '_')}.xmp`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
+  };
+  const cameraList = cameraRows(i.camera ?? {});
+  const urgency: [string, string][] = [['', t`None`], ['1', t`High`], ['2', '2'], ['3', '3'], ['4', '4'], ['5', t`Normal`], ['6', '6'], ['7', '7'], ['8', t`Low`]];
   return (
     <dialog ref={dialog} className="mode-dialog batch-dialog file-info-dialog" aria-label={t`File Info`}>
-      <form onSubmit={e => { e.preventDefault(); dialog.current?.close(); commit(value()); }}>
+      <form onSubmit={e => { e.preventDefault(); const v = leaveRaw(); if (!v) return; dialog.current?.close(); commit(v); }}>
         <h2><Trans>File Info</Trans></h2>
         <div className="row" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === 'description'} className={tab === 'description' ? 'primary' : ''} onClick={() => setTab('description')}><Trans>Description</Trans></button>
-          <button type="button" role="tab" aria-selected={tab === 'xmp'} className={tab === 'xmp' ? 'primary' : ''} onClick={() => setTab('xmp')}><Trans>Raw XMP</Trans></button>
+          {tabButton('basic', t`Basic`)}
+          {tabButton('camera', t`Camera Data`)}
+          {tabButton('origin', t`Origin`)}
+          {tabButton('iptc', 'IPTC')}
+          {tabButton('xmp', t`Raw Data`)}
         </div>
-        {tab === 'description' ? <>
-          {text(t`Document Title`, 'title')}
-          {text(t`Author`, 'author')}
-          <label><Trans>Description</Trans> <textarea rows={3} value={i.description} onChange={e => setI({ ...i, description: e.currentTarget.value })} /></label>
-          <label><Trans>Keywords</Trans> <input value={keywords} onChange={e => setKeywords(e.currentTarget.value)} /></label>
-          <p className="hint"><Trans>Separate keywords with commas or semicolons.</Trans></p>
-          {text(t`Copyright Notice`, 'copyright')}
-          {text(t`Copyright Info URL`, 'copyright_url')}
-        </> : <>
-          <textarea className="xmp" aria-label={t`XMP packet`} readOnly rows={12} spellCheck={false} value={xmpPacket(value())} />
-          <p className="hint"><Trans>Saved into PSD files, and into PNG and JPEG exports when Export Preferences include File Info.</Trans></p>
-        </>}
+        <div className="file-info-body" role="tabpanel">
+          {tab === 'basic' && <>
+            {field(t`Document Title`, 'title')}
+            {field(t`Author`, 'author')}
+            {field(t`Author Title`, 'photoshop:AuthorsPosition')}
+            {area(t`Description`, 'description')}
+            {choice(t`Rating`, 'xmp:Rating', [['', t`None`], ['-1', t`Reject`], ['1', '★'], ['2', '★★'], ['3', '★★★'], ['4', '★★★★'], ['5', '★★★★★']])}
+            {field(t`Description Writer`, 'photoshop:CaptionWriter')}
+            {keywordField}
+            {choice(t`Copyright Status`, 'xmpRights:Marked', [['', t`Unknown`], ['True', t`Copyrighted`], ['False', t`Public Domain`]])}
+            {field(t`Copyright Notice`, 'copyright')}
+            {field(t`Copyright Info URL`, 'copyright_url')}
+          </>}
+          {tab === 'camera' && (cameraList.length
+            ? <table className="camera-data"><tbody>{cameraList.map(r => <tr key={r.key}><th scope="row">{r.label}</th><td>{r.value}</td></tr>)}</tbody></table>
+            : <p className="hint"><Trans>This document has no camera data. It is read from the EXIF data of opened JPEG, PNG, WebP and PSD files.</Trans></p>)}
+          {tab === 'origin' && <>
+            {date(t`Date Created`, 'photoshop:DateCreated')}
+            {field(t`City`, 'photoshop:City')}
+            {field(t`State/Province`, 'photoshop:State')}
+            {field(t`Country`, 'photoshop:Country')}
+            {field(t`Credit Line`, 'photoshop:Credit')}
+            {field(t`Source`, 'photoshop:Source')}
+            {field(t`Headline`, 'photoshop:Headline')}
+            {area(t`Instructions`, 'photoshop:Instructions')}
+            {field(t`Transmission Reference`, 'photoshop:TransmissionReference')}
+            {choice(t`Urgency`, 'photoshop:Urgency', urgency)}
+          </>}
+          {tab === 'iptc' && <>
+            <fieldset><legend><Trans>IPTC Contact</Trans></legend>
+              {field(t`Creator`, 'author')}
+              {field(t`Creator's Job Title`, 'photoshop:AuthorsPosition')}
+              {field(t`Address`, 'Iptc4xmpCore:CiAdrExtadr')}
+              {field(t`City`, 'Iptc4xmpCore:CiAdrCity')}
+              {field(t`State/Province`, 'Iptc4xmpCore:CiAdrRegion')}
+              {field(t`Postal Code`, 'Iptc4xmpCore:CiAdrPcode')}
+              {field(t`Country`, 'Iptc4xmpCore:CiAdrCtry')}
+              {field(t`Phone(s)`, 'Iptc4xmpCore:CiTelWork')}
+              {field(t`Email(s)`, 'Iptc4xmpCore:CiEmailWork')}
+              {field(t`Website(s)`, 'Iptc4xmpCore:CiUrlWork')}
+            </fieldset>
+            <fieldset><legend><Trans>IPTC Content</Trans></legend>
+              {field(t`Headline`, 'photoshop:Headline')}
+              {area(t`Description`, 'description')}
+              {keywordField}
+              {field(t`IPTC Subject Code`, 'Iptc4xmpCore:SubjectCode')}
+              {field(t`Description Writer`, 'photoshop:CaptionWriter')}
+            </fieldset>
+            <fieldset><legend><Trans>IPTC Image</Trans></legend>
+              {date(t`Date Created`, 'photoshop:DateCreated')}
+              {field(t`Intellectual Genre`, 'Iptc4xmpCore:IntellectualGenre')}
+              {field(t`IPTC Scene Code`, 'Iptc4xmpCore:Scene')}
+              {field(t`Sublocation`, 'Iptc4xmpCore:Location')}
+              {field(t`City`, 'photoshop:City')}
+              {field(t`State/Province`, 'photoshop:State')}
+              {field(t`Country`, 'photoshop:Country')}
+              {field(t`ISO Country Code`, 'Iptc4xmpCore:CountryCode')}
+            </fieldset>
+            <fieldset><legend><Trans>IPTC Status</Trans></legend>
+              {field(t`Title`, 'title')}
+              {field(t`Job Identifier`, 'photoshop:TransmissionReference')}
+              {area(t`Instructions`, 'photoshop:Instructions')}
+              {field(t`Credit Line`, 'photoshop:Credit')}
+              {field(t`Source`, 'photoshop:Source')}
+              {field(t`Copyright Notice`, 'copyright')}
+              {area(t`Rights Usage Terms`, 'xmpRights:UsageTerms')}
+            </fieldset>
+            <p className="hint"><Trans>Separate several subject codes, scene codes, phones, emails or websites with semicolons.</Trans></p>
+          </>}
+          {tab === 'xmp' && <>
+            <textarea className="xmp" aria-label={t`XMP packet`} rows={16} spellCheck={false} value={raw.text}
+              onChange={e => { setRaw({ text: e.currentTarget.value, edited: true }); setError(''); }} />
+            <p className="hint"><Trans>Saved into PSD files, and into PNG and JPEG exports when Export Preferences include File Info.</Trans></p>
+          </>}
+        </div>
+        {error && <p className="hint bad" role="alert">{error}</p>}
+        <fieldset><legend><Trans>Templates</Trans></legend>
+          <div className="row">
+            <select aria-label={t`Template`} value={template} onChange={e => setTemplate(e.currentTarget.value)}>
+              <option value="">{t`Choose a template`}</option>
+              {Object.keys(templates).sort().map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <button type="button" disabled={!template} onClick={() => apply(templates[template])}><Trans>Apply</Trans></button>
+            <button type="button" disabled={!template} onClick={deleteTemplate}><Trans>Delete</Trans></button>
+          </div>
+          <select aria-label={t`When applying a template`} value={mode} onChange={e => setMode(e.currentTarget.value as TemplateMode)}>
+            <option value="clear">{t`Clear existing properties and replace with template properties`}</option>
+            <option value="replace">{t`Keep original metadata but replace matching properties from template`}</option>
+            <option value="append">{t`Keep original metadata, but append matching properties from template`}</option>
+          </select>
+          <div className="row">
+            <input aria-label={t`Template name`} value={name} onChange={e => setName(e.currentTarget.value)} />
+            <button type="button" disabled={!name.trim()} onClick={saveTemplate}><Trans>Save Template</Trans></button>
+            <button type="button" onClick={() => importInput.current?.click()}><Trans>Import...</Trans></button>
+            <button type="button" onClick={exportTemplate}><Trans>Export...</Trans></button>
+            <input ref={importInput} type="file" hidden accept=".xmp,application/rdf+xml" aria-label={t`Import metadata template`}
+              onChange={e => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void f.text().then(apply); }} />
+          </div>
+        </fieldset>
         <div className="actions">
           <button type="button" onClick={() => dialog.current?.close()}><Trans>Cancel</Trans></button>
           <button type="submit" className="primary"><Trans>OK</Trans></button>

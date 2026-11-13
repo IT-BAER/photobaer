@@ -21,8 +21,10 @@ export interface ImageProcessorOptions {
   dest: 'folder' | 'download'; folder: FileSystemDirectoryHandle | null;
   jpeg: { on: boolean; quality: number; srgb: boolean; fit: Fit };
   psd: { on: boolean; fit: Fit };
+  tiff: { on: boolean; lzw: boolean; fit: Fit };
   png: { on: boolean; fit: Fit };
   action: { on: boolean; setId: string; actionId: string };
+  copyright: string; icc: boolean;
 }
 export interface ScriptDialogHandle { open(): void }
 
@@ -43,8 +45,8 @@ export function ImageProcessorDialog({ ref, start }: { ref: Ref<ScriptDialogHand
   const fit = { on: false, w: 1024, h: 1024 };
   const [o, setO] = useState<ImageProcessorOptions>({
     source: 'opened', files: [], dest: canFolder ? 'folder' : 'download', folder: null,
-    jpeg: { on: true, quality: 5, srgb: true, fit }, psd: { on: false, fit }, png: { on: false, fit },
-    action: { on: false, setId: '', actionId: '' },
+    jpeg: { on: true, quality: 5, srgb: true, fit }, psd: { on: false, fit }, tiff: { on: false, lzw: true, fit }, png: { on: false, fit },
+    action: { on: false, setId: '', actionId: '' }, copyright: '', icc: true,
   });
   const set = actions.sets.find(s => s.id === o.action.setId);
 
@@ -62,7 +64,7 @@ export function ImageProcessorDialog({ ref, start }: { ref: Ref<ScriptDialogHand
     } catch { /* cancelled */ }
   }
 
-  const ready = (o.source === 'opened' || o.files.length > 0) && (o.dest !== 'folder' || !!o.folder) && (o.jpeg.on || o.psd.on || o.png.on)
+  const ready = (o.source === 'opened' || o.files.length > 0) && (o.dest !== 'folder' || !!o.folder) && (o.jpeg.on || o.psd.on || o.tiff.on || o.png.on)
     && (!o.action.on || !!set?.actions.some(a => a.id === o.action.actionId));
   return (
     <dialog ref={dialog} className="mode-dialog batch-dialog" aria-label={t`Image Processor`}>
@@ -85,7 +87,7 @@ export function ImageProcessorDialog({ ref, start }: { ref: Ref<ScriptDialogHand
             <span className="hint">{o.folder?.name ?? ''}</span>
           </div>}
           <label className="radio"><input type="radio" name="ip-dest" checked={o.dest === 'download'} onChange={() => setO({ ...o, dest: 'download' })} /> <Trans>Downloads</Trans></label>
-          <p className="hint"><Trans>In a folder each type goes into a subfolder named JPEG, PSD or PNG.</Trans></p>
+          <p className="hint"><Trans>In a folder each type goes into a subfolder named JPEG, PSD, TIFF or PNG.</Trans></p>
         </fieldset>
         <fieldset>
           <legend><Trans>File Type</Trans></legend>
@@ -97,6 +99,11 @@ export function ImageProcessorDialog({ ref, start }: { ref: Ref<ScriptDialogHand
           <FitFields label="JPEG" fit={o.jpeg.fit} set={f => setO({ ...o, jpeg: { ...o.jpeg, fit: f } })} />
           <label className="radio"><input type="checkbox" checked={o.psd.on} onChange={e => setO({ ...o, psd: { ...o.psd, on: e.currentTarget.checked } })} /> <Trans>Save as PSD</Trans></label>
           <FitFields label="PSD" fit={o.psd.fit} set={f => setO({ ...o, psd: { ...o.psd, fit: f } })} />
+          <div className="row">
+            <label className="radio"><input type="checkbox" checked={o.tiff.on} onChange={e => setO({ ...o, tiff: { ...o.tiff, on: e.currentTarget.checked } })} /> <Trans>Save as TIFF</Trans></label>
+            <label className="radio"><input type="checkbox" checked={o.tiff.lzw} onChange={e => setO({ ...o, tiff: { ...o.tiff, lzw: e.currentTarget.checked } })} /> <Trans>LZW Compression</Trans></label>
+          </div>
+          <FitFields label="TIFF" fit={o.tiff.fit} set={f => setO({ ...o, tiff: { ...o.tiff, fit: f } })} />
           <label className="radio"><input type="checkbox" checked={o.png.on} onChange={e => setO({ ...o, png: { ...o.png, on: e.currentTarget.checked } })} /> <Trans>Save as PNG</Trans></label>
           <FitFields label="PNG" fit={o.png.fit} set={f => setO({ ...o, png: { ...o.png, fit: f } })} />
         </fieldset>
@@ -111,6 +118,10 @@ export function ImageProcessorDialog({ ref, start }: { ref: Ref<ScriptDialogHand
               {set?.actions.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
+          <div className="row">
+            <label><Trans>Copyright Info</Trans> <input aria-label={t`Copyright Info`} value={o.copyright} maxLength={1000} onChange={e => setO({ ...o, copyright: e.currentTarget.value })} /></label>
+          </div>
+          <label className="radio"><input type="checkbox" checked={o.icc} onChange={e => setO({ ...o, icc: e.currentTarget.checked })} /> <Trans>Include ICC Profile</Trans></label>
           <p className="hint"><Trans>Errors are written to a report and the other images go on.</Trans></p>
         </fieldset>
         <div className="actions">

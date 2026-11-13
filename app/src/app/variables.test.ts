@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { emptyVariables, exportCsv, importDataSets, parseCsv, planDataSet, replaceText, setBinding, valueOf, type Variables } from './variables.ts';
+import {
+  emptyVariables, exportCsv, imageKey, importDataSets, parseCsv, pixelPlacement, planDataSet, readVariablesResource, replaceText, setBinding,
+  setPixelOptions, valueOf, variablesResource, type Variables,
+} from './variables.ts';
 
 const MODEL: Variables = {
   variables: [{ kind: 'visibility', name: 'logo', layer: 2 }, { kind: 'text', name: 'title', layer: 3 }],
@@ -67,6 +70,61 @@ test('planDataSet resolves visibility words and text, and reports dangling or wr
   const c = planDataSet(m, nodes, 'C');
   assert.deepEqual([c.visible, c.text, c.errors], [[], [[3, '']], []], 'a blank visibility is unchanged, blank text is applied');
   assert.throws(() => planDataSet(m, nodes, 'D'), /No data set/);
+});
+
+test('Pixel Replacement: bound with Fit, centered, unclipped; options change; plan takes file names for pixel layers only', () => {
+  let m = setBinding(emptyVariables(), 2, 'pixels', 'photo');
+  assert.deepEqual(m.variables, [{ kind: 'pixels', name: 'photo', layer: 2, pixels: { method: 'fit', align: [0.5, 0.5], clip: false } }]);
+  m = setPixelOptions(m, 2, { method: 'fill', align: [0, 1], clip: true });
+  assert.deepEqual(m.variables[0].pixels, { method: 'fill', align: [0, 1], clip: true });
+  assert.throws(() => setPixelOptions(m, 2, { method: 'fill', align: [2, 0], clip: true }), /alignment/);
+  m = setBinding(m, 2, 'pixels', 'photo2');
+  assert.deepEqual(m.variables[0].pixels, { method: 'fill', align: [0, 1], clip: true }, 'a rename keeps the options');
+  m = { ...m, variables: [...m.variables, { kind: 'pixels', name: 'onText', layer: 3, pixels: { method: 'fit', align: [0.5, 0.5], clip: false } }],
+    data_sets: [{ name: 'A', values: { photo2: 'C:\\Images\\Cat.PNG', onText: 'x.png' } }, { name: 'B', values: { photo2: ' ' } }] };
+  const nodes = [{ id: 2, kind: 'pixel', name: 'Photo' }, { id: 3, kind: 'text', name: 'Title' }];
+  const a = planDataSet(m, nodes, 'A');
+  assert.deepEqual(a.pixels, [[2, 'C:\\Images\\Cat.PNG', { method: 'fill', align: [0, 1], clip: true }]]);
+  assert.match(a.errors[0], /pixel layer/);
+  assert.deepEqual(planDataSet(m, nodes, 'B').pixels, [], 'a blank file name leaves the layer alone');
+  assert.equal(imageKey('C:\\Images\\Cat.PNG'), 'cat.png');
+  assert.equal(imageKey(' photos/2026/dog.jpg '), 'dog.jpg');
+});
+
+test('pixelPlacement: Fit, Fill, As Is and Conform inside the layer bounds, aligned, with the clip rectangle', () => {
+  const box = { x: 10, y: 20, w: 100, h: 50 };
+  const img = { w: 40, h: 40 };
+  assert.deepEqual(pixelPlacement(box, img, { method: 'fit', align: [0.5, 0.5], clip: false }), { x: 35, y: 20, w: 50, h: 50, clip: null });
+  assert.deepEqual(pixelPlacement(box, img, { method: 'fit', align: [0, 0], clip: false }), { x: 10, y: 20, w: 50, h: 50, clip: null });
+  assert.deepEqual(pixelPlacement(box, img, { method: 'fit', align: [1, 1], clip: true }), { x: 60, y: 20, w: 50, h: 50, clip: box });
+  assert.deepEqual(pixelPlacement(box, img, { method: 'fill', align: [0.5, 0.5], clip: true }), { x: 10, y: -5, w: 100, h: 100, clip: box });
+  assert.deepEqual(pixelPlacement(box, img, { method: 'fill', align: [0.5, 0], clip: false }), { x: 10, y: 20, w: 100, h: 100, clip: null });
+  assert.deepEqual(pixelPlacement(box, img, { method: 'as_is', align: [1, 0.5], clip: false }), { x: 70, y: 25, w: 40, h: 40, clip: null });
+  assert.deepEqual(pixelPlacement(box, img, { method: 'conform', align: [0, 0], clip: false }), { x: 10, y: 20, w: 100, h: 50, clip: null });
+  const tiny = pixelPlacement({ x: 0, y: 0, w: 3, h: 1 }, { w: 1000, h: 1 }, { method: 'fit', align: [0.5, 0.5], clip: false });
+  assert.ok(tiny.w >= 1 && tiny.h >= 1, 'never smaller than one pixel');
+});
+
+test('variables resource: bindings stored by layer position and name, read back onto new layer ids; damaged data ignored', () => {
+  const m: Variables = {
+    variables: [{ kind: 'visibility', name: 'logo', layer: 7 }, { kind: 'pixels', name: 'photo', layer: 9, pixels: { method: 'conform', align: [0, 0.5], clip: true } },
+      { kind: 'text', name: 'gone', layer: 42 }],
+    data_sets: [{ name: 'A', values: { logo: 'hidden', photo: 'a.png', gone: 'x' } }], active: 'A',
+  };
+  const saved = [{ id: 7, name: 'Logo' }, { id: 8, name: 'Group' }, { id: 9, name: 'Photo' }];
+  const bytes = variablesResource(m, saved);
+  const opened = [{ id: 101, name: 'Logo' }, { id: 102, name: 'Group' }, { id: 103, name: 'Photo' }];
+  const r = readVariablesResource(bytes, opened)!;
+  assert.deepEqual(r.model.variables, [{ kind: 'visibility', name: 'logo', layer: 101 }, { kind: 'pixels', name: 'photo', layer: 103, pixels: m.variables[1].pixels }]);
+  assert.deepEqual(r.model.data_sets, m.data_sets);
+  assert.equal(r.model.active, 'A');
+  assert.deepEqual(r.lost, ['gone'], 'a binding to a deleted layer is reported on open');
+  // A layer that moved is found by its name; one that is gone is reported.
+  const moved = readVariablesResource(bytes, [{ id: 5, name: 'Photo' }, { id: 6, name: 'Logo' }])!;
+  assert.deepEqual(moved.model.variables.map(v => [v.name, v.layer]), [['logo', 6], ['photo', 5]]);
+  assert.deepEqual(readVariablesResource(bytes, [{ id: 1, name: 'Other' }])!.lost, ['logo', 'photo', 'gone']);
+  assert.equal(readVariablesResource(new TextEncoder().encode('{"photobaer":"other"}'), opened), null);
+  assert.equal(readVariablesResource(new Uint8Array([0xff, 0x00, 0x7b]), opened), null);
 });
 
 test('replaceText makes one run and one paragraph that cover the new text in UTF-16 units', () => {

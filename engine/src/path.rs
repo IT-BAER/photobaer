@@ -436,6 +436,7 @@ pub struct Variables {
 pub enum VariableKind {
     Visibility,
     Text,
+    Pixels,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -445,6 +446,27 @@ pub struct Variable {
     pub name: String,
     /// A layer id; a binding to a deleted layer stays and is reported when a data set is applied.
     pub layer: u32,
+    /// Pixel Replacement only: how the image is scaled and aligned in the layer's bounds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pixels: Option<PixelOptions>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum PixelMethod {
+    Fit,
+    Fill,
+    AsIs,
+    Conform,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PixelOptions {
+    pub method: PixelMethod,
+    /// x and y from 0 (left, top) to 1 (right, bottom).
+    pub align: [f64; 2],
+    pub clip: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -468,6 +490,12 @@ impl Variables {
             }
             if !names.insert(&v.name) {
                 return Err(format!("the variable name \"{}\" is used twice", v.name));
+            }
+            if v.pixels.is_some() != (v.kind == VariableKind::Pixels) {
+                return Err(format!("variable \"{}\": only a Pixel Replacement variable has pixel options", v.name));
+            }
+            if v.pixels.as_ref().is_some_and(|p| p.align.iter().any(|a| !(0.0..=1.0).contains(a))) {
+                return Err(format!("variable \"{}\": the alignment must lie between 0 and 1", v.name));
             }
         }
         let mut sets = std::collections::HashSet::new();
@@ -496,6 +524,12 @@ pub struct FileInfo {
     pub keywords: Vec<String>,
     pub copyright: String,
     pub copyright_url: String,
+    /// Further XMP properties (IPTC Core, Origin) as "prefix:Name" to text.
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extra: std::collections::BTreeMap<String, String>,
+    /// Camera Data (EXIF tag name to text), read from the opened file.
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub camera: std::collections::BTreeMap<String, String>,
 }
 
 impl FileInfo {
@@ -504,6 +538,17 @@ impl FileInfo {
         let texts = [&self.title, &self.author, &self.description, &self.copyright, &self.copyright_url];
         if texts.iter().any(|t| t.len() > MAX) || self.keywords.len() > 1000 || self.keywords.iter().any(|k| k.len() > 1024) {
             return Err("File Info fields are limited to 64 KiB, keywords to 1000 of 1 KiB".into());
+        }
+        let key = |k: &String| {
+            let mut parts = k.split(':');
+            let ok = |p: Option<&str>| p.is_some_and(|p| p.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) && p.chars().all(|c| c.is_ascii_alphanumeric()));
+            k.len() <= 64 && ok(parts.next()) && (ok(parts.next()) || k.chars().all(|c| c.is_ascii_alphanumeric())) && parts.next().is_none()
+        };
+        if self.extra.len() > 200 || self.extra.iter().any(|(k, v)| !key(k) || v.len() > MAX) {
+            return Err("File Info properties are limited to 200 \"prefix:Name\" keys with 64 KiB each".into());
+        }
+        if self.camera.len() > 200 || self.camera.iter().any(|(k, v)| !key(k) || v.len() > 4096) {
+            return Err("File Info Camera Data is limited to 200 values of 4 KiB".into());
         }
         Ok(())
     }

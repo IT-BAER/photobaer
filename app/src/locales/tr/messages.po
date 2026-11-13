@@ -358,6 +358,10 @@ msgstr "180°"
 msgid "2-up"
 msgstr "2’li"
 
+#: app/src/ExportDialogs.tsx
+msgid "2-Up"
+msgstr "2-Up"
+
 #: app/src/i18n/choices.ts
 msgid "2:3"
 msgstr "2:3"
@@ -397,6 +401,10 @@ msgstr "32 Bit Önizleme Seçenekleri…"
 #: app/src/app/menus.ts
 msgid "4-up"
 msgstr "4’lü"
+
+#: app/src/ExportDialogs.tsx
+msgid "4-Up"
+msgstr "4-Up"
 
 #: app/src/i18n/choices.ts
 msgid "4:5"
@@ -494,6 +502,10 @@ msgstr "Eylem {next}"
 msgid "Action name"
 msgstr "Eylem adı"
 
+#: app/src/app/cameraData.ts
+msgid "Action program"
+msgstr "Eylem programı"
+
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -576,6 +588,10 @@ msgstr "Seçime Ekle"
 #: app/src/shell/GradientEditor.tsx
 msgid "Add transparency"
 msgstr "Saydamlık ekle"
+
+#: app/src/FileDialogs.tsx
+msgid "Address"
+msgstr "Adres"
 
 #: app/src/app/toolPresets.ts
 #: app/src/shell/BrushPanels.tsx
@@ -670,6 +686,7 @@ msgstr "Hizalanıyor…"
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 #: app/src/TypePanels.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Alignment"
 msgstr "Hizalama"
 
@@ -742,6 +759,7 @@ msgstr "Bir tutamacı bölmek için Alt tuşuyla sürükle."
 msgid "Alternates for {altName}"
 msgstr "{altName} için alternatifler"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Altitude"
@@ -873,12 +891,17 @@ msgstr "Kenar Yumuşatma"
 msgid "Anti-aliased"
 msgstr "Kenarları yumuşatılmış"
 
+#: app/src/app/cameraData.ts
+msgid "Aperture priority"
+msgstr "Diyafram önceliği"
+
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Appearance"
 msgstr "Görünüm"
 
 #: app/src/App.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/TransformBar.tsx
@@ -1080,6 +1103,10 @@ msgstr "Çalışma Yüzeylerini PDF’ye…"
 msgid "Artistic"
 msgstr "Sanatsal"
 
+#: app/src/VariablesDialogs.tsx
+msgid "As Is"
+msgstr "Olduğu Gibi"
+
 #: app/src/ExportDialogs.tsx
 msgid "Ask where to export each time"
 msgstr "Her seferinde nereye dışa aktarılacağını sor"
@@ -1101,6 +1128,10 @@ msgstr "Profil Ata…"
 msgid "Assign working {askSpace}: {askWorking}"
 msgstr "Çalışma {askSpace} ata: {askWorking}"
 
+#: app/src/i18n/errors.ts
+msgid "At most 1000 replacement images can be loaded."
+msgstr "En fazla 1000 değiştirme görüntüsü yüklenebilir."
+
 #: app/src/ScriptDialogs.tsx
 msgid "Attempt to Automatically Align Source Images"
 msgstr "Kaynak Görüntüleri Otomatik Olarak Hizalamayı Dene"
@@ -1110,6 +1141,11 @@ msgstr "Kaynak Görüntüleri Otomatik Olarak Hizalamayı Dene"
 msgid "Author"
 msgstr "Yazar"
 
+#: app/src/FileDialogs.tsx
+msgid "Author Title"
+msgstr "Yazar Unvanı"
+
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/LevelsCurvesBody.tsx
@@ -1120,6 +1156,10 @@ msgstr "Otomatik"
 #: app/src/shell/tools.ts
 msgid "Auto Add/Delete"
 msgstr "Otomatik Ekle/Sil"
+
+#: app/src/app/cameraData.ts
+msgid "Auto bracket"
+msgstr "Otomatik bracket"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
@@ -1190,6 +1230,7 @@ msgid "Automate"
 msgstr "Otomatikleştir"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Automatic"
 msgstr "Otomatik"
 
@@ -1221,6 +1262,7 @@ msgstr "Otomatik kaydetme açık"
 msgid "Autosave unavailable in this browser"
 msgstr "Otomatik kaydetme bu tarayıcıda kullanılamıyor"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/labels.ts
 msgid "Average"
 msgstr "Ortalama"
@@ -1302,6 +1344,7 @@ msgstr "Temel çizgi"
 msgid "Baseline Shift"
 msgstr "Taban Çizgisi Kayması"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "Basic"
 msgstr "Temel"
@@ -1358,18 +1401,22 @@ msgid "Bevel & Emboss"
 msgstr "Eğim Ver ve Kabart"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic"
 msgstr "Bikübik"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic Sharper"
 msgstr "Bikübik Daha Keskin"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic Smoother"
 msgstr "Bikübik Daha Yumuşak"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bilinear"
 msgstr "Bilineer"
 
@@ -1415,6 +1462,7 @@ msgstr "Bitmap…"
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
 #: app/src/ChannelsPanel.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
@@ -1696,6 +1744,10 @@ msgstr "Her İki Eksen"
 msgid "Bottom"
 msgstr "Alt"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Bottom Center"
+msgstr "Alt Orta"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 msgid "Bottom Edges"
@@ -1706,6 +1758,7 @@ msgid "Bottom left"
 msgstr "Sol alt"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Bottom Left"
 msgstr "Sol Alt"
 
@@ -1714,6 +1767,7 @@ msgid "Bottom right"
 msgstr "Sağ alt"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Bottom Right"
 msgstr "Sağ Alt"
 
@@ -1928,6 +1982,10 @@ msgstr "Hesaplamalar RGB değil, tek bir kanal gerektirir"
 msgid "Calculations…"
 msgstr "Hesaplamalar…"
 
+#: app/src/FileDialogs.tsx
+msgid "Camera Data"
+msgstr "Kamera Verileri"
+
 #: app/src/filters/labels.ts
 msgid "Camera Raw Filter"
 msgstr "Camera Raw Filtresi"
@@ -1994,7 +2052,12 @@ msgstr "Tuval"
 msgid "Canvas extension color"
 msgstr "Tuval uzantı rengi"
 
+#: app/src/ExportDialogs.tsx
+msgid "Canvas height"
+msgstr "Tuval yüksekliği"
+
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Canvas Size"
 msgstr "Tuval Boyutu"
@@ -2002,6 +2065,10 @@ msgstr "Tuval Boyutu"
 #: app/src/app/menus.ts
 msgid "Canvas Size…"
 msgstr "Tuval Boyutu…"
+
+#: app/src/ExportDialogs.tsx
+msgid "Canvas width"
+msgstr "Tuval genişliği"
 
 #: app/src/app/Dialogs.tsx
 msgid "Caps Lock switches between the brush tip and the crosshair, and between the tool icon and the crosshair."
@@ -2021,6 +2088,7 @@ msgstr "Hücre Boyutu"
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Center"
 msgstr "Merkez"
 
@@ -2029,9 +2097,21 @@ msgctxt "text alignment"
 msgid "Center"
 msgstr "Ortala"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Center Left"
+msgstr "Orta Sol"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Center Right"
+msgstr "Orta Sağ"
+
 #: app/src/FileDialogs.tsx
 msgid "Center the image on the page"
 msgstr "Görüntüyü sayfada ortala"
+
+#: app/src/app/cameraData.ts
+msgid "Center-weighted average"
+msgstr "Merkez ağırlıklı ortalama"
 
 #: app/src/filters/labels.ts
 msgid "Centered Blur"
@@ -2157,6 +2237,10 @@ msgstr "{name} değil, bir .psd, .psb, .exr, .hdr veya .ico dosya adı seç."
 msgid "Choose a pattern first."
 msgstr "Önce bir desen seç."
 
+#: app/src/FileDialogs.tsx
+msgid "Choose a template"
+msgstr "Bir şablon seç"
+
 #: app/src/i18n/errors.ts
 msgid "Choose at least one file."
 msgstr "En az bir dosya seç."
@@ -2174,6 +2258,10 @@ msgstr "Krom"
 #: app/src/filters/GalleryStack.tsx
 msgid "Circle"
 msgstr "Daire"
+
+#: app/src/FileDialogs.tsx
+msgid "City"
+msgstr "Şehir"
 
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
@@ -2229,6 +2317,10 @@ msgstr "Sayımı Temizle"
 msgid "Clear existing guides"
 msgstr "Mevcut kılavuzları temizle"
 
+#: app/src/FileDialogs.tsx
+msgid "Clear existing properties and replace with template properties"
+msgstr "Mevcut özellikleri temizle ve şablon özellikleriyle değiştir"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Clear Guides"
@@ -2273,6 +2365,10 @@ msgstr "Not eklemek için Not aracıyla tıkla."
 #: app/src/ShapesPanel.tsx
 msgid "Clicking a shape arms the Custom Shape tool."
 msgstr "Bir şekle tıklamak Özel Şekil aracını etkinleştirir."
+
+#: app/src/VariablesDialogs.tsx
+msgid "Clip to Bounding Box"
+msgstr "Sınırlayıcı Kutuya Kırp"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
@@ -2356,6 +2452,10 @@ msgstr "İçerik kapatılıyor…"
 #: app/src/filters/labels.ts
 msgid "Clouds"
 msgstr "Bulutlar"
+
+#: app/src/app/cameraData.ts
+msgid "Cloudy"
+msgstr "Bulutlu"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Clumped"
@@ -2550,6 +2650,10 @@ msgstr "Renk Ayarları…"
 msgid "Color sliders"
 msgstr "Renk kaydırıcıları"
 
+#: app/src/app/cameraData.ts
+msgid "Color Space"
+msgstr "Renk Alanı"
+
 #: app/src/shell/GradientEditor.tsx
 msgid "Color stop at {position}%"
 msgstr "%{position} konumunda renk durağı"
@@ -2648,6 +2752,10 @@ msgstr "Koni"
 #: app/src/layerStyle.ts
 msgid "Cone - Inverted"
 msgstr "Koni - Ters"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Conform"
+msgstr "Uydur"
 
 #: app/src/app/menus.ts
 msgid "Consolidate All to Tabs"
@@ -2901,6 +3009,10 @@ msgstr "Şekil Özniteliklerini Kopyala"
 msgid "Copy SVG"
 msgstr "SVG Kopyala"
 
+#: app/src/ScriptDialogs.tsx
+msgid "Copyright Info"
+msgstr "Telif Hakkı Bilgileri"
+
 #: app/src/FileDialogs.tsx
 msgid "Copyright Info URL"
 msgstr "Telif Hakkı Bilgisi URL Adresi"
@@ -2908,6 +3020,14 @@ msgstr "Telif Hakkı Bilgisi URL Adresi"
 #: app/src/FileDialogs.tsx
 msgid "Copyright Notice"
 msgstr "Telif Hakkı Bildirimi"
+
+#: app/src/FileDialogs.tsx
+msgid "Copyright Status"
+msgstr "Telif Hakkı Durumu"
+
+#: app/src/FileDialogs.tsx
+msgid "Copyrighted"
+msgstr "Telif Hakkıyla Korunuyor"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Corner radius"
@@ -3015,6 +3135,10 @@ msgstr "Sayım aracı"
 msgid "Count: {markCount}"
 msgstr "Sayım: {markCount}"
 
+#: app/src/FileDialogs.tsx
+msgid "Country"
+msgstr "Ülke"
+
 #: app/src/layerStyle.ts
 msgid "Cove - Deep"
 msgstr "Girinti - Derin"
@@ -3093,6 +3217,22 @@ msgstr "Katmanlar oluşturuluyor…"
 #: app/src/App.tsx
 msgid "Creating…"
 msgstr "Oluşturuluyor…"
+
+#: app/src/app/cameraData.ts
+msgid "Creative program"
+msgstr "Yaratıcı program"
+
+#: app/src/FileDialogs.tsx
+msgid "Creator"
+msgstr "Oluşturan"
+
+#: app/src/FileDialogs.tsx
+msgid "Creator's Job Title"
+msgstr "Oluşturanın İş Unvanı"
+
+#: app/src/FileDialogs.tsx
+msgid "Credit Line"
+msgstr "Kaynak Satırı"
 
 #: app/src/shell/typecommands.ts
 #: app/src/TypePanels.tsx
@@ -3229,6 +3369,7 @@ msgid "Curves"
 msgstr "Eğriler"
 
 #: app/src/ColorDialog.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/FileDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/levelsCurves.ts
@@ -3399,6 +3540,18 @@ msgstr "Veri Kümeleri…"
 msgid "Date and Time"
 msgstr "Tarih ve Saat"
 
+#: app/src/FileDialogs.tsx
+msgid "Date Created"
+msgstr "Oluşturma Tarihi"
+
+#: app/src/app/cameraData.ts
+msgid "Date Time Original"
+msgstr "Orijinal Tarih Saat"
+
+#: app/src/app/cameraData.ts
+msgid "Daylight"
+msgstr "Gün ışığı"
+
 #: app/src/filters/labels.ts
 msgid "De-Interlace"
 msgstr "Tarama Çizgilerini Kaldır"
@@ -3465,6 +3618,7 @@ msgstr "Bordür Kaldır…"
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/RenderEditors.tsx
 #: app/src/NotesPanels.tsx
@@ -3652,6 +3806,10 @@ msgstr "Monitör Renklerinin Doygunluğunu Şu Kadar Azalt:"
 msgid "Description"
 msgstr "Açıklama"
 
+#: app/src/FileDialogs.tsx
+msgid "Description Writer"
+msgstr "Açıklamayı Yazan"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Deselect"
@@ -3706,6 +3864,10 @@ msgstr "Çap"
 #: app/src/ModeDialog.tsx
 msgid "Diamond"
 msgstr "Elmas"
+
+#: app/src/app/cameraData.ts
+msgid "Did not fire"
+msgstr "Çakmadı"
 
 #: app/src/i18n/choices.ts
 msgid "Difference"
@@ -4157,6 +4319,10 @@ msgstr "Elips"
 msgid "Elliptical Marquee"
 msgstr "Oval Seçim Çerçevesi"
 
+#: app/src/FileDialogs.tsx
+msgid "Email(s)"
+msgstr "E-posta(lar)"
+
 #: app/src/ExportDialogs.tsx
 msgid "Embed File Info: copyright and contact (PNG and JPEG)"
 msgstr "Dosya Bilgilerini Göm: telif hakkı ve iletişim (PNG ve JPEG)"
@@ -4421,6 +4587,10 @@ msgstr "Dışa Aktarma Tercihleri"
 msgid "Export Preferences…"
 msgstr "Dışa Aktarma Tercihleri…"
 
+#: app/src/FileDialogs.tsx
+msgid "Export..."
+msgstr "Dışa Aktar..."
+
 #: app/src/NotesPanels.tsx
 msgid "Export…"
 msgstr "Dışa Aktar…"
@@ -4446,6 +4616,22 @@ msgstr "Pozlama"
 #: app/src/ColorDialog.tsx
 msgid "Exposure and Gamma"
 msgstr "Pozlama ve Gama"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Bias Value"
+msgstr "Pozlama Sapma Değeri"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Mode"
+msgstr "Pozlama Modu"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Program"
+msgstr "Pozlama Programı"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Time"
+msgstr "Pozlama Süresi"
 
 #: app/src/ColorDialog.tsx
 msgid "Exposure value"
@@ -4474,6 +4660,10 @@ msgstr "Çıkıntı Yap"
 #: app/src/shell/tools.ts
 msgid "Eyedropper"
 msgstr "Damlalık"
+
+#: app/src/app/cameraData.ts
+msgid "F-Stop"
+msgstr "F-Stop"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Face Tool (Face-Aware Liquify comes with M7)"
@@ -4588,6 +4778,10 @@ msgstr "Dosyalar"
 #: app/src/BatchDialog.tsx
 msgid "Files from the Files source close after they are saved; open documents stay open."
 msgstr "Dosyalar kaynağındaki dosyalar kaydedildikten sonra kapanır; açık belgeler açık kalır."
+
+#: app/src/VariablesDialogs.tsx
+msgid "Fill"
+msgstr "Doldur"
 
 #: app/src/app/Dialogs.tsx
 msgctxt "command"
@@ -4736,6 +4930,10 @@ msgstr "İnce"
 msgid "Fine Dots"
 msgstr "İnce Noktalar"
 
+#: app/src/app/cameraData.ts
+msgid "Fine weather"
+msgstr "Güzel hava"
+
 #: app/src/shell/tools.ts
 msgid "Finger Painting"
 msgstr "Parmakla Boyama"
@@ -4743,6 +4941,10 @@ msgstr "Parmakla Boyama"
 #: app/src/i18n/errors.ts
 msgid "Finish the current edit before purging the history."
 msgstr "Geçmişi temizlemeden önce geçerli düzenlemeyi bitir."
+
+#: app/src/app/cameraData.ts
+msgid "Fired"
+msgstr "Çaktı"
 
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
@@ -4756,6 +4958,7 @@ msgid "Fisheye"
 msgstr "Balık Gözü"
 
 #: app/src/filters/LiquifyDialog.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Fit"
 msgstr "Sığdır"
 
@@ -4828,6 +5031,10 @@ msgstr "Alev Türü"
 msgid "Flare Center"
 msgstr "Parlama Merkezi"
 
+#: app/src/app/cameraData.ts
+msgid "Flash"
+msgstr "Flaş"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Flatten All Layer Effects"
@@ -4858,15 +5065,25 @@ msgid "Flip Canvas Vertical"
 msgstr "Tuvali Dikey Çevir"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Flip Horizontal"
 msgstr "Yatay Çevir"
+
+#: app/src/app/cameraData.ts
+msgid "Flip Horizontal, Rotate 90° CCW"
+msgstr "Yatay Çevir, 90° Saat Yönünün Tersine Döndür"
+
+#: app/src/app/cameraData.ts
+msgid "Flip Horizontal, Rotate 90° CW"
+msgstr "Yatay Çevir, 90° Saat Yönünde Döndür"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Flip horizontally"
 msgstr "Yatay çevir"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Flip Vertical"
 msgstr "Dikey Çevir"
@@ -4907,9 +5124,18 @@ msgstr "Tümünü Pencerelerde Yüzdür"
 msgid "Flow"
 msgstr "Akış"
 
+#: app/src/app/cameraData.ts
+msgid "Fluorescent"
+msgstr "Floresan"
+
+#: app/src/app/cameraData.ts
 #: app/src/filters/labels.ts
 msgid "Focal Length"
 msgstr "Odak Uzaklığı"
+
+#: app/src/app/cameraData.ts
+msgid "Focal Length in 35mm Film"
+msgstr "35 mm Filmde Odak Uzaklığı"
 
 #: app/src/filters/labels.ts
 msgid "Focus"
@@ -5465,6 +5691,7 @@ msgstr "Büyüt"
 msgid "Guides"
 msgstr "Kılavuzlar"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/ScriptDialogs.tsx
 #: app/src/shell/tools.ts
@@ -5532,6 +5759,10 @@ msgstr "HDR Tonlama"
 #: app/src/app/menus.ts
 msgid "HDR Toning…"
 msgstr "HDR Tonlama…"
+
+#: app/src/FileDialogs.tsx
+msgid "Headline"
+msgstr "Başlık"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -5641,6 +5872,7 @@ msgstr "Seçimi Gizle"
 msgid "Hide selection edges"
 msgstr "Seçim kenarlarını gizle"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "High"
 msgstr "Yüksek"
@@ -5884,6 +6116,10 @@ msgstr "Görüntü Dengesi"
 msgid "Image editing in your browser"
 msgstr "Tarayıcında görüntü düzenleme"
 
+#: app/src/ExportDialogs.tsx
+msgid "Image height"
+msgstr "Görüntü yüksekliği"
+
 #: app/src/App.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "Image Processor"
@@ -5897,7 +6133,12 @@ msgstr "Görüntü İşlemcisi…"
 msgid "Image Rotation"
 msgstr "Görüntüyü Döndürme"
 
+#: app/src/ExportDialogs.tsx
+msgid "Image scale"
+msgstr "Görüntü ölçeği"
+
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Image Size"
 msgstr "Görüntü Boyutu"
@@ -5909,6 +6150,10 @@ msgstr "Görüntü boyutu: {sizeText}"
 #: app/src/app/menus.ts
 msgid "Image Size…"
 msgstr "Görüntü Boyutu…"
+
+#: app/src/ExportDialogs.tsx
+msgid "Image width"
+msgstr "Görüntü genişliği"
 
 #: app/src/app/helpers.ts
 #: app/src/PdfDialog.tsx
@@ -5936,6 +6181,10 @@ msgstr "Veri Kümelerini İçe Aktar"
 msgid "Import JSON…"
 msgstr "JSON İçe Aktar…"
 
+#: app/src/FileDialogs.tsx
+msgid "Import metadata template"
+msgstr "Meta veri şablonunu içe aktar"
+
 #: app/src/PdfDialog.tsx
 msgid "Import PDF"
 msgstr "PDF İçe Aktar"
@@ -5948,6 +6197,10 @@ msgstr "Renk örneklerini içe aktar"
 msgid "Import warnings ({warningCount})"
 msgstr "İçe aktarma uyarıları ({warningCount})"
 
+#: app/src/FileDialogs.tsx
+msgid "Import..."
+msgstr "İçe Aktar..."
+
 #: app/src/VariablesDialogs.tsx
 msgid "Import…"
 msgstr "İçe Aktar…"
@@ -5957,8 +6210,8 @@ msgid "Impressionist"
 msgstr "Empresyonist"
 
 #: app/src/ScriptDialogs.tsx
-msgid "In a folder each type goes into a subfolder named JPEG, PSD or PNG."
-msgstr "Bir klasörde her tür, JPEG, PSD veya PNG adlı bir alt klasöre gider."
+msgid "In a folder each type goes into a subfolder named JPEG, PSD, TIFF or PNG."
+msgstr "Bir klasörde her tür, JPEG, PSD, TIFF veya PNG adlı bir alt klasöre gider."
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "In Front"
@@ -5971,6 +6224,10 @@ msgstr "Etkin olmayan belge önizlemesi"
 #: app/src/ToolPresetsPanel.tsx
 msgid "Include Colors"
 msgstr "Renkleri Dahil Et"
+
+#: app/src/ScriptDialogs.tsx
+msgid "Include ICC Profile"
+msgstr "ICC Profilini Dahil Et"
 
 #: app/src/ExportDialogs.tsx
 msgid "Include layers inside groups"
@@ -6117,6 +6374,14 @@ msgstr "Durak ekle"
 msgid "Inside"
 msgstr "İçeride"
 
+#: app/src/FileDialogs.tsx
+msgid "Instructions"
+msgstr "Talimatlar"
+
+#: app/src/FileDialogs.tsx
+msgid "Intellectual Genre"
+msgstr "Entelektüel Tür"
+
 #: app/src/filters/labels.ts
 #: app/src/filters/RenderEditors.tsx
 #: app/src/shell/ColorPicker.tsx
@@ -6218,9 +6483,41 @@ msgstr "Ters çevriliyor…"
 msgid "IPA Extensions"
 msgstr "IPA Uzantıları"
 
+#: app/src/FileDialogs.tsx
+msgid "IPTC Contact"
+msgstr "IPTC İletişim"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Content"
+msgstr "IPTC İçerik"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Image"
+msgstr "IPTC Görüntü"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Scene Code"
+msgstr "IPTC Sahne Kodu"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Status"
+msgstr "IPTC Durumu"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Subject Code"
+msgstr "IPTC Konu Kodu"
+
 #: app/src/filters/labels.ts
 msgid "Iris Blur"
 msgstr "İris Bulanıklaştırma"
+
+#: app/src/FileDialogs.tsx
+msgid "ISO Country Code"
+msgstr "ISO Ülke Kodu"
+
+#: app/src/app/cameraData.ts
+msgid "ISO Speed Ratings"
+msgstr "ISO Hız Değerleri"
 
 #: app/src/app/menus.ts
 msgid "Isolate Layers"
@@ -6241,6 +6538,10 @@ msgstr "Tırtık"
 #: app/src/LayerStyleDialog.tsx
 msgid "Jitter"
 msgstr "Titreşim"
+
+#: app/src/FileDialogs.tsx
+msgid "Job Identifier"
+msgstr "İş Tanımlayıcısı"
 
 #: app/src/ScriptDialogs.tsx
 msgid "JPEG quality"
@@ -6269,6 +6570,14 @@ msgstr "Son Satırı Sola Yasla"
 #: app/src/TypePanels.tsx
 msgid "Justify Last Right"
 msgstr "Son Satırı Sağa Yasla"
+
+#: app/src/FileDialogs.tsx
+msgid "Keep original metadata but replace matching properties from template"
+msgstr "Orijinal meta verileri koru ancak eşleşen özellikleri şablondakilerle değiştir"
+
+#: app/src/FileDialogs.tsx
+msgid "Keep original metadata, but append matching properties from template"
+msgstr "Orijinal meta verileri koru ancak şablondaki eşleşen özellikleri ekle"
 
 #: app/src/shell/TransformBar.tsx
 msgid "Keep width and height proportional"
@@ -6319,12 +6628,17 @@ msgid "Label Size"
 msgstr "Etiket Boyutu"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Lanczos 3"
 msgstr "Lanczos 3"
 
 #: app/src/FileDialogs.tsx
 msgid "Landscape"
 msgstr "Yatay"
+
+#: app/src/app/cameraData.ts
+msgid "Landscape mode"
+msgstr "Manzara modu"
 
 #: app/src/app/typeMenu.ts
 msgid "Language Options"
@@ -6355,6 +6669,10 @@ msgstr "Latin Genişletilmiş-B"
 #: app/src/GlyphsPanel.tsx
 msgid "Latin-1 Supplement"
 msgstr "Latin-1 Eki"
+
+#: app/src/app/cameraData.ts
+msgid "Latitude"
+msgstr "Enlem"
 
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -6538,6 +6856,10 @@ msgstr "Uzunluk"
 msgid "Length:"
 msgstr "Uzunluk:"
 
+#: app/src/app/cameraData.ts
+msgid "Lens"
+msgstr "Mercek"
+
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/labels.ts
 msgid "Lens Blur"
@@ -6554,6 +6876,10 @@ msgstr "Mercek Düzeltme…"
 #: app/src/filters/labels.ts
 msgid "Lens Flare"
 msgstr "Mercek Parlaması"
+
+#: app/src/app/cameraData.ts
+msgid "Lens Make"
+msgstr "Mercek Üreticisi"
 
 #: app/src/filters/labels.ts
 msgid "Lens Type"
@@ -6635,6 +6961,10 @@ msgstr "Işık Aralığı Min."
 #: app/src/filters/GalleryStack.tsx
 msgid "Light Rough"
 msgstr "Açık Pürüzlü"
+
+#: app/src/app/cameraData.ts
+msgid "Light Source"
+msgstr "Işık Kaynağı"
 
 #: app/src/filters/RenderEditors.tsx
 msgid "Light type"
@@ -6819,6 +7149,10 @@ msgstr "Varsayılan Yazı Stillerini Yükle"
 msgid "Load Files into Stack…"
 msgstr "Dosyaları Yığına Yükle…"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Load Images..."
+msgstr "Görüntüleri Yükle..."
+
 #: app/src/ScriptDialogs.tsx
 msgid "Load Layers"
 msgstr "Katmanları Yükle"
@@ -6963,6 +7297,10 @@ msgstr "Uzun Çizgiler"
 msgid "Long Strokes"
 msgstr "Uzun Konturlar"
 
+#: app/src/app/cameraData.ts
+msgid "Longitude"
+msgstr "Boylam"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Loose"
 msgstr "Gevşek"
@@ -6983,6 +7321,7 @@ msgstr "Gevşek Uzun"
 msgid "Loose Medium"
 msgstr "Gevşek Orta"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "Low"
 msgstr "Düşük"
@@ -7007,6 +7346,10 @@ msgstr "Lüminans"
 #: app/src/i18n/choices.ts
 msgid "Luminosity"
 msgstr "Renk Parlaklığı"
+
+#: app/src/ScriptDialogs.tsx
+msgid "LZW Compression"
+msgstr "LZW Sıkıştırma"
 
 #: app/src/ChannelsPanel.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -7065,6 +7408,10 @@ msgstr "Manyetik"
 msgid "Magnetic Lasso"
 msgstr "Manyetik Kement"
 
+#: app/src/app/cameraData.ts
+msgid "Make"
+msgstr "Üretici"
+
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/errors.ts
 msgid "Make a selection first."
@@ -7105,6 +7452,10 @@ msgstr "Seçimden Çalışma Yolu Oluştur"
 #: app/src/MissingFonts.tsx
 msgid "Manage"
 msgstr "Yönet"
+
+#: app/src/app/cameraData.ts
+msgid "Manual"
+msgstr "Manuel"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Maple"
@@ -7184,11 +7535,13 @@ msgstr "Malzeme"
 msgid "Mathematical Operators"
 msgstr "Matematiksel İşleçler"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/levelsCurves.ts
 #: app/src/ModeDialog.tsx
 msgid "Matte"
 msgstr "Mat"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/ModeDialog.tsx
 msgid "Matte color"
 msgstr "Mat rengi"
@@ -7200,6 +7553,10 @@ msgstr "Mat Rengi"
 #: app/src/app/menus.ts
 msgid "Matting"
 msgstr "Örtü"
+
+#: app/src/app/cameraData.ts
+msgid "Max Aperture Value"
+msgstr "Maks. Diyafram Değeri"
 
 #: app/src/filters/labels.ts
 msgid "Max Radius"
@@ -7358,6 +7715,10 @@ msgstr "Ağ Boyutu"
 msgid "Message shown when playback reaches this stop"
 msgstr "Oynatma bu durağa ulaştığında gösterilen ileti"
 
+#: app/src/app/cameraData.ts
+msgid "Metering Mode"
+msgstr "Ölçüm Modu"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/ColorDialog.tsx
@@ -7365,6 +7726,7 @@ msgstr "Oynatma bu durağa ulaştığında gösterilen ileti"
 #: app/src/LayerStyleDialog.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/shell/tools.ts
+#: app/src/VariablesDialogs.tsx
 msgid "Method"
 msgstr "Yöntem"
 
@@ -7478,6 +7840,10 @@ msgstr "Mod"
 msgctxt "color mode"
 msgid "Mode"
 msgstr "Mod"
+
+#: app/src/app/cameraData.ts
+msgid "Model"
+msgstr "Model"
 
 #: app/src/app/menus.ts
 msgid "Modify"
@@ -7594,6 +7960,10 @@ msgstr "Yukarı Taşı"
 msgid "Movie Prime"
 msgstr "Movie Prime"
 
+#: app/src/app/cameraData.ts
+msgid "Multi-spot"
+msgstr "Çoklu nokta"
+
 #: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/history.ts
@@ -7632,8 +8002,8 @@ msgid "Name"
 msgstr "Ad"
 
 #: app/src/VariablesDialogs.tsx
-msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
-msgstr "Adlar harf, rakam ve alt çizgi kullanır, rakamla başlamaz. Piksel değiştirme kullanılamıyor."
+msgid "Names use letters, digits and underscore, not starting with a digit."
+msgstr "Adlar harf, rakam ve alt çizgi kullanır; rakamla başlayamaz."
 
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -7642,6 +8012,7 @@ msgid "Navigator"
 msgstr "Gezgin"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Nearest Neighbor"
 msgstr "En Yakın Komşu"
 
@@ -8047,6 +8418,7 @@ msgstr "Parazit Miktarı"
 #: app/src/app/typeMenu.ts
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/i18n/choices.ts
 #: app/src/InspectionPanels.tsx
@@ -8065,7 +8437,9 @@ msgctxt "liquify mask"
 msgid "None"
 msgstr "Yok"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/i18n/choices.ts
 #: app/src/shell/DeformSession.tsx
@@ -8075,6 +8449,10 @@ msgstr "Normal"
 #: app/src/app/Dialogs.tsx
 msgid "Normal Brush Tip"
 msgstr "Normal Fırça Ucu"
+
+#: app/src/app/cameraData.ts
+msgid "Normal program"
+msgstr "Normal program"
 
 #: app/src/app/colorSettings.ts
 msgid "North America General Purpose 2"
@@ -8087,6 +8465,14 @@ msgstr "Kuzey Amerika Baskı Öncesi 2"
 #: app/src/app/colorSettings.ts
 msgid "North America Web/Internet"
 msgstr "Kuzey Amerika Web/İnternet"
+
+#: app/src/app/cameraData.ts
+msgid "Not defined"
+msgstr "Tanımlanmamış"
+
+#: app/src/VariablesDialogs.tsx
+msgid "not loaded"
+msgstr "yüklenmedi"
 
 #: app/src/shell/ColorPicker.tsx
 msgid "Not web-safe: click to snap"
@@ -8287,6 +8673,10 @@ msgstr "OpenType"
 msgid "Operation"
 msgstr "İşlem"
 
+#: app/src/ExportDialogs.tsx
+msgid "Optimized"
+msgstr "Optimize Edilmiş"
+
 #: app/src/app/menus.ts
 msgid "Options"
 msgstr "Seçenekler"
@@ -8299,6 +8689,7 @@ msgstr "Seçenekler…"
 msgid "Ordinals"
 msgstr "Sıra Sayıları"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts
 #: app/src/FileDialogs.tsx
@@ -8306,6 +8697,11 @@ msgstr "Sıra Sayıları"
 msgid "Orientation"
 msgstr "Yönelim"
 
+#: app/src/FileDialogs.tsx
+msgid "Origin"
+msgstr "Kaynak"
+
+#: app/src/ExportDialogs.tsx
 #: app/src/shell/ColorPicker.tsx
 msgid "Original"
 msgstr "Orijinal"
@@ -8322,6 +8718,7 @@ msgstr "Süs Yoğunluğu"
 msgid "Ornaments"
 msgstr "Süsler"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/schema.ts
 msgid "Other"
 msgstr "Diğer"
@@ -8513,6 +8910,10 @@ msgstr "Paragraf Stilleri Paneli"
 msgid "Paragraph Text"
 msgstr "Paragraf Metni"
 
+#: app/src/app/cameraData.ts
+msgid "Partial"
+msgstr "Kısmi"
+
 #: app/src/LayersPanel.tsx
 msgid "Pass Through"
 msgstr "Geçilecek Yer"
@@ -8618,6 +9019,7 @@ msgstr "Yolları SVG’ye…"
 
 #: app/src/AdjustmentsPanel.tsx
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
 #: app/src/ExportDialogs.tsx
@@ -8751,6 +9153,10 @@ msgstr "Perspektif Kırpma"
 msgid "Perspective Warp"
 msgstr "Perspektif Çarpıtma"
 
+#: app/src/FileDialogs.tsx
+msgid "Phone(s)"
+msgstr "Telefon(lar)"
+
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 msgid "Photo Filter"
@@ -8833,6 +9239,14 @@ msgstr "Çam"
 msgid "Pins"
 msgstr "Raptiyeler"
 
+#: app/src/app/cameraData.ts
+msgid "Pixel Dimension X"
+msgstr "Piksel Boyutu X"
+
+#: app/src/app/cameraData.ts
+msgid "Pixel Dimension Y"
+msgstr "Piksel Boyutu Y"
+
 #: app/src/app/layerFilter.ts
 msgid "Pixel layers"
 msgstr "Piksel katmanları"
@@ -8844,6 +9258,14 @@ msgstr "Piksel uzunluğu cetvel çizgisinden gelir."
 #: app/src/AnalysisDialogs.tsx
 msgid "Pixel Length:"
 msgstr "Piksel Uzunluğu:"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Pixel Replacement"
+msgstr "Piksel Değiştirme"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Pixel Replacement values are file names. Images you select or load stay available until the page is reloaded."
+msgstr "Piksel Değiştirme değerleri dosya adlarıdır. Seçtiğin veya yüklediğin görüntüler sayfa yeniden yüklenene kadar kullanılabilir kalır."
 
 #: app/src/filters/schema.ts
 msgid "Pixelate"
@@ -8995,10 +9417,18 @@ msgstr "Kavak"
 msgid "Portrait"
 msgstr "Dikey"
 
+#: app/src/app/cameraData.ts
+msgid "Portrait mode"
+msgstr "Portre modu"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Position"
 msgstr "Konum"
+
+#: app/src/FileDialogs.tsx
+msgid "Postal Code"
+msgstr "Posta Kodu"
 
 #: app/src/filters/labels.ts
 msgid "Poster Edges"
@@ -9206,6 +9636,10 @@ msgstr "Tonları Koru"
 msgid "Proximity Match"
 msgstr "Yakınlık Eşleştirme"
 
+#: app/src/FileDialogs.tsx
+msgid "Public Domain"
+msgstr "Kamu Malı"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Pucker"
 msgstr "Kırıştır"
@@ -9357,6 +9791,10 @@ msgstr "Rasterleştiriliyor…"
 msgid "Rate"
 msgstr "Oran"
 
+#: app/src/FileDialogs.tsx
+msgid "Rating"
+msgstr "Derecelendirme"
+
 #: app/src/shell/tools.ts
 msgid "Ratio"
 msgstr "Oran"
@@ -9370,8 +9808,8 @@ msgid "Ratio W"
 msgstr "Oran W"
 
 #: app/src/FileDialogs.tsx
-msgid "Raw XMP"
-msgstr "Ham XMP"
+msgid "Raw Data"
+msgstr "Ham Veri"
 
 #: app/src/filters/labels.ts
 msgid "Reach"
@@ -9550,6 +9988,10 @@ msgstr "Kayıt işaretleri"
 msgid "Regular"
 msgstr "Normal"
 
+#: app/src/FileDialogs.tsx
+msgid "Reject"
+msgstr "Reddet"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Relative"
@@ -9709,6 +10151,10 @@ msgstr "Yeni Yazı Tipi"
 msgid "Replacement for {name}"
 msgstr "{name} için yedek"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Replacement images"
+msgstr "Yerine geçecek görüntüler"
+
 #: app/src/MissingFonts.tsx
 msgid "Replacement style for {name}"
 msgstr "{name} için yedek stil"
@@ -9735,6 +10181,7 @@ msgid "Reposition"
 msgstr "Yeniden Konumlandır"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Resample"
 msgstr "Yeniden Örnekle"
 
@@ -9743,6 +10190,7 @@ msgstr "Yeniden Örnekle"
 msgid "Reselect"
 msgstr "Yeniden Seç"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/FilterDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/ToolBar.tsx
@@ -9937,6 +10385,10 @@ msgstr "Bir glifin OpenType alternatiflerini listelemek için üzerine sağ tık
 msgid "Right-to-Left"
 msgstr "Sağdan Sola"
 
+#: app/src/FileDialogs.tsx
+msgid "Rights Usage Terms"
+msgstr "Hak Kullanım Koşulları"
+
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Rigid"
@@ -9982,11 +10434,13 @@ msgid "Rotate"
 msgstr "Döndür"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Rotate 180°"
 msgstr "180° Döndür"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 msgid "Rotate 90° CCW"
 msgstr "90° Saat Yönünün Tersine Döndür"
 
@@ -9999,6 +10453,7 @@ msgid "Rotate 90° Counter Clockwise"
 msgstr "90° Saat Yönünün Tersine Döndür"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 msgid "Rotate 90° CW"
 msgstr "90° Saat Yönünde Döndür"
 
@@ -10180,6 +10635,10 @@ msgstr "PNG olarak kaydet"
 msgid "Save as PSD"
 msgstr "PSD olarak kaydet"
 
+#: app/src/ScriptDialogs.tsx
+msgid "Save as TIFF"
+msgstr "TIFF Olarak Kaydet"
+
 #: app/src/app/menus.ts
 msgid "Save As…"
 msgstr "Farklı Kaydet…"
@@ -10228,6 +10687,10 @@ msgstr "Seçimi kanal olarak kaydet"
 #: app/src/app/menus.ts
 msgid "Save Selection…"
 msgstr "Seçimi Kaydet…"
+
+#: app/src/FileDialogs.tsx
+msgid "Save Template"
+msgstr "Şablonu Kaydet"
 
 #: app/src/PresetPanels.tsx
 msgid "Save the layer style"
@@ -10480,6 +10943,10 @@ msgstr "Veri Noktalarını Seç"
 msgid "Select Data Points…"
 msgstr "Veri Noktalarını Seç…"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Select File..."
+msgstr "Dosya Seç..."
+
 #: app/src/app/contextMenus.ts
 #: app/src/i18n/history.ts
 msgid "Select Inverse"
@@ -10546,6 +11013,14 @@ msgstr "Arkaya Gönder"
 msgid "Separate keywords with commas or semicolons."
 msgstr "Anahtar sözcükleri virgül veya noktalı virgülle ayır."
 
+#: app/src/FileDialogs.tsx
+msgid "Separate several subject codes, scene codes, phones, emails or websites with semicolons."
+msgstr "Birden fazla konu kodunu, sahne kodunu, telefonu, e-postayı veya web sitesini noktalı virgülle ayır."
+
+#: app/src/app/cameraData.ts
+msgid "Serial Number"
+msgstr "Seri Numarası"
+
 #: app/src/BatchDialog.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "Set"
@@ -10579,6 +11054,10 @@ msgstr "Arka Plana Ayarla"
 #: app/src/ColorDialog.tsx
 msgid "Settings"
 msgstr "Ayarlar"
+
+#: app/src/app/cameraData.ts
+msgid "Shade"
+msgstr "Gölge"
 
 #: app/src/adjustments.ts
 msgid "Shadow"
@@ -10875,6 +11354,10 @@ msgstr "Eylem ağacını göster"
 msgid "Show transform controls"
 msgstr "Dönüştürme denetimlerini göster"
 
+#: app/src/app/cameraData.ts
+msgid "Shutter priority"
+msgstr "Perde önceliği"
+
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Sides"
@@ -11108,6 +11591,10 @@ msgstr "Daha Yumuşak"
 msgid "Softness"
 msgstr "Yumuşaklık"
 
+#: app/src/app/cameraData.ts
+msgid "Software"
+msgstr "Yazılım"
+
 #: app/src/filters/labels.ts
 msgid "Solarize"
 msgstr "Solarize Et"
@@ -11137,6 +11624,7 @@ msgstr "Katılık"
 
 #: app/src/app/measure.ts
 #: app/src/BatchDialog.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/i18n/choices.ts
 #: app/src/ImageCalcDialog.tsx
@@ -11249,6 +11737,7 @@ msgstr "Eğriltmeyi Dikey Böl"
 msgid "Sponge"
 msgstr "Sünger"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/RenderEditors.tsx
 msgid "Spot"
 msgstr "Nokta"
@@ -11368,6 +11857,10 @@ msgstr "Başlatılıyor…"
 #: app/src/filters/labels.ts
 msgid "State"
 msgstr "Durum"
+
+#: app/src/FileDialogs.tsx
+msgid "State/Province"
+msgstr "Eyalet/İl"
 
 #: app/src/InspectionPanels.tsx
 msgid "Std Dev"
@@ -11650,6 +12143,10 @@ msgstr "Kalem Tekerleği"
 msgid "Subject"
 msgstr "Özne"
 
+#: app/src/FileDialogs.tsx
+msgid "Sublocation"
+msgstr "Alt Konum"
+
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Subscript"
@@ -11756,6 +12253,18 @@ msgstr "Teknik"
 #: app/src/filters/labels.ts
 msgid "Temperature"
 msgstr "Sıcaklık"
+
+#: app/src/FileDialogs.tsx
+msgid "Template"
+msgstr "Şablon"
+
+#: app/src/FileDialogs.tsx
+msgid "Template name"
+msgstr "Şablon adı"
+
+#: app/src/FileDialogs.tsx
+msgid "Templates"
+msgstr "Şablonlar"
 
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -12003,6 +12512,10 @@ msgstr "Kaynak dosya şunu depolayamaz:"
 msgid "The straighten angle must be a number."
 msgstr "Düzleştirme açısı bir sayı olmalıdır."
 
+#: app/src/FileDialogs.tsx
+msgid "The template is not a well-formed XMP file."
+msgstr "Şablon, geçerli biçimde bir XMP dosyası değil."
+
 #: app/src/i18n/errors.ts
 msgid "The transform was cancelled."
 msgstr "Dönüştürme iptal edildi."
@@ -12014,6 +12527,10 @@ msgstr "Yazı katmanında metin yok."
 #: app/src/i18n/errors.ts
 msgid "The warped image exceeds the rendering limit."
 msgstr "Eğriltilmiş görüntü oluşturma sınırını aşıyor."
+
+#: app/src/FileDialogs.tsx
+msgid "The XMP is not well-formed. Correct it before you leave Raw Data."
+msgstr "XMP geçerli biçimde değil. Ham Veri'den ayrılmadan önce düzelt."
 
 #: app/src/App.tsx
 msgid "There are no data sets to apply."
@@ -12070,6 +12587,10 @@ msgstr "Bu tarayıcı dosyaları bağlayamıyor, bu nedenle dosya gömülü olar
 #: app/src/App.tsx
 msgid "This cannot be undone."
 msgstr "Bu işlem geri alınamaz."
+
+#: app/src/FileDialogs.tsx
+msgid "This document has no camera data. It is read from the EXIF data of opened JPEG, PNG, WebP and PSD files."
+msgstr "Bu belgede kamera verisi yok. Kamera verisi, açılan JPEG, PNG, WebP ve PSD dosyalarının EXIF verilerinden okunur."
 
 #: app/src/filters/GalleryStack.tsx
 msgid "This filter has no options."
@@ -12201,6 +12722,10 @@ msgstr "Uç"
 msgid "Tip thumbnails"
 msgstr "Uç küçük resimleri"
 
+#: app/src/FileDialogs.tsx
+msgid "Title"
+msgstr "Başlık"
+
 #: app/src/shell/typecommands.ts
 msgid "Titling Alternates"
 msgstr "Başlık Alternatifleri"
@@ -12296,6 +12821,10 @@ msgstr "Araçlar"
 msgid "Top"
 msgstr "Üst"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Top Center"
+msgstr "Üst Orta"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 msgid "Top Edges"
@@ -12306,6 +12835,7 @@ msgid "Top left"
 msgstr "Sol üst"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Top Left"
 msgstr "Sol Üst"
 
@@ -12318,6 +12848,7 @@ msgid "Top right"
 msgstr "Sağ üst"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Top Right"
 msgstr "Sağ Üst"
 
@@ -12367,6 +12898,10 @@ msgstr "Dönüştürme seçenekleri"
 #: app/src/i18n/history.ts
 msgid "Transform Selection"
 msgstr "Seçimi Dönüştür"
+
+#: app/src/FileDialogs.tsx
+msgid "Transmission Reference"
+msgstr "İletim Referansı"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -12438,6 +12973,10 @@ msgstr "Üç ton"
 msgid "Tsume %"
 msgstr "Tsume %"
 
+#: app/src/app/cameraData.ts
+msgid "Tungsten"
+msgstr "Tungsten"
+
 #: app/src/filters/labels.ts
 msgid "Turbulent"
 msgstr "Türbülanslı"
@@ -12492,6 +13031,10 @@ msgstr "Yazı Seçenekleri"
 #: app/src/filters/GalleryStack.tsx
 msgid "Unaltered Image"
 msgstr "Değiştirilmemiş Görüntü"
+
+#: app/src/app/cameraData.ts
+msgid "Uncalibrated"
+msgstr "Kalibre Edilmemiş"
 
 #: app/src/filters/labels.ts
 msgid "Undefined Areas"
@@ -12549,6 +13092,11 @@ msgstr "Şekilleri Birleştir"
 #: app/src/app/measure.ts
 msgid "Units"
 msgstr "Birimler"
+
+#: app/src/app/cameraData.ts
+#: app/src/FileDialogs.tsx
+msgid "Unknown"
+msgstr "Bilinmiyor"
 
 #: app/src/app/toolPresets.ts
 msgid "Unknown tool option: {key}"
@@ -12649,6 +13197,10 @@ msgstr "Üst Kabuk"
 #: app/src/TypePanels.tsx
 msgid "Uppercase"
 msgstr "Büyük Harf"
+
+#: app/src/FileDialogs.tsx
+msgid "Urgency"
+msgstr "Aciliyet"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Use"
@@ -12869,6 +13421,7 @@ msgstr "Yalnızca görünen katmanlar"
 msgid "Vivid Light"
 msgstr "Canlı Işık"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/ScriptDialogs.tsx
 #: app/src/shell/tools.ts
@@ -12953,6 +13506,10 @@ msgstr "Dalga Boyu Min."
 msgid "Web"
 msgstr "Web"
 
+#: app/src/FileDialogs.tsx
+msgid "Website(s)"
+msgstr "Web sitesi/siteleri"
+
 #: app/src/shell/tools.ts
 msgid "Wet"
 msgstr "Islak"
@@ -12967,15 +13524,24 @@ msgstr "Islak Kenarlar"
 msgid "What's new"
 msgstr "Yenilikler"
 
+#: app/src/FileDialogs.tsx
+msgid "When applying a template"
+msgstr "Şablon uygulanırken"
+
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/ModeDialog.tsx
 msgid "White"
 msgstr "Beyaz"
+
+#: app/src/app/cameraData.ts
+msgid "White Balance"
+msgstr "Beyaz Dengesi"
 
 #: app/src/adjustments.ts
 msgid "White Clip %"

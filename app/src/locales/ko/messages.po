@@ -358,6 +358,10 @@ msgstr "180°"
 msgid "2-up"
 msgstr "2분할"
 
+#: app/src/ExportDialogs.tsx
+msgid "2-Up"
+msgstr "2-Up"
+
 #: app/src/i18n/choices.ts
 msgid "2:3"
 msgstr "2:3"
@@ -397,6 +401,10 @@ msgstr "32비트 미리 보기 옵션…"
 #: app/src/app/menus.ts
 msgid "4-up"
 msgstr "4분할"
+
+#: app/src/ExportDialogs.tsx
+msgid "4-Up"
+msgstr "4-Up"
 
 #: app/src/i18n/choices.ts
 msgid "4:5"
@@ -494,6 +502,10 @@ msgstr "액션 {next}"
 msgid "Action name"
 msgstr "액션 이름"
 
+#: app/src/app/cameraData.ts
+msgid "Action program"
+msgstr "액션 프로그램"
+
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -576,6 +588,10 @@ msgstr "선택 영역에 추가"
 #: app/src/shell/GradientEditor.tsx
 msgid "Add transparency"
 msgstr "투명도 추가"
+
+#: app/src/FileDialogs.tsx
+msgid "Address"
+msgstr "주소"
 
 #: app/src/app/toolPresets.ts
 #: app/src/shell/BrushPanels.tsx
@@ -670,6 +686,7 @@ msgstr "정렬 중…"
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 #: app/src/TypePanels.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Alignment"
 msgstr "현재 문서의 픽셀 레이어를 정렬하고 병합합니다."
 
@@ -742,6 +759,7 @@ msgstr "Alt 키를 누른 채 핸들을 드래그하여 분할합니다."
 msgid "Alternates for {altName}"
 msgstr "{altName}의 대체 글리프"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Altitude"
@@ -873,12 +891,17 @@ msgstr "앤티 앨리어스"
 msgid "Anti-aliased"
 msgstr "앤티 앨리어스"
 
+#: app/src/app/cameraData.ts
+msgid "Aperture priority"
+msgstr "조리개 우선"
+
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Appearance"
 msgstr "모양"
 
 #: app/src/App.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/TransformBar.tsx
@@ -1080,6 +1103,10 @@ msgstr "대지를 PDF로…"
 msgid "Artistic"
 msgstr "예술 효과"
 
+#: app/src/VariablesDialogs.tsx
+msgid "As Is"
+msgstr "있는 그대로"
+
 #: app/src/ExportDialogs.tsx
 msgid "Ask where to export each time"
 msgstr "내보낼 때마다 위치 묻기"
@@ -1101,6 +1128,10 @@ msgstr "프로필 할당…"
 msgid "Assign working {askSpace}: {askWorking}"
 msgstr "작업 {askSpace} 할당: {askWorking}"
 
+#: app/src/i18n/errors.ts
+msgid "At most 1000 replacement images can be loaded."
+msgstr "대체 이미지는 최대 1000개까지 불러올 수 있습니다."
+
 #: app/src/ScriptDialogs.tsx
 msgid "Attempt to Automatically Align Source Images"
 msgstr "소스 이미지 자동 정렬 시도"
@@ -1110,6 +1141,11 @@ msgstr "소스 이미지 자동 정렬 시도"
 msgid "Author"
 msgstr "작성자"
 
+#: app/src/FileDialogs.tsx
+msgid "Author Title"
+msgstr "작성자 직함"
+
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/LevelsCurvesBody.tsx
@@ -1120,6 +1156,10 @@ msgstr "자동"
 #: app/src/shell/tools.ts
 msgid "Auto Add/Delete"
 msgstr "자동 추가/삭제"
+
+#: app/src/app/cameraData.ts
+msgid "Auto bracket"
+msgstr "자동 브라케팅"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
@@ -1190,6 +1230,7 @@ msgid "Automate"
 msgstr "자동화"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Automatic"
 msgstr "자동"
 
@@ -1221,6 +1262,7 @@ msgstr "자동 저장 켜짐"
 msgid "Autosave unavailable in this browser"
 msgstr "이 브라우저에서는 자동 저장을 사용할 수 없음"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/labels.ts
 msgid "Average"
 msgstr "평균"
@@ -1302,6 +1344,7 @@ msgstr "기준선"
 msgid "Baseline Shift"
 msgstr "기준선 이동"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "Basic"
 msgstr "기본"
@@ -1358,18 +1401,22 @@ msgid "Bevel & Emboss"
 msgstr "경사와 엠보스"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic"
 msgstr "쌍입방"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic Sharper"
 msgstr "쌍입방 (더 선명하게)"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic Smoother"
 msgstr "쌍입방 (더 매끄럽게)"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bilinear"
 msgstr "쌍선형"
 
@@ -1415,6 +1462,7 @@ msgstr "비트맵…"
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
 #: app/src/ChannelsPanel.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
@@ -1696,6 +1744,10 @@ msgstr "양쪽 축"
 msgid "Bottom"
 msgstr "아래"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Bottom Center"
+msgstr "아래 중앙"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 msgid "Bottom Edges"
@@ -1706,6 +1758,7 @@ msgid "Bottom left"
 msgstr "왼쪽 아래"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Bottom Left"
 msgstr "왼쪽 아래"
 
@@ -1714,6 +1767,7 @@ msgid "Bottom right"
 msgstr "오른쪽 아래"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Bottom Right"
 msgstr "오른쪽 아래"
 
@@ -1928,6 +1982,10 @@ msgstr "연산에는 RGB가 아닌 단일 채널이 필요합니다."
 msgid "Calculations…"
 msgstr "연산…"
 
+#: app/src/FileDialogs.tsx
+msgid "Camera Data"
+msgstr "카메라 데이터"
+
 #: app/src/filters/labels.ts
 msgid "Camera Raw Filter"
 msgstr "Camera Raw 필터"
@@ -1994,7 +2052,12 @@ msgstr "캔버스"
 msgid "Canvas extension color"
 msgstr "캔버스 확장 색상"
 
+#: app/src/ExportDialogs.tsx
+msgid "Canvas height"
+msgstr "캔버스 높이"
+
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Canvas Size"
 msgstr "캔버스 크기"
@@ -2002,6 +2065,10 @@ msgstr "캔버스 크기"
 #: app/src/app/menus.ts
 msgid "Canvas Size…"
 msgstr "캔버스 크기…"
+
+#: app/src/ExportDialogs.tsx
+msgid "Canvas width"
+msgstr "캔버스 너비"
 
 #: app/src/app/Dialogs.tsx
 msgid "Caps Lock switches between the brush tip and the crosshair, and between the tool icon and the crosshair."
@@ -2021,6 +2088,7 @@ msgstr "셀 크기"
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Center"
 msgstr "가운데"
 
@@ -2029,9 +2097,21 @@ msgctxt "text alignment"
 msgid "Center"
 msgstr "가운데"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Center Left"
+msgstr "중앙 왼쪽"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Center Right"
+msgstr "중앙 오른쪽"
+
 #: app/src/FileDialogs.tsx
 msgid "Center the image on the page"
 msgstr "페이지 가운데에 이미지 배치"
+
+#: app/src/app/cameraData.ts
+msgid "Center-weighted average"
+msgstr "중앙 중점 평균"
 
 #: app/src/filters/labels.ts
 msgid "Centered Blur"
@@ -2157,6 +2237,10 @@ msgstr "{name}이(가) 아닌 .psd, .psb, .exr, .hdr 또는 .ico 파일 이름�
 msgid "Choose a pattern first."
 msgstr "먼저 패턴을 선택하십시오."
 
+#: app/src/FileDialogs.tsx
+msgid "Choose a template"
+msgstr "템플릿 선택"
+
 #: app/src/i18n/errors.ts
 msgid "Choose at least one file."
 msgstr "파일을 하나 이상 선택하십시오."
@@ -2174,6 +2258,10 @@ msgstr "크롬"
 #: app/src/filters/GalleryStack.tsx
 msgid "Circle"
 msgstr "원"
+
+#: app/src/FileDialogs.tsx
+msgid "City"
+msgstr "시"
 
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
@@ -2229,6 +2317,10 @@ msgstr "카운트 지우기"
 msgid "Clear existing guides"
 msgstr "기존 안내선 지우기"
 
+#: app/src/FileDialogs.tsx
+msgid "Clear existing properties and replace with template properties"
+msgstr "기존 속성을 지우고 템플릿 속성으로 대체"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Clear Guides"
@@ -2273,6 +2365,10 @@ msgstr "메모 도구로 클릭하여 메모를 추가하십시오."
 #: app/src/ShapesPanel.tsx
 msgid "Clicking a shape arms the Custom Shape tool."
 msgstr "모양을 클릭하면 사용자 지정 모양 도구가 준비됩니다."
+
+#: app/src/VariablesDialogs.tsx
+msgid "Clip to Bounding Box"
+msgstr "경계 상자에 클리핑"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
@@ -2356,6 +2452,10 @@ msgstr "내용 닫는 중…"
 #: app/src/filters/labels.ts
 msgid "Clouds"
 msgstr "구름 효과 1"
+
+#: app/src/app/cameraData.ts
+msgid "Cloudy"
+msgstr "흐림"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Clumped"
@@ -2550,6 +2650,10 @@ msgstr "색상 설정…"
 msgid "Color sliders"
 msgstr "색상 슬라이더"
 
+#: app/src/app/cameraData.ts
+msgid "Color Space"
+msgstr "색상 공간"
+
 #: app/src/shell/GradientEditor.tsx
 msgid "Color stop at {position}%"
 msgstr "{position}%의 색상 정지점"
@@ -2648,6 +2752,10 @@ msgstr "원뿔"
 #: app/src/layerStyle.ts
 msgid "Cone - Inverted"
 msgstr "원뿔 - 반전"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Conform"
+msgstr "맞추기"
 
 #: app/src/app/menus.ts
 msgid "Consolidate All to Tabs"
@@ -2901,6 +3009,10 @@ msgstr "모양 특성 복사"
 msgid "Copy SVG"
 msgstr "SVG 복사"
 
+#: app/src/ScriptDialogs.tsx
+msgid "Copyright Info"
+msgstr "저작권 정보"
+
 #: app/src/FileDialogs.tsx
 msgid "Copyright Info URL"
 msgstr "저작권 정보 URL"
@@ -2908,6 +3020,14 @@ msgstr "저작권 정보 URL"
 #: app/src/FileDialogs.tsx
 msgid "Copyright Notice"
 msgstr "저작권 고지"
+
+#: app/src/FileDialogs.tsx
+msgid "Copyright Status"
+msgstr "저작권 상태"
+
+#: app/src/FileDialogs.tsx
+msgid "Copyrighted"
+msgstr "저작권 있음"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Corner radius"
@@ -3015,6 +3135,10 @@ msgstr "카운트 도구"
 msgid "Count: {markCount}"
 msgstr "카운트: {markCount}"
 
+#: app/src/FileDialogs.tsx
+msgid "Country"
+msgstr "국가"
+
 #: app/src/layerStyle.ts
 msgid "Cove - Deep"
 msgstr "후미 - 깊게"
@@ -3093,6 +3217,22 @@ msgstr "레이어 만드는 중…"
 #: app/src/App.tsx
 msgid "Creating…"
 msgstr "만드는 중…"
+
+#: app/src/app/cameraData.ts
+msgid "Creative program"
+msgstr "크리에이티브 프로그램"
+
+#: app/src/FileDialogs.tsx
+msgid "Creator"
+msgstr "작성자"
+
+#: app/src/FileDialogs.tsx
+msgid "Creator's Job Title"
+msgstr "작성자 직함"
+
+#: app/src/FileDialogs.tsx
+msgid "Credit Line"
+msgstr "크레디트"
 
 #: app/src/shell/typecommands.ts
 #: app/src/TypePanels.tsx
@@ -3229,6 +3369,7 @@ msgid "Curves"
 msgstr "곡선"
 
 #: app/src/ColorDialog.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/FileDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/levelsCurves.ts
@@ -3399,6 +3540,18 @@ msgstr "데이터 세트…"
 msgid "Date and Time"
 msgstr "날짜 및 시간"
 
+#: app/src/FileDialogs.tsx
+msgid "Date Created"
+msgstr "작성 날짜"
+
+#: app/src/app/cameraData.ts
+msgid "Date Time Original"
+msgstr "원본 날짜/시간"
+
+#: app/src/app/cameraData.ts
+msgid "Daylight"
+msgstr "주광"
+
 #: app/src/filters/labels.ts
 msgid "De-Interlace"
 msgstr "인터레이스 제거"
@@ -3465,6 +3618,7 @@ msgstr "언저리 제거…"
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/RenderEditors.tsx
 #: app/src/NotesPanels.tsx
@@ -3652,6 +3806,10 @@ msgstr "모니터 색상 채도 감소:"
 msgid "Description"
 msgstr "설명"
 
+#: app/src/FileDialogs.tsx
+msgid "Description Writer"
+msgstr "설명 작성자"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Deselect"
@@ -3706,6 +3864,10 @@ msgstr "직경"
 #: app/src/ModeDialog.tsx
 msgid "Diamond"
 msgstr "다이아몬드"
+
+#: app/src/app/cameraData.ts
+msgid "Did not fire"
+msgstr "발광하지 않음"
 
 #: app/src/i18n/choices.ts
 msgid "Difference"
@@ -4157,6 +4319,10 @@ msgstr "타원"
 msgid "Elliptical Marquee"
 msgstr "원형 선택 윤곽"
 
+#: app/src/FileDialogs.tsx
+msgid "Email(s)"
+msgstr "이메일"
+
 #: app/src/ExportDialogs.tsx
 msgid "Embed File Info: copyright and contact (PNG and JPEG)"
 msgstr "파일 정보 포함: 저작권 및 연락처(PNG 및 JPEG)"
@@ -4421,6 +4587,10 @@ msgstr "내보내기 환경 설정"
 msgid "Export Preferences…"
 msgstr "내보내기 환경 설정…"
 
+#: app/src/FileDialogs.tsx
+msgid "Export..."
+msgstr "내보내기..."
+
 #: app/src/NotesPanels.tsx
 msgid "Export…"
 msgstr "내보내기…"
@@ -4446,6 +4616,22 @@ msgstr "노출"
 #: app/src/ColorDialog.tsx
 msgid "Exposure and Gamma"
 msgstr "노출 및 감마"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Bias Value"
+msgstr "노출 보정값"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Mode"
+msgstr "노출 모드"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Program"
+msgstr "노출 프로그램"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Time"
+msgstr "노출 시간"
 
 #: app/src/ColorDialog.tsx
 msgid "Exposure value"
@@ -4474,6 +4660,10 @@ msgstr "돌출"
 #: app/src/shell/tools.ts
 msgid "Eyedropper"
 msgstr "스포이드"
+
+#: app/src/app/cameraData.ts
+msgid "F-Stop"
+msgstr "F 값"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Face Tool (Face-Aware Liquify comes with M7)"
@@ -4588,6 +4778,10 @@ msgstr "파일"
 #: app/src/BatchDialog.tsx
 msgid "Files from the Files source close after they are saved; open documents stay open."
 msgstr "파일 소스의 파일은 저장 후 닫히며, 열려 있는 문서는 열린 상태로 유지됩니다."
+
+#: app/src/VariablesDialogs.tsx
+msgid "Fill"
+msgstr "칠"
 
 #: app/src/app/Dialogs.tsx
 msgctxt "command"
@@ -4736,6 +4930,10 @@ msgstr "가늘게"
 msgid "Fine Dots"
 msgstr "고운 점"
 
+#: app/src/app/cameraData.ts
+msgid "Fine weather"
+msgstr "맑음"
+
 #: app/src/shell/tools.ts
 msgid "Finger Painting"
 msgstr "손가락 페인팅"
@@ -4743,6 +4941,10 @@ msgstr "손가락 페인팅"
 #: app/src/i18n/errors.ts
 msgid "Finish the current edit before purging the history."
 msgstr "작업 내역을 제거하기 전에 현재 편집을 완료하십시오."
+
+#: app/src/app/cameraData.ts
+msgid "Fired"
+msgstr "발광함"
 
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
@@ -4756,6 +4958,7 @@ msgid "Fisheye"
 msgstr "어안"
 
 #: app/src/filters/LiquifyDialog.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Fit"
 msgstr "맞추기"
 
@@ -4828,6 +5031,10 @@ msgstr "불꽃 유형"
 msgid "Flare Center"
 msgstr "플레어 중심"
 
+#: app/src/app/cameraData.ts
+msgid "Flash"
+msgstr "플래시"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Flatten All Layer Effects"
@@ -4858,15 +5065,25 @@ msgid "Flip Canvas Vertical"
 msgstr "캔버스 세로로 뒤집기"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Flip Horizontal"
 msgstr "가로로 뒤집기"
+
+#: app/src/app/cameraData.ts
+msgid "Flip Horizontal, Rotate 90° CCW"
+msgstr "가로로 뒤집기, 시계 반대 방향으로 90° 회전"
+
+#: app/src/app/cameraData.ts
+msgid "Flip Horizontal, Rotate 90° CW"
+msgstr "가로로 뒤집기, 시계 방향으로 90° 회전"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Flip horizontally"
 msgstr "가로로 뒤집기"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Flip Vertical"
 msgstr "세로로 뒤집기"
@@ -4907,9 +5124,18 @@ msgstr "모두 창에서 떠 있게 하기"
 msgid "Flow"
 msgstr "플로우"
 
+#: app/src/app/cameraData.ts
+msgid "Fluorescent"
+msgstr "형광등"
+
+#: app/src/app/cameraData.ts
 #: app/src/filters/labels.ts
 msgid "Focal Length"
 msgstr "초점 거리"
+
+#: app/src/app/cameraData.ts
+msgid "Focal Length in 35mm Film"
+msgstr "35mm 필름 환산 초점 거리"
 
 #: app/src/filters/labels.ts
 msgid "Focus"
@@ -5465,6 +5691,7 @@ msgstr "확장"
 msgid "Guides"
 msgstr "안내선"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/ScriptDialogs.tsx
 #: app/src/shell/tools.ts
@@ -5532,6 +5759,10 @@ msgstr "HDR 토닝"
 #: app/src/app/menus.ts
 msgid "HDR Toning…"
 msgstr "HDR 토닝…"
+
+#: app/src/FileDialogs.tsx
+msgid "Headline"
+msgstr "표제"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -5641,6 +5872,7 @@ msgstr "선택 영역 숨기기"
 msgid "Hide selection edges"
 msgstr "선택 영역 가장자리 숨기기"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "High"
 msgstr "높음"
@@ -5884,6 +6116,10 @@ msgstr "이미지 균형"
 msgid "Image editing in your browser"
 msgstr "브라우저에서 이미지 편집"
 
+#: app/src/ExportDialogs.tsx
+msgid "Image height"
+msgstr "이미지 높이"
+
 #: app/src/App.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "Image Processor"
@@ -5897,7 +6133,12 @@ msgstr "이미지 프로세서…"
 msgid "Image Rotation"
 msgstr "이미지 회전"
 
+#: app/src/ExportDialogs.tsx
+msgid "Image scale"
+msgstr "이미지 비율"
+
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Image Size"
 msgstr "이미지 크기"
@@ -5909,6 +6150,10 @@ msgstr "이미지 크기: {sizeText}"
 #: app/src/app/menus.ts
 msgid "Image Size…"
 msgstr "이미지 크기…"
+
+#: app/src/ExportDialogs.tsx
+msgid "Image width"
+msgstr "이미지 너비"
 
 #: app/src/app/helpers.ts
 #: app/src/PdfDialog.tsx
@@ -5936,6 +6181,10 @@ msgstr "데이터 세트 가져오기"
 msgid "Import JSON…"
 msgstr "JSON 가져오기…"
 
+#: app/src/FileDialogs.tsx
+msgid "Import metadata template"
+msgstr "메타데이터 템플릿 가져오기"
+
 #: app/src/PdfDialog.tsx
 msgid "Import PDF"
 msgstr "PDF 가져오기"
@@ -5948,6 +6197,10 @@ msgstr "견본 가져오기"
 msgid "Import warnings ({warningCount})"
 msgstr "가져오기 경고({warningCount})"
 
+#: app/src/FileDialogs.tsx
+msgid "Import..."
+msgstr "가져오기..."
+
 #: app/src/VariablesDialogs.tsx
 msgid "Import…"
 msgstr "가져오기…"
@@ -5957,8 +6210,8 @@ msgid "Impressionist"
 msgstr "인상주의"
 
 #: app/src/ScriptDialogs.tsx
-msgid "In a folder each type goes into a subfolder named JPEG, PSD or PNG."
-msgstr "폴더에서는 각 형식이 JPEG, PSD 또는 PNG라는 하위 폴더에 저장됩니다."
+msgid "In a folder each type goes into a subfolder named JPEG, PSD, TIFF or PNG."
+msgstr "폴더에서는 각 유형이 JPEG, PSD, TIFF 또는 PNG라는 이름의 하위 폴더에 저장됩니다."
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "In Front"
@@ -5971,6 +6224,10 @@ msgstr "비활성 문서 미리 보기"
 #: app/src/ToolPresetsPanel.tsx
 msgid "Include Colors"
 msgstr "색상 포함"
+
+#: app/src/ScriptDialogs.tsx
+msgid "Include ICC Profile"
+msgstr "ICC 프로필 포함"
 
 #: app/src/ExportDialogs.tsx
 msgid "Include layers inside groups"
@@ -6117,6 +6374,14 @@ msgstr "중지 삽입"
 msgid "Inside"
 msgstr "안쪽"
 
+#: app/src/FileDialogs.tsx
+msgid "Instructions"
+msgstr "지침"
+
+#: app/src/FileDialogs.tsx
+msgid "Intellectual Genre"
+msgstr "지적 장르"
+
 #: app/src/filters/labels.ts
 #: app/src/filters/RenderEditors.tsx
 #: app/src/shell/ColorPicker.tsx
@@ -6218,9 +6483,41 @@ msgstr "반전하는 중…"
 msgid "IPA Extensions"
 msgstr "IPA 확장"
 
+#: app/src/FileDialogs.tsx
+msgid "IPTC Contact"
+msgstr "IPTC 연락처"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Content"
+msgstr "IPTC 콘텐츠"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Image"
+msgstr "IPTC 이미지"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Scene Code"
+msgstr "IPTC 장면 코드"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Status"
+msgstr "IPTC 상태"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Subject Code"
+msgstr "IPTC 주제 코드"
+
 #: app/src/filters/labels.ts
 msgid "Iris Blur"
 msgstr "조리개 흐림 효과"
+
+#: app/src/FileDialogs.tsx
+msgid "ISO Country Code"
+msgstr "ISO 국가 코드"
+
+#: app/src/app/cameraData.ts
+msgid "ISO Speed Ratings"
+msgstr "ISO 감도"
 
 #: app/src/app/menus.ts
 msgid "Isolate Layers"
@@ -6241,6 +6538,10 @@ msgstr "들쭉날쭉"
 #: app/src/LayerStyleDialog.tsx
 msgid "Jitter"
 msgstr "지터"
+
+#: app/src/FileDialogs.tsx
+msgid "Job Identifier"
+msgstr "작업 식별자"
 
 #: app/src/ScriptDialogs.tsx
 msgid "JPEG quality"
@@ -6269,6 +6570,14 @@ msgstr "마지막 줄 왼쪽 균등 배치"
 #: app/src/TypePanels.tsx
 msgid "Justify Last Right"
 msgstr "마지막 줄 오른쪽 균등 배치"
+
+#: app/src/FileDialogs.tsx
+msgid "Keep original metadata but replace matching properties from template"
+msgstr "원본 메타데이터를 유지하되 일치하는 속성은 템플릿의 속성으로 대체"
+
+#: app/src/FileDialogs.tsx
+msgid "Keep original metadata, but append matching properties from template"
+msgstr "원본 메타데이터를 유지하고 일치하는 속성은 템플릿의 속성을 추가"
 
 #: app/src/shell/TransformBar.tsx
 msgid "Keep width and height proportional"
@@ -6319,12 +6628,17 @@ msgid "Label Size"
 msgstr "레이블 크기"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Lanczos 3"
 msgstr "Lanczos 3"
 
 #: app/src/FileDialogs.tsx
 msgid "Landscape"
 msgstr "가로"
+
+#: app/src/app/cameraData.ts
+msgid "Landscape mode"
+msgstr "풍경 모드"
 
 #: app/src/app/typeMenu.ts
 msgid "Language Options"
@@ -6355,6 +6669,10 @@ msgstr "라틴 확장-B"
 #: app/src/GlyphsPanel.tsx
 msgid "Latin-1 Supplement"
 msgstr "라틴-1 보충"
+
+#: app/src/app/cameraData.ts
+msgid "Latitude"
+msgstr "위도"
 
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -6538,6 +6856,10 @@ msgstr "길이"
 msgid "Length:"
 msgstr "길이:"
 
+#: app/src/app/cameraData.ts
+msgid "Lens"
+msgstr "렌즈"
+
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/labels.ts
 msgid "Lens Blur"
@@ -6554,6 +6876,10 @@ msgstr "렌즈 교정…"
 #: app/src/filters/labels.ts
 msgid "Lens Flare"
 msgstr "렌즈 플레어"
+
+#: app/src/app/cameraData.ts
+msgid "Lens Make"
+msgstr "렌즈 제조업체"
 
 #: app/src/filters/labels.ts
 msgid "Lens Type"
@@ -6635,6 +6961,10 @@ msgstr "조명 범위 최소"
 #: app/src/filters/GalleryStack.tsx
 msgid "Light Rough"
 msgstr "밝고 거칠게"
+
+#: app/src/app/cameraData.ts
+msgid "Light Source"
+msgstr "광원"
 
 #: app/src/filters/RenderEditors.tsx
 msgid "Light type"
@@ -6819,6 +7149,10 @@ msgstr "기본 문자 스타일 불러오기"
 msgid "Load Files into Stack…"
 msgstr "스택으로 파일 불러오기…"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Load Images..."
+msgstr "이미지 불러오기..."
+
 #: app/src/ScriptDialogs.tsx
 msgid "Load Layers"
 msgstr "레이어 불러오기"
@@ -6963,6 +7297,10 @@ msgstr "긴 선"
 msgid "Long Strokes"
 msgstr "긴 획"
 
+#: app/src/app/cameraData.ts
+msgid "Longitude"
+msgstr "경도"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Loose"
 msgstr "느슨하게"
@@ -6983,6 +7321,7 @@ msgstr "느슨하게 길게"
 msgid "Loose Medium"
 msgstr "느슨하게 중간"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "Low"
 msgstr "낮음"
@@ -7007,6 +7346,10 @@ msgstr "휘도"
 #: app/src/i18n/choices.ts
 msgid "Luminosity"
 msgstr "광도"
+
+#: app/src/ScriptDialogs.tsx
+msgid "LZW Compression"
+msgstr "LZW 압축"
 
 #: app/src/ChannelsPanel.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -7065,6 +7408,10 @@ msgstr "자석"
 msgid "Magnetic Lasso"
 msgstr "자석 올가미"
 
+#: app/src/app/cameraData.ts
+msgid "Make"
+msgstr "제조업체"
+
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/errors.ts
 msgid "Make a selection first."
@@ -7105,6 +7452,10 @@ msgstr "선택 영역에서 작업 패스 만들기"
 #: app/src/MissingFonts.tsx
 msgid "Manage"
 msgstr "관리"
+
+#: app/src/app/cameraData.ts
+msgid "Manual"
+msgstr "수동"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Maple"
@@ -7184,11 +7535,13 @@ msgstr "재질"
 msgid "Mathematical Operators"
 msgstr "수학 연산자"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/levelsCurves.ts
 #: app/src/ModeDialog.tsx
 msgid "Matte"
 msgstr "매트"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/ModeDialog.tsx
 msgid "Matte color"
 msgstr "매트 색상"
@@ -7200,6 +7553,10 @@ msgstr "매트 색상"
 #: app/src/app/menus.ts
 msgid "Matting"
 msgstr "매트"
+
+#: app/src/app/cameraData.ts
+msgid "Max Aperture Value"
+msgstr "최대 조리개 값"
 
 #: app/src/filters/labels.ts
 msgid "Max Radius"
@@ -7358,6 +7715,10 @@ msgstr "메시 크기"
 msgid "Message shown when playback reaches this stop"
 msgstr "재생이 이 중지에 도달하면 표시되는 메시지"
 
+#: app/src/app/cameraData.ts
+msgid "Metering Mode"
+msgstr "측광 모드"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/ColorDialog.tsx
@@ -7365,6 +7726,7 @@ msgstr "재생이 이 중지에 도달하면 표시되는 메시지"
 #: app/src/LayerStyleDialog.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/shell/tools.ts
+#: app/src/VariablesDialogs.tsx
 msgid "Method"
 msgstr "방법"
 
@@ -7478,6 +7840,10 @@ msgstr "모드"
 msgctxt "color mode"
 msgid "Mode"
 msgstr "모드"
+
+#: app/src/app/cameraData.ts
+msgid "Model"
+msgstr "모델"
 
 #: app/src/app/menus.ts
 msgid "Modify"
@@ -7594,6 +7960,10 @@ msgstr "위로 이동"
 msgid "Movie Prime"
 msgstr "영화 프라임"
 
+#: app/src/app/cameraData.ts
+msgid "Multi-spot"
+msgstr "멀티 스팟"
+
 #: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/history.ts
@@ -7632,8 +8002,8 @@ msgid "Name"
 msgstr "이름"
 
 #: app/src/VariablesDialogs.tsx
-msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
-msgstr "이름에는 문자, 숫자 및 밑줄을 사용하며 숫자로 시작할 수 없습니다. 픽셀 대체는 사용할 수 없습니다."
+msgid "Names use letters, digits and underscore, not starting with a digit."
+msgstr "이름에는 문자, 숫자, 밑줄을 사용할 수 있으며 숫자로 시작할 수 없습니다."
 
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -7642,6 +8012,7 @@ msgid "Navigator"
 msgstr "내비게이터"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Nearest Neighbor"
 msgstr "최단입점"
 
@@ -8047,6 +8418,7 @@ msgstr "노이즈 양"
 #: app/src/app/typeMenu.ts
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/i18n/choices.ts
 #: app/src/InspectionPanels.tsx
@@ -8065,7 +8437,9 @@ msgctxt "liquify mask"
 msgid "None"
 msgstr "없음"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/i18n/choices.ts
 #: app/src/shell/DeformSession.tsx
@@ -8075,6 +8449,10 @@ msgstr "표준"
 #: app/src/app/Dialogs.tsx
 msgid "Normal Brush Tip"
 msgstr "표준 브러시 팁"
+
+#: app/src/app/cameraData.ts
+msgid "Normal program"
+msgstr "표준 프로그램"
 
 #: app/src/app/colorSettings.ts
 msgid "North America General Purpose 2"
@@ -8087,6 +8465,14 @@ msgstr "북미 프리프레스 2"
 #: app/src/app/colorSettings.ts
 msgid "North America Web/Internet"
 msgstr "북미 웹/인터넷"
+
+#: app/src/app/cameraData.ts
+msgid "Not defined"
+msgstr "정의되지 않음"
+
+#: app/src/VariablesDialogs.tsx
+msgid "not loaded"
+msgstr "불러오지 않음"
 
 #: app/src/shell/ColorPicker.tsx
 msgid "Not web-safe: click to snap"
@@ -8287,6 +8673,10 @@ msgstr "OpenType"
 msgid "Operation"
 msgstr "작업"
 
+#: app/src/ExportDialogs.tsx
+msgid "Optimized"
+msgstr "최적화"
+
 #: app/src/app/menus.ts
 msgid "Options"
 msgstr "옵션"
@@ -8299,6 +8689,7 @@ msgstr "옵션…"
 msgid "Ordinals"
 msgstr "서수"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts
 #: app/src/FileDialogs.tsx
@@ -8306,6 +8697,11 @@ msgstr "서수"
 msgid "Orientation"
 msgstr "방향"
 
+#: app/src/FileDialogs.tsx
+msgid "Origin"
+msgstr "원본"
+
+#: app/src/ExportDialogs.tsx
 #: app/src/shell/ColorPicker.tsx
 msgid "Original"
 msgstr "원본"
@@ -8322,6 +8718,7 @@ msgstr "장식 밀도"
 msgid "Ornaments"
 msgstr "장식"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/schema.ts
 msgid "Other"
 msgstr "기타"
@@ -8513,6 +8910,10 @@ msgstr "단락 스타일 패널"
 msgid "Paragraph Text"
 msgstr "단락 텍스트"
 
+#: app/src/app/cameraData.ts
+msgid "Partial"
+msgstr "부분 측광"
+
 #: app/src/LayersPanel.tsx
 msgid "Pass Through"
 msgstr "통과"
@@ -8618,6 +9019,7 @@ msgstr "패스를 SVG로…"
 
 #: app/src/AdjustmentsPanel.tsx
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
 #: app/src/ExportDialogs.tsx
@@ -8751,6 +9153,10 @@ msgstr "원근 자르기"
 msgid "Perspective Warp"
 msgstr "원근 뒤틀기"
 
+#: app/src/FileDialogs.tsx
+msgid "Phone(s)"
+msgstr "전화"
+
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 msgid "Photo Filter"
@@ -8833,6 +9239,14 @@ msgstr "소나무"
 msgid "Pins"
 msgstr "핀"
 
+#: app/src/app/cameraData.ts
+msgid "Pixel Dimension X"
+msgstr "픽셀 치수 X"
+
+#: app/src/app/cameraData.ts
+msgid "Pixel Dimension Y"
+msgstr "픽셀 치수 Y"
+
 #: app/src/app/layerFilter.ts
 msgid "Pixel layers"
 msgstr "픽셀 레이어"
@@ -8844,6 +9258,14 @@ msgstr "픽셀 길이는 눈금자 선에서 가져옵니다."
 #: app/src/AnalysisDialogs.tsx
 msgid "Pixel Length:"
 msgstr "픽셀 길이:"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Pixel Replacement"
+msgstr "픽셀 대체"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Pixel Replacement values are file names. Images you select or load stay available until the page is reloaded."
+msgstr "픽셀 대체 값은 파일 이름입니다. 선택하거나 불러온 이미지는 페이지를 다시 불러올 때까지 사용할 수 있습니다."
 
 #: app/src/filters/schema.ts
 msgid "Pixelate"
@@ -8995,10 +9417,18 @@ msgstr "포플러"
 msgid "Portrait"
 msgstr "세로"
 
+#: app/src/app/cameraData.ts
+msgid "Portrait mode"
+msgstr "인물 모드"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Position"
 msgstr "위치"
+
+#: app/src/FileDialogs.tsx
+msgid "Postal Code"
+msgstr "우편 번호"
 
 #: app/src/filters/labels.ts
 msgid "Poster Edges"
@@ -9206,6 +9636,10 @@ msgstr "색조 보호"
 msgid "Proximity Match"
 msgstr "근접 일치"
 
+#: app/src/FileDialogs.tsx
+msgid "Public Domain"
+msgstr "공용 영역"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Pucker"
 msgstr "오목"
@@ -9357,6 +9791,10 @@ msgstr "래스터화 중…"
 msgid "Rate"
 msgstr "속도"
 
+#: app/src/FileDialogs.tsx
+msgid "Rating"
+msgstr "등급"
+
 #: app/src/shell/tools.ts
 msgid "Ratio"
 msgstr "비율"
@@ -9370,8 +9808,8 @@ msgid "Ratio W"
 msgstr "비율 W"
 
 #: app/src/FileDialogs.tsx
-msgid "Raw XMP"
-msgstr "원시 XMP"
+msgid "Raw Data"
+msgstr "원시 데이터"
 
 #: app/src/filters/labels.ts
 msgid "Reach"
@@ -9550,6 +9988,10 @@ msgstr "등록 표시"
 msgid "Regular"
 msgstr "규칙적"
 
+#: app/src/FileDialogs.tsx
+msgid "Reject"
+msgstr "거부"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Relative"
@@ -9709,6 +10151,10 @@ msgstr "다음으로 바꾸기"
 msgid "Replacement for {name}"
 msgstr "{name} 대체 글꼴"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Replacement images"
+msgstr "대체 이미지"
+
 #: app/src/MissingFonts.tsx
 msgid "Replacement style for {name}"
 msgstr "{name} 대체 스타일"
@@ -9735,6 +10181,7 @@ msgid "Reposition"
 msgstr "위치 변경"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Resample"
 msgstr "리샘플링"
 
@@ -9743,6 +10190,7 @@ msgstr "리샘플링"
 msgid "Reselect"
 msgstr "다시 선택"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/FilterDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/ToolBar.tsx
@@ -9937,6 +10385,10 @@ msgstr "글리프를 마우스 오른쪽 버튼으로 클릭하면 OpenType 대�
 msgid "Right-to-Left"
 msgstr "오른쪽에서 왼쪽"
 
+#: app/src/FileDialogs.tsx
+msgid "Rights Usage Terms"
+msgstr "권리 사용 조건"
+
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Rigid"
@@ -9982,11 +10434,13 @@ msgid "Rotate"
 msgstr "회전"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Rotate 180°"
 msgstr "180° 회전"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 msgid "Rotate 90° CCW"
 msgstr "90° 회전(반시계 방향)"
 
@@ -9999,6 +10453,7 @@ msgid "Rotate 90° Counter Clockwise"
 msgstr "90° 회전(반시계 방향)"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 msgid "Rotate 90° CW"
 msgstr "90° 회전(시계 방향)"
 
@@ -10180,6 +10635,10 @@ msgstr "PNG로 저장"
 msgid "Save as PSD"
 msgstr "PSD로 저장"
 
+#: app/src/ScriptDialogs.tsx
+msgid "Save as TIFF"
+msgstr "TIFF로 저장"
+
 #: app/src/app/menus.ts
 msgid "Save As…"
 msgstr "다른 이름으로 저장…"
@@ -10228,6 +10687,10 @@ msgstr "선택 영역을 채널로 저장"
 #: app/src/app/menus.ts
 msgid "Save Selection…"
 msgstr "선택 영역 저장…"
+
+#: app/src/FileDialogs.tsx
+msgid "Save Template"
+msgstr "템플릿 저장"
 
 #: app/src/PresetPanels.tsx
 msgid "Save the layer style"
@@ -10480,6 +10943,10 @@ msgstr "데이터 포인트 선택"
 msgid "Select Data Points…"
 msgstr "데이터 포인트 선택…"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Select File..."
+msgstr "파일 선택..."
+
 #: app/src/app/contextMenus.ts
 #: app/src/i18n/history.ts
 msgid "Select Inverse"
@@ -10546,6 +11013,14 @@ msgstr "맨 뒤로 보내기"
 msgid "Separate keywords with commas or semicolons."
 msgstr "키워드는 쉼표나 세미콜론으로 구분하십시오."
 
+#: app/src/FileDialogs.tsx
+msgid "Separate several subject codes, scene codes, phones, emails or websites with semicolons."
+msgstr "여러 주제 코드, 장면 코드, 전화, 이메일 또는 웹 사이트는 세미콜론으로 구분하십시오."
+
+#: app/src/app/cameraData.ts
+msgid "Serial Number"
+msgstr "일련 번호"
+
 #: app/src/BatchDialog.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "Set"
@@ -10579,6 +11054,10 @@ msgstr "배경으로 설정"
 #: app/src/ColorDialog.tsx
 msgid "Settings"
 msgstr "설정"
+
+#: app/src/app/cameraData.ts
+msgid "Shade"
+msgstr "그늘"
 
 #: app/src/adjustments.ts
 msgid "Shadow"
@@ -10875,6 +11354,10 @@ msgstr "액션 트리 표시"
 msgid "Show transform controls"
 msgstr "변형 컨트롤 표시"
 
+#: app/src/app/cameraData.ts
+msgid "Shutter priority"
+msgstr "셔터 우선"
+
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Sides"
@@ -11108,6 +11591,10 @@ msgstr "더 부드럽게"
 msgid "Softness"
 msgstr "부드러움"
 
+#: app/src/app/cameraData.ts
+msgid "Software"
+msgstr "소프트웨어"
+
 #: app/src/filters/labels.ts
 msgid "Solarize"
 msgstr "과대 노출"
@@ -11137,6 +11624,7 @@ msgstr "견고성"
 
 #: app/src/app/measure.ts
 #: app/src/BatchDialog.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/i18n/choices.ts
 #: app/src/ImageCalcDialog.tsx
@@ -11249,6 +11737,7 @@ msgstr "뒤틀기 세로로 분할"
 msgid "Sponge"
 msgstr "스폰지"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/RenderEditors.tsx
 msgid "Spot"
 msgstr "스폿"
@@ -11368,6 +11857,10 @@ msgstr "시작 중…"
 #: app/src/filters/labels.ts
 msgid "State"
 msgstr "상태"
+
+#: app/src/FileDialogs.tsx
+msgid "State/Province"
+msgstr "시/도"
 
 #: app/src/InspectionPanels.tsx
 msgid "Std Dev"
@@ -11650,6 +12143,10 @@ msgstr "스타일러스 휠"
 msgid "Subject"
 msgstr "피사체"
 
+#: app/src/FileDialogs.tsx
+msgid "Sublocation"
+msgstr "세부 위치"
+
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Subscript"
@@ -11756,6 +12253,18 @@ msgstr "기법"
 #: app/src/filters/labels.ts
 msgid "Temperature"
 msgstr "색온도"
+
+#: app/src/FileDialogs.tsx
+msgid "Template"
+msgstr "템플릿"
+
+#: app/src/FileDialogs.tsx
+msgid "Template name"
+msgstr "템플릿 이름"
+
+#: app/src/FileDialogs.tsx
+msgid "Templates"
+msgstr "템플릿"
 
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -12003,6 +12512,10 @@ msgstr "소스 파일에 저장할 수 없는 항목:"
 msgid "The straighten angle must be a number."
 msgstr "똑바르게 하기 각도는 숫자여야 합니다."
 
+#: app/src/FileDialogs.tsx
+msgid "The template is not a well-formed XMP file."
+msgstr "이 템플릿은 올바른 형식의 XMP 파일이 아닙니다."
+
 #: app/src/i18n/errors.ts
 msgid "The transform was cancelled."
 msgstr "변형이 취소되었습니다."
@@ -12014,6 +12527,10 @@ msgstr "문자 레이어에 텍스트가 없습니다."
 #: app/src/i18n/errors.ts
 msgid "The warped image exceeds the rendering limit."
 msgstr "뒤틀린 이미지가 렌더링 한도를 초과합니다."
+
+#: app/src/FileDialogs.tsx
+msgid "The XMP is not well-formed. Correct it before you leave Raw Data."
+msgstr "XMP가 올바른 형식이 아닙니다. 원시 데이터를 떠나기 전에 수정하십시오."
 
 #: app/src/App.tsx
 msgid "There are no data sets to apply."
@@ -12070,6 +12587,10 @@ msgstr "이 브라우저는 파일을 연결할 수 없으므로 파일이 포�
 #: app/src/App.tsx
 msgid "This cannot be undone."
 msgstr "이 작업은 취소할 수 없습니다."
+
+#: app/src/FileDialogs.tsx
+msgid "This document has no camera data. It is read from the EXIF data of opened JPEG, PNG, WebP and PSD files."
+msgstr "이 문서에는 카메라 데이터가 없습니다. 카메라 데이터는 열린 JPEG, PNG, WebP 및 PSD 파일의 EXIF 데이터에서 읽습니다."
 
 #: app/src/filters/GalleryStack.tsx
 msgid "This filter has no options."
@@ -12201,6 +12722,10 @@ msgstr "팁"
 msgid "Tip thumbnails"
 msgstr "팁 축소판"
 
+#: app/src/FileDialogs.tsx
+msgid "Title"
+msgstr "제목"
+
 #: app/src/shell/typecommands.ts
 msgid "Titling Alternates"
 msgstr "제목 대체"
@@ -12296,6 +12821,10 @@ msgstr "도구"
 msgid "Top"
 msgstr "위쪽"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Top Center"
+msgstr "위 중앙"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 msgid "Top Edges"
@@ -12306,6 +12835,7 @@ msgid "Top left"
 msgstr "왼쪽 위"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Top Left"
 msgstr "왼쪽 위"
 
@@ -12318,6 +12848,7 @@ msgid "Top right"
 msgstr "오른쪽 위"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Top Right"
 msgstr "오른쪽 위"
 
@@ -12367,6 +12898,10 @@ msgstr "변형 옵션"
 #: app/src/i18n/history.ts
 msgid "Transform Selection"
 msgstr "선택 영역 변형"
+
+#: app/src/FileDialogs.tsx
+msgid "Transmission Reference"
+msgstr "전송 참조"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -12438,6 +12973,10 @@ msgstr "삼중톤"
 msgid "Tsume %"
 msgstr "자간 축소 %"
 
+#: app/src/app/cameraData.ts
+msgid "Tungsten"
+msgstr "텅스텐"
+
 #: app/src/filters/labels.ts
 msgid "Turbulent"
 msgstr "난류"
@@ -12492,6 +13031,10 @@ msgstr "문자 옵션"
 #: app/src/filters/GalleryStack.tsx
 msgid "Unaltered Image"
 msgstr "변경되지 않은 이미지"
+
+#: app/src/app/cameraData.ts
+msgid "Uncalibrated"
+msgstr "보정되지 않음"
 
 #: app/src/filters/labels.ts
 msgid "Undefined Areas"
@@ -12549,6 +13092,11 @@ msgstr "모양 결합"
 #: app/src/app/measure.ts
 msgid "Units"
 msgstr "단위"
+
+#: app/src/app/cameraData.ts
+#: app/src/FileDialogs.tsx
+msgid "Unknown"
+msgstr "알 수 없음"
 
 #: app/src/app/toolPresets.ts
 msgid "Unknown tool option: {key}"
@@ -12649,6 +13197,10 @@ msgstr "위가 넓은 조개"
 #: app/src/TypePanels.tsx
 msgid "Uppercase"
 msgstr "대문자"
+
+#: app/src/FileDialogs.tsx
+msgid "Urgency"
+msgstr "긴급도"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Use"
@@ -12869,6 +13421,7 @@ msgstr "보이는 레이어만"
 msgid "Vivid Light"
 msgstr "선명한 라이트"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/ScriptDialogs.tsx
 #: app/src/shell/tools.ts
@@ -12953,6 +13506,10 @@ msgstr "최소 파장"
 msgid "Web"
 msgstr "웹"
 
+#: app/src/FileDialogs.tsx
+msgid "Website(s)"
+msgstr "웹 사이트"
+
 #: app/src/shell/tools.ts
 msgid "Wet"
 msgstr "젖은 정도"
@@ -12967,15 +13524,24 @@ msgstr "젖은 가장자리"
 msgid "What's new"
 msgstr "새로운 기능"
 
+#: app/src/FileDialogs.tsx
+msgid "When applying a template"
+msgstr "템플릿을 적용할 때"
+
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/ModeDialog.tsx
 msgid "White"
 msgstr "흰색"
+
+#: app/src/app/cameraData.ts
+msgid "White Balance"
+msgstr "화이트 밸런스"
 
 #: app/src/adjustments.ts
 msgid "White Clip %"

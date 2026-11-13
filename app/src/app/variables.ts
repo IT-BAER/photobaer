@@ -2,8 +2,13 @@
 // The model is DocVector.variables in engine/src/path.rs.
 import type { TextJson } from '../psd/text.ts';
 
-export type VariableKind = 'visibility' | 'text';
-export interface Variable { kind: VariableKind; name: string; layer: number }
+export type VariableKind = 'visibility' | 'text' | 'pixels';
+/** Pixel Replacement: how the image fills the layer's bounds, where it sits there (x, y from 0 to 1), and
+ * whether what lies outside the bounds is cut off. */
+export type PixelMethod = 'fit' | 'fill' | 'as_is' | 'conform';
+export interface PixelOptions { method: PixelMethod; align: [number, number]; clip: boolean }
+export interface Variable { kind: VariableKind; name: string; layer: number; pixels?: PixelOptions }
+export const defaultPixels = (): PixelOptions => ({ method: 'fit', align: [0.5, 0.5], clip: false });
 export interface DataSet { name: string; values: Record<string, string> }
 export interface Variables { variables: Variable[]; data_sets: DataSet[]; active: string | null }
 
@@ -86,12 +91,59 @@ export function setBinding(m: Variables, layer: number, kind: VariableKind, name
   }
   if (old?.name === name) return m;
   const variables = m.variables.filter(v => v !== old);
-  if (name !== null) variables.push({ kind, name, layer });
+  if (name !== null) variables.push({ kind, name, layer, ...(kind === 'pixels' ? { pixels: old?.pixels ?? defaultPixels() } : {}) });
   const data_sets = !old ? m.data_sets : m.data_sets.map(d => {
     const value = valueOf(d, old.name), { [old.name]: _, ...rest } = d.values;
     return { ...d, values: name !== null && value !== undefined ? { ...rest, [name]: value } : rest };
   });
   return { ...m, variables, data_sets };
+}
+
+/** The Pixel Replacement options of the variable bound to `layer`. */
+export function setPixelOptions(m: Variables, layer: number, o: PixelOptions): Variables {
+  if (!o.align.every(a => Number.isFinite(a) && a >= 0 && a <= 1)) throw new Error('The alignment must lie between 0 and 1.');
+  return { ...m, variables: m.variables.map(v => (v.layer === layer && v.kind === 'pixels' ? { ...v, pixels: { ...o, align: [...o.align] } } : v)) };
+}
+
+/** The key a Pixel Replacement value finds its loaded image by: the file name of a path, lower case. */
+export const imageKey = (value: string) => value.trim().split(/[\\/]/).pop()!.toLowerCase();
+
+export interface Box { x: number; y: number; w: number; h: number }
+/** Where an image of `img` size lands for a layer whose content bounds are `box`, and the rectangle it is cut to. */
+export function pixelPlacement(box: Box, img: { w: number; h: number }, o: PixelOptions): Box & { clip: Box | null } {
+  const kx = box.w / img.w, ky = box.h / img.h;
+  const [sx, sy] = o.method === 'fit' ? [Math.min(kx, ky), Math.min(kx, ky)] : o.method === 'fill' ? [Math.max(kx, ky), Math.max(kx, ky)]
+    : o.method === 'conform' ? [kx, ky] : [1, 1];
+  const w = Math.max(1, Math.round(img.w * sx)), h = Math.max(1, Math.round(img.h * sy));
+  return { x: Math.round(box.x + (box.w - w) * o.align[0]), y: Math.round(box.y + (box.h - h) * o.align[1]), w, h, clip: o.clip ? box : null };
+}
+
+// PSD storage: a private image resource Photoshop ignores, holding the model with each binding as its layer's
+// position in the layer list and its name, because layer ids change when a PSD opens.
+export const VARIABLES_RESOURCE = 4001;
+interface Stored { photobaer: 'variables'; version: 1; variables: (Omit<Variable, 'layer'> & { at: number; layer_name: string })[]; data_sets: DataSet[]; active: string | null }
+
+export function variablesResource(m: Variables, nodes: { id: number; name: string }[]): Uint8Array {
+  const variables = m.variables.map(({ layer, ...v }) => {
+    const at = nodes.findIndex(n => n.id === layer);
+    return { ...v, at, layer_name: nodes[at]?.name ?? '' };
+  });
+  const s: Stored = { photobaer: 'variables', version: 1, variables, data_sets: m.data_sets, active: m.active };
+  return new TextEncoder().encode(JSON.stringify(s));
+}
+
+/** The model of a variables resource on the layers `nodes` of the opened file, with the names of bindings
+ * whose layer is gone; null when the data is not one. */
+export function readVariablesResource(b: Uint8Array, nodes: { id: number; name: string }[]): { model: Variables; lost: string[] } | null {
+  let s: Stored;
+  try { s = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(b)); } catch { return null; }
+  if (s?.photobaer !== 'variables' || !Array.isArray(s.variables) || !Array.isArray(s.data_sets)) return null;
+  const lost: string[] = [], variables: Variable[] = [];
+  for (const { at, layer_name, ...v } of s.variables) {
+    const n = nodes[at]?.name === layer_name && layer_name ? nodes[at] : nodes.find(n => n.name === layer_name && layer_name);
+    if (n) variables.push({ ...v, layer: n.id }); else lost.push(v.name);
+  }
+  return { model: { variables, data_sets: s.data_sets, active: s.active ?? null }, lost };
 }
 
 const visibility = (s: string) => {
@@ -103,12 +155,18 @@ const visibility = (s: string) => {
 export function planDataSet(m: Variables, nodes: { id: number; kind: string; name: string }[], name: string) {
   const set = m.data_sets.find(d => d.name === name);
   if (!set) throw new Error(`No data set named "${name}".`);
-  const visible: [number, boolean][] = [], text: [number, string][] = [], errors: string[] = [];
+  const visible: [number, boolean][] = [], text: [number, string][] = [], pixels: [number, string, PixelOptions][] = [], errors: string[] = [];
   for (const v of m.variables) {
     const value = valueOf(set, v.name);
     if (value === undefined) continue;
     const n = nodes.find(n => n.id === v.layer);
     if (!n) { errors.push(`Variable "${v.name}" is bound to a layer that no longer exists.`); continue; }
+    if (v.kind === 'pixels') {
+      if (!value.trim()) continue;
+      if (n.kind === 'pixel') pixels.push([n.id, value, v.pixels ?? defaultPixels()]);
+      else errors.push(`Variable "${v.name}" needs a pixel layer, but "${n.name}" is not one.`);
+      continue;
+    }
     if (v.kind === 'text') {
       if (n.kind === 'text') text.push([n.id, value]);
       else errors.push(`Variable "${v.name}" needs a type layer, but "${n.name}" is not one.`);
@@ -119,7 +177,7 @@ export function planDataSet(m: Variables, nodes: { id: number; kind: string; nam
     if (on === null) errors.push(`Variable "${v.name}" expected true/false or visible/hidden but got "${value}".`);
     else visible.push([n.id, on]);
   }
-  return { visible, text, errors };
+  return { visible, text, pixels, errors };
 }
 
 // The first run and paragraph style carry the whole new text.

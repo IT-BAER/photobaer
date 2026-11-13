@@ -4,11 +4,21 @@ import type { MessageDescriptor } from '@lingui/core';
 import { msg, plural, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { i18n } from './i18n/index.ts';
+import { client } from './client.ts';
 import { flatNodes } from './layers.ts';
-import { importDataSets, setBinding, valueOf, type DataSet, type VariableKind, type Variables } from './app/variables.ts';
+import {
+  defaultPixels, imageKey, importDataSets, setBinding, setPixelOptions, valueOf, type DataSet, type PixelMethod, type PixelOptions, type VariableKind, type Variables,
+} from './app/variables.ts';
 import type { LayerNode } from './worker/types.ts';
 
-const KINDS: [VariableKind, MessageDescriptor][] = [['visibility', msg`Visibility`], ['text', msg`Text Replacement`]];
+const KINDS: [VariableKind, MessageDescriptor][] = [['visibility', msg`Visibility`], ['text', msg`Text Replacement`], ['pixels', msg`Pixel Replacement`]];
+const DEFAULT_NAME: Record<VariableKind, string> = { visibility: 'visible', text: 'text', pixels: 'image' };
+const METHODS: [PixelMethod, MessageDescriptor][] = [['fit', msg`Fit`], ['fill', msg`Fill`], ['as_is', msg`As Is`], ['conform', msg`Conform`]];
+const ALIGNS: MessageDescriptor[] = [
+  msg`Top Left`, msg`Top Center`, msg`Top Right`, msg`Center Left`, msg`Center`, msg`Center Right`, msg`Bottom Left`, msg`Bottom Center`, msg`Bottom Right`,
+];
+const IMAGE_TYPES = 'image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.psd,.psb';
+const kindFits = (k: VariableKind, n: LayerNode) => k === 'visibility' || (k === 'text' ? n.kind === 'text' : n.kind === 'pixel');
 type Draft = Record<VariableKind, { on: boolean; name: string }>;
 const draftOf = (m: Variables, layer: number): Draft => Object.fromEntries(KINDS.map(([k]) => {
   const v = m.variables.find(v => v.layer === layer && v.kind === k);
@@ -19,7 +29,7 @@ const draftOf = (m: Variables, layer: number): Draft => Object.fromEntries(KINDS
 function currentValues(m: Variables, nodes: LayerNode[]): Record<string, string> {
   return Object.fromEntries(m.variables.map(v => {
     const n = nodes.find(n => n.id === v.layer);
-    return [v.name, v.kind === 'visibility' ? (n?.visible === false ? 'hidden' : 'visible') : n?.text?.text ?? ''];
+    return [v.name, v.kind === 'visibility' ? (n?.visible === false ? 'hidden' : 'visible') : v.kind === 'text' ? n?.text?.text ?? '' : ''];
   }));
 }
 
@@ -39,18 +49,37 @@ export function VariablesDialog({ ref, commit, importInto, exportCsv }:
   const [error, setError] = useState('');
   const [apply, setApply] = useState(true);
   const [note, setNote] = useState('');
+  const [loaded, setLoaded] = useState<string[]>([]);
+  const imageInput = useRef<HTMLInputElement>(null);
+  const picking = useRef<string | null>(null);
   useImperativeHandle(ref, () => ({
     open(which, model, layers, active) {
       const list = flatNodes(layers).filter(n => n.kind !== 'group');
       const l = list.find(n => n.id === active)?.id ?? list[0]?.id ?? null;
       setTab(which); setM(model); setNodes(list); setLayer(l); setDraft(l === null ? null : draftOf(model, l)); setError(''); setNote(''); setApply(true);
       pickSet(model.active ?? model.data_sets[0]?.name ?? null);
+      void client.call('variableImageNames').then(setLoaded, () => {});
       dialog.current?.showModal();
     },
   }));
+  // Images picked here stay loaded for this session; with one variable picking, its value becomes the file name.
+  async function loadImages(files: File[]) {
+    try {
+      setLoaded(await client.call('loadVariableImages', await Promise.all(files.map(async f => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })))));
+      if (picking.current && files[0]) setValue(picking.current, files[0].name);
+      setError('');
+    } catch (e) { setError((e as Error).message); }
+    picking.current = null;
+  }
+  const pixelsOf = (id: number): PixelOptions => m.variables.find(v => v.layer === id && v.kind === 'pixels')?.pixels ?? defaultPixels();
+  const setPixels = (o: Partial<PixelOptions>) => {
+    if (layer === null) return;
+    try { setM(setPixelOptions(m, layer, { ...pixelsOf(layer), ...o })); } catch (e) { setError((e as Error).message); }
+  };
   const pickSet = (name: string | null) => { setSet(name); setSetName(name ?? ''); };
   const node = nodes.find(n => n.id === layer);
   const current = m.data_sets.find(d => d.name === set);
+  const hasPixels = m.variables.some(v => v.kind === 'pixels');
 
   function edit(kind: VariableKind, p: Partial<Draft[VariableKind]>) {
     if (layer === null || !draft) return;
@@ -102,16 +131,32 @@ export function VariablesDialog({ ref, commit, importInto, exportCsv }:
           <label><Trans>Layer</Trans> <select value={layer ?? ''} onChange={e => switchLayer(Number(e.currentTarget.value))}>
             {nodes.map(n => <option key={n.id} value={n.id}>{n.name}{m.variables.some(v => v.layer === n.id) ? ' *' : ''}</option>)}
           </select></label>
-          {KINDS.filter(([k]) => k === 'visibility' || node.kind === 'text').map(([k, d]) => {
+          {KINDS.filter(([k]) => kindFits(k, node)).map(([k, d]) => {
             const label = i18n._(d), nameLabel = t`${label} name`;
             return (
             <div className="row" key={k}>
-              <label className="radio"><input type="checkbox" checked={draft[k].on} onChange={e => edit(k, { on: e.currentTarget.checked, name: draft[k].name || `${k === 'text' ? 'text' : 'visible'}_${node.id}` })} /> {label}</label>
+              <label className="radio"><input type="checkbox" checked={draft[k].on} onChange={e => edit(k, { on: e.currentTarget.checked, name: draft[k].name || `${DEFAULT_NAME[k]}_${node.id}` })} /> {label}</label>
               <label><Trans>Name</Trans> <input value={draft[k].name} disabled={!draft[k].on} aria-label={nameLabel} onChange={e => edit(k, { name: e.currentTarget.value })} /></label>
             </div>
             );
           })}
-          <p className="hint"><Trans>Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available.</Trans></p>
+          {node.kind === 'pixel' && draft.pixels.on && (() => {
+            const o = pixelsOf(node.id), at = Math.round(o.align[1] * 2) * 3 + Math.round(o.align[0] * 2);
+            return <fieldset><legend><Trans>Pixel Replacement</Trans></legend>
+              <label><Trans>Method</Trans> <select value={o.method} onChange={e => setPixels({ method: e.currentTarget.value as PixelMethod })}>
+                {METHODS.map(([v, d]) => <option key={v} value={v}>{i18n._(d)}</option>)}
+              </select></label>
+              <div className="row">
+                <span><Trans>Alignment</Trans></span>
+                <div className="align-grid" role="radiogroup" aria-label={t`Alignment`}>
+                  {ALIGNS.map((d, i) => <button key={i} type="button" role="radio" aria-checked={i === at} aria-label={i18n._(d)} className={i === at ? 'primary' : ''}
+                    onClick={() => setPixels({ align: [(i % 3) / 2, Math.floor(i / 3) / 2] })} />)}
+                </div>
+              </div>
+              <label className="radio"><input type="checkbox" checked={o.clip} onChange={e => setPixels({ clip: e.currentTarget.checked })} /> <Trans>Clip to Bounding Box</Trans></label>
+            </fieldset>;
+          })()}
+          <p className="hint"><Trans>Names use letters, digits and underscore, not starting with a digit.</Trans></p>
         </> : <p className="hint"><Trans>The document has no layer to bind.</Trans></p>) : (m.variables.length ? <>
           <div className="row">
             <label><Trans>Data Set</Trans> <select value={set ?? ''} onChange={e => { pickSet(e.currentTarget.value || null); setError(''); }}>
@@ -129,6 +174,14 @@ export function VariablesDialog({ ref, commit, importInto, exportCsv }:
               {m.variables.map(v => {
                 const value = valueOf(current, v.name) ?? '', unchanged = t`(unchanged)`;
                 const where = nodes.find(n => n.id === v.layer)?.name ?? t`missing layer`;
+                if (v.kind === 'pixels') {
+                  const missing = value.trim() !== '' && !loaded.includes(imageKey(value));
+                  return <div key={v.name} className="row">
+                    <label>{v.name} <span className="hint">({where})</span> <input value={value} placeholder={unchanged} onChange={e => setValue(v.name, e.currentTarget.value)} /></label>
+                    <button type="button" onClick={() => { picking.current = v.name; imageInput.current?.click(); }}><Trans>Select File...</Trans></button>
+                    {missing && <span className="hint bad"><Trans>not loaded</Trans></span>}
+                  </div>;
+                }
                 return <label key={v.name}>{v.name} <span className="hint">({where})</span> {v.kind === 'visibility'
                   ? <select value={value} onChange={e => setValue(v.name, e.currentTarget.value)}>
                     {['', 'visible', 'hidden'].concat(['', 'visible', 'hidden'].includes(value) ? [] : [value]).map(o => <option key={o} value={o}>{o || unchanged}</option>)}
@@ -140,7 +193,11 @@ export function VariablesDialog({ ref, commit, importInto, exportCsv }:
           <div className="row">
             <button type="button" onClick={() => importInto(m, (n, report) => { setM(n); pickSet(n.active ?? n.data_sets[0]?.name ?? null); setError(''); setNote(report); })}><Trans>Import…</Trans></button>
             <button type="button" onClick={() => exportCsv(m)} disabled={!m.data_sets.length}><Trans>Export CSV…</Trans></button>
+            {hasPixels && <button type="button" onClick={() => { picking.current = null; imageInput.current?.click(); }}><Trans>Load Images...</Trans></button>}
+            <input ref={imageInput} type="file" hidden multiple accept={IMAGE_TYPES} aria-label={t`Replacement images`}
+              onChange={e => { const f = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; if (f.length) void loadImages(f); }} />
           </div>
+          {hasPixels && <p className="hint"><Trans>Pixel Replacement values are file names. Images you select or load stay available until the page is reloaded.</Trans></p>}
           <label className="radio"><input type="checkbox" checked={apply} onChange={e => setApply(e.currentTarget.checked)} disabled={!current} /> <Trans>Apply this data set on OK</Trans></label>
         </> : <p className="hint"><Trans>Define a variable on the Define tab first.</Trans></p>)}
         {note && <p className="hint" role="status">{note}</p>}

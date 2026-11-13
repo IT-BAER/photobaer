@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- File > Save As and Export As write TIFF (no compression, LZW or ZIP; 8, 16 or 32 bits; ICC profile and File Info),
+  BMP and Targa (raw or RLE). Save As keeps the document as it is and writes a flattened copy.
+- PNG and JPEG exports with File Info carry EXIF (description, author, copyright, software, resolution).
+- File > Export > Export As: Image Size (width, height, scale) with Resample, Canvas Size, and a preview of the selected
+  row. Save for Web: Original, Optimized, 2-Up and 4-Up views (picking a pane takes its settings) and Matte.
+- File > Scripts > Image Processor: Save as TIFF (with LZW), Copyright Info and Include ICC Profile.
+- File > File Info: Basic, Camera Data (read from the EXIF of opened JPEG, PNG, WebP and PSD files), Origin, IPTC and
+  an editable Raw Data tab; metadata templates can be saved, applied (replace all, replace matching, append), imported
+  and exported as .xmp.
+- Image > Variables: Pixel Replacement variables (Fit, Fill, As Is, Conform, alignment, Clip to Bounding Box). Images
+  are chosen with Select File or Load Images and stay loaded until the page is reloaded.
+- Variables and data sets are saved in PSD files and come back when photobaer opens them; Photoshop does not read them.
+
 ## [0.5.0] - 2026-10-09
 
 ### Added

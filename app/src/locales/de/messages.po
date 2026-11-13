@@ -358,6 +358,10 @@ msgstr "180°"
 msgid "2-up"
 msgstr "2-fach"
 
+#: app/src/ExportDialogs.tsx
+msgid "2-Up"
+msgstr "2-fach"
+
 #: app/src/i18n/choices.ts
 msgid "2:3"
 msgstr "2:3"
@@ -396,6 +400,10 @@ msgstr "Optionen für 32-Bit-Vorschau…"
 
 #: app/src/app/menus.ts
 msgid "4-up"
+msgstr "4-fach"
+
+#: app/src/ExportDialogs.tsx
+msgid "4-Up"
 msgstr "4-fach"
 
 #: app/src/i18n/choices.ts
@@ -494,6 +502,10 @@ msgstr "Aktion {next}"
 msgid "Action name"
 msgstr "Aktionsname"
 
+#: app/src/app/cameraData.ts
+msgid "Action program"
+msgstr "Aktionsprogramm"
+
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -576,6 +588,10 @@ msgstr "Zur Auswahl hinzufügen"
 #: app/src/shell/GradientEditor.tsx
 msgid "Add transparency"
 msgstr "Transparenz hinzufügen"
+
+#: app/src/FileDialogs.tsx
+msgid "Address"
+msgstr "Adresse"
 
 #: app/src/app/toolPresets.ts
 #: app/src/shell/BrushPanels.tsx
@@ -670,6 +686,7 @@ msgstr "Ausrichten…"
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 #: app/src/TypePanels.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Alignment"
 msgstr "Ausrichtung"
 
@@ -742,6 +759,7 @@ msgstr "Alt-Ziehen an einem Griff, um ihn zu teilen."
 msgid "Alternates for {altName}"
 msgstr "Alternativen für {altName}"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Altitude"
@@ -873,12 +891,17 @@ msgstr "Glättung"
 msgid "Anti-aliased"
 msgstr "Geglättet"
 
+#: app/src/app/cameraData.ts
+msgid "Aperture priority"
+msgstr "Blendenpriorität"
+
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Appearance"
 msgstr "Darstellung"
 
 #: app/src/App.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/TransformBar.tsx
@@ -1080,6 +1103,10 @@ msgstr "Zeichenflächen in PDF…"
 msgid "Artistic"
 msgstr "Kunstfilter"
 
+#: app/src/VariablesDialogs.tsx
+msgid "As Is"
+msgstr "Unverändert"
+
 #: app/src/ExportDialogs.tsx
 msgid "Ask where to export each time"
 msgstr "Bei jedem Export nach dem Zielort fragen"
@@ -1101,6 +1128,10 @@ msgstr "Profil zuweisen…"
 msgid "Assign working {askSpace}: {askWorking}"
 msgstr "Arbeitsfarbraum {askSpace} zuweisen: {askWorking}"
 
+#: app/src/i18n/errors.ts
+msgid "At most 1000 replacement images can be loaded."
+msgstr "Es können höchstens 1000 Ersatzbilder geladen werden."
+
 #: app/src/ScriptDialogs.tsx
 msgid "Attempt to Automatically Align Source Images"
 msgstr "Versuchen, Quellbilder automatisch auszurichten"
@@ -1110,6 +1141,11 @@ msgstr "Versuchen, Quellbilder automatisch auszurichten"
 msgid "Author"
 msgstr "Autor"
 
+#: app/src/FileDialogs.tsx
+msgid "Author Title"
+msgstr "Position des Autors"
+
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/LevelsCurvesBody.tsx
@@ -1120,6 +1156,10 @@ msgstr "Auto"
 #: app/src/shell/tools.ts
 msgid "Auto Add/Delete"
 msgstr "Automatisch hinzufügen/löschen"
+
+#: app/src/app/cameraData.ts
+msgid "Auto bracket"
+msgstr "Automatische Belichtungsreihe"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
@@ -1190,6 +1230,7 @@ msgid "Automate"
 msgstr "Automatisieren"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Automatic"
 msgstr "Automatisch"
 
@@ -1221,6 +1262,7 @@ msgstr "Automatisches Speichern ein"
 msgid "Autosave unavailable in this browser"
 msgstr "Automatisches Speichern in diesem Browser nicht verfügbar"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/labels.ts
 msgid "Average"
 msgstr "Mittelwert"
@@ -1302,6 +1344,7 @@ msgstr "Grundlinie"
 msgid "Baseline Shift"
 msgstr "Grundlinienversatz"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "Basic"
 msgstr "Einfach"
@@ -1358,18 +1401,22 @@ msgid "Bevel & Emboss"
 msgstr "Abgeflachte Kante und Relief"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic"
 msgstr "Bikubisch"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic Sharper"
 msgstr "Bikubisch schärfer"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bicubic Smoother"
 msgstr "Bikubisch glatter"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Bilinear"
 msgstr "Bilinear"
 
@@ -1415,6 +1462,7 @@ msgstr "Bitmap…"
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
 #: app/src/ChannelsPanel.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
@@ -1696,6 +1744,10 @@ msgstr "Beide Achsen"
 msgid "Bottom"
 msgstr "Unten"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Bottom Center"
+msgstr "Unten Mitte"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 msgid "Bottom Edges"
@@ -1706,6 +1758,7 @@ msgid "Bottom left"
 msgstr "Unten links"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Bottom Left"
 msgstr "Unten links"
 
@@ -1714,6 +1767,7 @@ msgid "Bottom right"
 msgstr "Unten rechts"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Bottom Right"
 msgstr "Unten rechts"
 
@@ -1928,6 +1982,10 @@ msgstr "Kanalberechnungen benötigen einen einzelnen Kanal, nicht RGB"
 msgid "Calculations…"
 msgstr "Kanalberechnungen…"
 
+#: app/src/FileDialogs.tsx
+msgid "Camera Data"
+msgstr "Kameradaten"
+
 #: app/src/filters/labels.ts
 msgid "Camera Raw Filter"
 msgstr "Camera Raw-Filter"
@@ -1994,7 +2052,12 @@ msgstr "Arbeitsfläche"
 msgid "Canvas extension color"
 msgstr "Farbe der Arbeitsflächenerweiterung"
 
+#: app/src/ExportDialogs.tsx
+msgid "Canvas height"
+msgstr "Arbeitsflächenhöhe"
+
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Canvas Size"
 msgstr "Arbeitsfläche"
@@ -2002,6 +2065,10 @@ msgstr "Arbeitsfläche"
 #: app/src/app/menus.ts
 msgid "Canvas Size…"
 msgstr "Arbeitsfläche…"
+
+#: app/src/ExportDialogs.tsx
+msgid "Canvas width"
+msgstr "Arbeitsflächenbreite"
 
 #: app/src/app/Dialogs.tsx
 msgid "Caps Lock switches between the brush tip and the crosshair, and between the tool icon and the crosshair."
@@ -2021,6 +2088,7 @@ msgstr "Zellengröße"
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Center"
 msgstr "Mitte"
 
@@ -2029,9 +2097,21 @@ msgctxt "text alignment"
 msgid "Center"
 msgstr "Zentriert"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Center Left"
+msgstr "Mitte links"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Center Right"
+msgstr "Mitte rechts"
+
 #: app/src/FileDialogs.tsx
 msgid "Center the image on the page"
 msgstr "Bild auf der Seite zentrieren"
+
+#: app/src/app/cameraData.ts
+msgid "Center-weighted average"
+msgstr "Mittenbetont"
 
 #: app/src/filters/labels.ts
 msgid "Centered Blur"
@@ -2157,6 +2237,10 @@ msgstr "Wähle einen Dateinamen mit .psd, .psb, .exr, .hdr oder .ico, nicht {nam
 msgid "Choose a pattern first."
 msgstr "Wähle zuerst ein Muster."
 
+#: app/src/FileDialogs.tsx
+msgid "Choose a template"
+msgstr "Vorlage auswählen"
+
 #: app/src/i18n/errors.ts
 msgid "Choose at least one file."
 msgstr "Wähle mindestens eine Datei aus."
@@ -2174,6 +2258,10 @@ msgstr "Chrom"
 #: app/src/filters/GalleryStack.tsx
 msgid "Circle"
 msgstr "Kreis"
+
+#: app/src/FileDialogs.tsx
+msgid "City"
+msgstr "Stadt"
 
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
@@ -2229,6 +2317,10 @@ msgstr "Zählung löschen"
 msgid "Clear existing guides"
 msgstr "Vorhandene Hilfslinien löschen"
 
+#: app/src/FileDialogs.tsx
+msgid "Clear existing properties and replace with template properties"
+msgstr "Vorhandene Eigenschaften löschen und durch Vorlageneigenschaften ersetzen"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Clear Guides"
@@ -2273,6 +2365,10 @@ msgstr "Klicke mit dem Anmerkungen-Werkzeug, um eine Anmerkung hinzuzufügen."
 #: app/src/ShapesPanel.tsx
 msgid "Clicking a shape arms the Custom Shape tool."
 msgstr "Ein Klick auf eine Form aktiviert das Eigene-Form-Werkzeug."
+
+#: app/src/VariablesDialogs.tsx
+msgid "Clip to Bounding Box"
+msgstr "Auf Begrenzungsrahmen beschneiden"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Clip to layer below"
@@ -2356,6 +2452,10 @@ msgstr "Inhalt wird geschlossen…"
 #: app/src/filters/labels.ts
 msgid "Clouds"
 msgstr "Wolken"
+
+#: app/src/app/cameraData.ts
+msgid "Cloudy"
+msgstr "Bewölkt"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Clumped"
@@ -2550,6 +2650,10 @@ msgstr "Farbeinstellungen…"
 msgid "Color sliders"
 msgstr "Farbregler"
 
+#: app/src/app/cameraData.ts
+msgid "Color Space"
+msgstr "Farbraum"
+
 #: app/src/shell/GradientEditor.tsx
 msgid "Color stop at {position}%"
 msgstr "Farbstopp bei {position} %"
@@ -2648,6 +2752,10 @@ msgstr "Kegel"
 #: app/src/layerStyle.ts
 msgid "Cone - Inverted"
 msgstr "Kegel – umgekehrt"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Conform"
+msgstr "Anpassen"
 
 #: app/src/app/menus.ts
 msgid "Consolidate All to Tabs"
@@ -2901,6 +3009,10 @@ msgstr "Formattribute kopieren"
 msgid "Copy SVG"
 msgstr "SVG kopieren"
 
+#: app/src/ScriptDialogs.tsx
+msgid "Copyright Info"
+msgstr "Copyright-Informationen"
+
 #: app/src/FileDialogs.tsx
 msgid "Copyright Info URL"
 msgstr "URL der Copyright-Informationen"
@@ -2908,6 +3020,14 @@ msgstr "URL der Copyright-Informationen"
 #: app/src/FileDialogs.tsx
 msgid "Copyright Notice"
 msgstr "Copyright-Vermerk"
+
+#: app/src/FileDialogs.tsx
+msgid "Copyright Status"
+msgstr "Copyright-Status"
+
+#: app/src/FileDialogs.tsx
+msgid "Copyrighted"
+msgstr "Urheberrechtlich geschützt"
 
 #: app/src/PropertiesPanel.tsx
 msgid "Corner radius"
@@ -3015,6 +3135,10 @@ msgstr "Zählungswerkzeug"
 msgid "Count: {markCount}"
 msgstr "Anzahl: {markCount}"
 
+#: app/src/FileDialogs.tsx
+msgid "Country"
+msgstr "Land"
+
 #: app/src/layerStyle.ts
 msgid "Cove - Deep"
 msgstr "Kehle – tief"
@@ -3093,6 +3217,22 @@ msgstr "Ebenen werden erstellt…"
 #: app/src/App.tsx
 msgid "Creating…"
 msgstr "Wird erstellt…"
+
+#: app/src/app/cameraData.ts
+msgid "Creative program"
+msgstr "Kreativprogramm"
+
+#: app/src/FileDialogs.tsx
+msgid "Creator"
+msgstr "Ersteller"
+
+#: app/src/FileDialogs.tsx
+msgid "Creator's Job Title"
+msgstr "Berufsbezeichnung des Erstellers"
+
+#: app/src/FileDialogs.tsx
+msgid "Credit Line"
+msgstr "Kreditzeile"
 
 #: app/src/shell/typecommands.ts
 #: app/src/TypePanels.tsx
@@ -3229,6 +3369,7 @@ msgid "Curves"
 msgstr "Gradationskurven"
 
 #: app/src/ColorDialog.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/FileDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/levelsCurves.ts
@@ -3399,6 +3540,18 @@ msgstr "Datensätze…"
 msgid "Date and Time"
 msgstr "Datum und Uhrzeit"
 
+#: app/src/FileDialogs.tsx
+msgid "Date Created"
+msgstr "Erstellungsdatum"
+
+#: app/src/app/cameraData.ts
+msgid "Date Time Original"
+msgstr "Aufnahmedatum und -uhrzeit"
+
+#: app/src/app/cameraData.ts
+msgid "Daylight"
+msgstr "Tageslicht"
+
 #: app/src/filters/labels.ts
 msgid "De-Interlace"
 msgstr "Zeilensprung aufheben"
@@ -3465,6 +3618,7 @@ msgstr "Rand entfernen…"
 #: app/src/ActionsPanel.tsx
 #: app/src/app/menus.ts
 #: app/src/app/vectorCommands.ts
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/RenderEditors.tsx
 #: app/src/NotesPanels.tsx
@@ -3652,6 +3806,10 @@ msgstr "Monitorfarben entsättigen um:"
 msgid "Description"
 msgstr "Beschreibung"
 
+#: app/src/FileDialogs.tsx
+msgid "Description Writer"
+msgstr "Beschreibungsverfasser"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Deselect"
@@ -3706,6 +3864,10 @@ msgstr "Durchmesser"
 #: app/src/ModeDialog.tsx
 msgid "Diamond"
 msgstr "Raute"
+
+#: app/src/app/cameraData.ts
+msgid "Did not fire"
+msgstr "Nicht ausgelöst"
 
 #: app/src/i18n/choices.ts
 msgid "Difference"
@@ -4157,6 +4319,10 @@ msgstr "Ellipse"
 msgid "Elliptical Marquee"
 msgstr "Auswahlellipse"
 
+#: app/src/FileDialogs.tsx
+msgid "Email(s)"
+msgstr "E-Mail(s)"
+
 #: app/src/ExportDialogs.tsx
 msgid "Embed File Info: copyright and contact (PNG and JPEG)"
 msgstr "Dateiinformationen einbetten: Copyright und Kontakt (PNG und JPEG)"
@@ -4421,6 +4587,10 @@ msgstr "Exporteinstellungen"
 msgid "Export Preferences…"
 msgstr "Exporteinstellungen…"
 
+#: app/src/FileDialogs.tsx
+msgid "Export..."
+msgstr "Exportieren..."
+
 #: app/src/NotesPanels.tsx
 msgid "Export…"
 msgstr "Exportieren…"
@@ -4446,6 +4616,22 @@ msgstr "Belichtung"
 #: app/src/ColorDialog.tsx
 msgid "Exposure and Gamma"
 msgstr "Belichtung und Gamma"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Bias Value"
+msgstr "Belichtungskorrektur"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Mode"
+msgstr "Belichtungsmodus"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Program"
+msgstr "Belichtungsprogramm"
+
+#: app/src/app/cameraData.ts
+msgid "Exposure Time"
+msgstr "Belichtungszeit"
 
 #: app/src/ColorDialog.tsx
 msgid "Exposure value"
@@ -4474,6 +4660,10 @@ msgstr "Extrudieren"
 #: app/src/shell/tools.ts
 msgid "Eyedropper"
 msgstr "Pipette"
+
+#: app/src/app/cameraData.ts
+msgid "F-Stop"
+msgstr "Blendenzahl"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Face Tool (Face-Aware Liquify comes with M7)"
@@ -4588,6 +4778,10 @@ msgstr "Dateien"
 #: app/src/BatchDialog.tsx
 msgid "Files from the Files source close after they are saved; open documents stay open."
 msgstr "Dateien aus der Quelle „Dateien“ werden nach dem Speichern geschlossen; geöffnete Dokumente bleiben geöffnet."
+
+#: app/src/VariablesDialogs.tsx
+msgid "Fill"
+msgstr "Füllung"
 
 #: app/src/app/Dialogs.tsx
 msgctxt "command"
@@ -4736,6 +4930,10 @@ msgstr "Fein"
 msgid "Fine Dots"
 msgstr "Feine Punkte"
 
+#: app/src/app/cameraData.ts
+msgid "Fine weather"
+msgstr "Schönwetter"
+
 #: app/src/shell/tools.ts
 msgid "Finger Painting"
 msgstr "Fingermalerei"
@@ -4743,6 +4941,10 @@ msgstr "Fingermalerei"
 #: app/src/i18n/errors.ts
 msgid "Finish the current edit before purging the history."
 msgstr "Schließe die aktuelle Bearbeitung ab, bevor du das Protokoll entleerst."
+
+#: app/src/app/cameraData.ts
+msgid "Fired"
+msgstr "Ausgelöst"
 
 #: app/src/shell/TransformBar.tsx
 #: app/src/TypePanels.tsx
@@ -4756,6 +4958,7 @@ msgid "Fisheye"
 msgstr "Fischauge"
 
 #: app/src/filters/LiquifyDialog.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Fit"
 msgstr "Einpassen"
 
@@ -4828,6 +5031,10 @@ msgstr "Flammentyp"
 msgid "Flare Center"
 msgstr "Blendenfleckmitte"
 
+#: app/src/app/cameraData.ts
+msgid "Flash"
+msgstr "Blitz"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Flatten All Layer Effects"
@@ -4858,15 +5065,25 @@ msgid "Flip Canvas Vertical"
 msgstr "Arbeitsfläche vertikal spiegeln"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Flip Horizontal"
 msgstr "Horizontal spiegeln"
+
+#: app/src/app/cameraData.ts
+msgid "Flip Horizontal, Rotate 90° CCW"
+msgstr "Horizontal spiegeln, 90° gegen den Uhrzeigersinn drehen"
+
+#: app/src/app/cameraData.ts
+msgid "Flip Horizontal, Rotate 90° CW"
+msgstr "Horizontal spiegeln, 90° im Uhrzeigersinn drehen"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Flip horizontally"
 msgstr "Horizontal spiegeln"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Flip Vertical"
 msgstr "Vertikal spiegeln"
@@ -4907,9 +5124,18 @@ msgstr "Alle in Fenstern verschiebbar machen"
 msgid "Flow"
 msgstr "Fluss"
 
+#: app/src/app/cameraData.ts
+msgid "Fluorescent"
+msgstr "Fluoreszenz"
+
+#: app/src/app/cameraData.ts
 #: app/src/filters/labels.ts
 msgid "Focal Length"
 msgstr "Brennweite"
+
+#: app/src/app/cameraData.ts
+msgid "Focal Length in 35mm Film"
+msgstr "Brennweite bei 35-mm-Film"
 
 #: app/src/filters/labels.ts
 msgid "Focus"
@@ -5465,6 +5691,7 @@ msgstr "Auswahl vergrößern"
 msgid "Guides"
 msgstr "Hilfslinien"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/ScriptDialogs.tsx
 #: app/src/shell/tools.ts
@@ -5532,6 +5759,10 @@ msgstr "HDR-Tonung"
 #: app/src/app/menus.ts
 msgid "HDR Toning…"
 msgstr "HDR-Tonung…"
+
+#: app/src/FileDialogs.tsx
+msgid "Headline"
+msgstr "Überschrift"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -5641,6 +5872,7 @@ msgstr "Auswahl ausblenden"
 msgid "Hide selection edges"
 msgstr "Auswahlkanten ausblenden"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "High"
 msgstr "Hoch"
@@ -5884,6 +6116,10 @@ msgstr "Bildbalance"
 msgid "Image editing in your browser"
 msgstr "Bildbearbeitung in deinem Browser"
 
+#: app/src/ExportDialogs.tsx
+msgid "Image height"
+msgstr "Bildhöhe"
+
 #: app/src/App.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "Image Processor"
@@ -5897,7 +6133,12 @@ msgstr "Bildprozessor…"
 msgid "Image Rotation"
 msgstr "Bilddrehung"
 
+#: app/src/ExportDialogs.tsx
+msgid "Image scale"
+msgstr "Bildmaßstab"
+
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Image Size"
 msgstr "Bildgröße"
@@ -5909,6 +6150,10 @@ msgstr "Bildgröße: {sizeText}"
 #: app/src/app/menus.ts
 msgid "Image Size…"
 msgstr "Bildgröße…"
+
+#: app/src/ExportDialogs.tsx
+msgid "Image width"
+msgstr "Bildbreite"
 
 #: app/src/app/helpers.ts
 #: app/src/PdfDialog.tsx
@@ -5936,6 +6181,10 @@ msgstr "Datensätze importieren"
 msgid "Import JSON…"
 msgstr "JSON importieren…"
 
+#: app/src/FileDialogs.tsx
+msgid "Import metadata template"
+msgstr "Metadatenvorlage importieren"
+
 #: app/src/PdfDialog.tsx
 msgid "Import PDF"
 msgstr "PDF importieren"
@@ -5948,6 +6197,10 @@ msgstr "Farbfelder importieren"
 msgid "Import warnings ({warningCount})"
 msgstr "Importwarnungen ({warningCount})"
 
+#: app/src/FileDialogs.tsx
+msgid "Import..."
+msgstr "Importieren..."
+
 #: app/src/VariablesDialogs.tsx
 msgid "Import…"
 msgstr "Importieren…"
@@ -5957,8 +6210,8 @@ msgid "Impressionist"
 msgstr "Impressionist"
 
 #: app/src/ScriptDialogs.tsx
-msgid "In a folder each type goes into a subfolder named JPEG, PSD or PNG."
-msgstr "In einem Ordner landet jeder Typ in einem Unterordner namens JPEG, PSD oder PNG."
+msgid "In a folder each type goes into a subfolder named JPEG, PSD, TIFF or PNG."
+msgstr "In einem Ordner kommt jeder Typ in einen Unterordner mit dem Namen JPEG, PSD, TIFF oder PNG."
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "In Front"
@@ -5971,6 +6224,10 @@ msgstr "Vorschau inaktiver Dokumente"
 #: app/src/ToolPresetsPanel.tsx
 msgid "Include Colors"
 msgstr "Farben einbeziehen"
+
+#: app/src/ScriptDialogs.tsx
+msgid "Include ICC Profile"
+msgstr "ICC-Profil einbeziehen"
 
 #: app/src/ExportDialogs.tsx
 msgid "Include layers inside groups"
@@ -6117,6 +6374,14 @@ msgstr "Stopp einfügen"
 msgid "Inside"
 msgstr "Innen"
 
+#: app/src/FileDialogs.tsx
+msgid "Instructions"
+msgstr "Anweisungen"
+
+#: app/src/FileDialogs.tsx
+msgid "Intellectual Genre"
+msgstr "Intellektuelles Genre"
+
 #: app/src/filters/labels.ts
 #: app/src/filters/RenderEditors.tsx
 #: app/src/shell/ColorPicker.tsx
@@ -6218,9 +6483,41 @@ msgstr "Wird umgekehrt…"
 msgid "IPA Extensions"
 msgstr "IPA-Erweiterungen"
 
+#: app/src/FileDialogs.tsx
+msgid "IPTC Contact"
+msgstr "IPTC-Kontakt"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Content"
+msgstr "IPTC-Inhalt"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Image"
+msgstr "IPTC-Bild"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Scene Code"
+msgstr "IPTC-Szenencode"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Status"
+msgstr "IPTC-Status"
+
+#: app/src/FileDialogs.tsx
+msgid "IPTC Subject Code"
+msgstr "IPTC-Themencode"
+
 #: app/src/filters/labels.ts
 msgid "Iris Blur"
 msgstr "Iris-Weichzeichnung"
+
+#: app/src/FileDialogs.tsx
+msgid "ISO Country Code"
+msgstr "ISO-Ländercode"
+
+#: app/src/app/cameraData.ts
+msgid "ISO Speed Ratings"
+msgstr "ISO-Empfindlichkeit"
 
 #: app/src/app/menus.ts
 msgid "Isolate Layers"
@@ -6241,6 +6538,10 @@ msgstr "Zacken"
 #: app/src/LayerStyleDialog.tsx
 msgid "Jitter"
 msgstr "Jitter"
+
+#: app/src/FileDialogs.tsx
+msgid "Job Identifier"
+msgstr "Jobkennung"
 
 #: app/src/ScriptDialogs.tsx
 msgid "JPEG quality"
@@ -6269,6 +6570,14 @@ msgstr "Blocksatz, letzte Zeile linksbündig"
 #: app/src/TypePanels.tsx
 msgid "Justify Last Right"
 msgstr "Blocksatz, letzte Zeile rechtsbündig"
+
+#: app/src/FileDialogs.tsx
+msgid "Keep original metadata but replace matching properties from template"
+msgstr "Originalmetadaten beibehalten, aber übereinstimmende Eigenschaften durch die der Vorlage ersetzen"
+
+#: app/src/FileDialogs.tsx
+msgid "Keep original metadata, but append matching properties from template"
+msgstr "Originalmetadaten beibehalten, aber übereinstimmende Eigenschaften der Vorlage anhängen"
 
 #: app/src/shell/TransformBar.tsx
 msgid "Keep width and height proportional"
@@ -6319,12 +6628,17 @@ msgid "Label Size"
 msgstr "Beschriftungsgröße"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Lanczos 3"
 msgstr "Lanczos 3"
 
 #: app/src/FileDialogs.tsx
 msgid "Landscape"
 msgstr "Querformat"
+
+#: app/src/app/cameraData.ts
+msgid "Landscape mode"
+msgstr "Landschaftsmodus"
 
 #: app/src/app/typeMenu.ts
 msgid "Language Options"
@@ -6355,6 +6669,10 @@ msgstr "Lateinisch erweitert B"
 #: app/src/GlyphsPanel.tsx
 msgid "Latin-1 Supplement"
 msgstr "Latein-1, Ergänzung"
+
+#: app/src/app/cameraData.ts
+msgid "Latitude"
+msgstr "Breitengrad"
 
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -6538,6 +6856,10 @@ msgstr "Länge"
 msgid "Length:"
 msgstr "Länge:"
 
+#: app/src/app/cameraData.ts
+msgid "Lens"
+msgstr "Objektiv"
+
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/labels.ts
 msgid "Lens Blur"
@@ -6554,6 +6876,10 @@ msgstr "Objektivkorrektur…"
 #: app/src/filters/labels.ts
 msgid "Lens Flare"
 msgstr "Blendenflecke"
+
+#: app/src/app/cameraData.ts
+msgid "Lens Make"
+msgstr "Objektivhersteller"
 
 #: app/src/filters/labels.ts
 msgid "Lens Type"
@@ -6635,6 +6961,10 @@ msgstr "Lichtbereich min."
 #: app/src/filters/GalleryStack.tsx
 msgid "Light Rough"
 msgstr "Hell strukturiert"
+
+#: app/src/app/cameraData.ts
+msgid "Light Source"
+msgstr "Lichtquelle"
 
 #: app/src/filters/RenderEditors.tsx
 msgid "Light type"
@@ -6819,6 +7149,10 @@ msgstr "Standard-Textstile laden"
 msgid "Load Files into Stack…"
 msgstr "Dateien in Stapel laden…"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Load Images..."
+msgstr "Bilder laden..."
+
 #: app/src/ScriptDialogs.tsx
 msgid "Load Layers"
 msgstr "Ebenen laden"
@@ -6963,6 +7297,10 @@ msgstr "Lange Linien"
 msgid "Long Strokes"
 msgstr "Lange Striche"
 
+#: app/src/app/cameraData.ts
+msgid "Longitude"
+msgstr "Längengrad"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Loose"
 msgstr "Locker"
@@ -6983,6 +7321,7 @@ msgstr "Locker lang"
 msgid "Loose Medium"
 msgstr "Locker mittel"
 
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 msgid "Low"
 msgstr "Niedrig"
@@ -7007,6 +7346,10 @@ msgstr "Luminanz"
 #: app/src/i18n/choices.ts
 msgid "Luminosity"
 msgstr "Luminanz"
+
+#: app/src/ScriptDialogs.tsx
+msgid "LZW Compression"
+msgstr "LZW-Komprimierung"
 
 #: app/src/ChannelsPanel.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -7065,6 +7408,10 @@ msgstr "Magnetisch"
 msgid "Magnetic Lasso"
 msgstr "Magnetisches Lasso"
 
+#: app/src/app/cameraData.ts
+msgid "Make"
+msgstr "Hersteller"
+
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/errors.ts
 msgid "Make a selection first."
@@ -7105,6 +7452,10 @@ msgstr "Arbeitspfad aus Auswahl erstellen"
 #: app/src/MissingFonts.tsx
 msgid "Manage"
 msgstr "Verwalten"
+
+#: app/src/app/cameraData.ts
+msgid "Manual"
+msgstr "Manuell"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Maple"
@@ -7184,11 +7535,13 @@ msgstr "Material"
 msgid "Mathematical Operators"
 msgstr "Mathematische Operatoren"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/levelsCurves.ts
 #: app/src/ModeDialog.tsx
 msgid "Matte"
 msgstr "Hintergrundfarbe"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/ModeDialog.tsx
 msgid "Matte color"
 msgstr "Hintergrundfarbe"
@@ -7200,6 +7553,10 @@ msgstr "Hintergrundfarbe"
 #: app/src/app/menus.ts
 msgid "Matting"
 msgstr "Basis"
+
+#: app/src/app/cameraData.ts
+msgid "Max Aperture Value"
+msgstr "Maximale Blende"
 
 #: app/src/filters/labels.ts
 msgid "Max Radius"
@@ -7358,6 +7715,10 @@ msgstr "Gittergröße"
 msgid "Message shown when playback reaches this stop"
 msgstr "Meldung, die angezeigt wird, wenn die Wiedergabe diesen Stopp erreicht"
 
+#: app/src/app/cameraData.ts
+msgid "Metering Mode"
+msgstr "Messmodus"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/ColorDialog.tsx
@@ -7365,6 +7726,7 @@ msgstr "Meldung, die angezeigt wird, wenn die Wiedergabe diesen Stopp erreicht"
 #: app/src/LayerStyleDialog.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/shell/tools.ts
+#: app/src/VariablesDialogs.tsx
 msgid "Method"
 msgstr "Methode"
 
@@ -7478,6 +7840,10 @@ msgstr "Modus"
 msgctxt "color mode"
 msgid "Mode"
 msgstr "Modus"
+
+#: app/src/app/cameraData.ts
+msgid "Model"
+msgstr "Modell"
 
 #: app/src/app/menus.ts
 msgid "Modify"
@@ -7594,6 +7960,10 @@ msgstr "Nach oben"
 msgid "Movie Prime"
 msgstr "Movie Prime"
 
+#: app/src/app/cameraData.ts
+msgid "Multi-spot"
+msgstr "Mehrfeld"
+
 #: app/src/app/menus.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/history.ts
@@ -7632,8 +8002,8 @@ msgid "Name"
 msgstr "Name"
 
 #: app/src/VariablesDialogs.tsx
-msgid "Names use letters, digits and underscore, not starting with a digit. Pixel replacement is not available."
-msgstr "Namen bestehen aus Buchstaben, Ziffern und Unterstrichen und beginnen nicht mit einer Ziffer. Pixelersetzung ist nicht verfügbar."
+msgid "Names use letters, digits and underscore, not starting with a digit."
+msgstr "Namen bestehen aus Buchstaben, Ziffern und Unterstrichen und beginnen nicht mit einer Ziffer."
 
 #: app/src/App.tsx
 #: app/src/app/menus.ts
@@ -7642,6 +8012,7 @@ msgid "Navigator"
 msgstr "Navigator"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Nearest Neighbor"
 msgstr "Nächster Nachbar"
 
@@ -8047,6 +8418,7 @@ msgstr "Rauschstärke"
 #: app/src/app/typeMenu.ts
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/i18n/choices.ts
 #: app/src/InspectionPanels.tsx
@@ -8065,7 +8437,9 @@ msgctxt "liquify mask"
 msgid "None"
 msgstr "Ohne"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/i18n/choices.ts
 #: app/src/shell/DeformSession.tsx
@@ -8075,6 +8449,10 @@ msgstr "Normal"
 #: app/src/app/Dialogs.tsx
 msgid "Normal Brush Tip"
 msgstr "Normale Pinselspitze"
+
+#: app/src/app/cameraData.ts
+msgid "Normal program"
+msgstr "Normalprogramm"
 
 #: app/src/app/colorSettings.ts
 msgid "North America General Purpose 2"
@@ -8087,6 +8465,14 @@ msgstr "Nordamerika, Prepress 2"
 #: app/src/app/colorSettings.ts
 msgid "North America Web/Internet"
 msgstr "Nordamerika, Web/Internet"
+
+#: app/src/app/cameraData.ts
+msgid "Not defined"
+msgstr "Nicht definiert"
+
+#: app/src/VariablesDialogs.tsx
+msgid "not loaded"
+msgstr "nicht geladen"
 
 #: app/src/shell/ColorPicker.tsx
 msgid "Not web-safe: click to snap"
@@ -8287,6 +8673,10 @@ msgstr "OpenType"
 msgid "Operation"
 msgstr "Operation"
 
+#: app/src/ExportDialogs.tsx
+msgid "Optimized"
+msgstr "Optimiert"
+
 #: app/src/app/menus.ts
 msgid "Options"
 msgstr "Optionen"
@@ -8299,6 +8689,7 @@ msgstr "Optionen…"
 msgid "Ordinals"
 msgstr "Ordnungszahlen"
 
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts
 #: app/src/FileDialogs.tsx
@@ -8306,6 +8697,11 @@ msgstr "Ordnungszahlen"
 msgid "Orientation"
 msgstr "Ausrichtung"
 
+#: app/src/FileDialogs.tsx
+msgid "Origin"
+msgstr "Herkunft"
+
+#: app/src/ExportDialogs.tsx
 #: app/src/shell/ColorPicker.tsx
 msgid "Original"
 msgstr "Original"
@@ -8322,6 +8718,7 @@ msgstr "Ornamentdichte"
 msgid "Ornaments"
 msgstr "Ornamente"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/schema.ts
 msgid "Other"
 msgstr "Sonstige"
@@ -8513,6 +8910,10 @@ msgstr "Absatzformate-Bedienfeld"
 msgid "Paragraph Text"
 msgstr "Absatztext"
 
+#: app/src/app/cameraData.ts
+msgid "Partial"
+msgstr "Teilmessung"
+
 #: app/src/LayersPanel.tsx
 msgid "Pass Through"
 msgstr "Hindurchwirken"
@@ -8618,6 +9019,7 @@ msgstr "Pfade als SVG…"
 
 #: app/src/AdjustmentsPanel.tsx
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
 #: app/src/ExportDialogs.tsx
@@ -8751,6 +9153,10 @@ msgstr "Perspektivisches Freistellen"
 msgid "Perspective Warp"
 msgstr "Perspektivisch verformen"
 
+#: app/src/FileDialogs.tsx
+msgid "Phone(s)"
+msgstr "Telefon(e)"
+
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 msgid "Photo Filter"
@@ -8833,6 +9239,14 @@ msgstr "Kiefer"
 msgid "Pins"
 msgstr "Pins"
 
+#: app/src/app/cameraData.ts
+msgid "Pixel Dimension X"
+msgstr "Pixelabmessung X"
+
+#: app/src/app/cameraData.ts
+msgid "Pixel Dimension Y"
+msgstr "Pixelabmessung Y"
+
 #: app/src/app/layerFilter.ts
 msgid "Pixel layers"
 msgstr "Pixelebenen"
@@ -8844,6 +9258,14 @@ msgstr "Die Pixellänge stammt aus der Linealstrecke."
 #: app/src/AnalysisDialogs.tsx
 msgid "Pixel Length:"
 msgstr "Pixellänge:"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Pixel Replacement"
+msgstr "Pixelersetzung"
+
+#: app/src/VariablesDialogs.tsx
+msgid "Pixel Replacement values are file names. Images you select or load stay available until the page is reloaded."
+msgstr "Werte für Pixelersetzung sind Dateinamen. Bilder, die du auswählst oder lädst, bleiben verfügbar, bis die Seite neu geladen wird."
 
 #: app/src/filters/schema.ts
 msgid "Pixelate"
@@ -8995,10 +9417,18 @@ msgstr "Pappel"
 msgid "Portrait"
 msgstr "Hochformat"
 
+#: app/src/app/cameraData.ts
+msgid "Portrait mode"
+msgstr "Hochformatmodus"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Position"
 msgstr "Position"
+
+#: app/src/FileDialogs.tsx
+msgid "Postal Code"
+msgstr "Postleitzahl"
 
 #: app/src/filters/labels.ts
 msgid "Poster Edges"
@@ -9206,6 +9636,10 @@ msgstr "Tonwerte schützen"
 msgid "Proximity Match"
 msgstr "Übereinstimmung der Nähe"
 
+#: app/src/FileDialogs.tsx
+msgid "Public Domain"
+msgstr "Gemeinfrei"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Pucker"
 msgstr "Zusammenziehen"
@@ -9357,6 +9791,10 @@ msgstr "Wird gerastert…"
 msgid "Rate"
 msgstr "Rate"
 
+#: app/src/FileDialogs.tsx
+msgid "Rating"
+msgstr "Bewertung"
+
 #: app/src/shell/tools.ts
 msgid "Ratio"
 msgstr "Verhältnis"
@@ -9370,8 +9808,8 @@ msgid "Ratio W"
 msgstr "Verhältnis B"
 
 #: app/src/FileDialogs.tsx
-msgid "Raw XMP"
-msgstr "Rohes XMP"
+msgid "Raw Data"
+msgstr "Rohdaten"
 
 #: app/src/filters/labels.ts
 msgid "Reach"
@@ -9550,6 +9988,10 @@ msgstr "Passermarken"
 msgid "Regular"
 msgstr "Normal"
 
+#: app/src/FileDialogs.tsx
+msgid "Reject"
+msgstr "Ablehnen"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Relative"
@@ -9709,6 +10151,10 @@ msgstr "Ersetzen durch"
 msgid "Replacement for {name}"
 msgstr "Ersatz für {name}"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Replacement images"
+msgstr "Ersatzbilder"
+
 #: app/src/MissingFonts.tsx
 msgid "Replacement style for {name}"
 msgstr "Ersatzstil für {name}"
@@ -9735,6 +10181,7 @@ msgid "Reposition"
 msgstr "Neu positionieren"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/ExportDialogs.tsx
 msgid "Resample"
 msgstr "Neu berechnen"
 
@@ -9743,6 +10190,7 @@ msgstr "Neu berechnen"
 msgid "Reselect"
 msgstr "Erneut auswählen"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/FilterDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/ToolBar.tsx
@@ -9937,6 +10385,10 @@ msgstr "Klicke mit der rechten Maustaste auf eine Glyphe, um deren OpenType-Alte
 msgid "Right-to-Left"
 msgstr "Von rechts nach links"
 
+#: app/src/FileDialogs.tsx
+msgid "Rights Usage Terms"
+msgstr "Nutzungsbedingungen"
+
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Rigid"
@@ -9982,11 +10434,13 @@ msgid "Rotate"
 msgstr "Drehen"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 #: app/src/app/menus.ts
 msgid "Rotate 180°"
 msgstr "180°"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 msgid "Rotate 90° CCW"
 msgstr "90° gegen Uhrzeigersinn"
 
@@ -9999,6 +10453,7 @@ msgid "Rotate 90° Counter Clockwise"
 msgstr "90° gegen Uhrzeigersinn"
 
 #: app/src/App.tsx
+#: app/src/app/cameraData.ts
 msgid "Rotate 90° CW"
 msgstr "90° im Uhrzeigersinn"
 
@@ -10180,6 +10635,10 @@ msgstr "Als PNG speichern"
 msgid "Save as PSD"
 msgstr "Als PSD speichern"
 
+#: app/src/ScriptDialogs.tsx
+msgid "Save as TIFF"
+msgstr "Als TIFF speichern"
+
 #: app/src/app/menus.ts
 msgid "Save As…"
 msgstr "Speichern unter…"
@@ -10228,6 +10687,10 @@ msgstr "Auswahl als Kanal speichern"
 #: app/src/app/menus.ts
 msgid "Save Selection…"
 msgstr "Auswahl speichern…"
+
+#: app/src/FileDialogs.tsx
+msgid "Save Template"
+msgstr "Vorlage speichern"
 
 #: app/src/PresetPanels.tsx
 msgid "Save the layer style"
@@ -10480,6 +10943,10 @@ msgstr "Datenpunkte auswählen"
 msgid "Select Data Points…"
 msgstr "Datenpunkte auswählen…"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Select File..."
+msgstr "Datei auswählen..."
+
 #: app/src/app/contextMenus.ts
 #: app/src/i18n/history.ts
 msgid "Select Inverse"
@@ -10546,6 +11013,14 @@ msgstr "In den Hintergrund"
 msgid "Separate keywords with commas or semicolons."
 msgstr "Schlagwörter durch Kommas oder Semikolons trennen."
 
+#: app/src/FileDialogs.tsx
+msgid "Separate several subject codes, scene codes, phones, emails or websites with semicolons."
+msgstr "Trenne mehrere Themencodes, Szenencodes, Telefonnummern, E-Mail-Adressen oder Websites mit Semikolons."
+
+#: app/src/app/cameraData.ts
+msgid "Serial Number"
+msgstr "Seriennummer"
+
 #: app/src/BatchDialog.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "Set"
@@ -10579,6 +11054,10 @@ msgstr "Auf Hintergrund setzen"
 #: app/src/ColorDialog.tsx
 msgid "Settings"
 msgstr "Einstellungen"
+
+#: app/src/app/cameraData.ts
+msgid "Shade"
+msgstr "Schatten"
 
 #: app/src/adjustments.ts
 msgid "Shadow"
@@ -10875,6 +11354,10 @@ msgstr "Die Aktionsstruktur anzeigen"
 msgid "Show transform controls"
 msgstr "Transformationssteuerung einblenden"
 
+#: app/src/app/cameraData.ts
+msgid "Shutter priority"
+msgstr "Zeitpriorität"
+
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Sides"
@@ -11108,6 +11591,10 @@ msgstr "Weicher"
 msgid "Softness"
 msgstr "Weichheit"
 
+#: app/src/app/cameraData.ts
+msgid "Software"
+msgstr "Software"
+
 #: app/src/filters/labels.ts
 msgid "Solarize"
 msgstr "Solarisation"
@@ -11137,6 +11624,7 @@ msgstr "Deckkraft"
 
 #: app/src/app/measure.ts
 #: app/src/BatchDialog.tsx
+#: app/src/FileDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/i18n/choices.ts
 #: app/src/ImageCalcDialog.tsx
@@ -11249,6 +11737,7 @@ msgstr "Verformung vertikal teilen"
 msgid "Sponge"
 msgstr "Schwamm"
 
+#: app/src/app/cameraData.ts
 #: app/src/filters/RenderEditors.tsx
 msgid "Spot"
 msgstr "Spot"
@@ -11368,6 +11857,10 @@ msgstr "Wird gestartet…"
 #: app/src/filters/labels.ts
 msgid "State"
 msgstr "Zustand"
+
+#: app/src/FileDialogs.tsx
+msgid "State/Province"
+msgstr "Bundesland/Kanton"
 
 #: app/src/InspectionPanels.tsx
 msgid "Std Dev"
@@ -11650,6 +12143,10 @@ msgstr "Stiftrad"
 msgid "Subject"
 msgstr "Motiv"
 
+#: app/src/FileDialogs.tsx
+msgid "Sublocation"
+msgstr "Ort"
+
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Subscript"
@@ -11756,6 +12253,18 @@ msgstr "Technik"
 #: app/src/filters/labels.ts
 msgid "Temperature"
 msgstr "Temperatur"
+
+#: app/src/FileDialogs.tsx
+msgid "Template"
+msgstr "Vorlage"
+
+#: app/src/FileDialogs.tsx
+msgid "Template name"
+msgstr "Vorlagenname"
+
+#: app/src/FileDialogs.tsx
+msgid "Templates"
+msgstr "Vorlagen"
 
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -12003,6 +12512,10 @@ msgstr "Die Quelldatei kann Folgendes nicht speichern:"
 msgid "The straighten angle must be a number."
 msgstr "Der Winkel zum Geraderichten muss eine Zahl sein."
 
+#: app/src/FileDialogs.tsx
+msgid "The template is not a well-formed XMP file."
+msgstr "Die Vorlage ist keine wohlgeformte XMP-Datei."
+
 #: app/src/i18n/errors.ts
 msgid "The transform was cancelled."
 msgstr "Die Transformation wurde abgebrochen."
@@ -12014,6 +12527,10 @@ msgstr "Die Textebene enthält keinen Text."
 #: app/src/i18n/errors.ts
 msgid "The warped image exceeds the rendering limit."
 msgstr "Das verformte Bild überschreitet das Renderlimit."
+
+#: app/src/FileDialogs.tsx
+msgid "The XMP is not well-formed. Correct it before you leave Raw Data."
+msgstr "Die XMP-Daten sind nicht wohlgeformt. Korrigiere sie, bevor du Rohdaten verlässt."
 
 #: app/src/App.tsx
 msgid "There are no data sets to apply."
@@ -12070,6 +12587,10 @@ msgstr "Dieser Browser kann keine Dateien verknüpfen, daher wurde die Datei ein
 #: app/src/App.tsx
 msgid "This cannot be undone."
 msgstr "Dies kann nicht rückgängig gemacht werden."
+
+#: app/src/FileDialogs.tsx
+msgid "This document has no camera data. It is read from the EXIF data of opened JPEG, PNG, WebP and PSD files."
+msgstr "Dieses Dokument enthält keine Kameradaten. Sie werden aus den EXIF-Daten geöffneter JPEG-, PNG-, WebP- und PSD-Dateien gelesen."
 
 #: app/src/filters/GalleryStack.tsx
 msgid "This filter has no options."
@@ -12201,6 +12722,10 @@ msgstr "Spitze"
 msgid "Tip thumbnails"
 msgstr "Spitzenminiaturen"
 
+#: app/src/FileDialogs.tsx
+msgid "Title"
+msgstr "Titel"
+
 #: app/src/shell/typecommands.ts
 msgid "Titling Alternates"
 msgstr "Titelalternativen"
@@ -12296,6 +12821,10 @@ msgstr "Werkzeuge"
 msgid "Top"
 msgstr "Oben"
 
+#: app/src/VariablesDialogs.tsx
+msgid "Top Center"
+msgstr "Oben Mitte"
+
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
 msgid "Top Edges"
@@ -12306,6 +12835,7 @@ msgid "Top left"
 msgstr "Oben links"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Top Left"
 msgstr "Oben links"
 
@@ -12318,6 +12848,7 @@ msgid "Top right"
 msgstr "Oben rechts"
 
 #: app/src/filters/GalleryStack.tsx
+#: app/src/VariablesDialogs.tsx
 msgid "Top Right"
 msgstr "Oben rechts"
 
@@ -12367,6 +12898,10 @@ msgstr "Transformationsoptionen"
 #: app/src/i18n/history.ts
 msgid "Transform Selection"
 msgstr "Auswahl transformieren"
+
+#: app/src/FileDialogs.tsx
+msgid "Transmission Reference"
+msgstr "Übertragungsreferenz"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -12438,6 +12973,10 @@ msgstr "Dreifarbig"
 msgid "Tsume %"
 msgstr "Tsume %"
 
+#: app/src/app/cameraData.ts
+msgid "Tungsten"
+msgstr "Kunstlicht"
+
 #: app/src/filters/labels.ts
 msgid "Turbulent"
 msgstr "Turbulent"
@@ -12492,6 +13031,10 @@ msgstr "Textoptionen"
 #: app/src/filters/GalleryStack.tsx
 msgid "Unaltered Image"
 msgstr "Unverändertes Bild"
+
+#: app/src/app/cameraData.ts
+msgid "Uncalibrated"
+msgstr "Nicht kalibriert"
 
 #: app/src/filters/labels.ts
 msgid "Undefined Areas"
@@ -12549,6 +13092,11 @@ msgstr "Formen vereinen"
 #: app/src/app/measure.ts
 msgid "Units"
 msgstr "Einheiten"
+
+#: app/src/app/cameraData.ts
+#: app/src/FileDialogs.tsx
+msgid "Unknown"
+msgstr "Unbekannt"
 
 #: app/src/app/toolPresets.ts
 msgid "Unknown tool option: {key}"
@@ -12649,6 +13197,10 @@ msgstr "Obere Schale"
 #: app/src/TypePanels.tsx
 msgid "Uppercase"
 msgstr "Großbuchstaben"
+
+#: app/src/FileDialogs.tsx
+msgid "Urgency"
+msgstr "Dringlichkeit"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Use"
@@ -12869,6 +13421,7 @@ msgstr "Nur sichtbare Ebenen"
 msgid "Vivid Light"
 msgstr "Strahlendes Licht"
 
+#: app/src/ExportDialogs.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/ScriptDialogs.tsx
 #: app/src/shell/tools.ts
@@ -12953,6 +13506,10 @@ msgstr "Wellenlänge min."
 msgid "Web"
 msgstr "Web"
 
+#: app/src/FileDialogs.tsx
+msgid "Website(s)"
+msgstr "Website(s)"
+
 #: app/src/shell/tools.ts
 msgid "Wet"
 msgstr "Nass"
@@ -12967,15 +13524,24 @@ msgstr "Nasse Kanten"
 msgid "What's new"
 msgstr "Neuigkeiten"
 
+#: app/src/FileDialogs.tsx
+msgid "When applying a template"
+msgstr "Beim Anwenden einer Vorlage"
+
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/helpers.ts
+#: app/src/ExportDialogs.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/ModeDialog.tsx
 msgid "White"
 msgstr "Weiß"
+
+#: app/src/app/cameraData.ts
+msgid "White Balance"
+msgstr "Weißabgleich"
 
 #: app/src/adjustments.ts
 msgid "White Clip %"
