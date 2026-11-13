@@ -14,12 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OpenEXR files with PIZ, DWAA and DWAB compression open (half and float channels, scanline and tiled).
 - Import PDF crops to the Bounding Box, Media Box, Crop Box, Bleed Box, Trim Box or Art Box.
 - In 32-bit documents a Gradient Editor color stop takes the Color Picker's Intensity and keeps it in presets.
-- File > Save As and Export As write TIFF (no compression, LZW or ZIP; 8, 16 or 32 bits; ICC profile and File Info),
-  BMP and Targa (raw or RLE). Save As keeps the document as it is and writes a flattened copy.
-- PNG and JPEG exports with File Info carry EXIF (description, author, copyright, software, resolution).
+- File > Save As writes TIFF (LZW; 8, 16 or 32 bits; the ICC profile below 32 bits; File Info), BMP and Targa (RLE)
+  as a flattened copy and keeps the document as it is. File > Export > Export As writes 8-bit TIFF (LZW), BMP and
+  Targa (RLE).
+- PNG and JPEG exports with File Info carry EXIF (description, author, copyright, resolution).
 - File > Export > Export As: Image Size (width, height, scale) with Resample, Canvas Size, and a preview of the selected
   row. Save for Web: Original, Optimized, 2-Up and 4-Up views (picking a pane takes its settings) and Matte.
-- File > Scripts > Image Processor: Save as TIFF (with LZW), Copyright Info and Include ICC Profile.
+- File > Scripts > Image Processor: Save as TIFF (8 bits, LZW or no compression), Copyright Info and Include ICC
+  Profile.
 - File > File Info: Basic, Camera Data (read from the EXIF of opened JPEG, PNG, WebP and PSD files), Origin, IPTC and
   an editable Raw Data tab; metadata templates can be saved, applied (replace all, replace matching, append), imported
   and exported as .xmp.
@@ -36,8 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   canvas. After a change, the view asks for its next tiles as soon as one arrives instead of a frame later.
 - Import PDF opens each page directly in the chosen mode and bit depth, without undo steps.
 - Enter in a size field of Import PDF and Rasterize SVG Format presses OK.
-- Convert to Profile, profile conversion at open and mode conversions also convert the colors of text, shape and
-  fill layers and of layer styles, so they keep their look; adjustment layers keep their settings.
+- Convert to Profile, profile conversion at open and mode conversions of 8-bit and 16-bit documents also convert the
+  colors of text, shape and fill layers and of layer styles, so they keep their look; adjustment layers keep their
+  settings. Mode conversions of 32-bit documents do not convert colors through the profiles.
+- Image Processor JPEG, PNG and TIFF files carry the document's File Info (XMP, and EXIF or TIFF tags).
+- Export As resamples every scaled row with the chosen Resample method (Automatic by default) in the engine instead
+  of the browser's smoothing.
 - 16-bit and 32-bit PSD files store their layer channels compressed (ZIP with prediction, as Photoshop does) and
   keep smart filter masks.
 - JPEG export of a Grayscale document writes a one-channel JPEG with the document's Gray profile.
@@ -47,9 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - File > Revert of an SVG renders it again at the size and resolution chosen when it was opened.
-
-### Fixed
-
 - A drag whose mouse release the canvas never saw (released outside the window, after a focus change) ends where it
   was last shown when the mouse moves without a button or the next press starts, so the next press starts a new drag
   instead of continuing the old one. A lost pointer capture cancels the drag.

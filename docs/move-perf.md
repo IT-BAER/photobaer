@@ -1,6 +1,6 @@
 # Move tool latency on styled layers
 
-Status: open (option 3). Measured 7 October 2026 on `baer4.psd` (4000 x 4000, 8-bit RGB). The one visible layer is
+Status: options 1 and 2 done, option 3 open; press and drop faster in 0.5.1. Measured 7 October 2026 on `baer4.psd` (4000 x 4000, 8-bit RGB). The one visible layer is
 3273 x 2992 px with Drop Shadow (size 133 px, normal), Gradient Overlay (linear dodge) and Stroke (1 px, outside).
 Browser: Chrome, WebGPU, devicePixelRatio 1.25, view zoom 100 %.
 
@@ -48,9 +48,24 @@ layer (Drop Shadow 133 px, 1 px outside Stroke), view 107.5 % on the shadow edge
 | last step to moveLayerCommit | 910 - 965 ms | 431 - 540 ms |
 | moveLayerCommit to the last view tile | 135 - 145 ms | 109 - 123 ms |
 
+0.5.1, 13 November 2026 (`f660ffd`, `b176dc4`; numbers from those commits): CPU display tiles round to 8 bits with
+the f64-add quantizer and read 8-bit values from a v / 255 table (bench_float_tiles, wasm: 2.66 -> 1.30 ms per
+256 px tile). The engine returns the float image as straight RGBA8 (`display_region`) instead of tile copies and a
+JavaScript unpremultiply loop; 8-bit tiles without a mask, Blend If or dissolve composite in a fast path; the viewer
+asks for the next stale tiles when a request finishes instead of on the next frame. Inner shadow and knockout on
+non-group layers use the layer-space effect cache (bench_inner_shadow_move, 56 tiles after a move: 392 - 459 ms
+-> 28 - 36 ms). Production Chrome, view 214 %, 1015 x 494 document pixels:
+
+| | before | after |
+|---|---|---|
+| press to float, 3000 x 2400 layer | 88.2 ms | 68.0 ms |
+| press to float, 1500 x 1200 layer | 152.3 ms | 104.5 ms |
+| drop, 3000 x 2400 layer | 191.5 ms | 138.8 ms |
+| drop, 1500 x 1200 layer | 67.7 ms | 63.8 ms |
+
 ## Remaining
 
-Options 2 and 3 below. Browser breakdown before option 1, one drag at 100 %:
+Option 3 below. Browser breakdown before option 1, one drag at 100 %:
 
 - Drag start, 0.75 s: coarse full-layer image at level 2 (`displayTiers` base, 2 MP cap) 524 ms, rendered
   cold on every drag because the layer sits at a new offset after each drop; sharp view image (`over`) 215 ms.
