@@ -83,3 +83,28 @@ test('encoder and EXR error literals have a message', () => {
   const literals = [...src.matchAll(/new Error\('((?:[^'\\]|\\.)+)'\)/g)].map(m => m[1]!.replaceAll("\\'", "'")).filter(s => /^[A-Z]/.test(s) && s !== 'The pixel data does not match the image size.' && !s.startsWith('The EXR file is damaged ('));
   assert.deepEqual(literals.filter(s => !Object.hasOwn(ERROR_LABELS, s)), []);
 });
+
+test('PSD save and import warnings show in the UI language', () => {
+  const src = readFileSync(new URL('../psd.ts', import.meta.url), 'utf8');
+  const literals = [...new Set([...src.matchAll(/warn\('((?:[^'\\]|\\.)*)'\)/g)].map(m => m[1]!.replaceAll("\\'", "'")))];
+  assert.ok(literals.length >= 27, 'the PSD warn literals were found');
+  i18n.activate('de');
+  try {
+    assert.deepEqual(literals.filter(s => errorLabel(s) === s), [], 'every PSD warning is translated');
+    const filter = errorLabel('the Gaussian Blur smart filter was kept without its effect because the engine refused its values');
+    assert.notEqual(filter, 'the Gaussian Blur smart filter was kept without its effect because the engine refused its values');
+    assert.match(filter, /Gaussian Blur/, 'the filter name is kept');
+    const skipped = errorLabel('the Gaussian Blur smart filter was not imported');
+    assert.notEqual(skipped, 'the Gaussian Blur smart filter was not imported');
+    assert.match(skipped, /Gaussian Blur/, 'the filter name is kept');
+    const dropped = errorLabel('smart filters ag-psd cannot read are kept without their effect: Lens Blur, Oil Paint');
+    assert.notEqual(dropped, 'smart filters ag-psd cannot read are kept without their effect: Lens Blur, Oil Paint');
+    assert.match(dropped, /ag-psd/, 'ag-psd is kept');
+    assert.match(dropped, /Lens Blur, Oil Paint/, 'the dropped list is kept');
+    const channels = errorLabel("3 alpha and spot channels beyond Photoshop's 56-channel limit were not saved");
+    assert.notEqual(channels, "3 alpha and spot channels beyond Photoshop's 56-channel limit were not saved");
+    assert.match(channels, /3/, 'the count is kept');
+    assert.match(channels, /56/, 'the channel limit is kept');
+    assert.match(channels, /Photoshop/, 'Photoshop is kept');
+  } finally { i18n.activate('en'); }
+});

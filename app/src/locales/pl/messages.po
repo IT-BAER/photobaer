@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "Dokument „{docName}” używa czcionek, których nie udało się wczytać. Wybierz zamienniki dla całego dokumentu. Układ tekstu może się zmienić."
 
 #: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr "{count} kanałów alfa i kanałów dodatkowych powyżej limitu {limit} kanałów programu Photoshop nie zostało zapisanych"
+
+#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr "\"{file}\": {why}"
 
@@ -621,6 +625,10 @@ msgstr "Przycinanie dopasowania"
 #: app/src/layerStyle.ts
 msgid "Adjustment layers do not support layer styles."
 msgstr "Warstwy dopasowania nie obsługują stylów warstwy."
+
+#: app/src/i18n/errors.ts
+msgid "adjustment layers without an engine model were imported as pixels"
+msgstr "warstwy dopasowania bez modelu silnika zostały zaimportowane jako piksele"
 
 #: app/src/i18n/history.ts
 msgid "Adjustment Visibility"
@@ -1424,6 +1432,14 @@ msgstr "Faza"
 msgid "Bevel & Emboss"
 msgstr "Faza i płaskorzeźba"
 
+#: app/src/i18n/errors.ts
+msgid "bevel contour curves are not stored in PSD"
+msgstr "krzywe konturu fazy nie są zapisywane w PSD"
+
+#: app/src/i18n/errors.ts
+msgid "bevel texture depth is not stored in PSD"
+msgstr "głębia tekstury fazy nie jest zapisywana w PSD"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/ExportDialogs.tsx
 msgid "Bicubic"
@@ -1599,6 +1615,10 @@ msgstr "Tryb mieszania"
 #: app/src/ImageCalcDialog.tsx
 msgid "Blending"
 msgstr "Mieszanie"
+
+#: app/src/i18n/errors.ts
+msgid "blending channel restrictions are not fully read back from PSD"
+msgstr "ograniczenia kanałów mieszania nie są w pełni odczytywane z PSD"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
@@ -3597,6 +3617,10 @@ msgid "Deep"
 msgstr "Głębokie"
 
 #: app/src/i18n/errors.ts
+msgid "deep knockout is saved as shallow in PSD"
+msgstr "głębokie odcinanie jest zapisywane w PSD jako płytkie"
+
+#: app/src/i18n/errors.ts
 msgid "Deep OpenEXR files are not supported."
 msgstr "Głębokie pliki OpenEXR nie są obsługiwane."
 
@@ -4884,6 +4908,10 @@ msgid "Fill layer"
 msgstr "Warstwa wypełnienia"
 
 #: app/src/i18n/errors.ts
+msgid "fill layers with a missing pattern were imported as black"
+msgstr "warstwy wypełnienia z brakującym wzorkiem zostały zaimportowane jako czarne"
+
+#: app/src/i18n/errors.ts
 msgid "Fill needs a pixel layer."
 msgstr "Polecenie Wypełnij wymaga warstwy pikseli."
 
@@ -5527,6 +5555,10 @@ msgstr "Wypełnienie gradientem"
 #: app/src/filters/labels.ts
 msgid "Gradient Map"
 msgstr "Mapa gradientu"
+
+#: app/src/i18n/errors.ts
+msgid "gradient map interpolation other than classic is not stored in PSD"
+msgstr "interpolacja mapy gradientu inna niż klasyczna nie jest zapisywana w PSD"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -6743,6 +6775,10 @@ msgstr "Warstwa"
 msgid "Layer Comp"
 msgstr "Kompozycja warstw"
 
+#: app/src/i18n/errors.ts
+msgid "layer comp appearance is not stored in PSD"
+msgstr "wygląd kompozycji warstw nie jest zapisywany w PSD"
+
 #: app/src/i18n/history.ts
 msgid "Layer Comp Options"
 msgstr "Opcje kompozycji warstw"
@@ -7134,6 +7170,10 @@ msgstr "Połącz z warstwą"
 #: app/src/PropertiesPanel.tsx
 msgid "Linked"
 msgstr "Połączony"
+
+#: app/src/i18n/errors.ts
+msgid "linked smart objects are saved without their source file"
+msgstr "połączone obiekty inteligentne są zapisywane bez pliku źródłowego"
 
 #: app/src/App.tsx
 msgid "Linking needs a browser with file system access."
@@ -8473,6 +8513,10 @@ msgstr "Szum"
 msgid "Noise Amount"
 msgstr "Ilość szumu"
 
+#: app/src/i18n/errors.ts
+msgid "noise gradients were imported as a black to white gradient"
+msgstr "gradienty szumu zostały zaimportowane jako gradient od czerni do bieli"
+
 #: app/src/app/helpers.ts
 #: app/src/app/menus.ts
 #: app/src/app/typeMenu.ts
@@ -8656,6 +8700,10 @@ msgstr "Jedna strona na obszar kompozycji, w rozdzielczości dokumentu."
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
 msgstr "Wypaczać można tylko warstwy pikseli i obiekty inteligentne."
+
+#: app/src/i18n/errors.ts
+msgid "only the first pattern overlay is stored in PSD"
+msgstr "w PSD jest zapisywane tylko pierwsze nałożenie wzorka"
 
 #: app/src/i18n/errors.ts
 msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
@@ -9104,6 +9152,10 @@ msgstr "Wzorek"
 msgid "Pattern Dither"
 msgstr "Rozpraszanie wzorkiem"
 
+#: app/src/i18n/errors.ts
+msgid "pattern effects that use a missing pattern were not imported"
+msgstr "efekty wzorka używające brakującego wzorka nie zostały zaimportowane"
+
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "Wypełnienie wzorkiem"
@@ -9116,6 +9168,10 @@ msgstr "Nazwa wzorka"
 #: app/src/layerStyle.ts
 msgid "Pattern Overlay"
 msgstr "Nałożenie wzorka"
+
+#: app/src/i18n/errors.ts
+msgid "pattern scale, angle and link of fill layers and strokes are not stored in PSD"
+msgstr "skala, kąt i powiązanie wzorka warstw wypełnienia i obrysów nie są zapisywane w PSD"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -9173,6 +9229,10 @@ msgctxt "history step"
 msgid "Pencil"
 msgstr "Ołówek"
 
+#: app/src/i18n/errors.ts
+msgid "pencil contours are saved as smooth curves in PSD"
+msgstr "kontury ołówka są zapisywane w PSD jako gładkie krzywe"
+
 #: app/src/filters/labels.ts
 msgid "Pencil Width"
 msgstr "Szerokość ołówka"
@@ -9180,6 +9240,10 @@ msgstr "Szerokość ołówka"
 #: app/src/filters/GalleryStack.tsx
 msgid "Pentagon"
 msgstr "Pięciokąt"
+
+#: app/src/i18n/errors.ts
+msgid "per-filter smart filter masks are not stored in PSD"
+msgstr "maski filtrów inteligentnych przypisane do pojedynczych filtrów nie są zapisywane w PSD"
 
 #: app/src/app/Dialogs.tsx
 msgid "Percent"
@@ -11547,9 +11611,21 @@ msgstr "Inteligentne rozmycie"
 msgid "Smart Filter"
 msgstr "Filtr inteligentny"
 
+#: app/src/i18n/errors.ts
+msgid "smart filter mask areas outside the canvas are not stored in PSD"
+msgstr "obszary masek filtrów inteligentnych poza płótnem nie są zapisywane w PSD"
+
+#: app/src/i18n/errors.ts
+msgid "smart filter masks were not imported"
+msgstr "maski filtrów inteligentnych nie zostały zaimportowane"
+
 #: app/src/PropertiesPanel.tsx
 msgid "Smart Filters"
 msgstr "Filtry inteligentne"
+
+#: app/src/i18n/errors.ts
+msgid "smart filters ag-psd cannot read are kept without their effect: {dropped}"
+msgstr "filtry inteligentne, których ag-psd nie potrafi odczytać, zostały zachowane bez efektu: {dropped}"
 
 #: app/src/app/menus.ts
 msgid "Smart Guides"
@@ -11567,6 +11643,26 @@ msgstr "Obiekt inteligentny"
 #: app/src/App.tsx
 msgid "Smart object contents"
 msgstr "Zawartość obiektu inteligentnego"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources missing from the file were not imported"
+msgstr "brakujące w pliku źródła obiektów inteligentnych nie zostały zaimportowane"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources of a different size were not imported"
+msgstr "źródła obiektów inteligentnych o innym rozmiarze nie zostały zaimportowane"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources that could not be read were not imported"
+msgstr "źródła obiektów inteligentnych, których nie udało się odczytać, nie zostały zaimportowane"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps are not stored in PSD yet"
+msgstr "wypaczenia obiektów inteligentnych nie są jeszcze zapisywane w PSD"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps were not imported"
+msgstr "wypaczenia obiektów inteligentnych nie zostały zaimportowane"
 
 #: app/src/app/layerFilter.ts
 msgid "Smart objects"
@@ -12360,6 +12456,10 @@ msgstr "Kolor tekstu"
 msgid "Text in Shape"
 msgstr "Tekst w kształcie"
 
+#: app/src/i18n/errors.ts
+msgid "text layers with unsupported values were imported as pixels"
+msgstr "warstwy tekstowe z nieobsługiwanymi wartościami zostały zaimportowane jako piksele"
+
 #: app/src/MissingFonts.tsx
 msgid "Text layers: {layerCount}"
 msgstr "Warstwy tekstowe: {layerCount}"
@@ -12427,6 +12527,14 @@ msgstr "Dokument {askDocKind} „{askFile}” nie ma osadzonego profilu kolorów
 msgid "The {kind} \"{id}\" is unavailable."
 msgstr "Element {kind} „{id}” jest niedostępny."
 
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was kept without its effect because the engine refused its values"
+msgstr "filtr inteligentny {name} został zachowany bez efektu, ponieważ silnik odrzucił jego wartości"
+
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was not imported"
+msgstr "filtr inteligentny {name} nie został zaimportowany"
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr "Operacja nie ma włączonych kroków."
@@ -12486,6 +12594,10 @@ msgstr "Dokument do przywrócenia nie jest już aktywny."
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr "Edycja odbywa się w tej karcie przeglądarki; photobaer-mcp działa na Twoim komputerze i tylko łączy agenta z kartą."
+
+#: app/src/i18n/errors.ts
+msgid "the even-odd fill rule of shapes and vector masks is not stored in PSD"
+msgstr "reguła wypełnienia parzysto-nieparzystego kształtów i masek wektorowych nie jest zapisywana w PSD"
 
 #: app/src/i18n/errors.ts
 msgid "The EXR chunk table is damaged."
@@ -13549,6 +13661,10 @@ msgstr "Maska wektorowa"
 msgid "Vector Mask Density"
 msgstr "Gęstość maski wektorowej"
 
+#: app/src/i18n/errors.ts
+msgid "vector mask density, feather, invert and disable of stroked shape layers were dropped"
+msgstr "gęstość, wtapianie, odwrócenie i wyłączenie maski wektorowej warstw kształtu z obrysem zostały pominięte"
+
 #: app/src/i18n/history.ts
 msgid "Vector Mask Feather"
 msgstr "Wtapianie maski wektorowej"
@@ -13556,6 +13672,10 @@ msgstr "Wtapianie maski wektorowej"
 #: app/src/LayerStyleDialog.tsx
 msgid "Vector Mask Hides Effects"
 msgstr "Maska wektorowa ukrywa efekty"
+
+#: app/src/i18n/errors.ts
+msgid "vector masks on shape layers are not stored in PSD"
+msgstr "maski wektorowe na warstwach kształtu nie są zapisywane w PSD"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts

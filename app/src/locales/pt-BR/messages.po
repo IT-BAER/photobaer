@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "“{docName}” usa fontes que não puderam ser carregadas. Escolha substitutas para o documento inteiro. O layout do texto pode mudar."
 
 #: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr "{count} canais alfa e de cor especial acima do limite de {limit} canais do Photoshop não foram salvos"
+
+#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr "\"{file}\": {why}"
 
@@ -624,6 +628,10 @@ msgstr "Corte de ajuste"
 #: app/src/layerStyle.ts
 msgid "Adjustment layers do not support layer styles."
 msgstr "Camadas de ajuste não aceitam estilos de camada."
+
+#: app/src/i18n/errors.ts
+msgid "adjustment layers without an engine model were imported as pixels"
+msgstr "as camadas de ajuste sem modelo do mecanismo foram importadas como pixels"
 
 #: app/src/i18n/history.ts
 msgid "Adjustment Visibility"
@@ -1427,6 +1435,14 @@ msgstr "Chanfro"
 msgid "Bevel & Emboss"
 msgstr "Chanfro e entalhe"
 
+#: app/src/i18n/errors.ts
+msgid "bevel contour curves are not stored in PSD"
+msgstr "as curvas de contorno do chanfro não são salvas no PSD"
+
+#: app/src/i18n/errors.ts
+msgid "bevel texture depth is not stored in PSD"
+msgstr "a profundidade da textura do chanfro não é salva no PSD"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/ExportDialogs.tsx
 msgid "Bicubic"
@@ -1602,6 +1618,10 @@ msgstr "Modo de mesclagem"
 #: app/src/ImageCalcDialog.tsx
 msgid "Blending"
 msgstr "Mesclagem"
+
+#: app/src/i18n/errors.ts
+msgid "blending channel restrictions are not fully read back from PSD"
+msgstr "as restrições de canais de mesclagem não são totalmente lidas de volta do PSD"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
@@ -3600,6 +3620,10 @@ msgid "Deep"
 msgstr "Profundo"
 
 #: app/src/i18n/errors.ts
+msgid "deep knockout is saved as shallow in PSD"
+msgstr "o vazamento profundo é salvo como raso no PSD"
+
+#: app/src/i18n/errors.ts
 msgid "Deep OpenEXR files are not supported."
 msgstr "Arquivos OpenEXR profundos não são compatíveis."
 
@@ -4887,6 +4911,10 @@ msgid "Fill layer"
 msgstr "Camada de preenchimento"
 
 #: app/src/i18n/errors.ts
+msgid "fill layers with a missing pattern were imported as black"
+msgstr "as camadas de preenchimento com um padrão ausente foram importadas em preto"
+
+#: app/src/i18n/errors.ts
 msgid "Fill needs a pixel layer."
 msgstr "Preencher requer uma camada de pixels."
 
@@ -5530,6 +5558,10 @@ msgstr "Preenchimento de gradiente"
 #: app/src/filters/labels.ts
 msgid "Gradient Map"
 msgstr "Mapa de degradê"
+
+#: app/src/i18n/errors.ts
+msgid "gradient map interpolation other than classic is not stored in PSD"
+msgstr "a interpolação do mapa de degradê diferente da clássica não é salva no PSD"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -6746,6 +6778,10 @@ msgstr "Camada"
 msgid "Layer Comp"
 msgstr "Composição de camadas"
 
+#: app/src/i18n/errors.ts
+msgid "layer comp appearance is not stored in PSD"
+msgstr "a aparência das composições de camadas não é salva no PSD"
+
 #: app/src/i18n/history.ts
 msgid "Layer Comp Options"
 msgstr "Opções da composição de camadas"
@@ -7137,6 +7173,10 @@ msgstr "Vincular com a camada"
 #: app/src/PropertiesPanel.tsx
 msgid "Linked"
 msgstr "Vinculado"
+
+#: app/src/i18n/errors.ts
+msgid "linked smart objects are saved without their source file"
+msgstr "os objetos inteligentes vinculados são salvos sem o arquivo de origem"
 
 #: app/src/App.tsx
 msgid "Linking needs a browser with file system access."
@@ -8476,6 +8516,10 @@ msgstr "Ruído"
 msgid "Noise Amount"
 msgstr "Quantidade de ruído"
 
+#: app/src/i18n/errors.ts
+msgid "noise gradients were imported as a black to white gradient"
+msgstr "os gradientes de ruído foram importados como um gradiente de preto para branco"
+
 #: app/src/app/helpers.ts
 #: app/src/app/menus.ts
 #: app/src/app/typeMenu.ts
@@ -8659,6 +8703,10 @@ msgstr "Uma página por prancheta, na resolução do documento."
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
 msgstr "Somente camadas de pixels e objetos inteligentes podem ser deformados."
+
+#: app/src/i18n/errors.ts
+msgid "only the first pattern overlay is stored in PSD"
+msgstr "somente a primeira sobreposição de padrão é salva no PSD"
 
 #: app/src/i18n/errors.ts
 msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
@@ -9107,6 +9155,10 @@ msgstr "Padrão"
 msgid "Pattern Dither"
 msgstr "Pontilhado de padrão"
 
+#: app/src/i18n/errors.ts
+msgid "pattern effects that use a missing pattern were not imported"
+msgstr "os efeitos de padrão que usam um padrão ausente não foram importados"
+
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "Preenchimento de padrão"
@@ -9119,6 +9171,10 @@ msgstr "Nome do padrão"
 #: app/src/layerStyle.ts
 msgid "Pattern Overlay"
 msgstr "Sobreposição de padrão"
+
+#: app/src/i18n/errors.ts
+msgid "pattern scale, angle and link of fill layers and strokes are not stored in PSD"
+msgstr "a escala, o ângulo e o vínculo do padrão de camadas de preenchimento e traçados não são salvos no PSD"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -9176,6 +9232,10 @@ msgctxt "history step"
 msgid "Pencil"
 msgstr "Lápis"
 
+#: app/src/i18n/errors.ts
+msgid "pencil contours are saved as smooth curves in PSD"
+msgstr "os contornos de lápis são salvos como curvas suaves no PSD"
+
 #: app/src/filters/labels.ts
 msgid "Pencil Width"
 msgstr "Largura do lápis"
@@ -9183,6 +9243,10 @@ msgstr "Largura do lápis"
 #: app/src/filters/GalleryStack.tsx
 msgid "Pentagon"
 msgstr "Pentágono"
+
+#: app/src/i18n/errors.ts
+msgid "per-filter smart filter masks are not stored in PSD"
+msgstr "as máscaras de filtro inteligente de cada filtro não são salvas no PSD"
 
 #: app/src/app/Dialogs.tsx
 msgid "Percent"
@@ -11550,9 +11614,21 @@ msgstr "Desfoque inteligente"
 msgid "Smart Filter"
 msgstr "Filtro inteligente"
 
+#: app/src/i18n/errors.ts
+msgid "smart filter mask areas outside the canvas are not stored in PSD"
+msgstr "as áreas de máscara de filtro inteligente fora da tela não são salvas no PSD"
+
+#: app/src/i18n/errors.ts
+msgid "smart filter masks were not imported"
+msgstr "as máscaras de filtros inteligentes não foram importadas"
+
 #: app/src/PropertiesPanel.tsx
 msgid "Smart Filters"
 msgstr "Filtros inteligentes"
+
+#: app/src/i18n/errors.ts
+msgid "smart filters ag-psd cannot read are kept without their effect: {dropped}"
+msgstr "os filtros inteligentes que o ag-psd não consegue ler foram mantidos sem o efeito: {dropped}"
 
 #: app/src/app/menus.ts
 msgid "Smart Guides"
@@ -11570,6 +11646,26 @@ msgstr "Objeto inteligente"
 #: app/src/App.tsx
 msgid "Smart object contents"
 msgstr "Conteúdo do objeto inteligente"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources missing from the file were not imported"
+msgstr "as origens de objetos inteligentes ausentes no arquivo não foram importadas"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources of a different size were not imported"
+msgstr "as origens de objetos inteligentes de tamanho diferente não foram importadas"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources that could not be read were not imported"
+msgstr "as origens de objetos inteligentes que não puderam ser lidas não foram importadas"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps are not stored in PSD yet"
+msgstr "as deformações de objetos inteligentes ainda não são salvas no PSD"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps were not imported"
+msgstr "as deformações de objetos inteligentes não foram importadas"
 
 #: app/src/app/layerFilter.ts
 msgid "Smart objects"
@@ -12363,6 +12459,10 @@ msgstr "Cor do texto"
 msgid "Text in Shape"
 msgstr "Texto na forma"
 
+#: app/src/i18n/errors.ts
+msgid "text layers with unsupported values were imported as pixels"
+msgstr "as camadas de texto com valores não compatíveis foram importadas como pixels"
+
 #: app/src/MissingFonts.tsx
 msgid "Text layers: {layerCount}"
 msgstr "Camadas de texto: {layerCount}"
@@ -12430,6 +12530,14 @@ msgstr "O documento {askDocKind} “{askFile}” não tem um perfil de cor incor
 msgid "The {kind} \"{id}\" is unavailable."
 msgstr "{kind} \"{id}\" não está disponível."
 
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was kept without its effect because the engine refused its values"
+msgstr "o filtro inteligente {name} foi mantido sem o efeito porque o mecanismo recusou seus valores"
+
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was not imported"
+msgstr "o filtro inteligente {name} não foi importado"
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr "A ação não tem etapas ativadas."
@@ -12489,6 +12597,10 @@ msgstr "O documento a reverter não está mais ativo."
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr "A edição é executada nesta guia do navegador; o photobaer-mcp roda no seu computador e apenas conecta o agente à guia."
+
+#: app/src/i18n/errors.ts
+msgid "the even-odd fill rule of shapes and vector masks is not stored in PSD"
+msgstr "a regra de preenchimento par-ímpar de formas e máscaras de vetor não é salva no PSD"
 
 #: app/src/i18n/errors.ts
 msgid "The EXR chunk table is damaged."
@@ -13552,6 +13664,10 @@ msgstr "Máscara de vetor"
 msgid "Vector Mask Density"
 msgstr "Densidade da máscara de vetor"
 
+#: app/src/i18n/errors.ts
+msgid "vector mask density, feather, invert and disable of stroked shape layers were dropped"
+msgstr "a densidade, a difusão, a inversão e a desativação da máscara de vetor de camadas de forma com traçado foram descartadas"
+
 #: app/src/i18n/history.ts
 msgid "Vector Mask Feather"
 msgstr "Difusão da máscara de vetor"
@@ -13559,6 +13675,10 @@ msgstr "Difusão da máscara de vetor"
 #: app/src/LayerStyleDialog.tsx
 msgid "Vector Mask Hides Effects"
 msgstr "A máscara de vetor oculta efeitos"
+
+#: app/src/i18n/errors.ts
+msgid "vector masks on shape layers are not stored in PSD"
+msgstr "as máscaras de vetor em camadas de forma não são salvas no PSD"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts

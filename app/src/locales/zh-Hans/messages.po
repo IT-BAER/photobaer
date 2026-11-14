@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "“{docName}”使用了无法载入的字体。请为整个文档选择替换字体。文本排版可能会改变。"
 
 #: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr "超出 Photoshop {limit} 通道上限的 {count} 个 Alpha 通道和专色通道未保存"
+
+#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr "\"{file}\": {why}"
 
@@ -621,6 +625,10 @@ msgstr "调整剪贴"
 #: app/src/layerStyle.ts
 msgid "Adjustment layers do not support layer styles."
 msgstr "调整图层不支持图层样式。"
+
+#: app/src/i18n/errors.ts
+msgid "adjustment layers without an engine model were imported as pixels"
+msgstr "没有引擎模型的调整图层已作为像素导入"
 
 #: app/src/i18n/history.ts
 msgid "Adjustment Visibility"
@@ -1424,6 +1432,14 @@ msgstr "斜面"
 msgid "Bevel & Emboss"
 msgstr "斜面和浮雕"
 
+#: app/src/i18n/errors.ts
+msgid "bevel contour curves are not stored in PSD"
+msgstr "PSD 不存储斜面的等高线曲线"
+
+#: app/src/i18n/errors.ts
+msgid "bevel texture depth is not stored in PSD"
+msgstr "PSD 不存储斜面的纹理深度"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/ExportDialogs.tsx
 msgid "Bicubic"
@@ -1599,6 +1615,10 @@ msgstr "混合模式"
 #: app/src/ImageCalcDialog.tsx
 msgid "Blending"
 msgstr "混合"
+
+#: app/src/i18n/errors.ts
+msgid "blending channel restrictions are not fully read back from PSD"
+msgstr "PSD 中的混合通道限制不能完整读回"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
@@ -3597,6 +3617,10 @@ msgid "Deep"
 msgstr "深"
 
 #: app/src/i18n/errors.ts
+msgid "deep knockout is saved as shallow in PSD"
+msgstr "PSD 中深挖空将保存为浅挖空"
+
+#: app/src/i18n/errors.ts
 msgid "Deep OpenEXR files are not supported."
 msgstr "不支持深度 OpenEXR 文件。"
 
@@ -4884,6 +4908,10 @@ msgid "Fill layer"
 msgstr "填充图层"
 
 #: app/src/i18n/errors.ts
+msgid "fill layers with a missing pattern were imported as black"
+msgstr "缺少图案的填充图层已作为黑色导入"
+
+#: app/src/i18n/errors.ts
 msgid "Fill needs a pixel layer."
 msgstr "填充需要像素图层。"
 
@@ -5527,6 +5555,10 @@ msgstr "渐变填充"
 #: app/src/filters/labels.ts
 msgid "Gradient Map"
 msgstr "渐变映射"
+
+#: app/src/i18n/errors.ts
+msgid "gradient map interpolation other than classic is not stored in PSD"
+msgstr "PSD 不存储经典以外的渐变映射插值方式"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -6743,6 +6775,10 @@ msgstr "图层"
 msgid "Layer Comp"
 msgstr "图层复合"
 
+#: app/src/i18n/errors.ts
+msgid "layer comp appearance is not stored in PSD"
+msgstr "PSD 不存储图层复合的外观"
+
 #: app/src/i18n/history.ts
 msgid "Layer Comp Options"
 msgstr "图层复合选项"
@@ -7134,6 +7170,10 @@ msgstr "与图层链接"
 #: app/src/PropertiesPanel.tsx
 msgid "Linked"
 msgstr "已链接"
+
+#: app/src/i18n/errors.ts
+msgid "linked smart objects are saved without their source file"
+msgstr "链接的智能对象在保存时不含其源文件"
 
 #: app/src/App.tsx
 msgid "Linking needs a browser with file system access."
@@ -8473,6 +8513,10 @@ msgstr "杂色"
 msgid "Noise Amount"
 msgstr "杂色数量"
 
+#: app/src/i18n/errors.ts
+msgid "noise gradients were imported as a black to white gradient"
+msgstr "杂色渐变已作为黑到白渐变导入"
+
 #: app/src/app/helpers.ts
 #: app/src/app/menus.ts
 #: app/src/app/typeMenu.ts
@@ -8656,6 +8700,10 @@ msgstr "每个画板一页，使用文档分辨率。"
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
 msgstr "只有像素图层和智能对象可以变形。"
+
+#: app/src/i18n/errors.ts
+msgid "only the first pattern overlay is stored in PSD"
+msgstr "PSD 仅存储第一个图案叠加"
 
 #: app/src/i18n/errors.ts
 msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
@@ -9104,6 +9152,10 @@ msgstr "图案"
 msgid "Pattern Dither"
 msgstr "图案仿色"
 
+#: app/src/i18n/errors.ts
+msgid "pattern effects that use a missing pattern were not imported"
+msgstr "使用缺失图案的图案效果未导入"
+
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "图案填充"
@@ -9116,6 +9168,10 @@ msgstr "图案名称"
 #: app/src/layerStyle.ts
 msgid "Pattern Overlay"
 msgstr "图案叠加"
+
+#: app/src/i18n/errors.ts
+msgid "pattern scale, angle and link of fill layers and strokes are not stored in PSD"
+msgstr "PSD 不存储填充图层和描边的图案缩放、角度和链接"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -9173,6 +9229,10 @@ msgctxt "history step"
 msgid "Pencil"
 msgstr "铅笔"
 
+#: app/src/i18n/errors.ts
+msgid "pencil contours are saved as smooth curves in PSD"
+msgstr "铅笔等高线在 PSD 中保存为平滑曲线"
+
 #: app/src/filters/labels.ts
 msgid "Pencil Width"
 msgstr "铅笔宽度"
@@ -9180,6 +9240,10 @@ msgstr "铅笔宽度"
 #: app/src/filters/GalleryStack.tsx
 msgid "Pentagon"
 msgstr "五边形"
+
+#: app/src/i18n/errors.ts
+msgid "per-filter smart filter masks are not stored in PSD"
+msgstr "PSD 不存储每个滤镜单独的智能滤镜蒙版"
 
 #: app/src/app/Dialogs.tsx
 msgid "Percent"
@@ -11547,9 +11611,21 @@ msgstr "特殊模糊"
 msgid "Smart Filter"
 msgstr "智能滤镜"
 
+#: app/src/i18n/errors.ts
+msgid "smart filter mask areas outside the canvas are not stored in PSD"
+msgstr "PSD 不存储画布以外的智能滤镜蒙版区域"
+
+#: app/src/i18n/errors.ts
+msgid "smart filter masks were not imported"
+msgstr "智能滤镜蒙版未导入"
+
 #: app/src/PropertiesPanel.tsx
 msgid "Smart Filters"
 msgstr "智能滤镜"
+
+#: app/src/i18n/errors.ts
+msgid "smart filters ag-psd cannot read are kept without their effect: {dropped}"
+msgstr "ag-psd 无法读取的智能滤镜已保留但不带效果：{dropped}"
 
 #: app/src/app/menus.ts
 msgid "Smart Guides"
@@ -11567,6 +11643,26 @@ msgstr "智能对象"
 #: app/src/App.tsx
 msgid "Smart object contents"
 msgstr "智能对象内容"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources missing from the file were not imported"
+msgstr "文件中缺失的智能对象源未导入"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources of a different size were not imported"
+msgstr "尺寸不同的智能对象源未导入"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources that could not be read were not imported"
+msgstr "无法读取的智能对象源未导入"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps are not stored in PSD yet"
+msgstr "PSD 暂不存储智能对象的变形"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps were not imported"
+msgstr "智能对象的变形未导入"
 
 #: app/src/app/layerFilter.ts
 msgid "Smart objects"
@@ -12360,6 +12456,10 @@ msgstr "文本颜色"
 msgid "Text in Shape"
 msgstr "形状内文字"
 
+#: app/src/i18n/errors.ts
+msgid "text layers with unsupported values were imported as pixels"
+msgstr "含有不支持值的文字图层已作为像素导入"
+
 #: app/src/MissingFonts.tsx
 msgid "Text layers: {layerCount}"
 msgstr "文字图层：{layerCount}"
@@ -12427,6 +12527,14 @@ msgstr "{askDocKind} 文档“{askFile}”没有嵌入的颜色配置文件。"
 msgid "The {kind} \"{id}\" is unavailable."
 msgstr "{kind}“{id}”不可用。"
 
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was kept without its effect because the engine refused its values"
+msgstr "由于引擎拒绝了其数值，智能滤镜 {name} 已保留但不带效果"
+
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was not imported"
+msgstr "智能滤镜 {name} 未导入"
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr "该动作没有已启用的步骤。"
@@ -12486,6 +12594,10 @@ msgstr "要恢复的文档已不再处于活动状态。"
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr "编辑在此浏览器标签页中运行；photobaer-mcp 在您的计算机上运行，仅负责将代理连接到该标签页。"
+
+#: app/src/i18n/errors.ts
+msgid "the even-odd fill rule of shapes and vector masks is not stored in PSD"
+msgstr "PSD 不存储形状和矢量蒙版的奇偶填充规则"
 
 #: app/src/i18n/errors.ts
 msgid "The EXR chunk table is damaged."
@@ -13549,6 +13661,10 @@ msgstr "矢量蒙版"
 msgid "Vector Mask Density"
 msgstr "矢量蒙版浓度"
 
+#: app/src/i18n/errors.ts
+msgid "vector mask density, feather, invert and disable of stroked shape layers were dropped"
+msgstr "带描边的形状图层的矢量蒙版浓度、羽化、反相和停用已被丢弃"
+
 #: app/src/i18n/history.ts
 msgid "Vector Mask Feather"
 msgstr "矢量蒙版羽化"
@@ -13556,6 +13672,10 @@ msgstr "矢量蒙版羽化"
 #: app/src/LayerStyleDialog.tsx
 msgid "Vector Mask Hides Effects"
 msgstr "矢量蒙版隐藏效果"
+
+#: app/src/i18n/errors.ts
+msgid "vector masks on shape layers are not stored in PSD"
+msgstr "PSD 不存储形状图层上的矢量蒙版"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts

@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "«{docName}» использует шрифты, которые не удалось загрузить. Выбери замену для всего документа. Расположение текста может измениться."
 
 #: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr "{count} альфа-каналов и плашечных каналов сверх лимита Photoshop в {limit} каналов не сохранены"
+
+#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr "\"{file}\": {why}"
 
@@ -624,6 +628,10 @@ msgstr "Обтравка корректирующего слоя"
 #: app/src/layerStyle.ts
 msgid "Adjustment layers do not support layer styles."
 msgstr "Корректирующие слои не поддерживают стили слоя."
+
+#: app/src/i18n/errors.ts
+msgid "adjustment layers without an engine model were imported as pixels"
+msgstr "корректирующие слои без модели движка импортированы как пикселы"
 
 #: app/src/i18n/history.ts
 msgid "Adjustment Visibility"
@@ -1427,6 +1435,14 @@ msgstr "Скос"
 msgid "Bevel & Emboss"
 msgstr "Скос и тиснение"
 
+#: app/src/i18n/errors.ts
+msgid "bevel contour curves are not stored in PSD"
+msgstr "кривые контура скоса не сохраняются в PSD"
+
+#: app/src/i18n/errors.ts
+msgid "bevel texture depth is not stored in PSD"
+msgstr "глубина текстуры скоса не сохраняется в PSD"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/ExportDialogs.tsx
 msgid "Bicubic"
@@ -1602,6 +1618,10 @@ msgstr "Режим наложения"
 #: app/src/ImageCalcDialog.tsx
 msgid "Blending"
 msgstr "Наложение"
+
+#: app/src/i18n/errors.ts
+msgid "blending channel restrictions are not fully read back from PSD"
+msgstr "ограничения каналов наложения не полностью считываются из PSD"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
@@ -3600,6 +3620,10 @@ msgid "Deep"
 msgstr "Глубокий"
 
 #: app/src/i18n/errors.ts
+msgid "deep knockout is saved as shallow in PSD"
+msgstr "глубокое просвечивание сохраняется в PSD как мелкое"
+
+#: app/src/i18n/errors.ts
 msgid "Deep OpenEXR files are not supported."
 msgstr "Глубокие файлы OpenEXR не поддерживаются."
 
@@ -4887,6 +4911,10 @@ msgid "Fill layer"
 msgstr "Слой-заливка"
 
 #: app/src/i18n/errors.ts
+msgid "fill layers with a missing pattern were imported as black"
+msgstr "слои-заливки с отсутствующим узором импортированы как черные"
+
+#: app/src/i18n/errors.ts
 msgid "Fill needs a pixel layer."
 msgstr "Для заливки нужен пиксельный слой."
 
@@ -5530,6 +5558,10 @@ msgstr "Градиентная заливка"
 #: app/src/filters/labels.ts
 msgid "Gradient Map"
 msgstr "Карта градиента"
+
+#: app/src/i18n/errors.ts
+msgid "gradient map interpolation other than classic is not stored in PSD"
+msgstr "интерполяция карты градиента, отличная от классической, не сохраняется в PSD"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -6746,6 +6778,10 @@ msgstr "Слой"
 msgid "Layer Comp"
 msgstr "Композиция слоев"
 
+#: app/src/i18n/errors.ts
+msgid "layer comp appearance is not stored in PSD"
+msgstr "внешний вид композиций слоев не сохраняется в PSD"
+
 #: app/src/i18n/history.ts
 msgid "Layer Comp Options"
 msgstr "Параметры композиции слоев"
@@ -7137,6 +7173,10 @@ msgstr "Связать со слоем"
 #: app/src/PropertiesPanel.tsx
 msgid "Linked"
 msgstr "Связанный"
+
+#: app/src/i18n/errors.ts
+msgid "linked smart objects are saved without their source file"
+msgstr "связанные смарт-объекты сохраняются без исходного файла"
 
 #: app/src/App.tsx
 msgid "Linking needs a browser with file system access."
@@ -8476,6 +8516,10 @@ msgstr "Шум"
 msgid "Noise Amount"
 msgstr "Количество шума"
 
+#: app/src/i18n/errors.ts
+msgid "noise gradients were imported as a black to white gradient"
+msgstr "градиенты шума импортированы как градиент от черного к белому"
+
 #: app/src/app/helpers.ts
 #: app/src/app/menus.ts
 #: app/src/app/typeMenu.ts
@@ -8659,6 +8703,10 @@ msgstr "Одна страница на монтажную область с ра
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
 msgstr "Деформировать можно только пиксельные слои и смарт-объекты."
+
+#: app/src/i18n/errors.ts
+msgid "only the first pattern overlay is stored in PSD"
+msgstr "в PSD сохраняется только первое наложение узора"
 
 #: app/src/i18n/errors.ts
 msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
@@ -9107,6 +9155,10 @@ msgstr "Узор"
 msgid "Pattern Dither"
 msgstr "Дизеринг с узором"
 
+#: app/src/i18n/errors.ts
+msgid "pattern effects that use a missing pattern were not imported"
+msgstr "эффекты узора, использующие отсутствующий узор, не импортированы"
+
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "Заливка узором"
@@ -9119,6 +9171,10 @@ msgstr "Имя узора"
 #: app/src/layerStyle.ts
 msgid "Pattern Overlay"
 msgstr "Наложение узора"
+
+#: app/src/i18n/errors.ts
+msgid "pattern scale, angle and link of fill layers and strokes are not stored in PSD"
+msgstr "масштаб, угол и связь узора слоев-заливок и обводок не сохраняются в PSD"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -9176,6 +9232,10 @@ msgctxt "history step"
 msgid "Pencil"
 msgstr "Карандаш"
 
+#: app/src/i18n/errors.ts
+msgid "pencil contours are saved as smooth curves in PSD"
+msgstr "контуры карандаша сохраняются в PSD как плавные кривые"
+
 #: app/src/filters/labels.ts
 msgid "Pencil Width"
 msgstr "Ширина карандаша"
@@ -9183,6 +9243,10 @@ msgstr "Ширина карандаша"
 #: app/src/filters/GalleryStack.tsx
 msgid "Pentagon"
 msgstr "Пятиугольник"
+
+#: app/src/i18n/errors.ts
+msgid "per-filter smart filter masks are not stored in PSD"
+msgstr "маски смарт-фильтров для отдельных фильтров не сохраняются в PSD"
 
 #: app/src/app/Dialogs.tsx
 msgid "Percent"
@@ -11550,9 +11614,21 @@ msgstr "Умное размытие"
 msgid "Smart Filter"
 msgstr "Смарт-фильтр"
 
+#: app/src/i18n/errors.ts
+msgid "smart filter mask areas outside the canvas are not stored in PSD"
+msgstr "области масок смарт-фильтров за пределами холста не сохраняются в PSD"
+
+#: app/src/i18n/errors.ts
+msgid "smart filter masks were not imported"
+msgstr "маски смарт-фильтров не импортированы"
+
 #: app/src/PropertiesPanel.tsx
 msgid "Smart Filters"
 msgstr "Смарт-фильтры"
+
+#: app/src/i18n/errors.ts
+msgid "smart filters ag-psd cannot read are kept without their effect: {dropped}"
+msgstr "смарт-фильтры, которые ag-psd не может прочитать, сохранены без эффекта: {dropped}"
 
 #: app/src/app/menus.ts
 msgid "Smart Guides"
@@ -11570,6 +11646,26 @@ msgstr "Смарт-объект"
 #: app/src/App.tsx
 msgid "Smart object contents"
 msgstr "Содержимое смарт-объекта"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources missing from the file were not imported"
+msgstr "отсутствующие в файле источники смарт-объектов не импортированы"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources of a different size were not imported"
+msgstr "источники смарт-объектов другого размера не импортированы"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources that could not be read were not imported"
+msgstr "источники смарт-объектов, которые не удалось прочитать, не импортированы"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps are not stored in PSD yet"
+msgstr "деформации смарт-объектов пока не сохраняются в PSD"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps were not imported"
+msgstr "деформации смарт-объектов не импортированы"
 
 #: app/src/app/layerFilter.ts
 msgid "Smart objects"
@@ -12363,6 +12459,10 @@ msgstr "Цвет текста"
 msgid "Text in Shape"
 msgstr "Текст в фигуре"
 
+#: app/src/i18n/errors.ts
+msgid "text layers with unsupported values were imported as pixels"
+msgstr "текстовые слои с неподдерживаемыми значениями импортированы как пикселы"
+
 #: app/src/MissingFonts.tsx
 msgid "Text layers: {layerCount}"
 msgstr "Текстовых слоев: {layerCount}"
@@ -12430,6 +12530,14 @@ msgstr "У документа {askDocKind} «{askFile}» нет встроенн
 msgid "The {kind} \"{id}\" is unavailable."
 msgstr "Элемент {kind} «{id}» недоступен."
 
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was kept without its effect because the engine refused its values"
+msgstr "смарт-фильтр {name} сохранен без эффекта, так как движок отклонил его значения"
+
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was not imported"
+msgstr "смарт-фильтр {name} не импортирован"
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr "В операции нет включенных шагов."
@@ -12489,6 +12597,10 @@ msgstr "Документ для возврата больше не активе�
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr "Редактирование выполняется во вкладке этого браузера; photobaer-mcp работает на вашем компьютере и лишь соединяет агента с вкладкой."
+
+#: app/src/i18n/errors.ts
+msgid "the even-odd fill rule of shapes and vector masks is not stored in PSD"
+msgstr "правило заливки «чет-нечет» для фигур и векторных масок не сохраняется в PSD"
 
 #: app/src/i18n/errors.ts
 msgid "The EXR chunk table is damaged."
@@ -13552,6 +13664,10 @@ msgstr "Векторная маска"
 msgid "Vector Mask Density"
 msgstr "Плотность векторной маски"
 
+#: app/src/i18n/errors.ts
+msgid "vector mask density, feather, invert and disable of stroked shape layers were dropped"
+msgstr "плотность, растушевка, инверсия и отключение векторной маски слоев-фигур с обводкой отброшены"
+
 #: app/src/i18n/history.ts
 msgid "Vector Mask Feather"
 msgstr "Растушевка векторной маски"
@@ -13559,6 +13675,10 @@ msgstr "Растушевка векторной маски"
 #: app/src/LayerStyleDialog.tsx
 msgid "Vector Mask Hides Effects"
 msgstr "Векторная маска скрывает эффекты"
+
+#: app/src/i18n/errors.ts
+msgid "vector masks on shape layers are not stored in PSD"
+msgstr "векторные маски на слоях-фигурах не сохраняются в PSD"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts

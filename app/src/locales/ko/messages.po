@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "“{docName}”에서 불러올 수 없는 글꼴을 사용합니다. 문서 전체에 사용할 대체 글꼴을 선택하십시오. 텍스트 레이아웃이 변경될 수 있습니다."
 
 #: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr "Photoshop의 {limit}채널 제한을 넘는 알파 및 별색 채널 {count}개는 저장되지 않았습니다"
+
+#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr "\"{file}\": {why}"
 
@@ -621,6 +625,10 @@ msgstr "조정 클리핑"
 #: app/src/layerStyle.ts
 msgid "Adjustment layers do not support layer styles."
 msgstr "조정 레이어는 레이어 스타일을 지원하지 않습니다."
+
+#: app/src/i18n/errors.ts
+msgid "adjustment layers without an engine model were imported as pixels"
+msgstr "엔진 모델이 없는 조정 레이어는 픽셀로 가져왔습니다"
 
 #: app/src/i18n/history.ts
 msgid "Adjustment Visibility"
@@ -1424,6 +1432,14 @@ msgstr "경사"
 msgid "Bevel & Emboss"
 msgstr "경사와 엠보스"
 
+#: app/src/i18n/errors.ts
+msgid "bevel contour curves are not stored in PSD"
+msgstr "경사의 윤곽선 곡선은 PSD에 저장되지 않습니다"
+
+#: app/src/i18n/errors.ts
+msgid "bevel texture depth is not stored in PSD"
+msgstr "경사의 텍스처 깊이는 PSD에 저장되지 않습니다"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/ExportDialogs.tsx
 msgid "Bicubic"
@@ -1599,6 +1615,10 @@ msgstr "혼합 모드"
 #: app/src/ImageCalcDialog.tsx
 msgid "Blending"
 msgstr "혼합"
+
+#: app/src/i18n/errors.ts
+msgid "blending channel restrictions are not fully read back from PSD"
+msgstr "혼합 채널 제한은 PSD에서 완전히 다시 읽히지 않습니다"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
@@ -3597,6 +3617,10 @@ msgid "Deep"
 msgstr "깊게"
 
 #: app/src/i18n/errors.ts
+msgid "deep knockout is saved as shallow in PSD"
+msgstr "깊은 녹아웃은 PSD에 얕은 녹아웃으로 저장됩니다"
+
+#: app/src/i18n/errors.ts
 msgid "Deep OpenEXR files are not supported."
 msgstr "딥 OpenEXR 파일은 지원되지 않습니다."
 
@@ -4884,6 +4908,10 @@ msgid "Fill layer"
 msgstr "칠 레이어"
 
 #: app/src/i18n/errors.ts
+msgid "fill layers with a missing pattern were imported as black"
+msgstr "패턴이 없는 칠 레이어는 검정으로 가져왔습니다"
+
+#: app/src/i18n/errors.ts
 msgid "Fill needs a pixel layer."
 msgstr "칠에는 픽셀 레이어가 필요합니다."
 
@@ -5527,6 +5555,10 @@ msgstr "그레이디언트 칠"
 #: app/src/filters/labels.ts
 msgid "Gradient Map"
 msgstr "그레이디언트 맵"
+
+#: app/src/i18n/errors.ts
+msgid "gradient map interpolation other than classic is not stored in PSD"
+msgstr "클래식이 아닌 그레이디언트 맵 보간은 PSD에 저장되지 않습니다"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -6743,6 +6775,10 @@ msgstr "레이어"
 msgid "Layer Comp"
 msgstr "레이어 구성"
 
+#: app/src/i18n/errors.ts
+msgid "layer comp appearance is not stored in PSD"
+msgstr "레이어 구성의 모양은 PSD에 저장되지 않습니다"
+
 #: app/src/i18n/history.ts
 msgid "Layer Comp Options"
 msgstr "레이어 구성 옵션"
@@ -7134,6 +7170,10 @@ msgstr "레이어와 연결"
 #: app/src/PropertiesPanel.tsx
 msgid "Linked"
 msgstr "연결된"
+
+#: app/src/i18n/errors.ts
+msgid "linked smart objects are saved without their source file"
+msgstr "연결된 고급 개체는 소스 파일 없이 저장됩니다"
 
 #: app/src/App.tsx
 msgid "Linking needs a browser with file system access."
@@ -8473,6 +8513,10 @@ msgstr "노이즈"
 msgid "Noise Amount"
 msgstr "노이즈 양"
 
+#: app/src/i18n/errors.ts
+msgid "noise gradients were imported as a black to white gradient"
+msgstr "노이즈 그레이디언트는 검정에서 흰색으로의 그레이디언트로 가져왔습니다"
+
 #: app/src/app/helpers.ts
 #: app/src/app/menus.ts
 #: app/src/app/typeMenu.ts
@@ -8656,6 +8700,10 @@ msgstr "문서 해상도로 대지당 한 페이지."
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
 msgstr "픽셀 레이어와 고급 개체만 뒤틀 수 있습니다."
+
+#: app/src/i18n/errors.ts
+msgid "only the first pattern overlay is stored in PSD"
+msgstr "PSD에는 첫 번째 패턴 오버레이만 저장됩니다"
 
 #: app/src/i18n/errors.ts
 msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
@@ -9104,6 +9152,10 @@ msgstr "패턴"
 msgid "Pattern Dither"
 msgstr "패턴 디더"
 
+#: app/src/i18n/errors.ts
+msgid "pattern effects that use a missing pattern were not imported"
+msgstr "없는 패턴을 사용하는 패턴 효과는 가져오지 않았습니다"
+
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "패턴 칠"
@@ -9116,6 +9168,10 @@ msgstr "패턴 이름"
 #: app/src/layerStyle.ts
 msgid "Pattern Overlay"
 msgstr "패턴 오버레이"
+
+#: app/src/i18n/errors.ts
+msgid "pattern scale, angle and link of fill layers and strokes are not stored in PSD"
+msgstr "칠 레이어와 획의 패턴 비율, 각도, 연결은 PSD에 저장되지 않습니다"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -9173,6 +9229,10 @@ msgctxt "history step"
 msgid "Pencil"
 msgstr "연필"
 
+#: app/src/i18n/errors.ts
+msgid "pencil contours are saved as smooth curves in PSD"
+msgstr "연필 윤곽선은 PSD에 매끄러운 곡선으로 저장됩니다"
+
 #: app/src/filters/labels.ts
 msgid "Pencil Width"
 msgstr "연필 폭"
@@ -9180,6 +9240,10 @@ msgstr "연필 폭"
 #: app/src/filters/GalleryStack.tsx
 msgid "Pentagon"
 msgstr "오각형"
+
+#: app/src/i18n/errors.ts
+msgid "per-filter smart filter masks are not stored in PSD"
+msgstr "필터별 스마트 필터 마스크는 PSD에 저장되지 않습니다"
 
 #: app/src/app/Dialogs.tsx
 msgid "Percent"
@@ -11547,9 +11611,21 @@ msgstr "고급 흐림 효과"
 msgid "Smart Filter"
 msgstr "스마트 필터"
 
+#: app/src/i18n/errors.ts
+msgid "smart filter mask areas outside the canvas are not stored in PSD"
+msgstr "캔버스 밖에 있는 스마트 필터 마스크 영역은 PSD에 저장되지 않습니다"
+
+#: app/src/i18n/errors.ts
+msgid "smart filter masks were not imported"
+msgstr "스마트 필터 마스크는 가져오지 않았습니다"
+
 #: app/src/PropertiesPanel.tsx
 msgid "Smart Filters"
 msgstr "스마트 필터"
+
+#: app/src/i18n/errors.ts
+msgid "smart filters ag-psd cannot read are kept without their effect: {dropped}"
+msgstr "ag-psd가 읽을 수 없는 스마트 필터는 효과 없이 유지되었습니다: {dropped}"
 
 #: app/src/app/menus.ts
 msgid "Smart Guides"
@@ -11567,6 +11643,26 @@ msgstr "고급 개체"
 #: app/src/App.tsx
 msgid "Smart object contents"
 msgstr "고급 개체 내용"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources missing from the file were not imported"
+msgstr "파일에 없는 고급 개체 소스는 가져오지 않았습니다"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources of a different size were not imported"
+msgstr "크기가 다른 고급 개체 소스는 가져오지 않았습니다"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources that could not be read were not imported"
+msgstr "읽을 수 없는 고급 개체 소스는 가져오지 않았습니다"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps are not stored in PSD yet"
+msgstr "고급 개체의 뒤틀기는 아직 PSD에 저장되지 않습니다"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps were not imported"
+msgstr "고급 개체의 뒤틀기는 가져오지 않았습니다"
 
 #: app/src/app/layerFilter.ts
 msgid "Smart objects"
@@ -12360,6 +12456,10 @@ msgstr "텍스트 색상"
 msgid "Text in Shape"
 msgstr "모양 안의 문자"
 
+#: app/src/i18n/errors.ts
+msgid "text layers with unsupported values were imported as pixels"
+msgstr "지원되지 않는 값이 있는 문자 레이어는 픽셀로 가져왔습니다"
+
 #: app/src/MissingFonts.tsx
 msgid "Text layers: {layerCount}"
 msgstr "문자 레이어: {layerCount}"
@@ -12427,6 +12527,14 @@ msgstr "{askDocKind} 문서 “{askFile}”에 포함된 색상 프로필이 없
 msgid "The {kind} \"{id}\" is unavailable."
 msgstr "{kind} \"{id}\"을(를) 사용할 수 없습니다."
 
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was kept without its effect because the engine refused its values"
+msgstr "엔진이 값을 거부하여 스마트 필터 {name}은(는) 효과 없이 유지되었습니다"
+
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was not imported"
+msgstr "스마트 필터 {name}은(는) 가져오지 않았습니다"
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr "액션에 활성화된 단계가 없습니다."
@@ -12486,6 +12594,10 @@ msgstr "되돌릴 문서가 더 이상 활성 상태가 아닙니다."
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr "편집은 이 브라우저 탭에서 실행됩니다. photobaer-mcp는 컴퓨터에서 실행되며 에이전트를 탭에 연결하는 역할만 합니다."
+
+#: app/src/i18n/errors.ts
+msgid "the even-odd fill rule of shapes and vector masks is not stored in PSD"
+msgstr "모양과 벡터 마스크의 짝홀 칠 규칙은 PSD에 저장되지 않습니다"
 
 #: app/src/i18n/errors.ts
 msgid "The EXR chunk table is damaged."
@@ -13549,6 +13661,10 @@ msgstr "벡터 마스크"
 msgid "Vector Mask Density"
 msgstr "벡터 마스크 밀도"
 
+#: app/src/i18n/errors.ts
+msgid "vector mask density, feather, invert and disable of stroked shape layers were dropped"
+msgstr "획이 있는 모양 레이어의 벡터 마스크 밀도, 페더, 반전, 비활성화는 버려졌습니다"
+
 #: app/src/i18n/history.ts
 msgid "Vector Mask Feather"
 msgstr "벡터 마스크 페더"
@@ -13556,6 +13672,10 @@ msgstr "벡터 마스크 페더"
 #: app/src/LayerStyleDialog.tsx
 msgid "Vector Mask Hides Effects"
 msgstr "벡터 마스크로 효과 숨기기"
+
+#: app/src/i18n/errors.ts
+msgid "vector masks on shape layers are not stored in PSD"
+msgstr "모양 레이어의 벡터 마스크는 PSD에 저장되지 않습니다"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts

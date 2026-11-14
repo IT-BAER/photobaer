@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "「{docName}」で使用されているフォントを読み込めませんでした。ドキュメント全体の置き換えフォントを選択してください。テキストのレイアウトが変わる場合があります。"
 
 #: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr "Photoshop の上限である {limit} チャンネルを超えるアルファチャンネルとスポットチャンネル {count} 個は保存されませんでした"
+
+#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr "\"{file}\": {why}"
 
@@ -624,6 +628,10 @@ msgstr "調整のクリッピング"
 #: app/src/layerStyle.ts
 msgid "Adjustment layers do not support layer styles."
 msgstr "調整レイヤーはレイヤースタイルに対応していません。"
+
+#: app/src/i18n/errors.ts
+msgid "adjustment layers without an engine model were imported as pixels"
+msgstr "エンジンのモデルがない調整レイヤーはピクセルとして読み込まれました"
 
 #: app/src/i18n/history.ts
 msgid "Adjustment Visibility"
@@ -1427,6 +1435,14 @@ msgstr "ベベル"
 msgid "Bevel & Emboss"
 msgstr "ベベルとエンボス"
 
+#: app/src/i18n/errors.ts
+msgid "bevel contour curves are not stored in PSD"
+msgstr "ベベルの輪郭カーブは PSD に保存されません"
+
+#: app/src/i18n/errors.ts
+msgid "bevel texture depth is not stored in PSD"
+msgstr "ベベルのテクスチャの深さは PSD に保存されません"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/ExportDialogs.tsx
 msgid "Bicubic"
@@ -1602,6 +1618,10 @@ msgstr "描画モード"
 #: app/src/ImageCalcDialog.tsx
 msgid "Blending"
 msgstr "描画"
+
+#: app/src/i18n/errors.ts
+msgid "blending channel restrictions are not fully read back from PSD"
+msgstr "描画チャンネルの制限は PSD から完全には読み戻されません"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
@@ -3600,6 +3620,10 @@ msgid "Deep"
 msgstr "深く"
 
 #: app/src/i18n/errors.ts
+msgid "deep knockout is saved as shallow in PSD"
+msgstr "深いノックアウトは PSD では浅いノックアウトとして保存されます"
+
+#: app/src/i18n/errors.ts
 msgid "Deep OpenEXR files are not supported."
 msgstr "ディープ OpenEXR ファイルはサポートされていません。"
 
@@ -4887,6 +4911,10 @@ msgid "Fill layer"
 msgstr "塗りつぶしレイヤー"
 
 #: app/src/i18n/errors.ts
+msgid "fill layers with a missing pattern were imported as black"
+msgstr "パターンが見つからない塗りつぶしレイヤーは黒として読み込まれました"
+
+#: app/src/i18n/errors.ts
 msgid "Fill needs a pixel layer."
 msgstr "塗りつぶしにはピクセルレイヤーが必要です。"
 
@@ -5530,6 +5558,10 @@ msgstr "グラデーションで塗りつぶし"
 #: app/src/filters/labels.ts
 msgid "Gradient Map"
 msgstr "グラデーションマップ"
+
+#: app/src/i18n/errors.ts
+msgid "gradient map interpolation other than classic is not stored in PSD"
+msgstr "クラシック以外のグラデーションマップの補間方法は PSD に保存されません"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -6746,6 +6778,10 @@ msgstr "レイヤー"
 msgid "Layer Comp"
 msgstr "レイヤーカンプ"
 
+#: app/src/i18n/errors.ts
+msgid "layer comp appearance is not stored in PSD"
+msgstr "レイヤーカンプの外観は PSD に保存されません"
+
 #: app/src/i18n/history.ts
 msgid "Layer Comp Options"
 msgstr "レイヤーカンプオプション"
@@ -7137,6 +7173,10 @@ msgstr "レイヤーにリンク"
 #: app/src/PropertiesPanel.tsx
 msgid "Linked"
 msgstr "リンク"
+
+#: app/src/i18n/errors.ts
+msgid "linked smart objects are saved without their source file"
+msgstr "リンクされたスマートオブジェクトはソースファイルなしで保存されます"
 
 #: app/src/App.tsx
 msgid "Linking needs a browser with file system access."
@@ -8476,6 +8516,10 @@ msgstr "ノイズ"
 msgid "Noise Amount"
 msgstr "ノイズの量"
 
+#: app/src/i18n/errors.ts
+msgid "noise gradients were imported as a black to white gradient"
+msgstr "ノイズグラデーションは黒から白へのグラデーションとして読み込まれました"
+
 #: app/src/app/helpers.ts
 #: app/src/app/menus.ts
 #: app/src/app/typeMenu.ts
@@ -8659,6 +8703,10 @@ msgstr "アートボードごとに 1 ページ（ドキュメントの解像度
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
 msgstr "ワープできるのはピクセルレイヤーとスマートオブジェクトのみです。"
+
+#: app/src/i18n/errors.ts
+msgid "only the first pattern overlay is stored in PSD"
+msgstr "PSD には最初のパターンオーバーレイのみが保存されます"
 
 #: app/src/i18n/errors.ts
 msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
@@ -9107,6 +9155,10 @@ msgstr "パターン"
 msgid "Pattern Dither"
 msgstr "パターンディザ"
 
+#: app/src/i18n/errors.ts
+msgid "pattern effects that use a missing pattern were not imported"
+msgstr "見つからないパターンを使うパターン効果は読み込まれませんでした"
+
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "パターン塗りつぶし"
@@ -9119,6 +9171,10 @@ msgstr "パターン名"
 #: app/src/layerStyle.ts
 msgid "Pattern Overlay"
 msgstr "パターンオーバーレイ"
+
+#: app/src/i18n/errors.ts
+msgid "pattern scale, angle and link of fill layers and strokes are not stored in PSD"
+msgstr "塗りつぶしレイヤーと境界線のパターンの比率、角度、リンクは PSD に保存されません"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -9176,6 +9232,10 @@ msgctxt "history step"
 msgid "Pencil"
 msgstr "鉛筆"
 
+#: app/src/i18n/errors.ts
+msgid "pencil contours are saved as smooth curves in PSD"
+msgstr "鉛筆の輪郭は PSD に滑らかな曲線として保存されます"
+
 #: app/src/filters/labels.ts
 msgid "Pencil Width"
 msgstr "鉛筆の幅"
@@ -9183,6 +9243,10 @@ msgstr "鉛筆の幅"
 #: app/src/filters/GalleryStack.tsx
 msgid "Pentagon"
 msgstr "五角形"
+
+#: app/src/i18n/errors.ts
+msgid "per-filter smart filter masks are not stored in PSD"
+msgstr "フィルターごとのスマートフィルターマスクは PSD に保存されません"
 
 #: app/src/app/Dialogs.tsx
 msgid "Percent"
@@ -11550,9 +11614,21 @@ msgstr "ぼかし（詳細）"
 msgid "Smart Filter"
 msgstr "スマートフィルター"
 
+#: app/src/i18n/errors.ts
+msgid "smart filter mask areas outside the canvas are not stored in PSD"
+msgstr "カンバス外のスマートフィルターマスクの領域は PSD に保存されません"
+
+#: app/src/i18n/errors.ts
+msgid "smart filter masks were not imported"
+msgstr "スマートフィルターのマスクは読み込まれませんでした"
+
 #: app/src/PropertiesPanel.tsx
 msgid "Smart Filters"
 msgstr "スマートフィルター"
+
+#: app/src/i18n/errors.ts
+msgid "smart filters ag-psd cannot read are kept without their effect: {dropped}"
+msgstr "ag-psd が読み取れないスマートフィルターは効果なしで保持されました: {dropped}"
 
 #: app/src/app/menus.ts
 msgid "Smart Guides"
@@ -11570,6 +11646,26 @@ msgstr "スマートオブジェクト"
 #: app/src/App.tsx
 msgid "Smart object contents"
 msgstr "スマートオブジェクトのコンテンツ"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources missing from the file were not imported"
+msgstr "ファイルに含まれていないスマートオブジェクトのソースは読み込まれませんでした"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources of a different size were not imported"
+msgstr "サイズの異なるスマートオブジェクトのソースは読み込まれませんでした"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources that could not be read were not imported"
+msgstr "読み取れなかったスマートオブジェクトのソースは読み込まれませんでした"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps are not stored in PSD yet"
+msgstr "スマートオブジェクトのワープはまだ PSD に保存されません"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps were not imported"
+msgstr "スマートオブジェクトのワープは読み込まれませんでした"
 
 #: app/src/app/layerFilter.ts
 msgid "Smart objects"
@@ -12363,6 +12459,10 @@ msgstr "テキストのカラー"
 msgid "Text in Shape"
 msgstr "シェイプ内テキスト"
 
+#: app/src/i18n/errors.ts
+msgid "text layers with unsupported values were imported as pixels"
+msgstr "サポートされていない値を持つテキストレイヤーはピクセルとして読み込まれました"
+
 #: app/src/MissingFonts.tsx
 msgid "Text layers: {layerCount}"
 msgstr "テキストレイヤー：{layerCount}"
@@ -12430,6 +12530,14 @@ msgstr "{askDocKind} ドキュメント「{askFile}」にはカラープロフ�
 msgid "The {kind} \"{id}\" is unavailable."
 msgstr "{kind}「{id}」は使用できません。"
 
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was kept without its effect because the engine refused its values"
+msgstr "エンジンが値を受け付けなかったため、スマートフィルター {name} は効果なしで保持されました"
+
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was not imported"
+msgstr "スマートフィルター {name} は読み込まれませんでした"
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr "このアクションには有効なステップがありません。"
@@ -12489,6 +12597,10 @@ msgstr "復帰するドキュメントはアクティブではなくなりまし
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr "編集はこのブラウザータブで実行されます。photobaer-mcp はコンピューター上で動作し、エージェントをタブに接続するだけです。"
+
+#: app/src/i18n/errors.ts
+msgid "the even-odd fill rule of shapes and vector masks is not stored in PSD"
+msgstr "シェイプとベクトルマスクの偶奇塗りつぶしルールは PSD に保存されません"
 
 #: app/src/i18n/errors.ts
 msgid "The EXR chunk table is damaged."
@@ -13552,6 +13664,10 @@ msgstr "ベクトルマスク"
 msgid "Vector Mask Density"
 msgstr "ベクトルマスクの濃度"
 
+#: app/src/i18n/errors.ts
+msgid "vector mask density, feather, invert and disable of stroked shape layers were dropped"
+msgstr "境界線付きシェイプレイヤーのベクトルマスクの濃度、境界をぼかす、反転、無効は破棄されました"
+
 #: app/src/i18n/history.ts
 msgid "Vector Mask Feather"
 msgstr "ベクトルマスクのぼかし"
@@ -13559,6 +13675,10 @@ msgstr "ベクトルマスクのぼかし"
 #: app/src/LayerStyleDialog.tsx
 msgid "Vector Mask Hides Effects"
 msgstr "ベクトルマスクで効果を隠す"
+
+#: app/src/i18n/errors.ts
+msgid "vector masks on shape layers are not stored in PSD"
+msgstr "シェイプレイヤー上のベクトルマスクは PSD に保存されません"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts

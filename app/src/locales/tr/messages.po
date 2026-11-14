@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "“{docName}” belgesi yüklenemeyen yazı tipleri kullanıyor. Tüm belge için yedek yazı tipleri seç. Metin düzeni değişebilir."
 
 #: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr "Photoshop’un {limit} kanal sınırını aşan {count} alfa ve özel renk kanalı kaydedilmedi"
+
+#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr "\"{file}\": {why}"
 
@@ -621,6 +625,10 @@ msgstr "Ayarlama Kırpma"
 #: app/src/layerStyle.ts
 msgid "Adjustment layers do not support layer styles."
 msgstr "Ayarlama katmanları katman stillerini desteklemez."
+
+#: app/src/i18n/errors.ts
+msgid "adjustment layers without an engine model were imported as pixels"
+msgstr "motor modeli olmayan ayarlama katmanları piksel olarak içe aktarıldı"
 
 #: app/src/i18n/history.ts
 msgid "Adjustment Visibility"
@@ -1424,6 +1432,14 @@ msgstr "Eğim"
 msgid "Bevel & Emboss"
 msgstr "Eğim Ver ve Kabart"
 
+#: app/src/i18n/errors.ts
+msgid "bevel contour curves are not stored in PSD"
+msgstr "eğimin kontur eğrileri PSD’de saklanmaz"
+
+#: app/src/i18n/errors.ts
+msgid "bevel texture depth is not stored in PSD"
+msgstr "eğimin doku derinliği PSD’de saklanmaz"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/ExportDialogs.tsx
 msgid "Bicubic"
@@ -1599,6 +1615,10 @@ msgstr "Karıştırma Modu"
 #: app/src/ImageCalcDialog.tsx
 msgid "Blending"
 msgstr "Karıştırma"
+
+#: app/src/i18n/errors.ts
+msgid "blending channel restrictions are not fully read back from PSD"
+msgstr "karıştırma kanalı kısıtlamaları PSD’den tam olarak geri okunmaz"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/LayerStyleDialog.tsx
@@ -3597,6 +3617,10 @@ msgid "Deep"
 msgstr "Derin"
 
 #: app/src/i18n/errors.ts
+msgid "deep knockout is saved as shallow in PSD"
+msgstr "derin altını gizleme PSD’de sığ olarak saklanır"
+
+#: app/src/i18n/errors.ts
 msgid "Deep OpenEXR files are not supported."
 msgstr "Derin OpenEXR dosyaları desteklenmiyor."
 
@@ -4884,6 +4908,10 @@ msgid "Fill layer"
 msgstr "Dolgu katmanı"
 
 #: app/src/i18n/errors.ts
+msgid "fill layers with a missing pattern were imported as black"
+msgstr "deseni eksik olan dolgu katmanları siyah olarak içe aktarıldı"
+
+#: app/src/i18n/errors.ts
 msgid "Fill needs a pixel layer."
 msgstr "Doldur için bir piksel katmanı gerekir."
 
@@ -5527,6 +5555,10 @@ msgstr "Degrade Dolgu"
 #: app/src/filters/labels.ts
 msgid "Gradient Map"
 msgstr "Degrade Eşleme"
+
+#: app/src/i18n/errors.ts
+msgid "gradient map interpolation other than classic is not stored in PSD"
+msgstr "klasik dışındaki degrade eşleme aradeğerlemesi PSD’de saklanmaz"
 
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
@@ -6743,6 +6775,10 @@ msgstr "Katman"
 msgid "Layer Comp"
 msgstr "Katman Kompozisyonu"
 
+#: app/src/i18n/errors.ts
+msgid "layer comp appearance is not stored in PSD"
+msgstr "katman kompozisyonlarının görünümü PSD’de saklanmaz"
+
 #: app/src/i18n/history.ts
 msgid "Layer Comp Options"
 msgstr "Katman Kompozisyonu Seçenekleri"
@@ -7134,6 +7170,10 @@ msgstr "Katmanla Bağla"
 #: app/src/PropertiesPanel.tsx
 msgid "Linked"
 msgstr "Bağlı"
+
+#: app/src/i18n/errors.ts
+msgid "linked smart objects are saved without their source file"
+msgstr "bağlı Akıllı Nesneler kaynak dosyaları olmadan kaydedilir"
 
 #: app/src/App.tsx
 msgid "Linking needs a browser with file system access."
@@ -8473,6 +8513,10 @@ msgstr "Parazit"
 msgid "Noise Amount"
 msgstr "Parazit Miktarı"
 
+#: app/src/i18n/errors.ts
+msgid "noise gradients were imported as a black to white gradient"
+msgstr "parazit degradeleri siyahtan beyaza bir degrade olarak içe aktarıldı"
+
 #: app/src/app/helpers.ts
 #: app/src/app/menus.ts
 #: app/src/app/typeMenu.ts
@@ -8656,6 +8700,10 @@ msgstr "Her çalışma yüzeyi için bir sayfa, belge çözünürlüğünde."
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
 msgstr "Yalnızca piksel katmanları ve akıllı nesneler çarpıtılabilir."
+
+#: app/src/i18n/errors.ts
+msgid "only the first pattern overlay is stored in PSD"
+msgstr "PSD’de yalnızca ilk desenli kaplama saklanır"
 
 #: app/src/i18n/errors.ts
 msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
@@ -9104,6 +9152,10 @@ msgstr "Desen"
 msgid "Pattern Dither"
 msgstr "Desen Titremesi"
 
+#: app/src/i18n/errors.ts
+msgid "pattern effects that use a missing pattern were not imported"
+msgstr "eksik bir deseni kullanan desen efektleri içe aktarılmadı"
+
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr "Desen Dolgu"
@@ -9116,6 +9168,10 @@ msgstr "Desen Adı"
 #: app/src/layerStyle.ts
 msgid "Pattern Overlay"
 msgstr "Desenli Kaplama"
+
+#: app/src/i18n/errors.ts
+msgid "pattern scale, angle and link of fill layers and strokes are not stored in PSD"
+msgstr "dolgu katmanlarının ve konturların desen ölçeği, açısı ve bağlantısı PSD’de saklanmaz"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -9173,6 +9229,10 @@ msgctxt "history step"
 msgid "Pencil"
 msgstr "Kurşun Kalem"
 
+#: app/src/i18n/errors.ts
+msgid "pencil contours are saved as smooth curves in PSD"
+msgstr "kurşun kalem konturları PSD’de düzgün eğriler olarak saklanır"
+
 #: app/src/filters/labels.ts
 msgid "Pencil Width"
 msgstr "Kalem Genişliği"
@@ -9180,6 +9240,10 @@ msgstr "Kalem Genişliği"
 #: app/src/filters/GalleryStack.tsx
 msgid "Pentagon"
 msgstr "Beşgen"
+
+#: app/src/i18n/errors.ts
+msgid "per-filter smart filter masks are not stored in PSD"
+msgstr "filtre başına Akıllı Filtre maskeleri PSD’de saklanmaz"
 
 #: app/src/app/Dialogs.tsx
 msgid "Percent"
@@ -11547,9 +11611,21 @@ msgstr "Akıllı Bulanıklaştırma"
 msgid "Smart Filter"
 msgstr "Akıllı Filtre"
 
+#: app/src/i18n/errors.ts
+msgid "smart filter mask areas outside the canvas are not stored in PSD"
+msgstr "tuval dışındaki Akıllı Filtre maskesi alanları PSD’de saklanmaz"
+
+#: app/src/i18n/errors.ts
+msgid "smart filter masks were not imported"
+msgstr "Akıllı Filtre maskeleri içe aktarılmadı"
+
 #: app/src/PropertiesPanel.tsx
 msgid "Smart Filters"
 msgstr "Akıllı Filtreler"
+
+#: app/src/i18n/errors.ts
+msgid "smart filters ag-psd cannot read are kept without their effect: {dropped}"
+msgstr "ag-psd’nin okuyamadığı Akıllı Filtreler etkisiz olarak korundu: {dropped}"
 
 #: app/src/app/menus.ts
 msgid "Smart Guides"
@@ -11567,6 +11643,26 @@ msgstr "Akıllı Nesne"
 #: app/src/App.tsx
 msgid "Smart object contents"
 msgstr "Akıllı nesne içeriği"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources missing from the file were not imported"
+msgstr "dosyada bulunmayan Akıllı Nesne kaynakları içe aktarılmadı"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources of a different size were not imported"
+msgstr "farklı boyuttaki Akıllı Nesne kaynakları içe aktarılmadı"
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources that could not be read were not imported"
+msgstr "okunamayan Akıllı Nesne kaynakları içe aktarılmadı"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps are not stored in PSD yet"
+msgstr "Akıllı Nesne eğriltmeleri henüz PSD’de saklanmıyor"
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps were not imported"
+msgstr "Akıllı Nesne eğriltmeleri içe aktarılmadı"
 
 #: app/src/app/layerFilter.ts
 msgid "Smart objects"
@@ -12360,6 +12456,10 @@ msgstr "Metin Rengi"
 msgid "Text in Shape"
 msgstr "Şekil İçinde Metin"
 
+#: app/src/i18n/errors.ts
+msgid "text layers with unsupported values were imported as pixels"
+msgstr "desteklenmeyen değerlere sahip yazı katmanları piksel olarak içe aktarıldı"
+
 #: app/src/MissingFonts.tsx
 msgid "Text layers: {layerCount}"
 msgstr "Metin katmanları: {layerCount}"
@@ -12427,6 +12527,14 @@ msgstr "{askDocKind} belgesi “{askFile}” gömülü bir renk profili içermiy
 msgid "The {kind} \"{id}\" is unavailable."
 msgstr "{kind} \"{id}\" kullanılamıyor."
 
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was kept without its effect because the engine refused its values"
+msgstr "{name} Akıllı Filtresi, motor değerlerini reddettiği için etkisiz olarak korundu"
+
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was not imported"
+msgstr "{name} Akıllı Filtresi içe aktarılmadı"
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr "Eylemde etkin adım yok."
@@ -12486,6 +12594,10 @@ msgstr "Geri alınacak belge artık etkin değil."
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr "Düzenleme bu tarayıcı sekmesinde çalışır; photobaer-mcp bilgisayarında çalışır ve aracıyı yalnızca sekmeye bağlar."
+
+#: app/src/i18n/errors.ts
+msgid "the even-odd fill rule of shapes and vector masks is not stored in PSD"
+msgstr "şekillerin ve vektörel maskelerin çift-tek dolgu kuralı PSD’de saklanmaz"
 
 #: app/src/i18n/errors.ts
 msgid "The EXR chunk table is damaged."
@@ -13549,6 +13661,10 @@ msgstr "Vektörel Maske"
 msgid "Vector Mask Density"
 msgstr "Vektörel Maske Yoğunluğu"
 
+#: app/src/i18n/errors.ts
+msgid "vector mask density, feather, invert and disable of stroked shape layers were dropped"
+msgstr "konturlu şekil katmanlarının vektörel maske yoğunluğu, geçiş yumuşatma, ters çevirme ve devre dışı bırakma değerleri atıldı"
+
 #: app/src/i18n/history.ts
 msgid "Vector Mask Feather"
 msgstr "Vektörel Maske Geçiş Yumuşatma"
@@ -13556,6 +13672,10 @@ msgstr "Vektörel Maske Geçiş Yumuşatma"
 #: app/src/LayerStyleDialog.tsx
 msgid "Vector Mask Hides Effects"
 msgstr "Vektörel Maske Efektleri Gizler"
+
+#: app/src/i18n/errors.ts
+msgid "vector masks on shape layers are not stored in PSD"
+msgstr "şekil katmanlarındaki vektörel maskeler PSD’de saklanmaz"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts

@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr ""
 
 #: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr ""
+
+#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr ""
 
@@ -620,6 +624,10 @@ msgstr ""
 
 #: app/src/layerStyle.ts
 msgid "Adjustment layers do not support layer styles."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "adjustment layers without an engine model were imported as pixels"
 msgstr ""
 
 #: app/src/i18n/history.ts
@@ -1424,6 +1432,14 @@ msgstr ""
 msgid "Bevel & Emboss"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "bevel contour curves are not stored in PSD"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "bevel texture depth is not stored in PSD"
+msgstr ""
+
 #: app/src/app/Dialogs.tsx
 #: app/src/ExportDialogs.tsx
 msgid "Bicubic"
@@ -1598,6 +1614,10 @@ msgstr ""
 
 #: app/src/ImageCalcDialog.tsx
 msgid "Blending"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "blending channel restrictions are not fully read back from PSD"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
@@ -3597,6 +3617,10 @@ msgid "Deep"
 msgstr ""
 
 #: app/src/i18n/errors.ts
+msgid "deep knockout is saved as shallow in PSD"
+msgstr ""
+
+#: app/src/i18n/errors.ts
 msgid "Deep OpenEXR files are not supported."
 msgstr ""
 
@@ -4884,6 +4908,10 @@ msgid "Fill layer"
 msgstr ""
 
 #: app/src/i18n/errors.ts
+msgid "fill layers with a missing pattern were imported as black"
+msgstr ""
+
+#: app/src/i18n/errors.ts
 msgid "Fill needs a pixel layer."
 msgstr ""
 
@@ -5526,6 +5554,10 @@ msgstr ""
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 msgid "Gradient Map"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "gradient map interpolation other than classic is not stored in PSD"
 msgstr ""
 
 #: app/src/i18n/history.ts
@@ -6743,6 +6775,10 @@ msgstr ""
 msgid "Layer Comp"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "layer comp appearance is not stored in PSD"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Layer Comp Options"
 msgstr ""
@@ -7133,6 +7169,10 @@ msgstr ""
 
 #: app/src/PropertiesPanel.tsx
 msgid "Linked"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "linked smart objects are saved without their source file"
 msgstr ""
 
 #: app/src/App.tsx
@@ -8473,6 +8513,10 @@ msgstr ""
 msgid "Noise Amount"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "noise gradients were imported as a black to white gradient"
+msgstr ""
+
 #: app/src/app/helpers.ts
 #: app/src/app/menus.ts
 #: app/src/app/typeMenu.ts
@@ -8655,6 +8699,10 @@ msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "only the first pattern overlay is stored in PSD"
 msgstr ""
 
 #: app/src/i18n/errors.ts
@@ -9104,6 +9152,10 @@ msgstr ""
 msgid "Pattern Dither"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "pattern effects that use a missing pattern were not imported"
+msgstr ""
+
 #: app/src/app/helpers.ts
 msgid "Pattern Fill"
 msgstr ""
@@ -9115,6 +9167,10 @@ msgstr ""
 #: app/src/i18n/history.ts
 #: app/src/layerStyle.ts
 msgid "Pattern Overlay"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "pattern scale, angle and link of fill layers and strokes are not stored in PSD"
 msgstr ""
 
 #: app/src/app/helpers.ts
@@ -9173,12 +9229,20 @@ msgctxt "history step"
 msgid "Pencil"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "pencil contours are saved as smooth curves in PSD"
+msgstr ""
+
 #: app/src/filters/labels.ts
 msgid "Pencil Width"
 msgstr ""
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Pentagon"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "per-filter smart filter masks are not stored in PSD"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
@@ -11547,8 +11611,20 @@ msgstr ""
 msgid "Smart Filter"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "smart filter mask areas outside the canvas are not stored in PSD"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "smart filter masks were not imported"
+msgstr ""
+
 #: app/src/PropertiesPanel.tsx
 msgid "Smart Filters"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "smart filters ag-psd cannot read are kept without their effect: {dropped}"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -11566,6 +11642,26 @@ msgstr ""
 
 #: app/src/App.tsx
 msgid "Smart object contents"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources missing from the file were not imported"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources of a different size were not imported"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "smart object sources that could not be read were not imported"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps are not stored in PSD yet"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "smart object warps were not imported"
 msgstr ""
 
 #: app/src/app/layerFilter.ts
@@ -12360,6 +12456,10 @@ msgstr ""
 msgid "Text in Shape"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "text layers with unsupported values were imported as pixels"
+msgstr ""
+
 #: app/src/MissingFonts.tsx
 msgid "Text layers: {layerCount}"
 msgstr ""
@@ -12427,6 +12527,14 @@ msgstr ""
 msgid "The {kind} \"{id}\" is unavailable."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was kept without its effect because the engine refused its values"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "the {name} smart filter was not imported"
+msgstr ""
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr ""
@@ -12485,6 +12593,10 @@ msgstr ""
 
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "the even-odd fill rule of shapes and vector masks is not stored in PSD"
 msgstr ""
 
 #: app/src/i18n/errors.ts
@@ -13549,12 +13661,20 @@ msgstr ""
 msgid "Vector Mask Density"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "vector mask density, feather, invert and disable of stroked shape layers were dropped"
+msgstr ""
+
 #: app/src/i18n/history.ts
 msgid "Vector Mask Feather"
 msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Vector Mask Hides Effects"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "vector masks on shape layers are not stored in PSD"
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
