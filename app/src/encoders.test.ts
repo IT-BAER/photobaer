@@ -85,3 +85,16 @@ test('TGA round-trips gray, RGB and RGBA, raw and RLE; RLE packets stay within 1
   assert.equal(encodeTga(flat, true).length, 18 + 2 * 3 * 4 + 26, 'one row of 300 equal pixels is 3 packets (128 + 128 + 44)');
   assert.throws(() => encodeTga({ width: 70000, height: 1, channels: 3, data: new Uint8Array(210000) }), /size/);
 });
+
+test('BMP and TGA keep alpha of gray + alpha as 32-bit BGRA with the gray in B, G and R', () => {
+  const img = image(33, 9, 2, 8);
+  const rgba = (r: Uint8Array) => Uint8Array.from({ length: 33 * 9 * 4 }, (_, i) => r[(i >> 2) * 2 + (i % 4 === 3 ? 1 : 0)]);
+  const want = rgba(img.data as Uint8Array), b = readBmp(encodeBmp(img));
+  assert.deepEqual([b.c, b.bpp, b.compression], [4, 32, 3]);
+  assert.deepEqual(b.data, want);
+  for (const rle of [false, true]) {
+    const t = readTga(encodeTga(img, rle));
+    assert.deepEqual([t.c, t.type, t.alphaBits], [4, 2 + (rle ? 8 : 0), 8]);
+    assert.deepEqual(t.data, want, `rle=${rle}`);
+  }
+});

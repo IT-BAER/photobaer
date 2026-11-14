@@ -142,12 +142,12 @@ export async function encodeTiff(img: Raster, o: TiffOptions = {}): Promise<Uint
 // ---------- BMP ----------
 
 /** A bottom-up Windows bitmap from 8-bit samples: 8-bit gray palette, 24-bit BGR, or 32-bit BGRA with a
- * BITMAPV4HEADER alpha mask when the image has alpha. */
+ * BITMAPV4HEADER alpha mask when the image has alpha (gray + alpha writes the gray into B, G and R). */
 export function encodeBmp(img: Raster, dpi = 72): Uint8Array<ArrayBuffer> {
   check(img);
   if (bitsOf(img.data) !== 8) throw new Error('BMP files are written from 8-bit samples.');
   const { width: w, height: h, channels: c } = img, d = img.data as Uint8Array;
-  const alpha = c === 4, gray = c <= 2, bpp = gray ? 8 : alpha ? 32 : 24;
+  const alpha = c >= 2 && c !== 3, gray = c === 1, bpp = gray ? 8 : alpha ? 32 : 24;
   const stride = ((w * bpp + 31) >> 5) * 4, info = alpha ? 108 : 40, palette = gray ? 1024 : 0;
   const off = 14 + info + palette, size = off + stride * h;
   if (size > 0xffffffff) throw new Error('The BMP file would be larger than 4 GB.');
@@ -170,6 +170,7 @@ export function encodeBmp(img: Raster, dpi = 72): Uint8Array<ArrayBuffer> {
     for (let x = 0; x < w; x++) {
       const p = s + x * c;
       if (gray) out[o + x] = d[p];
+      else if (c === 2) out.set([d[p], d[p], d[p], d[p + 1]], o + x * 4);
       else if (alpha) out.set([d[p + 2], d[p + 1], d[p], d[p + 3]], o + x * 4);
       else out.set([d[p + 2], d[p + 1], d[p]], o + x * 3);
     }
@@ -180,12 +181,12 @@ export function encodeBmp(img: Raster, dpi = 72): Uint8Array<ArrayBuffer> {
 // ---------- Targa ----------
 
 /** A Truevision Targa (bottom-left origin, TGA 2.0 footer) from 8-bit samples: 8-bit gray, 24-bit BGR or
- * 32-bit BGRA, raw or run-length encoded per scanline. */
+ * 32-bit BGRA (also for gray + alpha), raw or run-length encoded per scanline. */
 export function encodeTga(img: Raster, rle = false): Uint8Array<ArrayBuffer> {
   check(img, 65535);
   if (bitsOf(img.data) !== 8) throw new Error('Targa files are written from 8-bit samples.');
   const { width: w, height: h, channels: c } = img, d = img.data as Uint8Array;
-  const gray = c <= 2, alpha = c === 4, px = gray ? 1 : alpha ? 4 : 3;
+  const gray = c === 1, alpha = c >= 2 && c !== 3, px = gray ? 1 : alpha ? 4 : 3;
   const head = new Uint8Array(18), hv = new DataView(head.buffer);
   head[2] = (gray ? 3 : 2) + (rle ? 8 : 0);
   hv.setUint16(12, w, true); hv.setUint16(14, h, true);
@@ -195,6 +196,7 @@ export function encodeTga(img: Raster, rle = false): Uint8Array<ArrayBuffer> {
     for (let x = 0; x < w; x++) {
       const p = (y * w + x) * c;
       if (gray) row[x] = d[p];
+      else if (c === 2) { row[x * px] = row[x * px + 1] = row[x * px + 2] = d[p]; row[x * px + 3] = d[p + 1]; }
       else { row[x * px] = d[p + 2]; row[x * px + 1] = d[p + 1]; row[x * px + 2] = d[p]; if (alpha) row[x * px + 3] = d[p + 3]; }
     }
     parts.push(rle ? rleRow(row, w, px) : row.slice());

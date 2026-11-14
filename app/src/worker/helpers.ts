@@ -196,26 +196,30 @@ export function rasterOf(rgba: Uint8ClampedArray | Uint8Array, w: number, h: num
 
 /** The composite at the document's depth: 8 and 16-bit samples as stored, 32-bit as linear floats (like EXR). */
 function flatRaster(e: Engine): Raster {
-  const W = e.width(), H = e.height(), depth = e.depth(), gray = grayIcc(e) !== null;
-  if (depth === 8) return rasterOf(renderRgba(e, {})!.data, W, H, gray);
-  const f = new Float32Array(W * H * 4);
-  tileLoop(W, H, (tx, ty) => {
-    const t = depth === 16 ? e.flatten_tile_f32(tx, ty) : e.flatten_tile_linear(tx, ty), w = Math.min(256, W - tx * 256);
-    for (let y = 0; y < 256 && ty * 256 + y < H; y++) f.set(t.subarray(y * 1024, y * 1024 + w * 4), ((ty * 256 + y) * W + tx * 256) * 4);
-  });
-  let alpha = false;
-  for (let i = 3; i < f.length; i += 4) if (f[i] < 1) { alpha = true; break; }
-  const c = ((gray ? 1 : 3) + (alpha ? 1 : 0)) as Raster['channels'], n = W * H;
-  const data = depth === 16 ? new Uint16Array(n * c) : new Float32Array(n * c);
+  const W = e.width(), H = e.height(), depth = e.depth();
+  if (depth === 8) return rasterOf(renderRgba(e, {})!.data, W, H, grayIcc(e) !== null);
+  if (W * H * 4 * (depth === 16 ? 2 : 4) > 2 ** 32) throw new Error('The image is too large to save at this bit depth.');
+  const gray = grayIcc(e) !== null, n = W * H, data = depth === 16 ? new Uint16Array(n * 4) : new Float32Array(n * 4);
   // 16-bit samples and float alpha are clamped to 0..1; float color keeps values above 1.
   const put = (o: number, v: number, a = false) => { data[o] = depth === 16 ? Math.round(Math.min(1, Math.max(0, v)) * 65535) : a ? Math.min(1, Math.max(0, v)) : v; };
-  for (let p = 0, o = 0; p < n; p++) {
+  let alpha = false;
+  tileLoop(W, H, (tx, ty) => {
+    const t = depth === 16 ? e.flatten_tile_f32(tx, ty) : e.flatten_tile_linear(tx, ty), w = Math.min(256, W - tx * 256);
+    for (let y = 0; y < 256 && ty * 256 + y < H; y++) for (let x = 0; x < w; x++) {
+      const i = y * 1024 + x * 4, o = ((ty * 256 + y) * W + tx * 256 + x) * 4;
+      if (t[i + 3] < 1) alpha = true;
+      put(o, t[i]); put(o + 1, t[i + 1]); put(o + 2, t[i + 2]); put(o + 3, t[i + 3], true);
+    }
+  });
+  const c = ((gray ? 1 : 3) + (alpha ? 1 : 0)) as Raster['channels'];
+  // Compact the 4-channel buffer in place: the write index never passes the read index.
+  if (c < 4) for (let p = 0, o = 0; p < n; p++) {
     const i = p * 4;
-    put(o++, f[i]);
-    if (!gray) { put(o++, f[i + 1]); put(o++, f[i + 2]); }
-    if (alpha) put(o++, f[i + 3], true);
+    data[o++] = data[i];
+    if (!gray) { data[o++] = data[i + 1]; data[o++] = data[i + 2]; }
+    if (alpha) data[o++] = data[i + 3];
   }
-  return { width: W, height: H, channels: c, data };
+  return { width: W, height: H, channels: c, data: data.subarray(0, n * c) };
 }
 
 /** TIFF tags and XMP from File Info; empty without it. */
@@ -290,6 +294,9 @@ function scaleRgba(img: Rgba, w: number, h: number): Uint8ClampedArray {
   return ctx.getImageData(0, 0, w, h).data;
 }
 
+// A matte as one gray value for gray documents: 0.3 R + 0.59 G + 0.11 B, as the color tools use (app/channels.ts).
+const grayMatte = (m: [number, number, number]): [number, number, number] => { const g = Math.round(0.3 * m[0] + 0.59 * m[1] + 0.11 * m[2]); return [g, g, g]; };
+
 async function encodeRaster(e: Engine, rgba: Uint8ClampedArray, width: number, height: number, dpi: number, o: ExportOptions) {
   const gray = grayIcc(e), ras = rasterOf(rgba, width, height, gray !== null);
   if (o.format === 'bmp') return { blob: new Blob([encodeBmp(ras, dpi)], { type: 'image/bmp' }), width, height };
@@ -342,14 +349,14 @@ export function matteRgba(img: Rgba, matte: [number, number, number], keepClear:
 // Sizes and encodes `src`: canvas smoothing for a plain scale, the engine for `size`/`canvas`/`resample`;
 // JPEG flattens onto the matte (white by default), GIF/PNG-8 keep alpha < 50% as transparent.
 async function encodeRgba(e: Engine, src: Rgba, o: ExportOptions): Promise<{ blob: Blob; width: number; height: number }> {
-  const base = o.size ?? [src.w, src.h];
+  const base = o.size ?? [src.w, src.h], matte = o.matte && grayIcc(e) ? grayMatte(o.matte) : o.matte;
   let img = src, width = Math.max(1, Math.round(base[0] * o.scale)), height = Math.max(1, Math.round(base[1] * o.scale));
   if (o.resample || o.canvas || o.size) {
     if (width !== img.w || height !== img.h) img = resampleRgba(img, width, height, o.resample ?? 'auto');
     if (o.canvas) img = placeRgba(img, Math.max(1, Math.round(o.canvas[0] * o.scale)), Math.max(1, Math.round(o.canvas[1] * o.scale)));
     width = img.w; height = img.h;
   }
-  if (o.matte && o.format !== 'jpeg') img = matteRgba(img, o.matte, o.format === 'gif' || o.format === 'png8');
+  if (matte && o.format !== 'jpeg') img = matteRgba(img, matte, o.format === 'gif' || o.format === 'png8');
   const scaled = width !== img.w || height !== img.h, dpi = docDpi(e);
   // TIFF, BMP and Targa encode unscaled pixels directly: the canvas's premultiplied storage rounds soft edges.
   if (o.format === 'tiff' || o.format === 'bmp' || o.format === 'tga') return encodeRaster(e, scaled ? scaleRgba(img, width, height) : img.data, width, height, dpi, o);
@@ -357,7 +364,7 @@ async function encodeRgba(e: Engine, src: Rgba, o: ExportOptions): Promise<{ blo
   c.getContext('2d')!.putImageData(new ImageData(img.data, img.w, img.h), 0, 0);
   if (scaled || o.format === 'jpeg') {
     const s = new OffscreenCanvas(width, height), ctx = s.getContext('2d')!;
-    if (o.format === 'jpeg') { const [r, g, b] = o.matte ?? [255, 255, 255]; ctx.fillStyle = `rgb(${r} ${g} ${b})`; ctx.fillRect(0, 0, width, height); }
+    if (o.format === 'jpeg') { const [r, g, b] = matte ?? [255, 255, 255]; ctx.fillStyle = `rgb(${r} ${g} ${b})`; ctx.fillRect(0, 0, width, height); }
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(c, 0, 0, width, height);
     c = s;
@@ -648,4 +655,4 @@ function smartWarpStart(e: Engine, id: number, maxSide: number) {
   return { bounds, ...lifted, mesh };
 }
 
-export { renderRgba, applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, shiftedRegion, docPatterns, encodeFlattened, exportAsset, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tierLevel, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };
+export { flatRaster, renderRgba, applyTransform, collectPixelIds, decodeSource, displayRegion, displayTiers, shiftedRegion, docPatterns, encodeFlattened, exportAsset, ensurePatterns, extOf, findNode, gather, intersect, layerPng, layerTile, liftPreview, loadEngine, loadSources, nodeTiles, normLight, presetPatterns, propsLabel, putRgba, RASTER, readLinked, sameOp, smartOf, smartWarpStart, sourceBytes, tierLevel, tileLoop, tileThumb, topLevelAncestor, unavailable, uuid, visibleTopDown, WARP_LAYER_ONLY, writeHandle };
