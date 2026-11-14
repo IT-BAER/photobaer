@@ -24,6 +24,10 @@ msgid "\"{name}\" is already a smart object."
 msgstr "«{name}» уже является смарт-объектом."
 
 #: app/src/i18n/errors.ts
+msgid "\"{name}\" is not a valid variable name; use letters, digits and underscore, not starting with a digit."
+msgstr "\"{name}\" не является допустимым именем переменной; используй буквы, цифры и знак подчёркивания, не начиная с цифры."
+
+#: app/src/i18n/errors.ts
 msgid "\"{op}\" cannot run in an action."
 msgstr "«{op}» нельзя выполнить в операции."
 
@@ -4676,6 +4680,10 @@ msgstr "Выдержка"
 msgid "Exposure value"
 msgstr "Значение экспозиции"
 
+#: app/src/i18n/errors.ts
+msgid "EXR compression {compression} is not supported (use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB)."
+msgstr "Сжатие EXR {compression} не поддерживается (используй NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA или DWAB)."
+
 #: app/src/i18n/choices.ts
 msgid "Extend"
 msgstr "Продлить"
@@ -5793,6 +5801,10 @@ msgstr "Жесткое смешение"
 #: app/src/shell/tools.ts
 msgid "Hardness"
 msgstr "Жесткость"
+
+#: app/src/i18n/errors.ts
+msgid "HDR {line} is not supported (only 32-bit_rle_rgbe)."
+msgstr "HDR {line} не поддерживается (только 32-bit_rle_rgbe)."
 
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
@@ -8318,6 +8330,10 @@ msgstr "Набор кисти не выбран: выбери его в разд
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
 msgstr "В {fromName} кисти не найдены."
+
+#: app/src/i18n/errors.ts
+msgid "No data set named \"{name}\"."
+msgstr "Нет набора данных с названием \"{name}\"."
 
 #: app/src/app/typeMenu.ts
 msgid "No default type styles have been saved yet."
@@ -12419,6 +12435,10 @@ msgid "The action has no enabled steps."
 msgstr "В операции нет включенных шагов."
 
 #: app/src/i18n/errors.ts
+msgid "The alignment must lie between 0 and 1."
+msgstr "Выравнивание должно быть в диапазоне от 0 до 1."
+
+#: app/src/i18n/errors.ts
 msgid "The artboard is outside the canvas."
 msgstr "Монтажная область находится за пределами холста."
 
@@ -12506,6 +12526,10 @@ msgstr "Таблица тайлов EXR повреждена."
 msgid "The File Info was not kept: {why}"
 msgstr "Сведения о файле не сохранены: {why}"
 
+#: app/src/i18n/errors.ts
+msgid "The file is empty or has only a header row."
+msgstr "Файл пуст или содержит только строку заголовка."
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr "Расположение файла выбирается далее."
@@ -12573,6 +12597,10 @@ msgstr "Измеренная линия уже прямая."
 #: app/src/i18n/errors.ts
 msgid "The mode or bit depth was not applied: {reason}"
 msgstr "Режим или глубина цвета не применены: {reason}"
+
+#: app/src/i18n/errors.ts
+msgid "The name \"{name}\" is already bound to another layer or property."
+msgstr "Имя \"{name}\" уже привязано к другому слою или свойству."
 
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
@@ -13465,6 +13493,22 @@ msgstr "Исправление перспективы…"
 #: app/src/i18n/errors.ts
 msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
 msgstr "переменная \"{name}\": рамка должна быть в целых пикселях, не менее 1 в ширину и высоту, в пределах слоя"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" expected true/false or visible/hidden but got \"{value}\"."
+msgstr "Переменная \"{variable}\" ожидала true/false или visible/hidden, но получила \"{value}\"."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" is bound to a layer that no longer exists."
+msgstr "Переменная \"{variable}\" привязана к слою, которого больше нет."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a pixel layer, but \"{layer}\" is not one."
+msgstr "Переменной \"{variable}\" нужен пиксельный слой, но \"{layer}\" им не является."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a type layer, but \"{layer}\" is not one."
+msgstr "Переменной \"{variable}\" нужен текстовый слой, но \"{layer}\" им не является."
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

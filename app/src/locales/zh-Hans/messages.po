@@ -24,6 +24,10 @@ msgid "\"{name}\" is already a smart object."
 msgstr "“{name}”已经是智能对象。"
 
 #: app/src/i18n/errors.ts
+msgid "\"{name}\" is not a valid variable name; use letters, digits and underscore, not starting with a digit."
+msgstr "\"{name}\" 不是有效的变量名；请使用字母、数字和下划线，且不能以数字开头。"
+
+#: app/src/i18n/errors.ts
 msgid "\"{op}\" cannot run in an action."
 msgstr "“{op}”无法在动作中运行。"
 
@@ -4673,6 +4677,10 @@ msgstr "曝光时间"
 msgid "Exposure value"
 msgstr "曝光度值"
 
+#: app/src/i18n/errors.ts
+msgid "EXR compression {compression} is not supported (use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB)."
+msgstr "不支持 EXR 压缩 {compression}（请使用 NONE、RLE、ZIPS、ZIP、PIZ、PXR24、B44、B44A、DWAA 或 DWAB）。"
+
 #: app/src/i18n/choices.ts
 msgid "Extend"
 msgstr "延伸"
@@ -5790,6 +5798,10 @@ msgstr "实色混合"
 #: app/src/shell/tools.ts
 msgid "Hardness"
 msgstr "硬度"
+
+#: app/src/i18n/errors.ts
+msgid "HDR {line} is not supported (only 32-bit_rle_rgbe)."
+msgstr "不支持 HDR {line}（仅支持 32-bit_rle_rgbe）。"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
@@ -8315,6 +8327,10 @@ msgstr "未选择画笔预设：请在“画笔”中选择一个以编辑动态
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
 msgstr "在 {fromName} 中未找到画笔。"
+
+#: app/src/i18n/errors.ts
+msgid "No data set named \"{name}\"."
+msgstr "没有名为 \"{name}\" 的数据组。"
 
 #: app/src/app/typeMenu.ts
 msgid "No default type styles have been saved yet."
@@ -12416,6 +12432,10 @@ msgid "The action has no enabled steps."
 msgstr "该动作没有已启用的步骤。"
 
 #: app/src/i18n/errors.ts
+msgid "The alignment must lie between 0 and 1."
+msgstr "对齐值必须介于 0 和 1 之间。"
+
+#: app/src/i18n/errors.ts
 msgid "The artboard is outside the canvas."
 msgstr "画板位于画布之外。"
 
@@ -12503,6 +12523,10 @@ msgstr "EXR 图块表已损坏。"
 msgid "The File Info was not kept: {why}"
 msgstr "未保留文件简介：{why}"
 
+#: app/src/i18n/errors.ts
+msgid "The file is empty or has only a header row."
+msgstr "文件为空，或只有标题行。"
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr "接下来选择文件位置。"
@@ -12570,6 +12594,10 @@ msgstr "测量的直线已经是直的。"
 #: app/src/i18n/errors.ts
 msgid "The mode or bit depth was not applied: {reason}"
 msgstr "未应用模式或位深度：{reason}"
+
+#: app/src/i18n/errors.ts
+msgid "The name \"{name}\" is already bound to another layer or property."
+msgstr "名称 \"{name}\" 已绑定到另一个图层或属性。"
 
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
@@ -13462,6 +13490,22 @@ msgstr "消失点…"
 #: app/src/i18n/errors.ts
 msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
 msgstr "变量 \"{name}\"：框必须为整数像素，宽和高至少为 1，并在图层限制之内"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" expected true/false or visible/hidden but got \"{value}\"."
+msgstr "变量 \"{variable}\" 需要 true/false 或 visible/hidden，但得到的是 \"{value}\"。"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" is bound to a layer that no longer exists."
+msgstr "变量 \"{variable}\" 绑定的图层已不存在。"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a pixel layer, but \"{layer}\" is not one."
+msgstr "变量 \"{variable}\" 需要像素图层，但 \"{layer}\" 不是像素图层。"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a type layer, but \"{layer}\" is not one."
+msgstr "变量 \"{variable}\" 需要文字图层，但 \"{layer}\" 不是文字图层。"
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

@@ -24,6 +24,10 @@ msgid "\"{name}\" is already a smart object."
 msgstr "« {name} » est déjà un objet dynamique."
 
 #: app/src/i18n/errors.ts
+msgid "\"{name}\" is not a valid variable name; use letters, digits and underscore, not starting with a digit."
+msgstr "\"{name}\" n’est pas un nom de variable valide ; utilise des lettres, des chiffres et le trait de soulignement, sans commencer par un chiffre."
+
+#: app/src/i18n/errors.ts
 msgid "\"{op}\" cannot run in an action."
 msgstr "« {op} » ne peut pas être exécuté dans une action."
 
@@ -4676,6 +4680,10 @@ msgstr "Durée d’exposition"
 msgid "Exposure value"
 msgstr "Valeur d’exposition"
 
+#: app/src/i18n/errors.ts
+msgid "EXR compression {compression} is not supported (use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB)."
+msgstr "La compression EXR {compression} n’est pas prise en charge (utilise NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA ou DWAB)."
+
 #: app/src/i18n/choices.ts
 msgid "Extend"
 msgstr "Étendre"
@@ -5793,6 +5801,10 @@ msgstr "Mélange maximal"
 #: app/src/shell/tools.ts
 msgid "Hardness"
 msgstr "Dureté"
+
+#: app/src/i18n/errors.ts
+msgid "HDR {line} is not supported (only 32-bit_rle_rgbe)."
+msgstr "HDR {line} n’est pas pris en charge (seulement 32-bit_rle_rgbe)."
 
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
@@ -8318,6 +8330,10 @@ msgstr "Aucun paramètre prédéfini de pinceau sélectionné : choisis-en un d
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
 msgstr "Aucun pinceau trouvé dans {fromName}."
+
+#: app/src/i18n/errors.ts
+msgid "No data set named \"{name}\"."
+msgstr "Aucun jeu de données nommé \"{name}\"."
 
 #: app/src/app/typeMenu.ts
 msgid "No default type styles have been saved yet."
@@ -12419,6 +12435,10 @@ msgid "The action has no enabled steps."
 msgstr "L’action n’a aucune étape activée."
 
 #: app/src/i18n/errors.ts
+msgid "The alignment must lie between 0 and 1."
+msgstr "L’alignement doit être compris entre 0 et 1."
+
+#: app/src/i18n/errors.ts
 msgid "The artboard is outside the canvas."
 msgstr "Le plan de travail est en dehors de la zone de travail."
 
@@ -12506,6 +12526,10 @@ msgstr "La table des tuiles EXR est endommagée."
 msgid "The File Info was not kept: {why}"
 msgstr "Les infos fichier n’ont pas été conservées : {why}"
 
+#: app/src/i18n/errors.ts
+msgid "The file is empty or has only a header row."
+msgstr "Le fichier est vide ou ne contient qu’une ligne d’en-tête."
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr "L’emplacement du fichier est choisi ensuite."
@@ -12573,6 +12597,10 @@ msgstr "La ligne mesurée est déjà droite."
 #: app/src/i18n/errors.ts
 msgid "The mode or bit depth was not applied: {reason}"
 msgstr "Le mode ou la profondeur de bits n’a pas été appliqué : {reason}"
+
+#: app/src/i18n/errors.ts
+msgid "The name \"{name}\" is already bound to another layer or property."
+msgstr "Le nom \"{name}\" est déjà lié à un autre calque ou à une autre propriété."
 
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
@@ -13465,6 +13493,22 @@ msgstr "Point de fuite…"
 #: app/src/i18n/errors.ts
 msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
 msgstr "variable \"{name}\" : le cadre doit être en pixels entiers, d’au moins 1 de large et de haut, dans les limites du calque"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" expected true/false or visible/hidden but got \"{value}\"."
+msgstr "La variable \"{variable}\" attendait true/false ou visible/hidden, mais a reçu \"{value}\"."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" is bound to a layer that no longer exists."
+msgstr "La variable \"{variable}\" est liée à un calque qui n’existe plus."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a pixel layer, but \"{layer}\" is not one."
+msgstr "La variable \"{variable}\" nécessite un calque de pixels, mais \"{layer}\" n’en est pas un."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a type layer, but \"{layer}\" is not one."
+msgstr "La variable \"{variable}\" nécessite un calque de texte, mais \"{layer}\" n’en est pas un."
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

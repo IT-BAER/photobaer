@@ -142,6 +142,8 @@ export const ERROR_LABELS: Record<string, MessageDescriptor> = {
   'Unlock the group before converting it to an artboard.': msg`Unlock the group before converting it to an artboard.`,
   'Variables are limited to 1000 bindings and 10000 data sets': msg`Variables are limited to 1000 bindings and 10000 data sets`,
   'At most 1000 replacement images can be loaded.': msg`At most 1000 replacement images can be loaded.`,
+  'The file is empty or has only a header row.': msg`The file is empty or has only a header row.`,
+  'The alignment must lie between 0 and 1.': msg`The alignment must lie between 0 and 1.`,
 };
 
 // Messages with a variable part: the pattern captures it, the message takes it by name.
@@ -163,6 +165,15 @@ const PATTERNS: [RegExp, (m: string[]) => string][] = [
   [/^The variables were not kept: (.+)$/, ([reason]) => { const why = errorLabel(reason!); return i18n._(msg`The variables were not kept: ${why}`); }],
   [/^variable "(.+)": the box must be whole pixels at least 1 wide and high, within the layer limits$/, ([name]) => i18n._(msg`variable "${name}": the box must be whole pixels at least 1 wide and high, within the layer limits`)],
   [/^The File Info was not kept: (.+)$/, ([reason]) => { const why = errorLabel(reason!); return i18n._(msg`The File Info was not kept: ${why}`); }],
+  [/^"(.+)" is not a valid variable name; use letters, digits and underscore, not starting with a digit\.$/, ([name]) => i18n._(msg`"${name}" is not a valid variable name; use letters, digits and underscore, not starting with a digit.`)],
+  [/^The name "(.+)" is already bound to another layer or property\.$/, ([name]) => i18n._(msg`The name "${name}" is already bound to another layer or property.`)],
+  [/^No data set named "(.+)"\.$/, ([name]) => i18n._(msg`No data set named "${name}".`)],
+  [/^Variable "(.+)" is bound to a layer that no longer exists\.$/, ([variable]) => i18n._(msg`Variable "${variable}" is bound to a layer that no longer exists.`)],
+  [/^Variable "(.+)" needs a pixel layer, but "(.+)" is not one\.$/, ([variable, layer]) => i18n._(msg`Variable "${variable}" needs a pixel layer, but "${layer}" is not one.`)],
+  [/^Variable "(.+)" needs a type layer, but "(.+)" is not one\.$/, ([variable, layer]) => i18n._(msg`Variable "${variable}" needs a type layer, but "${layer}" is not one.`)],
+  [/^Variable "(.+)" expected true\/false or visible\/hidden but got "(.*)"\.$/, ([variable, value]) => i18n._(msg`Variable "${variable}" expected true/false or visible/hidden but got "${value}".`)],
+  [/^EXR compression (.+) is not supported \(use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB\)\.$/, ([compression]) => i18n._(msg`EXR compression ${compression} is not supported (use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB).`)],
+  [/^HDR (.+) is not supported \(only 32-bit_rle_rgbe\)\.$/, ([line]) => i18n._(msg`HDR ${line} is not supported (only 32-bit_rle_rgbe).`)],
   // Last: a file name in front of any reason.
   [/^"([^"]+)": (.+)$/, ([file, reason]) => { const why = errorLabel(reason!); return i18n._(msg`"${file}": ${why}`); }],
 ];

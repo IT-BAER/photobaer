@@ -24,6 +24,10 @@ msgid "\"{name}\" is already a smart object."
 msgstr ""
 
 #: app/src/i18n/errors.ts
+msgid "\"{name}\" is not a valid variable name; use letters, digits and underscore, not starting with a digit."
+msgstr ""
+
+#: app/src/i18n/errors.ts
 msgid "\"{op}\" cannot run in an action."
 msgstr ""
 
@@ -4673,6 +4677,10 @@ msgstr ""
 msgid "Exposure value"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "EXR compression {compression} is not supported (use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB)."
+msgstr ""
+
 #: app/src/i18n/choices.ts
 msgid "Extend"
 msgstr ""
@@ -5789,6 +5797,10 @@ msgstr ""
 #: app/src/shell/OptionsBar.tsx
 #: app/src/shell/tools.ts
 msgid "Hardness"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "HDR {line} is not supported (only 32-bit_rle_rgbe)."
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
@@ -8314,6 +8326,10 @@ msgstr ""
 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "No data set named \"{name}\"."
 msgstr ""
 
 #: app/src/app/typeMenu.ts
@@ -12416,6 +12432,10 @@ msgid "The action has no enabled steps."
 msgstr ""
 
 #: app/src/i18n/errors.ts
+msgid "The alignment must lie between 0 and 1."
+msgstr ""
+
+#: app/src/i18n/errors.ts
 msgid "The artboard is outside the canvas."
 msgstr ""
 
@@ -12503,6 +12523,10 @@ msgstr ""
 msgid "The File Info was not kept: {why}"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "The file is empty or has only a header row."
+msgstr ""
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr ""
@@ -12569,6 +12593,10 @@ msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "The mode or bit depth was not applied: {reason}"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The name \"{name}\" is already bound to another layer or property."
 msgstr ""
 
 #: app/src/app/toolPresets.ts
@@ -13461,6 +13489,22 @@ msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" expected true/false or visible/hidden but got \"{value}\"."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" is bound to a layer that no longer exists."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a pixel layer, but \"{layer}\" is not one."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a type layer, but \"{layer}\" is not one."
 msgstr ""
 
 #: app/src/app/menus.ts

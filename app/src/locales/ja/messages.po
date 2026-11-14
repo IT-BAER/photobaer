@@ -24,6 +24,10 @@ msgid "\"{name}\" is already a smart object."
 msgstr "「{name}」は既にスマートオブジェクトです。"
 
 #: app/src/i18n/errors.ts
+msgid "\"{name}\" is not a valid variable name; use letters, digits and underscore, not starting with a digit."
+msgstr "\"{name}\" は有効な変数名ではありません。英字、数字、アンダースコアを使用し、先頭を数字にしないでください。"
+
+#: app/src/i18n/errors.ts
 msgid "\"{op}\" cannot run in an action."
 msgstr "「{op}」はアクション内では実行できません。"
 
@@ -4676,6 +4680,10 @@ msgstr "露出時間"
 msgid "Exposure value"
 msgstr "露光量の値"
 
+#: app/src/i18n/errors.ts
+msgid "EXR compression {compression} is not supported (use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB)."
+msgstr "EXR 圧縮 {compression} はサポートされていません (NONE、RLE、ZIPS、ZIP、PIZ、PXR24、B44、B44A、DWAA、DWAB のいずれかを使用してください)。"
+
 #: app/src/i18n/choices.ts
 msgid "Extend"
 msgstr "延長"
@@ -5793,6 +5801,10 @@ msgstr "ハードミックス"
 #: app/src/shell/tools.ts
 msgid "Hardness"
 msgstr "硬さ"
+
+#: app/src/i18n/errors.ts
+msgid "HDR {line} is not supported (only 32-bit_rle_rgbe)."
+msgstr "HDR {line} はサポートされていません (32-bit_rle_rgbe のみ)。"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
@@ -8318,6 +8330,10 @@ msgstr "ブラシプリセットが選択されていません。ダイナミク
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
 msgstr "{fromName} にブラシが見つかりません。"
+
+#: app/src/i18n/errors.ts
+msgid "No data set named \"{name}\"."
+msgstr "\"{name}\" という名前のデータセットはありません。"
 
 #: app/src/app/typeMenu.ts
 msgid "No default type styles have been saved yet."
@@ -12419,6 +12435,10 @@ msgid "The action has no enabled steps."
 msgstr "このアクションには有効なステップがありません。"
 
 #: app/src/i18n/errors.ts
+msgid "The alignment must lie between 0 and 1."
+msgstr "整列は 0 から 1 の間で指定してください。"
+
+#: app/src/i18n/errors.ts
 msgid "The artboard is outside the canvas."
 msgstr "アートボードがカンバスの外側にあります。"
 
@@ -12506,6 +12526,10 @@ msgstr "EXR のタイルテーブルが破損しています。"
 msgid "The File Info was not kept: {why}"
 msgstr "ファイル情報は保持されませんでした: {why}"
 
+#: app/src/i18n/errors.ts
+msgid "The file is empty or has only a header row."
+msgstr "ファイルが空か、ヘッダー行しかありません。"
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr "保存場所は次に選択します。"
@@ -12573,6 +12597,10 @@ msgstr "計測した線は既にまっすぐです。"
 #: app/src/i18n/errors.ts
 msgid "The mode or bit depth was not applied: {reason}"
 msgstr "モードまたはビット数を適用できませんでした: {reason}"
+
+#: app/src/i18n/errors.ts
+msgid "The name \"{name}\" is already bound to another layer or property."
+msgstr "名前 \"{name}\" は既に別のレイヤーまたはプロパティにバインドされています。"
 
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
@@ -13465,6 +13493,22 @@ msgstr "Vanishing Point…"
 #: app/src/i18n/errors.ts
 msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
 msgstr "変数 \"{name}\": ボックスは整数ピクセルで、幅と高さが 1 以上、レイヤーの制限内である必要があります"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" expected true/false or visible/hidden but got \"{value}\"."
+msgstr "変数 \"{variable}\" には true/false または visible/hidden が必要ですが、\"{value}\" が指定されました。"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" is bound to a layer that no longer exists."
+msgstr "変数 \"{variable}\" は存在しなくなったレイヤーにバインドされています。"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a pixel layer, but \"{layer}\" is not one."
+msgstr "変数 \"{variable}\" にはピクセルレイヤーが必要ですが、\"{layer}\" はピクセルレイヤーではありません。"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a type layer, but \"{layer}\" is not one."
+msgstr "変数 \"{variable}\" にはテキストレイヤーが必要ですが、\"{layer}\" はテキストレイヤーではありません。"
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

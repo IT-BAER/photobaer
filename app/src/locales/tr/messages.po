@@ -24,6 +24,10 @@ msgid "\"{name}\" is already a smart object."
 msgstr "\"{name}\" zaten bir akıllı nesne."
 
 #: app/src/i18n/errors.ts
+msgid "\"{name}\" is not a valid variable name; use letters, digits and underscore, not starting with a digit."
+msgstr "\"{name}\" geçerli bir değişken adı değil; harf, rakam ve alt çizgi kullan, rakamla başlama."
+
+#: app/src/i18n/errors.ts
 msgid "\"{op}\" cannot run in an action."
 msgstr "\"{op}\" bir eylemde çalıştırılamaz."
 
@@ -4673,6 +4677,10 @@ msgstr "Pozlama Süresi"
 msgid "Exposure value"
 msgstr "Pozlama değeri"
 
+#: app/src/i18n/errors.ts
+msgid "EXR compression {compression} is not supported (use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB)."
+msgstr "EXR sıkıştırması {compression} desteklenmiyor (NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA veya DWAB kullan)."
+
 #: app/src/i18n/choices.ts
 msgid "Extend"
 msgstr "Uzat"
@@ -5790,6 +5798,10 @@ msgstr "Katı Karışım"
 #: app/src/shell/tools.ts
 msgid "Hardness"
 msgstr "Sertlik"
+
+#: app/src/i18n/errors.ts
+msgid "HDR {line} is not supported (only 32-bit_rle_rgbe)."
+msgstr "HDR {line} desteklenmiyor (yalnızca 32-bit_rle_rgbe)."
 
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
@@ -8315,6 +8327,10 @@ msgstr "Fırça hazır ayarı seçilmedi: dinamikleri düzenlemek için Fırçal
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
 msgstr "{fromName} içinde fırça bulunamadı."
+
+#: app/src/i18n/errors.ts
+msgid "No data set named \"{name}\"."
+msgstr "\"{name}\" adında bir veri kümesi yok."
 
 #: app/src/app/typeMenu.ts
 msgid "No default type styles have been saved yet."
@@ -12416,6 +12432,10 @@ msgid "The action has no enabled steps."
 msgstr "Eylemde etkin adım yok."
 
 #: app/src/i18n/errors.ts
+msgid "The alignment must lie between 0 and 1."
+msgstr "Hizalama 0 ile 1 arasında olmalıdır."
+
+#: app/src/i18n/errors.ts
 msgid "The artboard is outside the canvas."
 msgstr "Çalışma yüzeyi tuvalin dışında."
 
@@ -12503,6 +12523,10 @@ msgstr "EXR karo tablosu bozuk."
 msgid "The File Info was not kept: {why}"
 msgstr "Dosya Bilgileri korunmadı: {why}"
 
+#: app/src/i18n/errors.ts
+msgid "The file is empty or has only a header row."
+msgstr "Dosya boş veya yalnızca bir başlık satırı içeriyor."
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr "Dosya konumu sonraki adımda seçilir."
@@ -12570,6 +12594,10 @@ msgstr "Ölçülen çizgi zaten düz."
 #: app/src/i18n/errors.ts
 msgid "The mode or bit depth was not applied: {reason}"
 msgstr "Mod veya bit derinliği uygulanmadı: {reason}"
+
+#: app/src/i18n/errors.ts
+msgid "The name \"{name}\" is already bound to another layer or property."
+msgstr "\"{name}\" adı zaten başka bir katmana veya özelliğe bağlı."
 
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
@@ -13462,6 +13490,22 @@ msgstr "Ufuk Noktası…"
 #: app/src/i18n/errors.ts
 msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
 msgstr "\"{name}\" değişkeni: kutu tam piksellerden oluşmalı, en az 1 genişlik ve yükseklikte olmalı ve katman sınırları içinde kalmalıdır"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" expected true/false or visible/hidden but got \"{value}\"."
+msgstr "\"{variable}\" değişkeni true/false veya visible/hidden bekliyordu, ancak \"{value}\" aldı."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" is bound to a layer that no longer exists."
+msgstr "\"{variable}\" değişkeni artık var olmayan bir katmana bağlı."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a pixel layer, but \"{layer}\" is not one."
+msgstr "\"{variable}\" değişkeni için bir piksel katmanı gerekir, ancak \"{layer}\" piksel katmanı değil."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a type layer, but \"{layer}\" is not one."
+msgstr "\"{variable}\" değişkeni için bir yazı katmanı gerekir, ancak \"{layer}\" yazı katmanı değil."
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

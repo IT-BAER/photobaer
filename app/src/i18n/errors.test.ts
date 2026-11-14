@@ -52,6 +52,28 @@ test('export, data set, file and memory errors show in the UI language', () => {
     assert.equal(errorLabel('"cat.png": The scaled replacement image is too large.'), `"cat.png": ${errorLabel('The scaled replacement image is too large.')}`, 'the reason after a file name is translated');
     assert.match(errorLabel('The variables were not kept: transform result is too large'), new RegExp(errorLabel('transform result is too large')), 'a nested reason is translated');
     assert.match(errorLabel('The EXR file is damaged (PIZ bitmap).'), /PIZ bitmap/, 'the technical detail is kept');
+    const vars = [
+      'The file is empty or has only a header row.',
+      'The alignment must lie between 0 and 1.',
+      '"1a" is not a valid variable name; use letters, digits and underscore, not starting with a digit.',
+      'The name "title" is already bound to another layer or property.',
+      'No data set named "Q3".',
+      'Variable "x" is bound to a layer that no longer exists.',
+      'Variable "x" needs a pixel layer, but "Text 1" is not one.',
+      'Variable "x" needs a type layer, but "Layer 2" is not one.',
+      'Variable "x" expected true/false or visible/hidden but got "maybe".',
+      'Variable "x" expected true/false or visible/hidden but got "".',
+      'EXR compression B44 is not supported (use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB).',
+      'HDR FORMAT=32-bit_rle_xyze is not supported (only 32-bit_rle_rgbe).',
+    ];
+    assert.deepEqual(vars.filter(s => errorLabel(s) === s), [], 'every variables and HDR/EXR sample is translated');
+    assert.match(errorLabel('No data set named "Q3".'), /"Q3"/, 'the quoted name is kept');
+    assert.match(errorLabel('Variable "x" needs a pixel layer, but "Text 1" is not one.'), /"x".*"Text 1"|"Text 1".*"x"/, 'both names are kept');
+    assert.match(errorLabel('HDR FORMAT=32-bit_rle_xyze is not supported (only 32-bit_rle_rgbe).'), /FORMAT=32-bit_rle_xyze/, 'the HDR line is kept');
+    const nested = errorLabel('The variables were not kept: Variable "x" is bound to a layer that no longer exists.');
+    assert.equal(nested, `${errorLabel('The variables were not kept: transform result is too large').replace(errorLabel('transform result is too large'), errorLabel('Variable "x" is bound to a layer that no longer exists.'))}`, 'both parts of a nested message are translated');
+    assert.notEqual(nested, 'The variables were not kept: Variable "x" is bound to a layer that no longer exists.');
+    assert.doesNotMatch(nested, /no longer exists/, 'the nested reason is translated');
     assert.equal(errorLabel('"x": unknown reason'), '"x": unknown reason', 'an unknown reason passes through');
   } finally { i18n.activate('en'); }
 });

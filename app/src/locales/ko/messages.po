@@ -24,6 +24,10 @@ msgid "\"{name}\" is already a smart object."
 msgstr "\"{name}\"은(는) 이미 고급 개체입니다."
 
 #: app/src/i18n/errors.ts
+msgid "\"{name}\" is not a valid variable name; use letters, digits and underscore, not starting with a digit."
+msgstr "\"{name}\"은(는) 올바른 변수 이름이 아닙니다. 문자, 숫자, 밑줄을 사용하고 숫자로 시작하지 마십시오."
+
+#: app/src/i18n/errors.ts
 msgid "\"{op}\" cannot run in an action."
 msgstr "\"{op}\"은(는) 액션에서 실행할 수 없습니다."
 
@@ -4673,6 +4677,10 @@ msgstr "노출 시간"
 msgid "Exposure value"
 msgstr "노출 값"
 
+#: app/src/i18n/errors.ts
+msgid "EXR compression {compression} is not supported (use NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA or DWAB)."
+msgstr "EXR 압축 {compression}은(는) 지원되지 않습니다(NONE, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA 또는 DWAB를 사용하십시오)."
+
 #: app/src/i18n/choices.ts
 msgid "Extend"
 msgstr "확장"
@@ -5790,6 +5798,10 @@ msgstr "하드 혼합"
 #: app/src/shell/tools.ts
 msgid "Hardness"
 msgstr "경도"
+
+#: app/src/i18n/errors.ts
+msgid "HDR {line} is not supported (only 32-bit_rle_rgbe)."
+msgstr "HDR {line}은(는) 지원되지 않습니다(32-bit_rle_rgbe만 지원)."
 
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
@@ -8315,6 +8327,10 @@ msgstr "선택한 브러시 사전 설정이 없습니다. 다이내믹을 편�
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
 msgstr "{fromName}에서 브러시를 찾을 수 없습니다."
+
+#: app/src/i18n/errors.ts
+msgid "No data set named \"{name}\"."
+msgstr "\"{name}\" 데이터 세트가 없습니다."
 
 #: app/src/app/typeMenu.ts
 msgid "No default type styles have been saved yet."
@@ -12416,6 +12432,10 @@ msgid "The action has no enabled steps."
 msgstr "액션에 활성화된 단계가 없습니다."
 
 #: app/src/i18n/errors.ts
+msgid "The alignment must lie between 0 and 1."
+msgstr "정렬 값은 0과 1 사이여야 합니다."
+
+#: app/src/i18n/errors.ts
 msgid "The artboard is outside the canvas."
 msgstr "대지가 캔버스 밖에 있습니다."
 
@@ -12503,6 +12523,10 @@ msgstr "EXR 타일 테이블이 손상되었습니다."
 msgid "The File Info was not kept: {why}"
 msgstr "파일 정보가 유지되지 않았습니다: {why}"
 
+#: app/src/i18n/errors.ts
+msgid "The file is empty or has only a header row."
+msgstr "파일이 비어 있거나 머리글 행만 있습니다."
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr "파일 위치는 다음 단계에서 선택합니다."
@@ -12570,6 +12594,10 @@ msgstr "측정한 선이 이미 똑바릅니다."
 #: app/src/i18n/errors.ts
 msgid "The mode or bit depth was not applied: {reason}"
 msgstr "모드 또는 비트 심도를 적용하지 못했습니다: {reason}"
+
+#: app/src/i18n/errors.ts
+msgid "The name \"{name}\" is already bound to another layer or property."
+msgstr "이름 \"{name}\"은(는) 이미 다른 레이어 또는 속성에 바인딩되어 있습니다."
 
 #: app/src/app/toolPresets.ts
 msgid "The new tool preset id is invalid or already exists."
@@ -13462,6 +13490,22 @@ msgstr "소실점…"
 #: app/src/i18n/errors.ts
 msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
 msgstr "변수 \"{name}\": 상자는 정수 픽셀이어야 하며 너비와 높이가 1 이상이고 레이어 한도 안에 있어야 합니다"
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" expected true/false or visible/hidden but got \"{value}\"."
+msgstr "변수 \"{variable}\"에는 true/false 또는 visible/hidden이 필요하지만 \"{value}\"이(가) 입력되었습니다."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" is bound to a layer that no longer exists."
+msgstr "변수 \"{variable}\"은(는) 더 이상 존재하지 않는 레이어에 바인딩되어 있습니다."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a pixel layer, but \"{layer}\" is not one."
+msgstr "변수 \"{variable}\"에는 픽셀 레이어가 필요하지만 \"{layer}\"은(는) 픽셀 레이어가 아닙니다."
+
+#: app/src/i18n/errors.ts
+msgid "Variable \"{variable}\" needs a type layer, but \"{layer}\" is not one."
+msgstr "변수 \"{variable}\"에는 문자 레이어가 필요하지만 \"{layer}\"은(는) 문자 레이어가 아닙니다."
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"
