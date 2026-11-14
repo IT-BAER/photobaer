@@ -605,10 +605,14 @@ async function dataSetImages(e: Engine, name: string): Promise<Map<string, Decod
   return out;
 }
 
-// Layer `id`'s pixels become `img`, scaled and aligned in the layer's content bounds (the canvas when empty).
-function replacePixels(e: Engine, id: number, img: Decoded, o: PixelOptions) {
+// The transform pixel limit of the engine (MAX_PIXELS in engine/src/transform.rs).
+const MAX_SCALED_PIXELS = 100_000_000;
+
+// Layer `id`'s pixels become `img`, scaled and aligned in `box` [x, y, w, h].
+function replacePixels(e: Engine, id: number, img: Decoded, o: PixelOptions, box: NonNullable<PixelOptions['box']>) {
   const b = e.layer_bounds(id) as [number, number, number, number] | null;
-  const p = pixelPlacement(b ? { x: b[0], y: b[1], w: b[2], h: b[3] } : { x: 0, y: 0, w: e.width(), h: e.height() }, img, o);
+  const p = pixelPlacement({ x: box[0], y: box[1], w: box[2], h: box[3] }, img, o);
+  if (p.w * p.h > MAX_SCALED_PIXELS) throw new Error('The scaled replacement image is too large.');
   const src = { data: new Uint8ClampedArray(img.rgba.buffer as ArrayBuffer, img.rgba.byteOffset, img.rgba.length), w: img.w, h: img.h };
   const s = p.w === img.w && p.h === img.h ? src : resampleRgba(src, p.w, p.h, 'bicubic');
   const c = p.clip ?? p, x0 = Math.max(p.x, c.x), y0 = Math.max(p.y, c.y), x1 = Math.min(p.x + p.w, c.x + c.w), y1 = Math.min(p.y + p.h, c.y + c.h);
@@ -620,10 +624,14 @@ function replacePixels(e: Engine, id: number, img: Decoded, o: PixelOptions) {
 }
 
 // Applies data set `name` in place and makes it the active one; returns the bindings that could not be applied.
+// A binding without a box stores the layer's bounds before this set (the canvas when empty) as its box.
 function applyDataSet(e: Engine, name: string, images: Map<string, Decoded>): string[] {
   const v = JSON.parse(e.vector_json());
   const m: Variables = v.variables ?? emptyVariables();
   const plan = planDataSet(m, flatNodes(JSON.parse(e.layers_json()) as LayerNode[]), name);
+  const bounds = (id: number) => { const r = e.layer_bounds(id) as Int32Array | null; return (r ? [...r] : [0, 0, e.width(), e.height()]) as NonNullable<PixelOptions['box']>; };
+  const boxes = new Map(plan.pixels.map(([id, , o]) => [id, o.box ?? bounds(id)]));
+  const variables = m.variables.map(b => b.pixels && !b.pixels.box && boxes.has(b.layer) ? { ...b, pixels: { ...b.pixels, box: boxes.get(b.layer)! } } : b);
   for (const [id, visible] of plan.visible) e.set_props(id, JSON.stringify({ visible }));
   for (const [id, text] of plan.text) {
     e.set_text(id, JSON.stringify(replaceText(findNode(e, id)!.text as TextJson, text)));
@@ -632,9 +640,9 @@ function applyDataSet(e: Engine, name: string, images: Map<string, Decoded>): st
   for (const [id, file, o] of plan.pixels) {
     const img = images.get(imageKey(file));
     if (!img) { plan.errors.push(`The image "${file}" is not loaded or cannot be read; choose it with Select File in Image > Variables > Data Sets.`); continue; }
-    try { replacePixels(e, id, img, o); } catch (err) { plan.errors.push(`"${file}": ${(err as Error).message}`); }
+    try { replacePixels(e, id, img, o, boxes.get(id)!); } catch (err) { plan.errors.push(`"${file}": ${(err as Error).message}`); }
   }
-  e.set_document_vector(JSON.stringify({ ...v, variables: { ...m, active: name } }));
+  e.set_document_vector(JSON.stringify({ ...v, variables: { ...m, variables, active: name } }));
   return plan.errors;
 }
 
@@ -3825,9 +3833,14 @@ const api = {
   },
   // Pixel Replacement images for this session, found by file name; returns the names loaded so far.
   loadVariableImages(files: { name: string; bytes: Uint8Array }[]) {
+    let total = 0;
+    for (const b of variableImages.values()) total += b.byteLength;
     for (const f of files) {
-      if (variableImages.size >= 1000 && !variableImages.has(imageKey(f.name))) throw new Error('At most 1000 replacement images can be loaded.');
-      variableImages.set(imageKey(f.name), f.bytes);
+      const key = imageKey(f.name), old = variableImages.get(key);
+      if (variableImages.size >= 1000 && !old) throw new Error('At most 1000 replacement images can be loaded.');
+      total += f.bytes.byteLength - (old?.byteLength ?? 0);
+      if (total > 2 ** 30) throw new Error('The replacement images are limited to 1 GB in total.');
+      variableImages.set(key, f.bytes);
     }
     return [...variableImages.keys()];
   },

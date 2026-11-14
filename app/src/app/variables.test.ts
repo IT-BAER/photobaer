@@ -78,6 +78,9 @@ test('Pixel Replacement: bound with Fit, centered, unclipped; options change; pl
   m = setPixelOptions(m, 2, { method: 'fill', align: [0, 1], clip: true });
   assert.deepEqual(m.variables[0].pixels, { method: 'fill', align: [0, 1], clip: true });
   assert.throws(() => setPixelOptions(m, 2, { method: 'fill', align: [2, 0], clip: true }), /alignment/);
+  const boxed: Variables = { ...m, variables: [{ ...m.variables[0], pixels: { method: 'fill', align: [0, 1], clip: true, box: [1, 2, 30, 40] } }] };
+  assert.deepEqual(setPixelOptions(boxed, 2, { method: 'fit', align: [0, 0], clip: false }).variables[0].pixels, { method: 'fit', align: [0, 0], clip: false, box: [1, 2, 30, 40] }, 'new options keep the stored box');
+  assert.deepEqual(setPixelOptions(boxed, 2, { method: 'fit', align: [0, 0], clip: false, box: [0, 0, 5, 6] }).variables[0].pixels!.box, [0, 0, 5, 6], 'a given box replaces it');
   m = setBinding(m, 2, 'pixels', 'photo2');
   assert.deepEqual(m.variables[0].pixels, { method: 'fill', align: [0, 1], clip: true }, 'a rename keeps the options');
   m = { ...m, variables: [...m.variables, { kind: 'pixels', name: 'onText', layer: 3, pixels: { method: 'fit', align: [0.5, 0.5], clip: false } }],
@@ -107,7 +110,7 @@ test('pixelPlacement: Fit, Fill, As Is and Conform inside the layer bounds, alig
 
 test('variables resource: bindings stored by layer position and name, read back onto new layer ids; damaged data ignored', () => {
   const m: Variables = {
-    variables: [{ kind: 'visibility', name: 'logo', layer: 7 }, { kind: 'pixels', name: 'photo', layer: 9, pixels: { method: 'conform', align: [0, 0.5], clip: true } },
+    variables: [{ kind: 'visibility', name: 'logo', layer: 7 }, { kind: 'pixels', name: 'photo', layer: 9, pixels: { method: 'conform', align: [0, 0.5], clip: true, box: [-4, 3, 120, 80] } },
       { kind: 'text', name: 'gone', layer: 42 }],
     data_sets: [{ name: 'A', values: { logo: 'hidden', photo: 'a.png', gone: 'x' } }], active: 'A',
   };

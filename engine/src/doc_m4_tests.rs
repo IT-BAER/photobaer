@@ -1089,6 +1089,17 @@ fn pixel_replacement_variables_round_trip_and_their_options_are_checked() {
     let mut wrong = v.clone();
     wrong["variables"]["variables"][0]["kind"] = json!("text");
     assert!(d.set_document_vector(&wrong.to_string()).unwrap_err().contains("ariable"), "pixel options only on a Pixel Replacement variable");
+    assert!(!d.manifest().contains("\"box\""), "no box is written while the binding has none");
+    let mut boxed = v.clone();
+    boxed["variables"]["variables"][0]["pixels"]["box"] = json!([-3.0, 2.0, 10.0, 5.0]);
+    d.set_document_vector(&boxed.to_string()).unwrap();
+    let e = Document::from_manifest(&d.manifest()).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&e.vector_json()).unwrap()["variables"], boxed["variables"]);
+    for bad in [json!([0.0, 0.0, 0.0, 5.0]), json!([0.0, 0.0, 4.0, -1.0]), json!([0.5, 0.0, 4.0, 4.0]), json!([0.0, 0.0, 4.0]), json!([3e8, 0.0, 4.0, 4.0]), json!([0.0, 0.0, 1e9, 4.0])] {
+        let mut w = boxed.clone();
+        w["variables"]["variables"][0]["pixels"]["box"] = bad.clone();
+        assert!(d.set_document_vector(&w.to_string()).is_err(), "{bad}");
+    }
 }
 
 #[test]

@@ -467,7 +467,13 @@ pub struct PixelOptions {
     /// x and y from 0 (left, top) to 1 (right, bottom).
     pub align: [f64; 2],
     pub clip: bool,
+    /// The layer's box [x, y, w, h] in document pixels, kept from the first applied data set so every set is placed alike.
+    #[serde(rename = "box", default, skip_serializing_if = "Option::is_none")]
+    pub bounds: Option<[f64; 4]>,
 }
+
+// Layer pixels lie within MAX_TILE_COORD (doc.rs) tiles of TILE pixels of the origin.
+const MAX_LAYER_COORD: f64 = ((1u64 << 20) * crate::doc::TILE as u64) as f64;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -496,6 +502,12 @@ impl Variables {
             }
             if v.pixels.as_ref().is_some_and(|p| p.align.iter().any(|a| !(0.0..=1.0).contains(a))) {
                 return Err(format!("variable \"{}\": the alignment must lie between 0 and 1", v.name));
+            }
+            if v.pixels.as_ref().and_then(|p| p.bounds).is_some_and(|[x, y, w, h]| {
+                let int = |a: f64, lo: f64| a.fract() == 0.0 && (lo..=MAX_LAYER_COORD).contains(&a);
+                ![int(x, -MAX_LAYER_COORD), int(y, -MAX_LAYER_COORD), int(w, 1.0), int(h, 1.0), int(x + w, -MAX_LAYER_COORD), int(y + h, -MAX_LAYER_COORD)].iter().all(|&ok| ok)
+            }) {
+                return Err(format!("variable \"{}\": the box must be whole pixels at least 1 wide and high, within the layer limits", v.name));
             }
         }
         let mut sets = std::collections::HashSet::new();

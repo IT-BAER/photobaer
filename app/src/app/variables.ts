@@ -4,9 +4,9 @@ import type { TextJson } from '../psd/text.ts';
 
 export type VariableKind = 'visibility' | 'text' | 'pixels';
 /** Pixel Replacement: how the image fills the layer's bounds, where it sits there (x, y from 0 to 1), and
- * whether what lies outside the bounds is cut off. */
+ * whether what lies outside the bounds is cut off; `box` [x, y, w, h] holds the bounds of the first applied set. */
 export type PixelMethod = 'fit' | 'fill' | 'as_is' | 'conform';
-export interface PixelOptions { method: PixelMethod; align: [number, number]; clip: boolean }
+export interface PixelOptions { method: PixelMethod; align: [number, number]; clip: boolean; box?: [number, number, number, number] }
 export interface Variable { kind: VariableKind; name: string; layer: number; pixels?: PixelOptions }
 export const defaultPixels = (): PixelOptions => ({ method: 'fit', align: [0.5, 0.5], clip: false });
 export interface DataSet { name: string; values: Record<string, string> }
@@ -99,10 +99,14 @@ export function setBinding(m: Variables, layer: number, kind: VariableKind, name
   return { ...m, variables, data_sets };
 }
 
-/** The Pixel Replacement options of the variable bound to `layer`. */
+/** The Pixel Replacement options of the variable bound to `layer`; the stored box stays unless `o` has one. */
 export function setPixelOptions(m: Variables, layer: number, o: PixelOptions): Variables {
   if (!o.align.every(a => Number.isFinite(a) && a >= 0 && a <= 1)) throw new Error('The alignment must lie between 0 and 1.');
-  return { ...m, variables: m.variables.map(v => (v.layer === layer && v.kind === 'pixels' ? { ...v, pixels: { ...o, align: [...o.align] } } : v)) };
+  return { ...m, variables: m.variables.map(v => {
+    if (v.layer !== layer || v.kind !== 'pixels') return v;
+    const box = o.box ?? v.pixels?.box;
+    return { ...v, pixels: { ...o, align: [...o.align], ...(box && { box: [...box] }) } };
+  }) };
 }
 
 /** The key a Pixel Replacement value finds its loaded image by: the file name of a path, lower case. */

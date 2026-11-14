@@ -4552,7 +4552,8 @@ test('Variables: Pixel Replacement fits, aligns and clears the layer, reports a 
   assert.deepEqual(await pixelAt(10, 1, L), [255, 0, 0, 255], 'an empty layer takes the canvas as its bounds; Fit scales 4 x 2 to 20 x 10');
   assert.deepEqual(await pixelAt(10, 8, L), [0, 0, 255, 255]);
   await call('setVariables', opts('as_is', [1, 1]), 'Define Variables');
-  assert.deepEqual(((await call('applyDataSet', 'Cat')).result as { errors: string[] }).errors, []);
+  const asIs = await call('applyDataSet', 'Cat');
+  assert.deepEqual([asIs.error, (asIs.result as { errors: string[] } | undefined)?.errors], [undefined, []]);
   assert.deepEqual(await pixelAt(17, 8, L), [255, 0, 0, 255], 'As Is keeps 4 x 2 at the bottom right of the old bounds');
   assert.deepEqual(await pixelAt(17, 9, L), [0, 0, 255, 255]);
   assert.deepEqual(await pixelAt(2, 2, L), [0, 0, 0, 0], 'the old pixels are cleared');
@@ -4563,10 +4564,84 @@ test('Variables: Pixel Replacement fits, aligns and clears the layer, reports a 
   const opened = (await call('openFile', new File([files[0].blob], 'cat.psd'))).result as { layers: { id: number; name: string }[] };
   const m = (await call('variables')).result as { variables: { layer: number; pixels: unknown }[]; data_sets: unknown[] };
   assert.equal(m.variables[0].layer, opened.layers.find(l => l.name === 'Photo')!.id);
-  assert.deepEqual(m.variables[0].pixels, { method: 'as_is', align: [1, 1], clip: false });
+  assert.deepEqual(m.variables[0].pixels, { method: 'as_is', align: [1, 1], clip: false, box: [0, 0, 20, 10] });
   assert.equal(m.data_sets.length, 2);
   await call('closeDoc');
 });
+
+// Decodes byte 0 x byte 1 pixels of the solid color in bytes 2-4, or the shared 4 x 2 image for any other file.
+async function withSizedDecoder(run: () => Promise<void>) {
+  const g0 = globalThis as unknown as Record<string, unknown>, keep = { c: g0.createImageBitmap, o: g0.OffscreenCanvas };
+  const sized = (b: Uint8Array) => b.length === 5 && b[0] !== 0x89;
+  let last: Uint8Array | null = null;
+  Object.assign(globalThis, {
+    createImageBitmap: async (blob: Blob) => { last = new Uint8Array(await blob.arrayBuffer()); return sized(last) ? { width: last[0], height: last[1], close() {} } : (keep.c as (b: Blob) => Promise<unknown>)(blob); },
+    OffscreenCanvas: class {
+      width: number; height: number;
+      constructor(w: number, h: number) { this.width = w; this.height = h; }
+      getContext() {
+        const b = last!, inner = new (keep.o as new (w: number, h: number) => { getContext(): { getImageData(x: number, y: number, w: number, h: number): unknown } })(this.width, this.height).getContext();
+        return { drawImage() {}, getImageData: (x: number, y: number, w: number, h: number) =>
+          sized(b) ? { data: new Uint8ClampedArray(w * h * 4).map((_, i) => [b[2], b[3], b[4], 255][i % 4]) } : inner.getImageData(x, y, w, h) };
+      }
+    },
+  });
+  try { await run(); } finally { Object.assign(globalThis, { createImageBitmap: keep.c, OffscreenCanvas: keep.o }); }
+}
+
+test('Variables: Pixel Replacement places every data set in the box of the first applied one, kept in undo, the manifest and PSD', () => withSizedDecoder(async () => {
+  await call('init');
+  await call('newDoc', 40, 20, 8, null);
+  const L = ((await call('addLayer', 0, 'Photo')).result as { created: number }).created;
+  const model = (pixels: object) => ({ variables: [{ kind: 'pixels', name: 'photo', layer: L, pixels }],
+    data_sets: [{ name: 'Wide', values: { photo: 'wide.png' } }, { name: 'Tall', values: { photo: 'tall.png' } }], active: null });
+  await call('setVariables', model({ method: 'fit', align: [0.5, 0.5], clip: false }), 'Define Variables');
+  await call('loadVariableImages', [{ name: 'wide.png', bytes: new Uint8Array([8, 2, 255, 0, 0]) }, { name: 'tall.png', bytes: new Uint8Array([2, 4, 0, 255, 0]) }]);
+  const grid = async () => { const out: number[][] = []; for (let y = 0; y < 20; y++) for (let x = 0; x < 40; x++) out.push(await pixelAt(x, y, L)); return out; };
+  const files = async () => Promise.all(((await call('exportDataSets', 'psd', 1)).result as { blob: Blob }[]).map(async f => [...new Uint8Array(await f.blob.arrayBuffer())]));
+  const box = async () => ((await call('variables')).result as { variables: { pixels: { box?: number[] } }[] }).variables[0].pixels.box;
+  const before = await files();
+  assert.deepEqual(((await call('applyDataSet', 'Wide')).result as { errors: string[] }).errors, []);
+  assert.deepEqual(await box(), [0, 0, 40, 20], 'the empty layer stores the canvas as its box');
+  assert.deepEqual([await pixelAt(20, 4, L), await pixelAt(20, 5, L)], [[0, 0, 0, 0], [255, 0, 0, 255]], 'Fit puts the 8 x 2 image as 40 x 10 in the middle');
+  assert.ok((await files()).every((f, i) => f.length === before[i].length && f.every((v, j) => v === before[i][j])), 'Data Sets as Files ignores the shown set');
+  await call('applyDataSet', 'Tall');
+  const afterWide = await grid();
+  await call('undo');
+  await call('undo');
+  assert.equal(await box(), undefined, 'undo removes the box with the step that stored it');
+  await call('applyDataSet', 'Tall');
+  assert.deepEqual(afterWide, await grid(), 'the second set lands as if it were the first');
+  assert.deepEqual(await pixelAt(15, 0, L), [0, 255, 0, 255], 'Fit puts the 2 x 4 image as 10 x 20 in the canvas box');
+  const saved = ((await call('savePsd')).result as { blob: Blob }).blob;
+  await call('saveEnd', false);
+  const opened = (await call('openFile', new File([saved], 'boxed.psd'))).result as { warnings?: string[] };
+  assert.ok(!(opened.warnings ?? []).some(w => w.includes('variables')), JSON.stringify(opened.warnings));
+  assert.deepEqual(await box(), [0, 0, 40, 20], 'Save As PSD and open keep the box');
+  await call('closeDoc');
+  await call('closeDoc');
+}));
+
+test('Variables: Pixel Replacement refuses a scaled image over the transform limit and replacement images over 1 GB', () => withSizedDecoder(async () => {
+  await call('init');
+  await call('newDoc', 20, 10, 8, null);
+  const L = ((await call('addLayer', 0, 'Photo')).result as { created: number }).created;
+  await call('setVariables', { variables: [{ kind: 'pixels', name: 'photo', layer: L, pixels: { method: 'fill', align: [0, 0], clip: true, box: [0, 0, 100000, 100000] } }],
+    data_sets: [{ name: 'A', values: { photo: 'strip.png' } }], active: null }, 'Define Variables');
+  await call('loadVariableImages', [{ name: 'strip.png', bytes: new Uint8Array([1, 255, 9, 9, 9]) }]);
+  assert.deepEqual(((await call('applyDataSet', 'A')).result as { errors: string[] }).errors, ['"strip.png": The scaled replacement image is too large.']);
+  assert.deepEqual(await pixelAt(0, 0, L), [0, 0, 0, 0], 'the layer is left alone');
+  await call('closeDoc');
+  // Byte lengths only: the sizes are counted, never read.
+  const fake = (n: number) => ({ byteLength: n }) as Uint8Array;
+  const names = async () => (await call('variableImageNames')).result as string[];
+  assert.equal((await call('loadVariableImages', [{ name: 'big1.png', bytes: fake(2 ** 29) }, { name: 'big2.png', bytes: fake(2 ** 29 - 1000) }])).error, undefined);
+  const over = await call('loadVariableImages', [{ name: 'BIG1.png', bytes: fake(2 ** 29 - 10) }, { name: 'x1.png', bytes: fake(4) }, { name: 'x2.png', bytes: fake(2000) }, { name: 'x3.png', bytes: fake(1) }]);
+  assert.equal(over.error, 'The replacement images are limited to 1 GB in total.');
+  const loaded = await names();
+  assert.deepEqual(['big1.png', 'x1.png', 'x2.png', 'x3.png'].map(n => [n, loaded.includes(n)]), [['big1.png', true], ['x1.png', true], ['x2.png', false], ['x3.png', false]]);
+  assert.equal((await call('loadVariableImages', ['big1.png', 'big2.png', 'x1.png'].map(name => ({ name, bytes: new Uint8Array(1) })))).error, undefined, 'a replaced image counts its new size only');
+}));
 
 test('M9 tools: annotations are one undoable step, Straighten Layer levels pixels, New Frame and artboard at a rect', async () => {
   await call('init');
