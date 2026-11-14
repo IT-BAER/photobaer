@@ -4797,6 +4797,10 @@ msgstr "파일 정보"
 msgid "File Info fields are limited to 64 KiB, keywords to 1000 of 1 KiB"
 msgstr "파일 정보 필드는 64KiB, 키워드는 1KiB씩 1000개로 제한됩니다."
 
+#: app/src/i18n/errors.ts
+msgid "File Info values over the limits were shortened."
+msgstr "한도를 초과한 파일 정보 값이 잘렸습니다."
+
 #: app/src/app/menus.ts
 msgid "File Info…"
 msgstr "파일 정보…"

@@ -4797,6 +4797,10 @@ msgstr "Dosya Bilgileri"
 msgid "File Info fields are limited to 64 KiB, keywords to 1000 of 1 KiB"
 msgstr "Dosya Bilgileri alanları 64 KiB ile, anahtar sözcükler her biri 1 KiB olmak üzere 1000 ile sınırlıdır"
 
+#: app/src/i18n/errors.ts
+msgid "File Info values over the limits were shortened."
+msgstr "Sınırları aşan Dosya Bilgileri değerleri kısaltıldı."
+
 #: app/src/app/menus.ts
 msgid "File Info…"
 msgstr "Dosya Bilgileri…"

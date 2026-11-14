@@ -171,3 +171,14 @@ test('parseXmp: values are cut by UTF-8 bytes at a character boundary to the eng
   assert.equal(bytes(r.title), 65536);
   assert.equal(bytes(r.keywords[0]), 1024);
 });
+
+test('parseXmp reports a value or keyword list cut to the limits, and nothing for a packet within them', () => {
+  const cuts = (x: string) => { let n = 0; parseXmp(xmp(x), () => n++); return n > 0; };
+  const bag = (n: number) => `<dc:subject><rdf:Bag>${Array.from({ length: n }, (_, i) => `<rdf:li>k${i}</rdf:li>`).join('')}</rdf:Bag></dc:subject>`;
+  assert.equal(cuts(bag(1000)), false);
+  assert.equal(cuts(bag(1001)), true);
+  assert.equal(parseXmp(xmp(bag(1001)))!.keywords.length, 1000);
+  assert.equal(cuts(`<photoshop:Headline>${'a'.repeat(65536)}</photoshop:Headline>`), false);
+  assert.equal(cuts(`<photoshop:Headline>${'a'.repeat(65537)}</photoshop:Headline>`), true);
+  assert.equal(cuts(`<dc:subject><rdf:Bag><rdf:li>${'a'.repeat(1025)}</rdf:li></rdf:Bag></dc:subject>`), true);
+});

@@ -723,9 +723,13 @@ test('closing a document and creating the next one right away keeps the new auto
   await Promise.all([closed, created]);
   await settle();
   fs.slow = false;
-  const r = await (await Autosave.fromRoot(root as unknown as FileSystemDirectoryHandle)).load();
-  assert.ok(r, 'the new document must be restorable');
-  assert.equal(JSON.parse(r.docs.find(d => d.key === r.active)!.manifest).width, 512);
+  // The save after the close commits once its writes finish, later under CPU load: wait for it, not a fixed time.
+  let width: number | null = null;
+  for (const t = Date.now(); width !== 512 && Date.now() - t < 5000; await settle()) {
+    const r = await (await Autosave.fromRoot(root as unknown as FileSystemDirectoryHandle)).load();
+    width = r ? JSON.parse(r.docs.find(d => d.key === r.active)!.manifest).width : null;
+  }
+  assert.equal(width, 512, 'the new document must be the restorable one');
 });
 
 test('an autosave never stores the hidden source of an open transform session', async () => {
@@ -4478,15 +4482,20 @@ test('File Info is one undoable step, saved into the PSD and read back on open',
   assert.equal((await call('fileInfo')).result, null, 'empty fields remove the File Info');
 });
 
-test('a file with File Info over the limits still opens, without the File Info and with a warning', async () => {
+test('a file with File Info over the limits opens with its File Info shortened to the limits and a warning', async () => {
   const { embedInfo } = await import('./app/fileInfo.ts');
   const psd = exportPsd(new Engine(4, 2, 8)).bytes;
-  const big = embedInfo(psd, 'image/vnd.adobe.photoshop', { title: 'T', author: '', description: '', keywords: Array.from({ length: 1001 }, (_, i) => `k${i}`), copyright: '', copyright_url: '' });
+  const info = { title: 'T', author: '', description: '', copyright: '', copyright_url: '' };
+  const big = embedInfo(psd, 'image/vnd.adobe.photoshop', { ...info, keywords: Array.from({ length: 1001 }, (_, i) => `k${i}`) });
   await call('init');
   const r = await call('openFile', new File([big as Uint8Array<ArrayBuffer>], 'big.psd'));
   assert.equal(r.error, undefined);
-  assert.ok((r.result as { warnings: string[] }).warnings.some(w => w.includes('File Info')));
-  assert.equal((await call('fileInfo')).result, null);
+  assert.ok((r.result as { warnings: string[] }).warnings.includes('File Info values over the limits were shortened.'));
+  const kept = (await call('fileInfo')).result as { title: string; keywords: string[] };
+  assert.deepEqual([kept.title, kept.keywords.length, kept.keywords[999]], ['T', 1000, 'k999']);
+  const fits = embedInfo(psd, 'image/vnd.adobe.photoshop', { ...info, keywords: ['a'] });
+  const ok = await call('openFile', new File([fits as Uint8Array<ArrayBuffer>], 'fits.psd'));
+  assert.ok(!(ok.result as { warnings: string[] }).warnings.some(w => w.includes('File Info')));
 });
 
 test('Variables: Apply Data Set sets visibility and type text in one step, and Data Sets as Files leaves the document alone', async () => {

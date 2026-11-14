@@ -114,7 +114,7 @@ function prop(x: string, tag: string): string[] {
 }
 
 // `s` cut to at most `max` UTF-8 bytes at a character boundary (the engine limits by bytes).
-function cutBytes(s: string, max: number): string {
+function cutUtf8(s: string, max: number): string {
   const b = new TextEncoder().encode(s);
   if (b.length <= max) return s;
   let n = max;
@@ -122,12 +122,16 @@ function cutBytes(s: string, max: number): string {
   return new TextDecoder().decode(b.subarray(0, n));
 }
 
-/** The File Info fields of an XMP packet; null when it has none. Values are cut to the engine's limits. */
-export function parseXmp(x: string): FileInfo | null {
+/** The File Info fields of an XMP packet; null when it has none. Values are cut to the engine's limits, and
+ * `onCut` is called when one was. */
+export function parseXmp(x: string, onCut?: () => void): FileInfo | null {
   const one = (tag: string, alt = false) => { const v = prop(x, tag); return alt ? v[0] ?? '' : v.join('; '); };
+  const cutBytes = (s: string, max: number) => { const c = cutUtf8(s, max); if (c !== s) onCut?.(); return c; };
+  const subject = prop(x, 'dc:subject');
+  if (subject.length > 1000) onCut?.();
   const i: FileInfo = {
     title: one('dc:title', true), author: one('dc:creator'), description: one('dc:description', true),
-    keywords: prop(x, 'dc:subject').slice(0, 1000).map(k => cutBytes(k, 1024)), copyright: one('dc:rights', true), copyright_url: one('xmpRights:WebStatement'),
+    keywords: subject.slice(0, 1000).map(k => cutBytes(k, 1024)), copyright: one('dc:rights', true), copyright_url: one('xmpRights:WebStatement'),
   };
   for (const k of ['title', 'author', 'description', 'copyright', 'copyright_url'] as const) i[k] = cutBytes(i[k], 65536);
   const extra: Record<string, string> = {}, camera: Record<string, string> = {};
@@ -211,11 +215,12 @@ function readXmp(b: Uint8Array): string | null {
   return null;
 }
 
-/** The File Info of an image file (PNG, JPEG, WebP, PSD), or null when it has none or cannot be read. */
-export function readInfo(b: Uint8Array): FileInfo | null {
+/** The File Info of an image file (PNG, JPEG, WebP, PSD), or null when it has none or cannot be read;
+ * `onCut` as in parseXmp. */
+export function readInfo(b: Uint8Array, onCut?: () => void): FileInfo | null {
   try {
     const x = readXmp(b);
-    return x ? parseXmp(x) : null;
+    return x ? parseXmp(x, onCut) : null;
   } catch {
     return null;
   }

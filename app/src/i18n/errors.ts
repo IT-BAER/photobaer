@@ -80,6 +80,7 @@ export const ERROR_LABELS: Record<string, MessageDescriptor> = {
   'The scaled replacement image is too large.': msg`The scaled replacement image is too large.`,
   'The replacement images are limited to 1 GB in total.': msg`The replacement images are limited to 1 GB in total.`,
   'The image is too large to save at this bit depth.': msg`The image is too large to save at this bit depth.`,
+  'File Info values over the limits were shortened.': msg`File Info values over the limits were shortened.`,
   'This is not an OpenEXR file.': msg`This is not an OpenEXR file.`,
   'Deep OpenEXR files are not supported.': msg`Deep OpenEXR files are not supported.`,
   'The EXR header is damaged.': msg`The EXR header is damaged.`,

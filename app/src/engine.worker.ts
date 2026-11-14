@@ -884,10 +884,13 @@ async function engineOf(file: File): Promise<{ e: Engine; name: string; warnings
   const r = await decodeFile(file);
   const b = new Uint8Array(await file.arrayBuffer());
   // File Info from the XMP packet, with the Camera Data of the EXIF block over the XMP camera fields.
-  const xmp = readInfo(b), exif = fileExif(b), cam = exif ? Object.fromEntries(Object.entries(readExif(exif)).map(([k, v]) => [k, v.slice(0, 1000)])) : {};
+  let cut = false;
+  const xmp = readInfo(b, () => { cut = true; }), exif = fileExif(b);
+  const cam = exif ? Object.fromEntries(Object.entries(readExif(exif)).map(([k, v]) => { cut ||= v.length > 1000; return [k, v.slice(0, 1000)]; })) : {};
   const i = xmp || Object.keys(cam).length ? normInfo({ ...(xmp ?? emptyInfo()), camera: { ...xmp?.camera, ...cam } }) : null;
   try {
     if (i || grayFile(b)) r.e.set_document_vector(JSON.stringify({ ...JSON.parse(r.e.vector_json()), ...(i ? { info: i } : {}), ...(grayFile(b) ? { gray: true } : {}) }));
+    if (i && cut) r.warnings.push('File Info values over the limits were shortened.');
   } catch (err) {
     r.warnings.push(`The File Info was not kept: ${(err as Error).message}`);
   }

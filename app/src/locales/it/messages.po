@@ -4797,6 +4797,10 @@ msgstr "Informazioni sul file"
 msgid "File Info fields are limited to 64 KiB, keywords to 1000 of 1 KiB"
 msgstr "I campi Informazioni sul file sono limitati a 64 KiB, le parole chiave a 1000 da 1 KiB"
 
+#: app/src/i18n/errors.ts
+msgid "File Info values over the limits were shortened."
+msgstr "I valori delle informazioni sul file oltre i limiti sono stati accorciati."
+
 #: app/src/app/menus.ts
 msgid "File Info…"
 msgstr "Informazioni sul file…"
