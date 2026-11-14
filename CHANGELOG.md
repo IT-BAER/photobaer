@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Profile.
 - File > File Info: Basic, Camera Data (read from the EXIF of opened JPEG, PNG, WebP and PSD files), Origin, IPTC and
   an editable Raw Data tab; metadata templates can be saved, applied (replace all, replace matching, append), imported
-  and exported as .xmp.
+  and exported as .xmp. Raw Data and templates shorten values over the limits with a warning.
 - Image > Variables: Pixel Replacement variables (Fit, Fill, As Is, Conform, alignment, Clip to Bounding Box). Images
   are chosen with Select File or Load Images and stay loaded until the page is reloaded (at most 1 GB in total). Every
   data set is placed in the layer's bounds as they were when the first data set was applied; Image Size, Canvas Size,
@@ -62,7 +62,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Save As PSD and PSB keep layer pixels and layer masks outside the canvas at 8, 16 and 32 bits, and opening puts
   them back at the same position. Before, those pixels were lost without a warning.
-- Errors of Export As size estimates, of opening EXR and HDR files and of Save As ICO show in the UI language.
+- Errors of Export As size estimates, of opening EXR and HDR files and of Save As ICO, and the warnings of Save As
+  PSD and of opening PSD files, show in the UI language.
+- Layer Content Options on a gradient fill layer keep its gradient. Before, OK replaced it with the default black to
+  white gradient.
 - An invalid character reference in a file's XMP (for example `&#x110000;`) reads as U+FFFD; before, the file opened
   without any of its File Info.
 - File > Revert of an SVG renders it again at the size and resolution chosen when it was opened.
