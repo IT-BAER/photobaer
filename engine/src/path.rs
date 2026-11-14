@@ -472,8 +472,7 @@ pub struct PixelOptions {
     pub bounds: Option<[f64; 4]>,
 }
 
-// Layer pixels lie within MAX_TILE_COORD (doc.rs) tiles of TILE pixels of the origin.
-const MAX_LAYER_COORD: f64 = ((1u64 << 20) * crate::doc::TILE as u64) as f64;
+const MAX_LAYER_COORD: f64 = crate::doc::MAX_LAYER_COORD as f64;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

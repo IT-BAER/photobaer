@@ -18,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fill layers, Gradient Overlay and gradient glows use it. PSD files do not store it, and Save As PSD says so.
 - File > Save As writes TIFF (LZW; 8, 16 or 32 bits; the ICC profile below 32 bits; File Info), BMP and Targa (RLE)
   as a flattened copy and keeps the document as it is. File > Export > Export As writes 8-bit TIFF (LZW), BMP and
-  Targa (RLE). BMP and Targa keep transparency as 32-bit BGRA, also in Grayscale documents.
+  Targa (RLE). BMP and Targa keep transparency as 32-bit BGRA, also in Grayscale documents. Save As TIFF at 16 and
+  32 bits takes images up to 4 GiB of samples and says so for larger ones.
 - PNG and JPEG exports with File Info carry EXIF (description, author, copyright, resolution).
 - File > Export > Export As: Image Size (width, height, scale) with Resample, Canvas Size, and a preview of the selected
   row. Save for Web: Original, Optimized, 2-Up and 4-Up views (picking a pane takes its settings) and Matte (the

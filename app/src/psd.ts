@@ -3,7 +3,7 @@ import {
   initializeCanvas, type AdjustmentLayer, type BlendMode, type Color, type EffectContour, type Layer, type LayerEffectsInfo,
   type LayerTextData, type LinkedFile, type PixelData, type PlacedLayerFilter, type Psd, type VectorContent,
 } from 'ag-psd';
-import { Engine } from './engine-pkg/photobaer_engine.js';
+import { Engine, layer_coord_limit } from './engine-pkg/photobaer_engine.js';
 import { artboardIn, artboardOut, layoutIn, layoutOut } from './psd/layout.ts';
 import { rasterMaskOf, readSavedPaths, shapeIn, shapeOut, vectorMaskIn, vectorMaskOut, writeSavedPaths } from './psd/vector.ts';
 import { textIn, textOut } from './psd/text.ts';
@@ -505,17 +505,15 @@ type Samples = Uint8ClampedArray | Uint8Array | Uint16Array | Float32Array;
 const asBytes = (a: Uint16Array | Float32Array) => new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
 const toRgba8 = (d: Samples) =>
   d instanceof Uint16Array ? Uint8Array.from(d, v => Math.round(v / 257)) : d instanceof Float32Array ? Uint8Array.from(d, v => Math.round(Math.min(1, Math.max(0, v)) * 255)) : d;
-// The engine's tile coordinate limit (MAX_TILE_COORD) in px; a crafted rect beyond it is cropped.
-const FAR = 256 * (1 << 20);
-
 // Straight RGBA into layer `id`: 16/32-bit samples as the document's own tiles, unless `rgba8` (text layer
 // caches, which stay cropped to the canvas).
 export function place(e: Engine, id: number, l: { imageData?: PixelData; left?: number; top?: number }, w: number, h: number, rgba8 = false) {
   const img = l.imageData;
   if (!img || img.width === 0 || img.height === 0) return;
   const src = (rgba8 ? toRgba8(img.data as Samples) : img.data) as Samples;
-  const left = l.left ?? 0, top = l.top ?? 0;
-  const [minX, minY, maxX, maxY] = rgba8 ? [0, 0, w, h] : [-FAR, -FAR, FAR, FAR];
+  const left = l.left ?? 0, top = l.top ?? 0, far = layer_coord_limit();
+  // A crafted rect past the engine's layer coordinate limit is cropped to it.
+  const [minX, minY, maxX, maxY] = rgba8 ? [0, 0, w, h] : [-far, -far, far, far];
   const x0 = Math.max(minX, left), x1 = Math.min(maxX, left + img.width);
   const y0 = Math.max(minY, top), y1 = Math.min(maxY, top + img.height);
   if (x0 >= x1 || y0 >= y1) return;
@@ -538,9 +536,9 @@ function placeMask(e: Engine, id: number, m: NonNullable<Layer['mask']>) {
   const img = m.imageData;
   if (!img || img.width === 0 || img.height === 0) return;
   const def = m.defaultColor ?? 0;
-  const left = m.left ?? 0, top = m.top ?? 0;
-  const x0 = Math.max(-FAR, left), x1 = Math.min(FAR, left + img.width);
-  const y0 = Math.max(-FAR, top), y1 = Math.min(FAR, top + img.height);
+  const left = m.left ?? 0, top = m.top ?? 0, far = layer_coord_limit();
+  const x0 = Math.max(-far, left), x1 = Math.min(far, left + img.width);
+  const y0 = Math.max(-far, top), y1 = Math.min(far, top + img.height);
   if (x0 >= x1 || y0 >= y1) return;
   // 16/32-bit masks (Uint16Array, Float32Array) and 16/32-bit documents take 16-bit mask tiles.
   const data = img.data as Samples;

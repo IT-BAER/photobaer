@@ -106,7 +106,10 @@ const TILE_BYTES_F32: usize = TILE_PIXELS * 4 * 4;
 const MANIFEST_FORMAT: &str = "photobaer-manifest";
 const MANIFEST_VERSION: u32 = 8;
 // A tile coordinate far outside the largest canvas is a broken file, not a moved layer.
-const MAX_TILE_COORD: u32 = 1 << 20;
+pub(crate) const MAX_TILE_COORD: u32 = 1 << 20;
+// Layer pixels lie within this many px of the origin.
+pub(crate) const MAX_LAYER_COORD: i64 = MAX_TILE_COORD as i64 * TILE as i64;
+pub(crate) use transform::MAX_PIXELS as MAX_TRANSFORM_PIXELS;
 // Ids travel as JS numbers; anything above 2^53 would lose precision or overflow next_id.
 const MAX_ID: u64 = 1 << 53;
 

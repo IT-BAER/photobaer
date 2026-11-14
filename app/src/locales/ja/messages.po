@@ -12555,6 +12555,10 @@ msgid "The image size {w} x {h} cannot be written in this format."
 msgstr "イメージサイズ {w} x {h} はこの形式では書き出せません。"
 
 #: app/src/i18n/errors.ts
+msgid "the Intensity of 32-bit gradient stops is not stored in PSD"
+msgstr "32 ビットグラデーションのカラー分岐点の強さは PSD に保存されません"
+
+#: app/src/i18n/errors.ts
 msgid "The layer has no pixels."
 msgstr "レイヤーにピクセルがありません。"
 
@@ -13457,6 +13461,10 @@ msgstr "Vanishing Point はレイヤーのピクセルに適用され、マス�
 #: app/src/app/menus.ts
 msgid "Vanishing Point…"
 msgstr "Vanishing Point…"
+
+#: app/src/i18n/errors.ts
+msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
+msgstr "変数 \"{name}\": ボックスは整数ピクセルで、幅と高さが 1 以上、レイヤーの制限内である必要があります"
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

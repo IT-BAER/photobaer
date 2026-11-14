@@ -12552,6 +12552,10 @@ msgid "The image size {w} x {h} cannot be written in this format."
 msgstr "图像尺寸 {w} x {h} 无法以此格式写入。"
 
 #: app/src/i18n/errors.ts
+msgid "the Intensity of 32-bit gradient stops is not stored in PSD"
+msgstr "PSD 不存储 32 位渐变色标的强度"
+
+#: app/src/i18n/errors.ts
 msgid "The layer has no pixels."
 msgstr "该图层没有像素。"
 
@@ -13454,6 +13458,10 @@ msgstr "消失点适用于图层像素，而非蒙版。"
 #: app/src/app/menus.ts
 msgid "Vanishing Point…"
 msgstr "消失点…"
+
+#: app/src/i18n/errors.ts
+msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
+msgstr "变量 \"{name}\"：框必须为整数像素，宽和高至少为 1，并在图层限制之内"
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

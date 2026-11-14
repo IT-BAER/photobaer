@@ -434,9 +434,8 @@ impl Document {
         Ok(sub)
     }
 
-    /// PSD import: one 8-bit tile of filter `fid`'s mask (0 = the stack mask), without a re-render.
-    /// One filter mask tile in the document's mask format (`tile_bytes` layout: 8-bit, or 16-bit in 16/32-bit
-    /// documents); `fid` 0 is the stack mask.
+    /// PSD import: one tile of filter `fid`'s mask (0 = the stack mask) in the document's mask format
+    /// (`tile_bytes` layout: 8-bit, or 16-bit in 16/32-bit documents), without a re-render.
     pub fn set_filter_mask_tile(&mut self, id: u32, fid: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), String> {
         self.check_idle()?;
         self.check_tile_coord(tx, ty)?;
@@ -448,6 +447,7 @@ impl Document {
         Ok(())
     }
 
+    /// PSD import: one 8-bit tile of filter `fid`'s mask (0 = the stack mask), without a re-render.
     pub fn set_filter_mask_tile8(&mut self, id: u32, fid: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), String> {
         self.check_idle()?;
         self.check_tile_coord(tx, ty)?;

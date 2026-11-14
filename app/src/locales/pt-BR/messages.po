@@ -12555,6 +12555,10 @@ msgid "The image size {w} x {h} cannot be written in this format."
 msgstr "O tamanho de imagem {w} x {h} não pode ser gravado neste formato."
 
 #: app/src/i18n/errors.ts
+msgid "the Intensity of 32-bit gradient stops is not stored in PSD"
+msgstr "a intensidade das paradas de cor dos degradês de 32 bits não é salva no PSD"
+
+#: app/src/i18n/errors.ts
 msgid "The layer has no pixels."
 msgstr "A camada não tem pixels."
 
@@ -13457,6 +13461,10 @@ msgstr "O Ponto de fuga funciona nos pixels da camada, não em uma máscara."
 #: app/src/app/menus.ts
 msgid "Vanishing Point…"
 msgstr "Ponto de fuga…"
+
+#: app/src/i18n/errors.ts
+msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
+msgstr "variável \"{name}\": a caixa deve ter pixels inteiros, pelo menos 1 de largura e altura, dentro dos limites da camada"
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

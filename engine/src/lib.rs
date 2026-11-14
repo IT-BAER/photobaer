@@ -406,12 +406,13 @@ impl Engine {
         self.0.doc.add_filter_mask(id, filter_id, reveal).map_err(err)
     }
 
-    /// PSD import: one 8-bit mask tile of filter `filter_id` (0 = the stack mask), no re-render.
-    /// A filter mask tile in the document's mask format (8-bit, or 16-bit in 16/32-bit documents).
+    /// PSD import: one mask tile of filter `filter_id` (0 = the stack mask) in the document's mask format (8-bit,
+    /// or 16-bit in 16/32-bit documents), no re-render.
     pub fn set_filter_mask_tile(&mut self, id: u32, filter_id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), JsError> {
         self.0.doc.set_filter_mask_tile(id, filter_id, tx, ty, data).map_err(err)
     }
 
+    /// PSD import: one 8-bit mask tile of filter `filter_id` (0 = the stack mask), no re-render.
     pub fn set_filter_mask_tile8(&mut self, id: u32, filter_id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), JsError> {
         self.0.doc.set_filter_mask_tile8(id, filter_id, tx, ty, data).map_err(err)
     }
@@ -1607,6 +1608,18 @@ pub fn convert_color(src_name: &str, src_icc: &[u8], dst_name: &str, dst_icc: &[
         t.apply(c, o);
     }
     Ok(out)
+}
+
+/// Layer pixels lie within this many px of the origin; the app crops imported rects to it.
+#[wasm_bindgen]
+pub fn layer_coord_limit() -> f64 {
+    doc::MAX_LAYER_COORD as f64
+}
+
+/// The most pixels a transform result (Image Size, Free Transform, Warp) may hold; the app checks it before allocating.
+#[wasm_bindgen]
+pub fn transform_pixel_limit() -> f64 {
+    doc::MAX_TRANSFORM_PIXELS as f64
 }
 
 /// `[{ name, space }]` of the built-in profiles; space is 'rgb' | 'gray' | 'lab'.

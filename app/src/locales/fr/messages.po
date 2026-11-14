@@ -12555,6 +12555,10 @@ msgid "The image size {w} x {h} cannot be written in this format."
 msgstr "La taille d’image {w} x {h} ne peut pas être écrite dans ce format."
 
 #: app/src/i18n/errors.ts
+msgid "the Intensity of 32-bit gradient stops is not stored in PSD"
+msgstr "l’intensité des points de couleur des dégradés 32 bits n’est pas enregistrée dans le PSD"
+
+#: app/src/i18n/errors.ts
 msgid "The layer has no pixels."
 msgstr "Le calque ne contient aucun pixel."
 
@@ -13457,6 +13461,10 @@ msgstr "Point de fuite agit sur les pixels du calque, pas sur un masque."
 #: app/src/app/menus.ts
 msgid "Vanishing Point…"
 msgstr "Point de fuite…"
+
+#: app/src/i18n/errors.ts
+msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
+msgstr "variable \"{name}\" : le cadre doit être en pixels entiers, d’au moins 1 de large et de haut, dans les limites du calque"
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

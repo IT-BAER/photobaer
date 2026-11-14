@@ -12552,6 +12552,10 @@ msgid "The image size {w} x {h} cannot be written in this format."
 msgstr "{w} x {h} görüntü boyutu bu biçimde yazılamaz."
 
 #: app/src/i18n/errors.ts
+msgid "the Intensity of 32-bit gradient stops is not stored in PSD"
+msgstr "32 bit degrade renk duraklarının yoğunluğu PSD’de saklanmaz"
+
+#: app/src/i18n/errors.ts
 msgid "The layer has no pixels."
 msgstr "Katmanda piksel yok."
 
@@ -13454,6 +13458,10 @@ msgstr "Ufuk Noktası, maskede değil katman piksellerinde çalışır."
 #: app/src/app/menus.ts
 msgid "Vanishing Point…"
 msgstr "Ufuk Noktası…"
+
+#: app/src/i18n/errors.ts
+msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
+msgstr "\"{name}\" değişkeni: kutu tam piksellerden oluşmalı, en az 1 genişlik ve yükseklikte olmalı ve katman sınırları içinde kalmalıdır"
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

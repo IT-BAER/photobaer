@@ -39,7 +39,7 @@ impl Remap {
 }
 
 // Same limit as warp: a dense f32 plane of this size already needs 1.6 GB of wasm32's 4 GiB.
-const MAX_PIXELS: i64 = 100_000_000;
+pub(crate) const MAX_PIXELS: i64 = 100_000_000;
 
 pub(super) fn check_area(r: [i32; 4]) -> Result<(), String> {
     if r[2] as i64 * r[3] as i64 > MAX_PIXELS {

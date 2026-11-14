@@ -1,4 +1,4 @@
-import init, { Engine, Fonts, HdrMerge, convert_color, filter_schema, type ImageTiles, fit_path, icc_builtins, icc_describe, live_path, puppet_geometry, vanishing_connected, vanishing_render, type Liquify } from './engine-pkg/photobaer_engine.js';
+import init, { Engine, Fonts, HdrMerge, convert_color, filter_schema, type ImageTiles, fit_path, icc_builtins, icc_describe, live_path, puppet_geometry, transform_pixel_limit, vanishing_connected, vanishing_render, type Liquify } from './engine-pkg/photobaer_engine.js';
 import { FontStore } from './fonts/store.ts';
 import { History } from './history.ts';
 import { Autosave } from './autosave.ts';
@@ -605,14 +605,12 @@ async function dataSetImages(e: Engine, name: string): Promise<Map<string, Decod
   return out;
 }
 
-// The transform pixel limit of the engine (MAX_PIXELS in engine/src/transform.rs).
-const MAX_SCALED_PIXELS = 100_000_000;
-
-// Layer `id`'s pixels become `img`, scaled and aligned in `box` [x, y, w, h].
+// Layer `id`'s old content is cleared and its pixels become `img`, scaled and aligned in `box` [x, y, w, h];
+// a scaled size over the engine's transform limit is refused before any allocation.
 function replacePixels(e: Engine, id: number, img: Decoded, o: PixelOptions, box: NonNullable<PixelOptions['box']>) {
   const b = e.layer_bounds(id) as [number, number, number, number] | null;
   const p = pixelPlacement({ x: box[0], y: box[1], w: box[2], h: box[3] }, img, o);
-  if (p.w * p.h > MAX_SCALED_PIXELS) throw new Error('The scaled replacement image is too large.');
+  if (p.w * p.h > transform_pixel_limit()) throw new Error('The scaled replacement image is too large.');
   const src = { data: new Uint8ClampedArray(img.rgba.buffer as ArrayBuffer, img.rgba.byteOffset, img.rgba.length), w: img.w, h: img.h };
   const s = p.w === img.w && p.h === img.h ? src : resampleRgba(src, p.w, p.h, 'bicubic');
   const c = p.clip ?? p, x0 = Math.max(p.x, c.x), y0 = Math.max(p.y, c.y), x1 = Math.min(p.x + p.w, c.x + c.w), y1 = Math.min(p.y + p.h, c.y + c.h);

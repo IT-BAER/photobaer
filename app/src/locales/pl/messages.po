@@ -12552,6 +12552,10 @@ msgid "The image size {w} x {h} cannot be written in this format."
 msgstr "Rozmiaru obrazu {w} x {h} nie można zapisać w tym formacie."
 
 #: app/src/i18n/errors.ts
+msgid "the Intensity of 32-bit gradient stops is not stored in PSD"
+msgstr "intensywność punktów koloru gradientów 32-bitowych nie jest zapisywana w PSD"
+
+#: app/src/i18n/errors.ts
 msgid "The layer has no pixels."
 msgstr "Warstwa nie zawiera pikseli."
 
@@ -13454,6 +13458,10 @@ msgstr "Punkt zbiegu działa na pikselach warstwy, a nie na masce."
 #: app/src/app/menus.ts
 msgid "Vanishing Point…"
 msgstr "Punkt zbiegu…"
+
+#: app/src/i18n/errors.ts
+msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
+msgstr "zmienna \"{name}\": ramka musi mieć całe piksele, co najmniej 1 szerokości i wysokości, w granicach warstwy"
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"

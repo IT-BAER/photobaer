@@ -12552,6 +12552,10 @@ msgid "The image size {w} x {h} cannot be written in this format."
 msgstr "Le dimensioni dell'immagine {w} x {h} non possono essere scritte in questo formato."
 
 #: app/src/i18n/errors.ts
+msgid "the Intensity of 32-bit gradient stops is not stored in PSD"
+msgstr "l’intensità delle interruzioni di colore dei gradienti a 32 bit non viene salvata nel PSD"
+
+#: app/src/i18n/errors.ts
 msgid "The layer has no pixels."
 msgstr "Il livello non ha pixel."
 
@@ -13454,6 +13458,10 @@ msgstr "Fuoco prospettico funziona sui pixel del livello, non su una maschera."
 #: app/src/app/menus.ts
 msgid "Vanishing Point…"
 msgstr "Fuoco prospettico…"
+
+#: app/src/i18n/errors.ts
+msgid "variable \"{name}\": the box must be whole pixels at least 1 wide and high, within the layer limits"
+msgstr "variabile \"{name}\": il riquadro deve essere in pixel interi, largo e alto almeno 1, entro i limiti del livello"
 
 #: app/src/app/menus.ts
 msgid "Variable Data Sets…"
