@@ -11,22 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- OpenEXR files with PIZ, DWAA and DWAB compression open (half and float channels, scanline and tiled).
+- OpenEXR files with PIZ, DWAA and DWAB compression open (half and float channels, scanline and tiled). The PIZ and
+  DWA decoders are ported from OpenEXR; its BSD-3-Clause notice is in the third-party notices.
 - Import PDF crops to the Bounding Box, Media Box, Crop Box, Bleed Box, Trim Box or Art Box.
-- In 32-bit documents a Gradient Editor color stop takes the Color Picker's Intensity and keeps it in presets.
+- In 32-bit documents a Gradient Editor color stop takes the Color Picker's Intensity and keeps it in presets; gradient
+  fill layers, Gradient Overlay and gradient glows use it. PSD files do not store it, and Save As PSD says so.
 - File > Save As writes TIFF (LZW; 8, 16 or 32 bits; the ICC profile below 32 bits; File Info), BMP and Targa (RLE)
   as a flattened copy and keeps the document as it is. File > Export > Export As writes 8-bit TIFF (LZW), BMP and
-  Targa (RLE).
+  Targa (RLE). BMP and Targa keep transparency as 32-bit BGRA, also in Grayscale documents.
 - PNG and JPEG exports with File Info carry EXIF (description, author, copyright, resolution).
 - File > Export > Export As: Image Size (width, height, scale) with Resample, Canvas Size, and a preview of the selected
-  row. Save for Web: Original, Optimized, 2-Up and 4-Up views (picking a pane takes its settings) and Matte.
+  row. Save for Web: Original, Optimized, 2-Up and 4-Up views (picking a pane takes its settings) and Matte (the
+  matte's gray value in Grayscale documents).
 - File > Scripts > Image Processor: Save as TIFF (8 bits, LZW or no compression), Copyright Info and Include ICC
   Profile.
 - File > File Info: Basic, Camera Data (read from the EXIF of opened JPEG, PNG, WebP and PSD files), Origin, IPTC and
   an editable Raw Data tab; metadata templates can be saved, applied (replace all, replace matching, append), imported
-  and exported as .xmp.
+  and exported as .xmp. When a file opens, values longer than the File Info limits are cut at a character boundary
+  with a warning, and an invalid character reference reads as U+FFFD, so the rest of its File Info is kept.
 - Image > Variables: Pixel Replacement variables (Fit, Fill, As Is, Conform, alignment, Clip to Bounding Box). Images
-  are chosen with Select File or Load Images and stay loaded until the page is reloaded.
+  are chosen with Select File or Load Images and stay loaded until the page is reloaded (at most 1 GB in total). Every
+  data set is placed in the layer's bounds as they were when the first data set was applied.
 - Variables and data sets are saved in PSD files and come back when photobaer opens them; Photoshop does not read them.
 
 ### Changed
@@ -45,13 +50,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export As resamples every scaled row with the chosen Resample method (Automatic by default) in the engine instead
   of the browser's smoothing.
 - 16-bit and 32-bit PSD files store their layer channels compressed (ZIP with prediction, as Photoshop does) and
-  keep smart filter masks.
+  keep smart filter masks at their full precision.
 - JPEG export of a Grayscale document writes a one-channel JPEG with the document's Gray profile.
 - While one color channel or saved channels are targeted, the foreground and background swatches show the gray
   that painting uses.
 
 ### Fixed
 
+- Save As PSD and PSB keep layer pixels and layer masks outside the canvas at 8, 16 and 32 bits, and opening puts
+  them back at the same position. Before, those pixels were lost without a warning.
+- Errors of Export As size estimates, of the Variables dialogs and of opening EXR, HDR and ICO files show in the UI
+  language.
 - File > Revert of an SVG renders it again at the size and resolution chosen when it was opened.
 - A drag whose mouse release the canvas never saw (released outside the window, after a focus change) ends where it
   was last shown when the mouse moves without a button or the next press starts, so the next press starts a new drag
