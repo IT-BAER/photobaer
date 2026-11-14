@@ -182,3 +182,12 @@ test('parseXmp reports a value or keyword list cut to the limits, and nothing fo
   assert.equal(cuts(`<photoshop:Headline>${'a'.repeat(65537)}</photoshop:Headline>`), true);
   assert.equal(cuts(`<dc:subject><rdf:Bag><rdf:li>${'a'.repeat(1025)}</rdf:li></rdf:Bag></dc:subject>`), true);
 });
+
+test('rawXmpInfo reports a cut once, and nothing for a packet within the limits', () => {
+  const big = xmpPacket({ ...INFO, keywords: Array.from({ length: 1001 }, (_, n) => `k${n}`) });
+  let cuts = 0;
+  assert.equal(rawXmpInfo(big, { ...INFO }, () => { cuts++; })?.keywords.length, 1000);
+  assert.equal(cuts, 1);
+  rawXmpInfo(xmpPacket(INFO), { ...INFO }, () => { cuts++; });
+  assert.equal(cuts, 1);
+});

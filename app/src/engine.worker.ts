@@ -24,7 +24,7 @@ import { CMYK_SPACES, DEFAULT_COLOR_SETTINGS, RGB_SPACES, openAction, type Color
 import { openProfileStore, type ProfileStore } from './app/profileStore.ts';
 import { DEFAULT_VIEW, engineView, proofLabel, sanitizeHdr, type ViewState } from './app/proof.ts';
 import { grayFile, isPsd, psdResources, psdWithIcc, psdWithResource, readIcc } from './app/iccFiles.ts';
-import { embedInfo, emptyInfo, hasInfo, normInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
+import { cutValue, embedInfo, emptyInfo, hasInfo, normInfo, readInfo, type FileInfo } from './app/fileInfo.ts';
 import { fileExif, readExif } from './app/exif.ts';
 import { emptyAnnotations, framePath, rotationAbout, type Annotations } from './app/measure.ts';
 import {
@@ -884,7 +884,7 @@ async function engineOf(file: File): Promise<{ e: Engine; name: string; warnings
   // File Info from the XMP packet, with the Camera Data of the EXIF block over the XMP camera fields.
   let cut = false;
   const xmp = readInfo(b, () => { cut = true; }), exif = fileExif(b);
-  const cam = exif ? Object.fromEntries(Object.entries(readExif(exif)).map(([k, v]) => { cut ||= v.length > 1000; return [k, v.slice(0, 1000)]; })) : {};
+  const cam = exif ? Object.fromEntries(Object.entries(readExif(exif)).map(([k, v]) => { cut ||= v.length > 1000; return [k, cutValue(v)]; })) : {};
   const i = xmp || Object.keys(cam).length ? normInfo({ ...(xmp ?? emptyInfo()), camera: { ...xmp?.camera, ...cam } }) : null;
   try {
     if (i || grayFile(b)) r.e.set_document_vector(JSON.stringify({ ...JSON.parse(r.e.vector_json()), ...(i ? { info: i } : {}), ...(grayFile(b) ? { gray: true } : {}) }));

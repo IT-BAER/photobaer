@@ -179,13 +179,16 @@ function wellFormed(x: string): boolean {
 }
 
 /** The File Info of the edited Raw XMP `x`, keeping the Camera Data of `cur` that XMP does not carry; an empty
- * packet clears the fields; null when `x` is not well-formed XMP. */
-export function rawXmpInfo(x: string, cur: FileInfo): FileInfo | null {
+ * packet clears the fields; null when `x` is not well-formed XMP. `onCut` as in parseXmp. */
+export function rawXmpInfo(x: string, cur: FileInfo, onCut?: () => void): FileInfo | null {
   if (x.trim() && !wellFormed(x)) return null;
-  const p = (x.trim() && parseXmp(x)) || emptyInfo();
+  const p = (x.trim() && parseXmp(x, onCut)) || emptyInfo();
   const kept = Object.fromEntries(Object.entries(cur.camera ?? {}).filter(([k]) => !(k in CAMERA_XMP)));
   return normInfo({ ...p, camera: { ...kept, ...p.camera } });
 }
+
+/** `v` cut to `max` UTF-16 units without leaving half of a surrogate pair. */
+export const cutValue = (v: string, max = 1000) => v.slice(0, v.length > max && (v.charCodeAt(max - 1) & 0xfc00) === 0xd800 ? max - 1 : max);
 
 const utf8 = new TextDecoder();
 const XMP_PNG = 'XML:com.adobe.xmp';

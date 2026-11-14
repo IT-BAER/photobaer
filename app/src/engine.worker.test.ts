@@ -6,6 +6,7 @@ import { exportPsd } from './psd.ts';
 import { concat, crc, embedIcc, psdWithIcc } from './app/iccFiles.ts';
 import { Autosave } from './autosave.ts';
 import { tileIds } from './project.ts';
+import { cutValue, emptyInfo, normInfo } from './app/fileInfo.ts';
 import { loadEngine } from './worker/helpers.ts';
 import { inkGray } from './app/channels.ts';
 import { FakeDir, fs } from './fake-opfs.ts';
@@ -4776,4 +4777,16 @@ test('Select Subject selects a distinct subject in one step; a flat or empty lay
   const hidden = await call('selectSubject', top);
   assert.ok(hidden.error, 'a hidden layer is an error');
   assert.equal(((await call('selectCommand', 'inverse')).result as D).history.labels.length, shown + 1, 'the failed call left no open step');
+});
+
+test('a camera value cut across an emoji keeps the File Info; a lone surrogate is rejected by the engine', () => {
+  const v = '1'.repeat(999) + '\u{1F600}' + 'x';
+  const keep = (cut: string) => {
+    const e = new Engine(1, 1, 8);
+    try { e.set_document_vector(JSON.stringify({ ...JSON.parse(e.vector_json()), info: normInfo({ ...emptyInfo(), camera: { Make: cut } }) })); } finally { e.free(); }
+  };
+  assert.throws(() => keep(v.slice(0, 1000)), 'a lone high surrogate is rejected');
+  const cut = cutValue(v);
+  assert.ok(cut.length <= 1000 && cut === '1'.repeat(999));
+  keep(cut);
 });

@@ -5,7 +5,7 @@ import type { Active } from '../LayersPanel.tsx';
 import { locate, nodeById } from '../layers.ts';
 import type { Rgb } from '../shell/color.ts';
 import type { ViewerTool } from '../viewer.ts';
-import type { AlignMode, AutosaveState, DocInfo, FillContent, StrokeSelectionParams } from '../worker/types.ts';
+import type { AlignMode, AutosaveState, DocInfo, FillContent, GradientDef, StrokeSelectionParams } from '../worker/types.ts';
 
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
@@ -88,13 +88,15 @@ interface FillContentForm {
   type: keyof typeof FILL_LAYERS;
   color: Rgb; style: 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond'; angle: number; scalePct: number;
   reverse: boolean; dither: boolean; alignWithLayer: boolean; patternId: string; linked: boolean;
+  // The edited layer's own gradient; absent for a new gradient fill, which starts from DEFAULT_GRADIENT.
+  gradient?: GradientDef;
 }
 type FillDialogMode = { kind: 'create'; type: FillContentForm['type'] } | { kind: 'edit'; id: number };
 function fillContentFromForm(f: FillContentForm): FillContent {
   if (f.type === 'solid') return { type: 'solid', color: f.color };
   if (f.type === 'gradient') {
     return {
-      type: 'gradient', gradient: DEFAULT_GRADIENT, style: f.style, angle: f.angle, scale: f.scalePct / 100,
+      type: 'gradient', gradient: f.gradient ?? DEFAULT_GRADIENT, style: f.style, angle: f.angle, scale: f.scalePct / 100,
       reverse: f.reverse, dither: f.dither, align_with_layer: f.alignWithLayer, offset: [0, 0],
     };
   }
@@ -103,7 +105,7 @@ function fillContentFromForm(f: FillContentForm): FillContent {
 function formFromFillContent(c: FillContent, fallbackColor: Rgb, fallbackPattern: string): FillContentForm {
   const base: FillContentForm = { type: c.type, color: fallbackColor, style: 'linear', angle: 0, scalePct: 100, reverse: false, dither: false, alignWithLayer: true, patternId: fallbackPattern, linked: true };
   if (c.type === 'solid') return { ...base, color: c.color };
-  if (c.type === 'gradient') return { ...base, style: c.style, angle: c.angle, scalePct: c.scale * 100, reverse: c.reverse, dither: c.dither, alignWithLayer: c.align_with_layer };
+  if (c.type === 'gradient') return { ...base, gradient: c.gradient, style: c.style, angle: c.angle, scalePct: c.scale * 100, reverse: c.reverse, dither: c.dither, alignWithLayer: c.align_with_layer };
   return { ...base, patternId: c.pattern_id, scalePct: c.scale * 100, angle: c.angle, linked: c.linked };
 }
 type CreateResult = DocInfo & { created: number };

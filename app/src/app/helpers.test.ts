@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { DocInfo } from '../worker/types.ts';
-import { FILL_CONTENTS, holdBackground, landFloat, needsLayer, nextActive, whenBackground } from './helpers.ts';
+import type { DocInfo, FillContent } from '../worker/types.ts';
+import { FILL_CONTENTS, fillContentFromForm, formFromFillContent, holdBackground, landFloat, needsLayer, nextActive, whenBackground } from './helpers.ts';
 
 test('Fill contents list Content-Aware between Color… and Pattern', () => {
   assert.deepEqual(Object.values(FILL_CONTENTS).map(d => d.message), ['Foreground Color', 'Background Color', 'Color…', 'Content-Aware', 'Pattern', 'History', 'Black', '50% Gray', 'White']);
@@ -110,4 +110,25 @@ test('background reads wait until every Move hold is released', async () => {
   b();
   await waiting;
   assert.deepEqual(order, ['free', 'one left', 'after both'], 'a second release of the same hold does not count twice');
+});
+
+const GRAD: FillContent = {
+  type: 'gradient', style: 'radial', angle: 30, scale: 1.5, reverse: true, dither: false, align_with_layer: true, offset: [0, 0],
+  gradient: {
+    method: 'classic',
+    color_stops: [{ position: 0, color: [255, 0, 0], midpoint: 0.5 }, { position: 0.4, color: [0, 255, 0], midpoint: 0.3, intensity: 0.7 }, { position: 1, color: [0, 0, 255], midpoint: 0.5 }],
+    opacity_stops: [{ position: 0, opacity: 0.2, midpoint: 0.5 }, { position: 1, opacity: 1, midpoint: 0.5 }],
+  },
+} as FillContent;
+
+test('Layer Content Options keeps the gradient of a gradient fill layer', () => {
+  const c = fillContentFromForm(formFromFillContent(GRAD, [0, 0, 0], ''));
+  assert.deepEqual(c, { ...GRAD, offset: [0, 0] });
+});
+
+test('a fill switched from solid to gradient gets the default black to white gradient', () => {
+  const f = formFromFillContent({ type: 'solid', color: [9, 9, 9] }, [0, 0, 0], '');
+  const c = fillContentFromForm({ ...f, type: 'gradient' });
+  assert.equal(c.type, 'gradient');
+  if (c.type === 'gradient') assert.deepEqual(c.gradient.color_stops.map(s => s.color), [[0, 0, 0], [255, 255, 255]]);
 });

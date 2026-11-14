@@ -6,6 +6,7 @@ import { Trans } from '@lingui/react/macro';
 import { i18n } from './i18n/index.ts';
 import { errorText } from './i18n/errors.ts';
 import { client } from './client.ts';
+import { sendVariableImages } from './app/variableImages.ts';
 import { flatNodes } from './layers.ts';
 import {
   defaultPixels, imageKey, importDataSets, setBinding, setPixelOptions, valueOf, type DataSet, type PixelMethod, type PixelOptions, type VariableKind, type Variables,
@@ -66,7 +67,7 @@ export function VariablesDialog({ ref, commit, importInto, exportCsv }:
   // Images picked here stay loaded for this session; with one variable picking, its value becomes the file name.
   async function loadImages(files: File[]) {
     try {
-      setLoaded(await client.call('loadVariableImages', await Promise.all(files.map(async f => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })))));
+      await sendVariableImages(files, f => client.call('loadVariableImages', f), setLoaded);
       if (picking.current && files[0]) setValue(picking.current, files[0].name);
       setError('');
     } catch (e) { setError(errorText(e)); }

@@ -3,6 +3,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'reac
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
+import { errorLabel } from './i18n/errors.ts';
 import { formatNumber } from './i18n/numbers.ts';
 import { applyTemplate, emptyInfo, rawXmpInfo, xmpPacket, type FileInfo, type TemplateMode } from './app/fileInfo.ts';
 import { cameraRows } from './app/cameraData.ts';
@@ -15,6 +16,8 @@ type InfoTab = 'basic' | 'camera' | 'origin' | 'iptc' | 'xmp';
 type Core = Exclude<keyof FileInfo, 'keywords' | 'extra' | 'camera'>;
 const CORE = new Set<string>(['title', 'author', 'description', 'copyright', 'copyright_url']);
 
+// The worker's warning text, translated by errorLabel.
+const CUT = 'File Info values over the limits were shortened.';
 // Saved templates (name to XMP packet) stay in this browser, like Photoshop's metadata template folder.
 const TEMPLATES = 'photobaer.fileInfoTemplates';
 function loadTemplates(): Record<string, string> {
@@ -46,17 +49,17 @@ export function FileInfoDialog({ ref, commit }: { ref: Ref<FileInfoHandle>; comm
   }));
   const value = (): FileInfo => ({ ...i, keywords: keywords.split(/[,;]/).map(k => k.trim()).filter(Boolean) });
   // The edited Raw Data read back; false (with the message shown) while it is not well-formed.
-  const leaveRaw = (): FileInfo | false => {
+  const leaveRaw = (onCut?: () => void): FileInfo | false => {
     if (tab !== 'xmp' || !raw.edited) return value();
-    const v = rawXmpInfo(raw.text, value());
+    const v = rawXmpInfo(raw.text, value(), () => { setError(errorLabel(CUT)); onCut?.(); });
     if (!v) { setError(t`The XMP is not well-formed. Correct it before you leave Raw Data.`); return false; }
     show(v);
     return v;
   };
   const go = (to: InfoTab) => {
+    setError('');
     const v = leaveRaw();
     if (!v) return;
-    setError('');
     if (to === 'xmp') setRaw({ text: xmpPacket(v), edited: false });
     setTab(to);
   };
@@ -79,14 +82,14 @@ export function FileInfoDialog({ ref, commit }: { ref: Ref<FileInfoHandle>; comm
   // A template never carries Camera Data.
   const packet = (v: FileInfo) => xmpPacket({ ...v, camera: undefined });
   const apply = (x: string) => {
+    setError('');
     const v = leaveRaw();
     if (!v) return;
-    const tpl = rawXmpInfo(x, emptyInfo());
+    const tpl = rawXmpInfo(x, emptyInfo(), () => setError(errorLabel(CUT)));
     if (!tpl) { setError(t`The template is not a well-formed XMP file.`); return; }
     const r = applyTemplate(v, tpl, mode);
     show(r);
     if (tab === 'xmp') setRaw({ text: xmpPacket(r), edited: false });
-    setError('');
   };
   const saveTemplate = () => {
     const v = leaveRaw(), n = name.trim();
@@ -113,7 +116,13 @@ export function FileInfoDialog({ ref, commit }: { ref: Ref<FileInfoHandle>; comm
   const urgency: [string, string][] = [['', t`None`], ['1', t`High`], ['2', '2'], ['3', '3'], ['4', '4'], ['5', t`Normal`], ['6', '6'], ['7', '7'], ['8', t`Low`]];
   return (
     <dialog ref={dialog} className="mode-dialog batch-dialog file-info-dialog" aria-label={t`File Info`}>
-      <form onSubmit={e => { e.preventDefault(); const v = leaveRaw(); if (!v) return; dialog.current?.close(); commit(v); }}>
+      {/* Shortened Raw Data stays open with the warning and the shortened packet; the next OK commits it. */}
+      <form onSubmit={e => {
+        e.preventDefault(); let cut = false;
+        const v = leaveRaw(() => { cut = true; }); if (!v) return;
+        if (cut) { setRaw({ text: xmpPacket(v), edited: false }); return; }
+        dialog.current?.close(); commit(v);
+      }}>
         <h2><Trans>File Info</Trans></h2>
         <div className="row" role="tablist">
           {tabButton('basic', t`Basic`)}
