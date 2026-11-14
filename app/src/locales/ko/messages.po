@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "“{docName}”에서 불러올 수 없는 글꼴을 사용합니다. 문서 전체에 사용할 대체 글꼴을 선택하십시오. 텍스트 레이아웃이 변경될 수 있습니다."
 
 #: app/src/i18n/errors.ts
+msgid "\"{file}\": {why}"
+msgstr "\"{file}\": {why}"
+
+#: app/src/i18n/errors.ts
 msgid "\"{name}\" is already a smart object."
 msgstr "\"{name}\"은(는) 이미 고급 개체입니다."
 
@@ -792,6 +796,10 @@ msgstr "최소 진폭"
 msgid "An AI agent controls this tab. Click to disconnect."
 msgstr "AI 에이전트가 이 탭을 제어하고 있습니다. 연결을 끊으려면 클릭하십시오."
 
+#: app/src/i18n/errors.ts
+msgid "An ICO image is at most 256 x 256 pixels."
+msgstr "ICO 이미지는 최대 256 x 256 픽셀입니다."
+
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/menus.ts
 msgid "Analysis"
@@ -1004,6 +1012,10 @@ msgstr "정돈"
 #: app/src/filters/labels.ts
 msgid "Arrangement"
 msgstr "배열"
+
+#: app/src/i18n/errors.ts
+msgid "Array buffer allocation failed"
+msgstr "배열 버퍼 할당에 실패했습니다"
 
 #: app/src/GlyphsPanel.tsx
 msgid "Arrows"
@@ -1284,6 +1296,10 @@ msgstr "B"
 msgctxt "color picker brightness field"
 msgid "B"
 msgstr "B"
+
+#: app/src/i18n/errors.ts
+msgid "B44 EXR channels with pLinear set are not supported."
+msgstr "pLinear가 설정된 B44 EXR 채널은 지원되지 않습니다."
 
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -1707,6 +1723,10 @@ msgstr "더 흐리게"
 #: app/src/filters/labels.ts
 msgid "Blur Shape"
 msgstr "흐림 모양"
+
+#: app/src/i18n/errors.ts
+msgid "BMP files are written from 8-bit samples."
+msgstr "BMP 파일은 8비트 샘플로 기록됩니다."
 
 #: app/src/filters/labels.ts
 msgid "Bokeh Color"
@@ -3571,6 +3591,10 @@ msgstr "인터레이스 제거"
 #: app/src/LayerStyleDialog.tsx
 msgid "Deep"
 msgstr "깊게"
+
+#: app/src/i18n/errors.ts
+msgid "Deep OpenEXR files are not supported."
+msgstr "딥 OpenEXR 파일은 지원되지 않습니다."
 
 #: app/src/AnalysisDialogs.tsx
 #: app/src/levelsCurves.ts
@@ -6446,6 +6470,10 @@ msgstr "교차점"
 msgid "Interval"
 msgstr "간격"
 
+#: app/src/i18n/errors.ts
+msgid "Invalid typed array length: {n}"
+msgstr "잘못된 형식화 배열 길이: {n}"
+
 #: app/src/app/menus.ts
 msgid "Inverse"
 msgstr "반전"
@@ -8608,6 +8636,10 @@ msgstr "문서 해상도로 대지당 한 페이지."
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
 msgstr "픽셀 레이어와 고급 개체만 뒤틀 수 있습니다."
+
+#: app/src/i18n/errors.ts
+msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
+msgstr "위에서 아래, 왼쪽에서 오른쪽(-Y h +X w) 방향의 HDR 파일만 지원됩니다."
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/toolPresets.ts
@@ -12159,6 +12191,10 @@ msgstr "피사체"
 msgid "Sublocation"
 msgstr "세부 위치"
 
+#: app/src/i18n/errors.ts
+msgid "Subsampled EXR channels are not supported."
+msgstr "서브샘플링된 EXR 채널은 지원되지 않습니다."
+
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Subscript"
@@ -12253,6 +12289,10 @@ msgstr "표"
 #: app/src/filters/labels.ts
 msgid "Taper"
 msgstr "가늘어짐"
+
+#: app/src/i18n/errors.ts
+msgid "Targa files are written from 8-bit samples."
+msgstr "Targa 파일은 8비트 샘플로 기록됩니다."
 
 #: app/src/app/Dialogs.tsx
 msgid "Target"
@@ -12376,6 +12416,10 @@ msgid "The artboard is outside the canvas."
 msgstr "대지가 캔버스 밖에 있습니다."
 
 #: app/src/i18n/errors.ts
+msgid "The BMP file would be larger than 4 GB."
+msgstr "BMP 파일이 4 GB를 초과하게 됩니다."
+
+#: app/src/i18n/errors.ts
 msgid "The brush is larger than 5000 x 5000 pixels."
 msgstr "브러시가 5000 x 5000픽셀보다 큽니다."
 
@@ -12419,6 +12463,42 @@ msgstr "되돌릴 문서가 더 이상 활성 상태가 아닙니다."
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr "편집은 이 브라우저 탭에서 실행됩니다. photobaer-mcp는 컴퓨터에서 실행되며 에이전트를 탭에 연결하는 역할만 합니다."
 
+#: app/src/i18n/errors.ts
+msgid "The EXR chunk table is damaged."
+msgstr "EXR 청크 테이블이 손상되었습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file has no R, G, B or Y channel."
+msgstr "EXR 파일에 R, G, B 또는 Y 채널이 없습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file is damaged ({detail})."
+msgstr "EXR 파일이 손상되었습니다({detail})."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file is truncated."
+msgstr "EXR 파일이 잘려 있습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR header has no dataWindow."
+msgstr "EXR 헤더에 dataWindow가 없습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR header is damaged."
+msgstr "EXR 헤더가 손상되었습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR image size is out of range."
+msgstr "EXR 이미지 크기가 범위를 벗어났습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR tile table is damaged."
+msgstr "EXR 타일 테이블이 손상되었습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The File Info was not kept: {why}"
+msgstr "파일 정보가 유지되지 않았습니다: {why}"
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr "파일 위치는 다음 단계에서 선택합니다."
@@ -12428,12 +12508,44 @@ msgid "The filter stack is empty."
 msgstr "필터 스택이 비어 있습니다."
 
 #: app/src/i18n/errors.ts
+msgid "The HDR file is damaged."
+msgstr "HDR 파일이 손상되었습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The HDR file is truncated."
+msgstr "HDR 파일이 잘려 있습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The HDR header is damaged."
+msgstr "HDR 헤더가 손상되었습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The HDR image size is out of range."
+msgstr "HDR 이미지 크기가 범위를 벗어났습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The HDR scanline width is wrong."
+msgstr "HDR 스캔라인 너비가 올바르지 않습니다."
+
+#: app/src/i18n/errors.ts
 msgid "The histogram source must be a pixel layer."
 msgstr "막대 그래프 소스는 픽셀 레이어여야 합니다."
+
+#: app/src/i18n/errors.ts
+msgid "The image \"{file}\" is not loaded or cannot be read; choose it with Select File in Image > Variables > Data Sets."
+msgstr "이미지 \"{file}\"이(가) 로드되지 않았거나 읽을 수 없습니다. 이미지 > 변수 > 데이터 세트에서 파일 선택으로 선택하십시오."
 
 #: app/src/FileDialogs.tsx
 msgid "The image extends past the margins."
 msgstr "이미지가 여백을 벗어납니다."
+
+#: app/src/i18n/errors.ts
+msgid "The image is too large to save at this bit depth."
+msgstr "이미지가 너무 커서 이 비트 심도로 저장할 수 없습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The image size {w} x {h} cannot be written in this format."
+msgstr "이미지 크기 {w} x {h}은(는) 이 형식으로 기록할 수 없습니다."
 
 #: app/src/i18n/errors.ts
 msgid "The layer has no pixels."
@@ -12493,6 +12605,10 @@ msgid "The print image could not be loaded."
 msgstr "인쇄 이미지를 불러올 수 없습니다."
 
 #: app/src/i18n/errors.ts
+msgid "The replacement images are limited to 1 GB in total."
+msgstr "대체 이미지는 총 1 GB로 제한됩니다."
+
+#: app/src/i18n/errors.ts
 msgid "The sample coordinate is outside the document."
 msgstr "샘플 좌표가 문서 밖에 있습니다."
 
@@ -12507,6 +12623,10 @@ msgstr "샘플 소스는 픽셀 레이어여야 합니다."
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
 msgstr "저장된 도구 사전 설정 라이브러리가 유효한 JSON이 아닙니다."
+
+#: app/src/i18n/errors.ts
+msgid "The scaled replacement image is too large."
+msgstr "크기가 조정된 대체 이미지가 너무 큽니다."
 
 #: app/src/i18n/errors.ts
 msgid "The selected area is empty."
@@ -12533,12 +12653,24 @@ msgid "The template is not a well-formed XMP file."
 msgstr "이 템플릿은 올바른 형식의 XMP 파일이 아닙니다."
 
 #: app/src/i18n/errors.ts
+msgid "The TIFF file would be larger than 4 GB."
+msgstr "TIFF 파일이 4 GB를 초과하게 됩니다."
+
+#: app/src/i18n/errors.ts
+msgid "The tiled EXR header has no tile size."
+msgstr "타일형 EXR 헤더에 타일 크기가 없습니다."
+
+#: app/src/i18n/errors.ts
 msgid "The transform was cancelled."
 msgstr "변형이 취소되었습니다."
 
 #: app/src/i18n/errors.ts
 msgid "The type layer has no text."
 msgstr "문자 레이어에 텍스트가 없습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The variables were not kept: {why}"
+msgstr "변수가 유지되지 않았습니다: {why}"
 
 #: app/src/i18n/errors.ts
 msgid "The warped image exceeds the rendering limit."
@@ -12615,6 +12747,14 @@ msgstr "이 필터에는 옵션이 없습니다."
 #: app/src/app/actionsStore.ts
 msgid "This is not a photobaer actions file."
 msgstr "photobaer 액션 파일이 아닙니다."
+
+#: app/src/i18n/errors.ts
+msgid "This is not a Radiance HDR file."
+msgstr "Radiance HDR 파일이 아닙니다."
+
+#: app/src/i18n/errors.ts
+msgid "This is not an OpenEXR file."
+msgstr "OpenEXR 파일이 아닙니다."
 
 #: app/src/LayerStyleDialog.tsx
 msgid "This Layer"
@@ -12909,6 +13049,10 @@ msgstr "놓을 때 변형"
 #: app/src/shell/TransformBar.tsx
 msgid "Transform options"
 msgstr "변형 옵션"
+
+#: app/src/i18n/errors.ts
+msgid "transform result is too large"
+msgstr "변환 결과가 너무 큽니다"
 
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
@@ -13324,6 +13468,10 @@ msgstr "변수"
 #: app/src/i18n/errors.ts
 msgid "Variables are limited to 1000 bindings and 10000 data sets"
 msgstr "변수는 바인딩 1000개, 데이터 세트 10000개로 제한됩니다"
+
+#: app/src/i18n/errors.ts
+msgid "variables bound to layers that were not found were dropped: {names}"
+msgstr "찾을 수 없는 레이어에 바인딩된 변수가 삭제되었습니다: {names}"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Variables without a column: {missing}."

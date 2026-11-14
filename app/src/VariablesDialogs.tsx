@@ -4,6 +4,7 @@ import type { MessageDescriptor } from '@lingui/core';
 import { msg, plural, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { i18n } from './i18n/index.ts';
+import { errorText } from './i18n/errors.ts';
 import { client } from './client.ts';
 import { flatNodes } from './layers.ts';
 import {
@@ -68,13 +69,13 @@ export function VariablesDialog({ ref, commit, importInto, exportCsv }:
       setLoaded(await client.call('loadVariableImages', await Promise.all(files.map(async f => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })))));
       if (picking.current && files[0]) setValue(picking.current, files[0].name);
       setError('');
-    } catch (e) { setError((e as Error).message); }
+    } catch (e) { setError(errorText(e)); }
     picking.current = null;
   }
   const pixelsOf = (id: number): PixelOptions => m.variables.find(v => v.layer === id && v.kind === 'pixels')?.pixels ?? defaultPixels();
   const setPixels = (o: Partial<PixelOptions>) => {
     if (layer === null) return;
-    try { setM(setPixelOptions(m, layer, { ...pixelsOf(layer), ...o })); } catch (e) { setError((e as Error).message); }
+    try { setM(setPixelOptions(m, layer, { ...pixelsOf(layer), ...o })); } catch (e) { setError(errorText(e)); }
   };
   const pickSet = (name: string | null) => { setSet(name); setSetName(name ?? ''); };
   const node = nodes.find(n => n.id === layer);
@@ -88,7 +89,7 @@ export function VariablesDialog({ ref, commit, importInto, exportCsv }:
     try {
       setM(setBinding(m, layer, kind, d[kind].on ? d[kind].name : null));
       setError('');
-    } catch (e) { setError((e as Error).message); }
+    } catch (e) { setError(errorText(e)); }
   }
   const switchLayer = (id: number) => { setLayer(id); setDraft(draftOf(m, id)); setError(''); };
   const putSets = (data_sets: DataSet[], active = m.active) => setM({ ...m, data_sets, active: data_sets.some(d => d.name === active) ? active : null });
@@ -231,7 +232,7 @@ export function ImportDataSetsDialog({ ref }: { ref: Ref<ImportSetsHandle> }) {
         r.unknown.length ? t`Columns without a variable: ${unknown}.` : '',
         r.missing.length ? t`Variables without a column: ${missing}.` : '', r.warnings[0] ?? ''].filter(Boolean).join(' ');
       job.current.done(r.model, report);
-    } catch (e) { setError((e as Error).message); }
+    } catch (e) { setError(errorText(e)); }
   }
   return (
     <dialog ref={dialog} className="mode-dialog batch-dialog" aria-label={t`Import Data Sets`}>

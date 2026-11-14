@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "“{docName}”使用了无法载入的字体。请为整个文档选择替换字体。文本排版可能会改变。"
 
 #: app/src/i18n/errors.ts
+msgid "\"{file}\": {why}"
+msgstr "\"{file}\": {why}"
+
+#: app/src/i18n/errors.ts
 msgid "\"{name}\" is already a smart object."
 msgstr "“{name}”已经是智能对象。"
 
@@ -792,6 +796,10 @@ msgstr "最小振幅"
 msgid "An AI agent controls this tab. Click to disconnect."
 msgstr "AI 代理正在控制此标签页。单击以断开连接。"
 
+#: app/src/i18n/errors.ts
+msgid "An ICO image is at most 256 x 256 pixels."
+msgstr "ICO 图像最大为 256 x 256 像素。"
+
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/menus.ts
 msgid "Analysis"
@@ -1004,6 +1012,10 @@ msgstr "排列"
 #: app/src/filters/labels.ts
 msgid "Arrangement"
 msgstr "排列"
+
+#: app/src/i18n/errors.ts
+msgid "Array buffer allocation failed"
+msgstr "数组缓冲区分配失败"
 
 #: app/src/GlyphsPanel.tsx
 msgid "Arrows"
@@ -1284,6 +1296,10 @@ msgstr "B"
 msgctxt "color picker brightness field"
 msgid "B"
 msgstr "B"
+
+#: app/src/i18n/errors.ts
+msgid "B44 EXR channels with pLinear set are not supported."
+msgstr "不支持设置了 pLinear 的 B44 EXR 通道。"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -1707,6 +1723,10 @@ msgstr "进一步模糊"
 #: app/src/filters/labels.ts
 msgid "Blur Shape"
 msgstr "模糊形状"
+
+#: app/src/i18n/errors.ts
+msgid "BMP files are written from 8-bit samples."
+msgstr "BMP 文件由 8 位样本写入。"
 
 #: app/src/filters/labels.ts
 msgid "Bokeh Color"
@@ -3571,6 +3591,10 @@ msgstr "逐行"
 #: app/src/LayerStyleDialog.tsx
 msgid "Deep"
 msgstr "深"
+
+#: app/src/i18n/errors.ts
+msgid "Deep OpenEXR files are not supported."
+msgstr "不支持深度 OpenEXR 文件。"
 
 #: app/src/AnalysisDialogs.tsx
 #: app/src/levelsCurves.ts
@@ -6446,6 +6470,10 @@ msgstr "交点"
 msgid "Interval"
 msgstr "间隔"
 
+#: app/src/i18n/errors.ts
+msgid "Invalid typed array length: {n}"
+msgstr "类型化数组长度无效：{n}"
+
 #: app/src/app/menus.ts
 msgid "Inverse"
 msgstr "反选"
@@ -8608,6 +8636,10 @@ msgstr "每个画板一页，使用文档分辨率。"
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
 msgstr "只有像素图层和智能对象可以变形。"
+
+#: app/src/i18n/errors.ts
+msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
+msgstr "仅支持从上到下、从左到右 (-Y h +X w) 的 HDR 文件。"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/toolPresets.ts
@@ -12159,6 +12191,10 @@ msgstr "主体"
 msgid "Sublocation"
 msgstr "详细地点"
 
+#: app/src/i18n/errors.ts
+msgid "Subsampled EXR channels are not supported."
+msgstr "不支持子采样的 EXR 通道。"
+
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Subscript"
@@ -12253,6 +12289,10 @@ msgstr "表"
 #: app/src/filters/labels.ts
 msgid "Taper"
 msgstr "锥化"
+
+#: app/src/i18n/errors.ts
+msgid "Targa files are written from 8-bit samples."
+msgstr "Targa 文件由 8 位样本写入。"
 
 #: app/src/app/Dialogs.tsx
 msgid "Target"
@@ -12376,6 +12416,10 @@ msgid "The artboard is outside the canvas."
 msgstr "画板位于画布之外。"
 
 #: app/src/i18n/errors.ts
+msgid "The BMP file would be larger than 4 GB."
+msgstr "BMP 文件将超过 4 GB。"
+
+#: app/src/i18n/errors.ts
 msgid "The brush is larger than 5000 x 5000 pixels."
 msgstr "画笔大于5000 x 5000像素。"
 
@@ -12419,6 +12463,42 @@ msgstr "要恢复的文档已不再处于活动状态。"
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr "编辑在此浏览器标签页中运行；photobaer-mcp 在您的计算机上运行，仅负责将代理连接到该标签页。"
 
+#: app/src/i18n/errors.ts
+msgid "The EXR chunk table is damaged."
+msgstr "EXR 区块表已损坏。"
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file has no R, G, B or Y channel."
+msgstr "EXR 文件没有 R、G、B 或 Y 通道。"
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file is damaged ({detail})."
+msgstr "EXR 文件已损坏（{detail}）。"
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file is truncated."
+msgstr "EXR 文件被截断。"
+
+#: app/src/i18n/errors.ts
+msgid "The EXR header has no dataWindow."
+msgstr "EXR 文件头没有 dataWindow。"
+
+#: app/src/i18n/errors.ts
+msgid "The EXR header is damaged."
+msgstr "EXR 文件头已损坏。"
+
+#: app/src/i18n/errors.ts
+msgid "The EXR image size is out of range."
+msgstr "EXR 图像尺寸超出范围。"
+
+#: app/src/i18n/errors.ts
+msgid "The EXR tile table is damaged."
+msgstr "EXR 图块表已损坏。"
+
+#: app/src/i18n/errors.ts
+msgid "The File Info was not kept: {why}"
+msgstr "未保留文件简介：{why}"
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr "接下来选择文件位置。"
@@ -12428,12 +12508,44 @@ msgid "The filter stack is empty."
 msgstr "滤镜堆栈为空。"
 
 #: app/src/i18n/errors.ts
+msgid "The HDR file is damaged."
+msgstr "HDR 文件已损坏。"
+
+#: app/src/i18n/errors.ts
+msgid "The HDR file is truncated."
+msgstr "HDR 文件被截断。"
+
+#: app/src/i18n/errors.ts
+msgid "The HDR header is damaged."
+msgstr "HDR 文件头已损坏。"
+
+#: app/src/i18n/errors.ts
+msgid "The HDR image size is out of range."
+msgstr "HDR 图像尺寸超出范围。"
+
+#: app/src/i18n/errors.ts
+msgid "The HDR scanline width is wrong."
+msgstr "HDR 扫描线宽度错误。"
+
+#: app/src/i18n/errors.ts
 msgid "The histogram source must be a pixel layer."
 msgstr "直方图源必须是像素图层。"
+
+#: app/src/i18n/errors.ts
+msgid "The image \"{file}\" is not loaded or cannot be read; choose it with Select File in Image > Variables > Data Sets."
+msgstr "图像“{file}”未载入或无法读取；请在 图像 > 变量 > 数据组 中使用“选择文件”选取。"
 
 #: app/src/FileDialogs.tsx
 msgid "The image extends past the margins."
 msgstr "图像超出了边距。"
+
+#: app/src/i18n/errors.ts
+msgid "The image is too large to save at this bit depth."
+msgstr "图像太大，无法以此位深度保存。"
+
+#: app/src/i18n/errors.ts
+msgid "The image size {w} x {h} cannot be written in this format."
+msgstr "图像尺寸 {w} x {h} 无法以此格式写入。"
 
 #: app/src/i18n/errors.ts
 msgid "The layer has no pixels."
@@ -12493,6 +12605,10 @@ msgid "The print image could not be loaded."
 msgstr "无法加载打印图像。"
 
 #: app/src/i18n/errors.ts
+msgid "The replacement images are limited to 1 GB in total."
+msgstr "替换图像总共限制为 1 GB。"
+
+#: app/src/i18n/errors.ts
 msgid "The sample coordinate is outside the document."
 msgstr "取样坐标位于文档之外。"
 
@@ -12507,6 +12623,10 @@ msgstr "取样源必须是像素图层。"
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
 msgstr "已存储的工具预设库不是有效的 JSON。"
+
+#: app/src/i18n/errors.ts
+msgid "The scaled replacement image is too large."
+msgstr "缩放后的替换图像太大。"
 
 #: app/src/i18n/errors.ts
 msgid "The selected area is empty."
@@ -12533,12 +12653,24 @@ msgid "The template is not a well-formed XMP file."
 msgstr "该模板不是格式正确的 XMP 文件。"
 
 #: app/src/i18n/errors.ts
+msgid "The TIFF file would be larger than 4 GB."
+msgstr "TIFF 文件将超过 4 GB。"
+
+#: app/src/i18n/errors.ts
+msgid "The tiled EXR header has no tile size."
+msgstr "图块式 EXR 文件头没有图块尺寸。"
+
+#: app/src/i18n/errors.ts
 msgid "The transform was cancelled."
 msgstr "变换已取消。"
 
 #: app/src/i18n/errors.ts
 msgid "The type layer has no text."
 msgstr "该文字图层没有文本。"
+
+#: app/src/i18n/errors.ts
+msgid "The variables were not kept: {why}"
+msgstr "未保留变量：{why}"
 
 #: app/src/i18n/errors.ts
 msgid "The warped image exceeds the rendering limit."
@@ -12615,6 +12747,14 @@ msgstr "此滤镜没有选项。"
 #: app/src/app/actionsStore.ts
 msgid "This is not a photobaer actions file."
 msgstr "这不是 photobaer 动作文件。"
+
+#: app/src/i18n/errors.ts
+msgid "This is not a Radiance HDR file."
+msgstr "这不是 Radiance HDR 文件。"
+
+#: app/src/i18n/errors.ts
+msgid "This is not an OpenEXR file."
+msgstr "这不是 OpenEXR 文件。"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "This Layer"
@@ -12909,6 +13049,10 @@ msgstr "放置时变换"
 #: app/src/shell/TransformBar.tsx
 msgid "Transform options"
 msgstr "变换选项"
+
+#: app/src/i18n/errors.ts
+msgid "transform result is too large"
+msgstr "变换结果太大"
 
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
@@ -13324,6 +13468,10 @@ msgstr "变量"
 #: app/src/i18n/errors.ts
 msgid "Variables are limited to 1000 bindings and 10000 data sets"
 msgstr "变量最多只能有 1000 个绑定和 10000 个数据组"
+
+#: app/src/i18n/errors.ts
+msgid "variables bound to layers that were not found were dropped: {names}"
+msgstr "绑定到未找到图层的变量已被丢弃：{names}"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Variables without a column: {missing}."

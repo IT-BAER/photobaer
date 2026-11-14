@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "“{docName}” usa fontes que não puderam ser carregadas. Escolha substitutas para o documento inteiro. O layout do texto pode mudar."
 
 #: app/src/i18n/errors.ts
+msgid "\"{file}\": {why}"
+msgstr "\"{file}\": {why}"
+
+#: app/src/i18n/errors.ts
 msgid "\"{name}\" is already a smart object."
 msgstr "\"{name}\" já é um objeto inteligente."
 
@@ -795,6 +799,10 @@ msgstr "Amplitude mín."
 msgid "An AI agent controls this tab. Click to disconnect."
 msgstr "Um agente de IA controla esta guia. Clique para desconectar."
 
+#: app/src/i18n/errors.ts
+msgid "An ICO image is at most 256 x 256 pixels."
+msgstr "Uma imagem ICO tem no máximo 256 x 256 pixels."
+
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/menus.ts
 msgid "Analysis"
@@ -1007,6 +1015,10 @@ msgstr "Organizar"
 #: app/src/filters/labels.ts
 msgid "Arrangement"
 msgstr "Disposição"
+
+#: app/src/i18n/errors.ts
+msgid "Array buffer allocation failed"
+msgstr "Falha na alocação do buffer de array"
 
 #: app/src/GlyphsPanel.tsx
 msgid "Arrows"
@@ -1287,6 +1299,10 @@ msgstr "B"
 msgctxt "color picker brightness field"
 msgid "B"
 msgstr "B"
+
+#: app/src/i18n/errors.ts
+msgid "B44 EXR channels with pLinear set are not supported."
+msgstr "Os canais EXR B44 com pLinear definido não são compatíveis."
 
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
@@ -1710,6 +1726,10 @@ msgstr "Mais desfoque"
 #: app/src/filters/labels.ts
 msgid "Blur Shape"
 msgstr "Forma do desfoque"
+
+#: app/src/i18n/errors.ts
+msgid "BMP files are written from 8-bit samples."
+msgstr "Os arquivos BMP são gravados a partir de amostras de 8 bits."
 
 #: app/src/filters/labels.ts
 msgid "Bokeh Color"
@@ -3574,6 +3594,10 @@ msgstr "Remover entrelaçamento"
 #: app/src/LayerStyleDialog.tsx
 msgid "Deep"
 msgstr "Profundo"
+
+#: app/src/i18n/errors.ts
+msgid "Deep OpenEXR files are not supported."
+msgstr "Arquivos OpenEXR profundos não são compatíveis."
 
 #: app/src/AnalysisDialogs.tsx
 #: app/src/levelsCurves.ts
@@ -6449,6 +6473,10 @@ msgstr "Intersecção"
 msgid "Interval"
 msgstr "Intervalo"
 
+#: app/src/i18n/errors.ts
+msgid "Invalid typed array length: {n}"
+msgstr "Comprimento de array tipado inválido: {n}"
+
 #: app/src/app/menus.ts
 msgid "Inverse"
 msgstr "Inverter"
@@ -8611,6 +8639,10 @@ msgstr "Uma página por prancheta, na resolução do documento."
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
 msgstr "Somente camadas de pixels e objetos inteligentes podem ser deformados."
+
+#: app/src/i18n/errors.ts
+msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
+msgstr "Somente arquivos HDR de cima para baixo e da esquerda para a direita (-Y h +X w) são compatíveis."
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/toolPresets.ts
@@ -12162,6 +12194,10 @@ msgstr "Assunto"
 msgid "Sublocation"
 msgstr "Sublocal"
 
+#: app/src/i18n/errors.ts
+msgid "Subsampled EXR channels are not supported."
+msgstr "Canais EXR com subamostragem não são compatíveis."
+
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Subscript"
@@ -12256,6 +12292,10 @@ msgstr "Tabela"
 #: app/src/filters/labels.ts
 msgid "Taper"
 msgstr "Afilamento"
+
+#: app/src/i18n/errors.ts
+msgid "Targa files are written from 8-bit samples."
+msgstr "Os arquivos Targa são gravados a partir de amostras de 8 bits."
 
 #: app/src/app/Dialogs.tsx
 msgid "Target"
@@ -12379,6 +12419,10 @@ msgid "The artboard is outside the canvas."
 msgstr "A prancheta está fora da tela."
 
 #: app/src/i18n/errors.ts
+msgid "The BMP file would be larger than 4 GB."
+msgstr "O arquivo BMP seria maior que 4 GB."
+
+#: app/src/i18n/errors.ts
 msgid "The brush is larger than 5000 x 5000 pixels."
 msgstr "O pincel é maior que 5000 x 5000 pixels."
 
@@ -12422,6 +12466,42 @@ msgstr "O documento a reverter não está mais ativo."
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr "A edição é executada nesta guia do navegador; o photobaer-mcp roda no seu computador e apenas conecta o agente à guia."
 
+#: app/src/i18n/errors.ts
+msgid "The EXR chunk table is damaged."
+msgstr "A tabela de blocos EXR está danificada."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file has no R, G, B or Y channel."
+msgstr "O arquivo EXR não tem canal R, G, B ou Y."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file is damaged ({detail})."
+msgstr "O arquivo EXR está danificado ({detail})."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file is truncated."
+msgstr "O arquivo EXR está truncado."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR header has no dataWindow."
+msgstr "O cabeçalho EXR não tem dataWindow."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR header is damaged."
+msgstr "O cabeçalho EXR está danificado."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR image size is out of range."
+msgstr "O tamanho da imagem EXR está fora do intervalo."
+
+#: app/src/i18n/errors.ts
+msgid "The EXR tile table is damaged."
+msgstr "A tabela de ladrilhos EXR está danificada."
+
+#: app/src/i18n/errors.ts
+msgid "The File Info was not kept: {why}"
+msgstr "As informações do arquivo não foram mantidas: {why}"
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr "O local do arquivo é escolhido em seguida."
@@ -12431,12 +12511,44 @@ msgid "The filter stack is empty."
 msgstr "A pilha de filtros está vazia."
 
 #: app/src/i18n/errors.ts
+msgid "The HDR file is damaged."
+msgstr "O arquivo HDR está danificado."
+
+#: app/src/i18n/errors.ts
+msgid "The HDR file is truncated."
+msgstr "O arquivo HDR está truncado."
+
+#: app/src/i18n/errors.ts
+msgid "The HDR header is damaged."
+msgstr "O cabeçalho HDR está danificado."
+
+#: app/src/i18n/errors.ts
+msgid "The HDR image size is out of range."
+msgstr "O tamanho da imagem HDR está fora do intervalo."
+
+#: app/src/i18n/errors.ts
+msgid "The HDR scanline width is wrong."
+msgstr "A largura da linha de varredura HDR está incorreta."
+
+#: app/src/i18n/errors.ts
 msgid "The histogram source must be a pixel layer."
 msgstr "A origem do histograma deve ser uma camada de pixels."
+
+#: app/src/i18n/errors.ts
+msgid "The image \"{file}\" is not loaded or cannot be read; choose it with Select File in Image > Variables > Data Sets."
+msgstr "A imagem \"{file}\" não está carregada ou não pode ser lida; escolha-a com Selecionar arquivo em Imagem > Variáveis > Conjuntos de dados."
 
 #: app/src/FileDialogs.tsx
 msgid "The image extends past the margins."
 msgstr "A imagem se estende além das margens."
+
+#: app/src/i18n/errors.ts
+msgid "The image is too large to save at this bit depth."
+msgstr "A imagem é grande demais para ser salva com esta profundidade de bits."
+
+#: app/src/i18n/errors.ts
+msgid "The image size {w} x {h} cannot be written in this format."
+msgstr "O tamanho de imagem {w} x {h} não pode ser gravado neste formato."
 
 #: app/src/i18n/errors.ts
 msgid "The layer has no pixels."
@@ -12496,6 +12608,10 @@ msgid "The print image could not be loaded."
 msgstr "Não foi possível carregar a imagem de impressão."
 
 #: app/src/i18n/errors.ts
+msgid "The replacement images are limited to 1 GB in total."
+msgstr "As imagens de substituição são limitadas a 1 GB no total."
+
+#: app/src/i18n/errors.ts
 msgid "The sample coordinate is outside the document."
 msgstr "A coordenada da amostra está fora do documento."
 
@@ -12510,6 +12626,10 @@ msgstr "A origem da amostra deve ser uma camada de pixels."
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
 msgstr "A biblioteca salva de predefinições de ferramenta não é um JSON válido."
+
+#: app/src/i18n/errors.ts
+msgid "The scaled replacement image is too large."
+msgstr "A imagem de substituição redimensionada é grande demais."
 
 #: app/src/i18n/errors.ts
 msgid "The selected area is empty."
@@ -12536,12 +12656,24 @@ msgid "The template is not a well-formed XMP file."
 msgstr "O modelo não é um arquivo XMP bem formado."
 
 #: app/src/i18n/errors.ts
+msgid "The TIFF file would be larger than 4 GB."
+msgstr "O arquivo TIFF seria maior que 4 GB."
+
+#: app/src/i18n/errors.ts
+msgid "The tiled EXR header has no tile size."
+msgstr "O cabeçalho EXR em ladrilhos não tem tamanho de ladrilho."
+
+#: app/src/i18n/errors.ts
 msgid "The transform was cancelled."
 msgstr "A transformação foi cancelada."
 
 #: app/src/i18n/errors.ts
 msgid "The type layer has no text."
 msgstr "A camada de texto não tem texto."
+
+#: app/src/i18n/errors.ts
+msgid "The variables were not kept: {why}"
+msgstr "As variáveis não foram mantidas: {why}"
 
 #: app/src/i18n/errors.ts
 msgid "The warped image exceeds the rendering limit."
@@ -12618,6 +12750,14 @@ msgstr "Este filtro não tem opções."
 #: app/src/app/actionsStore.ts
 msgid "This is not a photobaer actions file."
 msgstr "Este não é um arquivo de ações do photobaer."
+
+#: app/src/i18n/errors.ts
+msgid "This is not a Radiance HDR file."
+msgstr "Este não é um arquivo Radiance HDR."
+
+#: app/src/i18n/errors.ts
+msgid "This is not an OpenEXR file."
+msgstr "Este não é um arquivo OpenEXR."
 
 #: app/src/LayerStyleDialog.tsx
 msgid "This Layer"
@@ -12912,6 +13052,10 @@ msgstr "Transformar ao soltar"
 #: app/src/shell/TransformBar.tsx
 msgid "Transform options"
 msgstr "Opções de transformação"
+
+#: app/src/i18n/errors.ts
+msgid "transform result is too large"
+msgstr "o resultado da transformação é grande demais"
 
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
@@ -13327,6 +13471,10 @@ msgstr "Variáveis"
 #: app/src/i18n/errors.ts
 msgid "Variables are limited to 1000 bindings and 10000 data sets"
 msgstr "As variáveis são limitadas a 1000 vínculos e 10000 conjuntos de dados"
+
+#: app/src/i18n/errors.ts
+msgid "variables bound to layers that were not found were dropped: {names}"
+msgstr "as variáveis vinculadas a camadas não encontradas foram descartadas: {names}"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Variables without a column: {missing}."

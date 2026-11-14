@@ -5,6 +5,7 @@ import { msg, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { i18n } from './i18n/index.ts';
 import { client } from './client.ts';
+import { errorText } from './i18n/errors.ts';
 import { formatNumber } from './i18n/numbers.ts';
 import type { Dither } from './app/webExport.ts';
 import type { ExportFormat, ExportOptions } from './worker/helpers.ts';
@@ -51,7 +52,7 @@ function useEstimates(opts: ExportOptions[], on: boolean) {
       const r: Estimate[] = [];
       for (const o of opts) {
         try { const a = await client.call('exportAsset', o); r.push({ bytes: a.blob.size, width: a.width, height: a.height, blob: a.blob }); }
-        catch (e) { r.push((e as Error).message); }
+        catch (e) { r.push(errorText(e)); }
         if (dead) return;
         setOut([...r, ...opts.slice(r.length).map(() => null)]);
       }

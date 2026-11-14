@@ -16,6 +16,10 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr ""
 
 #: app/src/i18n/errors.ts
+msgid "\"{file}\": {why}"
+msgstr ""
+
+#: app/src/i18n/errors.ts
 msgid "\"{name}\" is already a smart object."
 msgstr ""
 
@@ -792,6 +796,10 @@ msgstr ""
 msgid "An AI agent controls this tab. Click to disconnect."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "An ICO image is at most 256 x 256 pixels."
+msgstr ""
+
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/menus.ts
 msgid "Analysis"
@@ -1003,6 +1011,10 @@ msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Arrangement"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Array buffer allocation failed"
 msgstr ""
 
 #: app/src/GlyphsPanel.tsx
@@ -1283,6 +1295,10 @@ msgstr ""
 #: app/src/shell/ColorPicker.tsx
 msgctxt "color picker brightness field"
 msgid "B"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "B44 EXR channels with pLinear set are not supported."
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
@@ -1706,6 +1722,10 @@ msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Blur Shape"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "BMP files are written from 8-bit samples."
 msgstr ""
 
 #: app/src/filters/labels.ts
@@ -3570,6 +3590,10 @@ msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Deep"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Deep OpenEXR files are not supported."
 msgstr ""
 
 #: app/src/AnalysisDialogs.tsx
@@ -6446,6 +6470,10 @@ msgstr ""
 msgid "Interval"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Invalid typed array length: {n}"
+msgstr ""
+
 #: app/src/app/menus.ts
 msgid "Inverse"
 msgstr ""
@@ -8607,6 +8635,10 @@ msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Only top-to-bottom, left-to-right HDR files (-Y h +X w) are supported."
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
@@ -12159,6 +12191,10 @@ msgstr ""
 msgid "Sublocation"
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "Subsampled EXR channels are not supported."
+msgstr ""
+
 #: app/src/i18n/history.ts
 #: app/src/TypePanels.tsx
 msgid "Subscript"
@@ -12252,6 +12288,10 @@ msgstr ""
 
 #: app/src/filters/labels.ts
 msgid "Taper"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "Targa files are written from 8-bit samples."
 msgstr ""
 
 #: app/src/app/Dialogs.tsx
@@ -12376,6 +12416,10 @@ msgid "The artboard is outside the canvas."
 msgstr ""
 
 #: app/src/i18n/errors.ts
+msgid "The BMP file would be larger than 4 GB."
+msgstr ""
+
+#: app/src/i18n/errors.ts
 msgid "The brush is larger than 5000 x 5000 pixels."
 msgstr ""
 
@@ -12419,6 +12463,42 @@ msgstr ""
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
 msgstr ""
 
+#: app/src/i18n/errors.ts
+msgid "The EXR chunk table is damaged."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file has no R, G, B or Y channel."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file is damaged ({detail})."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The EXR file is truncated."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The EXR header has no dataWindow."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The EXR header is damaged."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The EXR image size is out of range."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The EXR tile table is damaged."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The File Info was not kept: {why}"
+msgstr ""
+
 #: app/src/ExportDialogs.tsx
 msgid "The file location is chosen next."
 msgstr ""
@@ -12428,11 +12508,43 @@ msgid "The filter stack is empty."
 msgstr ""
 
 #: app/src/i18n/errors.ts
+msgid "The HDR file is damaged."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The HDR file is truncated."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The HDR header is damaged."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The HDR image size is out of range."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The HDR scanline width is wrong."
+msgstr ""
+
+#: app/src/i18n/errors.ts
 msgid "The histogram source must be a pixel layer."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The image \"{file}\" is not loaded or cannot be read; choose it with Select File in Image > Variables > Data Sets."
 msgstr ""
 
 #: app/src/FileDialogs.tsx
 msgid "The image extends past the margins."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The image is too large to save at this bit depth."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The image size {w} x {h} cannot be written in this format."
 msgstr ""
 
 #: app/src/i18n/errors.ts
@@ -12493,6 +12605,10 @@ msgid "The print image could not be loaded."
 msgstr ""
 
 #: app/src/i18n/errors.ts
+msgid "The replacement images are limited to 1 GB in total."
+msgstr ""
+
+#: app/src/i18n/errors.ts
 msgid "The sample coordinate is outside the document."
 msgstr ""
 
@@ -12506,6 +12622,10 @@ msgstr ""
 
 #: app/src/app/toolPresets.ts
 msgid "The saved tool preset library is not valid JSON."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The scaled replacement image is too large."
 msgstr ""
 
 #: app/src/i18n/errors.ts
@@ -12533,11 +12653,23 @@ msgid "The template is not a well-formed XMP file."
 msgstr ""
 
 #: app/src/i18n/errors.ts
+msgid "The TIFF file would be larger than 4 GB."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The tiled EXR header has no tile size."
+msgstr ""
+
+#: app/src/i18n/errors.ts
 msgid "The transform was cancelled."
 msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "The type layer has no text."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "The variables were not kept: {why}"
 msgstr ""
 
 #: app/src/i18n/errors.ts
@@ -12614,6 +12746,14 @@ msgstr ""
 
 #: app/src/app/actionsStore.ts
 msgid "This is not a photobaer actions file."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "This is not a Radiance HDR file."
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "This is not an OpenEXR file."
 msgstr ""
 
 #: app/src/LayerStyleDialog.tsx
@@ -12908,6 +13048,10 @@ msgstr ""
 
 #: app/src/shell/TransformBar.tsx
 msgid "Transform options"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "transform result is too large"
 msgstr ""
 
 #: app/src/app/menus.ts
@@ -13323,6 +13467,10 @@ msgstr ""
 
 #: app/src/i18n/errors.ts
 msgid "Variables are limited to 1000 bindings and 10000 data sets"
+msgstr ""
+
+#: app/src/i18n/errors.ts
+msgid "variables bound to layers that were not found were dropped: {names}"
 msgstr ""
 
 #: app/src/VariablesDialogs.tsx
