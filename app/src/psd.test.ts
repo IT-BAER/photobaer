@@ -590,6 +590,24 @@ test('16-bit and 32-bit smart filter stack masks save in PSD at the document dep
   }
 });
 
+test('16-bit and 32-bit smart filter masks keep their full precision through PSD and PSB', () => {
+  for (const depth of [16, 32] as const) for (const psb of [false, true]) {
+    const { e, id } = psbSmartDoc(depth);
+    e.add_smart_filter(id, JSON.stringify({ kind: 'brightness_contrast', params: { brightness: 20, contrast: 0, legacy: false } }));
+    e.add_filter_mask(id, 0, true);
+    // Values 8-bit precision cannot hold: steps of 1/65535 apart.
+    const tile = new Uint16Array(256 * 256).map((_, i) => 1000 + (i % 256) * 97 + (i >> 8) * 13);
+    e.set_filter_mask_tile(id, 0, 0, 0, new Uint8Array(tile.buffer));
+    const { bytes, warnings } = exportPsd(e, { psb });
+    assert.deepEqual(warnings, []);
+    const { engine: again } = importPsd(bytes, { psb });
+    const got = new Uint16Array(again.tile_bytes(BigInt((m3Of(again).layers[0].smart.stack_mask.tiles as number[][])[0][2])).slice().buffer);
+    const at = got.findIndex((v, i) => i % 256 < 16 && i >> 8 < 16 && v !== tile[i]);
+    assert.equal(at, -1, `${depth}-bit ${psb ? 'PSB' : 'PSD'} sample ${at}: ${got[at]} vs ${tile[at]}`);
+    e.free(); again.free();
+  }
+});
+
 test('a gradient fill layer stop with a 32-bit Intensity warns on PSD export', () => {
   const e = new Engine(8, 8, 32);
   const g = (intensity: number) => ({ name: 'g', content: { type: 'gradient', gradient: { method: 'classic', color_stops: [{ position: 0, color: [9, 9, 9], midpoint: 0.5, intensity }, { position: 1, color: [255, 255, 255], midpoint: 0.5 }],

@@ -648,20 +648,21 @@ function filtersIn(c: ImportCtx, id: number, l: Layer) {
   const mw = m.right - m.left, mh = m.bottom - m.top, size = m.depth === 16 ? 2 : m.depth === 32 ? 4 : 1;
   const stored = ch.compressionMode === 0 ? ch.data : ch.compressionMode === 1 ? unpackRows(ch.data, mw * size, mh) : null;
   if (!stored || stored.length < mw * mh * size) { c.warn('smart filter masks were not imported'); return; }
-  // 16-bit and 32-bit (0..1 float) samples, big-endian, to 8 bits.
-  const sv = new DataView(stored.buffer, stored.byteOffset, stored.byteLength);
-  const data = size === 1 ? stored : Uint8Array.from({ length: mw * mh }, (_, i) => (
-    size === 2 ? Math.round(sv.getUint16(i * 2) / 257) : Math.round(Math.min(1, Math.max(0, sv.getFloat32(i * 4))) * 255)));
+  // Samples (8-bit, or big-endian 16-bit and 0..1 float) at the document's mask depth: 8-bit, or 16-bit in
+  // 16/32-bit documents.
+  const sv = new DataView(stored.buffer, stored.byteOffset, stored.byteLength), max = c.e.depth() === 8 ? 255 : 65535;
+  const sample = (i: number) => Math.round(size === 1 ? stored[i] * max / 255 : size === 2 ? sv.getUint16(i * 2) * max / 65535
+    : Math.min(1, Math.max(0, sv.getFloat32(i * 4))) * max);
   const def = pf.maskExtendWithWhite === false ? 0 : 255;
   c.e.add_filter_mask(id, 0, def === 255);
   const x0 = Math.max(0, m.left), x1 = Math.min(c.w, m.right), y0 = Math.max(0, m.top), y1 = Math.min(c.h, m.bottom);
   for (let ty = Math.floor(y0 / 256); ty * 256 < y1; ty++) {
     for (let tx = Math.floor(x0 / 256); tx * 256 < x1; tx++) {
-      const buf = new Uint8Array(256 * 256).fill(def);
+      const buf = (max === 255 ? new Uint8Array(256 * 256) : new Uint16Array(256 * 256)).fill(def ? max : 0);
       for (let y = Math.max(y0, ty * 256); y < Math.min(y1, ty * 256 + 256); y++) {
-        for (let x = Math.max(x0, tx * 256); x < Math.min(x1, tx * 256 + 256); x++) buf[(y - ty * 256) * 256 + x - tx * 256] = data[(y - m.top) * mw + x - m.left];
+        for (let x = Math.max(x0, tx * 256); x < Math.min(x1, tx * 256 + 256); x++) buf[(y - ty * 256) * 256 + x - tx * 256] = sample((y - m.top) * mw + x - m.left);
       }
-      c.e.set_filter_mask_tile8(id, 0, tx, ty, buf);
+      c.e.set_filter_mask_tile(id, 0, tx, ty, new Uint8Array(buf.buffer));
     }
   }
   if (pf.maskEnabled === false) c.e.toggle_filter_masks(id);

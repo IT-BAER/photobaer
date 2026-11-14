@@ -435,6 +435,19 @@ impl Document {
     }
 
     /// PSD import: one 8-bit tile of filter `fid`'s mask (0 = the stack mask), without a re-render.
+    /// One filter mask tile in the document's mask format (`tile_bytes` layout: 8-bit, or 16-bit in 16/32-bit
+    /// documents); `fid` 0 is the stack mask.
+    pub fn set_filter_mask_tile(&mut self, id: u32, fid: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), String> {
+        self.check_idle()?;
+        self.check_tile_coord(tx, ty)?;
+        let px = Pixels::from_bytes(self.depth, true, data)?;
+        let tid = self.alloc_tile_id();
+        let s = self.smart_node_mut(id)?;
+        let m = if fid == 0 { s.stack_mask.as_mut() } else { s.filters.iter_mut().find(|f| f.id == fid).and_then(|f| f.mask.as_mut()) };
+        m.ok_or(NO_MASK)?.tiles.put(tx as i32, ty as i32, Some(Tile { id: tid, px: Arc::new(px) }));
+        Ok(())
+    }
+
     pub fn set_filter_mask_tile8(&mut self, id: u32, fid: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), String> {
         self.check_idle()?;
         self.check_tile_coord(tx, ty)?;

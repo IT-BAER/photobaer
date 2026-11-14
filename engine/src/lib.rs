@@ -407,6 +407,11 @@ impl Engine {
     }
 
     /// PSD import: one 8-bit mask tile of filter `filter_id` (0 = the stack mask), no re-render.
+    /// A filter mask tile in the document's mask format (8-bit, or 16-bit in 16/32-bit documents).
+    pub fn set_filter_mask_tile(&mut self, id: u32, filter_id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), JsError> {
+        self.0.doc.set_filter_mask_tile(id, filter_id, tx, ty, data).map_err(err)
+    }
+
     pub fn set_filter_mask_tile8(&mut self, id: u32, filter_id: u32, tx: u32, ty: u32, data: &[u8]) -> Result<(), JsError> {
         self.0.doc.set_filter_mask_tile8(id, filter_id, tx, ty, data).map_err(err)
     }
