@@ -314,6 +314,16 @@ impl Document {
                 (g.axis, g.pos) = (Axis::X, a.0);
             }
         }
+        // Pixel Replacement boxes become the whole-pixel bounds of their mapped corners.
+        for p in self.vector.variables.iter_mut().flat_map(|v| v.variables.iter_mut()).filter_map(|v| v.pixels.as_mut()) {
+            let Some([x, y, w, h]) = p.bounds else { continue };
+            let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
+            for (px, py) in [map_pt(m, x, y), map_pt(m, x + w, y), map_pt(m, x, y + h), map_pt(m, x + w, y + h)] {
+                (x0, y0, x1, y1) = (x0.min(px), y0.min(py), x1.max(px), y1.max(py));
+            }
+            let (x0, y0) = (x0.round(), y0.round());
+            p.bounds = Some([x0, y0, (x1.round() - x0).max(1.0), (y1.round() - y0).max(1.0)]);
+        }
     }
 
     // Puppet, Perspective Warp and Vanishing Point smart filters and the document's vanishing
@@ -1604,6 +1614,23 @@ mod tests {
         assert_eq!(get_px(&d, 1, -3, 2), [1, 2, 3, 255]);
         assert_eq!(d.vector.guides.iter().map(|g| g.pos).collect::<Vec<_>>(), vec![6.0, 15.0]);
         assert_eq!(d.vector.paths[0].path.subpaths[0].points[0], [4.0, 9.0, 4.0, 9.0, 4.0, 9.0]);
+    }
+
+    #[test]
+    fn image_size_canvas_size_and_rotation_move_the_pixel_replacement_box() {
+        let mut d = pattern_doc(10, 10, |_, _| [9, 9, 9, 255]);
+        d.vector.variables = Some(serde_json::from_str(r#"{"variables":[{"kind":"pixels","name":"p","layer":1,
+            "pixels":{"method":"fit","align":[0.5,0.5],"clip":false,"box":[2,3,4,5]}}],"data_sets":[],"active":null}"#).unwrap());
+        let bx = |d: &Document| d.vector.variables.as_ref().unwrap().variables[0].pixels.as_ref().unwrap().bounds;
+        let mut s = d.clone();
+        assert!(s.image_size(20, 30, Interp::Nearest, false).unwrap());
+        assert_eq!(bx(&s), Some([4.0, 9.0, 8.0, 15.0]));
+        let mut c = d.clone();
+        assert!(c.canvas_size(14, 10, (0, 0), None).unwrap());
+        assert_eq!(bx(&c), Some([4.0, 3.0, 4.0, 5.0]));
+        d.rotate_canvas_exact(Remap::Cw).unwrap();
+        // Corners x 2..6, y 3..8 turn to x = 10 - y (2..7), y = x (2..6).
+        assert_eq!(bx(&d), Some([2.0, 2.0, 5.0, 4.0]));
     }
 
     #[test]
