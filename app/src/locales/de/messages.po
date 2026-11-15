@@ -45,6 +45,11 @@ msgstr "{0, plural, one {{title} wurde mit # Fehler beendet; siehe {file}.} othe
 msgid "{0, plural, one {# file} other {# files}}"
 msgstr "{0, plural, one {# Datei} other {# Dateien}}"
 
+#. placeholder {0}: c.layerCount
+#: app/src/app/statusInfo.ts
+msgid "{0, plural, one {# Layer} other {# Layers}}"
+msgstr "{0, plural, one {# Ebene} other {# Ebenen}}"
+
 #. placeholder {0}: a.slices.length
 #: app/src/app/measureTools.tsx
 msgid "{0, plural, one {# slice} other {# slices}}"
@@ -96,6 +101,10 @@ msgstr "{colorStops} Farbstopps · {opacityStops} Deckkraftstopps"
 msgid "{count, plural, one {# pattern imported} other {# patterns imported}}"
 msgstr "{count, plural, one {# Muster importiert} other {# Muster importiert}}"
 
+#: app/src/FindReplaceDialog.tsx
+msgid "{count, plural, one {# replacement made.} other {# replacements made.}}"
+msgstr "{count, plural, one {# Ersetzung vorgenommen.} other {# Ersetzungen vorgenommen.}}"
+
 #: app/src/i18n/errors.ts
 msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
 msgstr "{count} Alphakanäle und Volltonfarbkanäle über dem Limit von {limit} Kanälen in Photoshop wurden nicht gespeichert"
@@ -103,10 +112,6 @@ msgstr "{count} Alphakanäle und Volltonfarbkanäle über dem Limit von {limit} 
 #: app/src/i18n/history.ts
 msgid "{depth} Bits/Channel"
 msgstr "{depth} Bit/Kanal"
-
-#: app/src/App.tsx
-msgid "{docWidth} × {docHeight} px, {docDepth}-bit"
-msgstr "{docWidth} × {docHeight} px, {docDepth} Bit"
 
 #: app/src/App.tsx
 msgid "{embedded, plural, one {Packaged {file} with # linked file embedded.} other {Packaged {file} with # linked files embedded.}}"
@@ -228,10 +233,18 @@ msgstr "{n, plural, one {# Datei} other {# Dateien}}"
 msgid "{n, plural, one {# shape} other {# shapes}}"
 msgstr "{n, plural, one {# Form} other {# Formen}}"
 
+#: app/src/DocumentDialogs.tsx
+msgid "{n} copy"
+msgstr "{n} Kopie"
+
 #: app/src/TabBar.tsx
 msgid "{name}\n"
 "{width} x {height} px, {depth}-bit"
 msgstr "{name}\\n{width} x {height} px, {depth} Bit"
+
+#: app/src/app/statusInfo.ts
+msgid "{name} ({bits}bpc)"
+msgstr "{name} ({bits}bpc)"
 
 #: app/src/ShapesPanel.tsx
 msgid "{name} armed. Drag on the canvas to draw it."
@@ -318,6 +331,10 @@ msgstr "{position} von {total}"
 msgid "{profileName} (stored as sRGB IEC61966-2.1)"
 msgstr "{profileName} (gespeichert als sRGB IEC61966-2.1)"
 
+#: app/src/app/statusInfo.ts
+msgid "{px} px = {logical} {units}"
+msgstr "{px} px = {logical} {units}"
+
 #: app/src/app/measureTools.tsx
 msgid "{samplerCount} of {MAX_SAMPLERS}"
 msgstr "{samplerCount} von {MAX_SAMPLERS}"
@@ -350,9 +367,17 @@ msgstr "Der Export als {type} wird von diesem Browser nicht unterstützt"
 msgid "{w, plural, one {# warning} other {# warnings}}"
 msgstr "{w, plural, one {# Warnung} other {# Warnungen}}"
 
+#: app/src/app/statusInfo.ts
+msgid "{w} {u} x {h} {u} ({ppi} ppi)"
+msgstr "{w} {u} x {h} {u} ({ppi} ppi)"
+
 #: app/src/FileDialogs.tsx
 msgid "{w} × {h} mm at {pct}% on a {pw} × {ph} mm page."
 msgstr "{w} × {h} mm bei {pct} % auf einer Seite von {pw} × {ph} mm."
+
+#: app/src/NewDocumentDialog.tsx
+msgid "1 bit"
+msgstr "1 Bit"
 
 #: app/src/i18n/choices.ts
 msgid "1:1"
@@ -374,12 +399,9 @@ msgstr "101 x 101, Mittelwert"
 msgid "11 by 11 Average"
 msgstr "11 x 11, Mittelwert"
 
+#: app/src/NewDocumentDialog.tsx
 #: app/src/PdfDialog.tsx
 msgid "16 bit"
-msgstr "16 Bit"
-
-#: app/src/app/Dialogs.tsx
-msgid "16-bit"
 msgstr "16 Bit"
 
 #: app/src/i18n/choices.ts
@@ -422,8 +444,8 @@ msgstr "3-fach"
 msgid "31 by 31 Average"
 msgstr "31 x 31, Mittelwert"
 
-#: app/src/app/Dialogs.tsx
-msgid "32-bit"
+#: app/src/NewDocumentDialog.tsx
+msgid "32 bit"
 msgstr "32 Bit"
 
 #: app/src/ColorDialog.tsx
@@ -471,12 +493,9 @@ msgstr "51 x 51, Mittelwert"
 msgid "6-up"
 msgstr "6-fach"
 
+#: app/src/NewDocumentDialog.tsx
 #: app/src/PdfDialog.tsx
 msgid "8 bit"
-msgstr "8 Bit"
-
-#: app/src/app/Dialogs.tsx
-msgid "8-bit"
 msgstr "8 Bit"
 
 #: app/src/app/menus.ts
@@ -597,6 +616,14 @@ msgstr "Vordergrundfarbe hinzufügen"
 #: app/src/app/measureTools.tsx
 msgid "Add guides inside the canvas first."
 msgstr "Füge zuerst Hilfslinien innerhalb der Arbeitsfläche hinzu."
+
+#: app/src/app/shortcutList.ts
+msgid "Add Layer Above to Selection"
+msgstr "Ebene darüber zur Auswahl hinzufügen"
+
+#: app/src/app/shortcutList.ts
+msgid "Add Layer Below to Selection"
+msgstr "Ebene darunter zur Auswahl hinzufügen"
 
 #: app/src/App.tsx
 #: app/src/LayersPanel.tsx
@@ -1088,6 +1115,10 @@ msgstr "Die Zuweisung des Array-Puffers ist fehlgeschlagen"
 msgid "Arrows"
 msgstr "Pfeile"
 
+#: app/src/app/newDocument.ts
+msgid "Art & Illustration"
+msgstr "Grafik und Illustration"
+
 #: app/src/PdfDialog.tsx
 msgid "Art Box"
 msgstr "Objektrahmen"
@@ -1189,6 +1220,10 @@ msgstr "Kunstfilter"
 #: app/src/VariablesDialogs.tsx
 msgid "As Is"
 msgstr "Unverändert"
+
+#: app/src/DocumentDialogs.tsx
+msgid "As:"
+msgstr "Als:"
 
 #: app/src/ExportDialogs.tsx
 msgid "Ask where to export each time"
@@ -1386,8 +1421,13 @@ msgstr "Hintergrundfarbe"
 #: app/src/App.tsx
 #: app/src/app/helpers.ts
 #: app/src/ModeDialog.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "Background Color"
 msgstr "Hintergrundfarbe"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Background Contents"
+msgstr "Hintergrundinhalt"
 
 #: app/src/app/helpers.ts
 #: app/src/i18n/history.ts
@@ -1524,7 +1564,7 @@ msgstr "Bereich {selectedBin}"
 msgid "Birch"
 msgstr "Birke"
 
-#: app/src/app/Dialogs.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "Bit depth"
 msgstr "Bittiefe"
 
@@ -1532,6 +1572,7 @@ msgstr "Bittiefe"
 msgid "Bit Depth"
 msgstr "Bittiefe"
 
+#: app/src/app/newDocument.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/i18n/history.ts
 #: app/src/ModeDialog.tsx
@@ -1563,6 +1604,7 @@ msgstr "Bitmap…"
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/ModeDialog.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "Black"
 msgstr "Schwarz"
 
@@ -1631,6 +1673,10 @@ msgstr "Schwarztöne Y"
 #: app/src/filters/labels.ts
 msgid "Blade Curvature"
 msgstr "Klingenkrümmung"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Blank Document Presets"
+msgstr "Vorgaben für leere Dokumente"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Blast"
@@ -1707,6 +1753,7 @@ msgstr "Block"
 msgid "Blocks"
 msgstr "Blöcke"
 
+#: app/src/app/layerLinks.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
@@ -1947,6 +1994,10 @@ msgstr "Borstendetail"
 msgid "Browse…"
 msgstr "Durchsuchen…"
 
+#: app/src/app/systemInfo.ts
+msgid "Browser: {browser}"
+msgstr "Browser: {browser}"
+
 #: app/src/app/helpers.ts
 #: app/src/FocusAreaDialog.tsx
 #: app/src/i18n/choices.ts
@@ -1992,6 +2043,7 @@ msgid "Brush presets"
 msgstr "Pinselvorgaben"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/app/viewShow.ts
 msgid "Brush Preview"
 msgstr "Pinselvorschau"
 
@@ -2132,6 +2184,7 @@ msgstr "Camera Raw-Filter…"
 #: app/src/BatchDialog.tsx
 #: app/src/ChannelsPanel.tsx
 #: app/src/ColorDialog.tsx
+#: app/src/DocumentDialogs.tsx
 #: app/src/ExportDialogs.tsx
 #: app/src/FileDialogs.tsx
 #: app/src/filters/FilterDialog.tsx
@@ -2190,6 +2243,11 @@ msgstr "Farbe der Arbeitsflächenerweiterung"
 msgid "Canvas height"
 msgstr "Arbeitsflächenhöhe"
 
+#. placeholder {0}: renderer || '?'
+#: app/src/app/systemInfo.ts
+msgid "Canvas renderer: {0}"
+msgstr "Canvas-Renderer: {0}"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/ExportDialogs.tsx
 #: app/src/i18n/history.ts
@@ -2207,6 +2265,10 @@ msgstr "Arbeitsflächenbreite"
 #: app/src/app/Dialogs.tsx
 msgid "Caps Lock switches between the brush tip and the crosshair, and between the tool icon and the crosshair."
 msgstr "Mit der Feststelltaste wechselst du zwischen Pinselspitze und Fadenkreuz sowie zwischen Werkzeugsymbol und Fadenkreuz."
+
+#: app/src/FindReplaceDialog.tsx
+msgid "Case Sensitive"
+msgstr "Groß-/Kleinschreibung beachten"
 
 #: app/src/app/toolPresets.ts
 #: app/src/shell/BrushPanels.tsx
@@ -2251,6 +2313,10 @@ msgstr "Mittenbetont"
 msgid "Centered Blur"
 msgstr "Zentrierte Weichzeichnung"
 
+#: app/src/app/statusInfo.ts
+msgid "Centimeters"
+msgstr "Zentimeter"
+
 #: app/src/filters/labels.ts
 msgid "Chalk & Charcoal"
 msgstr "Kreide & Kohle"
@@ -2258,6 +2324,22 @@ msgstr "Kreide & Kohle"
 #: app/src/filters/labels.ts
 msgid "Chalk Area"
 msgstr "Kreidebereich"
+
+#: app/src/FindReplaceDialog.tsx
+msgid "Change"
+msgstr "Ändern"
+
+#: app/src/FindReplaceDialog.tsx
+msgid "Change All"
+msgstr "Alle ändern"
+
+#: app/src/FindReplaceDialog.tsx
+msgid "Change To:"
+msgstr "Ändern in:"
+
+#: app/src/FindReplaceDialog.tsx
+msgid "Change/Find"
+msgstr "Ändern/Suchen"
 
 #: app/src/App.tsx
 msgid "Changes will stay in this session: {reason}"
@@ -2529,6 +2611,10 @@ msgstr "Auf Begrenzungsrahmen beschneiden"
 msgid "Clip to layer below"
 msgstr "An Ebene darunter beschneiden"
 
+#: app/src/NewDocumentDialog.tsx
+msgid "Clipboard"
+msgstr "Zwischenablage"
+
 #: app/src/app/menus.ts
 msgctxt "purge"
 msgid "Clipboard"
@@ -2573,6 +2659,8 @@ msgstr "Kopierstempel"
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
+#: app/src/HelpDialogs.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "Close"
 msgstr "Schließen"
 
@@ -2621,6 +2709,7 @@ msgid "CMYK"
 msgstr "CMYK"
 
 #: app/src/app/menus.ts
+#: app/src/app/newDocument.ts
 #: app/src/i18n/history.ts
 #: app/src/PdfDialog.tsx
 msgid "CMYK Color"
@@ -2657,6 +2746,10 @@ msgstr "{name} einklappen"
 #: app/src/shell/DockSection.tsx
 msgid "Collapse {title}"
 msgstr "{title} reduzieren"
+
+#: app/src/HelpDialogs.tsx
+msgid "Collecting…"
+msgstr "Daten werden gesammelt…"
 
 #: app/src/AnalysisDialogs.tsx
 #: app/src/App.tsx
@@ -2751,6 +2844,10 @@ msgstr "Farbmanagement aus: Dokumentwerte gehen unverändert an die Anzeige. Fü
 #: app/src/ColorDialog.tsx
 msgid "Color Management Policies"
 msgstr "Richtlinien für Farbmanagement"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Color Mode"
+msgstr "Farbmodus"
 
 #: app/src/shell/GradientEditor.tsx
 msgid "Color model"
@@ -2875,6 +2972,14 @@ msgstr "Spalten ohne Variable: {unknown}."
 msgid "Combine Shapes"
 msgstr "Formen kombinieren"
 
+#: app/src/app/newDocument.ts
+msgid "Comic Book"
+msgstr "Comic"
+
+#: app/src/HelpDialogs.tsx
+msgid "Command"
+msgstr "Befehl"
+
 #: app/src/app/Dialogs.tsx
 msgid "Commands"
 msgstr "Befehle"
@@ -2899,6 +3004,10 @@ msgstr "Setzer"
 #: app/src/InspectionPanels.tsx
 msgid "Composite"
 msgstr "Composite"
+
+#: app/src/app/shortcutList.ts
+msgid "Composite Channel"
+msgstr "Gesamtkanal"
 
 #: app/src/ActionDialogs.tsx
 msgid "Conditional Action"
@@ -3136,11 +3245,13 @@ msgid "Converting…"
 msgstr "Wird konvertiert…"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/HelpDialogs.tsx
 msgid "Copied"
 msgstr "Kopiert"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
+#: app/src/HelpDialogs.tsx
 msgid "Copy"
 msgstr "Kopieren"
 
@@ -3331,7 +3442,7 @@ msgstr "Rissbildung"
 msgid "Cream"
 msgstr "Creme"
 
-#: app/src/app/Dialogs.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "Create"
 msgstr "Erstellen"
 
@@ -3450,6 +3561,11 @@ msgstr "Wird freigestellt…"
 msgid "Cross"
 msgstr "Kreuz"
 
+#. placeholder {0}: yesNo(!!env.crossOriginIsolated)
+#: app/src/app/systemInfo.ts
+msgid "Cross-origin isolated: {0}"
+msgstr "Cross-Origin-isoliert: {0}"
+
 #: app/src/filters/labels.ts
 msgid "Crosshatch"
 msgstr "Kreuzschraffur"
@@ -3497,6 +3613,10 @@ msgstr "Aktuelle Größe: {curW} × {curH} px"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Current tool"
+msgstr "Aktuelles Werkzeug"
+
+#: app/src/app/statusInfo.ts
+msgid "Current Tool"
 msgstr "Aktuelles Werkzeug"
 
 #: app/src/InspectionPanels.tsx
@@ -3550,6 +3670,10 @@ msgstr "Gradationskurven"
 msgid "Custom"
 msgstr "Benutzerdefiniert"
 
+#: app/src/NewDocumentDialog.tsx
+msgid "Custom background color"
+msgstr "Eigene Hintergrundfarbe"
+
 #: app/src/app/Dialogs.tsx
 msgid "Custom color"
 msgstr "Benutzerdefinierte Farbe"
@@ -3579,6 +3703,7 @@ msgid "Custom..."
 msgstr "Benutzerdefiniert…"
 
 #: app/src/app/menus.ts
+#: app/src/NewDocumentDialog.tsx
 msgid "Custom…"
 msgstr "Benutzerdefiniert…"
 
@@ -3635,6 +3760,10 @@ msgstr "Cyantöne Sättigung"
 #: app/src/adjustments.ts
 msgid "Cyans Y"
 msgstr "Cyantöne Y"
+
+#: app/src/app/shortcutList.ts
+msgid "Cycle Screen Modes (Shift backward)"
+msgstr "Bildschirmmodi durchlaufen (Umschalt rückwärts)"
 
 #: app/src/GlyphsPanel.tsx
 msgid "Cyrillic"
@@ -3732,6 +3861,14 @@ msgstr "Zeilensprung aufheben"
 msgid "Decontaminate Colors"
 msgstr "Farben dekontaminieren"
 
+#: app/src/app/shortcutList.ts
+msgid "Decrease Brush Hardness"
+msgstr "Pinselhärte verringern"
+
+#: app/src/app/shortcutList.ts
+msgid "Decrease Brush Size"
+msgstr "Pinselgröße verringern"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Deep"
 msgstr "Tief"
@@ -3753,6 +3890,14 @@ msgstr "Standard"
 #: app/src/app/typeMenu.ts
 msgid "Default Features"
 msgstr "Standardfunktionen"
+
+#: app/src/app/shortcutList.ts
+msgid "Default Foreground/Background Colors"
+msgstr "Standardfarben für Vorder-/Hintergrund"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Default photobaer Size"
+msgstr "photobaer-Standardgröße"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Define"
@@ -4038,6 +4183,11 @@ msgstr "Gesichter erkennen"
 msgid "Detecting faces…"
 msgstr "Gesichter werden erkannt…"
 
+#. placeholder {0}: bytes(nav.deviceMemory * 2 ** 30)
+#: app/src/app/systemInfo.ts
+msgid "Device memory: at least {0}"
+msgstr "Gerätespeicher: mindestens {0}"
+
 #: app/src/ColorDialog.tsx
 msgid "Device to Simulate"
 msgstr "Zu simulierendes Gerät"
@@ -4204,6 +4354,14 @@ msgstr "Dither"
 msgid "Divide"
 msgstr "Dividieren"
 
+#: app/src/app/statusInfo.ts
+msgid "Doc: {flat}"
+msgstr "Dok: {flat}"
+
+#: app/src/app/statusInfo.ts
+msgid "Doc: {flat}/{layered}"
+msgstr "Dok: {flat}/{layered}"
+
 #: app/src/app/measure.ts
 #: app/src/ImageCalcDialog.tsx
 #: app/src/InspectionPanels.tsx
@@ -4213,6 +4371,10 @@ msgstr "Dokument"
 #: app/src/app/menus.ts
 msgid "Document Bounds"
 msgstr "Dokumentbegrenzung"
+
+#: app/src/app/statusInfo.ts
+msgid "Document Dimensions"
+msgstr "Dokumentmaße"
 
 #: app/src/ActionDialogs.tsx
 msgid "Document Has Layers"
@@ -4246,6 +4408,14 @@ msgstr "Dokument ist im RGB-Modus"
 msgid "Document Is Square"
 msgstr "Dokument ist quadratisch"
 
+#: app/src/app/statusInfo.ts
+msgid "Document Profile"
+msgstr "Dokumentprofil"
+
+#: app/src/app/statusInfo.ts
+msgid "Document Sizes"
+msgstr "Dateigrößen"
+
 #: app/src/FileDialogs.tsx
 msgid "Document Title"
 msgstr "Dokumenttitel"
@@ -4275,6 +4445,10 @@ msgstr "Spenden"
 #: app/src/app/Dialogs.tsx
 msgid "Donate any amount"
 msgstr "Beliebigen Betrag spenden"
+
+#: app/src/FindReplaceDialog.tsx
+msgid "Done"
+msgstr "Fertig"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Dot"
@@ -4393,6 +4567,10 @@ msgstr "Kanal duplizieren"
 msgid "Duplicate Channel"
 msgstr "Kanal duplizieren"
 
+#: app/src/DocumentDialogs.tsx
+msgid "Duplicate Image"
+msgstr "Bild duplizieren"
+
 #: app/src/App.tsx
 msgid "Duplicate layer"
 msgstr "Ebene duplizieren"
@@ -4402,9 +4580,25 @@ msgstr "Ebene duplizieren"
 msgid "Duplicate Layer"
 msgstr "Ebene duplizieren"
 
+#: app/src/DocumentDialogs.tsx
+msgid "Duplicate Merged Layers Only"
+msgstr "Nur zusammengefügte Ebenen duplizieren"
+
 #: app/src/i18n/history.ts
 msgid "Duplicate Path Component"
 msgstr "Pfadkomponente duplizieren"
+
+#: app/src/DocumentDialogs.tsx
+msgid "Duplicate: {source}"
+msgstr "Duplizieren: {source}"
+
+#: app/src/app/menus.ts
+msgid "Duplicate…"
+msgstr "Duplizieren…"
+
+#: app/src/App.tsx
+msgid "Duplicating…"
+msgstr "Wird dupliziert…"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Duplication"
@@ -5058,6 +5252,11 @@ msgstr "Werte der Dateiinformationen über den Grenzwerten wurden gekürzt."
 msgid "File Info…"
 msgstr "Dateiinformationen…"
 
+#. placeholder {0}: yesNo(typeof env.showOpenFilePicker === 'function')
+#: app/src/app/systemInfo.ts
+msgid "File System Access: {0}"
+msgstr "Dateisystemzugriff: {0}"
+
 #: app/src/ExportDialogs.tsx
 #: app/src/ScriptDialogs.tsx
 msgid "File Type"
@@ -5175,6 +5374,10 @@ msgstr "Fläche füllen…"
 msgid "Filling…"
 msgstr "Wird gefüllt…"
 
+#: app/src/app/newDocument.ts
+msgid "Film & Video"
+msgstr "Film und Video"
+
 #: app/src/filters/labels.ts
 msgid "Film Grain"
 msgstr "Körnung"
@@ -5206,6 +5409,18 @@ msgstr "Ebenen nach Name filtern"
 msgid "Filter type"
 msgstr "Filtertyp"
 
+#: app/src/NewDocumentDialog.tsx
+msgid "Find a preset"
+msgstr "Vorgabe suchen"
+
+#: app/src/FindReplaceDialog.tsx
+msgid "Find and Replace Text"
+msgstr "Text suchen und ersetzen"
+
+#: app/src/app/menus.ts
+msgid "Find and Replace Text…"
+msgstr "Text suchen und ersetzen…"
+
 #: app/src/levelsCurves.ts
 msgid "Find Dark & Light Colors"
 msgstr "Dunkle und helle Farben suchen"
@@ -5218,6 +5433,14 @@ msgstr "Konturen finden"
 #: app/src/app/menus.ts
 msgid "Find Layers"
 msgstr "Ebenen suchen"
+
+#: app/src/FindReplaceDialog.tsx
+msgid "Find Next"
+msgstr "Weitersuchen"
+
+#: app/src/FindReplaceDialog.tsx
+msgid "Find What:"
+msgstr "Suchen nach:"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Fine"
@@ -5530,6 +5753,7 @@ msgstr "Stirn"
 msgid "Format"
 msgstr "Format"
 
+#: app/src/FindReplaceDialog.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Forward"
 msgstr "Vorwärts"
@@ -5537,6 +5761,10 @@ msgstr "Vorwärts"
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Forward Warp"
 msgstr "Vorwärts verkrümmen"
+
+#: app/src/FindReplaceDialog.tsx
+msgid "Found in {name}."
+msgstr "Gefunden in {name}."
 
 #: app/src/shell/typecommands.ts
 msgid "Fractions"
@@ -5623,6 +5851,14 @@ msgstr "Aus Transparenz"
 #: app/src/filters/GalleryStack.tsx
 msgid "Frosted"
 msgstr "Mattglas"
+
+#: app/src/app/screenMode.ts
+msgid "Full Screen Mode"
+msgstr "Vollbildmodus"
+
+#: app/src/app/screenMode.ts
+msgid "Full Screen Mode With Menu Bar"
+msgstr "Vollbildmodus mit Menüleiste"
 
 #: app/src/app/Dialogs.tsx
 msgid "Full Size Brush Tip"
@@ -5853,6 +6089,7 @@ msgstr "Grafik und Web"
 msgid "Graphic Pen"
 msgstr "Federzeichnung"
 
+#: app/src/app/layerLinks.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/ColorDialog.tsx
 #: app/src/filters/LiquifyDialog.tsx
@@ -5887,6 +6124,7 @@ msgstr "Graustufen-Arbeitsfarbraum"
 
 #: app/src/app/colorTable.ts
 #: app/src/app/menus.ts
+#: app/src/app/newDocument.ts
 #: app/src/ColorDialog.tsx
 #: app/src/i18n/history.ts
 #: app/src/PdfDialog.tsx
@@ -5901,6 +6139,7 @@ msgstr "Graustufenregler"
 msgid "Greek"
 msgstr "Griechisch"
 
+#: app/src/app/layerLinks.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
@@ -6057,6 +6296,10 @@ msgstr "Halbtonraster"
 msgid "Hand"
 msgstr "Hand"
 
+#: app/src/app/shortcutList.ts
+msgid "Hand Tool while held"
+msgstr "Hand-Werkzeug, solange gedrückt"
+
 #: app/src/i18n/choices.ts
 msgid "Hard Light"
 msgstr "Hartes Licht"
@@ -6104,6 +6347,7 @@ msgstr "Hebräisch"
 #: app/src/app/measure.ts
 #: app/src/filters/labels.ts
 #: app/src/filters/RenderEditors.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "Height"
 msgstr "Höhe"
 
@@ -6417,6 +6661,10 @@ msgstr "Wenn {cond}, dann Aktion „{then}“ abspielen, sonst Aktion „{otherw
 msgid "If Current"
 msgstr "Wenn aktuell"
 
+#: app/src/FindReplaceDialog.tsx
+msgid "Ignore Accents"
+msgstr "Akzente ignorieren"
+
 #: app/src/shell/tools.ts
 msgid "Ignore Adjustment Layers"
 msgstr "Einstellungsebenen ignorieren"
@@ -6480,6 +6728,10 @@ msgstr "Bildmaßstab"
 #: app/src/i18n/history.ts
 msgid "Image Size"
 msgstr "Bildgröße"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Image size: {size}"
+msgstr "Bildgröße: {size}"
 
 #: app/src/app/Dialogs.tsx
 msgid "Image size: {sizeText}"
@@ -6563,6 +6815,10 @@ msgstr "Fokussierter Bereich"
 msgid "Inactive document preview"
 msgstr "Vorschau inaktiver Dokumente"
 
+#: app/src/app/statusInfo.ts
+msgid "Inches"
+msgstr "Zoll"
+
 #: app/src/ToolPresetsPanel.tsx
 msgid "Include Colors"
 msgstr "Farben einbeziehen"
@@ -6574,6 +6830,14 @@ msgstr "ICC-Profil einbeziehen"
 #: app/src/ExportDialogs.tsx
 msgid "Include layers inside groups"
 msgstr "Ebenen in Gruppen einbeziehen"
+
+#: app/src/app/shortcutList.ts
+msgid "Increase Brush Hardness"
+msgstr "Pinselhärte erhöhen"
+
+#: app/src/app/shortcutList.ts
+msgid "Increase Brush Size"
+msgstr "Pinselgröße erhöhen"
 
 #: app/src/levelsCurves.ts
 msgid "Increase Contrast"
@@ -6894,6 +7158,11 @@ msgstr "Efeu"
 msgid "Jag"
 msgstr "Zacken"
 
+#. placeholder {0}: bytes(env.performance.memory.jsHeapSizeLimit)
+#: app/src/app/systemInfo.ts
+msgid "JavaScript heap limit: {0}"
+msgstr "JavaScript-Heap-Limit: {0}"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Jawline"
 msgstr "Kieferlinie"
@@ -6950,6 +7219,14 @@ msgstr "Breite und Höhe proportional halten"
 msgid "Kernel"
 msgstr "Kernel"
 
+#: app/src/HelpDialogs.tsx
+msgid "Keyboard Shortcuts"
+msgstr "Tastaturbefehle"
+
+#: app/src/app/menus.ts
+msgid "Keyboard Shortcuts…"
+msgstr "Tastaturbefehle…"
+
 #: app/src/FileDialogs.tsx
 msgid "Keywords"
 msgstr "Schlüsselwörter"
@@ -6968,6 +7245,7 @@ msgid "Kurtosis"
 msgstr "Kurtosis"
 
 #: app/src/app/menus.ts
+#: app/src/app/newDocument.ts
 #: app/src/i18n/history.ts
 #: app/src/PdfDialog.tsx
 msgid "Lab Color"
@@ -6995,7 +7273,9 @@ msgstr "Beschriftungsgröße"
 msgid "Lanczos 3"
 msgstr "Lanczos 3"
 
+#: app/src/app/newDocument.ts
 #: app/src/FileDialogs.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "Landscape"
 msgstr "Querformat"
 
@@ -7006,6 +7286,12 @@ msgstr "Landschaftsmodus"
 #: app/src/app/typeMenu.ts
 msgid "Language Options"
 msgstr "Sprachoptionen"
+
+#. placeholder {0}: nav.language
+#. placeholder {1}: i18n.locale
+#: app/src/app/systemInfo.ts
+msgid "Language: {0}; interface: {1}"
+msgstr "Sprache: {0}; Oberfläche: {1}"
 
 #: app/src/app/typeMenu.ts
 #: app/src/filters/GalleryStack.tsx
@@ -7047,6 +7333,10 @@ msgstr "Breitengrad"
 msgid "Layer"
 msgstr "Ebene"
 
+#: app/src/i18n/history.ts
+msgid "Layer Color"
+msgstr "Ebenenfarbe"
+
 #: app/src/App.tsx
 msgid "Layer Comp"
 msgstr "Ebenenkomposition"
@@ -7084,6 +7374,10 @@ msgstr "Ebeneninhaltsoptionen"
 #: app/src/app/menus.ts
 msgid "Layer Content Options…"
 msgstr "Ebeneninhaltsoptionen…"
+
+#: app/src/app/statusInfo.ts
+msgid "Layer Count"
+msgstr "Ebenenanzahl"
 
 #: app/src/app/menus.ts
 msgid "Layer Edges"
@@ -7260,6 +7554,10 @@ msgstr "Von links nach rechts"
 msgid "Legacy Macintosh RGB"
 msgstr "Macintosh RGB (Legacy)"
 
+#: app/src/app/newDocument.ts
+msgid "Legal"
+msgstr "Legal"
+
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
 msgid "Legal Notice"
@@ -7302,6 +7600,10 @@ msgstr "Objektivhersteller"
 #: app/src/filters/labels.ts
 msgid "Lens Type"
 msgstr "Objektivtyp"
+
+#: app/src/app/newDocument.ts
+msgid "Letter"
+msgstr "Letter"
 
 #: app/src/TypePanels.tsx
 msgid "Letter Spacing Desired %"
@@ -7480,9 +7782,27 @@ msgstr "Eckenradien verknüpfen"
 msgid "Link dimensions"
 msgstr "Abmessungen verknüpfen"
 
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Link Layer Mask"
+msgstr "Ebenenmaske verknüpfen"
+
+#: app/src/LayersPanel.tsx
+msgid "Link layers"
+msgstr "Ebenen verbinden"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Link Layers"
+msgstr "Ebenen verbinden"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Link the eyes"
 msgstr "Augen verknüpfen"
+
+#: app/src/LayersPanel.tsx
+msgid "Link the mask of {name}"
+msgstr "Maske von {name} verknüpfen"
 
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
@@ -7500,6 +7820,11 @@ msgstr "Mit Ebene verknüpfen"
 #: app/src/PropertiesPanel.tsx
 msgid "Linked"
 msgstr "Verknüpft"
+
+#: app/src/LayersPanel.tsx
+msgctxt "layer link"
+msgid "Linked"
+msgstr "Verbunden"
 
 #: app/src/i18n/errors.ts
 msgid "linked smart objects are saved without their source file"
@@ -7642,6 +7967,11 @@ msgstr "Lokal (adaptiv)"
 msgid "Local Adaptation"
 msgstr "Lokale Anpassung"
 
+#. placeholder {0}: yesNo(typeof env.queryLocalFonts === 'function')
+#: app/src/app/systemInfo.ts
+msgid "Local Font Access: {0}"
+msgstr "Zugriff auf lokale Schriften: {0}"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Localized color clusters"
@@ -7714,6 +8044,11 @@ msgstr "Fehler in Bericht protokollieren"
 #: app/src/AnalysisDialogs.tsx
 msgid "Logical Length:"
 msgstr "Logische Länge:"
+
+#. placeholder {0}: nav.hardwareConcurrency ?? '?'
+#: app/src/app/systemInfo.ts
+msgid "Logical processors: {0}"
+msgstr "Logische Prozessoren: {0}"
 
 #: app/src/AnalysisDialogs.tsx
 msgid "Logical Units:"
@@ -8025,6 +8360,7 @@ msgid "Measurement Log"
 msgstr "Messprotokoll"
 
 #: app/src/AnalysisDialogs.tsx
+#: app/src/app/statusInfo.ts
 msgid "Measurement Scale"
 msgstr "Maßstab"
 
@@ -8129,6 +8465,7 @@ msgstr "Führt die {docCount} geöffneten Dokumente in Registerreihenfolge als B
 msgid "Merging…"
 msgstr "Wird zusammengeführt…"
 
+#: app/src/app/viewShow.ts
 #: app/src/filters/labels.ts
 msgid "Mesh"
 msgstr "Gitter"
@@ -8218,6 +8555,11 @@ msgstr "Mitteltöne Magenta-Grün"
 msgid "Midtones Yellow-Blue"
 msgstr "Mitteltöne Gelb-Blau"
 
+#: app/src/app/statusInfo.ts
+#: app/src/DocumentDialogs.tsx
+msgid "Millimeters"
+msgstr "Millimeter"
+
 #: app/src/app/helpers.ts
 #: app/src/filters/labels.ts
 msgid "Minimum"
@@ -8256,6 +8598,10 @@ msgstr "Mischen"
 #: app/src/shell/tools.ts
 msgid "Mixer Brush"
 msgstr "Mischpinsel"
+
+#: app/src/app/newDocument.ts
+msgid "Mobile"
+msgstr "Mobilgeräte"
 
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
@@ -8442,6 +8788,7 @@ msgstr "Multiplizieren"
 #: app/src/app/measureTools.tsx
 #: app/src/ChannelsPanel.tsx
 #: app/src/filters/labels.ts
+#: app/src/NewDocumentDialog.tsx
 #: app/src/VariablesDialogs.tsx
 #: app/src/WorkspaceDialog.tsx
 msgid "Name"
@@ -8590,7 +8937,6 @@ msgid "New Guides From Shape"
 msgstr "Neue Hilfslinien aus Form"
 
 #: app/src/App.tsx
-#: app/src/app/Dialogs.tsx
 msgid "New image"
 msgstr "Neues Bild"
 
@@ -8697,6 +9043,14 @@ msgstr "Nächstes Dokument"
 msgid "Next note"
 msgstr "Nächste Anmerkung"
 
+#: app/src/app/shortcutList.ts
+msgid "Next Tool in the Group"
+msgstr "Nächstes Werkzeug in der Gruppe"
+
+#: app/src/app/systemInfo.ts
+msgid "no"
+msgstr "nein"
+
 #: app/src/ActionsPanel.tsx
 msgid "No action sets. Record an action or load a set."
 msgstr "Keine Aktionssätze. Zeichne eine Aktion auf oder lade einen Satz."
@@ -8736,6 +9090,10 @@ msgstr "Kein Pinsel-Preset ausgewählt: Wähle unter „Pinsel“ eines aus, um 
 #: app/src/shell/BrushPanels.tsx
 msgid "No brushes found in {fromName}."
 msgstr "In {fromName} wurden keine Pinsel gefunden."
+
+#: app/src/app/layerLinks.ts
+msgid "No Color"
+msgstr "Keine Farbe"
 
 #: app/src/i18n/errors.ts
 msgid "No data set named \"{name}\"."
@@ -8802,6 +9160,10 @@ msgstr "Es ist keine Verflüssigen-Sitzung geöffnet."
 msgid "No lookup table loaded"
 msgstr "Keine Lookup-Tabelle geladen"
 
+#: app/src/FindReplaceDialog.tsx
+msgid "No match found."
+msgstr "Keine Übereinstimmung gefunden."
+
 #: app/src/app/Dialogs.tsx
 msgid "No matching commands"
 msgstr "Keine passenden Befehle"
@@ -8830,6 +9192,10 @@ msgstr "Keine Pixel"
 msgid "No preset"
 msgstr "Kein Preset"
 
+#: app/src/NewDocumentDialog.tsx
+msgid "No presets match."
+msgstr "Keine Vorgabe passt."
+
 #: app/src/App.tsx
 msgid "No properties"
 msgstr "Keine Eigenschaften"
@@ -8849,6 +9215,10 @@ msgstr "In dieser Datei wurden keine Formen gefunden."
 #: app/src/ShapesPanel.tsx
 msgid "No shapes match “{q}”."
 msgstr "Keine Formen entsprechen „{q}“."
+
+#: app/src/HelpDialogs.tsx
+msgid "No shortcut matches."
+msgstr "Kein Tastaturbefehl gefunden."
 
 #: app/src/app/measureTools.tsx
 msgid "No slice selected"
@@ -9003,6 +9373,7 @@ msgstr "Anmerkungstext"
 
 #: app/src/App.tsx
 #: app/src/app/menus.ts
+#: app/src/app/viewShow.ts
 #: app/src/NotesPanels.tsx
 #: app/src/shell/tools.ts
 msgid "Notes"
@@ -9011,6 +9382,10 @@ msgstr "Anmerkungen"
 #: app/src/filters/labels.ts
 msgid "NTSC Colors"
 msgstr "NTSC-Farben"
+
+#: app/src/app/shortcutList.ts
+msgid "Nudge Layer or Selection by 1 px (10 px with Shift)"
+msgstr "Ebene oder Auswahl um 1 Px verschieben (10 Px mit Umschalttaste)"
 
 #: app/src/filters/labels.ts
 msgid "Number of Generators"
@@ -9064,6 +9439,7 @@ msgstr "Ölfarbe"
 #: app/src/BatchDialog.tsx
 #: app/src/ChannelsPanel.tsx
 #: app/src/ColorDialog.tsx
+#: app/src/DocumentDialogs.tsx
 #: app/src/ExportDialogs.tsx
 #: app/src/FileDialogs.tsx
 #: app/src/filters/FilterDialog.tsx
@@ -9239,6 +9615,10 @@ msgstr "Optionen"
 msgid "Options…"
 msgstr "Optionen…"
 
+#: app/src/app/layerLinks.ts
+msgid "Orange"
+msgstr "Orange"
+
 #: app/src/shell/typecommands.ts
 msgid "Ordinals"
 msgstr "Ordnungszahlen"
@@ -9247,6 +9627,7 @@ msgstr "Ordnungszahlen"
 #: app/src/app/Dialogs.tsx
 #: app/src/app/typeMenu.ts
 #: app/src/FileDialogs.tsx
+#: app/src/NewDocumentDialog.tsx
 #: app/src/TypePanels.tsx
 msgid "Orientation"
 msgstr "Ausrichtung"
@@ -9254,6 +9635,11 @@ msgstr "Ausrichtung"
 #: app/src/FileDialogs.tsx
 msgid "Origin"
 msgstr "Herkunft"
+
+#. placeholder {0}: yesNo(typeof nav.storage?.getDirectory === 'function')
+#: app/src/app/systemInfo.ts
+msgid "Origin private file system: {0}"
+msgstr "Privates Ursprungsdateisystem: {0}"
 
 #: app/src/ExportDialogs.tsx
 #: app/src/shell/ColorPicker.tsx
@@ -9284,6 +9670,10 @@ msgstr "Andere Farbe"
 #: app/src/app/Dialogs.tsx
 msgid "Other Cursors"
 msgstr "Andere Zeiger"
+
+#: app/src/app/shortcutList.ts
+msgid "Other Keys"
+msgstr "Weitere Tasten"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Out From Center"
@@ -9707,6 +10097,7 @@ msgid "per-filter smart filter masks are not stored in PSD"
 msgstr "Smartfilter-Masken einzelner Filter werden in PSD nicht gespeichert"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/app/statusInfo.ts
 msgid "Percent"
 msgstr "Prozent"
 
@@ -9746,6 +10137,10 @@ msgstr "Perspektivisch verformen"
 msgid "Phone(s)"
 msgstr "Telefon(e)"
 
+#: app/src/app/newDocument.ts
+msgid "Photo"
+msgstr "Foto"
+
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
 msgid "Photo Filter"
@@ -9754,6 +10149,10 @@ msgstr "Fotofilter"
 #: app/src/app/Dialogs.tsx
 msgid "photobaer is free and open source. Your support helps keep it alive and maintained."
 msgstr "photobaer ist kostenlos und quelloffen. Deine Unterstützung hilft, es am Leben zu erhalten und zu pflegen."
+
+#: app/src/HelpDialogs.tsx
+msgid "photobaer Keyboard Shortcuts"
+msgstr "Tastaturbefehle in photobaer"
 
 #: app/src/App.tsx
 msgid "photobaer on GitHub"
@@ -9783,6 +10182,10 @@ msgstr "Photomerge…"
 #: app/src/filters/labels.ts
 msgid "Photoshop Filter"
 msgstr "Photoshop-Filter"
+
+#: app/src/app/statusInfo.ts
+msgid "Picas"
+msgstr "Pica"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Pick a filter to start a stack."
@@ -9861,16 +10264,23 @@ msgid "Pixelate"
 msgstr "Vergröberungsfilter"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/app/statusInfo.ts
+#: app/src/DocumentDialogs.tsx
 #: app/src/i18n/choices.ts
 #: app/src/InspectionPanels.tsx
 msgid "Pixels"
 msgstr "Pixel"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Pixels/Centimeter"
+msgstr "Pixel/Zentimeter"
 
 #: app/src/ModeDialog.tsx
 msgid "Pixels/cm"
 msgstr "Pixel/cm"
 
 #: app/src/ModeDialog.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "Pixels/Inch"
 msgstr "Pixel/Zoll"
 
@@ -9932,6 +10342,10 @@ msgstr "Gips"
 msgid "Plastic Wrap"
 msgstr "Plastikfolie"
 
+#: app/src/app/systemInfo.ts
+msgid "Platform: {platform}"
+msgstr "Plattform: {platform}"
+
 #: app/src/BatchDialog.tsx
 msgid "Play"
 msgstr "Abspielen"
@@ -9969,6 +10383,11 @@ msgstr "Punkttext"
 msgid "Pointillize"
 msgstr "Punktieren"
 
+#: app/src/app/statusInfo.ts
+#: app/src/DocumentDialogs.tsx
+msgid "Points"
+msgstr "Punkt"
+
 #: app/src/filters/labels.ts
 msgid "Polar Coordinates"
 msgstr "Polarkoordinaten"
@@ -10002,7 +10421,9 @@ msgstr "Teichwellen"
 msgid "Poplar"
 msgstr "Pappel"
 
+#: app/src/app/newDocument.ts
 #: app/src/FileDialogs.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "Portrait"
 msgstr "Hochformat"
 
@@ -10018,6 +10439,14 @@ msgstr "Position"
 #: app/src/FileDialogs.tsx
 msgid "Postal Code"
 msgstr "Postleitzahl"
+
+#: app/src/app/newDocument.ts
+msgid "Postcard"
+msgstr "Postkarte"
+
+#: app/src/app/newDocument.ts
+msgid "Poster"
+msgstr "Poster"
 
 #: app/src/filters/labels.ts
 msgid "Poster Edges"
@@ -10074,6 +10503,14 @@ msgstr "Transparenz erhalten"
 #: app/src/LevelsCurvesBody.tsx
 msgid "Preset"
 msgstr "Preset"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Preset categories"
+msgstr "Vorgabekategorien"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Preset Details"
+msgstr "Vorgabedetails"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Preset name"
@@ -10140,6 +10577,11 @@ msgstr "Prime35"
 #: app/src/FileDialogs.tsx
 msgid "Print"
 msgstr "Drucken"
+
+#: app/src/app/newDocument.ts
+msgctxt "New Document category"
+msgid "Print"
+msgstr "Druck"
 
 #: app/src/app/menus.ts
 msgid "Print One Copy"
@@ -10423,6 +10865,11 @@ msgstr "Bilder werden gelesen…"
 msgid "Rear Sync"
 msgstr "Synchronisation auf zweiten Vorhang"
 
+#: app/src/NewDocumentDialog.tsx
+#: app/src/RecentFiles.tsx
+msgid "Recent"
+msgstr "Zuletzt verwendet"
+
 #: app/src/shell/BrushPanels.tsx
 msgid "Recent brushes"
 msgstr "Zuletzt verwendete Pinsel"
@@ -10466,6 +10913,7 @@ msgstr "Rechteck"
 msgid "Rectangular Marquee"
 msgstr "Auswahlrechteck"
 
+#: app/src/app/layerLinks.ts
 #: app/src/ChannelsPanel.tsx
 #: app/src/filters/GalleryStack.tsx
 #: app/src/filters/LiquifyDialog.tsx
@@ -10503,6 +10951,10 @@ msgstr "Rot R"
 #: app/src/filters/labels.ts
 msgid "Red Strength"
 msgstr "Rotstärke"
+
+#: app/src/app/shortcutList.ts
+msgid "Red, Green or Blue Channel"
+msgstr "Rot-, Grün- oder Blaukanal"
 
 #: app/src/app/menus.ts
 #: app/src/filters/VanishingPointDialog.tsx
@@ -10735,6 +11187,10 @@ msgstr "Ersetzen"
 msgid "Replace All Missing Fonts"
 msgstr "Alle fehlenden Schriften ersetzen"
 
+#: app/src/i18n/history.ts
+msgid "Replace All Text"
+msgstr "Gesamten Text ersetzen"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/history.ts
 msgid "Replace Color"
@@ -10767,6 +11223,10 @@ msgstr "Fehlende Schriften ersetzen"
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Replace Selection"
 msgstr "Auswahl ersetzen"
+
+#: app/src/i18n/history.ts
+msgid "Replace Text"
+msgstr "Text ersetzen"
 
 #: app/src/MissingFonts.tsx
 msgid "Replace With"
@@ -10874,12 +11334,17 @@ msgid "Resizing…"
 msgstr "Größe wird geändert…"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "Resolution"
 msgstr "Auflösung"
 
 #: app/src/SvgDialog.tsx
 msgid "Resolution (ppi)"
 msgstr "Auflösung (ppi)"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Resolution unit"
+msgstr "Auflösungseinheit"
 
 #: app/src/app/typeMenu.ts
 #: app/src/i18n/history.ts
@@ -10957,6 +11422,7 @@ msgid "RGB"
 msgstr "RGB"
 
 #: app/src/app/menus.ts
+#: app/src/app/newDocument.ts
 #: app/src/i18n/history.ts
 #: app/src/PdfDialog.tsx
 msgid "RGB Color"
@@ -11448,6 +11914,17 @@ msgid "Screen"
 msgstr "Negativ multiplizieren"
 
 #: app/src/app/menus.ts
+msgid "Screen Mode"
+msgstr "Bildschirmmodus"
+
+#. placeholder {0}: env.screen.width
+#. placeholder {1}: env.screen.height
+#. placeholder {2}: formatNumber(env.devicePixelRatio ?? 1)
+#: app/src/app/systemInfo.ts
+msgid "Screen: {0} × {1} px, pixel ratio {2}"
+msgstr "Bildschirm: {0} × {1} Px, Pixelverhältnis {2}"
+
+#: app/src/app/menus.ts
 msgid "Scripts"
 msgstr "Skripten"
 
@@ -11461,6 +11938,10 @@ msgstr "Nahtlose Töne und Farben"
 msgid "Search"
 msgstr "Suchen"
 
+#: app/src/FindReplaceDialog.tsx
+msgid "Search All Layers"
+msgstr "Alle Ebenen durchsuchen"
+
 #: app/src/shell/BrushPanels.tsx
 msgid "Search brushes"
 msgstr "Pinsel suchen"
@@ -11469,9 +11950,17 @@ msgstr "Pinsel suchen"
 msgid "Search commands"
 msgstr "Befehle suchen"
 
+#: app/src/HelpDialogs.tsx
+msgid "Search commands or keys"
+msgstr "Befehle oder Tasten suchen"
+
 #: app/src/PresetPanels.tsx
 msgid "Search patterns"
 msgstr "Muster suchen"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Search results"
+msgstr "Suchergebnisse"
 
 #: app/src/ShapesPanel.tsx
 msgid "Search shapes"
@@ -11594,6 +12083,10 @@ msgstr "Wähle mindestens zwei Pixelebenen zum Ausrichten aus."
 msgid "Select Background"
 msgstr "Hintergrund auswählen"
 
+#: app/src/app/shortcutList.ts
+msgid "Select Bottom Layer"
+msgstr "Unterste Ebene auswählen"
+
 #: app/src/AnalysisDialogs.tsx
 msgid "Select Data Points"
 msgstr "Datenpunkte auswählen"
@@ -11615,9 +12108,21 @@ msgstr "Datei auswählen..."
 msgid "Select Inverse"
 msgstr "Auswahl umkehren"
 
+#: app/src/app/shortcutList.ts
+msgid "Select Layer Above"
+msgstr "Ebene darüber auswählen"
+
+#: app/src/app/shortcutList.ts
+msgid "Select Layer Below"
+msgstr "Ebene darunter auswählen"
+
 #: app/src/i18n/errors.ts
 msgid "Select layers at the same level to convert them."
 msgstr "Wähle Ebenen derselben Ebene aus, um sie umzuwandeln."
+
+#: app/src/app/menus.ts
+msgid "Select Linked Layers"
+msgstr "Verbundene Ebenen auswählen"
 
 #: app/src/ScriptDialogs.tsx
 msgid "Select location to save processed images"
@@ -11640,6 +12145,10 @@ msgstr "Zu verarbeitende Bilder auswählen"
 #: app/src/App.tsx
 msgid "Select the layer pixels to use Content-Aware Fill."
 msgstr "Wähle die Ebenenpixel aus, um „Inhaltsbasiert füllen“ zu verwenden."
+
+#: app/src/app/shortcutList.ts
+msgid "Select Top Layer"
+msgstr "Oberste Ebene auswählen"
 
 #: app/src/i18n/errors.ts
 msgid "Select two or more shape layers to combine them."
@@ -11864,6 +12373,11 @@ msgstr "Formkontur"
 msgid "Shapes"
 msgstr "Formen"
 
+#. placeholder {0}: yesNo(typeof env.SharedArrayBuffer === 'function')
+#: app/src/app/systemInfo.ts
+msgid "SharedArrayBuffer: {0}"
+msgstr "SharedArrayBuffer: {0}"
+
 #: app/src/shell/typecommands.ts
 #: app/src/TypePanels.tsx
 msgid "Sharp"
@@ -11933,7 +12447,12 @@ msgstr "Kurze Linien"
 msgid "Short Strokes"
 msgstr "Kurze Striche"
 
+#: app/src/HelpDialogs.tsx
+msgid "Shortcut"
+msgstr "Tastaturbefehl"
+
 #: app/src/app/menus.ts
+#: app/src/StatusInfoField.tsx
 msgid "Show"
 msgstr "Einblenden"
 
@@ -12309,6 +12828,10 @@ msgstr "Einrasten"
 msgid "Snap To"
 msgstr "Ausrichten an"
 
+#: app/src/app/newDocument.ts
+msgid "Social"
+msgstr "Social Media"
+
 #: app/src/filters/GalleryStack.tsx
 msgid "Soft"
 msgstr "Weich"
@@ -12395,6 +12918,11 @@ msgstr "Quellcode"
 #: app/src/ColorDialog.tsx
 msgid "Source Space"
 msgstr "Quellfarbraum"
+
+#: app/src/app/shortcutList.ts
+msgctxt "keyboard key"
+msgid "Space"
+msgstr "Leertaste"
 
 #: app/src/TypePanels.tsx
 msgid "Space After"
@@ -12518,6 +13046,7 @@ msgstr "Überfüllen"
 msgid "Sprinkles"
 msgstr "Streusel"
 
+#: app/src/app/newDocument.ts
 #: app/src/filters/GalleryStack.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/PropertiesPanel.tsx
@@ -12579,6 +13108,10 @@ msgstr "Standardabweichung"
 #: app/src/shell/typecommands.ts
 msgid "Standard Ligatures"
 msgstr "Standardligaturen"
+
+#: app/src/app/screenMode.ts
+msgid "Standard Screen Mode"
+msgstr "Standardmodus"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Star"
@@ -12658,6 +13191,13 @@ msgstr "Skript beenden"
 #: app/src/app/Dialogs.tsx
 msgid "Stops Between Exposures"
 msgstr "Blendenstufen zwischen Belichtungen"
+
+#. placeholder {0}: bytes(storage.usage ?? 0)
+#. placeholder {1}: bytes(storage.quota ?? 0)
+#. placeholder {2}: yesNo(!!persisted)
+#: app/src/app/systemInfo.ts
+msgid "Storage used: {0} of {1}; persistent: {2}"
+msgstr "Speicher belegt: {0} von {1}; dauerhaft: {2}"
 
 #: app/src/shell/tools.ts
 msgid "Straighten"
@@ -12934,6 +13474,10 @@ msgstr "Suffix"
 msgid "Sumi-e"
 msgstr "Sumi-e"
 
+#: app/src/HelpDialogs.tsx
+msgid "Summarize…"
+msgstr "Zusammenfassen…"
+
 #: app/src/app/helpers.ts
 msgid "Summation"
 msgstr "Summe"
@@ -12977,6 +13521,10 @@ msgstr "Zierschrift"
 msgid "Swatches"
 msgstr "Farbfelder"
 
+#: app/src/app/shortcutList.ts
+msgid "Switch Foreground/Background Colors"
+msgstr "Vorder- und Hintergrundfarbe tauschen"
+
 #: app/src/filters/labels.ts
 msgid "Symmetric Distortion"
 msgstr "Symmetrische Verzerrung"
@@ -12985,9 +13533,21 @@ msgstr "Symmetrische Verzerrung"
 msgid "System fonts are not available: {reason}"
 msgstr "Systemschriften sind nicht verfügbar: {reason}"
 
+#: app/src/HelpDialogs.tsx
+msgid "System Info"
+msgstr "Systeminfo"
+
+#: app/src/app/menus.ts
+msgid "System Info…"
+msgstr "Systeminfo…"
+
 #: app/src/ModeDialog.tsx
 msgid "Table"
 msgstr "Tabelle"
+
+#: app/src/app/newDocument.ts
+msgid "Tabloid"
+msgstr "Tabloid"
 
 #: app/src/filters/labels.ts
 msgid "Taper"
@@ -13000,6 +13560,10 @@ msgstr "Targa-Dateien werden aus 8-Bit-Samples geschrieben."
 #: app/src/app/Dialogs.tsx
 msgid "Target"
 msgstr "Ziel"
+
+#: app/src/app/viewShow.ts
+msgid "Target Path"
+msgstr "Zielpfad"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Technique"
@@ -13093,6 +13657,10 @@ msgstr "Diese Datei enthält keine Pixel zum Platzieren."
 #: app/src/GlyphsPanel.tsx
 msgid "That glyph has no code point — it is an OpenType alternate, reachable only through a feature."
 msgstr "Diese Glyphe hat keinen Codepunkt, sie ist eine OpenType-Alternative und nur über eine Funktion erreichbar."
+
+#: app/src/i18n/errors.ts
+msgid "That layer is not a type layer."
+msgstr "Diese Ebene ist keine Textebene."
 
 #: app/src/i18n/errors.ts
 msgid "That smart filter already has a mask."
@@ -13420,6 +13988,10 @@ msgid "The template is not a well-formed XMP file."
 msgstr "Die Vorlage ist keine wohlgeformte XMP-Datei."
 
 #: app/src/i18n/errors.ts
+msgid "The text ranges must lie inside the text and must not overlap."
+msgstr "Die Textbereiche müssen im Text liegen und dürfen sich nicht überschneiden."
+
+#: app/src/i18n/errors.ts
 msgid "The TIFF file would be larger than 4 GB."
 msgstr "Die TIFF-Datei wäre größer als 4 GB."
 
@@ -13430,6 +14002,10 @@ msgstr "Der gekachelte EXR-Header hat keine Kachelgröße."
 #: app/src/i18n/errors.ts
 msgid "The transform was cancelled."
 msgstr "Die Transformation wurde abgebrochen."
+
+#: app/src/DocumentDialogs.tsx
+msgid "The trap can be at most {MAX_TRAP} pixels wide."
+msgstr "Der Überfüllungswert darf höchstens {MAX_TRAP} Pixel betragen."
 
 #: app/src/i18n/errors.ts
 msgid "The type layer has no text."
@@ -13685,9 +14261,25 @@ msgstr "Letzten Zustand umschalten"
 msgid "Toggle quick mask"
 msgstr "Schnellmaske umschalten"
 
+#: app/src/app/shortcutList.ts
+msgid "Toggle Quick Mask Mode"
+msgstr "Maskierungsmodus umschalten"
+
 #: app/src/shell/tools.ts
 msgid "Tolerance"
 msgstr "Toleranz"
+
+#: app/src/app/shortcutList.ts
+msgid "Tool Flow (10 % steps)"
+msgstr "Werkzeugfluss (in 10-%-Schritten)"
+
+#: app/src/app/shortcutList.ts
+msgid "Tool Key"
+msgstr "Werkzeugtaste"
+
+#: app/src/app/shortcutList.ts
+msgid "Tool Opacity (10 % steps, two digits for an exact value)"
+msgstr "Werkzeug-Deckkraft (in 10-%-Schritten, zwei Ziffern für einen genauen Wert)"
 
 #: app/src/app/toolPresets.ts
 msgid "Tool preset brush identity is invalid."
@@ -13753,6 +14345,7 @@ msgid "Tool presets could not be saved: {reason}"
 msgstr "Die Werkzeug-Presets konnten nicht gespeichert werden: {reason}"
 
 #: app/src/app/menus.ts
+#: app/src/app/shortcutList.ts
 #: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/ToolBar.tsx
 msgid "Tools"
@@ -13866,6 +14459,7 @@ msgstr "Ebene aus Transparenzformen"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/i18n/choices.ts
+#: app/src/NewDocumentDialog.tsx
 #: app/src/shell/tools.ts
 msgid "Transparent"
 msgstr "Transparent"
@@ -13873,6 +14467,19 @@ msgstr "Transparent"
 #: app/src/app/Dialogs.tsx
 msgid "Transparent Pixels"
 msgstr "Transparente Pixel"
+
+#: app/src/DocumentDialogs.tsx
+#: app/src/i18n/history.ts
+msgid "Trap"
+msgstr "Überfüllen"
+
+#: app/src/app/menus.ts
+msgid "Trap…"
+msgstr "Überfüllen…"
+
+#: app/src/App.tsx
+msgid "Trapping…"
+msgstr "Überfüllen…"
 
 #: app/src/filters/labels.ts
 msgid "Tree"
@@ -14033,6 +14640,7 @@ msgid "Uniform"
 msgstr "Gleichmäßig"
 
 #: app/src/app/Dialogs.tsx
+#: app/src/DocumentDialogs.tsx
 msgid "Unit"
 msgstr "Einheit"
 
@@ -14042,6 +14650,8 @@ msgid "Unite Shapes"
 msgstr "Formen vereinen"
 
 #: app/src/app/measure.ts
+#: app/src/NewDocumentDialog.tsx
+#: app/src/StatusInfoField.tsx
 msgid "Units"
 msgstr "Einheiten"
 
@@ -14066,9 +14676,26 @@ msgstr "Eckenradien-Verknüpfung aufheben"
 msgid "Unlink dimensions"
 msgstr "Abmessungen-Verknüpfung aufheben"
 
+#: app/src/i18n/history.ts
+msgid "Unlink Layer Mask"
+msgstr "Verknüpfung der Ebenenmaske aufheben"
+
+#: app/src/LayersPanel.tsx
+msgid "Unlink layers"
+msgstr "Ebenenverbindung aufheben"
+
+#: app/src/app/menus.ts
+#: app/src/i18n/history.ts
+msgid "Unlink Layers"
+msgstr "Ebenenverbindung aufheben"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Unlink the eyes"
 msgstr "Verknüpfung der Augen aufheben"
+
+#: app/src/LayersPanel.tsx
+msgid "Unlink the mask of {name}"
+msgstr "Verknüpfung der Maske von {name} aufheben"
 
 #: app/src/PdfDialog.tsx
 msgid "Unlock"
@@ -14102,6 +14729,14 @@ msgstr "Ohne Profil"
 #: app/src/ColorDialog.tsx
 msgid "Untagged (treated as {assumed})"
 msgstr "Ohne Profil (als {assumed} behandelt)"
+
+#: app/src/app/statusInfo.ts
+msgid "Untagged {mode}"
+msgstr "{mode} ohne Profil"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "Untitled"
+msgstr "Unbenannt"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Up"
@@ -14213,6 +14848,11 @@ msgstr "Mit KI-Agenten verwenden…"
 #: app/src/ai/ModelDialog.tsx
 msgid "Use Without Model"
 msgstr "Ohne Modell verwenden"
+
+#. placeholder {0}: nav.userAgent
+#: app/src/app/systemInfo.ts
+msgid "User agent: {0}"
+msgstr "User-Agent: {0}"
 
 #: app/src/VariablesDialogs.tsx
 msgid "UTF-8 text, comma, semicolon or tab separated; the first row names the variables."
@@ -14407,6 +15047,10 @@ msgstr "Vignettenstärke"
 msgid "Vignette Midpoint"
 msgstr "Vignettenmittelpunkt"
 
+#: app/src/app/layerLinks.ts
+msgid "Violet"
+msgstr "Violett"
+
 #: app/src/VariablesDialogs.tsx
 msgid "Visibility"
 msgstr "Sichtbarkeit"
@@ -14504,9 +15148,48 @@ msgstr "Wellenlänge max."
 msgid "Wavelength Min"
 msgstr "Wellenlänge min."
 
+#: app/src/app/newDocument.ts
 #: app/src/ModeDialog.tsx
 msgid "Web"
 msgstr "Web"
+
+#: app/src/app/newDocument.ts
+msgid "Web Large"
+msgstr "Web groß"
+
+#: app/src/app/newDocument.ts
+msgid "Web Minimum"
+msgstr "Web minimal"
+
+#: app/src/app/newDocument.ts
+msgid "Web Most Common"
+msgstr "Web am häufigsten"
+
+#: app/src/app/systemInfo.ts
+msgid "WebGL2 renderer: {renderer}"
+msgstr "WebGL2-Renderer: {renderer}"
+
+#: app/src/app/systemInfo.ts
+msgid "WebGL2: not available"
+msgstr "WebGL2: nicht verfügbar"
+
+#: app/src/app/systemInfo.ts
+msgid "WebGPU adapter: {name}"
+msgstr "WebGPU-Adapter: {name}"
+
+#: app/src/app/systemInfo.ts
+msgid "WebGPU adapter: not available"
+msgstr "WebGPU-Adapter: nicht verfügbar"
+
+#. placeholder {0}: bytes(l.maxBufferSize)
+#: app/src/app/systemInfo.ts
+msgid "WebGPU max buffer size: {0}"
+msgstr "WebGPU, maximale Puffergröße: {0}"
+
+#. placeholder {0}: l.maxTextureDimension2D
+#: app/src/app/systemInfo.ts
+msgid "WebGPU max texture size: {0} px"
+msgstr "WebGPU, maximale Texturgröße: {0} Px"
 
 #: app/src/FileDialogs.tsx
 msgid "Website(s)"
@@ -14538,6 +15221,7 @@ msgstr "Beim Anwenden einer Vorlage"
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/ModeDialog.tsx
+#: app/src/NewDocumentDialog.tsx
 msgid "White"
 msgstr "Weiß"
 
@@ -14585,6 +15269,10 @@ msgstr "Weißtöne M"
 msgid "Whites Y"
 msgstr "Weißtöne Y"
 
+#: app/src/FindReplaceDialog.tsx
+msgid "Whole Word Only"
+msgstr "Nur ganzes Wort"
+
 #: app/src/filters/GalleryStack.tsx
 msgid "Wide Blurry"
 msgstr "Breit unscharf"
@@ -14595,7 +15283,9 @@ msgstr "Breit scharf"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/app/measure.ts
+#: app/src/DocumentDialogs.tsx
 #: app/src/filters/labels.ts
+#: app/src/NewDocumentDialog.tsx
 #: app/src/PropertiesPanel.tsx
 #: app/src/shell/tools.ts
 msgid "Width"
@@ -14604,6 +15294,10 @@ msgstr "Breite"
 #: app/src/SvgDialog.tsx
 msgid "Width (px)"
 msgstr "Breite (px)"
+
+#: app/src/DocumentDialogs.tsx
+msgid "Width:"
+msgstr "Breite:"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Willow"
@@ -14717,6 +15411,7 @@ msgstr "XMP-Paket"
 msgid "Y"
 msgstr "Y"
 
+#: app/src/app/layerLinks.ts
 #: app/src/ChannelsPanel.tsx
 msgid "Yellow"
 msgstr "Gelb"
@@ -14754,6 +15449,10 @@ msgstr "Gelbtöne Sättigung"
 msgid "Yellows Y"
 msgstr "Gelbtöne Y"
 
+#: app/src/app/systemInfo.ts
+msgid "yes"
+msgstr "ja"
+
 #: app/src/filters/labels.ts
 msgid "ZigZag"
 msgstr "Wellen"
@@ -14775,6 +15474,10 @@ msgstr "Vergrößern"
 msgid "Zoom In"
 msgstr "Vergrößern"
 
+#: app/src/app/shortcutList.ts
+msgid "Zoom In while held"
+msgstr "Hineinzoomen, solange gedrückt"
+
 #: app/src/app/menus.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/filters/VanishingPointDialog.tsx
@@ -14784,6 +15487,10 @@ msgstr "Verkleinern"
 #: app/src/NavigatorPanel.tsx
 msgid "Zoom Out"
 msgstr "Verkleinern"
+
+#: app/src/app/shortcutList.ts
+msgid "Zoom Out while held"
+msgstr "Herauszoomen, solange gedrückt"
 
 #: app/src/NavigatorPanel.tsx
 msgid "Zoom percent"

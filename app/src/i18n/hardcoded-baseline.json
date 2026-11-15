@@ -17,7 +17,7 @@
  "ScriptDialogs.tsx": 7,
  "SelectAndMaskDialog.tsx": 1,
  "TabBar.tsx": 2,
- "app/Dialogs.tsx": 14,
+ "app/Dialogs.tsx": 12,
  "app/actionsStore.ts": 3,
  "app/contextMenus.ts": 1,
  "app/helpers.ts": 1,
