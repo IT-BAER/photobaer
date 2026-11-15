@@ -134,3 +134,50 @@ fn apply_mask_refuses_no_mask_non_pixel_layers_and_a_pixel_lock() {
     assert!(d.apply_mask(1).unwrap_err().contains("locked"));
     assert!(d.node(1).unwrap().mask.is_some());
 }
+
+#[test]
+fn an_unlinked_mask_stays_when_the_layer_moves_and_offset_mask_moves_it_alone() {
+    let mut d = doc(8);
+    d.select_rect(0.0, 0.0, 5.0, 10.0, Mode::New).unwrap();
+    d.add_mask_from_selection(1, false).unwrap();
+    d.offset_layer(1, 3, 0).unwrap();
+    assert_eq!((mask_at(&d, 1, 6, 2), mask_at(&d, 1, 1, 2)), (1.0, 0.0), "a linked mask moves with the layer");
+    d.set_props(1, r#"{"mask_linked":false}"#).unwrap();
+    d.offset_layer(1, 3, 0).unwrap();
+    assert_eq!((mask_at(&d, 1, 6, 2), mask_at(&d, 1, 9, 2)), (1.0, 0.0), "an unlinked mask stays");
+    assert_eq!((px_at(&d, 1, 5, 2)[3], px_at(&d, 1, 6, 2)[3]), (0.0, 1.0), "the pixels moved 6 px in all");
+    d.offset_mask(1, -3, 0).unwrap();
+    assert_eq!((mask_at(&d, 1, 1, 2), mask_at(&d, 1, 6, 2)), (1.0, 0.0));
+    assert_eq!(px_at(&d, 1, 6, 2)[3], 1.0, "offset_mask leaves the pixels");
+    d.node_mut(1).unwrap().locks.position = true;
+    assert!(d.offset_mask(1, 1, 0).unwrap_err().contains("locked"));
+    let g = d.add_group("G", 1).unwrap();
+    assert!(d.offset_mask(g, 1, 0).unwrap_err().contains("no mask"));
+}
+
+#[test]
+fn layer_color_link_group_and_mask_link_are_stored_only_when_set() {
+    let mut d = Document::new(20, 10, 8).unwrap();
+    d.add_mask(1, true).unwrap();
+    let plain = d.manifest();
+    for key in ["\"color\"", "\"link\"", "\"linked\""] {
+        assert!(!plain.contains(key), "{key} is not written while it has its default");
+    }
+    d.set_props(1, r#"{"color":"violet","link":7,"mask_linked":false}"#).unwrap();
+    let props = |d: &Document| {
+        let n = d.node(1).unwrap();
+        (n.color, n.link, n.mask.as_ref().unwrap().linked)
+    };
+    assert_eq!(props(&d), (LayerColor::Violet, 7, false));
+    let mut back = Document::from_manifest(&d.manifest()).unwrap();
+    back.finish_load().unwrap();
+    assert_eq!(props(&back), (LayerColor::Violet, 7, false), "the manifest keeps them");
+    let layers: serde_json::Value = serde_json::from_str(&d.layers_json()).unwrap();
+    assert_eq!((&layers[0]["color"], &layers[0]["link"], &layers[0]["mask"]["linked"]), (&"violet".into(), &7.into(), &false.into()));
+    let mut old = Document::from_manifest(&plain).unwrap();
+    old.finish_load().unwrap();
+    assert_eq!(props(&old), (LayerColor::None, 0, true), "a manifest without them reads the defaults");
+    assert!(d.set_props(1, r#"{"color":"pink"}"#).is_err());
+    d.set_props(1, r#"{"color":"none","link":0}"#).unwrap();
+    assert_eq!(props(&d), (LayerColor::None, 0, false));
+}

@@ -81,6 +81,60 @@ test('clipboardSize reports the internal copy buffer for the Clipboard preset', 
   assert.deepEqual(await call('clipboardSize'), [10, 7]);
 });
 
+test('Find and Replace Text: type layers top first, one step for all layers, auto-named layers follow their text', async () => {
+  await fresh(200, 100);
+  await call('fontAdd', readFileSync(new URL('../public/fonts/NotoSans-Regular.ttf', import.meta.url)), 'bundled');
+  const { newText } = await import('./shell/typesession.ts');
+  const opts = { family: 'Noto Sans', style: 'Regular', size: 28, color: [0, 0, 0] as [number, number, number], alignment: 'left' as const, orientation: 'horizontal' as const };
+  const t0 = newText(opts, { type: 'point' }, [10, 60]);
+  const make = async (s: string) => {
+    const { id } = await call<{ id: number }>('typeBegin', { text: t0, above: 0 });
+    await call('typeUpdate', { ...t0, text: s, runs: [{ ...t0.runs[0], length: s.length }], paragraphs: [{ ...t0.paragraphs[0], length: s.length }] }, s);
+    await call('typeCommit');
+    return id;
+  };
+  const a = await make('cat and cat'), b = await make('dog cat');
+  const info = await call('setProps', b, { name: 'Pets' });
+  const topFirst = info.layers.filter(n => n.kind === 'text').map(n => n.id).reverse();
+  assert.deepEqual(await call('typeTexts'), topFirst.map(id => id === a ? { id, name: 'cat and cat', text: 'cat and cat' } : { id, name: 'Pets', text: 'dog cat' }));
+  const d = await call('typeReplace', [{ id: a, ranges: [[0, 3], [8, 11]] }, { id: b, ranges: [[4, 7]] }], 'lion', 'Replace All Text');
+  assert.equal(d.undoLabel, 'Replace All Text');
+  const layer = (id: number) => d.layers.find(n => n.id === id)!;
+  assert.deepEqual([layer(a).name, layer(a).text?.text], ['lion and lion', 'lion and lion']);
+  assert.deepEqual([layer(b).name, layer(b).text?.text], ['Pets', 'dog lion'], 'a renamed layer keeps its name');
+  await assert.rejects(call('typeReplace', [{ id: a, ranges: [[0, 99]] }], 'x', 'Replace Text'), /inside the text/);
+  await assert.rejects(call('typeReplace', [{ id: a, ranges: [[0, 4], [2, 6]] }], 'x', 'Replace Text'), /overlap/);
+  const u = await call('undo');
+  assert.equal(u.layers.find(n => n.id === a)!.text?.text, 'cat and cat', 'one undo restores every layer');
+  assert.equal(u.layers.find(n => n.id === b)!.text?.text, 'dog cat');
+});
+
+test('Link Layers: a linked layer moves along; with an unlinked mask targeted only the mask moves', async () => {
+  await fresh(32, 16);
+  const paint = async (x: number) => {
+    const { created } = await call<DocInfo & { created: number }>('addLayer', 0);
+    await call('select', { kind: 'rect', x, y: 0, w: 4, h: 4 }, 'new', false, 0, 'Rectangular Marquee');
+    await call('fillEx', created, 'pixels', { source: 'solid', rgba: [0, 0, 255, 255], intensity: 1, mode: 'normal', opacity: 1, preserveTransparency: false }, 'Fill');
+    await call('selectCommand', 'deselect');
+    return created;
+  };
+  const a = await paint(0), b = await paint(10);
+  const linked = await call('setPropsMany', [[a, { link: 1 }], [b, { link: 1 }]], 'Link Layers');
+  assert.deepEqual([linked.undoLabel, linked.layers.find(n => n.id === b)?.link], ['Link Layers', 1]);
+  const alpha = async (x: number, id: number) => (await call<number[]>('sample', x, 1, 1, id))[3];
+  await call('moveLayerBegin', a, false, 'Move');
+  await call('moveLayerStep', 3, 0);
+  await call('moveLayerCommit');
+  assert.deepEqual([await alpha(1, a), await alpha(5, a), await alpha(11, b), await alpha(15, b)], [0, 255, 0, 255], 'both layers moved 3 px');
+  await call('addMask', a, true);
+  await call('setProps', a, { mask_linked: false });
+  await call('moveLayerBegin', a, false, 'Move', true);
+  await call('moveLayerStep', 5, 0);
+  const d = await call('moveLayerCommit');
+  assert.equal(d.undoLabel, 'Move');
+  assert.deepEqual([await alpha(5, a), await alpha(15, b)], [255, 255], 'the mask moved alone: no pixels and no linked layer moved');
+});
+
 test('Image > Trap is one undo step in a CMYK document and refuses RGB', async () => {
   await fresh(16, 4);
   await assert.rejects(call('trap', 1, 1), /CMYK/);

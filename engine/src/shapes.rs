@@ -219,7 +219,8 @@ impl Document {
         }
         let default = if reveal { max_value(self.depth) } else { 0 };
         let node = self.node_mut(id)?;
-        node.mask = Some(Mask { enabled, default, tiles });
+        let linked = node.vector_mask.as_ref().is_none_or(|v| v.linked);
+        node.mask = Some(Mask { enabled, default, tiles, linked });
         node.vector_mask = None;
         Ok(())
     }

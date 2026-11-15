@@ -90,7 +90,10 @@ export interface LayerNode {
   id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart' | 'shape' | 'text';
   visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
   locks: { transparency: boolean; pixels: boolean; position: boolean };
-  mask: { enabled: boolean; default: number } | null;
+  // `linked` is absent while the mask is linked (engine default, not written).
+  mask: { enabled: boolean; default: number; linked?: boolean } | null;
+  // Absent: no color, not linked (Layer > Link Layers group id).
+  color?: LayerColor; link?: number;
   content?: FillContent;
   adjustment?: Adjustment;
   smart?: SmartInfo;
@@ -106,6 +109,7 @@ export interface LayerNode {
   children?: LayerNode[];
 }
 export interface VectorMaskInfo { path: VectorPath; enabled: boolean; linked: boolean; inverted: boolean; density: number; feather: number }
+export type LayerColor = 'none' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'violet' | 'gray';
 export type BoolOp = 'unite' | 'subtract' | 'intersect' | 'exclude';
 // docs/M4.md section 12: a document-space vertical (x) or horizontal (y) guide.
 export interface Guide { id: number; axis: 'x' | 'y'; pos: number }

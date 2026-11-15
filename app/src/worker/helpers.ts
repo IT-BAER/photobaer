@@ -26,6 +26,8 @@ function propsLabel(props: Record<string, unknown>): string {
     case 'clipping': return props.clipping ? 'Create Clipping Mask' : 'Release Clipping Mask';
     case 'locks': return 'Lock Layer';
     case 'mask_enabled': return props.mask_enabled ? 'Enable Layer Mask' : 'Disable Layer Mask';
+    case 'mask_linked': return props.mask_linked ? 'Link Layer Mask' : 'Unlink Layer Mask';
+    case 'color': return 'Layer Color';
     default: return 'Layer Properties';
   }
 }

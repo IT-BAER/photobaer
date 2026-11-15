@@ -46,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - File > New opens a New Document dialog: presets by category (Photo, Print, Art & Illustration, Web, Mobile, Film &
   Video, Social), preset search, recent sizes and a Clipboard preset, name, units, resolution, orientation, color
   mode, bit depth, background contents and the image size estimate.
+- The start screen lists the recent files as cards with a thumbnail of each file as last opened or saved, its name
+  and how long ago it was used; a click opens it (Chrome and Edge).
+- Edit > Find and Replace Text… searches the type layers (all of them or the selected one, forward or backward, case
+  sensitive, whole words, ignoring accents) with Find Next, Change, Change All and Change/Find; text keeps its
+  character styles, and a layer named after its text takes the new name.
 
 ## [0.5.1] - 2026-11-14
 

@@ -430,6 +430,14 @@ dialog .copy-row input, .copy-row textarea { flex: 1; min-width: 0; font: 12px/1
 .welcome .drop-hint { display: grid; gap: 4px; margin-top: 16px; padding: 18px 28px; border: 1px dashed var(--line); border-radius: 8px; color: var(--dim); pointer-events: auto; transition: border-color var(--t-hover) var(--ease), background-color var(--t-hover) var(--ease); }
 .welcome .drop-hint.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); }
 .welcome .drop-hint small { font-size: 12px; }
+.welcome .recent-files { width: min(720px, calc(100vw - 96px)); margin: 16px auto 40px; text-align: left; pointer-events: auto; }
+.welcome .recent-files h2 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--dim); }
+.welcome .recent-files ul { display: flex; gap: 8px; margin: 0; padding: 0 0 6px; list-style: none; overflow-x: auto; }
+.welcome .recent-files button { display: grid; gap: 4px; width: 128px; padding: 6px; text-align: left; }
+.welcome .recent-files .thumb { display: grid; place-items: center; height: 88px; border-radius: 4px; background: var(--bg); color: var(--dim); overflow: hidden; }
+.welcome .recent-files .thumb img { max-width: 100%; max-height: 100%; background: repeating-conic-gradient(#666 0 25%, #999 0 50%) 0 0 / 12px 12px; }
+.welcome .recent-files .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.welcome .recent-files small { color: var(--dim); font-size: 11px; }
 .welcome .copyright a { color: var(--accent-hover); text-decoration: none; pointer-events: auto; }
 .welcome .copyright a:hover { text-decoration: underline; }
 .welcome .copyright svg { vertical-align: -3px; }
@@ -842,6 +850,13 @@ dialog.vp-dialog h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); }
 .batch-dialog :is(input[type=number], input.number-input) { flex: none; width: 76px; }
 .batch-dialog .hint { margin: 4px 0; font-size: 12px; color: var(--dim); }
 .batch-dialog ol.hint { padding-left: 20px; }
+.find-replace { display: flex; gap: 16px; }
+.find-replace .fields { flex: 1; min-width: 280px; }
+.find-replace .fields > label { display: grid; grid-template-columns: 90px 1fr; }
+.find-replace .options { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
+.find-replace .options label { margin: 4px 0; }
+.find-replace .hint { min-height: 1.4em; margin: 8px 0 0; font-size: 12px; color: var(--dim); }
+.find-replace .buttons { display: flex; flex-direction: column; gap: 6px; }
 .batch-dialog .hint.bad { color: var(--danger); }
 .variables-values { display: grid; gap: 4px; max-height: 40vh; overflow: auto; }
 .variables-values textarea { width: 100%; box-sizing: border-box; }

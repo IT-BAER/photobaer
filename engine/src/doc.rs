@@ -623,6 +623,29 @@ pub struct Mask {
     pub enabled: bool,
     pub default: u32,
     pub tiles: Tiles,
+    /// Moves with the layer (the Layers panel chain); an unlinked mask stays in place.
+    pub linked: bool,
+}
+
+/// Layers panel color label (PSD `lclr`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LayerColor {
+    #[default]
+    None,
+    Red,
+    Orange,
+    Yellow,
+    Green,
+    Blue,
+    Violet,
+    Gray,
+}
+
+impl LayerColor {
+    pub fn is_none(&self) -> bool {
+        *self == LayerColor::None
+    }
 }
 
 /// A selection or saved channel: one canvas-sized single-channel mask at document depth.
@@ -695,6 +718,9 @@ pub struct Node {
     pub artboard: Option<Artboard>,
     /// Origin of the layer-space effect grid in document px: moves with the layer, never stored.
     pub fx_anchor: [i32; 2],
+    pub color: LayerColor,
+    /// Layer > Link Layers group id; 0: not linked. Linked layers move together.
+    pub link: u32,
 }
 
 impl Node {
@@ -715,6 +741,8 @@ impl Node {
             vector_mask: None,
             artboard: None,
             fx_anchor: [0, 0],
+            color: LayerColor::None,
+            link: 0,
         }
     }
 
@@ -1220,6 +1248,16 @@ impl Document {
             let m = node.mask.as_mut().ok_or_else(|| format!("node {id} has no mask"))?;
             m.enabled = v;
         }
+        if let Some(v) = p.mask_linked {
+            let m = node.mask.as_mut().ok_or_else(|| format!("node {id} has no mask"))?;
+            m.linked = v;
+        }
+        if let Some(c) = p.color {
+            node.color = c;
+        }
+        if let Some(l) = p.link {
+            node.link = l;
+        }
         Ok(())
     }
 
@@ -1234,6 +1272,7 @@ impl Document {
             enabled: true,
             default: if reveal { max } else { 0 },
             tiles: Tiles::default(),
+            linked: true,
         });
         Ok(())
     }
@@ -1264,7 +1303,7 @@ impl Document {
         } else {
             (sel.default, sel.tiles)
         };
-        self.node_mut(id)?.mask = Some(Mask { enabled: true, default, tiles });
+        self.node_mut(id)?.mask = Some(Mask { enabled: true, default, tiles, linked: true });
         self.last_selection = self.selection.take();
         Ok(())
     }
@@ -1321,7 +1360,7 @@ impl Document {
             pixels.push((tx, ty, Tile { id: self.alloc_tile_id(), px: Arc::new(opaque) }));
         }
         let node = self.node_mut(id)?;
-        node.mask = Some(Mask { enabled: true, default: 0, tiles: mask });
+        node.mask = Some(Mask { enabled: true, default: 0, tiles: mask, linked: true });
         let tiles = node.pixel_tiles_mut()?;
         for (tx, ty, t) in pixels {
             tiles.put(tx, ty, Some(t));
@@ -2630,7 +2669,7 @@ impl Document {
             Some(sel) => (sel.default, sel.tiles.clone()),
             None => (max_value(self.depth), Tiles::default()),
         };
-        self.node_mut(id)?.mask = Some(Mask { enabled: true, default, tiles });
+        self.node_mut(id)?.mask = Some(Mask { enabled: true, default, tiles, linked: true });
         if let Some(sel) = self.selection.take() {
             self.last_selection = Some(sel);
         }

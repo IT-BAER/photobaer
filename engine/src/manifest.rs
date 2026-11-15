@@ -12,6 +12,7 @@ impl Document {
             enabled: m.enabled,
             default: m.default,
             tiles: if tiles_out { Some(m.tiles.out()) } else { None },
+            linked: m.linked,
         };
         NodeOut {
             id: n.id,
@@ -23,6 +24,8 @@ impl Document {
             blend: n.blend.name(),
             clipping: n.clipping,
             locks: n.locks,
+            color: n.color,
+            link: n.link,
             mask: n.mask.as_ref().map(mask_out),
             style: &n.style,
             blending: &n.blending,
@@ -237,6 +240,8 @@ impl Document {
                         blend: "normal".into(),
                         clipping: false,
                         locks: Locks::default(),
+                        color: LayerColor::None,
+                        link: 0,
                         mask: None,
                         tiles: Some(l.tiles.clone()),
                         children: None,
@@ -616,12 +621,15 @@ fn spread_nodes(nodes: Vec<NodeIn<u64>>, tiles_x: u32, tiles_y: u32) -> Result<V
                 blend: n.blend,
                 clipping: n.clipping,
                 locks: n.locks,
+                color: n.color,
+                link: n.link,
                 mask: match n.mask {
                     None => None,
                     Some(m) => Some(MaskIn {
                         enabled: m.enabled,
                         default: m.default,
                         tiles: spread(&m.tiles, tiles_x, tiles_y)?,
+                        linked: m.linked,
                     }),
                 },
                 tiles: n.tiles.as_deref().map(|t| spread(t, tiles_x, tiles_y)).transpose()?,
@@ -781,6 +789,8 @@ fn build_nodes(in_nodes: &[NodeIn<Coord>], path: &mut Vec<usize>, ctx: &mut Load
             vector_mask: n.vector_mask.clone(),
             artboard: n.artboard.clone(),
             fx_anchor: [0, 0],
+            color: n.color,
+            link: n.link,
         });
     }
     Ok(out)
@@ -790,7 +800,7 @@ fn take_mask(m: &MaskIn<Coord>, slot: Slot, ctx: &mut LoadCtx) -> Result<Mask, S
     if m.default > ctx.max_mask {
         return Err("mask default out of range".into());
     }
-    Ok(Mask { enabled: m.enabled, default: m.default, tiles: take_tiles(&m.tiles, true, slot, false, ctx)? })
+    Ok(Mask { enabled: m.enabled, default: m.default, tiles: take_tiles(&m.tiles, true, slot, false, ctx)?, linked: m.linked })
 }
 
 fn take_smart(s: &SmartIn, cache: &[Coord], path: &[usize], ctx: &mut LoadCtx) -> Result<Smart, String> {
@@ -859,6 +869,18 @@ struct MaskOut {
     default: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     tiles: Option<Vec<Coord>>,
+    #[serde(skip_serializing_if = "is_true")]
+    linked: bool,
+}
+
+fn is_true(v: &bool) -> bool {
+    *v
+}
+fn is_zero(v: &u32) -> bool {
+    *v == 0
+}
+fn yes() -> bool {
+    true
 }
 
 #[derive(Serialize)]
@@ -900,6 +922,10 @@ struct NodeOut<'a> {
     blend: &'static str,
     clipping: bool,
     locks: Locks,
+    #[serde(skip_serializing_if = "LayerColor::is_none")]
+    color: LayerColor,
+    #[serde(skip_serializing_if = "is_zero")]
+    link: u32,
     mask: Option<MaskOut>,
     style: &'a Option<Style>,
     blending: &'a Blending,
@@ -982,6 +1008,8 @@ struct MaskIn<T> {
     enabled: bool,
     default: u32,
     tiles: Vec<T>,
+    #[serde(default = "yes")]
+    linked: bool,
 }
 
 #[derive(Deserialize)]
@@ -996,6 +1024,10 @@ struct NodeIn<T> {
     blend: String,
     clipping: bool,
     locks: Locks,
+    #[serde(default)]
+    color: LayerColor,
+    #[serde(default)]
+    link: u32,
     #[serde(default = "no_mask")]
     mask: Option<MaskIn<T>>,
     #[serde(default)]
@@ -1305,4 +1337,10 @@ pub(super) struct PropsIn {
     pub(super) locks: Option<LocksIn>,
     #[serde(default)]
     pub(super) mask_enabled: Option<bool>,
+    #[serde(default)]
+    pub(super) mask_linked: Option<bool>,
+    #[serde(default)]
+    pub(super) color: Option<LayerColor>,
+    #[serde(default)]
+    pub(super) link: Option<u32>,
 }

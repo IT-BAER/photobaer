@@ -68,6 +68,7 @@ export const HISTORY_LABELS: Record<string, MessageDescriptor> = {
   'Relink Smart Object': msg`Relink Smart Object`, 'Update Smart Object Contents': msg`Update Smart Object Contents`,
   'Stack Mode': msg`Stack Mode`, 'File Info': msg`File Info`, Trap: msg`Trap`, 'Place Scale Marker': msg`Place Scale Marker`,
   'Straighten Layer': msg`Straighten Layer`, 'New Frame': msg`New Frame`, 'Apply Data Set': msg`Apply Data Set`,
+  'Replace Text': msg`Replace Text`, 'Replace All Text': msg`Replace All Text`,
   '90° Clockwise': msg`90° Clockwise`, '90° Counter Clockwise': msg`90° Counter Clockwise`,
   'Flip Canvas Horizontal': msg`Flip Canvas Horizontal`, 'Flip Canvas Vertical': msg`Flip Canvas Vertical`,
   'Select All': msg`Select All`, Reselect: msg`Reselect`, 'Select Inverse': msg`Select Inverse`,

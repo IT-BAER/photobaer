@@ -524,9 +524,14 @@ impl Engine {
         self.0.doc.clear_lifted(id, Target::parse(target).map_err(err)?).map_err(err)
     }
 
-    /// Moves a pixel layer and its mask by whole pixels, keeping pixels outside the canvas.
+    /// Moves a pixel layer and its linked mask by whole pixels, keeping pixels outside the canvas.
     pub fn offset_layer(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), JsError> {
         self.0.doc.offset_layer(id, dx, dy).map_err(err)
+    }
+
+    /// Moves only the layer's mask by whole pixels.
+    pub fn offset_mask(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), JsError> {
+        self.0.doc.offset_mask(id, dx, dy).map_err(err)
     }
 
     /// Tight bounds of the layer's non-transparent pixels as [x, y, w, h], or null.

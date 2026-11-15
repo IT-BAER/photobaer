@@ -6,7 +6,8 @@ type SaveFormat = 'psd' | 'psb' | 'exr' | 'hdr' | 'ico' | 'tiff' | 'bmp' | 'tga'
 // The file a tab was opened from or saved as; `warned`: the open reported content the PSD writer cannot store.
 // `raster`: the pixel size and resolution an SVG was rasterized at, which Revert keeps.
 interface Origin { handle: FileSystemFileHandle; kind: Kind; warned: boolean; raster?: { size: [number, number]; ppi: number } }
-interface Recent { name: string; kind: Kind; handle: FileSystemFileHandle; time: number }
+// `thumb`: a small image of the composite for the start screen, taken at open and save.
+interface Recent { name: string; kind: Kind; handle: FileSystemFileHandle; time: number; thumb?: Blob }
 type Mode = { mode: 'read' | 'readwrite' };
 type PermHandle = FileSystemFileHandle & { queryPermission?(m: Mode): Promise<PermissionState>; requestPermission?(m: Mode): Promise<PermissionState> };
 type Pickers = { showOpenFilePicker?: (o: object) => Promise<FileSystemFileHandle[]>; showSaveFilePicker?: (o: object) => Promise<FileSystemFileHandle> };
@@ -45,11 +46,23 @@ function saveRoute(o: Pick<Origin, 'kind' | 'warned'> | undefined, nested: boole
   return !nested && o?.kind === 'psd' && !o.warned ? 'write' : 'saveAs';
 }
 
-// `r` first, any entry for the same file dropped, at most RECENT_MAX. A handle that cannot compare counts as another file.
+// `r` first, any entry for the same file dropped (its thumbnail kept when `r` has none), at most RECENT_MAX.
+// A handle that cannot compare counts as another file.
 async function addRecent(list: Recent[], r: Recent): Promise<Recent[]> {
   const out = [r];
-  for (const x of list) if (!await x.handle.isSameEntry(r.handle).catch(() => false)) out.push(x);
+  for (const x of list) {
+    if (!await x.handle.isSameEntry(r.handle).catch(() => false)) out.push(x);
+    else if (!r.thumb && x.thumb) out[0] = { ...r, thumb: x.thumb };
+  }
   return out.slice(0, RECENT_MAX);
+}
+
+// How long ago `time` was, as an Intl.RelativeTimeFormat value and unit (under a minute and the future read as now).
+const AGE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [['year', 365 * 86_400_000], ['month', 30 * 86_400_000], ['day', 86_400_000], ['hour', 3_600_000], ['minute', 60_000]];
+function recentAge(time: number, now: number): [number, Intl.RelativeTimeFormatUnit] {
+  const ms = Math.max(0, now - time);
+  for (const [unit, size] of AGE_UNITS) if (ms >= size) return [-Math.floor(ms / size), unit];
+  return [0, 'minute'];
 }
 
 const pickers = () => (typeof window === 'undefined' ? {} : window) as Pickers;
@@ -127,5 +140,5 @@ function recentStore<T>(mode: IDBTransactionMode, f: (s: IDBObjectStore) => IDBR
 const loadRecent = async () => (await recentStore<Recent[] | undefined>('readonly', s => s.get(KEY))) ?? [];
 const storeRecent = (list: Recent[]) => recentStore<unknown>('readwrite', s => s.put(list, KEY));
 
-export { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, rasterSvg, saveFormat, saveRoute, storeRecent, writeFile };
+export { addRecent, baseName, fsAccess, kindOf, loadRecent, permit, pickOpen, pickSave, rasterSvg, recentAge, saveFormat, saveRoute, storeRecent, writeFile };
 export type { Kind, Origin, Recent, SaveFormat };

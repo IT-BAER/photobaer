@@ -17,7 +17,7 @@ import { layerName } from './shell/typesession.ts';
 import { flatNodes, locate, nodeById } from './layers.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
-import type { Spot, AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, RefineBase, RefineSettings, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
+import type { LayerColor, Spot, AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, RefineBase, RefineSettings, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { boxScale, thumbSize } from './app/navigator.ts';
 import { inkGray } from './app/channels.ts';
 import { CMYK_SPACES, DEFAULT_COLOR_SETTINGS, RGB_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
@@ -30,6 +30,8 @@ import { emptyAnnotations, framePath, rotationAbout, type Annotations } from './
 import {
   emptyVariables, imageKey, pixelPlacement, planDataSet, readVariablesResource, replaceText, VARIABLES_RESOURCE, variablesResource, type PixelOptions, type Variables,
 } from './app/variables.ts';
+import { spliceText } from './app/findReplace.ts';
+import { linkedIds } from './app/layerLinks.ts';
 import { assetSpecs } from './app/webExport.ts';
 import { TILE, levelFor } from './view.ts';
 import { NO_RECORD, decodeCall, encodeCall, hot, newIds, recordable, type ActionStep, type Call, type Layers } from './actions.ts';
@@ -70,8 +72,10 @@ let vp: { data: Uint8Array; w: number; h: number; scale: number } | null = null;
 // `patch` renders sharp images of an open float over other doc rects (moveFloatPatch); `base` its
 // whole-layer images when moveFloat returned only the view's; `reveal` shows the layers an open float
 // hides and returns the call that hides them again. `level`: the view's level of a split float (moveFloatAhead).
+// `linked`: the layers linked to the target, moved along; `maskOnly`: an unlinked mask moved on its own.
 let moveSession: {
   liveBase: number; targetId: number; duplicated: boolean; lastDx: number; lastDy: number; pixels: boolean; floating: boolean; level?: number;
+  linked?: number[]; maskOnly?: boolean;
   patch?: (moved: Box | null, above: Box | null) => { moved: ReturnType<typeof liftPreview> | null; above: ReturnType<typeof liftPreview> | null };
   base?: () => { moved: ReturnType<typeof shiftedRegion>; above: ReturnType<typeof shiftedRegion> };
   reveal?: () => () => void;
@@ -2508,6 +2512,37 @@ const api = {
     return changed();
   },
 
+  // Edit > Find and Replace Text: the type layers' text in Layers panel order (top first); fully locked layers are left out.
+  typeTexts(): { id: number; name: string; text: string }[] {
+    const topDown = (l: LayerNode[]): LayerNode[] => [...l].reverse().flatMap(n => [n, ...topDown(n.children ?? [])]);
+    return topDown(JSON.parse(need().layers_json()) as LayerNode[])
+      .filter(n => n.kind === 'text' && !(n.locks.transparency && n.locks.pixels && n.locks.position))
+      .map(n => ({ id: n.id, name: n.name, text: (n.text as TextJson).text as string }));
+  },
+
+  // Find and Replace Text's Change and Change All: each layer's [start, end) ranges (UTF-16 units) become `replace`
+  // in one step; a layer still named after its text takes the new text's name.
+  typeReplace(edits: { id: number; ranges: [number, number][] }[], replace: string, label: 'Replace Text' | 'Replace All Text') {
+    const e = need();
+    history.run(label, () => {
+      for (const { id, ranges } of edits) {
+        const n = findNode(e, id);
+        if (n?.kind !== 'text') throw new Error('That layer is not a type layer.');
+        const old = n.text as TextJson;
+        let t = old, limit = old.text.length;
+        for (const [a, b] of [...ranges].sort((x, y) => y[0] - x[0])) {
+          if (!(Number.isInteger(a) && Number.isInteger(b) && a >= 0 && a <= b && b <= limit)) throw new Error('The text ranges must lie inside the text and must not overlap.');
+          t = spliceText(t, a, b, replace);
+          limit = a;
+        }
+        e.set_text(id, JSON.stringify(t));
+        if (n.name === layerName(old.text)) e.set_props(id, JSON.stringify({ name: layerName(t.text) }));
+        e.render_text(id, fontReg(), resolution(e));
+      }
+    });
+    return changed();
+  },
+
   // Several layers' new text models (panels, Type menu, Properties) as one step.
   typeSetMany(edits: [number, TextJson][], label: string) {
     const e = need();
@@ -2592,9 +2627,13 @@ const api = {
   // Whole-layer move/duplicate session: `moveLayerBegin` opens one history step (duplicating the
   // node first when asked), `moveLayerStep` previews a cumulative offset from the session's start,
   // `moveLayerCommit`/`moveLayerCancel` close it. A zero net offset with no duplicate makes no step.
-  moveLayerBegin(id: number, duplicate: boolean, label: string) {
+  moveLayerBegin(id: number, duplicate: boolean, label: string, maskTarget = false) {
     const e = need();
     history.begin(label);
+    const tree0 = JSON.parse(e.layers_json()) as LayerNode[], node = flatNodes(tree0).find(n => n.id === id);
+    const maskOnly = maskTarget && !duplicate && node?.mask?.linked === false;
+    // Linked layers move along unless they cannot move (position lock).
+    const linked = duplicate || maskOnly ? [] : linkedIds(tree0, [id]).filter(l => l !== id && !flatNodes(tree0).find(n => n.id === l)?.locks.position);
     const targetId = duplicate ? e.duplicate_node(id) : id;
     if (duplicate) {
       const used = new Set<string>();
@@ -2603,7 +2642,7 @@ const api = {
       walk(JSON.parse(e.layers_json()) as LayerNode[]);
       if (used.has(base)) { let i = 2; while (used.has(`${base} ${i}`)) i++; e.set_props(targetId, JSON.stringify({ name: `${base} ${i}` })); }
     }
-    moveSession = { liveBase: e.snapshot(), targetId, duplicated: duplicate, lastDx: 0, lastDy: 0, pixels: false, floating: false };
+    moveSession = { liveBase: e.snapshot(), targetId, duplicated: duplicate, lastDx: 0, lastDy: 0, pixels: false, floating: false, linked, maskOnly };
     return { ...changed(), activeId: targetId };
   },
 
@@ -2613,7 +2652,8 @@ const api = {
     e.restore(s.liveBase);
     s.floating = false;
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
-    for (const pid of collectPixelIds(tree, s.targetId)) e.offset_layer(pid, dx, dy);
+    if (s.maskOnly) e.offset_mask(s.targetId, dx, dy);
+    else for (const pid of new Set([s.targetId, ...s.linked ?? []].flatMap(id => collectPixelIds(tree, id)))) e.offset_layer(pid, dx, dy);
     if (findNode(e, s.targetId)?.artboard) e.offset_artboard(s.targetId, dx, dy);
     s.lastDx = dx;
     s.lastDy = dy;
@@ -2692,7 +2732,7 @@ const api = {
   // than `scale`, `over` is a sharp image of the visible rect `view` plus half a view around it.
   moveFloat(scale = 1, view: Box | null = null) {
     const e = need(), s = moveSession;
-    if (!s || s.lastDx || s.lastDy) return null;
+    if (!s || s.lastDx || s.lastDy || s.linked?.length || s.maskOnly) return null;
     const tree = JSON.parse(e.layers_json()) as LayerNode[];
     const i = tree.findIndex(n => n.id === s.targetId), n = tree[i];
     if (!n || !n.visible) return null;
@@ -2993,10 +3033,17 @@ const api = {
   // every other layer but need their own undo text.
   setProps(id: number, props: Partial<{
     name: string; visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
-    locks: Partial<{ transparency: boolean; pixels: boolean; position: boolean }>; mask_enabled: boolean;
+    locks: Partial<{ transparency: boolean; pixels: boolean; position: boolean }>; mask_enabled: boolean; mask_linked: boolean; color: LayerColor; link: number;
   }>, label?: string) {
     const e = need();
     history.run(label ?? propsLabel(props), () => e.set_props(id, JSON.stringify(props)));
+    return changed();
+  },
+
+  // Several layers' color label or link group as one step (Layer Color, Link Layers / Unlink Layers).
+  setPropsMany(changes: [number, Partial<{ color: LayerColor; link: number }>][], label: 'Layer Color' | 'Link Layers' | 'Unlink Layers') {
+    const e = need();
+    history.run(label, () => { for (const [id, p] of changes) e.set_props(id, JSON.stringify(p)); });
     return changed();
   },
 

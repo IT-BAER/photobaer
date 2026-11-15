@@ -549,7 +549,7 @@ impl Document {
             }
             let m = convolve(&masks[i], w, h, &kernel);
             let tiles = self.render_tiles_with(r, Some(0), true, |ox, oy, buf| fill(&m, 1, ox, oy, buf))?;
-            self.node_mut(l.id)?.mask = Some(Mask { enabled: true, default: 0, tiles });
+            self.node_mut(l.id)?.mask = Some(Mask { enabled: true, default: 0, tiles, linked: true });
         }
         Ok(())
     }

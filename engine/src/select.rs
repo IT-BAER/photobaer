@@ -1346,7 +1346,28 @@ impl Document {
         out
     }
 
-    /// Moves a pixel layer and its mask by whole pixels. Pixels outside the canvas are kept.
+    /// Moves only the layer mask by whole pixels (an unlinked mask moved on its own).
+    pub fn offset_mask(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), String> {
+        self.check_idle()?;
+        let node = self.node(id)?;
+        if node.locks.position {
+            return Err("layer position is locked".into());
+        }
+        let (default, tiles) = node.mask.as_ref().map(|m| (m.default, m.tiles.clone())).ok_or_else(|| format!("node {id} has no mask"))?;
+        let lim = MAX_TILE_COORD as i64;
+        let fits = |t: i32, d: i32| {
+            let lo = (t as i64 * TILE as i64 + d as i64).div_euclid(TILE as i64);
+            lo >= -lim && lo + 1 <= lim
+        };
+        if !tiles.coords().into_iter().all(|(tx, ty)| fits(tx, dx) && fits(ty, dy)) {
+            return Err("offset moves the mask too far".into());
+        }
+        let moved = self.shift_tiles(&tiles, dx, dy, Some(default));
+        self.node_mut(id)?.mask.as_mut().expect("checked").tiles = moved;
+        Ok(())
+    }
+
+    /// Moves a pixel layer and its linked mask by whole pixels. Pixels outside the canvas are kept.
     pub fn offset_layer(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), String> {
         self.check_idle()?;
         let vector = matches!(self.node(id)?.kind, Kind::Shape(_) | Kind::Text(_));
@@ -1365,7 +1386,7 @@ impl Document {
         }
         // The shifted tiles must stay within the coordinates a manifest may store.
         let node = self.node(id)?;
-        let mask_coords = node.mask.as_ref().map_or(Vec::new(), |m| m.tiles.coords());
+        let mask_coords = node.mask.as_ref().filter(|m| m.linked).map_or(Vec::new(), |m| m.tiles.coords());
         let lim = MAX_TILE_COORD as i64;
         let fits = |t: i32, d: i32| {
             let lo = (t as i64 * TILE as i64 + d as i64).div_euclid(TILE as i64);
@@ -1382,7 +1403,7 @@ impl Document {
             (s.transform, s.warp) = (t, warp);
             self.map_filter_masks(id, |d, m| d.shift_tiles(&m.tiles, dx, dy, Some(m.default)))?;
         }
-        let mask = self.node(id)?.mask.as_ref().map(|m| (m.default, m.tiles.clone()));
+        let mask = self.node(id)?.mask.as_ref().filter(|m| m.linked).map(|m| (m.default, m.tiles.clone()));
         if let Some((default, tiles)) = mask {
             let moved = self.shift_tiles(&tiles, dx, dy, Some(default));
             self.node_mut(id)?.mask.as_mut().expect("checked").tiles = moved;
@@ -1406,7 +1427,7 @@ impl Document {
     }
 
     // A shape moves its path, a text layer its transform (its box and paths are in text space)
-    // and its cache; the raster mask moves as on a pixel layer.
+    // and its cache; a linked raster mask moves as on a pixel layer.
     fn offset_vector_layer(&mut self, id: u32, dx: i32, dy: i32) -> Result<(), String> {
         let lim = MAX_TILE_COORD as i64;
         let fits = |t: i32, d: i32| {
@@ -1418,7 +1439,7 @@ impl Document {
             Kind::Text(t) => t.cache.clone(),
             _ => None,
         };
-        let mask = node.mask.as_ref().map(|m| (m.default, m.tiles.clone()));
+        let mask = node.mask.as_ref().filter(|m| m.linked).map(|m| (m.default, m.tiles.clone()));
         let coords = cache.iter().chain(mask.as_ref().map(|m| &m.1)).flat_map(|t| t.coords());
         if !coords.into_iter().all(|(tx, ty)| fits(tx, dx) && fits(ty, dy)) {
             return Err("offset moves the layer too far".into());

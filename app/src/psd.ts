@@ -29,7 +29,8 @@ interface ManifestNode {
   id: number; name: string; kind: 'pixel' | 'group' | 'adjustment' | 'fill' | 'smart' | 'shape' | 'text';
   visible: boolean; opacity: number; fill: number; blend: string; clipping: boolean;
   locks: { transparency: boolean; pixels: boolean; position: boolean };
-  mask: { enabled: boolean; default: number; tiles?: Sparse } | null;
+  mask: { enabled: boolean; default: number; tiles?: Sparse; linked?: boolean } | null;
+  color?: string; link?: number;
   tiles?: Sparse;
   children?: ManifestNode[];
   adjustment?: Adjustment;
@@ -559,6 +560,13 @@ function placeMask(e: Engine, id: number, m: NonNullable<Layer['mask']>) {
   }
 }
 
+const LABELS = ['none', 'red', 'orange', 'yellow', 'green', 'blue', 'violet', 'gray'];
+// Layers panel color (lclr) and Link Layers group (image resource 1026).
+const labelsOf = (l: Layer) => ({
+  color: LABELS.includes(l.layerColor ?? '') ? l.layerColor : 'none',
+  link: Number.isInteger(l.linkGroup) && l.linkGroup! > 0 && l.linkGroup! <= 0xffffffff ? l.linkGroup : 0,
+});
+
 function locksOf(l: Layer) {
   const p = l.protected;
   return { transparency: !!p?.transparency, pixels: !!p?.composite, position: !!p?.position };
@@ -569,6 +577,8 @@ function addMaskIfAny(e: Engine, id: number, l: Layer) {
   if (!m) return;
   e.add_mask(id, (m.defaultColor ?? 0) !== 0);
   if (m.disabled) e.set_props(id, JSON.stringify({ mask_enabled: false }));
+  // PSD mask flag bit 0 (position relative to layer) is set while the mask is unlinked.
+  if (m.positionRelativeToLayer) e.set_props(id, JSON.stringify({ mask_linked: false }));
   placeMask(e, id, m);
 }
 
@@ -727,7 +737,7 @@ function addNode(c: ImportCtx, l: Layer): number {
     const id = e.add_group(l.name ?? '', 0);
     e.set_props(id, JSON.stringify({
       visible: !l.hidden, opacity: l.opacity ?? 1, fill: l.fillOpacity ?? 1, blend: l.blendMode ?? 'pass through',
-      clipping: !!l.clipping, locks: locksOf(l),
+      clipping: !!l.clipping, locks: locksOf(l), ...labelsOf(l),
     }));
     let idx = 0;
     for (const child of l.children) e.move_node(addNode(c, child), id, idx++);
@@ -756,7 +766,7 @@ function addNode(c: ImportCtx, l: Layer): number {
   e.set_props(id, JSON.stringify({
     visible: !l.hidden, opacity: l.opacity ?? 1, fill: l.fillOpacity ?? 1,
     blend: !l.blendMode || l.blendMode === 'pass through' ? 'normal' : l.blendMode,
-    clipping: !!l.clipping, locks: locksOf(l),
+    clipping: !!l.clipping, locks: locksOf(l), ...labelsOf(l),
   }));
   // Smart object and text layer pixels become their cache (D5); fill and adjustment layers render from their params.
   if (!shape && (!special || 'smart' in special || 'text' in special)) place(e, id, l, w, h, !!special && 'text' in special);
@@ -994,7 +1004,7 @@ function maskRect(e: Engine, m: NonNullable<ManifestNode['mask']>, w: number, h:
 function maskFields(e: Engine, n: ManifestNode, w: number, h: number, hi = false) {
   if (!n.mask) return {};
   const rect = maskRect(e, n.mask, w, h);
-  const base = { defaultColor: n.mask.default, disabled: !n.mask.enabled };
+  const base = { defaultColor: n.mask.default, disabled: !n.mask.enabled, ...(n.mask.linked === false ? { positionRelativeToLayer: true } : {}) };
   // `hiLayer` writes 16/32-bit and Grayscale masks itself.
   if (!rect || hi) return { mask: { top: 0, left: 0, ...base } };
   const map = tileMap(n.mask.tiles);
@@ -1194,6 +1204,7 @@ function exportNode(x: ExportCtx, n: ManifestNode): Layer {
   const common = {
     name: n.name, hidden: !n.visible, opacity: n.opacity, fillOpacity: n.fill, blendMode: n.blend as BlendMode, clipping: n.clipping,
     protected: { transparency: n.locks.transparency, composite: n.locks.pixels, position: n.locks.position, ...(n.artboard ? { artboards: x.artboardsLocked } : {}) },
+    ...(n.color && n.color !== 'none' ? { layerColor: n.color as Layer['layerColor'] } : {}), ...(n.link ? { linkGroup: n.link } : {}),
     ...masks, ...blendingOut(n.blending, warn), ...(n.style ? { effects: styleOut(n.style, x.names, warn) } : {}),
     // ag-psd needs a layer id on every layer of a document with comps.
     ...(x.comps.length ? { id: n.id, comps: compsOut(e, n, x.comps, w, h) } : {}),

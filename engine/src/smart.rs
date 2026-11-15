@@ -318,7 +318,7 @@ impl Document {
 
     /// Applying a hosted adjustment to a smart object: a new filter masked to the selection.
     pub(super) fn apply_as_filter(&mut self, id: u32, a: &Adjustment) -> Result<(), String> {
-        let mask = self.selection.as_ref().map(|s| Mask { enabled: true, default: s.default, tiles: s.tiles.clone() });
+        let mask = self.selection.as_ref().map(|s| Mask { enabled: true, default: s.default, tiles: s.tiles.clone(), linked: true });
         self.push_filter(id, Filter::from_adjustment(a), mask, None).map(|_| ())
     }
 
@@ -383,7 +383,7 @@ impl Document {
 
     /// Adds filter `fid`'s mask, or the stack mask for `fid` 0: reveal all or hide all.
     pub fn add_filter_mask(&mut self, id: u32, fid: u32, reveal: bool) -> Result<(), String> {
-        let m = Mask { enabled: true, default: if reveal { max_value(self.depth) } else { 0 }, tiles: Tiles::default() };
+        let m = Mask { enabled: true, default: if reveal { max_value(self.depth) } else { 0 }, tiles: Tiles::default(), linked: true };
         self.edit_filters(id, |filters, stack| {
             let slot = if fid == 0 { stack } else { &mut filter_at(filters, fid)?.mask };
             if slot.is_some() {

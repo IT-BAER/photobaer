@@ -90,7 +90,7 @@ export interface MenuCtx {
   showHistogram: boolean; setShowHistogram: SetState<boolean>; showInfo: boolean; setShowInfo: SetState<boolean>; showToolPresets: boolean; setShowToolPresets: SetState<boolean>; showNotes: boolean; setShowNotes: SetState<boolean>; showMeasurementLog: boolean; setShowMeasurementLog: SetState<boolean>;
   frame: Record<FrameKey, boolean>; toggleFrame: (k: FrameKey) => void; dockTab: WorkspaceDockTab; showDockTab: (k: WorkspaceDockTab) => void;
   typePanels: Record<TypePanel, boolean>; toggleTypePanel: (k: TypePanel) => void;
-  shortcutsDialog: DialogRef; systemInfoDialog: DialogRef; openDuplicate: () => void; openTrap: () => void;
+  shortcutsDialog: DialogRef; systemInfoDialog: DialogRef; openDuplicate: () => void; openTrap: () => void; openFindReplace: () => void;
   screenMode: ScreenMode; setScreenMode: (m: ScreenMode) => void; viewShow: ViewShow; toggleShow: (k: ShowKey) => void;
 }
 
@@ -328,6 +328,7 @@ export function buildMenus(c: MenuCtx) {
         ],
       },
       { ...tl(msg`Search…`), keys: 'Ctrl+F', sep: true, run: () => { setMenu(null); openSearch(); } },
+      { ...tl(msg`Find and Replace Text…`), run: () => { setMenu(null); c.openFindReplace(); }, off: !flatNodes(doc?.layers ?? []).some(n => n.kind === 'text') },
       { ...tl(msg`Preferences`), keys: '›', sep: true, run: () => {}, sub: [{ ...tl(msg`Cursors…`), run: () => { setMenu(null); cursorPrefsDialog.current?.showModal(); } }] },
     ],
     Layer: [

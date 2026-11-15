@@ -38,10 +38,12 @@ import { WorkspaceDialog, type WorkspaceDialogAction, type WorkspaceDialogHandle
 import { AnalysisDialogs, type AnalysisDialogHandle } from './AnalysisDialogs.tsx';
 import { ShortcutsDialog, SystemInfoDialog } from './HelpDialogs.tsx';
 import { StatusInfoField } from './StatusInfoField.tsx';
+import { RecentFiles } from './RecentFiles.tsx';
 import { NewDocumentDialog, type NewDocSpec } from './NewDocumentDialog.tsx';
 import { nextScreenMode, type ScreenMode } from './app/screenMode.ts';
 import { loadViewShow, saveViewShow, type ShowKey } from './app/viewShow.ts';
 import { DuplicateDialog, TrapDialog, type DuplicateHandle, type TrapHandle } from './DocumentDialogs.tsx';
+import { FindReplaceDialog, type FindReplaceHandle } from './FindReplaceDialog.tsx';
 import { DocumentArrangement } from './DocumentArrangement.tsx';
 import { HistogramPanel, InfoPanel } from './InspectionPanels.tsx';
 import { ToolPresetsPanel } from './ToolPresetsPanel.tsx';
@@ -182,6 +184,12 @@ function placeSubmenu(li: HTMLElement) {
 
 // File > New's Clipboard preset: the size of photobaer's own copy buffer.
 const clipboardSize = () => client.call('clipboardSize');
+// The active document's composite as a small WebP for the start screen's recent files; undefined when unavailable.
+const recentThumb = () => client.call('navigatorThumb', 256).then(r => {
+  const c = new OffscreenCanvas(r.w, r.h);
+  c.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(r.data), r.w, r.h), 0, 0);
+  return c.convertToBlob({ type: 'image/webp', quality: 0.85 });
+}).catch(() => undefined);
 
 export function App() {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -567,6 +575,7 @@ export function App() {
   const fileInfoDialog = useRef<FileInfoHandle>(null);
   const duplicateDialog = useRef<DuplicateHandle>(null);
   const trapDialog = useRef<TrapHandle>(null);
+  const findReplaceDialog = useRef<FindReplaceHandle>(null);
   const variablesDialog = useRef<VariablesHandle>(null);
   const analysisDialog = useRef<AnalysisDialogHandle>(null);
   const importSetsDialog = useRef<ImportSetsHandle>(null);
@@ -738,7 +747,11 @@ export function App() {
       await storeRecent(next);
     }).catch(e => console.error('recent files', e));
   }
-  const remember = (h: FileSystemFileHandle) => updateRecent(l => addRecent(l, { name: h.name, kind: kindOf(h.name), handle: h, time: Date.now() }));
+  // The thumbnail is asked for before any later call, so it shows the document just opened or saved.
+  const remember = (h: FileSystemFileHandle, withThumb = true) => {
+    const thumb = withThumb ? recentThumb() : undefined;
+    updateRecent(async l => addRecent(l, { name: h.name, kind: kindOf(h.name), handle: h, time: Date.now(), thumb: await thumb }));
+  };
 
   // `handle`: the file's File System Access handle (picker, drop, launch, Open Recent), kept for Save and Revert.
   // True when the file opened as the active document.
@@ -749,7 +762,7 @@ export function App() {
       // PDF pages open as rasterized documents without the PDF as their file.
       const r = await pdfDialog.current?.ask(file);
       if (!r) return false;
-      if (handle) remember(handle);
+      if (handle) remember(handle, false);
       for (const p of r.files) await open(p, null, r.ppi, { mode: r.mode, depth: r.depth });
       return true;
     }
@@ -1387,6 +1400,7 @@ export function App() {
     const o = origins.current.get(d.key);
     if (saveRoute(o, d.parents.length > 0) === 'saveAs') return saveAs();
     const ok = await writeDoc(o!.handle, 'save');
+    if (ok) remember(o!.handle);
     if (ok && assetsOn) await generateAssets(true);
     return ok && !docRef.current?.dirty;
   }
@@ -2114,6 +2128,7 @@ export function App() {
     isolated: !!isolated, toggleIsolate: () => setIsolated(cur => (cur ? null : selectedNodes.map(n => n.id))),
     openDuplicate: () => doc && duplicateDialog.current?.open(doc.name, flatNodes(doc.layers).length),
     openTrap: () => trapDialog.current?.open(doc?.resolution ?? 72),
+    openFindReplace: () => findReplaceDialog.current?.open(),
     screenMode, setScreenMode, viewShow, toggleShow,
   });
   const menusRef = useRef(menus);
@@ -2978,6 +2993,7 @@ export function App() {
                   <Trans>Drop an image here</Trans>
                   <small><Trans>PNG, JPEG, WebP, GIF, BMP, AVIF, SVG, ICO, PSD, PSB, EXR, HDR or PDF</Trans></small>
                 </div>
+                {fsAccess() && <RecentFiles recent={recent} open={r => void openRecent(r)} />}
                 <small className="copyright">
                   © 2026 IT-BAER ·{' '}
                   <a href={`https://github.com/IT-BAER/photobaer/releases/tag/v${__APP_VERSION__}`} target="_blank" rel="noreferrer"><Trans>What's new</Trans></a> · v{__APP_VERSION__} ·{' '}
@@ -3146,6 +3162,7 @@ export function App() {
       <ShortcutsDialog dialog={shortcutsDialog} menus={menus} title={menuTitle} download={downloadBlob} />
       <SystemInfoDialog dialog={systemInfoDialog} renderer={renderer} />
       <DuplicateDialog ref={duplicateDialog} duplicate={(name, merged) => void run(t`Duplicating…`, () => client.call('duplicateDoc', name, merged))} />
+      <FindReplaceDialog ref={findReplaceDialog} activeId={active?.id ?? null} select={id => { setPicked([]); setActive({ id, target: 'pixels' }); }} run={run} />
       <TrapDialog ref={trapDialog} trap={px => { if (active) void run(t`Trapping…`, () => client.call('trap', active.id, px)); }} />
       <FeatherDialog featherDialog={featherDialog} run={run} />
       <ContentAwareFillDialog dialog={contentAwareDialog} submit={(structure, color) => {
