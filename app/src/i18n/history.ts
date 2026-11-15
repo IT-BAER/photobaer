@@ -157,6 +157,8 @@ export const HISTORY_LABELS: Record<string, MessageDescriptor> = {
   'Delete Vector Mask': msg`Delete Vector Mask`, 'Stroke Style': msg`Stroke Style`,
   'Stroke Placement': msg`Stroke Placement`, 'Stroke Cap': msg`Stroke Cap`, 'Stroke Join': msg`Stroke Join`,
   'Enable Vector Mask': msg`Enable Vector Mask`, 'Link Vector Mask': msg`Link Vector Mask`,
+  'Link Layer Mask': msg`Link Layer Mask`, 'Unlink Layer Mask': msg`Unlink Layer Mask`,
+  'Link Layers': msg`Link Layers`, 'Unlink Layers': msg`Unlink Layers`, 'Layer Color': msg`Layer Color`,
   'Invert Vector Mask': msg`Invert Vector Mask`, 'Adjustment Visibility': msg`Adjustment Visibility`,
   'Adjustment Clipping': msg`Adjustment Clipping`, 'Artboard X': msg`Artboard X`, 'Artboard Y': msg`Artboard Y`,
   'Artboard W': msg`Artboard W`, 'Artboard H': msg`Artboard H`,

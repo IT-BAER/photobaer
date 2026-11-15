@@ -306,7 +306,8 @@ export function useMoveTool(c: MoveToolCtx) {
   useEffect(() => {
     const v = viewer.current;
     if (!v || tool !== 'move') return;
-    type Plan = { pixels: boolean; id: number; alt: boolean };
+    // `mask`: the active layer's mask is targeted (an unlinked mask then moves alone).
+    type Plan = { pixels: boolean; id: number; alt: boolean; mask: boolean };
     type Drag = {
       origin: [number, number]; pos: [number, number]; shift: boolean; plan: Plan | null; ready: boolean; busy: boolean; failed: boolean;
       want: [number, number]; sent: [number, number]; end: 'up' | 'cancel' | null; moving: Rect; tx: number[]; ty: number[]; lock: SnapAxes; grid: [number | undefined, number | undefined];
@@ -338,10 +339,10 @@ export function useMoveTool(c: MoveToolCtx) {
       if (n.kind !== 'pixel') pixels = false;
       if (pixels && n.locks.pixels) { setError(t`Could not use the layer because it is locked.`); return null; }
       if (!pixels && n.locks.position) { const name = n.name; setError(t`${name} is locked and can't be moved.`); return null; }
-      return { pixels, id, alt };
+      return { pixels, id, alt, mask: a?.id === id && a.target === 'mask' };
     }
     function begin(p: Plan) {
-      return p.pixels ? client.call('movePixelsBegin', p.id, p.alt ? 'Move Selection Copy' : 'Move Selection', p.alt) : client.call('moveLayerBegin', p.id, p.alt, p.alt ? 'Move Copy' : 'Move');
+      return p.pixels ? client.call('movePixelsBegin', p.id, p.alt ? 'Move Selection Copy' : 'Move Selection', p.alt) : client.call('moveLayerBegin', p.id, p.alt, p.alt ? 'Move Copy' : 'Move', p.mask);
     }
     const step = (p: Plan, dx: number, dy: number) => (p.pixels ? client.call('movePixelsStep', dx, dy) : client.call('moveLayerStep', dx, dy));
     const commit = (p: Plan) => (p.pixels ? client.call('movePixelsCommit') : client.call('moveLayerCommit'));

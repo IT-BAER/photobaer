@@ -28,7 +28,7 @@
  "app/print.ts": 3,
  "app/webmcp.ts": 8,
  "brushes/preset.ts": 2,
- "engine.worker.ts": 1,
+ "engine.worker.ts": 3,
  "filters/FilterDialog.tsx": 2,
  "filters/LiquifyDialog.tsx": 1,
  "filters/RenderEditors.tsx": 1,

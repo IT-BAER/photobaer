@@ -16,6 +16,7 @@ import { EFFECT_LABEL, effectRows, setEffectEnabled, type EffectKind } from './l
 import { pathData } from './app/svgcss.ts';
 import { itemId, whenBackground, type Item } from './app/helpers.ts';
 import { filterByName, filterIds, filterLayers, KIND_FILTERS, type KindFilter } from './app/layerFilter.ts';
+import { linkChanges } from './app/layerLinks.ts';
 
 export type Active = { id: number; target: 'pixels' | 'mask' };
 type SelectAfter = (d: DocInfo) => Active;
@@ -333,7 +334,7 @@ export function LayersPanel(props: Props) {
         >
           {hint === 'above' && <div className="drop-line drop-above" />}
           <button
-            className="visibility"
+            className={`visibility${n.color && n.color !== 'none' ? ` layer-color-${n.color}` : ''}`}
             aria-label={n.visible ? t`Hide ${name}` : t`Show ${name}`}
             onClick={e => { e.stopPropagation(); setProps(n.id, { visible: !n.visible }); }}
           >{n.visible && <Eye {...ICON} />}</button>
@@ -360,7 +361,11 @@ export function LayersPanel(props: Props) {
           )}
           {n.mask && (
             <>
-              <Link2 className="mask-link" size={14} strokeWidth={1.75} />
+              <button
+                className={`mask-link${n.mask.linked === false ? ' unlinked' : ''}`} aria-pressed={n.mask.linked !== false}
+                aria-label={n.mask.linked === false ? t`Link the mask of ${name}` : t`Unlink the mask of ${name}`}
+                onClick={e => { e.stopPropagation(); setProps(n.id, { mask_linked: n.mask!.linked === false }); }}
+              ><Link2 size={14} strokeWidth={1.75} /></button>
               <button
                 className={`mask-chip${n.mask.enabled ? '' : ' disabled'}${isActive && active?.target === 'mask' ? ' target' : ''}`}
                 style={{ background: `rgb(${n.mask.default} ${n.mask.default} ${n.mask.default})` }}
@@ -401,6 +406,7 @@ export function LayersPanel(props: Props) {
             <span className="name" onDoubleClick={e => { e.stopPropagation(); setRenaming(n.id); }}>{n.name}</span>
           )}
           {fx.badge}
+          {!!n.link && <Link2 className="link-badge" size={13} strokeWidth={1.75} aria-label={t({ message: 'Linked', context: 'layer link' })} />}
           {locked && <Lock className="lock-badge" size={13} strokeWidth={1.75} aria-label={t`Locked`} />}
           {hint === 'below' && <div className="drop-line drop-below" />}
         </div>
@@ -419,6 +425,8 @@ export function LayersPanel(props: Props) {
       onClick={() => setProps(node.id, { locks: { [key]: !node.locks[key] } })}>{icon}</button>
   );
   const allLocked = !!node && node.locks.transparency && node.locks.pixels && node.locks.position;
+  const links = linkChanges(doc.layers, props.selected);
+  const linkLabel = links?.linked === false ? t`Unlink layers` : t`Link layers`;
 
   return (
     <div className="layers-panel">
@@ -489,6 +497,8 @@ export function LayersPanel(props: Props) {
         </>
       )}
       <div className="layers-footer">
+        <button aria-label={linkLabel} title={linkLabel} disabled={!links}
+          onClick={() => links && run(null, () => client.call('setPropsMany', links.changes.map(([id, link]): [number, { link: number }] => [id, { link }]), links.linked ? 'Link Layers' : 'Unlink Layers'))}><Link2 {...ICON} /></button>
         <button aria-label={t`Add layer mask`} title={t`Add layer mask`} disabled={!!node?.mask} onClick={props.addMask}><SquareDashed {...ICON} /></button>
         <button aria-label={t`New group`} title={t`New group`} onClick={props.newGroup}><FolderPlus {...ICON} /></button>
         <button aria-label={t`New layer`} title={t`New layer`} onClick={props.newLayer}><SquarePlus {...ICON} /></button>

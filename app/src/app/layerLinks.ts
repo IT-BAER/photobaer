@@ -2,6 +2,7 @@
 import { msg } from '@lingui/core/macro';
 import type { MessageDescriptor } from '@lingui/core';
 import { flatNodes } from '../layers.ts';
+import { tl, type Item } from './helpers.ts';
 import type { LayerColor, LayerNode } from '../worker/types.ts';
 
 export const LAYER_COLORS: [LayerColor, MessageDescriptor][] = [
@@ -42,4 +43,11 @@ export function colorTargets(tree: LayerNode[], ids: number[]): number[] {
   const out = new Set<number>();
   for (const n of flatNodes(tree)) if (ids.includes(n.id)) for (const m of [n, ...flatNodes(n.children ?? [])]) out.add(m.id);
   return [...out];
+}
+
+// The layer context menu's color items: checked when every target has that color.
+export function colorItems(tree: LayerNode[], ids: number[], set: (ids: number[], color: LayerColor) => void): Item[] {
+  const targets = colorTargets(tree, ids), all = flatNodes(tree);
+  const has = (c: LayerColor) => targets.length > 0 && targets.every(id => (all.find(n => n.id === id)?.color ?? 'none') === c);
+  return LAYER_COLORS.map(([c, label], i) => ({ ...tl(label, has(c)), sep: i === 0, run: () => set(targets, c) }));
 }

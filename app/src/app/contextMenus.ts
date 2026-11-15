@@ -42,6 +42,7 @@ const LAYER_ROW: string[][] = [
   ['Layer/Group Layers=Group from Layers', 'Layer/Merge Down|Merge Layers|Merge Group', 'Layer/Merge Visible', 'Layer/Flatten Image'],
   ['Layer/Rasterize>', 'Layer/Smart Objects/Convert to Smart Object'],
   ['Layer/Add Layer Mask', 'Layer/Delete Layer Mask', 'Layer/Create Clipping Mask|Release Clipping Mask', 'Layer/Layer Style/Blending Options…=Blending Options…'],
+  ['Layer/Link Layers|Unlink Layers', 'Layer/Select Linked Layers'],
 ];
 
 /** The layer row menu: the Layer menu picks, then the row-specific items (Copy CSS/SVG, shape attributes). */

@@ -457,6 +457,10 @@
     "Ctrl+F"
    ],
    [
+    "Find and Replace Text…",
+    "Find and Replace Text…"
+   ],
+   [
     "Preferences",
     "Preferences",
     "›",
@@ -638,6 +642,14 @@
     ]
    ],
    [
+    "Link Layers",
+    "Link Layers"
+   ],
+   [
+    "Select Linked Layers",
+    "Select Linked Layers"
+   ],
+   [
     "Merge Down",
     "Merge Down",
     "Ctrl+E"
@@ -724,6 +736,10 @@
      [
       "Apply",
       "Apply"
+     ],
+     [
+      "Link Layer Mask",
+      "✓ Link Layer Mask"
      ]
     ]
    ],

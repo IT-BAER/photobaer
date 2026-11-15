@@ -23,6 +23,7 @@ import { ALIGN_ITEMS, itemId, STACK_MODES, selectCreated, tl, type FillContentFo
 import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.ts';
 import { copy, paste } from './clipboard.ts';
 import { stepTab } from './tabs.ts';
+import { linkChanges } from './layerLinks.ts';
 import type { Recent } from './files.ts';
 import type { ModeDialogKind } from '../ModeDialog.tsx';
 import type { ColorDialogKind } from '../ColorDialog.tsx';
@@ -82,7 +83,7 @@ export interface MenuCtx {
   resetCurrentWorkspace: () => void; toggleWorkspaceLock: () => void;
   arrangeMode: ArrangeMode; chooseArrangement: (mode: ArrangeMode) => void; matchArrangement: (kind: MatchKind) => void;
   openDefine: (kind: DefineKind) => void; canDefineShape: boolean; purge: (what: 'clipboard' | 'histories' | 'all') => void;
-  openLockLayers: () => void; selectAllLayers: () => void; deselectLayers: () => void; findLayers: () => void; isolated: boolean; toggleIsolate: () => void;
+  openLockLayers: () => void; selectAllLayers: () => void; selectLinkedLayers: () => void; deselectLayers: () => void; findLayers: () => void; isolated: boolean; toggleIsolate: () => void;
   snap: SnapSettings; setSnap: (patch: Partial<SnapSettings>) => void;
   newGuideDialog: DialogRef; newGuideLayoutDialog: DialogRef; cursorPrefsDialog: DialogRef;
   openArtboard: (mode: ArtboardMode) => void; activeArtboard: LayerNode | null; selectedNodes: LayerNode[];
@@ -153,9 +154,10 @@ export function buildMenus(c: MenuCtx) {
     showLayerEdges, setShowLayerEdges, flipped, fitLayers, selectedNodes, showShapes, setShowShapes, showCloneSource, setShowCloneSource, showNavigator, setShowNavigator, typeItems, filterSpecs, openFilter, openLiquify, openVanishingPoint, openContentAwareScale, startDeform, lastFilter, openFade, openSearch, aboutDialog, agentDialog,
     showHistogram, setShowHistogram, showInfo, setShowInfo, showToolPresets, setShowToolPresets, showNotes, setShowNotes, showMeasurementLog, setShowMeasurementLog,
     workspace, chooseWorkspace, openWorkspaceDialog, resetCurrentWorkspace, toggleWorkspaceLock, frame, toggleFrame, dockTab, showDockTab, typePanels, toggleTypePanel,
-    arrangeMode, chooseArrangement, matchArrangement, openDefine, canDefineShape, purge, openLockLayers, selectAllLayers, deselectLayers, findLayers, isolated, toggleIsolate,
+    arrangeMode, chooseArrangement, matchArrangement, openDefine, canDefineShape, purge, openLockLayers, selectAllLayers, selectLinkedLayers, deselectLayers, findLayers, isolated, toggleIsolate,
   } = c;
   const selectedIds = selectedNodes.map(n => n.id);
+  const links = doc ? linkChanges(doc.layers, selectedIds) : null;
   const allHidden = selectedNodes.length > 0 && selectedNodes.every(n => !n.visible);
   const maskItems: Item[] = [
     { ...tl(msg`Reveal All`), run: () => node && run(null, () => client.call('addMask', node.id, true)), off: !!node?.mask },
@@ -164,6 +166,7 @@ export function buildMenus(c: MenuCtx) {
     { ...tl(msg`Hide Selection`), run: () => node && run(null, () => client.call('addMaskFromSelection', node.id, true)), off: !!node?.mask || !doc?.selection },
     { ...tl(msg`From Transparency`), run: () => node && run(null, () => client.call('maskFromTransparency', node.id)), off: node?.kind !== 'pixel' || !!node.mask },
     { ...tl(msg({ message: 'Apply', context: 'layer mask' })), run: () => node && run(null, () => client.call('applyMask', node.id)), off: node?.kind !== 'pixel' || !node.mask },
+    { ...tl(msg`Link Layer Mask`, !!node?.mask && node.mask.linked !== false), sep: true, run: () => node?.mask && run(null, () => client.call('setProps', node.id, { mask_linked: node.mask!.linked === false })), off: !node?.mask },
   ];
   const workspaceTypeItems = typeItems.map(item => itemId(item) === 'Panels'
     ? { ...item, sub: item.sub?.map(panel => ({ ...panel, off: workspace.locked })) }
@@ -363,6 +366,8 @@ export function buildMenus(c: MenuCtx) {
         ...tl(label), keys: '›', run: () => {}, off: !has || selectedNodes.length < min,
         sub: items.map(([mode, text]) => ({ ...tl(text), run: () => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode)) })),
       })),
+      { ...tl(links?.linked === false ? msg`Unlink Layers` : msg`Link Layers`), sep: true, run: () => links && run(null, () => client.call('setPropsMany', links.changes.map(([id, link]): [number, { link: number }] => [id, { link }]), links.linked ? 'Link Layers' : 'Unlink Layers')), off: !has || !links },
+      { ...tl(msg`Select Linked Layers`), run: selectLinkedLayers, off: !has || !selectedNodes.some(n => n.link) },
       selectedNodes.length > 1
         ? { ...tl(msg`Merge Layers`), keys: 'Ctrl+E', sep: true, run: () => run(null, () => client.call('mergeNodes', selectedNodes.map(n => n.id), 'layers')), off: !has }
         : { ...tl(node?.kind === 'group' ? msg`Merge Group` : msg`Merge Down`), keys: 'Ctrl+E', sep: true, run: () => node && run(null, () => client.call('mergeNodes', [node.id], 'down')), off: !has || !node || (node.kind !== 'group' && !locate(doc!.layers, node.id)?.index) },

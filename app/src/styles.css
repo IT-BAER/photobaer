@@ -282,6 +282,18 @@ button:active:not(:disabled) { transition-duration: var(--t-press); }
 .layer-row .target { outline: 1px solid var(--text); outline-offset: 2px; }
 .layer-row .mask-link, .layer-row .clip-marker, .layer-row .group-icon { flex: 0 0 auto; }
 .layer-row .lock-badge { flex: 0 0 auto; margin-left: auto; }
+.layer-row button.mask-link { display: grid; place-items: center; width: 14px; height: 30px; padding: 0; background: none; border: 0; color: var(--dim); cursor: pointer; }
+.layer-row button.mask-link:hover { color: var(--text); }
+.layer-row button.mask-link.unlinked svg { visibility: hidden; }
+.layer-row .link-badge { flex: 0 0 auto; color: var(--dim); }
+/* Layer color labels tint the visibility cell. */
+.layer-row .visibility.layer-color-red { background: rgb(214 69 65 / 0.45); }
+.layer-row .visibility.layer-color-orange { background: rgb(230 126 34 / 0.45); }
+.layer-row .visibility.layer-color-yellow { background: rgb(222 196 52 / 0.45); }
+.layer-row .visibility.layer-color-green { background: rgb(76 166 84 / 0.45); }
+.layer-row .visibility.layer-color-blue { background: rgb(64 122 214 / 0.45); }
+.layer-row .visibility.layer-color-violet { background: rgb(142 94 204 / 0.45); }
+.layer-row .visibility.layer-color-gray { background: rgb(140 140 140 / 0.45); }
 .layer-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .layer-row .rename { flex: 1; min-width: 0; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--accent); border-radius: 3px; padding: 1px 4px; }
 .drop-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--accent); }

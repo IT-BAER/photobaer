@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { colorTargets, linkChanges, linkedIds } from './layerLinks.ts';
+import { colorItems, colorTargets, linkChanges, linkedIds } from './layerLinks.ts';
 import type { LayerNode } from '../worker/types.ts';
 
 const n = (id: number, link = 0, children?: LayerNode[]) => ({ id, link, kind: children ? 'group' : 'pixel', children }) as unknown as LayerNode;
@@ -37,4 +37,16 @@ test('colorTargets takes the selected layers and every layer inside a selected g
   assert.deepEqual(colorTargets(tree(), [3]).sort(), [3, 4, 5]);
   assert.deepEqual(colorTargets(tree(), [4, 3, 1]).sort(), [1, 3, 4, 5]);
   assert.deepEqual(colorTargets(tree(), [9]), []);
+});
+
+test('colorItems: one item per color, a check on the color every target has, the first after a separator', () => {
+  const colored = (c: Record<number, string>) => tree().map(function paint(x): LayerNode { return { ...x, color: c[x.id], children: x.children?.map(paint) } as LayerNode; });
+  const set: [number[], string][] = [];
+  const items = colorItems(colored({ 3: 'red', 4: 'red', 5: 'red' }), [3], (ids, color) => set.push([ids, color]));
+  assert.deepEqual(items.map(i => i.label), ['No Color', '✓ Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Violet', 'Gray']);
+  assert.deepEqual(items.map(i => !!i.sep), [true, false, false, false, false, false, false, false]);
+  items[5].run();
+  assert.deepEqual(set, [[[3, 4, 5], 'blue']], 'a group colors its layers too');
+  assert.equal(colorItems(colored({ 3: 'red' }), [3], () => {})[1].label, 'Red', 'no check while a target differs');
+  assert.equal(colorItems(tree(), [1], () => {})[0].label, '✓ No Color');
 });

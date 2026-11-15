@@ -51,6 +51,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit > Find and Replace Text… searches the type layers (all of them or the selected one, forward or backward, case
   sensitive, whole words, ignoring accents) with Find Next, Change, Change All and Change/Find; text keeps its
   character styles, and a layer named after its text takes the new name.
+- Layer > Link Layers and Select Linked Layers, also in the layer context menu and as the Layers panel's first footer
+  button: linked layers move together with the Move tool and show a link icon. PSD files keep the links.
+- Layer > Layer Mask > Link Layer Mask, and a click on the chain between thumbnail and mask: an unlinked mask stays in
+  place when the layer moves, and moves alone while the mask is targeted. PSD files keep the setting.
+- Layer colors (No Color, Red, Orange, Yellow, Green, Blue, Violet, Gray) from the layer context menu color the
+  row's visibility cell; a group passes its color to its layers. PSD files keep them.
 
 ## [0.5.1] - 2026-11-14
 

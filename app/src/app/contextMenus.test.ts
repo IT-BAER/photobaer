@@ -21,6 +21,15 @@ test('layerRowItems keeps disabled state and appends the row items after a separ
   assert.deepEqual(r.slice(-2).map(i => [i.label, !!i.sep]), [['Copy CSS', true], ['Copy SVG', false]]);
 });
 
+test('layerRowItems offers Link Layers or Unlink Layers and Select Linked Layers as one group', () => {
+  const linked = { Layer: [it('Duplicate Layer'), it('Unlink Layers'), it('Select Linked Layers')] };
+  assert.deepEqual(layerRowItems(linked, []).map(i => [i.label, !!i.sep]),
+    [['Duplicate Layer', false], ['Unlink Layers', true], ['Select Linked Layers', false]]);
+  const single = { Layer: [it('Duplicate Layer'), it('Link Layers', true), it('Select Linked Layers', true)] };
+  assert.deepEqual(layerRowItems(single, []).map(i => [i.label, !!i.off]),
+    [['Duplicate Layer', false], ['Link Layers', true], ['Select Linked Layers', true]]);
+});
+
 test('canvasItems switches on the selection', () => {
   assert.deepEqual(canvasItems(menus, true).map(i => i.label), ['Deselect', 'Select Inverse', 'Feather…', 'Layer via Copy', 'Free Transform', 'Fill…', 'Stroke…']);
   assert.deepEqual(canvasItems(menus, false).map(i => i.label), ['Select All', 'Reselect', 'Free Transform']);

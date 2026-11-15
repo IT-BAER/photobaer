@@ -173,6 +173,8 @@ export const ERROR_LABELS: Record<string, MessageDescriptor> = {
   // Engine
   'the layer is hidden': msg`Could not complete your request because the target layer is hidden.`,
   'the image is too large for Select and Mask': msg`The image is too large for Select and Mask.`,
+  'That layer is not a type layer.': msg`That layer is not a type layer.`,
+  'The text ranges must lie inside the text and must not overlap.': msg`The text ranges must lie inside the text and must not overlap.`,
 };
 
 // Messages with a variable part: the pattern captures it, the message takes it by name.

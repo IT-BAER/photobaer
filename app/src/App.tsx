@@ -115,6 +115,7 @@ import { emptyInfo } from './app/fileInfo.ts';
 import { agentTools, registerWebMcp, type ModelContext, type WebMcpCtx } from './app/webmcp.ts';
 import { layerContextItems } from './app/vectorCommands.ts';
 import { canvasItems, layerRowItems } from './app/contextMenus.ts';
+import { colorItems, linkedIds } from './app/layerLinks.ts';
 import { ShapesPanel } from './ShapesPanel.tsx';
 import { CharacterPanel, ParagraphPanel, TextStylesPanel, TypeProperties, WarpTextDialog } from './TypePanels.tsx';
 import { loadTypePrefs, typeContextItems, typeMenuItems, type TypeCtx, type TypePanel } from './app/typeMenu.ts';
@@ -2123,6 +2124,12 @@ export function App() {
       setPicked(ids);
       if (!active || !ids.includes(active.id)) setActive({ id: ids.at(-1)!, target: 'pixels' });
     },
+    selectLinkedLayers: () => {
+      const ids = doc ? linkedIds(doc.layers, selectedNodes.map(n => n.id)) : [];
+      if (!ids.length) return;
+      setPicked(ids);
+      if (!active || !ids.includes(active.id)) setActive({ id: ids.at(-1)!, target: 'pixels' });
+    },
     deselectLayers: () => { setMenu(null); setPicked([]); setActive(null); },
     findLayers: () => setFindTick(n => n + 1),
     isolated: !!isolated, toggleIsolate: () => setIsolated(cur => (cur ? null : selectedNodes.map(n => n.id))),
@@ -3087,7 +3094,8 @@ export function App() {
               {frame.layers && <DockSection {...sec('layers', msg`Layers`)}><LayersPanel
                 doc={doc} active={active} setActive={setActive} run={run}
                 selected={selectedNodes.map(n => n.id)} setPicked={setPicked}
-                contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerRowItems(menus, layerContextItems(n, nodes, run, setError))]}
+                contextItems={(n, nodes) => [...typeContextItems(n, { ...typeCtx, selected: nodes }), ...layerRowItems(menus, [...layerContextItems(n, nodes, run, setError),
+                  ...colorItems(doc.layers, nodes.map(x => x.id), (ids, color) => run(null, () => client.call('setPropsMany', ids.map((id): [number, { color: typeof color }] => [id, { color }]), 'Layer Color')))])]}
                 newLayer={newLayer} newGroup={newGroup}
                 deleteLayer={deleteLayer} deleteDisabled={deleteDisabled} addMask={addMask}
                 openProperties={() => setShowProperties(true)} renameTick={renameTick} findTick={findTick} isolated={isolated}
