@@ -15,8 +15,14 @@ import {
 export interface NewDocSpec { w: number; h: number; depth: number; fill: [number, number, number, number] | null; name: string; resolution: number; mode: NewMode }
 
 const UNIT_SHORT: Record<SizeUnit, string> = { px: 'px', in: 'in', cm: 'cm', mm: 'mm', pt: 'pt', pica: 'pica' };
-const sizeLine = (w: number, h: number, unit: SizeUnit, ppi: number) => `${formatNumber(w, 3)} x ${formatNumber(h, 3)} ${UNIT_SHORT[unit]} @ ${formatNumber(ppi, 2)} ppi`;
-const recentPreset = (d: RecentDoc): Preset => ({ name: `${formatNumber(d.w, 3)} x ${formatNumber(d.h, 3)} ${UNIT_SHORT[d.unit]}`, w: d.w, h: d.h, unit: d.unit, ppi: d.ppi });
+const sizeLine = (p: Preset) => {
+  const w = formatNumber(p.w, 3), h = formatNumber(p.h, 3), unit = UNIT_SHORT[p.unit], ppi = formatNumber(p.ppi, 2);
+  return t`${w} x ${h} ${unit} @ ${ppi} ppi`;
+};
+const recentPreset = (d: RecentDoc): Preset => {
+  const w = formatNumber(d.w, 3), h = formatNumber(d.h, 3), unit = UNIT_SHORT[d.unit];
+  return { name: t`${w} x ${h} ${unit}`, w: d.w, h: d.h, unit: d.unit, ppi: d.ppi };
+};
 
 // File > New: Photoshop's New Document dialog. Category tabs and search over blank-document presets on the
 // left, Preset Details on the right; Width and Height stay in the chosen unit, so a typed 5 mm stays 5 mm.
@@ -119,7 +125,7 @@ export function NewDocumentDialog({ dialog, create, bgColor, clipboardSize }: {
                       <button type="button" aria-pressed={picked === keyOf(p)} onClick={() => apply(p)}>
                         <span className="preset-page" style={{ width: Math.max(4, pw * s), height: Math.max(4, ph * s) }} />
                         <span className="preset-title">{presetTitle(p)}</span>
-                        <span className="preset-size">{sizeLine(p.w, p.h, p.unit, p.ppi)}</span>
+                        <span className="preset-size">{sizeLine(p)}</span>
                       </button>
                     </li>
                   );
@@ -167,7 +173,7 @@ export function NewDocumentDialog({ dialog, create, bgColor, clipboardSize }: {
               {bg === 'custom' && <input type="color" aria-label={t`Custom background color`} value={custom} onChange={e => setCustom(e.currentTarget.value)} />}
               {bg === 'background' && <span className="new-doc-swatch" style={{ background: rgbToHex(bgColor) }} />}
             </label>
-            <p className="new-doc-size">{t`Image size: ${size}`} · {wPx} x {hPx} px</p>
+            <p className="new-doc-size">{t`Image size: ${size} · ${wPx} x ${hPx} px`}</p>
           </section>
         </div>
         <div className="actions">

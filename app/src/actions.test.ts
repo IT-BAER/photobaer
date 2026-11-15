@@ -62,6 +62,14 @@ test('encode then decode moves an action to another document', () => {
   assert.deepEqual(decodeCall(rec[3], now, [2], null).args, [[2, 1]]);
 });
 
+test('Link Layers, Layer Color and Find and Replace steps move to another document', () => {
+  const before = layers([5, 'A'], [6, 'B']), now = layers([9, 'B'], [8, 'A']);
+  const links = encodeCall({ op: 'setPropsMany', args: [[[5, { link: 1 }], [6, { link: 1 }]], 'Link Layers'] }, before, []);
+  assert.deepEqual(decodeCall(links, now, [], null).args, [[[8, { link: 1 }], [9, { link: 1 }]], 'Link Layers']);
+  const replace = encodeCall({ op: 'typeReplace', args: [[{ id: 6, ranges: [[0, 2]] }], 'x', 'Replace Text'] }, before, []);
+  assert.deepEqual(decodeCall(replace, now, [], null).args, [[{ id: 9, ranges: [[0, 2]] }], 'x', 'Replace Text']);
+});
+
 test('a missing name or created layer falls back to the target layer, else fails', () => {
   const rec = encodeCall({ op: 'deleteNode', args: [5] }, layers([5, 'Old']), []);
   assert.deepEqual(decodeCall(rec, layers([1, 'Other']), [], 1).args, [1]);

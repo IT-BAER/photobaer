@@ -31,6 +31,10 @@ export function linkChanges(tree: LayerNode[], selected: number[]): { linked: bo
   return { linked: !unlink, changes };
 }
 
+// The `setPropsMany` arguments that apply `linkChanges`.
+export const linkCall = ({ linked, changes }: { linked: boolean; changes: [number, number][] }) =>
+  [changes.map(([id, link]): [number, { link: number }] => [id, { link }]), linked ? 'Link Layers' : 'Unlink Layers'] as const;
+
 // `ids` plus every layer that shares a link group with one of them.
 export function linkedIds(tree: LayerNode[], ids: number[]): number[] {
   const all = flatNodes(tree);

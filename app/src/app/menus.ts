@@ -23,7 +23,7 @@ import { ALIGN_ITEMS, itemId, STACK_MODES, selectCreated, tl, type FillContentFo
 import { combineItems, rasterizeItems, vectorMaskItems } from './vectorCommands.ts';
 import { copy, paste } from './clipboard.ts';
 import { stepTab } from './tabs.ts';
-import { linkChanges } from './layerLinks.ts';
+import { linkCall, linkChanges } from './layerLinks.ts';
 import type { Recent } from './files.ts';
 import type { ModeDialogKind } from '../ModeDialog.tsx';
 import type { ColorDialogKind } from '../ColorDialog.tsx';
@@ -366,7 +366,7 @@ export function buildMenus(c: MenuCtx) {
         ...tl(label), keys: '›', run: () => {}, off: !has || selectedNodes.length < min,
         sub: items.map(([mode, text]) => ({ ...tl(text), run: () => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode)) })),
       })),
-      { ...tl(links?.linked === false ? msg`Unlink Layers` : msg`Link Layers`), sep: true, run: () => links && run(null, () => client.call('setPropsMany', links.changes.map(([id, link]): [number, { link: number }] => [id, { link }]), links.linked ? 'Link Layers' : 'Unlink Layers')), off: !has || !links },
+      { ...tl(links?.linked === false ? msg`Unlink Layers` : msg`Link Layers`), sep: true, run: () => links && run(null, () => client.call('setPropsMany', ...linkCall(links))), off: !has || !links },
       { ...tl(msg`Select Linked Layers`), run: selectLinkedLayers, off: !has || !selectedNodes.some(n => n.link) },
       selectedNodes.length > 1
         ? { ...tl(msg`Merge Layers`), keys: 'Ctrl+E', sep: true, run: () => run(null, () => client.call('mergeNodes', selectedNodes.map(n => n.id), 'layers')), off: !has }

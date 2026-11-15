@@ -16,7 +16,7 @@ import { EFFECT_LABEL, effectRows, setEffectEnabled, type EffectKind } from './l
 import { pathData } from './app/svgcss.ts';
 import { itemId, whenBackground, type Item } from './app/helpers.ts';
 import { filterByName, filterIds, filterLayers, KIND_FILTERS, type KindFilter } from './app/layerFilter.ts';
-import { linkChanges } from './app/layerLinks.ts';
+import { linkCall, linkChanges } from './app/layerLinks.ts';
 
 export type Active = { id: number; target: 'pixels' | 'mask' };
 type SelectAfter = (d: DocInfo) => Active;
@@ -498,7 +498,7 @@ export function LayersPanel(props: Props) {
       )}
       <div className="layers-footer">
         <button aria-label={linkLabel} title={linkLabel} disabled={!links}
-          onClick={() => links && run(null, () => client.call('setPropsMany', links.changes.map(([id, link]): [number, { link: number }] => [id, { link }]), links.linked ? 'Link Layers' : 'Unlink Layers'))}><Link2 {...ICON} /></button>
+          onClick={() => links && run(null, () => client.call('setPropsMany', ...linkCall(links)))}><Link2 {...ICON} /></button>
         <button aria-label={t`Add layer mask`} title={t`Add layer mask`} disabled={!!node?.mask} onClick={props.addMask}><SquareDashed {...ICON} /></button>
         <button aria-label={t`New group`} title={t`New group`} onClick={props.newGroup}><FolderPlus {...ICON} /></button>
         <button aria-label={t`New layer`} title={t`New layer`} onClick={props.newLayer}><SquarePlus {...ICON} /></button>

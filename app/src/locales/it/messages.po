@@ -283,6 +283,10 @@ msgstr "Opzioni di {name}"
 msgid "{name} vector mask"
 msgstr "Maschera vettoriale {name}"
 
+#: app/src/app/newDocument.ts
+msgid "{name}, {tag}"
+msgstr "{name}, {tag}"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgid "{name}, left eye"
 msgstr "{name}, occhio sinistro"
@@ -374,6 +378,14 @@ msgstr "{w} {u} x {h} {u} ({ppi} ppi)"
 #: app/src/FileDialogs.tsx
 msgid "{w} × {h} mm at {pct}% on a {pw} × {ph} mm page."
 msgstr "{w} × {h} mm al {pct}% su una pagina di {pw} × {ph} mm."
+
+#: app/src/NewDocumentDialog.tsx
+msgid "{w} x {h} {unit}"
+msgstr "{w} x {h} {unit}"
+
+#: app/src/NewDocumentDialog.tsx
+msgid "{w} x {h} {unit} @ {ppi} ppi"
+msgstr "{w} x {h} {unit} @ {ppi} ppi"
 
 #: app/src/NewDocumentDialog.tsx
 msgid "1 bit"
@@ -6730,8 +6742,8 @@ msgid "Image Size"
 msgstr "Dimensioni immagine"
 
 #: app/src/NewDocumentDialog.tsx
-msgid "Image size: {size}"
-msgstr "Dimensione immagine: {size}"
+msgid "Image size: {size} · {wPx} x {hPx} px"
+msgstr "Dimensione immagine: {size} · {wPx} x {hPx} px"
 
 #: app/src/app/Dialogs.tsx
 msgid "Image size: {sizeText}"

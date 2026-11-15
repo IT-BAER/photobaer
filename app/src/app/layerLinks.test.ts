@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { colorItems, colorTargets, linkChanges, linkedIds } from './layerLinks.ts';
+import { colorItems, colorTargets, linkCall, linkChanges, linkedIds } from './layerLinks.ts';
 import type { LayerNode } from '../worker/types.ts';
 
 const n = (id: number, link = 0, children?: LayerNode[]) => ({ id, link, kind: children ? 'group' : 'pixel', children }) as unknown as LayerNode;
@@ -20,6 +20,11 @@ test('linkChanges unlinks a selection that is one link group, and a group left w
 
 test('linkChanges joins a mixed selection into one new group and dissolves the groups it emptied', () => {
   assert.deepEqual(linkChanges(tree({ 1: 3, 2: 3, 4: 7 }), [1, 4]), { linked: true, changes: [[1, 8], [4, 8], [2, 0]] });
+});
+
+test('linkCall turns the changes into setPropsMany arguments with the history label', () => {
+  assert.deepEqual(linkCall({ linked: true, changes: [[1, 5], [2, 0]] }), [[[1, { link: 5 }], [2, { link: 0 }]], 'Link Layers']);
+  assert.equal(linkCall({ linked: false, changes: [] })[1], 'Unlink Layers');
 });
 
 test('linkChanges needs two layers or a linked one', () => {

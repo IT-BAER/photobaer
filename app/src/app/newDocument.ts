@@ -2,7 +2,7 @@
 // Preset sizes stay in their own unit (print in inches or millimeters, screens in pixels).
 import type { MessageDescriptor } from '@lingui/core';
 import { i18n } from '@lingui/core';
-import { msg } from '@lingui/core/macro';
+import { msg, t } from '@lingui/core/macro';
 import { pxToUnit, unitToPx, type RulerUnit } from '../shell/units.ts';
 import { documentSizes, fmtBytes } from './statusInfo.ts';
 import type { ColorMode } from '../worker/types.ts';
@@ -65,8 +65,8 @@ export const CATEGORIES: Category[] = [
 ];
 
 export const presetTitle = (p: Preset) => {
-  const name = typeof p.name === 'string' ? p.name : i18n._(p.name);
-  return p.tag ? `${name}, ${p.tag}` : name;
+  const name = typeof p.name === 'string' ? p.name : i18n._(p.name), tag = p.tag;
+  return tag ? t`${name}, ${tag}` : name;
 };
 export const toPx = (v: number, unit: SizeUnit, ppi: number) => Math.min(MAX_PX, Math.max(1, Math.round(unitToPx(v, unit, ppi))));
 export const presetPx = (p: Preset): [number, number] => [toPx(p.w, p.unit, p.ppi), toPx(p.h, p.unit, p.ppi)];

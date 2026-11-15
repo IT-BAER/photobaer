@@ -4,7 +4,8 @@
 
 use super::color_mode::ColorMode;
 use super::*;
-use crate::icc::{Intent, Profile, SRGB, Space, Transform};
+use super::profile::srgb_grid;
+use crate::icc::{Intent, Profile, SRGB, Transform};
 use std::collections::HashMap;
 
 /// Neutral densities of solid cyan, magenta, yellow and black: which of two ink mixes is darker.
@@ -107,22 +108,9 @@ impl Document {
         }
         self.check_pixel_paint(id)?;
         let Some([x0, y0, w, h]) = self.layer_bounds(id)? else { return Ok(false) };
-        let cmyk = self.vector.profile.as_ref().and_then(|p| p.resolve().ok()).filter(|p| p.space == Space::Cmyk);
-        let cmyk = cmyk.unwrap_or_else(|| Profile::builtin(crate::icc::COATED_CMYK).expect("built in"));
-        let srgb = Profile::builtin(SRGB).expect("built in");
-        let to_ink = Transform::new(&srgb, &cmyk, Intent::Relative, true)?;
-        let back = Transform::new(&cmyk, &srgb, Intent::Relative, true)?;
-        let step = 1.0 / (GRID - 1) as f64;
-        let mut table = Vec::with_capacity(GRID * GRID * GRID * 4);
-        let mut o = [0.0f64; 4];
-        for r in 0..GRID {
-            for g in 0..GRID {
-                for b in 0..GRID {
-                    to_ink.apply(&[r as f64 * step, g as f64 * step, b as f64 * step], &mut o);
-                    table.extend(o.map(|v| v.clamp(0.0, 1.0) as f32));
-                }
-            }
-        }
+        let cmyk = self.cmyk_profile();
+        let table = srgb_grid::<4>(&cmyk, GRID)?;
+        let back = Transform::new(&cmyk, &Profile::builtin(SRGB).expect("built in"), Intent::Relative, true)?;
         let r = width as i32;
         let tiles = self.node(id)?.pixel_tiles()?;
         let rgba = |x: i32, y: i32| -> [f32; 4] {

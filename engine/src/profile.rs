@@ -108,9 +108,9 @@ pub struct ConvertOpts {
     pub dither: bool,
 }
 
-// `dst` (N channels, 0..1) of sRGB sampled on `grid`^3 points, red slowest; empty when no transform.
-fn srgb_grid<const N: usize>(dst: &Profile, grid: usize) -> Vec<f32> {
-    let Ok(t) = Transform::new(&Profile::builtin(SRGB).expect("built in"), dst, Intent::Relative, true) else { return vec![] };
+// `dst` (N channels, 0..1) of sRGB sampled on `grid`^3 points, red slowest.
+pub(super) fn srgb_grid<const N: usize>(dst: &Profile, grid: usize) -> Result<Vec<f32>, String> {
+    let t = Transform::new(&Profile::builtin(SRGB).expect("built in"), dst, Intent::Relative, true)?;
     let step = 1.0 / (grid - 1) as f64;
     let mut out = Vec::with_capacity(grid * grid * grid * N);
     let mut o = [0.0f64; N];
@@ -122,7 +122,7 @@ fn srgb_grid<const N: usize>(dst: &Profile, grid: usize) -> Vec<f32> {
             }
         }
     }
-    out
+    Ok(out)
 }
 
 impl Document {
@@ -400,8 +400,13 @@ impl Document {
         if self.vector.mode != Some(super::color_mode::ColorMode::Cmyk) || grid < 2 {
             return vec![];
         }
+        srgb_grid::<4>(&self.cmyk_profile(), grid).unwrap_or_default()
+    }
+
+    /// The document's CMYK profile; untagged or tagged with another space: the default CMYK.
+    pub(super) fn cmyk_profile(&self) -> Profile {
         let tagged = self.vector.profile.as_ref().and_then(|p| p.resolve().ok()).filter(|p| p.space == Space::Cmyk);
-        srgb_grid::<4>(&tagged.unwrap_or_else(|| Profile::builtin(crate::icc::COATED_CMYK).expect("built in")), grid)
+        tagged.unwrap_or_else(|| Profile::builtin(crate::icc::COATED_CMYK).expect("built in"))
     }
 
     /// L*, a*, b* of the Lab document's stored sRGB numbers in D50 (relative colorimetric), encoded
@@ -411,7 +416,7 @@ impl Document {
         if self.vector.mode != Some(super::color_mode::ColorMode::Lab) || grid < 2 {
             return vec![];
         }
-        srgb_grid::<3>(&Profile::builtin(crate::icc::LAB).expect("built in"), grid)
+        srgb_grid::<3>(&Profile::builtin(crate::icc::LAB).expect("built in"), grid).unwrap_or_default()
     }
 
     /// The display table for this document, when its profile displays differently from sRGB.
