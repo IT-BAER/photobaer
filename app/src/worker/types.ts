@@ -67,7 +67,9 @@ export interface LiquifyBrush { tool: string; size: number; density: number; pre
 export type LiquifyOp =
   | { op: 'begin'; brush: LiquifyBrush; x: number; y: number } | { op: 'to'; x: number; y: number } | { op: 'hold' } | { op: 'end' }
   | { op: 'mask'; source: 'selection' | 'transparency' | null; mode: string } | { op: 'reconstruct'; amount: number } | { op: 'restore' }
-  | { op: 'spacing'; spacing: number } | { op: 'pin'; on: boolean };
+  | { op: 'spacing'; spacing: number } | { op: 'pin'; on: boolean }
+  // Face-Aware Liquify: (dx, dy) per mesh node in document px on top of the brush mesh; null clears it.
+  | { op: 'face'; disp: Float32Array | null };
 // Vanishing Point (docs/M5.md section 7): plane corners in document px, dabs in plane UV.
 export interface VanishingPlane { id: string; corners: [number, number][]; parentId?: string; hingeEdge?: 'top' | 'right' | 'bottom' | 'left'; angleDegrees?: number }
 export interface VanishingDab { planeId?: string; from: [number, number]; to: [number, number]; radius: number; opacity: number; hardness: number }
@@ -199,6 +201,9 @@ export interface FillParams {
   mode: string; opacity: number; preserveTransparency: boolean; intensity?: number;
 }
 export interface ContentAwareOpts { mode: string; opacity: number; preserveTransparency: boolean }
+// Select and Mask: Edge Detection and Global Refinements (px, %), and the starting selection.
+export interface RefineSettings { radius: number; smart_radius: boolean; smooth: number; feather: number; contrast: number; shift_edge: number }
+export interface RefineBase { invert: boolean; clear: boolean }
 export interface StrokeSelectionParams {
   width: number; rgba: Rgba; location: 'inside' | 'center' | 'outside'; mode: string; opacity: number; preserveTransparency: boolean;
 }

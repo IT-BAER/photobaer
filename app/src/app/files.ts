@@ -17,6 +17,7 @@ const OPEN_TYPES = [{
   accept: {
     'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/webp': ['.webp'], 'image/gif': ['.gif'], 'image/bmp': ['.bmp'], 'image/avif': ['.avif'],
     'image/vnd.adobe.photoshop': ['.psd', '.psb'], 'image/x-exr': ['.exr'], 'image/vnd.radiance': ['.hdr'], 'image/svg+xml': ['.svg'], 'image/x-icon': ['.ico'], 'application/pdf': ['.pdf'],
+    'application/x-photobaer-droplet': ['.pbdroplet'],
   },
 }];
 const SAVE_TYPES = [

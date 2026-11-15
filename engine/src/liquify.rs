@@ -397,6 +397,8 @@ pub fn apply(p: &mut Plane, f: &Filter, ctx: &Ctx) -> Result<(), String> {
 #[wasm_bindgen]
 pub struct Liquify {
     mesh: Mesh,
+    // Face-Aware Liquify's (dx, dy) per node on top of mesh; empty when there is none.
+    face: Vec<f32>,
     src: Vec<f32>,
     pw: usize,
     ph: usize,
@@ -408,7 +410,7 @@ pub struct Liquify {
 
 impl Liquify {
     pub(crate) fn new(mesh: Mesh, src: Vec<f32>, pw: usize, ph: usize, scale: f32) -> Liquify {
-        Liquify { mesh, src, pw, ph, scale, pin: false, brush: None, last: (0.0, 0.0) }
+        Liquify { mesh, face: vec![], src, pw, ph, scale, pin: false, brush: None, last: (0.0, 0.0) }
     }
 
     pub(crate) fn mesh(&self) -> &Mesh {
@@ -423,6 +425,35 @@ impl Liquify {
         if self.pin {
             self.mesh.pin_edges();
         }
+    }
+
+    /// Sets the face field (empty clears it); it has the mesh's node layout and finite values.
+    pub(crate) fn put_face(&mut self, disp: &[f32]) -> Result<(), String> {
+        if !disp.is_empty() && disp.len() != self.mesh.disp.len() {
+            return Err("the face field does not match the Liquify mesh".into());
+        }
+        if disp.iter().any(|v| !v.is_finite()) {
+            return Err("the face field has invalid values".into());
+        }
+        self.face = disp.to_vec();
+        Ok(())
+    }
+
+    // The mesh the image is warped by: the brush mesh plus the face field, which frozen nodes and pinned
+    // edges do not follow.
+    fn effective(&self) -> std::borrow::Cow<'_, Mesh> {
+        if self.face.is_empty() {
+            return std::borrow::Cow::Borrowed(&self.mesh);
+        }
+        let mut m = self.mesh.clone();
+        for ((d, f), k) in m.disp.chunks_exact_mut(2).zip(self.face.chunks_exact(2)).zip(&self.mesh.frozen) {
+            d[0] += f[0] * (1.0 - k);
+            d[1] += f[1] * (1.0 - k);
+        }
+        if self.pin {
+            m.pin_edges();
+        }
+        std::borrow::Cow::Owned(m)
     }
 }
 
@@ -457,6 +488,7 @@ impl Liquify {
     pub fn set_spacing(&mut self, spacing: u32) {
         if spacing != self.mesh.spacing {
             self.mesh = self.mesh.resampled(spacing);
+            self.face.clear();
         }
     }
 
@@ -511,26 +543,33 @@ impl Liquify {
     /// Restore All: no offsets and no frozen area.
     pub fn restore_all(&mut self) {
         self.mesh = Mesh::new(self.mesh.width, self.mesh.height, self.mesh.spacing);
+        self.face.clear();
+    }
+
+    /// Face-Aware Liquify: (dx, dy) per node in document px, added to the brush mesh; empty clears it. A new Mesh
+    /// Size clears it too.
+    pub fn set_face(&mut self, disp: &[f32]) -> Result<(), JsError> {
+        self.put_face(disp).map_err(|e| JsError::new(&e))
     }
 
     pub fn identity(&self) -> bool {
-        self.mesh.identity()
+        self.effective().identity()
     }
 
     pub fn max_shift(&self) -> f32 {
-        self.mesh.max_shift()
+        self.effective().max_shift()
     }
 
     /// The warped proxy as straight RGBA8.
     pub fn render(&self) -> Vec<u8> {
         let mut out = vec![0f32; self.pw * self.ph * 4];
-        warp(&self.mesh, &self.src, self.pw, self.ph, (0, 0), self.scale, &mut out);
+        warp(&self.effective(), &self.src, self.pw, self.ph, (0, 0), self.scale, &mut out);
         out.iter().map(|v| (v.clamp(0.0, 1.0) * 255.0 + 0.5) as u8).collect()
     }
 
     /// (dx, dy) per node, row by row, in document px.
     pub fn displacement(&self) -> Vec<f32> {
-        self.mesh.disp.clone()
+        self.effective().disp.clone()
     }
 
     pub fn frozen(&self) -> Vec<f32> {
@@ -539,7 +578,7 @@ impl Liquify {
 
     /// The mesh blob bytes (`Mesh::to_bytes`).
     pub fn bytes(&self) -> Vec<u8> {
-        self.mesh.to_bytes()
+        self.effective().to_bytes()
     }
 }
 
@@ -634,6 +673,37 @@ mod tests {
         let before = m2.max_shift();
         m2.dab(&r, 32.0, 32.0, 0.0, 0.0);
         assert!(m2.max_shift() < before, "the brush reconstructs toward the original");
+    }
+
+    #[test]
+    fn a_face_field_adds_to_the_brush_mesh_and_frozen_nodes_keep_their_place() {
+        let mut s = Liquify::new(Mesh::new(64, 64, 8), vec![], 0, 0, 1.0);
+        let n = s.mesh().disp.len();
+        assert!(s.put_face(&[0.0; 3]).is_err(), "the field has the mesh's size");
+        assert!(s.put_face(&vec![f32::NAN; n]).is_err());
+        let field: Vec<f32> = (0..n).map(|i| if i % 2 == 0 { 3.0 } else { 0.0 }).collect();
+        s.put_face(&field).unwrap();
+        assert!(!s.identity());
+        assert_eq!(s.max_shift(), 3.0);
+        let committed = Mesh::from_bytes(&s.bytes()).unwrap();
+        assert_eq!(committed.offset(30.0, 30.0), [3.0, 0.0], "OK commits the face field");
+        assert_ne!(render(&committed), plane());
+        // A brush stroke adds to it.
+        warped(s.mesh_mut());
+        assert!(s.max_shift() > 3.0);
+        s.mesh_mut().reconstruct(100.0);
+        assert_eq!(s.max_shift(), 3.0, "Reconstruct leaves the face field");
+        s.mesh_mut().mask("all", &[]).unwrap();
+        assert!(s.identity(), "frozen nodes do not move");
+        s.mesh_mut().mask("none", &[]).unwrap();
+        s.set_spacing(4);
+        assert!(s.identity(), "a new Mesh Size drops the field until it is sent again");
+        s.put_face(&vec![1.0; s.mesh().disp.len()]).unwrap();
+        s.restore_all();
+        assert!(s.identity());
+        s.put_face(&vec![1.0; s.mesh().disp.len()]).unwrap();
+        s.put_face(&[]).unwrap();
+        assert!(s.identity(), "an empty field clears it");
     }
 
     #[test]

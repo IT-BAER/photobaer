@@ -143,6 +143,10 @@
       "Batch…"
      ],
      [
+      "Create Droplet…",
+      "Create Droplet…"
+     ],
+     [
       "Photomerge…",
       "Photomerge…"
      ],
@@ -1704,8 +1708,17 @@
     "Color Range…"
    ],
    [
+    "Focus Area…",
+    "Focus Area…"
+   ],
+   [
     "Subject",
     "Subject"
+   ],
+   [
+    "Select and Mask…",
+    "Select and Mask…",
+    "Alt+Ctrl+R"
    ],
    [
     "Modify",

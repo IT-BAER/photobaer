@@ -236,6 +236,24 @@ export function SmartFiltersPanel({ node, run, openGradientEditor, pickLookupFil
   );
 }
 
+// Properties for a pixel layer: Quick Actions. Select Background is Photoshop's Discover panel quick action;
+// Remove Background needs a layer without a mask.
+export function QuickActions({ node, removeBackground, selectSubject, selectBackground }: {
+  node: LayerNode; removeBackground: () => void; selectSubject: () => void; selectBackground: () => void;
+}) {
+  return (
+    <div className="properties-panel">
+      <div className="panel-tabs"><span className="panel-tab"><Trans>Properties</Trans></span></div>
+      <div className="adjustment-header"><h3><Trans>Quick Actions</Trans></h3></div>
+      <div className="quick-actions">
+        <button type="button" disabled={!!node.mask} onClick={removeBackground}><Trans>Remove Background</Trans></button>
+        <button type="button" onClick={selectSubject}><Trans>Select Subject</Trans></button>
+        <button type="button" onClick={selectBackground}><Trans>Select Background</Trans></button>
+      </div>
+    </div>
+  );
+}
+
 // Properties for an artboard (docs/M4.md section 11): X/Y move it with its layers and guides,
 // W/H resize it, background. Each edit is one step labelled by its field.
 export function ArtboardPanel({ node, run }: { node: LayerNode; run: Run }) {

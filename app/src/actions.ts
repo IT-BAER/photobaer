@@ -1,10 +1,21 @@
 // Actions: recorded worker calls per history step, replayed on any document. Layer ids in the
 // calls become references: a layer the action created (by creation order) or one that existed (by name).
+import type { DocInfo } from './worker/types.ts';
+import { nodeById } from './layers.ts';
 
 export type LayerRef = { c: number } | { n: string };
 export interface Call { op: string; args: unknown[] }
-// `stop` steps pause playback with a message instead of running calls.
-export interface ActionStep { id: string; label: string; enabled: boolean; calls: Call[]; stop?: { message: string; allowContinue: boolean } }
+// Insert Conditional: If Current, Then/Else Play Action (names of actions in the same set; null = None).
+export const CONDITIONS = ['landscape', 'square', 'rgb', 'cmyk', 'gray', 'lab', 'layers', 'selection', 'background', 'visible', 'pixelMask',
+  'vectorMask', 'effects', 'pixel', 'text', 'shape', 'smart', 'adjustment', 'fill', 'group'] as const;
+export type Condition = typeof CONDITIONS[number];
+export interface Conditional { if: Condition; then: string | null; else: string | null }
+// Steps without calls: `stop` pauses with a message, `menu` runs a menu item by its English id path, `cond` plays
+// another action. `dialog` steps show their dialog values before they run.
+export interface ActionStep {
+  id: string; label: string; enabled: boolean; calls: Call[];
+  stop?: { message: string; allowContinue: boolean }; dialog?: boolean; menu?: { path: string[] }; cond?: Conditional;
+}
 export interface Action { id: string; name: string; steps: ActionStep[]; key?: string }
 export interface ActionSet { id: string; name: string; actions: Action[] }
 // Flat layer list of a document, in layers_json order.
@@ -14,8 +25,9 @@ export interface Layers { ids: number[]; names: Map<number, string> }
 export const LAYER_ARGS: Record<string, string[]> = {
   command: ['1'], fillEx: ['0'], redEye: ['0'], patch: ['0'], contentAwareMove: ['0'], cloneSample: ['0'], contentAwareFill: ['0'],
   strokeSelection: ['0'], gradient: ['0'], clearSelected: ['0'], copy: ['0'], selectedPixels: ['0'], layerViaCopy: ['0'], layerViaCut: ['0'],
-  paste: ['0'], magicWand: ['0'], quickSelect: ['0'], magneticBegin: ['0'], bucket: ['0'], grow: ['0'], similar: ['0'], selectSubject: ['0'], colorRange: ['0'],
-  colorRangePreview: ['1'], layerMask: ['0'], applyImage: ['0'], addLayer: ['0'], addGroup: ['0'], groupNodes: ['0[]'], ungroup: ['0'],
+  paste: ['0'], magicWand: ['0'], quickSelect: ['0'], magneticBegin: ['0'], bucket: ['0'], grow: ['0'], similar: ['0'], selectSubject: ['0'], aiSample: ['0'], selectFromMask: ['0'], colorRange: ['0'],
+  focusAuto: ['0'], focusImage: ['0'], focusPreview: ['0'], focusArea: ['0'], focusToDocument: ['0'], removeBackground: ['0'],
+  refineImage: ['0'], refinePreview: ['0'], selectAndMask: ['0'], colorRangePreview: ['1'], layerMask: ['0'], applyImage: ['0'], addLayer: ['0'], addGroup: ['0'], groupNodes: ['0[]'], ungroup: ['0'],
   deleteNode: ['0'], duplicateNode: ['0'], moveNode: ['0', '1'], arrangeNodes: ['0[]'], mergeNodes: ['0[]'], alignLayers: ['0[]'],
   setLocks: ['0[]'], setVisibility: ['0[]'], newGuidesFromShape: ['0[]'], artboardFromGroup: ['0'], artboardFromLayers: ['0[]'], editArtboard: ['0'],
   setVectorMask: ['0'], fillPath: ['2'], strokePath: ['2'], luminance: ['0'], fillShape: ['0'], setShapes: ['0[].id'], combineShapes: ['0[]'],
@@ -46,6 +58,8 @@ export const NO_RECORD = new Set([
   'closeDoc', 'editContents', 'smartEditSave', 'smartEditClose', 'iccProfiles', 'loadProfile', 'photomerge', 'mergeHdr', 'loadStack', 'calculations',
   'tipAdd', 'tipRemove', 'patternAdd', 'patternRemove', 'recordStart', 'recordStop', 'playAction',
   'fontAdd', 'fontUpload', 'fontRestore', 'fontFaces', 'fontFamilies', 'fontMissing', 'glyphCells', 'glyphAlternates', 'fontCovers',
+  // Model features record their menu item instead (the model runs outside the engine worker).
+  'aiSample', 'selectFromMask', 'focusToDocument', 'removeBackground',
 ]);
 // Many-call ops (stroke points, drags, live edits): the layer list is not diffed after them.
 export const hot = (op: string) => /(To|Step|Edit|Update|Refine|Preview|Warp)$/.test(op);
@@ -133,6 +147,148 @@ export function fromJson<T>(s: string): T {
     }
     return x;
   }) as T;
+}
+
+// Dialog commands: per worker op, the arguments that hold the dialog's values and their names ('' = the object's own keys).
+export const DIALOG_ARGS: Record<string, Record<number, string>> = {
+  fillEx: { 2: '' }, strokeSelection: { 1: '' }, applyImage: { 2: '' }, convertDepth: { 0: 'depth', 1: '' }, setAdjustment: { 1: '' },
+  adjust: { 1: '' }, newAdjustmentLayer: { 1: '' }, applyFilter: { 2: '' }, fade: { 1: '' }, addSmartFilter: { 1: '' }, setSmartFilter: { 2: '' },
+  canvasSize: { 0: 'width', 1: 'height', 2: 'anchor x', 3: 'anchor y', 4: 'color' },
+  imageSize: { 0: 'width', 1: 'height', 2: 'resample', 3: 'scale styles', 4: 'resolution' },
+  rotateCanvasArbitrary: { 0: 'angle', 1: 'interpolation' }, modifySelection: { 1: 'radius', 2: 'apply effect at canvas bounds' },
+  selectCommand: { 1: 'radius' }, colorRange: { 1: 'sample all', 2: 'select', 4: 'fuzziness', 5: 'range', 7: 'localized', 8: 'invert' },
+  trim: { 0: 'based on', 1: 'top', 2: 'bottom', 3: 'left', 4: 'right' }, defringe: { 1: 'width' }, colorDecontaminate: { 1: 'amount' },
+  scaleEffects: { 1: 'scale' }, newGuideLayout: { 0: '' }, setColorMode: { 0: '' },
+  focusArea: { 1: 'in-focus range', 2: 'image noise level', 4: 'soften edge' },
+  selectAndMask: { 2: '', 5: 'output to', 6: 'decontaminate colors', 7: 'amount' },
+};
+// Keys that pick a variant rather than set a value.
+const FIXED_KEYS = new Set(['kind', 'type', 'mode_kind', 'id']);
+export interface Field { arg: number; path: (string | number)[]; label: string; value: number | string | boolean }
+
+// The editable values of a step's last dialog call: numbers, strings and booleans, and short number lists one value each;
+// layer references, typed arrays and longer lists are left out.
+export function stepFields(step: ActionStep): Field[] {
+  const call = step.calls.findLast(c => c.op in DIALOG_ARGS);
+  if (!call) return [];
+  const out: Field[] = [];
+  for (const [i, name] of Object.entries(DIALOG_ARGS[call.op])) {
+    const walk = (v: unknown, path: (string | number)[]) => {
+      if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') {
+        const segs = [...(name ? [name] : []), ...path.filter(p => p !== 'params').map(p => typeof p === 'number' ? String(p + 1) : p.replace(/_/g, ' '))];
+        out.push({ arg: +i, path, label: segs.join(' › '), value: v });
+      } else if (Array.isArray(v)) {
+        if (v.length <= 4 && v.every(x => typeof x === 'number')) v.forEach((x, j) => walk(x, [...path, j]));
+      } else if (v && typeof v === 'object' && !ArrayBuffer.isView(v) && !isRef(v)) {
+        for (const [k, x] of Object.entries(v)) if (!FIXED_KEYS.has(k)) walk(x, [...path, k]);
+      }
+    };
+    walk(call.args[+i], []);
+  }
+  return out;
+}
+
+// A copy of `step` whose last dialog call carries `values`, in stepFields order.
+export function withFields(step: ActionStep, values: Field['value'][]): ActionStep {
+  const out = structuredClone(step);
+  const call = out.calls.findLast(c => c.op in DIALOG_ARGS);
+  if (!call) return out;
+  stepFields(step).forEach((f, n) => {
+    if (n >= values.length) return;
+    if (!f.path.length) { call.args[f.arg] = values[n]; return; }
+    let o = call.args[f.arg] as Record<string | number, unknown>;
+    for (const p of f.path.slice(0, -1)) o = o[p] as Record<string | number, unknown>;
+    o[f.path.at(-1)!] = values[n];
+  });
+  return out;
+}
+
+export interface PlayHooks {
+  // Plays steps that only hold calls; false when they failed.
+  play(seg: ActionStep[], resume: boolean): Promise<boolean>;
+  // A stop step: true continues playback.
+  stop(s: ActionStep): boolean | Promise<boolean>;
+  // A step with its dialog on: the step to play, null cancels playback. Without it, dialog steps play as recorded.
+  ask?(s: ActionStep): Promise<ActionStep | null>;
+  // A menu item step: runs the item and waits for its dialog; false ends playback.
+  menu?(s: ActionStep): Promise<boolean>;
+  // Conditional steps: the condition on the current document, and the enabled steps of an action of the same set.
+  holds?(c: Condition): boolean;
+  action?(name: string): ActionStep[] | undefined;
+}
+const pauses = (s: ActionStep, h: PlayHooks) => !!(s.stop || s.menu || s.cond) || (!!s.dialog && !!h.ask && stepFields(s).length > 0);
+
+// Plays `steps` in segments split at the steps that pause; `resume` keeps the layer references of earlier segments
+// (an action played by a conditional step starts its own). False when a segment failed or playback was ended.
+export async function playSteps(steps: ActionStep[], h: PlayHooks, playing: string[] = []): Promise<boolean> {
+  let resume = false;
+  for (let i = 0; i < steps.length;) {
+    let s = steps[i];
+    if (s.stop) {
+      if (!await h.stop(s)) return false;
+      i++;
+      continue;
+    }
+    if (s.menu) {
+      if (!h.menu || !await h.menu(s)) return false;
+      i++;
+      continue;
+    }
+    if (s.cond) {
+      const name = h.holds?.(s.cond.if) ? s.cond.then : s.cond.else;
+      if (name !== null) {
+        if (playing.includes(name)) throw new Error(`The action "${name}" plays itself through a conditional step.`);
+        const sub = h.action?.(name);
+        if (!sub) throw new Error(`There is no action named "${name}" in this set.`);
+        if (!await playSteps(sub, h, [...playing, name])) return false;
+        resume = false;
+      }
+      i++;
+      continue;
+    }
+    if (pauses(s, h)) {
+      const edited = await h.ask!(s);
+      if (!edited) return false;
+      s = edited;
+    }
+    const end = steps.findIndex((x, j) => j > i && pauses(x, h));
+    const seg = [s, ...steps.slice(i + 1, end < 0 ? steps.length : end)];
+    if (!await h.play(seg, resume)) return false;
+    resume = true;
+    i += seg.length;
+  }
+  return true;
+}
+
+// A Background layer is the bottom root pixel layer named "Background".
+export function conditionHolds(c: Condition, d: DocInfo, active: number | null): boolean {
+  const mode = d.mode?.kind ?? (d.gray ? 'gray' : 'rgb');
+  const bottom = d.layers[0], isBg = (n: DocInfo['layers'][number] | undefined) => !!n && n === bottom && n.kind === 'pixel' && n.name === 'Background';
+  switch (c) {
+    case 'landscape': return d.width > d.height;
+    case 'square': return d.width === d.height;
+    case 'rgb': case 'cmyk': case 'gray': case 'lab': return mode === c;
+    case 'layers': return d.layers.length > 1 || (!!bottom && !isBg(bottom));
+    case 'selection': return !!d.selection;
+  }
+  const n = active === null ? undefined : nodeById(d.layers, active);
+  if (!n) return false;
+  switch (c) {
+    case 'background': return isBg(n);
+    case 'visible': return n.visible;
+    case 'pixelMask': return !!n.mask;
+    case 'vectorMask': return !!n.vector_mask;
+    case 'effects': return !!n.style;
+    default: return n.kind === c;
+  }
+}
+
+// Action shortcuts: F2 to F12 with optional Shift and Ctrl (Cmd), written "Shift+Ctrl+F2".
+export const ACTION_FKEYS = Array.from({ length: 11 }, (_, i) => `F${i + 2}`);
+export const ACTION_KEY = /^(Shift\+)?(Ctrl\+)?F([2-9]|1[0-2])$/;
+export function actionKeyOf(e: { key: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean }): string | null {
+  if (e.altKey || !ACTION_FKEYS.includes(e.key)) return null;
+  return `${e.shiftKey ? 'Shift+' : ''}${e.ctrlKey || e.metaKey ? 'Ctrl+' : ''}${e.key}`;
 }
 
 // False when `args` carry something a saved action cannot hold (a file or a file handle).

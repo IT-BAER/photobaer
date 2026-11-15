@@ -9,7 +9,7 @@ import type { AlignMode, AutosaveState, DocInfo, FillContent, GradientDef, Strok
 
 const SAMPLE_SIZES: Record<string, number> = { point: 1, '3x3': 3, '5x5': 5, '11x11': 11, '31x31': 31, '51x51': 51, '101x101': 101 };
 const VIEWER_TOOL: Record<string, ViewerTool> = { hand: 'hand', rotate: 'rotate', zoom: 'zoom' };
-const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso', 'magneticLasso', 'quickSelection', 'magicWand'];
+const SELECT_TOOLS = ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn', 'lasso', 'polygonalLasso', 'magneticLasso', 'objectSelection', 'quickSelection', 'magicWand'];
 const PAINT_LABELS: Record<string, MessageDescriptor> = {
   brush: msg`Brush`, pencil: msg`Pencil`, eraser: msg`Eraser`, cloneStamp: msg`Clone Stamp`, patternStamp: msg`Pattern Stamp`,
   spotHealing: msg`Spot Healing Brush`, healingBrush: msg`Healing Brush`, historyBrush: msg`History Brush`, artHistoryBrush: msg`Art History Brush`,
@@ -24,7 +24,7 @@ const LAYER_TOOLS = new Set(['magneticLasso', 'bucket', 'magicEraser', 'gradient
 // Move with Auto-Select (Ctrl/Cmd inverts it) picks the clicked layer instead.
 function needsLayer(tool: string, o: Record<string, unknown>, key: { ctrlKey: boolean; metaKey: boolean }): boolean {
   if (tool === 'move') return !o.autoSelect === !(key.ctrlKey || key.metaKey);
-  if (tool === 'magicWand' || tool === 'quickSelection') return !o.sampleAllLayers;
+  if (tool === 'magicWand' || tool === 'quickSelection' || tool === 'objectSelection') return !o.sampleAllLayers;
   if (tool in SHAPE_NAMES) return o.mode === 'pixels';
   return PAINT_TOOLS.has(tool) || LAYER_TOOLS.has(tool);
 }

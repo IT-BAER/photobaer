@@ -22,7 +22,8 @@
         "image/png": [".png"],
         "image/jpeg": [".jpg", ".jpeg"],
         "image/webp": [".webp"],
-        "image/vnd.adobe.photoshop": [".psd"]
+        "image/vnd.adobe.photoshop": [".psd"],
+        "application/x-photobaer-droplet": [".pbdroplet"]
       }
     }
   ],

@@ -5,6 +5,7 @@ import type { ToolOptions } from '../shell/OptionsBar.tsx';
 import type { Viewer } from '../viewer.ts';
 import { findMenuItem, itemId, PAINT_TOOLS, type Item } from './helpers.ts';
 import { COMPOSITE, type ChannelView } from './channels.ts';
+import { actionKeyOf } from '../actions.ts';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type Session = { active: () => boolean; commit: () => void; cancel: () => void };
@@ -25,18 +26,21 @@ export interface ShortcutCtx {
   patchToolOptions: (toolId: string, patch: Record<string, number | string | boolean>) => void;
   flowDigitRef: RefObject<DigitState | null>; opacityDigitRef: RefObject<DigitState | null>;
   moveKeysRef: RefObject<{ nudge: (dx: number, dy: number, alt: boolean) => void } | null>; selectByKey: (key: string, shift: boolean) => boolean;
-  open: (f: File, handle?: FileSystemFileHandle | null) => Promise<unknown>;
+  // Dropped files, opened together (a droplet among them runs on the others).
+  open: (items: { file: File; handle: FileSystemFileHandle | null }[]) => Promise<unknown>;
   // The active pen or path selection tool's keys; true = handled.
   penKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>;
   // An open type edit session's keys; checked first (Esc commits instead of resetting the view rotation).
   typeKeysRef: RefObject<((e: KeyboardEvent) => boolean) | null>;
   setChannelView: SetState<ChannelView>;
+  // Window > Actions function keys; true = the key belongs to an action.
+  actionKeyRef: RefObject<(key: string) => boolean>;
 }
 
 export function useShortcuts(c: ShortcutCtx) {
   const {
     menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
-    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef, setChannelView,
+    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef, setChannelView, actionKeyRef,
   } = c;
   useEffect(() => {
     const find = (pred: (id: string) => boolean) => findMenuItem(menusRef.current, pred);
@@ -76,6 +80,9 @@ export function useShortcuts(c: ShortcutCtx) {
       const k = e.key.toLowerCase(), ctrl = e.ctrlKey || e.metaKey;
       if (typeKeysRef.current?.(e)) return;
       if (penKeysRef.current?.(e)) return;
+      // An action's function key wins over the command on the same key, as in Photoshop.
+      const actionKey = actionKeyOf(e);
+      if (actionKey && actionKeyRef.current(actionKey)) { e.preventDefault(); return; }
       if (polygonActionsRef.current?.active()) {
         if (k === 'escape') { e.preventDefault(); polygonActionsRef.current.cancel(); return; }
         if (k === 'backspace') { e.preventDefault(); polygonActionsRef.current.removeLast(); return; }
@@ -151,6 +158,7 @@ export function useShortcuts(c: ShortcutCtx) {
       }
       else if (ctrl && k === 'h') triggerBy(l => l.endsWith('selection edges'), e);
       else if (ctrl && e.shiftKey && !e.altKey && k === 'r') trigger('Lens Correction', e);
+      else if (ctrl && e.altKey && !e.shiftKey && k === 'r') trigger('Select and Mask', e);
       else if (ctrl && k === 'r') triggerBy(l => l.endsWith('Rulers'), e);
       else if (ctrl && e.shiftKey && (k === ';' || k === ':')) triggerBy(l => l.replace('✓ ', '') === 'Snap', e);
       else if (ctrl && e.altKey && k === ';') triggerBy(l => l === 'Lock Guides' || l === 'Unlock Guides', e);
@@ -242,10 +250,12 @@ export function useShortcuts(c: ShortcutCtx) {
       const dropped = [...(e.dataTransfer?.items ?? [])].filter(i => i.kind === 'file')
         .map(i => ({ file: i.getAsFile(), handle: (i as Item).getAsFileSystemHandle?.().catch(() => null) ?? null }));
       void (async () => {
+        const items: { file: File; handle: FileSystemFileHandle | null }[] = [];
         for (const d of dropped) {
           const h = await d.handle;
-          if (d.file) await open(d.file, h?.kind === 'file' ? h as FileSystemFileHandle : null);
+          if (d.file) items.push({ file: d.file, handle: h?.kind === 'file' ? h as FileSystemFileHandle : null });
         }
+        await open(items);
       })();
     };
     addEventListener('keydown', down);

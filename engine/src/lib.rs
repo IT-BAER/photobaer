@@ -21,6 +21,9 @@ mod resample;
 mod selection;
 mod stroke;
 mod subject;
+mod matte;
+mod focus;
+mod refine;
 mod styles;
 mod text;
 mod typeset;
@@ -612,6 +615,62 @@ impl Engine {
     /// Select > Subject from the layer's pixels (New selection); false when no subject was found.
     pub fn select_subject(&mut self, layer_id: u32) -> Result<bool, JsError> {
         self.0.doc.select_subject(layer_id).map_err(err)
+    }
+
+    /// A layer's pixels (or the composite) in the document rect `x, y, w, h` as an opaque `ow x oh` RGBA8
+    /// image over mid grey: the input of a segmentation model.
+    #[allow(clippy::too_many_arguments)]
+    pub fn region_rgba(&self, sample_all: bool, layer_id: u32, x: i32, y: i32, w: i32, h: i32, ow: u32, oh: u32) -> Result<Vec<u8>, JsError> {
+        self.0.doc.region_rgba(sample_all, layer_id, [x, y, w, h], ow, oh).map_err(err)
+    }
+
+    /// Selects from a segmentation model's mask (`mw x mh`, 0..255) over the rect `x, y, w, h`, refined against
+    /// the sampled pixels; false (selection untouched) when the mask is empty. `mode` is a selection mode.
+    #[allow(clippy::too_many_arguments)]
+    pub fn select_mask(&mut self, sample_all: bool, layer_id: u32, mask: &[u8], mw: u32, mh: u32, x: i32, y: i32, w: i32, h: i32, mode: &str) -> Result<bool, JsError> {
+        self.0.doc.select_mask(sample_all, layer_id, mask, mw, mh, [x, y, w, h], Mode::parse(mode).map_err(err)?).map_err(err)
+    }
+
+    /// Focus Area's working size `[w, h]` (its preview mask and brush edits).
+    pub fn focus_size(&self) -> Vec<u32> {
+        self.0.doc.focus_size().to_vec()
+    }
+
+    /// Focus Area's automatic `[In-Focus Range, Image Noise Level]` for a layer.
+    pub fn focus_auto(&self, layer_id: u32) -> Result<Vec<f32>, JsError> {
+        self.0.doc.focus_auto(layer_id).map(|v| v.to_vec()).map_err(err)
+    }
+
+    /// Focus Area's in-focus mask at the working size (0 or 255); `edits` is empty or the working size
+    /// (255 adds, 0 removes, other values keep).
+    pub fn focus_preview(&self, layer_id: u32, range: f32, noise: f32, edits: &[u8]) -> Result<Vec<u8>, JsError> {
+        self.0.doc.focus_preview(layer_id, range, noise, edits).map_err(err)
+    }
+
+    /// Select > Focus Area as a new selection; false (selection untouched) when nothing is in focus.
+    pub fn focus_area(&mut self, layer_id: u32, range: f32, noise: f32, edits: &[u8], soften: bool) -> Result<bool, JsError> {
+        self.0.doc.focus_area(layer_id, range, noise, edits, soften).map_err(err)
+    }
+
+    /// Select and Mask's starting selection at the working size (`focus_size`), 0..255.
+    pub fn refine_original(&self) -> Vec<u8> {
+        self.0.doc.refine_original()
+    }
+
+    /// Select and Mask's preview at the working size: the refined coverage (0..255), then the edge band (0 or 255).
+    /// `params` is `[radius, smart radius (0 or 1), smooth, feather, contrast, shift edge]`; `edits` is empty or
+    /// working-size edit codes (0 subtract, 64 refine, 128 none, 192 keep the edge, 255 add).
+    #[allow(clippy::too_many_arguments)]
+    pub fn refine_preview(&self, sample_all: bool, layer_id: u32, params: &[f32], invert: bool, clear: bool, edits: &[u8]) -> Result<Vec<u8>, JsError> {
+        let p = refine::Params::from_slice(params).map_err(err)?;
+        self.0.doc.refine_preview(sample_all, layer_id, &p, invert, clear, edits).map_err(err)
+    }
+
+    /// Select > Select and Mask: the refined selection replaces the selection; arguments as `refine_preview`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn select_and_mask(&mut self, sample_all: bool, layer_id: u32, params: &[f32], invert: bool, clear: bool, edits: &[u8]) -> Result<(), JsError> {
+        let p = refine::Params::from_slice(params).map_err(err)?;
+        self.0.doc.select_and_mask(sample_all, layer_id, &p, invert, clear, edits).map_err(err)
     }
 
     /// Quick selection (docs/M2.md section 3): `points` are the stroke's flat document x, y

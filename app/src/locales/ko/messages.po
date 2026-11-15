@@ -16,10 +16,6 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "“{docName}”에서 불러올 수 없는 글꼴을 사용합니다. 문서 전체에 사용할 대체 글꼴을 선택하십시오. 텍스트 레이아웃이 변경될 수 있습니다."
 
 #: app/src/i18n/errors.ts
-msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
-msgstr "Photoshop의 {limit}채널 제한을 넘는 알파 및 별색 채널 {count}개는 저장되지 않았습니다"
-
-#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr "\"{file}\": {why}"
 
@@ -100,6 +96,10 @@ msgstr "색상 정지점 {colorStops}개 · 불투명도 정지점 {opacityStops
 msgid "{count, plural, one {# pattern imported} other {# patterns imported}}"
 msgstr "{count, plural, other {패턴 #개를 가져옴}}"
 
+#: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr "Photoshop의 {limit}채널 제한을 넘는 알파 및 별색 채널 {count}개는 저장되지 않았습니다"
+
 #: app/src/i18n/history.ts
 msgid "{depth} Bits/Channel"
 msgstr "{depth}비트/채널"
@@ -123,6 +123,22 @@ msgstr "{fam}에는 {subsetName}의 글리프가 없습니다."
 #: app/src/MissingFonts.tsx
 msgid "{family} does not contain every character used by {source}. Choose another font."
 msgstr "{family}에는 {source}에 사용된 일부 문자가 없습니다. 다른 글꼴을 선택하십시오."
+
+#: app/src/ai/ModelDialog.tsx
+msgid "{feature} uses a face model that runs on this computer; your images are not uploaded."
+msgstr "{feature}은(는) 이 컴퓨터에서 실행되는 얼굴 모델을 사용합니다. 이미지는 업로드되지 않습니다."
+
+#: app/src/ai/ModelDialog.tsx
+msgid "{feature} uses a segmentation model that runs on this computer; your images are not uploaded."
+msgstr "{feature}은(는) 이 컴퓨터에서 실행되는 세그먼테이션 모델을 사용합니다. 이미지는 업로드되지 않습니다."
+
+#: app/src/ai/ModelDialog.tsx
+msgid "{got} of {size} MB"
+msgstr "{got} / {size}MB"
+
+#: app/src/ActionDialogs.tsx
+msgid "{keyText} is used by the action “{other}”. OK moves it to this action."
+msgstr "{keyText}은(는) “{other}” 액션에서 사용 중입니다. 확인을 누르면 이 액션으로 이동합니다."
 
 #. placeholder {0}: handleName(cls, i === outer)
 #: app/src/LayerStyleDialog.tsx
@@ -194,7 +210,7 @@ msgstr "{label}: 이미지를 클릭하여 설정"
 msgid "{maskName} Mask"
 msgstr "{maskName} 마스크"
 
-#: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 msgid "{message}\n"
 "\n"
 "Continue playing the action?"
@@ -253,6 +269,14 @@ msgstr "{name} 옵션"
 #: app/src/LayersPanel.tsx
 msgid "{name} vector mask"
 msgstr "{name} 벡터 마스크"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "{name}, left eye"
+msgstr "{name}, 왼쪽 눈"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "{name}, right eye"
+msgstr "{name}, 오른쪽 눈"
 
 #: app/src/PresetPanels.tsx
 msgid "{name}: {summary}"
@@ -514,9 +538,17 @@ msgstr "액션 {next}"
 msgid "Action name"
 msgstr "액션 이름"
 
+#: app/src/ActionDialogs.tsx
+msgid "Action Options"
+msgstr "액션 옵션"
+
 #: app/src/app/cameraData.ts
 msgid "Action program"
 msgstr "액션 프로그램"
+
+#: app/src/ActionDialogs.tsx
+msgid "Action step"
+msgstr "액션 단계"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
@@ -549,6 +581,10 @@ msgstr "{effectName} 추가"
 #: app/src/shell/tools.ts
 msgid "Add Anchor Point"
 msgstr "기준점 추가"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Add Brush"
+msgstr "추가 브러시"
 
 #: app/src/shell/GradientEditor.tsx
 msgid "Add color stop"
@@ -591,6 +627,10 @@ msgstr "크기 추가"
 #: app/src/app/Dialogs.tsx
 msgid "Add to channel"
 msgstr "채널에 추가"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Add to selection"
+msgstr "선택 영역에 추가"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/LiquifyDialog.tsx
@@ -643,6 +683,10 @@ msgstr "조정 표시"
 #: app/src/app/menus.ts
 msgid "Adjustments"
 msgstr "조정"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Advanced"
+msgstr "고급"
 
 #: app/src/ColorDialog.tsx
 msgid "Advanced Controls"
@@ -712,6 +756,11 @@ msgstr "정렬"
 
 #: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
+msgid "All"
+msgstr "모두"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgctxt "face-aware liquify reset"
 msgid "All"
 msgstr "모두"
 
@@ -793,6 +842,7 @@ msgstr "주변광"
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ModeDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Amount"
 msgstr "양"
 
@@ -816,6 +866,11 @@ msgstr "ICO 이미지는 최대 256 x 256 픽셀입니다."
 #: app/src/app/menus.ts
 msgid "Analysis"
 msgstr "분석"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Analyzing…"
+msgstr "분석 중…"
 
 #: app/src/app/Dialogs.tsx
 msgid "Anchor"
@@ -1176,6 +1231,7 @@ msgstr "작성자 직함"
 #: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/LevelsCurvesBody.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Auto"
@@ -1512,8 +1568,13 @@ msgstr "검정"
 
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
+#: app/src/FocusAreaDialog.tsx
 msgid "Black & White"
 msgstr "흑백"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Black & White (K)"
+msgstr "흑백 (K)"
 
 #: app/src/ModeDialog.tsx
 msgid "Black and White"
@@ -1887,6 +1948,7 @@ msgid "Browse…"
 msgstr "찾아보기…"
 
 #: app/src/app/helpers.ts
+#: app/src/FocusAreaDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/shell/tools.ts
 msgid "Brush"
@@ -1908,6 +1970,10 @@ msgstr "브러시 세부"
 #: app/src/app/Dialogs.tsx
 msgid "Brush Leash Color"
 msgstr "브러시 끈 색상"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Brush mode"
+msgstr "브러시 모드"
 
 #: app/src/app/Dialogs.tsx
 msgid "Brush Name"
@@ -1978,6 +2044,14 @@ msgstr "브러시 모양"
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush tips"
 msgstr "브러시 팁"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Brush Tool"
+msgstr "브러시 도구"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Brush Tool (B)"
+msgstr "브러시 도구 (B)"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Brush Tool Options"
@@ -2050,6 +2124,8 @@ msgstr "Camera Raw 필터"
 msgid "Camera Raw Filter…"
 msgstr "Camera Raw 필터…"
 
+#: app/src/ActionDialogs.tsx
+#: app/src/ai/ModelDialog.tsx
 #: app/src/AnalysisDialogs.tsx
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -2061,12 +2137,14 @@ msgstr "Camera Raw 필터…"
 #: app/src/filters/FilterDialog.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/filters/VanishingPointDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/MissingFonts.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/PdfDialog.tsx
 #: app/src/ScriptDialogs.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/ColorPicker.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/GradientEditor.tsx
@@ -2273,6 +2351,10 @@ msgstr "목탄 영역"
 msgid "Charcoal Thickness"
 msgstr "목탄 두께"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Chin Height"
+msgstr "턱 높이"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Chisel Hard"
 msgstr "강한 끌"
@@ -2289,6 +2371,10 @@ msgstr "경계 감소"
 msgid "Choose a .psd, .psb, .exr, .hdr or .ico file name, not {name}."
 msgstr "{name}이(가) 아닌 .psd, .psb, .exr, .hdr 또는 .ico 파일 이름을 선택하십시오."
 
+#: app/src/app/actionsStore.ts
+msgid "Choose a function key from F2 to F12."
+msgstr "F2~F12 중에서 기능 키를 선택하십시오."
+
 #: app/src/app/paintTool.ts
 msgid "Choose a pattern first."
 msgstr "먼저 패턴을 선택하십시오."
@@ -2296,6 +2382,11 @@ msgstr "먼저 패턴을 선택하십시오."
 #: app/src/FileDialogs.tsx
 msgid "Choose a template"
 msgstr "템플릿 선택"
+
+#: app/src/ActionDialogs.tsx
+#: app/src/app/actionsStore.ts
+msgid "Choose an action for Then or Else."
+msgstr "참일 때 또는 거짓일 때 재생할 액션을 선택하십시오."
 
 #: app/src/i18n/errors.ts
 msgid "Choose at least one file."
@@ -2306,6 +2397,10 @@ msgstr "파일을 하나 이상 선택하십시오."
 #: app/src/ScriptDialogs.tsx
 msgid "Choose…"
 msgstr "선택…"
+
+#: app/src/BatchDialog.tsx
+msgid "chosen when the droplet runs"
+msgstr "드롭릿 실행 시 선택"
 
 #: app/src/filters/labels.ts
 msgid "Chrome"
@@ -2394,6 +2489,10 @@ msgstr "최근 파일 목록 지우기"
 #: app/src/app/menus.ts
 msgid "Clear Selected Artboard Guides"
 msgstr "선택한 대지 안내선 지우기"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Clear Selection"
+msgstr "선택 영역 지우기"
 
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
@@ -2801,6 +2900,10 @@ msgstr "컴포저"
 msgid "Composite"
 msgstr "합성"
 
+#: app/src/ActionDialogs.tsx
+msgid "Conditional Action"
+msgstr "조건부 액션"
+
 #: app/src/layerStyle.ts
 msgid "Cone"
 msgstr "원뿔"
@@ -2926,6 +3029,7 @@ msgstr "축소…"
 
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/tools.ts
 msgid "Contrast"
@@ -3103,6 +3207,10 @@ msgid "Cosine"
 msgstr "코사인"
 
 #: app/src/i18n/errors.ts
+msgid "Could not complete your request because the target layer is hidden."
+msgstr "대상 레이어가 숨겨져 있어 요청을 완료할 수 없습니다."
+
+#: app/src/i18n/errors.ts
 msgid "Could not copy: the layer is not a pixel layer."
 msgstr "복사할 수 없습니다: 레이어가 픽셀 레이어가 아닙니다."
 
@@ -3235,6 +3343,14 @@ msgstr "클리핑 마스크 만들기"
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Create connected plane"
 msgstr "연결된 평면 만들기"
+
+#: app/src/BatchDialog.tsx
+msgid "Create Droplet"
+msgstr "드롭릿 만들기"
+
+#: app/src/app/menus.ts
+msgid "Create Droplet…"
+msgstr "드롭릿 만들기…"
 
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
@@ -3612,6 +3728,10 @@ msgstr "주광"
 msgid "De-Interlace"
 msgstr "인터레이스 제거"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Decontaminate Colors"
+msgstr "색상 정화"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Deep"
 msgstr "깊게"
@@ -3910,6 +4030,14 @@ msgstr "대상 공간"
 msgid "Detail"
 msgstr "세부"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Detect Faces"
+msgstr "얼굴 감지"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Detecting faces…"
+msgstr "얼굴 감지 중…"
+
 #: app/src/ColorDialog.tsx
 msgid "Device to Simulate"
 msgstr "시뮬레이션할 장치"
@@ -4086,6 +4214,38 @@ msgstr "문서"
 msgid "Document Bounds"
 msgstr "문서 경계"
 
+#: app/src/ActionDialogs.tsx
+msgid "Document Has Layers"
+msgstr "문서에 레이어가 있음"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Has Selection"
+msgstr "문서에 선택 영역이 있음"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is CMYK Mode"
+msgstr "문서가 CMYK 모드임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Grayscale Mode"
+msgstr "문서가 회색 음영 모드임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Lab Mode"
+msgstr "문서가 Lab 모드임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Landscape"
+msgstr "문서가 가로 방향임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is RGB Mode"
+msgstr "문서가 RGB 모드임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Square"
+msgstr "문서가 정사각형임"
+
 #: app/src/FileDialogs.tsx
 msgid "Document Title"
 msgstr "문서 제목"
@@ -4131,6 +4291,14 @@ msgstr "이중선"
 #: app/src/LayerStyleDialog.tsx
 msgid "Down"
 msgstr "아래로"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "Download"
+msgstr "다운로드"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "Download the model once ({size} MB from {host}, licence {licence})? It is kept in this browser and also works offline."
+msgstr "모델을 한 번 다운로드하시겠습니까? ({size}MB, {host}에서, 라이선스 {licence}) 이 브라우저에 보관되며 오프라인에서도 작동합니다."
 
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
@@ -4264,6 +4432,10 @@ msgstr "가장자리"
 msgid "Edge Brightness"
 msgstr "가장자리 명도"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Edge Detection"
+msgstr "가장자리 감지"
+
 #: app/src/filters/GalleryStack.tsx
 msgid "Edge Extension"
 msgstr "가장자리 확장"
@@ -4382,6 +4554,10 @@ msgstr "타원"
 #: app/src/shell/tools.ts
 msgid "Elliptical Marquee"
 msgstr "원형 선택 윤곽"
+
+#: app/src/ActionDialogs.tsx
+msgid "Else Play Action"
+msgstr "거짓이면 액션 재생"
 
 #: app/src/FileDialogs.tsx
 msgid "Email(s)"
@@ -4590,6 +4766,10 @@ msgstr "{title} 확장"
 msgid "Expand action"
 msgstr "액션 확장"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Expand detection area"
+msgstr "감지 영역 확장"
+
 #: app/src/app/Dialogs.tsx
 msgid "Expand Selection"
 msgstr "선택 영역 확대"
@@ -4725,17 +4905,57 @@ msgstr "특대"
 msgid "Extrude"
 msgstr "돌출"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Distance"
+msgstr "눈 거리"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Height"
+msgstr "눈 높이"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Size"
+msgstr "눈 크기"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Tilt"
+msgstr "눈 기울기"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Width"
+msgstr "눈 너비"
+
 #: app/src/shell/tools.ts
 msgid "Eyedropper"
 msgstr "스포이드"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eyes"
+msgstr "눈"
 
 #: app/src/app/cameraData.ts
 msgid "F-Stop"
 msgstr "F 값"
 
 #: app/src/filters/LiquifyDialog.tsx
-msgid "Face Tool (Face-Aware Liquify comes with M7)"
-msgstr "얼굴 도구(얼굴 인식 액화는 M7에서 제공)"
+msgid "Face #{n}"
+msgstr "얼굴 #{n}"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face Shape"
+msgstr "얼굴 모양"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face Tool"
+msgstr "얼굴 도구"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face Width"
+msgstr "얼굴 너비"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face-Aware Liquify"
+msgstr "얼굴 인식 액화"
 
 #: app/src/filters/labels.ts
 msgid "Facet"
@@ -4783,6 +5003,7 @@ msgstr "포스 기울임꼴"
 
 #: app/src/filters/labels.ts
 #: app/src/PropertiesPanel.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/tools.ts
 msgid "Feather"
 msgstr "페더"
@@ -5217,6 +5438,15 @@ msgstr "35mm 필름 환산 초점 거리"
 msgid "Focus"
 msgstr "초점"
 
+#: app/src/FocusAreaDialog.tsx
+#: app/src/i18n/history.ts
+msgid "Focus Area"
+msgstr "초점 영역"
+
+#: app/src/app/menus.ts
+msgid "Focus Area…"
+msgstr "초점 영역…"
+
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
 #: app/src/ScriptDialogs.tsx
@@ -5290,6 +5520,10 @@ msgstr "전경색"
 #: app/src/filters/labels.ts
 msgid "Foreground Level"
 msgstr "전경 레벨"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Forehead"
+msgstr "이마"
 
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
@@ -5402,6 +5636,10 @@ msgstr "완전 구형"
 msgid "Fullscreen"
 msgstr "전체 화면"
 
+#: app/src/ActionDialogs.tsx
+msgid "Function Key"
+msgstr "기능 키"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Fuzziness"
@@ -5476,6 +5714,10 @@ msgstr "전역 조명"
 #: app/src/app/menus.ts
 msgid "Global Light…"
 msgstr "전역 조명…"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Global Refinements"
+msgstr "전역 다듬기"
 
 #: app/src/filters/labels.ts
 msgid "Gloss"
@@ -6167,6 +6409,14 @@ msgstr "하이픈 넣기"
 msgid "Hyphenation Zone"
 msgstr "하이픈 영역"
 
+#: app/src/ActionDialogs.tsx
+msgid "If {cond} Then Play Action “{then}” Else Play Action “{otherwise}”"
+msgstr "{cond}이면 “{then}” 액션 재생, 아니면 “{otherwise}” 액션 재생"
+
+#: app/src/ActionDialogs.tsx
+msgid "If Current"
+msgstr "현재 조건"
+
 #: app/src/shell/tools.ts
 msgid "Ignore Adjustment Layers"
 msgstr "조정 레이어 무시"
@@ -6203,6 +6453,10 @@ msgstr "브라우저에서 이미지 편집"
 #: app/src/ExportDialogs.tsx
 msgid "Image height"
 msgstr "이미지 높이"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Image Noise Level"
+msgstr "이미지 노이즈 레벨"
 
 #: app/src/App.tsx
 #: app/src/ScriptDialogs.tsx
@@ -6300,6 +6554,10 @@ msgstr "폴더에서는 각 유형이 JPEG, PSD, TIFF 또는 PNG라는 이름의
 #: app/src/filters/LiquifyDialog.tsx
 msgid "In Front"
 msgstr "앞"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "In-Focus Range"
+msgstr "초점 범위"
 
 #: app/src/DocumentArrangement.tsx
 msgid "Inactive document preview"
@@ -6444,9 +6702,21 @@ msgstr "입력 레벨"
 msgid "Input white"
 msgstr "입력 흰색"
 
+#: app/src/ActionsPanel.tsx
+msgid "Insert Conditional…"
+msgstr "조건부 삽입…"
+
 #: app/src/i18n/history.ts
 msgid "Insert Glyph"
 msgstr "글리프 삽입"
+
+#: app/src/ActionDialogs.tsx
+msgid "Insert Menu Item"
+msgstr "메뉴 항목 삽입"
+
+#: app/src/ActionsPanel.tsx
+msgid "Insert Menu Item…"
+msgstr "메뉴 항목 삽입…"
 
 #: app/src/ActionsPanel.tsx
 msgid "Insert stop"
@@ -6539,6 +6809,7 @@ msgstr "반전 이미지"
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 msgid "Invert"
 msgstr "반전"
@@ -6622,6 +6893,10 @@ msgstr "담쟁이"
 #: app/src/filters/labels.ts
 msgid "Jag"
 msgstr "들쭉날쭉"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Jawline"
+msgstr "턱선"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Jitter"
@@ -6737,6 +7012,7 @@ msgstr "언어 옵션"
 msgid "Large"
 msgstr "크게"
 
+#: app/src/i18n/choices.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Lasso"
@@ -6817,9 +7093,57 @@ msgstr "레이어 모서리"
 msgid "Layer filter"
 msgstr "레이어 필터"
 
+#: app/src/ActionDialogs.tsx
+msgid "Layer Has Effects"
+msgstr "레이어에 효과가 있음"
+
 #: app/src/i18n/errors.ts
 msgid "Layer has no exportable pixels."
 msgstr "레이어에 내보낼 수 있는 픽셀이 없습니다."
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Has Pixel Mask"
+msgstr "레이어에 픽셀 마스크가 있음"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Has Vector Mask"
+msgstr "레이어에 벡터 마스크가 있음"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Adjustment Layer"
+msgstr "레이어가 조정 레이어임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Background"
+msgstr "레이어가 배경임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Fill Layer"
+msgstr "레이어가 칠 레이어임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Group"
+msgstr "레이어가 그룹임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Pixel Layer"
+msgstr "레이어가 픽셀 레이어임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Shape Layer"
+msgstr "레이어가 모양 레이어임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Smart Object"
+msgstr "레이어가 고급 개체임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Type Layer"
+msgstr "레이어가 문자 레이어임"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Visible"
+msgstr "레이어가 표시됨"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Layer Knocks Out Drop Shadow"
@@ -6827,6 +7151,8 @@ msgstr "레이어가 그림자 효과를 녹아웃"
 
 #: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Layer Mask"
 msgstr "레이어 마스크"
 
@@ -7154,6 +7480,10 @@ msgstr "모퉁이 반경 연결"
 msgid "Link dimensions"
 msgstr "치수 연결"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Link the eyes"
+msgstr "눈 연결"
+
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
 msgid "Link Vector Mask"
@@ -7296,6 +7626,10 @@ msgstr "레이어 불러오는 중…"
 msgid "Loading the face…"
 msgstr "글꼴 불러오는 중…"
 
+#: app/src/ai/ModelDialog.tsx
+msgid "Loading the model…"
+msgstr "모델 불러오는 중…"
+
 #: app/src/LevelsCurvesBody.tsx
 msgid "Loading…"
 msgstr "불러오는 중…"
@@ -7429,6 +7763,10 @@ msgstr "아래"
 #: app/src/shell/TransformBar.tsx
 msgid "Lower Arc"
 msgstr "아래 부채꼴"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Lower Lip"
+msgstr "아랫입술"
 
 #: app/src/shell/TransformBar.tsx
 msgid "Lower Shell"
@@ -7727,6 +8065,10 @@ msgstr "중간 선"
 msgid "Medium Strokes"
 msgstr "중간 획"
 
+#: app/src/ActionDialogs.tsx
+msgid "Menu Item:"
+msgstr "메뉴 항목:"
+
 #: app/src/app/Dialogs.tsx
 msgid "Merge"
 msgstr "병합"
@@ -7986,6 +8328,18 @@ msgstr "모션"
 msgid "Motion Blur"
 msgstr "동작 흐림 효과"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mouth"
+msgstr "입"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mouth Height"
+msgstr "입 높이"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mouth Width"
+msgstr "입 너비"
+
 #: app/src/i18n/choices.ts
 #: app/src/shell/tools.ts
 msgid "Move"
@@ -8082,6 +8436,7 @@ msgstr "여러 불꽃, 다양"
 msgid "Multiply"
 msgstr "곱하기"
 
+#: app/src/ActionDialogs.tsx
 #: app/src/ActionsPanel.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/measureTools.tsx
@@ -8179,9 +8534,16 @@ msgstr "새 채널"
 msgid "New Channel"
 msgstr "새 채널"
 
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "New Document"
 msgstr "새 문서"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "New Document with Layer Mask"
+msgstr "레이어 마스크가 있는 새 문서"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "New Effect Layer"
@@ -8238,7 +8600,9 @@ msgid "New layer"
 msgstr "새 레이어"
 
 #: app/src/app/menus.ts
+#: app/src/FocusAreaDialog.tsx
 #: app/src/i18n/history.ts
+#: app/src/SelectAndMaskDialog.tsx
 msgid "New Layer"
 msgstr "새 레이어"
 
@@ -8249,6 +8613,11 @@ msgstr "새 레이어 구성"
 #: app/src/i18n/history.ts
 msgid "New Layer Comp"
 msgstr "새 레이어 구성"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "New Layer with Layer Mask"
+msgstr "레이어 마스크가 있는 새 레이어"
 
 #: app/src/i18n/history.ts
 msgid "New Note"
@@ -8389,9 +8758,17 @@ msgstr "열려 있는 문서가 없습니다."
 msgid "No effect selected"
 msgstr "선택한 효과 없음"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "No faces found."
+msgstr "얼굴을 찾을 수 없습니다."
+
 #: app/src/GlyphsPanel.tsx
 msgid "No fonts are available."
 msgstr "사용할 수 있는 글꼴이 없습니다."
+
+#: app/src/FocusAreaDialog.tsx
+msgid "No in-focus area found"
+msgstr "초점이 맞는 영역을 찾을 수 없습니다"
 
 #: app/src/MissingFonts.tsx
 msgid "No installed fonts are available for replacement."
@@ -8432,6 +8809,10 @@ msgstr "일치하는 명령 없음"
 #: app/src/NotesPanels.tsx
 msgid "No measurements recorded."
 msgstr "기록된 측정값이 없습니다."
+
+#: app/src/App.tsx
+msgid "No object found"
+msgstr "개체를 찾을 수 없습니다"
 
 #: app/src/PathsPanel.tsx
 msgid "No paths"
@@ -8536,10 +8917,24 @@ msgstr "노이즈 그레이디언트는 검정에서 흰색으로의 그레이�
 msgid "None"
 msgstr "없음"
 
+#: app/src/ActionDialogs.tsx
+msgctxt "action"
+msgid "None"
+msgstr "없음"
+
+#: app/src/ActionDialogs.tsx
+msgctxt "function key"
+msgid "None"
+msgstr "없음"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgctxt "liquify mask"
 msgid "None"
 msgstr "없음"
+
+#: app/src/ActionDialogs.tsx
+msgid "None Selected"
+msgstr "선택 안 함"
 
 #: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
@@ -8569,6 +8964,18 @@ msgstr "북미 프리프레스 2"
 #: app/src/app/colorSettings.ts
 msgid "North America Web/Internet"
 msgstr "북미 웹/인터넷"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Nose"
+msgstr "코"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Nose Height"
+msgstr "코 높이"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Nose Width"
+msgstr "코 너비"
 
 #: app/src/app/cameraData.ts
 msgid "Not defined"
@@ -8617,6 +9024,12 @@ msgstr "타일 수"
 msgid "Oak"
 msgstr "참나무"
 
+#: app/src/App.tsx
+#: app/src/i18n/history.ts
+#: app/src/shell/tools.ts
+msgid "Object Selection"
+msgstr "개체 선택"
+
 #: app/src/filters/labels.ts
 msgid "Ocean Ripple"
 msgstr "바다 물결"
@@ -8645,6 +9058,7 @@ msgstr "오프셋"
 msgid "Oil Paint"
 msgstr "유화"
 
+#: app/src/ActionDialogs.tsx
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/BatchDialog.tsx
@@ -8655,12 +9069,14 @@ msgstr "유화"
 #: app/src/filters/FilterDialog.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/filters/VanishingPointDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/MissingFonts.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/PdfDialog.tsx
 #: app/src/ScriptDialogs.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/ColorPicker.tsx
 #: app/src/shell/GradientEditor.tsx
 #: app/src/SvgDialog.tsx
@@ -8677,9 +9093,29 @@ msgstr "구식 숫자"
 msgid "On"
 msgstr "켬"
 
+#: app/src/FocusAreaDialog.tsx
+msgid "On Black"
+msgstr "검정 바탕"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "On Black (A)"
+msgstr "검정 바탕 (A)"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "On Layers (Y)"
+msgstr "레이어 위 (Y)"
+
 #: app/src/app/Dialogs.tsx
 msgid "On the first connect, Chrome and Edge ask to allow access to apps on this device. Allow it, or the agent cannot reach the tab."
 msgstr "처음 연결할 때 Chrome과 Edge에서 이 장치의 앱에 대한 액세스를 허용할지 묻습니다. 허용하지 않으면 에이전트가 탭에 연결할 수 없습니다."
+
+#: app/src/FocusAreaDialog.tsx
+msgid "On White"
+msgstr "흰색 바탕"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "On White (T)"
+msgstr "흰색 바탕 (T)"
 
 #: app/src/i18n/choices.ts
 msgid "Once"
@@ -8696,6 +9132,10 @@ msgstr "패스를 따라 하나의 불꽃"
 #: app/src/ExportDialogs.tsx
 msgid "One page per artboard, at the document resolution."
 msgstr "문서 해상도로 대지당 한 페이지."
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Onion Skin (O)"
+msgstr "어니언 스킨 (O)"
 
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
@@ -8718,6 +9158,7 @@ msgstr "위에서 아래, 왼쪽에서 오른쪽(-Y h +X w) 방향의 HDR 파일
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayersPanel.tsx
 #: app/src/LayerStyleDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/GradientEditor.tsx
 #: app/src/shell/tools.ts
@@ -8737,6 +9178,7 @@ msgid "Opacity stops"
 msgstr "불투명도 정지점"
 
 #: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 msgid "Open a document to play an action."
 msgstr "액션을 재생하려면 문서를 여십시오."
 
@@ -8861,6 +9303,7 @@ msgid "Outline"
 msgstr "윤곽선"
 
 #: app/src/filters/labels.ts
+#: app/src/FocusAreaDialog.tsx
 #: app/src/LevelsCurvesBody.tsx
 #: app/src/ModeDialog.tsx
 msgid "Output"
@@ -8873,6 +9316,15 @@ msgstr "출력 검정"
 #: app/src/LevelsCurvesBody.tsx
 msgid "Output Levels"
 msgstr "출력 레벨"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Output Settings"
+msgstr "출력 설정"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Output To"
+msgstr "출력 위치"
 
 #: app/src/ModeDialog.tsx
 msgid "Output unit"
@@ -8888,10 +9340,15 @@ msgstr "출력 흰색"
 msgid "Outside"
 msgstr "바깥쪽"
 
+#: app/src/FocusAreaDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/shell/tools.ts
 msgid "Overlay"
 msgstr "오버레이"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Overlay (V)"
+msgstr "오버레이 (V)"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Overlay Edge"
@@ -9021,6 +9478,10 @@ msgstr "단락 스타일 패널"
 #: app/src/TypePanels.tsx
 msgid "Paragraph Text"
 msgstr "단락 텍스트"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Parameters"
+msgstr "매개변수"
 
 #: app/src/app/cameraData.ts
 msgid "Partial"
@@ -9479,7 +9940,7 @@ msgstr "재생"
 msgid "Play the selected action"
 msgstr "선택한 액션 재생"
 
-#: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 msgid "Playing action…"
 msgstr "액션 재생 중…"
 
@@ -9642,6 +10103,7 @@ msgstr "스타일러스 압력은 아직 사용할 수 없습니다."
 #: app/src/ColorDialog.tsx
 #: app/src/filters/FilterDialog.tsx
 #: app/src/filters/VanishingPointDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Preview"
@@ -9829,6 +10291,10 @@ msgstr "사중톤"
 msgid "Quality"
 msgstr "품질"
 
+#: app/src/PropertiesPanel.tsx
+msgid "Quick Actions"
+msgstr "빠른 작업"
+
 #: app/src/app/menus.ts
 msgid "Quick Export as {format}"
 msgstr "{format}(으)로 빠른 내보내기"
@@ -9863,6 +10329,7 @@ msgstr "방사형 흐림 효과"
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/labels.ts
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Radius"
 msgstr "반경"
 
@@ -10099,6 +10566,18 @@ msgstr "참조 {u},{v}"
 msgid "Reference point"
 msgstr "참조점"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Refine Edge Brush Tool"
+msgstr "가장자리 다듬기 브러시 도구"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Refine Edge Brush Tool (R)"
+msgstr "가장자리 다듬기 브러시 도구 (R)"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Refining the selection…"
+msgstr "선택 영역 다듬는 중…"
+
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
 msgid "Reflected"
@@ -10150,6 +10629,10 @@ msgstr "파일에 다시 연결…"
 msgid "Relinking needs a browser with file system access."
 msgstr "다시 연결하려면 파일 시스템에 액세스할 수 있는 브라우저가 필요합니다."
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Remember Settings"
+msgstr "설정 기억"
+
 #: app/src/ExportDialogs.tsx
 #: app/src/filters/labels.ts
 msgid "Remove"
@@ -10163,10 +10646,20 @@ msgstr "모두 제거"
 msgid "Remove All Pins"
 msgstr "모든 핀 제거"
 
+#: app/src/App.tsx
+#: app/src/i18n/history.ts
+#: app/src/PropertiesPanel.tsx
+msgid "Remove Background"
+msgstr "배경 제거"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove Black Matte"
 msgstr "검은색 매트 제거"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Remove Brush"
+msgstr "제거 브러시"
 
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
@@ -10192,6 +10685,10 @@ msgstr "뒤틀기 분할 제거"
 #: app/src/i18n/history.ts
 msgid "Remove White Matte"
 msgstr "흰색 매트 제거"
+
+#: app/src/App.tsx
+msgid "Removing background…"
+msgstr "배경 제거 중…"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"
@@ -10320,6 +10817,7 @@ msgstr "다시 선택"
 
 #: app/src/ExportDialogs.tsx
 #: app/src/filters/FilterDialog.tsx
+#: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/ToolBar.tsx
 msgid "Reset"
@@ -10392,6 +10890,10 @@ msgstr "누락된 글꼴 해결"
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Restore All"
 msgstr "모두 복원"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Restore original edge"
+msgstr "원래 가장자리 복원"
 
 #: app/src/shell/GradientEditor.tsx
 msgid "Restrict colors"
@@ -10661,6 +11163,10 @@ msgstr "실행"
 msgid "Run Action"
 msgstr "액션 실행"
 
+#: app/src/BatchDialog.tsx
+msgid "Run Droplet"
+msgstr "드롭릿 실행"
+
 #: app/src/shell/ColorPicker.tsx
 msgctxt "color picker saturation field"
 msgid "S"
@@ -10680,6 +11186,7 @@ msgstr "샘플"
 msgid "Sample all layers"
 msgstr "모든 레이어 샘플링"
 
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/tools.ts
 msgid "Sample All Layers"
 msgstr "모든 레이어 샘플링"
@@ -10741,6 +11248,7 @@ msgstr "채도 및 명도"
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
+#: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/WorkspaceDialog.tsx
@@ -11047,6 +11555,11 @@ msgstr "모두 선택"
 msgid "Select an action first."
 msgstr "먼저 액션을 선택하십시오."
 
+#: app/src/App.tsx
+#: app/src/app/droplets.ts
+msgid "Select an action for the droplet."
+msgstr "드롭릿에 사용할 액션을 선택하십시오."
+
 #: app/src/ActionsPanel.tsx
 msgid "Select an action to play."
 msgstr "재생할 액션을 선택하십시오."
@@ -11059,9 +11572,27 @@ msgstr "기록할 액션을 선택하십시오."
 msgid "Select an unlocked layer with pixels to warp."
 msgstr "뒤틀 픽셀이 있는 잠기지 않은 레이어를 선택하십시오."
 
+#: app/src/i18n/history.ts
+#: app/src/SelectAndMaskDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Select and Mask"
+msgstr "선택 및 마스크"
+
+#: app/src/App.tsx
+#: app/src/app/menus.ts
+#: app/src/FocusAreaDialog.tsx
+msgid "Select and Mask…"
+msgstr "선택 및 마스크…"
+
 #: app/src/i18n/errors.ts
 msgid "Select at least two pixel layers to align."
 msgstr "정렬할 픽셀 레이어를 두 개 이상 선택하십시오."
+
+#: app/src/App.tsx
+#: app/src/i18n/history.ts
+#: app/src/PropertiesPanel.tsx
+msgid "Select Background"
+msgstr "배경 선택"
 
 #: app/src/AnalysisDialogs.tsx
 msgid "Select Data Points"
@@ -11070,6 +11601,10 @@ msgstr "데이터 포인트 선택"
 #: app/src/app/menus.ts
 msgid "Select Data Points…"
 msgstr "데이터 포인트 선택…"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Select Face"
+msgstr "얼굴 선택"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Select File..."
@@ -11088,7 +11623,9 @@ msgstr "변환하려면 같은 수준의 레이어를 선택하십시오."
 msgid "Select location to save processed images"
 msgstr "처리된 이미지를 저장할 위치 선택"
 
+#: app/src/App.tsx
 #: app/src/i18n/history.ts
+#: app/src/PropertiesPanel.tsx
 msgid "Select Subject"
 msgstr "피사체 선택"
 
@@ -11109,12 +11646,26 @@ msgid "Select two or more shape layers to combine them."
 msgstr "결합하려면 모양 레이어를 두 개 이상 선택하십시오."
 
 #: app/src/App.tsx
+msgid "Selecting background…"
+msgstr "배경 선택 중…"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Selecting focus area…"
+msgstr "초점 영역 선택 중…"
+
+#: app/src/App.tsx
+msgid "Selecting object…"
+msgstr "개체 선택 중…"
+
+#: app/src/App.tsx
 msgid "Selecting subject…"
 msgstr "피사체 선택 중…"
 
 #: app/src/filters/LiquifyDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/InspectionPanels.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Selection"
 msgstr "선택 영역"
 
@@ -11366,6 +11917,10 @@ msgctxt "keyboard modifier"
 msgid "Shift"
 msgstr "Shift"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Shift Edge"
+msgstr "가장자리 이동"
+
 #: app/src/filters/labels.ts
 msgid "Shine"
 msgstr "광택"
@@ -11414,6 +11969,10 @@ msgstr "스무딩 시 브러시 가죽끈 표시"
 msgid "Show Crosshair in Brush Tip"
 msgstr "브러시 팁에 십자선 표시"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Show Edge (J)"
+msgstr "가장자리 표시 (J)"
+
 #: app/src/LayersPanel.tsx
 msgid "Show effects of {name}"
 msgstr "{name} 효과 표시"
@@ -11457,6 +12016,10 @@ msgstr "메시 표시"
 #: app/src/app/Dialogs.tsx
 msgid "Show Only Crosshair While Painting"
 msgstr "페인팅 중 십자선만 표시"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Show Original (P)"
+msgstr "원본 표시 (P)"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Show Overlay"
@@ -11533,6 +12096,8 @@ msgstr "단일 행 컴포저"
 #: app/src/ExportDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/OptionsBar.tsx
 #: app/src/shell/tools.ts
@@ -11672,9 +12237,17 @@ msgstr "고급 개체"
 msgid "Smart Objects"
 msgstr "고급 개체"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Smart Radius"
+msgstr "고급 반경"
+
 #: app/src/filters/labels.ts
 msgid "Smart Sharpen"
 msgstr "고급 선명 효과"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Smile"
+msgstr "미소"
 
 #: app/src/app/helpers.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -11690,6 +12263,11 @@ msgstr "매끄럽게"
 
 #: app/src/i18n/history.ts
 msgctxt "history step"
+msgid "Smooth"
+msgstr "매끄럽게"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgctxt "select and mask"
 msgid "Smooth"
 msgstr "매끄럽게"
 
@@ -11742,6 +12320,10 @@ msgstr "소프트 라이트"
 #: app/src/LayerStyleDialog.tsx
 msgid "Soften (px)"
 msgstr "부드럽게(px)"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Soften Edge"
+msgstr "가장자리 부드럽게"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Softer"
@@ -12064,6 +12646,7 @@ msgid "Stop recording"
 msgstr "기록 중지"
 
 #: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 #: app/src/app/actionsStore.ts
 msgid "Stop recording first."
 msgstr "먼저 기록을 중지하십시오."
@@ -12329,6 +12912,10 @@ msgstr "빼기"
 msgid "Subtract from channel"
 msgstr "채널에서 빼기"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Subtract from selection"
+msgstr "선택 영역에서 빼기"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Subtract from Selection"
@@ -12535,9 +13122,17 @@ msgstr "엔진이 값을 거부하여 스마트 필터 {name}은(는) 효과 없
 msgid "the {name} smart filter was not imported"
 msgstr "스마트 필터 {name}은(는) 가져오지 않았습니다"
 
+#: app/src/i18n/errors.ts
+msgid "The action \"{name}\" plays itself through a conditional step."
+msgstr "\"{name}\" 액션이 조건부 단계를 통해 자기 자신을 재생합니다."
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr "액션에 활성화된 단계가 없습니다."
+
+#: app/src/ActionDialogs.tsx
+msgid "The action pauses at this step. Change the values for this run, or cancel to stop the action."
+msgstr "액션이 이 단계에서 일시 중지됩니다. 이번 실행에 사용할 값을 변경하거나 취소하여 액션을 중지하십시오."
 
 #: app/src/i18n/errors.ts
 msgid "The alignment must lie between 0 and 1."
@@ -12590,6 +13185,14 @@ msgstr "문서가 열려 있지 않습니다."
 #: app/src/i18n/errors.ts
 msgid "The document to revert is no longer active."
 msgstr "되돌릴 문서가 더 이상 활성 상태가 아닙니다."
+
+#: app/src/ai/models.ts
+msgid "The downloaded model is damaged. Try again."
+msgstr "다운로드한 모델이 손상되었습니다. 다시 시도하십시오."
+
+#: app/src/BatchDialog.tsx
+msgid "The droplet is saved as a .pbdroplet file. Open it in photobaer (File › Open, or drop it on the window together with images) to run the action on images."
+msgstr "드롭릿은 .pbdroplet 파일로 저장됩니다. photobaer에서 열면(파일 › 열기 또는 이미지와 함께 창에 놓기) 이미지에 액션을 실행할 수 있습니다."
 
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
@@ -12680,6 +13283,10 @@ msgid "The image extends past the margins."
 msgstr "이미지가 여백을 벗어납니다."
 
 #: app/src/i18n/errors.ts
+msgid "The image is too large for Select and Mask."
+msgstr "이미지가 너무 커서 선택 및 마스크를 사용할 수 없습니다."
+
+#: app/src/i18n/errors.ts
 msgid "The image is too large to save at this bit depth."
 msgstr "이미지가 너무 커서 이 비트 심도로 저장할 수 없습니다."
 
@@ -12704,8 +13311,20 @@ msgid "The measured line is already straight."
 msgstr "측정한 선이 이미 똑바릅니다."
 
 #: app/src/i18n/errors.ts
+msgid "The menu item \"{item}\" does not exist."
+msgstr "\"{item}\" 메뉴 항목이 없습니다."
+
+#: app/src/i18n/errors.ts
+msgid "The menu item \"{item}\" is not available now."
+msgstr "\"{item}\" 메뉴 항목을 지금 사용할 수 없습니다."
+
+#: app/src/i18n/errors.ts
 msgid "The mode or bit depth was not applied: {reason}"
 msgstr "모드 또는 비트 심도를 적용하지 못했습니다: {reason}"
+
+#: app/src/ai/models.ts
+msgid "The model download failed (HTTP {status})."
+msgstr "모델 다운로드에 실패했습니다(HTTP {status})."
 
 #: app/src/i18n/errors.ts
 msgid "The name \"{name}\" is already bound to another layer or property."
@@ -12828,6 +13447,10 @@ msgstr "뒤틀린 이미지가 렌더링 한도를 초과합니다."
 msgid "The XMP is not well-formed. Correct it before you leave Raw Data."
 msgstr "XMP가 올바른 형식이 아닙니다. 원시 데이터를 떠나기 전에 수정하십시오."
 
+#: app/src/ActionDialogs.tsx
+msgid "Then Play Action"
+msgstr "참이면 액션 재생"
+
 #: app/src/App.tsx
 msgid "There are no data sets to apply."
 msgstr "적용할 데이터 세트가 없습니다."
@@ -12843,6 +13466,10 @@ msgstr "변형할 픽셀이 없습니다."
 #: app/src/i18n/errors.ts
 msgid "There are no pixels to warp."
 msgstr "뒤틀 픽셀이 없습니다."
+
+#: app/src/i18n/errors.ts
+msgid "There is no action named \"{name}\" in this set."
+msgstr "이 세트에 \"{name}\"(이)라는 액션이 없습니다."
 
 #: app/src/i18n/errors.ts
 msgid "There is no path to convert."
@@ -12895,6 +13522,10 @@ msgstr "이 필터에는 옵션이 없습니다."
 #: app/src/app/actionsStore.ts
 msgid "This is not a photobaer actions file."
 msgstr "photobaer 액션 파일이 아닙니다."
+
+#: app/src/app/droplets.ts
+msgid "This is not a photobaer droplet."
+msgstr "photobaer 드롭릿이 아닙니다."
 
 #: app/src/i18n/errors.ts
 msgid "This is not a Radiance HDR file."
@@ -13038,6 +13669,14 @@ msgstr "제목 대체"
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
 msgstr "지금 텍스트를 편집하려면 누락된 글꼴을 기본 글꼴로 바꾸십시오. 문서 전체의 누락된 글꼴을 관리할 수도 있습니다."
 
+#: app/src/ActionDialogs.tsx
+msgid "To record a menu item, select a menu item using the mouse."
+msgstr "메뉴 항목을 기록하려면 마우스로 메뉴 항목을 선택하십시오."
+
+#: app/src/ActionsPanel.tsx
+msgid "Toggle dialog on/off"
+msgstr "대화 상자 켜기/끄기"
+
 #: app/src/app/menus.ts
 msgid "Toggle Last State"
 msgstr "마지막 상태 전환"
@@ -13114,6 +13753,7 @@ msgid "Tool presets could not be saved: {reason}"
 msgstr "도구 사전 설정을 저장할 수 없습니다: {reason}"
 
 #: app/src/app/menus.ts
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/ToolBar.tsx
 msgid "Tools"
 msgstr "도구"
@@ -13426,6 +14066,10 @@ msgstr "모퉁이 반경 연결 해제"
 msgid "Unlink dimensions"
 msgstr "크기 연결 해제"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Unlink the eyes"
+msgstr "눈 연결 해제"
+
 #: app/src/PdfDialog.tsx
 msgid "Unlock"
 msgstr "잠금 해제"
@@ -13501,6 +14145,10 @@ msgstr "위쪽"
 msgid "Upper Arc"
 msgstr "위 부채꼴"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Upper Lip"
+msgstr "윗입술"
+
 #: app/src/shell/TransformBar.tsx
 msgid "Upper Shell"
 msgstr "위가 넓은 조개"
@@ -13561,6 +14209,10 @@ msgstr "AI 에이전트와 함께 사용"
 #: app/src/app/menus.ts
 msgid "Use with AI Agents…"
 msgstr "AI 에이전트와 함께 사용…"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "Use Without Model"
+msgstr "모델 없이 사용"
 
 #: app/src/VariablesDialogs.tsx
 msgid "UTF-8 text, comma, semicolon or tab separated; the first row names the variables."
@@ -13730,8 +14382,14 @@ msgid "Video"
 msgstr "비디오"
 
 #: app/src/App.tsx
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "View"
 msgstr "보기"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "View Mode"
+msgstr "보기 모드"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "View Options"

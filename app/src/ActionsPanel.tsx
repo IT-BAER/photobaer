@@ -1,43 +1,23 @@
 // Window > Actions: record worker edits as steps, play them on any document, save and load sets.
-import { useSyncExternalStore } from 'react';
-import { ChevronDown, ChevronRight, Circle, Eye, EyeOff, FilePlus, Folder, FolderOpen, FolderPlus, LayoutGrid, ListTree, OctagonPause, Play, Save, Square, Trash2 } from 'lucide-react';
+import { useRef, useSyncExternalStore } from 'react';
+import { AppWindow, ChevronDown, ChevronRight, Circle, Eye, EyeOff, FilePlus, Folder, FolderOpen, FolderPlus, LayoutGrid, ListTree, OctagonPause, Play, Save, Split, Square, SquareMenu, Trash2 } from 'lucide-react';
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { client } from './client.ts';
-import type { DocInfo } from './engine.worker.ts';
-import type { Active } from './LayersPanel.tsx';
-import type { ActionStep } from './actions.ts';
+import { stepFields, type ActionStep } from './actions.ts';
 import { actions } from './app/actionsStore.ts';
 import { historyLabel } from './i18n/history.ts';
-
-type Run = (label: string | null, p: () => Promise<DocInfo | null>) => Promise<void>;
+import { keysLabel } from './i18n/keys.ts';
+import { ActionOptionsDialog, ConditionalDialog, conditionalText, InsertMenuItemDialog, type ActionOptionsHandle, type ConditionalHandle, type InsertMenuItemHandle, type MenuCapture } from './ActionDialogs.tsx';
 
 const ICON = { size: 16, strokeWidth: 1.75 };
 
-// Plays `steps` in segments split at stop steps through `play` (false when the segment failed);
-// false when a segment failed or a stop ended playback.
-export async function playSteps(steps: ActionStep[], play: (seg: ActionStep[], resume: boolean) => Promise<boolean>): Promise<boolean> {
-  let resume = false;
-  for (let i = 0; i < steps.length;) {
-    const s = steps[i];
-    if (s.stop) {
-      const message = s.stop.message;
-      const go = s.stop.allowContinue ? confirm(t`${message}\n\nContinue playing the action?`) : (alert(s.stop.message), false);
-      if (!go) return false;
-      i++;
-      continue;
-    }
-    const end = steps.findIndex((x, j) => j > i && x.stop);
-    const seg = steps.slice(i, end < 0 ? steps.length : end);
-    if (!await play(seg, resume)) return false;
-    resume = true;
-    i += seg.length;
-  }
-  return true;
-}
-
-export function ActionsPanel({ has, active, run, setError }: { has: boolean; active: Active | null; run: Run; setError: (e: string | null) => void }) {
+export function ActionsPanel({ has, setError, play: playActive, menu }: {
+  has: boolean; setError: (e: string | null) => void; play: (steps: ActionStep[], setId: string, name: string) => Promise<boolean>;
+  menu: { capture: MenuCapture; text: (path: string[]) => string };
+}) {
   useSyncExternalStore(actions.subscribe, actions.version);
+  const options = useRef<ActionOptionsHandle>(null), menuItem = useRef<InsertMenuItemHandle>(null), conditional = useRef<ConditionalHandle>(null);
   const { sets, sel, recording } = actions;
   const attempt = (f: () => unknown) => { try { f(); } catch (e) { setError((e as Error).message); } };
 
@@ -67,11 +47,7 @@ export function ActionsPanel({ has, active, run, setError }: { has: boolean; act
     const steps = actions.playable();
     if (!steps.length) { setError(actions.action ? t`The action has no enabled steps.` : t`Select an action to play.`); return; }
     if (!has) { setError(t`Open a document to play an action.`); return; }
-    await playSteps(steps, async (seg, resume) => {
-      let ok = false;
-      await run(t`Playing action…`, async () => { const d = await client.call('playAction', seg, active?.id ?? null, resume); ok = true; return d; });
-      return ok;
-    });
+    await playActive(steps, actions.sel.set!, actions.action!.name);
   }
   function newSet() {
     const next = sets.length + 1;
@@ -119,7 +95,7 @@ export function ActionsPanel({ has, active, run, setError }: { has: boolean; act
       {actions.buttonMode ? (
         <div className="actions-buttons">
           {sets.flatMap(s => s.actions.map(a => (
-            <button key={a.id} title={`${s.name} › ${a.name}`} onClick={() => void play(s.id, a.id)}>{a.name}</button>
+            <button key={a.id} title={`${s.name} › ${a.name}`} onClick={() => void play(s.id, a.id)}>{a.name}{a.key && <kbd>{keysLabel(a.key)}</kbd>}</button>
           )))}
           {!sets.some(s => s.actions.length) && <p className="panel-hint"><Trans>No actions. Record one or load a set.</Trans></p>}
         </div>
@@ -129,26 +105,40 @@ export function ActionsPanel({ has, active, run, setError }: { has: boolean; act
           {sets.map(s => (
             <div key={s.id} role="treeitem" aria-expanded={expanded(s.id)}>
               <div className={`action-row${sel.set === s.id && !sel.action ? ' selected' : ''}`} onClick={() => actions.select({ set: s.id })} onDoubleClick={() => rename(s.id, s.name)}>
-                <span className="action-eye" />
+                <span className="action-eye" /><span className="action-eye" />
                 <button className="action-twisty" aria-label={t`Expand set`} onClick={e => { e.stopPropagation(); toggleOpen(s.id); }}>{expanded(s.id) ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</button>
                 <Folder size={14} /> <span className="action-name">{s.name}</span>
               </div>
               {expanded(s.id) && s.actions.map(a => {
                 const all = a.steps.every(x => x.enabled), none = a.steps.every(x => !x.enabled);
+                const dialogs = a.steps.filter(x => stepFields(x).length), dialogsOn = dialogs.filter(x => x.dialog).length;
                 return (
                   <div key={a.id} role="treeitem" aria-expanded={expanded(a.id)}>
-                    <div className={`action-row indent1${sel.action === a.id && !sel.step ? ' selected' : ''}`} onClick={() => actions.select({ set: s.id, action: a.id })} onDoubleClick={() => rename(a.id, a.name)}>
+                    <div className={`action-row indent1${sel.action === a.id && !sel.step ? ' selected' : ''}`} onClick={() => actions.select({ set: s.id, action: a.id })} onDoubleClick={() => options.current?.open(a.id)}>
                       <button className="action-eye" aria-label={t`Enable every step`} onClick={e => { e.stopPropagation(); actions.toggleAction(a.id); }}>{none && a.steps.length ? <EyeOff size={14} /> : <Eye size={14} className={all ? '' : 'dim'} />}</button>
+                      {dialogs.length ? (
+                        <button className="action-eye" aria-label={t`Toggle dialog on/off`} aria-pressed={dialogsOn > 0} onClick={e => { e.stopPropagation(); actions.toggleActionDialogs(a.id); }}>
+                          {dialogsOn ? <AppWindow size={14} className={dialogsOn === dialogs.length ? '' : 'part'} /> : <span className="dialog-off" />}
+                        </button>
+                      ) : <span className="action-eye" />}
                       <button className="action-twisty" aria-label={t`Expand action`} onClick={e => { e.stopPropagation(); toggleOpen(a.id); }}>{expanded(a.id) ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</button>
                       {recording?.action === a.id && <Circle size={9} fill="currentColor" className="rec" aria-label={t`Recording`} />}
                       <span className="action-name">{a.name}</span>
                       <span className="action-count">{a.steps.length}</span>
                     </div>
                     {expanded(a.id) && a.steps.map(st => (
-                      <div key={st.id} className={`action-row indent2${sel.step === st.id ? ' selected' : ''}${st.enabled ? '' : ' off'}`} onClick={() => actions.select({ set: s.id, action: a.id, step: st.id })} title={st.stop?.message ?? st.calls.map(c => c.op).join(', ')}>
+                      <div key={st.id} className={`action-row indent2${sel.step === st.id ? ' selected' : ''}${st.enabled ? '' : ' off'}`} onClick={() => actions.select({ set: s.id, action: a.id, step: st.id })}
+                        onDoubleClick={st.cond ? () => conditional.current?.open(st.id) : undefined} title={st.stop?.message ?? st.calls.map(c => c.op).join(', ')}>
                         <button className="action-eye" aria-label={t`Enable this step`} onClick={e => { e.stopPropagation(); actions.toggleStep(st.id); }}>{st.enabled ? <Eye size={14} /> : <EyeOff size={14} />}</button>
+                        {stepFields(st).length ? (
+                          <button className="action-eye" aria-label={t`Toggle dialog on/off`} aria-pressed={!!st.dialog} onClick={e => { e.stopPropagation(); actions.toggleDialog(st.id); }}>
+                            {st.dialog ? <AppWindow size={14} /> : <span className="dialog-off" />}
+                          </button>
+                        ) : <span className="action-eye" />}
                         {st.stop && <OctagonPause size={13} />}
-                        <span className="action-name">{historyLabel(st.label)}</span>
+                        {st.menu && <SquareMenu size={13} />}
+                        {st.cond && <Split size={13} />}
+                        <span className="action-name">{st.menu ? menu.text(st.menu.path) : st.cond ? conditionalText(st.cond) : historyLabel(st.label)}</span>
                       </div>
                     ))}
                   </div>
@@ -165,6 +155,8 @@ export function ActionsPanel({ has, active, run, setError }: { has: boolean; act
         <button aria-label={t`New set`} title={t`New set`} onClick={newSet}><FolderPlus {...ICON} /></button>
         <button aria-label={t`New action`} title={t`New action`} disabled={!!recording} onClick={newAction}><FilePlus {...ICON} /></button>
         <button aria-label={t`Insert stop`} title={t`Insert stop`} disabled={!actions.action} onClick={insertStop}><OctagonPause {...ICON} /></button>
+        <button aria-label={t`Insert Menu Item…`} title={t`Insert Menu Item…`} disabled={!actions.action || !!recording} onClick={() => menuItem.current?.open()}><SquareMenu {...ICON} /></button>
+        <button aria-label={t`Insert Conditional…`} title={t`Insert Conditional…`} disabled={!actions.action} onClick={() => conditional.current?.open()}><Split {...ICON} /></button>
         <button aria-label={t`Delete`} title={t`Delete the selected step, action or set`} disabled={!sel.set} onClick={() => attempt(() => actions.deleteSelected())}><Trash2 {...ICON} /></button>
         <button aria-label={t`Load actions`} title={t`Load actions (.json)`} onClick={load}><FolderOpen {...ICON} /></button>
         <button aria-label={t`Save the selected set`} title={t`Save the selected set`} disabled={!actions.set} onClick={save}><Save {...ICON} /></button>
@@ -172,6 +164,9 @@ export function ActionsPanel({ has, active, run, setError }: { has: boolean; act
           {actions.buttonMode ? <ListTree {...ICON} /> : <LayoutGrid {...ICON} />}
         </button>
       </div>
+      <ActionOptionsDialog ref={options} setError={setError} />
+      <InsertMenuItemDialog ref={menuItem} capture={menu.capture} menuText={menu.text} setError={setError} />
+      <ConditionalDialog ref={conditional} setError={setError} />
     </div>
   );
 }

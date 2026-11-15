@@ -18,7 +18,14 @@ import { LayersPanel, type Active } from './LayersPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LayerCompsPanel } from './LayerCompsPanel.tsx';
 import { ChannelsPanel } from './ChannelsPanel.tsx';
-import { ActionsPanel, playSteps } from './ActionsPanel.tsx';
+import { ActionsPanel } from './ActionsPanel.tsx';
+import { StepDialog, type MenuCapture, type StepDialogHandle } from './ActionDialogs.tsx';
+import { ai } from './ai/client.ts';
+import { SEGMENTATION } from './ai/models.ts';
+import { clipMask, objectRegion } from './ai/region.ts';
+import { ModelDialog, type ModelDialogHandle } from './ai/ModelDialog.tsx';
+import { FocusAreaDialog, type FocusAreaHandle } from './FocusAreaDialog.tsx';
+import { SelectAndMaskDialog, type SelectAndMaskHandle } from './SelectAndMaskDialog.tsx';
 import { BatchDialog, type BatchDialogHandle, type BatchOptions } from './BatchDialog.tsx';
 import { assetOptions, canFolder, EXT, ExportAsDialog, exportPrefs, ExportPrefsDialog, FilesExportDialog, SaveForWebDialog, sizingOptions, webOptions, type ExportDialogHandle, type ExportRow, type ExportSizing, type ExportTarget, type FilesDialogHandle, type FilesOptions, type WebOptions } from './ExportDialogs.tsx';
 import { assetSpecs, fileStem, pathsSvg } from './app/webExport.ts';
@@ -39,7 +46,8 @@ import { DOCK_DEFAULT_ORDER, SHOWN_KEYS, frameOf, type FrameKey, type WorkspaceD
 import { loadOrder, moveItem, saveOrder } from './app/panelOrder.ts';
 import { matchDocumentViews, type ArrangeMode, type MatchKind } from './app/arrange.ts';
 import { addToolPreset, applyToolPreset, deleteToolPreset, exportToolPresets, importToolPresets, loadToolPresets, renameToolPreset, saveToolPresets, snapshotToolPreset, validateBrushPresetAssets, validateToolOptionAssets } from './app/toolPresets.ts';
-import type { ActionStep } from './actions.ts';
+import { conditionHolds, playSteps, type ActionSet, type ActionStep, type PlayHooks } from './actions.ts';
+import { DROPLET_EXT, dropletText, readDroplet } from './app/droplets.ts';
 import { actions } from './app/actionsStore.ts';
 import { ImageCalcDialog, type ImageCalcHandle } from './ImageCalcDialog.tsx';
 import { ModeDialog, type ModeDialogHandle } from './ModeDialog.tsx';
@@ -49,7 +57,7 @@ import { SvgDialog, type SvgDialogHandle } from './SvgDialog.tsx';
 import type { OpenAction } from './app/colorSettings.ts';
 import { COMPOSITE, editChannels, GRAY_MATRIX, paintColor, swatchColor, viewState, type ChannelView } from './app/channels.ts';
 import { PathsPanel } from './PathsPanel.tsx';
-import { ArtboardPanel, PropertiesPanel, ShapePanel, SmartFiltersPanel, VectorMaskPanel, type PickLookupFile } from './PropertiesPanel.tsx';
+import { ArtboardPanel, PropertiesPanel, QuickActions, ShapePanel, SmartFiltersPanel, VectorMaskPanel, type PickLookupFile } from './PropertiesPanel.tsx';
 import { AdjustmentsPanel } from './AdjustmentsPanel.tsx';
 import { LayerStyleDialog, type StylePage } from './LayerStyleDialog.tsx';
 import { StyleLibrary, styleRefusal, type SavedStyle } from './layerStyle.ts';
@@ -488,6 +496,34 @@ export function App() {
   const pdfDialog = useRef<PdfDialogHandle>(null);
   const svgDialog = useRef<SvgDialogHandle>(null);
   const batchDialog = useRef<BatchDialogHandle>(null);
+  const stepDialog = useRef<StepDialogHandle>(null);
+  const modelDialog = useRef<ModelDialogHandle>(null);
+  const focusAreaDialog = useRef<FocusAreaHandle>(null);
+  const selectMaskDialog = useRef<SelectAndMaskHandle>(null);
+  // Commands still working between worker calls (model features), so action playback waits for them.
+  const uiWork = useRef(0);
+  const actionKeyRef = useRef<(key: string) => boolean>(() => false);
+  const playingAction = useRef(false);
+  const menuCapture: MenuCapture = useRef(null);
+  // A menu item by its English id path (menu title first) and the path as shown in the UI language.
+  function menuAt(path: string[]): Item | undefined {
+    let items: Item[] | undefined = menusRef.current[path[0]], it: Item | undefined;
+    for (const id of path.slice(1)) { it = items?.find(i => itemId(i) === id); items = it?.sub; }
+    return it;
+  }
+  // Resolves once no dialog is open and no worker call or model command is pending, two checks in a row.
+  async function uiIdle() {
+    for (let calm = 0; calm < 2;) {
+      await new Promise(r => requestAnimationFrame(() => setTimeout(r, 50)));
+      calm = document.querySelector('dialog[open]') || client.busy || ai.busy || uiWork.current ? 0 : calm + 1;
+    }
+  }
+  function menuText(path: string[]) {
+    const out = [MENU_TITLE[path[0]] ? i18n._(MENU_TITLE[path[0]]) : path[0]];
+    let items: Item[] | undefined = menusRef.current[path[0]];
+    for (const id of path.slice(1)) { const it: Item | undefined = items?.find(i => itemId(i) === id); out.push(it ? it.label.replace(/^✓ /, '') : id); items = it?.sub; }
+    return out.join(' > ');
+  }
   const imageProcessorDialog = useRef<ScriptDialogHandle>(null);
   const loadStackDialog = useRef<ScriptDialogHandle>(null);
   const exportAsDialog = useRef<ExportDialogHandle>(null);
@@ -672,6 +708,7 @@ export function App() {
   // True when the file opened as the active document.
   async function open(file: File, handle?: FileSystemFileHandle | null, ppi?: number, convert?: { mode: PdfMode; depth: 8 | 16 }): Promise<boolean> {
     setMenu(null);
+    if (isDroplet(file)) { await openDroplet(file, []); return true; }
     if (/\.pdf$/i.test(file.name)) {
       // PDF pages open as rasterized documents without the PDF as their file.
       const r = await pdfDialog.current?.ask(file);
@@ -720,7 +757,7 @@ export function App() {
     setMenu(null);
     if (!fsAccess()) { fileInput.current?.click(); return; }
     try {
-      for (const h of await pickOpen() ?? []) await open(await h.getFile(), h);
+      await openAll(await Promise.all((await pickOpen() ?? []).map(async h => ({ file: await h.getFile(), handle: h }))));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -1054,23 +1091,105 @@ export function App() {
       setError(plural(log.length, { one: `${title} finished with # error; see ${file}.`, other: `${title} finished with # errors; see ${file}.` }));
     }
   }
-  // Plays an action on the active document `d` with its top layer as the target; false when a stop ended it.
-  async function playOn(d: DocInfo, steps: ActionStep[]) {
-    const top = d.layers.at(-1)?.id ?? null;
-    return playSteps(steps, async (seg, resume) => { d = await client.call('playAction', seg, top, resume) ?? d; show(d); return true; });
+  // Action playback outside the worker calls: stop messages, the dialogs of steps whose dialog is on, menu items
+  // (playback waits until their dialogs close and the worker is idle) and conditions; `set` holds the actions a
+  // conditional step plays.
+  function actionHooks(set: ActionSet | undefined): Omit<PlayHooks, 'play'> {
+    return {
+      stop(s) {
+        const message = s.stop!.message;
+        return s.stop!.allowContinue ? confirm(t`${message}\n\nContinue playing the action?`) : (alert(message), false);
+      },
+      ask: s => stepDialog.current?.ask(s) ?? Promise.resolve(s),
+      async menu(s) {
+        const path = s.menu!.path, it = menuAt(path), item = path.join(' > ');
+        if (!it) throw new Error(`The menu item "${item}" does not exist.`);
+        if (it.off) throw new Error(`The menu item "${item}" is not available now.`);
+        setMenu(null);
+        it.run();
+        await uiIdle();
+        return true;
+      },
+      holds: c => !!docRef.current && conditionHolds(c, docRef.current, activeRef.current?.id ?? null),
+      action: name => set?.actions.find(a => a.name === name)?.steps.filter(x => x.enabled),
+    };
+  }
+  // Plays steps of action `name` of set `setId` on the active document with the active layer as the target (Actions
+  // panel, function keys).
+  async function playActive(steps: ActionStep[], setId: string, name: string) {
+    if (playingAction.current) return false;
+    playingAction.current = true;
+    try {
+      return await playSteps(steps, {
+        ...actionHooks(actions.sets.find(x => x.id === setId)),
+        play: async (seg, resume) => {
+          let ok = false;
+          await run(t`Playing action…`, async () => { const d = await client.call('playAction', seg, activeRef.current?.id ?? null, resume); ok = true; return d; });
+          return ok;
+        },
+      }, [name]);
+    } catch (e) {
+      setError(errorText(e));
+      return false;
+    } finally {
+      playingAction.current = false;
+    }
+  }
+  // An action's function key: true when the key belongs to an action (the key is then used up).
+  actionKeyRef.current = key => {
+    const hit = actions.byKey(key);
+    if (!hit) return false;
+    const steps = hit.action.steps.filter(s => s.enabled);
+    if (actions.recording) setError(t`Stop recording first.`);
+    else if (!docRef.current) setError(t`Open a document to play an action.`);
+    else if (steps.length) void playActive(steps, hit.set.id, hit.action.name);
+    return true;
+  };
+  // Plays the enabled steps of action `actionId` of `set` on the active document `d` with its top layer as the target;
+  // false when a stop ended it.
+  async function playOn(d: DocInfo, set: ActionSet | undefined, actionId: string) {
+    const a = set?.actions.find(x => x.id === actionId), top = d.layers.at(-1)?.id ?? null;
+    return playSteps(a?.steps.filter(s => s.enabled) ?? [], { ...actionHooks(set), play: async (seg, resume) => { d = await client.call('playAction', seg, top, resume) ?? d; show(d); return true; } }, a ? [a.name] : []);
   }
   async function saveOut(dest: 'folder' | 'download', dir: FileSystemDirectoryHandle | null, file: string, blob: Blob) {
     if (dest === 'folder') await writeFile(await dir!.getFileHandle(file, { create: true }), blob);
     else downloadBlob(blob, file);
   }
-  const enabledSteps = (setId: string, actionId: string) => actions.sets.find(s => s.id === setId)?.actions.find(a => a.id === actionId)?.steps.filter(s => s.enabled) ?? [];
 
-  // File > Automate > Batch.
-  async function runBatch(o: BatchOptions) {
-    const steps = enabledSteps(o.setId, o.actionId);
+  // File > Automate > Create Droplet: the action and its set with the Batch options, saved as a .pbdroplet file.
+  function createDroplet(o: BatchOptions) {
+    try {
+      const set = actions.sets.find(s => s.id === o.setId);
+      if (!set) throw new Error(t`Select an action for the droplet.`);
+      const name = set.actions.find(a => a.id === o.actionId)?.name ?? 'Droplet';
+      downloadBlob(new Blob([dropletText(set, o.actionId, { dest: o.dest, format: o.format, errors: o.errors })], { type: 'application/json' }), `${name}${DROPLET_EXT}`);
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }
+  // An opened droplet: the Batch dialog with its action and options, and the images opened with it as the source.
+  async function openDroplet(file: File, images: File[]) {
+    try {
+      const d = readDroplet(await file.text());
+      batchDialog.current?.open({ mode: 'run', set: d.set, actionId: d.action.id, options: d.options, files: images });
+    } catch (e) {
+      const name = file.name, reason = errorText(e);
+      setError(t`Could not open ${name}: ${reason}`);
+    }
+  }
+  const isDroplet = (f: File) => f.name.toLowerCase().endsWith(DROPLET_EXT);
+  // Files opened together: a droplet among them runs on the others; otherwise each file opens.
+  async function openAll(items: { file: File; handle: FileSystemFileHandle | null }[]) {
+    const droplet = items.find(i => isDroplet(i.file));
+    if (droplet) { await openDroplet(droplet.file, items.filter(i => i !== droplet).map(i => i.file)); return; }
+    for (const i of items) await open(i.file, i.handle);
+  }
+
+  // File > Automate > Batch, and a droplet run with the droplet's own set.
+  async function runBatch(o: BatchOptions, set = actions.sets.find(s => s.id === o.setId)) {
     const ext = o.format === 'jpeg' ? 'jpg' : o.format, mime = o.format === 'psd' ? 'image/vnd.adobe.photoshop' : `image/${o.format}`;
     await eachDoc(t`Batch`, o.source, o.files, o.errors === 'stop', async d => {
-      if (!await playOn(d, steps)) return false;
+      if (!await playOn(d, set, o.actionId)) return false;
       if (o.dest === 'none') return true;
       let blob: Blob;
       if (o.format === 'psd') { blob = (await client.call('savePsd')).blob; show(await client.call('saveEnd', false)); }
@@ -1083,12 +1202,11 @@ export function App() {
   // File > Scripts > Image Processor: per image the action, then per file type an optional fit, sRGB conversion
   // and Copyright Info that are undone after the file is written (counted by version: a full history trims, keeps `current`).
   async function runImageProcessor(o: ImageProcessorOptions) {
-    const steps = o.action.on ? enabledSteps(o.action.setId, o.action.actionId) : [];
     const types = [['JPEG', 'jpg', o.jpeg], ['PSD', 'psd', o.psd], ['TIFF', 'tif', o.tiff], ['PNG', 'png', o.png]] as const;
     const dirs = new Map<string, FileSystemDirectoryHandle>();
     for (const [name, , t] of types) if (t.on && o.dest === 'folder') dirs.set(name, await o.folder!.getDirectoryHandle(name, { create: true }));
     await eachDoc(t`Image Processor`, o.source, o.files, false, async d => {
-      if (steps.length && !await playOn(d, steps)) return false;
+      if (o.action.on && !await playOn(d, actions.sets.find(s => s.id === o.action.setId), o.action.actionId)) return false;
       for (const [name, ext, t] of types) {
         if (!t.on) continue;
         const cur = docRef.current!;
@@ -1628,14 +1746,94 @@ export function App() {
     };
   }
 
-  // Select > Subject samples the active layer only; a layer with no distinct subject adds no step.
+  // The segmentation model on `rect` ([x, y, w, h]) of layer `id` (or the composite), selected with `mode`;
+  // `clip` (flat document x, y) keeps only the mask inside that polygon.
+  async function modelSelect(id: number, sampleAll: boolean, rect: [number, number, number, number], mode: string, label: string, clip?: number[]) {
+    const side = SEGMENTATION.side;
+    const s = await client.call('aiSample', id, sampleAll, rect, side);
+    const mask = await ai.segment(s.data, side);
+    return client.call('selectFromMask', id, sampleAll, clip ? clipMask(mask, side, rect, clip) : mask, side, rect, mode, label);
+  }
+
+  // Object Selection tool: the object inside the drawn rectangle or lasso; the model sees the shape's bounds with
+  // some context around them. There is no command without the model.
+  async function objectSelect(points: number[], mode: SelectMode, sampleAll: boolean) {
+    const d = docRef.current, id = activeRef.current?.id ?? 0;
+    const rect = d && objectRegion(points, d.width, d.height);
+    if (!rect) return;
+    uiWork.current++;
+    try {
+      const use = await modelDialog.current?.ready(t`Object Selection`, false).catch(e => { setError(errorText(e)); return null; });
+      if (use !== 'model') return;
+      const before = JSON.stringify(docRef.current?.history);
+      await run(t`Selecting object…`, async () => {
+        const r = await modelSelect(id, sampleAll, rect, mode, 'Object Selection', points);
+        if (JSON.stringify(r.history) === before) setError(t`No object found`);
+        return r;
+      });
+    } finally {
+      uiWork.current--;
+    }
+  }
+  const objectSelectRef = useRef(objectSelect);
+  objectSelectRef.current = objectSelect;
+
+  // Select > Subject samples the active layer only, with the segmentation model (or the model-free command when
+  // the user picks it); a layer with no distinct subject adds no step. Recording keeps the menu item, so playback
+  // runs the model again.
   function selectSubject() {
-    if (!active) return;
-    const id = active.id, before = JSON.stringify(docRef.current?.history);
-    run(t`Selecting subject…`, async () => {
-      const d = await client.call('selectSubject', id);
-      if (d && JSON.stringify(d.history) === before) setError(t`No subject found`);
-      return d;
+    return modelCommand(t`Select Subject`, t`Selecting subject…`, async (use, id, d) => {
+      const r = use === 'model' ? await modelSelect(id, false, [0, 0, d.width, d.height], 'new', 'Select Subject') : await client.call('selectSubject', id);
+      if (use === 'model' && actions.recording && JSON.stringify(r.history) !== JSON.stringify(d.history)) {
+        actions.addStep({ id: crypto.randomUUID(), label: 'Select Subject', enabled: true, calls: [], menu: { path: ['Select', 'Subject'] } });
+      }
+      return r;
+    });
+  }
+
+  // A subject command on the active layer: asks for the model (or the command without it), runs `body` with a busy
+  // label and says no subject was found when the history did not change.
+  async function modelCommand(feature: string, busy: string, body: (use: 'model' | 'classic', id: number, d: DocInfo) => Promise<DocInfo | null>) {
+    const d = docRef.current, id = activeRef.current?.id;
+    if (!d || id === undefined) return;
+    setMenu(null);
+    uiWork.current++;
+    try {
+      const use = await modelDialog.current?.ready(feature, true).catch(e => { setError(errorText(e)); return null; });
+      if (!use) return;
+      const before = JSON.stringify(docRef.current?.history);
+      await run(busy, async () => {
+        const r = await body(use, id, d);
+        if (!r || JSON.stringify(r.history) === before) setError(t`No subject found`);
+        return r;
+      });
+    } finally {
+      uiWork.current--;
+    }
+  }
+
+  // The model's subject mask (side x side) of layer `id` over the whole canvas.
+  async function subjectMask(id: number, d: DocInfo) {
+    const s = await client.call('aiSample', id, false, [0, 0, d.width, d.height], SEGMENTATION.side);
+    return ai.segment(s.data, SEGMENTATION.side);
+  }
+
+  // Properties > Quick Actions > Remove Background: the subject becomes the layer's mask in one step.
+  function removeBackground() {
+    return modelCommand(t`Remove Background`, t`Removing background…`, async (use, id, d) =>
+      client.call('removeBackground', id, use === 'model' ? await subjectMask(id, d) : null, SEGMENTATION.side));
+  }
+
+  // Select Background (Photoshop's Discover panel quick action): the inverse of the subject; one step with the model.
+  function selectBackground() {
+    return modelCommand(t`Select Background`, t`Selecting background…`, async (use, id, d) => {
+      if (use === 'classic') {
+        const r = await client.call('selectSubject', id);
+        return r.history.labels.length === d.history.labels.length ? r : client.call('selectCommand', 'inverse');
+      }
+      const mask = await subjectMask(id, d);
+      if (!mask.some(v => v >= 128)) return null;
+      return client.call('selectFromMask', id, false, mask.map(v => 255 - v), SEGMENTATION.side, [0, 0, d.width, d.height], 'new', 'Select Background');
     });
   }
 
@@ -1670,6 +1868,9 @@ export function App() {
   const has = !!doc;
   const warping = transformStore?.get().mode === 'warp';
   const node = doc && active ? nodeById(doc.layers, active.id) : undefined;
+  // Select > Select and Mask… (Alt+Ctrl+R) and the selection tools' options bar button.
+  const openSelectAndMask = () => { setMenu(null); if (active && node?.kind === 'pixel') selectMaskDialog.current?.open(active.id, !!node.mask); };
+  const selectMaskButton = <span className="crop-actions"><button type="button" disabled={!doc || node?.kind !== 'pixel'} onClick={openSelectAndMask}><Trans>Select and Mask…</Trans></button></span>;
   const selectedNodes = doc && active
     ? (picked.includes(active.id) ? picked : [active.id]).map(id => nodeById(doc.layers, id)).filter((n): n is LayerNode => !!n)
     : [];
@@ -1828,6 +2029,7 @@ export function App() {
     openImageCalc: calc => { setMenu(null); if (calc) imageCalc.current?.open({ kind: 'calc' }); else if (active) imageCalc.current?.open({ kind: 'apply', id: active.id }); }, trimDialog, imageSizeDialog, canvasSizeDialog,
     openAutomate: kind => { setMenu(null); setAutomate(kind); automateDialog.current?.showModal(); },
     openBatch: () => { setMenu(null); batchDialog.current?.open(); },
+    openCreateDroplet: () => { setMenu(null); batchDialog.current?.open({ mode: 'droplet' }); },
     openImageProcessor: () => { setMenu(null); imageProcessorDialog.current?.open(); },
     openLoadStack: () => { setMenu(null); loadStackDialog.current?.open(); },
     assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo: () => void openFileInfo(), openPrint, printOneCopy: () => void printDoc(printSettings.current),
@@ -1868,6 +2070,8 @@ export function App() {
       void run(null, () => client.call('purge', what));
     },
     openLockLayers: () => { setMenu(null); lockLayersDialog.current?.showModal(); },
+    openFocusArea: () => { setMenu(null); if (active && node) focusAreaDialog.current?.open(active.id, !!node.mask); },
+    openSelectAndMask,
     selectAllLayers: () => {
       const ids = doc ? flatNodes(doc.layers).filter(n => n.kind !== 'group').map(n => n.id) : [];
       if (!ids.length) return;
@@ -1989,7 +2193,7 @@ export function App() {
         setBusy(null);
       }
       const lq = (window as unknown as { launchQueue?: { setConsumer(f: (p: { files: FileSystemFileHandle[] }) => void): void } }).launchQueue;
-      lq?.setConsumer(async p => { for (const h of p.files) await open(await h.getFile(), h); });
+      lq?.setConsumer(async p => { await openAll(await Promise.all(p.files.map(async h => ({ file: await h.getFile(), handle: h })))); });
       if (fsAccess()) updateRecent(() => loadRecent());
     })();
     return () => { alive = false; };
@@ -2150,7 +2354,7 @@ export function App() {
 
   useSelectionTools({
     viewer, dragRef, polygonRef, lastPolyDownRef, overlayRef, magneticRef, tool, polygonActionsRef, toolOptionsRef, polygonModeRef, show, docRef,
-    activeRef, doc,
+    activeRef, doc, objectSelect: (p, m, s) => void objectSelectRef.current(p, m, s),
   });
 
   useBucket({
@@ -2346,7 +2550,7 @@ export function App() {
 
   useShortcuts({
     menusRef, capsLockRef, polygonActionsRef, transformKey, cropSession, setMenu, viewer, setFg, setBg, bgRef, fgRef, setQuickMask,
-    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open, penKeysRef, typeKeysRef, setChannelView,
+    toolRef, toolOptionsRef, patchToolOptions, flowDigitRef, opacityDigitRef, moveKeysRef, selectByKey, open: openAll, penKeysRef, typeKeysRef, setChannelView, actionKeyRef,
   });
 
   // Brush presets: the selected preset (with a protected texture carried over) and the Brushes/Brush Settings panels.
@@ -2559,12 +2763,17 @@ export function App() {
       <button type="button" className="primary" onClick={() => cropSession.current?.commit()}><Trans>Apply</Trans></button>
     </span>
   );
-  const menuItems = (items: Item[]): ReactNode => items.map(i => (
+  // `path` holds the English ids from the menu title down; with Insert Menu Item open, a click records the item instead.
+  const menuItems = (items: Item[], path: string[]): ReactNode => items.map(i => (
     <Fragment key={itemId(i)}>
       {i.sep && <li role="separator" className="menu-sep" />}
       <li className={i.sub ? 'has-sub' : undefined} onMouseEnter={i.sub ? e => placeSubmenu(e.currentTarget) : undefined} onFocus={i.sub ? e => placeSubmenu(e.currentTarget) : undefined}>
-        <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={() => { if (!i.sub) setMenu(null); i.run(); }}><span>{i.label}</span><kbd>{keysLabel(i.keys)}</kbd></button>
-        {i.sub && !i.off && <ul role="menu" aria-label={i.label}>{menuItems(i.sub)}</ul>}
+        <button role="menuitem" aria-haspopup={i.sub ? 'menu' : undefined} disabled={i.off} onClick={() => {
+          if (!i.sub) setMenu(null);
+          if (!i.sub && menuCapture.current) menuCapture.current([...path, itemId(i)]);
+          else i.run();
+        }}><span>{i.label}</span><kbd>{keysLabel(i.keys)}</kbd></button>
+        {i.sub && !i.off && <ul role="menu" aria-label={i.label}>{menuItems(i.sub, [...path, itemId(i)])}</ul>}
       </li>
     </Fragment>
   ));
@@ -2579,7 +2788,7 @@ export function App() {
           <div key={name} className="menu">
             <button className={menu === name ? 'open' : ''} onClick={() => setMenu(menu === name ? null : name)} onMouseEnter={() => menu && setMenu(name)}>{MENU_TITLE[name] ? i18n._(MENU_TITLE[name]) : name}</button>
             {menu === name && (
-              <ul role="menu" ref={placeMenu}>{menuItems(items)}</ul>
+              <ul role="menu" ref={placeMenu}>{menuItems(items, [name])}</ul>
             )}
           </div>
         ))}
@@ -2681,7 +2890,7 @@ export function App() {
                 t.store.set({ warp: warpBar(ws) });
               })}
             />
-          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions, measure: measure.bar }} fg={fg} depth={doc?.depth} />}
+          ) : <OptionsBar tool={activeTool} values={toolOptions} setValues={setToolOptions} custom={{ align: <AlignButtons count={selectedNodes.length} onAlign={mode => run(null, () => client.call('alignLayers', selectedNodes.map(n => n.id), mode))} />, pattern: patternSelect, gradient: gradientButton, actions: cropActions, customShape: customShapeSelect, family: typeFont, style: typeStyle, typeActions, measure: measure.bar, selectAndMask: selectMaskButton }} fg={fg} depth={doc?.depth} />}
           {doc && <TabBar doc={doc} switchTo={key => run(null, () => client.call('switchDoc', key))} close={key => void closeTab(key)}
             move={(key, to) => run(null, () => client.call('moveDoc', key, to))} />}
           <DocumentArrangement
@@ -2793,10 +3002,13 @@ export function App() {
               {node?.artboard && <ArtboardPanel node={node} run={run} />}
               {node?.kind === 'shape' && node.shape && <ShapePanel key={node.id} node={node} run={run} fg={fg} selected={selectedNodes} />}
               {node?.vector_mask && <VectorMaskPanel key={`vm${node.id}`} node={node} run={run} />}
+              {node?.kind === 'pixel' && !node.artboard && (
+                <QuickActions node={node} removeBackground={() => void removeBackground()} selectSubject={() => void selectSubject()} selectBackground={() => void selectBackground()} />
+              )}
               {node?.kind === 'smart' && node.smart && (
                 <SmartFiltersPanel key={node.id} node={node} run={run} openGradientEditor={(g, ok) => gradEditor.current?.open(g, ok)} pickLookupFile={pickLookupFile} sampleCanvas={sampleCanvas} openLiquify={openLiquify} openVanishingPoint={openVanishingPoint} />
               )}
-              {!(node && ((node.kind === 'adjustment' && node.adjustment) || (node.kind === 'text' && node.text) || node.artboard || (node.kind === 'shape' && node.shape) || node.vector_mask || (node.kind === 'smart' && node.smart)))
+              {!(node && ((node.kind === 'adjustment' && node.adjustment) || (node.kind === 'text' && node.text) || node.artboard || (node.kind === 'shape' && node.shape) || node.vector_mask || (node.kind === 'smart' && node.smart) || node.kind === 'pixel'))
                 && <p className="panel-empty"><Trans>No properties</Trans></p>}
             </DockSection>
           )}
@@ -2822,7 +3034,7 @@ export function App() {
               {frame.history && <DockSection {...sec('history', msg`History`)}><HistoryPanel history={doc.history} goto={n => run(null, () => client.call('historyGoto', n))} /></DockSection>}
               {showChannels && <DockSection {...sec('channels', msg`Channels`)}><ChannelsPanel doc={doc} run={run} live={selEdit ? liveTick : 0} view={channelView} setView={setChannelView} setError={setError} active={active} setActive={setActive} /></DockSection>}
               {showLayerComps && <DockSection {...sec('layerComps', msg`Layer Comps`)}><LayerCompsPanel doc={doc} run={run} /></DockSection>}
-              {showActions && <DockSection {...sec('actions', msg`Actions`)}><ActionsPanel has active={active} run={run} setError={setError} /></DockSection>}
+              {showActions && <DockSection {...sec('actions', msg`Actions`)}><ActionsPanel has setError={setError} play={playActive} menu={{ capture: menuCapture, text: menuText }} /></DockSection>}
               {showPaths && <DockSection {...sec('paths', msg`Paths`)}><PathsPanel doc={doc} node={node ?? null} fg={fg} run={run} selected={pathSel.selected} setSelected={(id, cleared = false) => setPathSel({ selected: id, cleared })} /></DockSection>}
             </>
           )}
@@ -2871,8 +3083,8 @@ export function App() {
         if (!f) return;
         try { await uploadFont(client, f); setFaces(await client.call('fontFaces')); } catch (err) { setError((err as Error).message); }
       }} />
-      <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,image/svg+xml,image/x-icon,application/pdf,.psd,.psb,.exr,.hdr,.svg,.ico,.pdf"
-        onChange={async e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; for (const f of fs) await open(f); }} />
+      <input ref={fileInput} type="file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,image/svg+xml,image/x-icon,application/pdf,.psd,.psb,.exr,.hdr,.svg,.ico,.pdf,.pbdroplet"
+        onChange={async e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; await openAll(fs.map(file => ({ file, handle: null }))); }} />
       <NewImageDialog newDialog={newDialog} createNew={createNew} />
       <CloseDialog closeDialog={closeDialog} name={closeName} choose={chooseClose} />
       <MergeDialog mergeDialog={mergeDialog} depth={mergeDepth} choose={chooseMerge} />
@@ -2915,7 +3127,14 @@ export function App() {
       <ColorDialog ref={colorDialog} doc={doc} show={d => show(d)} setError={m => setError(m)} />
       <PdfDialog ref={pdfDialog} setError={m => setError(m)} />
       <SvgDialog ref={svgDialog} setError={m => setError(m)} />
-      <BatchDialog ref={batchDialog} start={o => void runBatch(o)} />
+      <BatchDialog ref={batchDialog} start={(o, m) => {
+        if (m.mode === 'droplet') createDroplet(o);
+        else void runBatch(o, m.mode === 'run' ? m.set : undefined);
+      }} />
+      <StepDialog ref={stepDialog} />
+      <ModelDialog ref={modelDialog} setBusy={setBusy} />
+      <FocusAreaDialog ref={focusAreaDialog} doc={doc} run={run} setError={setError} selectAndMask={(id, hasMask) => selectMaskDialog.current?.open(id, hasMask)} />
+      <SelectAndMaskDialog ref={selectMaskDialog} doc={doc} run={run} setError={setError} />
       <ImageProcessorDialog ref={imageProcessorDialog} start={o => void runImageProcessor(o)} />
       <LoadStackDialog ref={loadStackDialog} start={(f, a, sm) => void loadStack(f, a, sm)} />
       <WorkspaceDialog ref={workspaceDialog} act={workspaceAction} />
@@ -2931,7 +3150,8 @@ export function App() {
       <ImportDataSetsDialog ref={importSetsDialog} />
       <ApplyDataSetDialog ref={applySetDialog} apply={name => void run(null, () => applySet(name))} />
       <PrintDialog ref={printDialog} settings={printSettings.current} start={s => void printDoc(s)} />
-      <LiquifyDialog ref={liquifyDialog} show={d => show(d)} setError={m => setError(m)} />
+      <LiquifyDialog ref={liquifyDialog} show={d => show(d)} setError={m => setError(m)}
+        modelReady={(f, m) => modelDialog.current?.ready(f, false, m) ?? Promise.resolve(null)} />
       <VanishingPointDialog ref={vpDialog} show={d => show(d)} setError={m => setError(m)} />
       <FilterBlendDialog
         filterBlendDialog={filterBlendDialog} setFilterBlend={setFilterBlend} filterBlend={filterBlend} run={run} filters={filters}

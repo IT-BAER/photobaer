@@ -35,6 +35,7 @@ export const TOOL_ART: Record<string, ToolArt> = {
   lasso: { s: '<ellipse cx="13" cy="10.5" rx="8.5" ry="6"/>' + LASSO_KNOT },
   polygonalLasso: { s: p('M2.5 5l8 4.2 9-6.2v10.2l-10.5 4.2zM2.5 5l5.6 11.6') + LASSO_KNOT },
   magneticLasso: { s: p('M2.5 5l7 4M2.5 5l5.6 11.6 5.4-2.2') + LASSO_KNOT, f: ev('M12.5 2.5h9v7a4.5 4.5 0 0 1-9 0zM15.3 5.3v4.2a1.7 1.7 0 0 0 3.4 0V5.3z') },
+  objectSelection: { s: '<rect x="2.5" y="3.5" width="15" height="12" stroke-dasharray="2.6 2"/>', f: `<g transform="translate(8 4)">${p(ARROWHEAD)}</g>` },
   quickSelection: { s: '<circle cx="8.5" cy="12" r="6.5" stroke-dasharray="1.6 2"/>', f: `<g transform="translate(2 0)">${BRUSH}</g>` },
   magicWand: { f: p('M2 19.6 13.6 8l2.4 2.4L4.4 22z'), s: SPARK(19, 4.5, 2.6) + SPARK(11.5, 3.5, 1.5) + SPARK(20.5, 13, 1.5) },
   crop: { s: p('M2.5 7.5H17v14M7 2.5V17h14.5') },

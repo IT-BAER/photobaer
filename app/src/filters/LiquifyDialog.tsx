@@ -1,13 +1,19 @@
 // Filter > Liquify (docs/M5.md section 6): a modal dialog with its own preview canvas. The mesh
 // lives in the worker session; this side sends brush points and draws the returned proxy.
-import { useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
+import { Link2, Link2Off } from 'lucide-react';
 import { client } from '../client.ts';
 import { i18n } from '../i18n/index.ts';
+import { errorText } from '../i18n/errors.ts';
 import type { DocInfo, Guide, LiquifyOp } from '../worker/types.ts';
 import { NumberInput } from '../shell/NumberInput.tsx';
+import { ai } from '../ai/client.ts';
+import { cachedModel, FACE, type Model } from '../ai/models.ts';
+import type { ModelChoice } from '../ai/ModelDialog.tsx';
+import { EYE_KEYS, faceAt, faceField, FACE_ZERO, fromLandmarks, setEye, setSingle, type EyeKey, type Face, type FaceSettings, type Pt, type SingleKey } from '../faceLiquify.ts';
 
 type View = { data: ArrayBuffer; w: number; h: number; scale: number; cols: number; rows: number; spacing: number; disp: Float32Array | null; frozen: Float32Array | null };
 export type LiquifyRequest = { id: number; filterId: number | null; width: number; height: number; guides: Guide[]; layers: { id: number; name: string }[] };
@@ -17,10 +23,22 @@ const TOOLS = [
   ['forwardWarp', msg`Forward Warp`, 'W'], ['reconstruct', msg`Reconstruct`, 'R'], ['smooth', msg`Smooth`, 'E'],
   ['twirlClockwise', msg`Twirl Clockwise`, 'C'], ['twirlCounterClockwise', msg`Twirl Counter-Clockwise`, 'Alt+C'], ['pucker', msg`Pucker`, 'S'],
   ['bloat', msg`Bloat`, 'B'], ['pushLeft', msg`Push Left`, 'O'], ['freeze', msg`Freeze Mask`, 'F'], ['thaw', msg`Thaw Mask`, 'D'],
-  ['face', msg`Face Tool (Face-Aware Liquify comes with M7)`, 'A'], ['hand', msg`Hand`, 'H'], ['zoom', msg`Zoom`, 'Z'],
+  ['face', msg`Face Tool`, 'A'], ['hand', msg`Hand`, 'H'], ['zoom', msg`Zoom`, 'Z'],
 ] as const;
 type Tool = typeof TOOLS[number][0];
-const KEYS: Record<string, Tool> = { w: 'forwardWarp', r: 'reconstruct', e: 'smooth', c: 'twirlClockwise', s: 'pucker', b: 'bloat', o: 'pushLeft', f: 'freeze', d: 'thaw', h: 'hand', z: 'zoom' };
+const KEYS: Record<string, Tool> = { w: 'forwardWarp', r: 'reconstruct', e: 'smooth', c: 'twirlClockwise', s: 'pucker', b: 'bloat', o: 'pushLeft', f: 'freeze', d: 'thaw', a: 'face', h: 'hand', z: 'zoom' };
+// Face-Aware Liquify sliders (-100..100) by section; the eye sliders come in pairs for the two eyes.
+const EYE_ROWS: [EyeKey, MessageDescriptor][] = [['eyeSize', msg`Eye Size`], ['eyeHeight', msg`Eye Height`], ['eyeWidth', msg`Eye Width`], ['eyeTilt', msg`Eye Tilt`]];
+const FACE_GROUPS: [MessageDescriptor, [SingleKey, MessageDescriptor][]][] = [
+  [msg`Eyes`, [['eyeDistance', msg`Eye Distance`]]],
+  [msg`Nose`, [['noseHeight', msg`Nose Height`], ['noseWidth', msg`Nose Width`]]],
+  [msg`Mouth`, [['smile', msg`Smile`], ['upperLip', msg`Upper Lip`], ['lowerLip', msg`Lower Lip`], ['mouthWidth', msg`Mouth Width`], ['mouthHeight', msg`Mouth Height`]]],
+  [msg`Face Shape`, [['forehead', msg`Forehead`], ['chinHeight', msg`Chin Height`], ['jawline', msg`Jawline`], ['faceWidth', msg`Face Width`]]],
+];
+// The face model sees the layer at most this many px on its long side.
+const FACE_SIDE = 1024;
+const LINKED: Record<EyeKey, boolean> = { eyeSize: true, eyeHeight: true, eyeWidth: true, eyeTilt: true };
+const ICON = { size: 14, strokeWidth: 1.75 };
 const RATED = new Set<Tool>(['reconstruct', 'smooth', 'twirlClockwise', 'twirlCounterClockwise', 'pucker', 'bloat']);
 const MODES: [string, MessageDescriptor][] = [['revert', msg`Revert`], ['rigid', msg`Rigid`], ['stiff', msg`Stiff`], ['smooth', msg`Smooth`], ['loose', msg`Loose`]];
 const MESH_SIZES: [MessageDescriptor, number][] = [[msg`Fine`, 4], [msg`Medium`, 8], [msg`Coarse`, 16]];
@@ -44,23 +62,35 @@ function loadPrefs(): Prefs {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS) ?? '{}') }; } catch { return DEFAULTS; }
 }
 
-export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogHandle>; show: (d: DocInfo | null) => void; setError: (msg: string) => void }) {
+export function LiquifyDialog({ ref, show, setError, modelReady }: {
+  ref: Ref<LiquifyDialogHandle>; show: (d: DocInfo | null) => void; setError: (msg: string) => void;
+  modelReady: (feature: string, model: Model) => Promise<ModelChoice>;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [req, setReq] = useState<LiquifyRequest | null>(null);
-  const [tool, setTool] = useState<Tool>('forwardWarp');
+  const [tool, setToolState] = useState<Tool>('forwardWarp');
   const [prefs, setPrefsState] = useState<Prefs>(loadPrefs);
   const [maskSource, setMaskSource] = useState<'selection' | 'transparency'>('selection');
   const [amount, setAmount] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
+  // Face-Aware Liquify: the faces found (null before detection), the selected face, its sliders, linked eye pairs.
+  const [faces, setFaces] = useState<Face[] | null>(null);
+  const [detecting, setDetecting] = useState(false);
+  const [faceIdx, setFaceIdxState] = useState(0);
+  const [faceSet, setFaceSetState] = useState<FaceSettings[]>([]);
+  const [linked, setLinked] = useState(LINKED);
   // Mutable state the canvas handlers read: the last view, its bitmap, the transform, queued edits.
   const st = useRef({
     view: null as View | null, img: null as ImageBitmap | null, backdrop: null as ImageBitmap | null, z: 1, ox: 0, oy: 0,
     queue: [] as LiquifyOp[], want: false, busy: false, space: false, down: null as null | { kind: 'stroke' | 'pan'; x: number; y: number }, hold: 0 as ReturnType<typeof setInterval> | 0,
     cursor: null as null | [number, number], prefs, req: null as LiquifyRequest | null, closing: false,
+    faces: null as Face[] | null, faceIdx: 0, faceSet: [] as FaceSettings[], detecting: false,
   });
   st.current.prefs = prefs;
   st.current.req = req;
+  // draw() reads the tool from this render: redraw once it changed (the Face Tool shows the face outlines).
+  useEffect(() => { requestAnimationFrame(draw); }, [tool, faces, faceIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setPrefs = (patch: Partial<Prefs>) => setPrefsState(p => {
     const n = { ...p, ...patch };
@@ -73,8 +103,10 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
   const overlays = () => st.current.prefs.showMesh || st.current.prefs.showMask;
 
   async function accept(v: View) {
-    const s = st.current;
+    const s = st.current, prev = s.view;
     s.view = v;
+    // A new Mesh Size clears the engine's face field: rebuild it on the new node layout.
+    if (prev && s.faces && (prev.cols !== v.cols || prev.rows !== v.rows || prev.spacing !== v.spacing)) sendFace();
     s.img?.close();
     s.img = await createImageBitmap(new ImageData(new Uint8ClampedArray(v.data), v.w, v.h));
     draw();
@@ -92,6 +124,58 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
       .finally(() => { s.busy = false; pump(); });
   }
   const send = (...ops: LiquifyOp[]) => { st.current.queue.push(...ops); st.current.want = true; pump(); };
+
+  // The face field of every face's sliders on the current mesh layout; replaces a queued one.
+  function sendFace() {
+    const s = st.current, v = s.view;
+    if (!v || !s.faces) return;
+    s.queue = s.queue.filter(o => o.op !== 'face');
+    send({ op: 'face', disp: faceField(s.faces, s.faceSet, v.cols, v.rows, v.spacing) });
+  }
+
+  const setFaceIdx = (i: number) => { st.current.faceIdx = i; setFaceIdxState(i); requestAnimationFrame(draw); };
+  function setFaceSet(list: FaceSettings[]) {
+    st.current.faceSet = list;
+    setFaceSetState(list);
+    sendFace();
+  }
+  const updateFace = (f: (s: FaceSettings) => FaceSettings) => setFaceSet(st.current.faceSet.map((x, i) => (i === st.current.faceIdx ? f(x) : x)));
+
+  // Finds the faces on the layer with the face model. Without `ask` it runs only when the model is already stored,
+  // so opening Liquify never asks for a download.
+  async function detectFaces(ask: boolean) {
+    const s = st.current, r = s.req;
+    if (!r || s.detecting || s.faces) return;
+    if (!ask && !ai.isLoaded(FACE) && !(await cachedModel(FACE).catch(() => null))) return;
+    s.detecting = true;
+    setDetecting(true);
+    try {
+      if ((await modelReady(t`Face-Aware Liquify`, FACE)) !== 'model' || st.current.req !== r) return;
+      const b = await client.call('liquifyBackdrop', r.id, FACE_SIDE) as { data: ArrayBuffer; w: number; h: number };
+      const res = await ai.faces(b.data, b.w, b.h);
+      if (st.current.req !== r) return;
+      const cx = (f: Face) => f.oval.reduce((a, p) => a + p[0], 0) / Math.max(1, f.oval.length);
+      const n = 478 * 2;
+      const list = Array.from({ length: res.count }, (_, k) => fromLandmarks(res.points.subarray(k * n, (k + 1) * n), res.oval, r.width, r.height))
+        .sort((a, b) => cx(a) - cx(b));
+      s.faces = list;
+      setFaces(list);
+      setFaceIdx(0);
+      setFaceSet(list.map(() => FACE_ZERO));
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      // A detection for an earlier opening leaves the state to the current one.
+      if (st.current.req === r) { s.detecting = false; setDetecting(false); }
+      requestAnimationFrame(draw);
+    }
+  }
+
+  function setTool(id: Tool) {
+    setToolState(id);
+    if (id === 'face') detectFaces(true);
+    requestAnimationFrame(draw);
+  }
 
   function fit() {
     const s = st.current, c = canvas.current, r = s.req;
@@ -160,6 +244,30 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
       }
       g.stroke();
     }
+    if (tool === 'face' && s.faces) {
+      // The faces' outlines; the selected face solid, the others dashed.
+      const path = (ps: Pt[], close: boolean) => {
+        ps.forEach(([x, y], i) => g[i ? 'lineTo' : 'moveTo'](s.ox + x * s.z, s.oy + y * s.z));
+        if (close) g.closePath();
+      };
+      s.faces.forEach((f, i) => {
+        g.beginPath();
+        path(f.oval, true);
+        if (i === s.faceIdx) {
+          for (const e of f.eyes) path([e.outer, e.top, e.inner, e.bottom], true);
+          path([f.mouth.corners[0], f.mouth.top, f.mouth.corners[1], f.mouth.bottom], true);
+          path([f.nose.alae[0], f.nose.tip, f.nose.alae[1]], false);
+        }
+        g.setLineDash(i === s.faceIdx ? [] : [4, 4]);
+        g.lineWidth = 3;
+        g.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+        g.stroke();
+        g.lineWidth = 1;
+        g.strokeStyle = '#fff';
+        g.stroke();
+      });
+      g.setLineDash([]);
+    }
     if (s.cursor && TOOLS.findIndex(t => t[0] === tool) < 10) {
       g.strokeStyle = '#fff';
       g.setLineDash([3, 3]);
@@ -173,11 +281,15 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
   useImperativeHandle(ref, () => ({
     open(r) {
       const s = st.current;
-      Object.assign(s, { req: r, view: null, queue: [], want: false, busy: false, down: null, closing: false });
+      Object.assign(s, { req: r, view: null, queue: [], want: false, busy: false, down: null, closing: false, faces: null, faceIdx: 0, faceSet: [], detecting: false });
       s.backdrop?.close();
       s.backdrop = null;
       setReq(r);
       setAmount(null);
+      setFaces(null);
+      setDetecting(false);
+      setFaceIdxState(0);
+      setFaceSetState([]);
       dialog.current?.showModal();
       client.call('liquifyBegin', r.id, MAX_SIDE, st.current.prefs.meshSize, r.filterId)
         .then(async v => {
@@ -188,6 +300,7 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
           await accept(v as View);
           fit();
           if (s.prefs.showBackdrop) loadBackdrop(s.prefs.backdrop);
+          detectFaces(false);
         })
         .catch(e => { setError((e as Error).message); dialog.current?.close(); });
     },
@@ -221,6 +334,12 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
     const s = st.current, q = toDoc(e);
     e.currentTarget.setPointerCapture(e.pointerId);
     if (tool === 'zoom') { zoomAt(e.altKey ? 0.5 : 2, q.sx, q.sy); return; }
+    if (tool === 'face' && e.button === 0 && !s.space) {
+      // A click selects the face under the pointer; elsewhere it pans.
+      const i = s.faces ? faceAt(s.faces, q.x, q.y) : -1;
+      if (i >= 0) { setFaceIdx(i); return; }
+      if (!s.faces) detectFaces(true);
+    }
     if (tool === 'hand' || tool === 'face' || e.button === 1 || s.space) { s.down = { kind: 'pan', x: q.sx, y: q.sy }; return; }
     s.down = { kind: 'stroke', x: q.x, y: q.y };
     send({ op: 'begin', brush: brush(), x: q.x, y: q.y });
@@ -272,6 +391,60 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
     <label>{label}<NumberInput min={min} max={max} step={1} value={prefs[key]}
       onValue={v => setPrefs({ [key]: Math.min(max, Math.max(min, Math.round(v))) })} /></label>
   );
+  // Face-Aware Liquify: Select Face, Reset (this face), All (every face), then the sliders by section.
+  function faceSection() {
+    if (!faces) {
+      return (
+        <div className="liquify-row">
+          <button type="button" disabled={detecting} onClick={() => detectFaces(true)}><Trans>Detect Faces</Trans></button>
+          {detecting && <span className="hint"><Trans>Detecting faces…</Trans></span>}
+        </div>
+      );
+    }
+    if (!faces.length) return <p className="hint"><Trans>No faces found.</Trans></p>;
+    const cur = faceSet[faceIdx] ?? FACE_ZERO;
+    const range = (label: string, value: number, set: (v: number) => void) => (
+      <input type="range" min={-100} max={100} step={1} value={value} aria-label={label} title={`${label}: ${value}`}
+        onChange={e => set(Number(e.currentTarget.value))} onDoubleClick={() => set(0)} />
+    );
+    return (
+      <div className="liquify-face">
+        <label><Trans>Select Face</Trans><select value={faceIdx} onChange={e => setFaceIdx(Number(e.currentTarget.value))}>
+          {faces.map((_, i) => { const n = i + 1; return <option key={i} value={i}>{t`Face #${n}`}</option>; })}
+        </select></label>
+        <div className="liquify-row">
+          <button type="button" onClick={() => updateFace(() => FACE_ZERO)}><Trans>Reset</Trans></button>
+          <button type="button" onClick={() => setFaceSet(faceSet.map(() => FACE_ZERO))}>{t({ message: 'All', context: 'face-aware liquify reset' })}</button>
+        </div>
+        {FACE_GROUPS.map(([group, rows], gi) => (
+          <details key={gi} open={gi === 0}>
+            <summary>{i18n._(group)}</summary>
+            {gi === 0 && EYE_ROWS.map(([key, d]) => {
+              const name = i18n._(d), on = linked[key], link = on ? t`Unlink the eyes` : t`Link the eyes`;
+              const left = t`${name}, left eye`, right = t`${name}, right eye`;
+              return (
+                <div key={key} className="liquify-face-slider">
+                  <span>{name}</span>
+                  <div className="liquify-face-pair">
+                    {range(left, cur[key][0], v => updateFace(s => setEye(s, key, 0, v, on)))}
+                    <button type="button" aria-label={link} title={link} aria-pressed={on} onClick={() => setLinked(l => ({ ...l, [key]: !on }))}>
+                      {on ? <Link2 {...ICON} /> : <Link2Off {...ICON} />}
+                    </button>
+                    {range(right, cur[key][1], v => updateFace(s => setEye(s, key, 1, v, on)))}
+                  </div>
+                </div>
+              );
+            })}
+            {rows.map(([key, d]) => {
+              const name = i18n._(d);
+              return <label key={key} className="liquify-face-slider"><span>{name}</span>{range(name, cur[key], v => updateFace(s => setSingle(s, key, v)))}</label>;
+            })}
+          </details>
+        ))}
+      </div>
+    );
+  }
+
   const check = (label: string, key: 'showImage' | 'showMesh' | 'showMask' | 'showGuides' | 'showBackdrop', after?: (on: boolean) => void) => (
     <label className="adjustment-check"><input type="checkbox" checked={prefs[key]} onChange={e => { const on = e.currentTarget.checked; setPrefs({ [key]: on }); after?.(on); }} /> {label}</label>
   );
@@ -286,7 +459,7 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
             {TOOLS.map(([id, d, key]) => {
               const label = i18n._(d);
               return (
-              <button key={id} type="button" title={`${label} (${key})`} aria-label={label} aria-pressed={tool === id} disabled={id === 'face'}
+              <button key={id} type="button" title={`${label} (${key})`} aria-label={label} aria-pressed={tool === id}
                 onClick={() => setTool(id)}>{key.replace('Alt+', '⌥')}</button>
             );
             })}
@@ -311,13 +484,20 @@ export function LiquifyDialog({ ref, show, setError }: { ref: Ref<LiquifyDialogH
             <label className="adjustment-check" title={t`Pressure from a stylus is not available yet.`}><input type="checkbox" disabled /> <Trans>Stylus Pressure</Trans></label>
             <label className="adjustment-check"><input type="checkbox" checked={prefs.pinEdges}
               onChange={e => { const on = e.currentTarget.checked; setPrefs({ pinEdges: on }); send({ op: 'pin', on }); }} /> <Trans>Pin Edges</Trans></label>
+            <h3><Trans>Face-Aware Liquify</Trans></h3>
+            {faceSection()}
             <h3><Trans>Brush Reconstruct Options</Trans></h3>
             <label><Trans>Mode</Trans><select value={prefs.mode} onChange={e => setPrefs({ mode: e.currentTarget.value })}>
               {MODES.map(([m, d]) => <option key={m} value={m}>{i18n._(d)}</option>)}
             </select></label>
             <div className="liquify-row">
               <button type="button" onClick={() => setAmount(a => (a === null ? 100 : null))}><Trans>Reconstruct…</Trans></button>
-              <button type="button" onClick={() => send({ op: 'restore' })}><Trans>Restore All</Trans></button>
+              <button type="button" onClick={() => {
+                send({ op: 'restore' });
+                // Restore All clears the face field in the engine too.
+                st.current.faceSet = st.current.faceSet.map(() => FACE_ZERO);
+                setFaceSetState(st.current.faceSet);
+              }}><Trans>Restore All</Trans></button>
             </div>
             {amount !== null && (
               <div className="liquify-row">

@@ -170,12 +170,19 @@ export const ERROR_LABELS: Record<string, MessageDescriptor> = {
   'layer comp appearance is not stored in PSD': msg`layer comp appearance is not stored in PSD`,
   'The file is empty or has only a header row.': msg`The file is empty or has only a header row.`,
   'The alignment must lie between 0 and 1.': msg`The alignment must lie between 0 and 1.`,
+  // Engine
+  'the layer is hidden': msg`Could not complete your request because the target layer is hidden.`,
+  'the image is too large for Select and Mask': msg`The image is too large for Select and Mask.`,
 };
 
 // Messages with a variable part: the pattern captures it, the message takes it by name.
 const PATTERNS: [RegExp, (m: string[]) => string][] = [
   [/^Layer not found: (.+)$/, ([id]) => i18n._(msg`Layer not found: ${id}`)],
   [/^"(.+)" cannot run in an action\.$/, ([op]) => i18n._(msg`"${op}" cannot run in an action.`)],
+  [/^There is no action named "(.+)" in this set\.$/, ([name]) => i18n._(msg`There is no action named "${name}" in this set.`)],
+  [/^The action "(.+)" plays itself through a conditional step\.$/, ([name]) => i18n._(msg`The action "${name}" plays itself through a conditional step.`)],
+  [/^The menu item "(.+)" does not exist\.$/, ([item]) => i18n._(msg`The menu item "${item}" does not exist.`)],
+  [/^The menu item "(.+)" is not available now\.$/, ([item]) => i18n._(msg`The menu item "${item}" is not available now.`)],
   [/^Cannot save linked \.(.+) contents\. Use Save As to keep your edits\.$/, ([ext]) => i18n._(msg`Cannot save linked .${ext} contents. Use Save As to keep your edits.`)],
   [/^The linked source is unavailable: (.+)\. Relink the Smart Object to an existing file\.$/, ([name]) => i18n._(msg`The linked source is unavailable: ${name}. Relink the Smart Object to an existing file.`)],
   [/^(.+) export is not supported by this browser$/, ([type]) => i18n._(msg`${type} export is not supported by this browser`)],

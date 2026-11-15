@@ -46,7 +46,7 @@ export const CHOICE_LABELS: Record<string, MessageDescriptor> = {
   perceptual: msg`Perceptual`, classic: msg`Classic`,
   // Fill sources, artboard background, frame shape
   foreground: msg`Foreground`, background: msg`Background`, white: msg`White`, black: msg`Black`, transparent: msg`Transparent`,
-  rectangle: msg`Rectangle`, ellipse: msg`Ellipse`,
+  rectangle: msg`Rectangle`, ellipse: msg`Ellipse`, lasso: msg`Lasso`,
 };
 
 /** Shown text for a choice id in the UI language; an unknown id is shown as is. */

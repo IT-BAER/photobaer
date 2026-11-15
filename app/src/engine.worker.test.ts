@@ -4259,6 +4259,24 @@ test('Liquify commits one step, then a smart filter that re-edits and survives a
   e.free();
 });
 
+test('Face-Aware Liquify: the face field warps the preview, clears with null and commits as one Liquify step', async () => {
+  await call('init');
+  await call('newDoc', 32, 32, 8, [255, 255, 255, 255]);
+  await call('select', { kind: 'rect', x: 0, y: 0, w: 16, h: 32 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([255, 0, 0, 255]), 'Fill');
+  await call('selectCommand', 'deselect');
+  const v = (await call('liquifyBegin', 1, 64, 4, null)).result as { cols: number; rows: number };
+  const shift = new Float32Array(v.cols * v.rows * 2).map((_, i) => (i % 2 ? 0 : -6));
+  const red = (r: { data: ArrayBuffer }) => [...new Uint8Array(r.data, (16 * 32 + 18) * 4, 4)];
+  assert.deepEqual(red((await call('liquifyEdit', 1, [{ op: 'face', disp: shift }], false)).result as { data: ArrayBuffer }), [255, 0, 0, 255], 'red pushed right');
+  assert.deepEqual(red((await call('liquifyEdit', 1, [{ op: 'face', disp: null }], false)).result as { data: ArrayBuffer }), [255, 255, 255, 255], 'cleared');
+  assert.match((await call('liquifyEdit', 1, [{ op: 'face', disp: new Float32Array(3) }], false)).error ?? '', /does not match/);
+  await call('liquifyEdit', 1, [{ op: 'face', disp: shift }], false);
+  const d = (await call('liquifyCommit', 1, null)).result as FilterDoc;
+  assert.equal(d.undoLabel, 'Liquify');
+  assert.deepEqual(await pixelAt(18, 16), [255, 0, 0, 255]);
+});
+
 test('Puppet Warp and Perspective Warp preview over the whole document and commit one step; a smart object gets the smart filter', async () => {
   await call('init');
   await call('newDoc', 32, 32, 8, [255, 255, 255, 255]);
@@ -4789,4 +4807,148 @@ test('a camera value cut across an emoji keeps the File Info; a lone surrogate i
   const cut = cutValue(v);
   assert.ok(cut.length <= 1000 && cut === '1'.repeat(999));
   keep(cut);
+});
+
+test('aiSample gives a region at the model size; selectFromMask selects from a model mask in one unrecorded step', async () => {
+  type D = { history: { labels: string[] }; selection: { bounds: number[] | null } | null };
+  await call('init');
+  await call('newDoc', 160, 120, 8, [120, 140, 110, 255]);
+  await call('select', { kind: 'ellipse', x: 90, y: 30, w: 50, h: 50 }, 'new', false, 0, 'Elliptical Marquee');
+  await call('command', 'fill', 1, 'pixels', [200, 60, 50, 255]);
+  const before = ((await call('selectCommand', 'deselect')).result as D).history.labels.length;
+  const s = (await call('aiSample', 1, false, [0, 0, 160, 120], 16)).result as { data: ArrayBuffer; w: number; h: number };
+  assert.deepEqual([s.data.byteLength, s.w, s.h], [16 * 16 * 4, 16, 16]);
+  const px = (x: number, y: number) => [...new Uint8Array(s.data, (y * 16 + x) * 4, 4)];
+  assert.deepEqual(px(11, 7), [200, 60, 50, 255], 'inside the disc');
+  assert.deepEqual(px(1, 1), [120, 140, 110, 255], 'background');
+  const mask = Uint8Array.from({ length: 256 }, (_, i) => (new Uint8Array(s.data)[i * 4] > 160 ? 255 : 0));
+
+  events.length = 0;
+  await call('recordStart');
+  const r = (await call('selectFromMask', 1, false, mask, 16, [0, 0, 160, 120], 'new', 'Select Subject')).result as D;
+  await call('recordStop');
+  assert.equal(events.filter(e => (e as { event: string }).event === 'actionStep').length, 0, 'the UI records a menu step instead');
+  assert.deepEqual(r.history.labels.slice(before), ['Select Subject']);
+  const b = r.selection!.bounds!;
+  [90, 30, 50, 50].forEach((v, i) => assert.ok(Math.abs(b[i] - v) <= 3, `bounds ${b.join()}`));
+
+  const kept = (await call('selectFromMask', 1, false, new Uint8Array(256), 16, [0, 0, 160, 120], 'new', 'Select Subject')).result as D;
+  assert.equal(kept.history.labels.length, before + 1, 'an empty mask adds no step');
+  assert.deepEqual(kept.selection!.bounds, b, 'and keeps the selection');
+  assert.ok((await call('selectFromMask', 1, false, mask, 16, [200, 0, 10, 10], 'new', 'Select Subject')).error, 'a region off the canvas is an error');
+  assert.ok((await call('aiSample', 1, false, [0, 0, 160, 120], 5000)).error, 'a model size over 4096 is an error');
+});
+
+test('Focus Area: auto values, the working-size preview, a recorded Focus Area step, and the New Document output', async () => {
+  type D = { docId: number; width: number; history: { labels: string[] }; selection: { bounds: number[] | null } | null; layers: { id: number; mask: unknown }[] };
+  await call('init');
+  await call('newDoc', 128, 64, 8, [200, 200, 200, 255]);
+  // Sharp 2 px stripes on the left half, flat grey on the right.
+  for (let x = 0; x < 64; x += 4) {
+    await call('select', { kind: 'rect', x, y: 0, w: 2, h: 64 }, 'new', false, 0, 'Rectangular Marquee');
+    await call('fillEx', 1, 'pixels', solid([20, 20, 20, 255]), 'Fill');
+  }
+  const before = ((await call('selectCommand', 'deselect')).result as D).history.labels.length;
+  const [range, noise] = (await call('focusAuto', 1)).result as [number, number];
+  assert.ok(range > 0 && range < 7.5 && noise >= 0 && noise <= 1, `auto ${range} ${noise}`);
+  const im = (await call('focusImage', 1)).result as { w: number; h: number; data: ArrayBuffer };
+  assert.deepEqual([im.w, im.h, im.data.byteLength], [128, 64, 128 * 64 * 4]);
+  const p = (await call('focusPreview', 1, range, noise, null)).result as { w: number; h: number; data: ArrayBuffer };
+  const m = new Uint8Array(p.data);
+  assert.deepEqual([p.w, p.h, m.length, m[32 * 128 + 20], m[32 * 128 + 110]], [128, 64, 128 * 64, 255, 0]);
+
+  events.length = 0;
+  await call('recordStart');
+  const r = (await call('focusArea', 1, range, noise, null, false)).result as D;
+  await call('recordStop');
+  assert.deepEqual(r.history.labels.slice(before), ['Focus Area']);
+  const steps = events.filter(e => (e as { event: string }).event === 'actionStep') as { step: { calls: { op: string }[] } }[];
+  assert.deepEqual(steps.map(s => s.step.calls.map(c => c.op)), [['focusArea']], 'recorded as one step');
+  const b = r.selection!.bounds!;
+  [0, 0, 64, 64].forEach((v, i) => assert.ok(Math.abs(b[i] - v) <= 4, `bounds ${b.join()}`));
+  const kept = (await call('focusArea', 1, range, noise, new Uint8Array(128 * 64), false)).result as D;
+  assert.equal(kept.history.labels.length, before + 1, 'removing everything adds no step');
+  assert.deepEqual(kept.selection!.bounds, b, 'and keeps the selection');
+  assert.ok((await call('focusPreview', 1, range, noise, new Uint8Array(7))).error, 'edits must have the working size');
+  const odd = await call('focusArea', 1, range, noise, new Uint8Array(7), false);
+  assert.ok(!odd.error, `edits recorded on a document of another size are ignored: ${odd.error}`);
+  assert.deepEqual((odd.result as D).selection!.bounds, b);
+
+  const nd = (await call('focusToDocument', 1, true)).result as D;
+  assert.notEqual(nd.docId, r.docId, 'a new document is active');
+  assert.equal(nd.width, 128);
+  assert.ok(nd.layers.find(l => l.id === 1)!.mask, 'its layer has the selection as mask');
+});
+
+test('Remove Background: the subject mask becomes the layer mask in one step and the Background is renamed', async () => {
+  type D = { history: { labels: string[] }; selection: unknown; layers: { id: number; name: string; mask: unknown }[] };
+  await call('init');
+  await call('newDoc', 64, 64, 8, [230, 230, 230, 255]);
+  await call('setProps', 1, { name: 'Background' }, 'Rename');
+  const before = ((await call('selectCommand', 'deselect')).result as D).history.labels.length;
+  const empty = (await call('removeBackground', 1, new Uint8Array(16), 4)).result as D;
+  assert.equal(empty.history.labels.length, before, 'no subject: no step');
+  const mask = Uint8Array.from({ length: 16 }, (_, i) => (i === 5 || i === 6 || i === 9 || i === 10 ? 255 : 0));
+  const r = (await call('removeBackground', 1, mask, 4)).result as D;
+  assert.deepEqual(r.history.labels.slice(before), ['Remove Background']);
+  const l = r.layers.find(n => n.id === 1)!;
+  assert.equal(l.name, 'Layer 0');
+  assert.ok(l.mask, 'masked');
+  assert.equal(r.selection, null, 'the selection went into the mask');
+  assert.ok((await call('removeBackground', 1, mask, 4)).error, 'a layer with a mask is refused');
+});
+
+test('Select and Mask: working-size image and preview, one recorded step per output, new layers hide the source', async () => {
+  type L = { id: number; visible: boolean; mask: unknown };
+  type D = { docId: number; history: { labels: string[] }; selection: { bounds: number[] | null } | null; layers: L[]; created?: number };
+  await call('init');
+  // Blue with gold from column 40; the selection starts 4 px inside the gold.
+  await call('newDoc', 96, 32, 8, [30, 40, 200, 255]);
+  await call('select', { kind: 'rect', x: 40, y: 0, w: 56, h: 32 }, 'new', false, 0, 'Rectangular Marquee');
+  await call('fillEx', 1, 'pixels', solid([220, 180, 40, 255]), 'Fill');
+  const before = ((await call('select', { kind: 'rect', x: 44, y: 0, w: 52, h: 32 }, 'new', false, 0, 'Rectangular Marquee')).result as D).history.labels.length;
+  const im = (await call('refineImage', 1, false)).result as { w: number; h: number; data: ArrayBuffer; sel: ArrayBuffer };
+  assert.deepEqual([im.w, im.h, im.data.byteLength, new Uint8Array(im.sel)[16 * 96 + 42], new Uint8Array(im.sel)[16 * 96 + 50]], [96, 32, 96 * 32 * 4, 0, 255]);
+  const s = { radius: 8, smart_radius: false, smooth: 0, feather: 0, contrast: 0, shift_edge: 0 };
+  const base = { invert: false, clear: false };
+  const p = (await call('refinePreview', 1, false, s, base, null)).result as { w: number; h: number; alpha: ArrayBuffer; band: ArrayBuffer };
+  assert.ok(new Uint8Array(p.alpha)[16 * 96 + 41] > 240, 'the gold column next to the old edge is in');
+  assert.deepEqual([new Uint8Array(p.band)[16 * 96 + 44], new Uint8Array(p.band)[16 * 96 + 5]], [255, 0]);
+  assert.ok((await call('refinePreview', 1, false, { ...s, radius: 300 }, base, null)).error, 'Radius is 0..250');
+
+  events.length = 0;
+  await call('recordStart');
+  const r = (await call('selectAndMask', 1, false, s, base, null, 'selection', false, 100)).result as D;
+  await call('recordStop');
+  assert.deepEqual(r.history.labels.slice(before), ['Select and Mask']);
+  const steps = events.filter(e => (e as { event: string }).event === 'actionStep') as { step: { calls: { op: string }[] } }[];
+  assert.deepEqual(steps.map(st => st.step.calls.map(c => c.op)), [['selectAndMask']], 'recorded as one step');
+  assert.equal(r.selection!.bounds![0], 40, 'the selection snapped to the gold edge');
+  await call('undo');
+  const odd = await call('selectAndMask', 1, false, s, base, new Uint8Array(7), 'selection', false, 100);
+  assert.ok(!odd.error, `edits recorded on a document of another size are ignored: ${odd.error}`);
+  assert.equal((odd.result as D).selection!.bounds![0], 40);
+  await call('undo');
+
+  const lm = (await call('selectAndMask', 1, false, s, base, null, 'layerMask', false, 100)).result as D;
+  assert.deepEqual(lm.history.labels.slice(before), ['Select and Mask']);
+  assert.ok(lm.layers.find(l => l.id === 1)!.mask, 'Layer Mask output');
+  assert.equal(lm.selection, null);
+  await call('undo');
+
+  const nl = (await call('selectAndMask', 1, false, s, base, null, 'newLayerMask', true, 100)).result as D;
+  assert.deepEqual(nl.history.labels.slice(before), ['Select and Mask'], 'one step with Decontaminate Colors');
+  const made = nl.layers.find(l => l.id === nl.created)!;
+  assert.ok(made.mask, 'New Layer with Layer Mask');
+  assert.equal(nl.layers.find(l => l.id === 1)!.visible, false, 'the source layer is hidden');
+  await call('undo');
+
+  const plain = (await call('selectAndMask', 1, false, s, base, null, 'newLayer', false, 100)).result as D;
+  assert.equal(plain.layers.find(l => l.id === plain.created)!.mask, null, 'New Layer carries the selection in its pixels');
+  await call('undo');
+
+  const nd = (await call('selectAndMask', 1, false, s, base, null, 'selection', false, 100)).result as D;
+  const doc2 = (await call('focusToDocument', 1, false, 100)).result as D;
+  assert.notEqual(doc2.docId, nd.docId, 'New Document with Decontaminate Colors');
+  assert.equal(doc2.layers.length, 1);
 });

@@ -12,6 +12,9 @@ const headers = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Emb
 
 // Website files (content pages, their images, crawler files) are not part of the offline app.
 const SITE_ONLY = /^(img\/|licenses\/|[^/]+\/index\.html$|site\.css$|og-image\.png$|robots\.txt$|sitemap\.xml$|llms\.txt$)/;
+// The model runtimes' WASM (ONNX Runtime about 29 MB, MediaPipe about 13.5 MB) is cached on first use of a model
+// feature, not at install.
+const ON_DEMAND = /(^|\/)(ort-wasm|vision_wasm)[^/]*\.wasm$/;
 
 function notices(): Plugin {
   return {
@@ -35,7 +38,7 @@ function precache(): Plugin {
       const files = (readdirSync(outDir, { recursive: true, withFileTypes: true }))
         .filter(d => d.isFile())
         .map(d => relative(outDir, join(d.parentPath, d.name)).replaceAll('\\', '/'))
-        .filter(f => f !== 'sw.js' && f !== 'precache.json' && !SITE_ONLY.test(f));
+        .filter(f => f !== 'sw.js' && f !== 'precache.json' && !SITE_ONLY.test(f) && !ON_DEMAND.test(f));
       writeFileSync(join(outDir, 'precache.json'), JSON.stringify(files));
       const hash = createHash('sha256');
       for (const f of files.sort()) {
@@ -65,6 +68,9 @@ export default defineConfig({
   plugins: [react(), linguiPlugin(), notices(), precache()],
   define: { __APP_VERSION__: JSON.stringify(version) },
   server: { headers },
+  // Pre-bundling would move the model runtime away from the WASM it loads next to itself. MediaPipe gets its WASM
+  // URLs passed in; listed so the dev server does not find it late (in the model worker) and reload the page.
+  optimizeDeps: { exclude: ['onnxruntime-web'], include: ['@mediapipe/tasks-vision'] },
   preview: { headers },
   build: { outDir: '../dist', emptyOutDir: true, target: 'es2023' },
   // Workers build with their own plugin list: modules the engine worker imports use Lingui macros too.

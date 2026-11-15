@@ -39,6 +39,9 @@ export class EngineClient {
     return p;
   }
 
+  // True while a call waits for its reply.
+  get busy() { return this.#pending.size > 0; }
+
   #boot!: () => void;
   #booted = new Promise<void>(r => { this.#boot = r; });
 

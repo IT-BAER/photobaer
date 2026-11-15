@@ -61,11 +61,11 @@ export interface MenuCtx {
   filterCommand: (op: 'toggle' | 'clear' | 'deleteMasks' | 'toggleMasks', label: string) => () => void; filters: SmartFilterInfo[];
   filterMasks: boolean; maskLabel: Label; openFilterBlend: () => void; openLayerStyle: (page: StylePage, id?: number) => void;
   globalLightDialog: DialogRef; allEffectsHidden: boolean; anyStyled: boolean; scaleEffectsDialog: DialogRef; defringeDialog: DialogRef; decontaminateDialog: DialogRef;
-  openAutomate: (kind: AutomateKind) => void; openBatch: () => void; openImageProcessor: () => void; openLoadStack: () => void; browseScript: () => void; scriptRunning: boolean;
+  openAutomate: (kind: AutomateKind) => void; openBatch: () => void; openCreateDroplet: () => void; openImageProcessor: () => void; openLoadStack: () => void; browseScript: () => void; scriptRunning: boolean;
   assetsOn: boolean; toggleImageAssets: () => void; packageDoc: () => void; openVariables: (tab: 'define' | 'sets') => void; openApplyDataSet: () => void; openImportSets: () => void; openFileInfo: () => void; openPrint: () => void; printOneCopy: () => void;
   openAnalysis: (kind: 'scale' | 'points' | 'marker') => void; recordMeasurements: () => void; chooseTool: (id: string) => void;
   openAdjust: (kind: Kind | DestructiveKind) => void; hostOff: boolean; pixelsOff: boolean; openImageCalc: (calc: boolean) => void; openModeDialog: (kind: ModeDialogKind) => void; convertDepth: (depth: 8 | 16 | 32) => void; openColorDialog: (kind: ColorDialogKind) => void; applyDestructive: (kind: DestructiveKind) => void;
-  rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
+  rotateDialog: DialogRef; trimDialog: DialogRef; imageSizeDialog: DialogRef; canvasSizeDialog: DialogRef; openColorRange: () => void; openFocusArea: () => void; openSelectAndMask: () => void; openModify: (op: keyof typeof MODIFY_OPS) => void;
   featherDialog: DialogRef; growOrSimilar: (op: 'grow' | 'similar') => () => void; selectSubject: () => void; setQuickMask: SetState<boolean>;
   loadSelDialog: DialogRef; saveSelDialog: DialogRef; viewer: RefObject<Viewer | null>;
   filterSpecs: FilterSpec[]; openFilter: (spec: FilterSpec) => void; openLiquify: () => void; openVanishingPoint: () => void; openContentAwareScale: () => void; startDeform: (kind: 'puppet' | 'perspective') => void; lastFilter: () => void; openFade: () => void; openSearch: () => void;
@@ -142,7 +142,7 @@ export function buildMenus(c: MenuCtx) {
     deleteMask, toggleMaskEnabled, openNewFillLayer, newAdjustmentLayer, openLayerContentOptions, smart, editContents, replaceContents,
     exportContents, convertToLinked, anyLinked, toggleLabel, filterCommand, filters, filterMasks, maskLabel, openFilterBlend, openLayerStyle,
     openAutomate, openBatch, openImageProcessor, openLoadStack, browseScript, scriptRunning, assetsOn, toggleImageAssets, packageDoc, openVariables, openApplyDataSet, openImportSets, openFileInfo, openPrint, printOneCopy, openAnalysis, recordMeasurements, chooseTool, globalLightDialog, allEffectsHidden, anyStyled, scaleEffectsDialog, defringeDialog, decontaminateDialog, openAdjust, hostOff, pixelsOff, openImageCalc, openModeDialog, convertDepth, openColorDialog, applyDestructive, rotateDialog, trimDialog, imageSizeDialog, canvasSizeDialog,
-    openColorRange, openModify, featherDialog, growOrSimilar, selectSubject, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
+    openColorRange, openFocusArea, openSelectAndMask, openModify, featherDialog, growOrSimilar, selectSubject, setQuickMask, loadSelDialog, saveSelDialog, viewer, showAnts, setShowAnts,
     showAdjustments, setShowAdjustments, showLayerComps, setShowLayerComps, showChannels, setShowChannels, showActions, setShowActions, showPaths, setShowPaths, showProperties, setShowProperties, showStyles, setShowStyles,
     showPatterns, setShowPatterns, showGradients, setShowGradients, showRulers, setShowRulers, showPixelGrid, setShowPixelGrid,
     showGuides, setShowGuides, showGrid, setShowGrid, newGuideDialog, newGuideLayoutDialog, cursorPrefsDialog, snap, setSnap, openArtboard, activeArtboard,
@@ -249,6 +249,7 @@ export function buildMenus(c: MenuCtx) {
       {
         ...tl(msg`Automate`), keys: '›', run: () => {}, sub: [
           { ...tl(msg`Batch…`), run: openBatch },
+          { ...tl(msg`Create Droplet…`), run: c.openCreateDroplet },
           { ...tl(msg`Photomerge…`), sep: true, run: () => openAutomate('photomerge'), off: !has },
           { ...tl(msg`Merge to HDR Pro…`), run: () => openAutomate('hdr'), off: (doc?.docs.length ?? 0) < 2 },
         ],
@@ -486,7 +487,9 @@ export function buildMenus(c: MenuCtx) {
       { ...tl(msg`Find Layers`), keys: 'Alt+Shift+Ctrl+F', run: () => { setMenu(null); findLayers(); }, off: !has },
       { ...tl(msg`Isolate Layers`, isolated), run: toggleIsolate, off: !has || (!isolated && !selectedNodes.length) },
       { ...tl(msg`Color Range…`), sep: true, run: () => openColorRange(), off: !has },
+      { ...tl(msg`Focus Area…`), run: openFocusArea, off: !has || node?.kind !== 'pixel' },
       { ...tl(msg`Subject`), run: selectSubject, off: !has || node?.kind !== 'pixel' },
+      { ...tl(msg`Select and Mask…`), keys: 'Alt+Ctrl+R', sep: true, run: openSelectAndMask, off: !has || node?.kind !== 'pixel' },
       {
         ...tl(msg`Modify`), keys: '›', sep: true, run: () => {}, off: !doc?.selection, sub: [
           { ...tl(msg`Border…`), run: () => openModify('border') },

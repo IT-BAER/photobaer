@@ -3,6 +3,9 @@
 
 use super::*;
 
+// About 60 bytes per pixel of planes while refining; more would exhaust the 4 GB wasm heap.
+const REFINE_MAX_PIXELS: usize = 50_000_000;
+
 impl Document {
     // ---------- selection (M2.md section 3) ----------
 
@@ -405,6 +408,154 @@ impl Document {
         };
         self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), Mode::New)?;
         Ok(true)
+    }
+
+    // `[x, y, w, h]` clipped to the canvas; an error when nothing is left.
+    fn clip_region(&self, r: [i32; 4]) -> Result<[i32; 4], String> {
+        let (x0, y0) = (r[0].max(0), r[1].max(0));
+        let (x1, y1) = (r[0].saturating_add(r[2]).min(self.width as i32), r[1].saturating_add(r[3]).min(self.height as i32));
+        if x1 <= x0 || y1 <= y0 {
+            return Err("the region is outside the canvas".into());
+        }
+        Ok([x0, y0, x1 - x0, y1 - y0])
+    }
+
+    /// One layer's pixels (or the composite) in `rect` (`[x, y, w, h]`, clipped to the canvas) as an opaque
+    /// `ow x oh` RGBA8 image over mid grey: the input of a segmentation model.
+    pub fn region_rgba(&self, sample_all: bool, layer_id: u32, rect: [i32; 4], ow: u32, oh: u32) -> Result<Vec<u8>, String> {
+        self.check_idle()?;
+        if !(1..=4096).contains(&ow) || !(1..=4096).contains(&oh) {
+            return Err("the model image must be 1..=4096 px per side".into());
+        }
+        if !sample_all && !self.node(layer_id)?.visible {
+            return Err("the layer is hidden".into());
+        }
+        let rect = self.clip_region(rect)?;
+        let src = self.sample_rgba8(sample_all, layer_id)?;
+        Ok(crate::matte::downscale_rgba(&src, self.width as usize, self.height as usize, rect, ow as usize, oh as usize, 128))
+    }
+
+    /// Selects from a segmentation model's mask (0..255, `mw x mh`) over `rect`, refined against the sampled
+    /// pixels; false (selection untouched) when no mask pixel reaches half coverage.
+    #[allow(clippy::too_many_arguments)]
+    pub fn select_mask(&mut self, sample_all: bool, layer_id: u32, mask: &[u8], mw: u32, mh: u32, rect: [i32; 4], mode: Mode) -> Result<bool, String> {
+        self.check_idle()?;
+        let (mw, mh) = (mw as usize, mh as usize);
+        if mw == 0 || mh == 0 || mask.len() != mw * mh {
+            return Err("the mask size must match its width and height".into());
+        }
+        let rect = self.clip_region(rect)?;
+        if !mask.iter().any(|&v| v >= 128) {
+            return Ok(false);
+        }
+        let src = self.sample_rgba8(sample_all, layer_id)?;
+        let cov = crate::matte::upsample_mask(mask, mw, mh, &src, self.width as usize, self.height as usize, rect);
+        self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), mode)?;
+        Ok(true)
+    }
+
+    /// Focus Area's working size `[w, h]`: the size of its preview mask and of the brush edits.
+    pub fn focus_size(&self) -> [u32; 2] {
+        let (w, h) = crate::focus::work_size(self.width as usize, self.height as usize);
+        [w as u32, h as u32]
+    }
+
+    // Focus Area's analysis of a visible layer's pixels; `edits` must be empty or the working size.
+    fn focus_of(&self, layer_id: u32, edits: &[u8]) -> Result<(crate::focus::Focus, Vec<u8>), String> {
+        self.check_idle()?;
+        if !self.node(layer_id)?.visible {
+            return Err("the layer is hidden".into());
+        }
+        let [w, h] = self.focus_size();
+        if !edits.is_empty() && edits.len() != (w * h) as usize {
+            return Err("the edits must have the working size".into());
+        }
+        let src = self.sample_rgba8(false, layer_id)?;
+        Ok((crate::focus::Focus::new(&src, self.width as usize, self.height as usize), src))
+    }
+
+    /// Focus Area's automatic `[In-Focus Range, Image Noise Level]` for a layer.
+    pub fn focus_auto(&self, layer_id: u32) -> Result<[f32; 2], String> {
+        let (f, _) = self.focus_of(layer_id, &[])?;
+        let (range, noise) = f.auto();
+        Ok([range, noise])
+    }
+
+    /// Focus Area's in-focus mask at the working size (0 or 255), with the brush edits applied.
+    pub fn focus_preview(&self, layer_id: u32, range: f32, noise: f32, edits: &[u8]) -> Result<Vec<u8>, String> {
+        let (f, _) = self.focus_of(layer_id, edits)?;
+        Ok(f.mask(range, noise, edits))
+    }
+
+    /// Selects a layer's in-focus area, its edges snapped to the image; without `soften` the edge is hard.
+    /// False (selection untouched) when nothing is in focus.
+    pub fn focus_area(&mut self, layer_id: u32, range: f32, noise: f32, edits: &[u8], soften: bool) -> Result<bool, String> {
+        let (f, src) = self.focus_of(layer_id, edits)?;
+        let mask = f.mask(range, noise, edits);
+        if !mask.contains(&255) {
+            return Ok(false);
+        }
+        let (w, h) = (self.width as usize, self.height as usize);
+        let mut cov = crate::matte::upsample_mask(&mask, f.w, f.h, &src, w, h, [0, 0, w as i32, h as i32]);
+        if !soften {
+            cov.iter_mut().for_each(|v| *v = if *v >= 0.5 { 1.0 } else { 0.0 });
+        }
+        self.select_shape(&MaskShape::new(self.width as i32, self.height as i32, cov), Mode::New)?;
+        Ok(true)
+    }
+
+    // Select and Mask's starting coverage: the selection (nothing without one), cleared and/or inverted.
+    fn refine_base(&self, invert: bool, clear: bool) -> Vec<f32> {
+        let mut v = if clear { vec![0f32; (self.width * self.height) as usize] } else { self.selection_values() };
+        if invert {
+            v.iter_mut().for_each(|a| *a = 1.0 - *a);
+        }
+        v
+    }
+
+    /// Select and Mask's starting selection at the working size (0..255).
+    pub fn refine_original(&self) -> Vec<u8> {
+        let [mw, mh] = self.focus_size();
+        let small = crate::refine::downscale_mean(&self.refine_base(false, false), self.width as usize, self.height as usize, mw as usize, mh as usize);
+        small.iter().map(|v| (v * 255.0).round().clamp(0.0, 255.0) as u8).collect()
+    }
+
+    // Edits must be empty or the working size.
+    fn check_refine_edits(&self, edits: &[u8]) -> Result<[usize; 2], String> {
+        let [mw, mh] = self.focus_size();
+        if !edits.is_empty() && edits.len() != (mw * mh) as usize {
+            return Err("the edits must have the working size".into());
+        }
+        Ok([mw as usize, mh as usize])
+    }
+
+    /// Select and Mask's preview at the working size: the refined coverage (0..255), then the edge band (0 or 255).
+    pub fn refine_preview(&self, sample_all: bool, layer_id: u32, p: &crate::refine::Params, invert: bool, clear: bool, edits: &[u8]) -> Result<Vec<u8>, String> {
+        self.check_idle()?;
+        let [mw, mh] = self.check_refine_edits(edits)?;
+        let (w, h) = (self.width as usize, self.height as usize);
+        let src = self.sample_rgba8(sample_all, layer_id)?;
+        let small = crate::matte::downscale_rgba(&src, w, h, [0, 0, w as i32, h as i32], mw, mh, 128);
+        let base = crate::refine::downscale_mean(&self.refine_base(invert, clear), w, h, mw, mh);
+        let r = crate::refine::refine(&base, &small, mw, mh, p, mw as f32 / w as f32, edits);
+        let mut out: Vec<u8> = r.alpha.iter().map(|v| (v * 255.0).round().clamp(0.0, 255.0) as u8).collect();
+        out.extend(r.band.iter().map(|&b| if b { 255 } else { 0 }));
+        Ok(out)
+    }
+
+    /// Select > Select and Mask: the selection (cleared and/or inverted first) refined against one layer's pixels
+    /// or the composite replaces the selection. `edits` as in `refine_preview`, upsampled to the document.
+    pub fn select_and_mask(&mut self, sample_all: bool, layer_id: u32, p: &crate::refine::Params, invert: bool, clear: bool, edits: &[u8]) -> Result<(), String> {
+        self.check_idle()?;
+        let [mw, mh] = self.check_refine_edits(edits)?;
+        let (w, h) = (self.width as usize, self.height as usize);
+        if w * h > REFINE_MAX_PIXELS {
+            return Err("the image is too large for Select and Mask".into());
+        }
+        let src = self.sample_rgba8(sample_all, layer_id)?;
+        let full = crate::refine::upsample_edits(edits, mw, mh, w, h);
+        let r = crate::refine::refine(&self.refine_base(invert, clear), &src, w, h, p, 1.0, &full);
+        self.select_shape(&MaskShape::new(w as i32, h as i32, r.alpha), Mode::New)
     }
 
     /// Quick mask (docs/M2.md section 3): paints into the selection itself, as if it were a

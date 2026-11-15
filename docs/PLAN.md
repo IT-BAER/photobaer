@@ -75,8 +75,11 @@ Key points:
 | Spell check | nspell / Hunspell WASM | MIT / MPL-LGPL | dictionary licenses vary per language |
 | RAW | LibRaw → WASM | LGPL-2.1 or CDDL | ship as separate module, publish its source |
 | Lens profiles | lensfun database | CC-BY-SA 3.0 (data) | attribution file |
-| AI runtime | onnxruntime-web | MIT | WebGPU execution provider |
-| AI models | withoutBG open model, SAM-family, LaMa inpainting | to check per model | DINOv3 terms apply to withoutBG; each model gets a license check before it ships |
+| AI runtime | onnxruntime-web (1.31.1) | MIT | WebGPU execution provider, WASM CPU fallback; its 28.7 MB wasm loads on first AI use and is not precached |
+| Subject and background model | IS-Net general-use (DIS), fp16 ONNX export by IMG.LY (huggingface.co/imgly/isnet-general-onnx, revision 440dea96) | Apache-2.0 (weights), MIT (export) | 88.2 MB, downloaded on first use after the user confirms, sha256-checked, cached; used by Select Subject, Remove Background, Select Background and Object Selection |
+| Face runtime | @mediapipe/tasks-vision (1.1.1) | Apache-2.0 | Face Landmarker on the CPU in the model worker; its 13.5 MB wasm loads on first Face-Aware Liquify use and is not precached |
+| Face model | MediaPipe Face Landmarker, float16 v1 (storage.googleapis.com/mediapipe-models, face_landmarker.task) | Apache-2.0 (Google model card "MediaPipe Face Mesh V2") | 3.8 MB, 478 landmarks, downloaded on first use after the user confirms, sha256-checked, cached; used by Face-Aware Liquify |
+| Other AI models | SAM-family, LaMa inpainting, withoutBG | to check per model | BiRefNet_lite (MIT) does not run in ORT 1.31.1 in the browser (WebGPU storage-buffer limit, wasm32 memory); RMBG is non-commercial; withoutBG carries DINOv3 terms |
 | PDF import | pdf.js | Apache-2.0 | |
 | Scripting | QuickJS (quickjs-emscripten) | MIT | sandboxed, own DOM-like API |
 | Image codecs | own Rust (png, jpeg-decoder, image-webp, ...) + browser codecs | MIT/Apache | AVIF/HEIC/JXL per license |

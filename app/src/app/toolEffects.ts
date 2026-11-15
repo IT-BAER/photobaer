@@ -38,10 +38,12 @@ export interface SelectionToolsCtx {
   magneticRef: RefObject<{ lasso: MagneticLasso; handle: number | null; mode: SelectMode } | null>; tool: string;
   polygonActionsRef: RefObject<PolygonActions | null>; toolOptionsRef: RefObject<ToolOptions>; polygonModeRef: RefObject<SelectMode>;
   show: Show; docRef: RefObject<DocInfo | null>; activeRef: RefObject<Active | null>; doc: DocInfo | null;
+  // Object Selection: the drawn shape (flat document x, y) to the segmentation model.
+  objectSelect: (points: number[], mode: SelectMode, sampleAll: boolean) => void;
 }
 
 export function useSelectionTools(c: SelectionToolsCtx) {
-  const { viewer, dragRef, polygonRef, lastPolyDownRef, overlayRef, magneticRef, tool, polygonActionsRef, toolOptionsRef, polygonModeRef, show, docRef, activeRef, doc } = c;
+  const { viewer, dragRef, polygonRef, lastPolyDownRef, overlayRef, magneticRef, tool, polygonActionsRef, toolOptionsRef, polygonModeRef, show, docRef, activeRef, doc, objectSelect } = c;
   // Rectangular/elliptical marquees, row/column marquees, freehand lasso, the polygonal lasso,
   // the magnetic lasso, quick selection and the magic wand all drive the viewer's raw pointer
   // events and the overlay preview; everything else forwards through onPointer as a no-op.
@@ -243,6 +245,31 @@ export function useSelectionTools(c: SelectionToolsCtx) {
         client.call('quickSelect', activeRef.current?.id ?? 0, d.points, r, !!o.sampleAllLayers, d.mode, !!o.autoEnhance).then(show);
       };
       v.onHover = e => v.onPointer(e);
+    } else if (tool === 'objectSelection') {
+      v.onPointer = e => {
+        const o = toolOptionsRef.current;
+        if (e.type === 'down') {
+          dragRef.current = { start: [e.x, e.y], points: [e.x, e.y], mode: selectMode(o.mode as string, e.shiftKey, e.altKey) };
+          return;
+        }
+        const d = dragRef.current as { start: [number, number]; points: number[]; mode: SelectMode } | null;
+        if (!d) return;
+        const lasso = o.shape === 'lasso';
+        const [sx, sy] = d.start;
+        const shape = () => lasso ? d.points : [sx, sy, e.x, sy, e.x, e.y, sx, e.y];
+        if (e.type === 'move') {
+          if (lasso) {
+            const lx = d.points[d.points.length - 2], ly = d.points[d.points.length - 1];
+            if (Math.hypot(e.x - lx, e.y - ly) >= 0.5) d.points.push(e.x, e.y);
+            overlayRef.current?.setPreview({ kind: 'path', points: d.points, closed: false });
+          } else overlayRef.current?.setPreview({ kind: 'rect', x: Math.min(sx, e.x), y: Math.min(sy, e.y), w: Math.abs(e.x - sx), h: Math.abs(e.y - sy) });
+          return;
+        }
+        dragRef.current = null;
+        overlayRef.current?.setPreview(null);
+        if (e.type === 'cancel') return;
+        objectSelect(shape(), d.mode, !!o.sampleAllLayers);
+      };
     } else if (tool === 'magicWand') {
       v.onPointer = e => {
         if (e.type !== 'down') return;

@@ -1,6 +1,8 @@
 // Offline shell: precache every built file, network-first for navigations, cache-first for the rest.
 // The build rewrites CACHE to 'photobaer-<content hash>', so each release installs a fresh worker and cache.
+// MODELS holds downloaded models (app/src/ai/models.ts) and survives releases.
 const CACHE = 'photobaer';
+const MODELS = 'photobaer-models';
 
 self.addEventListener('install', e => e.waitUntil((async () => {
   const files = await (await fetch('precache.json', { cache: 'no-store' })).json();
@@ -11,7 +13,7 @@ self.addEventListener('install', e => e.waitUntil((async () => {
 })()));
 
 self.addEventListener('activate', e => e.waitUntil((async () => {
-  for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
+  for (const k of await caches.keys()) if (k !== CACHE && k !== MODELS) await caches.delete(k);
   await self.clients.claim();
 })()));
 

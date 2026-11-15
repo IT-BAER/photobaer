@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Actions: per-step dialog toggles (edit the values for one run, Cancel stops), Action Options with F2 to F12 shortcut
+  keys (with Shift or Ctrl), Insert Menu Item, Insert Conditional (Then/Else action by document condition) and
+  File > Automate > Create Droplet; opening or dropping a .pbdroplet file opens Run Droplet.
+- Select > Subject uses a segmentation model (IS-Net, 88.2 MB, downloaded once after you confirm and kept for offline
+  use; images are not uploaded). Use Without Model keeps the earlier command.
+- Object Selection tool (W) with Rectangle and Lasso mode, selection modes and Sample All Layers.
+- Select > Focus Area with its views, Add/Remove brush, In-Focus Range and Image Noise Level (with Auto), Soften Edge and
+  all Output To options.
+- Properties > Quick Actions for pixel layers: Remove Background (the subject becomes the layer mask in one step),
+  Select Subject and Select Background.
+- Select > Select and Mask (Alt+Ctrl+R) workspace: six views, Show Edge and Show Original, Brush Tool (add or subtract),
+  Refine Edge Brush Tool, Radius with Smart Radius, Smooth, Feather, Contrast, Shift Edge, Clear Selection, Invert,
+  Decontaminate Colors, Output To and Remember Settings. Also from the options bar of the selection tools and from
+  Focus Area.
+- Filter > Liquify: Face-Aware Liquify and the Face Tool (A). Eyes (size, height, width, tilt per eye with a link,
+  distance), Nose, Mouth and Face Shape sliders for every face found, Select Face, Reset and All. The face model (3.8 MB)
+  is downloaded once after you confirm.
+
 ## [0.5.1] - 2026-11-14
 
 ### Added

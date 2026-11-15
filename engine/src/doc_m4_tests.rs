@@ -1143,3 +1143,101 @@ fn annotations_are_stored_in_the_manifest_and_checked() {
         assert!(d.set_document_vector(&w.to_string()).is_err(), "measurement scale is checked");
     }
 }
+
+#[test]
+fn select_mask_selects_a_model_mask_over_a_region_and_keeps_the_selection_when_empty() {
+    let mut d = Document::new(64, 64, 8).unwrap();
+    let mut px = vec![0u8; TILE_PIXELS * 4];
+    for y in 0..TILE {
+        for x in 0..TILE {
+            let c = if (16..48).contains(&x) && (16..48).contains(&y) { 20 } else { 230 };
+            px[(y * TILE + x) * 4..][..4].copy_from_slice(&[c, c, c, 255]);
+        }
+    }
+    d.set_tile_rgba8(1, 0, 0, &px).unwrap();
+    let small = d.region_rgba(false, 1, [0, 0, 64, 64], 16, 16).unwrap();
+    assert_eq!(small.len(), 16 * 16 * 4);
+    assert_eq!(&small[(8 * 16 + 8) * 4..][..4], &[20, 20, 20, 255]);
+    assert_eq!(&small[..4], &[230, 230, 230, 255]);
+    // The model's 16 x 16 view of the square: cells 4..12.
+    let mask: Vec<u8> = (0..256).map(|i| if (4..12).contains(&(i % 16)) && (4..12).contains(&(i / 16)) { 255 } else { 0 }).collect();
+    d.select_rect(0.0, 0.0, 5.0, 5.0, Mode::New).unwrap();
+    let before = d.selection_values();
+    assert!(!d.select_mask(false, 1, &[10u8; 256], 16, 16, [0, 0, 64, 64], Mode::New).unwrap());
+    assert_eq!(before, d.selection_values(), "an empty mask keeps the selection");
+    assert!(d.select_mask(false, 1, &mask, 16, 16, [0, 0, 64, 64], Mode::New).unwrap());
+    let v = d.selection_values();
+    assert!(v[32 * 64 + 32] > 0.99 && v[2 * 64 + 2] < 0.01, "inside {} outside {}", v[32 * 64 + 32], v[2 * 64 + 2]);
+    assert!(v[17 * 64 + 17] > 0.9 && v[14 * 64 + 14] < 0.1, "edge {} {}", v[17 * 64 + 17], v[14 * 64 + 14]);
+    // A region: the mask covers x 32..64 only.
+    assert!(d.select_mask(false, 1, &[255u8; 16], 4, 4, [32, 0, 32, 64], Mode::New).unwrap());
+    let v = d.selection_values();
+    assert!(v[10 * 64 + 10] == 0.0 && v[10 * 64 + 40] > 0.99);
+    assert!(d.select_mask(false, 1, &mask, 16, 16, [100, 100, 10, 10], Mode::New).is_err(), "outside the canvas");
+    assert!(d.select_mask(false, 1, &mask, 15, 16, [0, 0, 64, 64], Mode::New).is_err(), "size mismatch");
+}
+
+#[test]
+fn focus_area_selects_the_sharp_part_hard_or_soft_and_keeps_the_selection_when_nothing_is_sharp() {
+    let mut d = Document::new(128, 64, 8).unwrap();
+    let mut px = vec![0u8; TILE_PIXELS * 4];
+    for y in 0..TILE {
+        for x in 0..TILE {
+            let c = if x < 64 && (x / 2 + y / 2) % 2 == 0 { 30 } else if x < 64 { 220 } else { 120 };
+            px[(y * TILE + x) * 4..][..4].copy_from_slice(&[c, c, c, 255]);
+        }
+    }
+    d.set_tile_rgba8(1, 0, 0, &px).unwrap();
+    assert_eq!(d.focus_size(), [128, 64]);
+    let [range, noise] = d.focus_auto(1).unwrap();
+    let preview = d.focus_preview(1, range, noise, &[]).unwrap();
+    assert_eq!(preview.len(), 128 * 64);
+    assert!(preview[32 * 128 + 20] == 255 && preview[32 * 128 + 110] == 0);
+    assert!(d.focus_area(1, range, noise, &[], false).unwrap());
+    let v = d.selection_values();
+    assert!(v[32 * 128 + 20] > 0.99 && v[32 * 128 + 110] < 0.01, "sharp {} blurred {}", v[32 * 128 + 20], v[32 * 128 + 110]);
+    assert!(v.iter().all(|&a| a == 0.0 || a == 1.0), "without Soften Edge the edge is hard");
+    assert!(d.focus_area(1, range, noise, &[], true).unwrap());
+    assert!(d.selection_values().iter().all(|a| (0.0..=1.0).contains(a)));
+    // Remove everything with the edits: nothing selected, the selection stays.
+    let before = d.selection_values();
+    assert!(!d.focus_area(1, range, noise, &vec![0u8; 128 * 64], false).unwrap());
+    assert_eq!(before, d.selection_values());
+    assert!(d.focus_preview(1, range, noise, &[0u8; 5]).is_err(), "edits must have the working size");
+}
+
+#[test]
+fn select_and_mask_refines_the_selection_to_the_layer_edge_and_previews_the_same() {
+    // Blue left of column 40, gold from 40; the selection starts 4 px inside the gold.
+    let mut d = Document::new(96, 32, 8).unwrap();
+    let mut px = vec![255u8; TILE_PIXELS * 4];
+    for y in 0..TILE {
+        for x in 0..TILE {
+            px[(y * TILE + x) * 4..][..3].copy_from_slice(if x < 40 { &[30, 40, 200] } else { &[220, 180, 40] });
+        }
+    }
+    d.set_tile_rgba8(1, 0, 0, &px).unwrap();
+    d.select_rect(44.0, 0.0, 52.0, 32.0, Mode::New).unwrap();
+    let orig = d.refine_original();
+    assert_eq!((orig.len(), orig[16 * 96 + 42], orig[16 * 96 + 50]), (96 * 32, 0, 255));
+    let p = crate::refine::Params { radius: 8.0, ..Default::default() };
+    // The document fits the working size, so the preview is the result.
+    let preview = d.refine_preview(false, 1, &p, false, false, &[]).unwrap();
+    assert_eq!(preview.len(), 2 * 96 * 32);
+    assert!(preview[16 * 96 + 41] > 240 && preview[16 * 96 + 37] < 15);
+    assert_eq!((preview[96 * 32 + 16 * 96 + 44], preview[96 * 32 + 16 * 96 + 5]), (255, 0), "the band");
+    d.select_and_mask(false, 1, &p, false, false, &[]).unwrap();
+    let v = d.selection_values();
+    for (i, &a) in v.iter().enumerate() {
+        assert_eq!((a * 255.0).round() as u8, preview[i], "pixel {i}");
+    }
+    // Invert turns it around; Clear starts from nothing and the Brush adds.
+    let inv = d.refine_preview(false, 1, &crate::refine::Params::default(), true, false, &[]).unwrap();
+    assert!(inv[16 * 96 + 5] == 255 && inv[16 * 96 + 60] == 0);
+    let mut edits = vec![crate::refine::NONE; 96 * 32];
+    edits[3] = crate::refine::ADD;
+    let cleared = d.refine_preview(false, 1, &crate::refine::Params::default(), false, true, &edits).unwrap();
+    assert_eq!(cleared[..96 * 32].iter().filter(|&&a| a > 0).count(), 1);
+    assert!(d.select_and_mask(false, 1, &p, false, false, &[1, 2]).is_err(), "edits must have the working size");
+    assert!(crate::refine::Params::from_slice(&[251.0, 0.0, 0.0, 0.0, 0.0, 0.0]).is_err(), "Radius is 0..250");
+}

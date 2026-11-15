@@ -1,7 +1,7 @@
 // Actions panel state: sets of recorded actions, the selection and the recording target, kept in IndexedDB.
 import { t } from '@lingui/core/macro';
 import '../i18n/index.ts'; // activates English before `t` runs outside the app (node tests)
-import { fromJson, toJson, type Action, type ActionSet, type ActionStep } from '../actions.ts';
+import { ACTION_KEY, CONDITIONS, fromJson, stepFields, toJson, type Action, type ActionSet, type ActionStep, type Conditional } from '../actions.ts';
 
 export interface Selection { set?: string; action?: string; step?: string }
 
@@ -21,6 +21,29 @@ function idb<T>(mode: IDBTransactionMode, f: (s: IDBObjectStore) => IDBRequest):
 }
 
 const uid = () => crypto.randomUUID();
+const actionName = (v: unknown) => v === null || typeof v === 'string';
+const validCond = (c: Conditional | undefined): c is Conditional =>
+  !!c && (CONDITIONS as readonly string[]).includes(c.if) && actionName(c.then) && actionName(c.else) && (c.then !== null || c.else !== null);
+const isObject = <T>(v: T): v is NonNullable<T> => typeof v === 'object' && v !== null;
+
+// A set read from a file, with new ids and only the parts photobaer knows; null when it is not a set.
+export function cleanSet(set: ActionSet | undefined): ActionSet | null {
+  if (!set || typeof set.name !== 'string' || !Array.isArray(set.actions)) return null;
+  return {
+    id: uid(), name: set.name,
+    actions: set.actions.filter(isObject).map(a => ({
+      id: uid(), name: String(a.name),
+      ...(typeof a.key === 'string' && ACTION_KEY.test(a.key) ? { key: a.key } : {}),
+      steps: (Array.isArray(a.steps) ? a.steps : []).filter(isObject).map(s => ({
+        id: uid(), label: String(s.label), enabled: s.enabled !== false, calls: Array.isArray(s.calls) ? s.calls.filter(c => typeof c?.op === 'string' && Array.isArray(c.args)) : [],
+        ...(s.stop ? { stop: { message: String(s.stop.message), allowContinue: !!s.stop.allowContinue } } : {}),
+        ...(typeof s.dialog === 'boolean' ? { dialog: s.dialog } : {}),
+        ...(Array.isArray(s.menu?.path) && s.menu.path.length && s.menu.path.every(p => typeof p === 'string') ? { menu: { path: [...s.menu.path] } } : {}),
+        ...(validCond(s.cond) ? { cond: { if: s.cond.if, then: s.cond.then, else: s.cond.else } } : {}),
+      })),
+    })),
+  };
+}
 // One exported set file: `{ photobaerActions: 1, set }` as toJson text.
 const FILE_TAG = 'photobaerActions';
 
@@ -100,6 +123,21 @@ export class ActionsStore {
     if (!a) throw new Error(t`Select an action first.`);
     this.#insert({ id: uid(), label: 'Stop', enabled: true, calls: [], stop: { message, allowContinue } }, a.id);
   }
+  // A menu item by the English ids of its menu path, e.g. ["Image", "Image Size…"].
+  insertMenuItem(path: string[]) {
+    const a = this.action;
+    if (!a) throw new Error(t`Select an action first.`);
+    this.#insert({ id: uid(), label: 'Menu Item', enabled: true, calls: [], menu: { path } }, a.id);
+  }
+  // A new conditional step, or new settings for the conditional step `stepId`.
+  insertConditional(cond: Conditional, stepId?: string) {
+    const a = this.action;
+    if (!a) throw new Error(t`Select an action first.`);
+    if (cond.then === null && cond.else === null) throw new Error(t`Choose an action for Then or Else.`);
+    const old = stepId ? a.steps.find(s => s.id === stepId && s.cond) : undefined;
+    if (old) { old.cond = cond; this.#emit(); return; }
+    this.#insert({ id: uid(), label: 'Conditional', enabled: true, calls: [], cond }, a.id);
+  }
 
   toggleStep(stepId: string) {
     for (const s of this.sets) for (const a of s.actions) for (const st of a.steps) if (st.id === stepId) st.enabled = !st.enabled;
@@ -111,6 +149,31 @@ export class ActionsStore {
     const on = !a.steps.every(s => s.enabled);
     for (const st of a.steps) st.enabled = on;
     this.#emit();
+  }
+  // Dialog toggles exist only on steps with dialog values; the action's toggle sets all of them.
+  toggleDialog(stepId: string) {
+    for (const s of this.sets) for (const a of s.actions) for (const st of a.steps) if (st.id === stepId && stepFields(st).length) st.dialog = !st.dialog;
+    this.#emit();
+  }
+  toggleActionDialogs(actionId: string) {
+    const steps = this.sets.flatMap(s => s.actions).find(x => x.id === actionId)?.steps.filter(st => stepFields(st).length) ?? [];
+    const on = !steps.every(st => st.dialog);
+    for (const st of steps) st.dialog = on;
+    this.#emit();
+  }
+
+  // Action Options: a function key belongs to one action, so assigning it takes it from the action that had it.
+  setActionOptions(actionId: string, o: { name: string; key: string | null }) {
+    if (o.key !== null && !ACTION_KEY.test(o.key)) throw new Error(t`Choose a function key from F2 to F12.`);
+    const all = this.sets.flatMap(s => s.actions), a = all.find(x => x.id === actionId);
+    if (!a) return;
+    for (const x of all) if (o.key && x.key === o.key) delete x.key;
+    a.name = o.name;
+    if (o.key) a.key = o.key; else delete a.key;
+    this.#emit();
+  }
+  byKey(key: string): { set: ActionSet; action: Action } | undefined {
+    for (const set of this.sets) for (const action of set.actions) if (action.key === key) return { set, action };
   }
 
   rename(id: string, name: string) {
@@ -147,18 +210,10 @@ export class ActionsStore {
   importSet(text: string) {
     let v: { [FILE_TAG]?: number; set?: ActionSet };
     try { v = fromJson(text); } catch { throw new Error(t`This is not a photobaer actions file.`); }
-    const set = v?.set;
-    if (v?.[FILE_TAG] !== 1 || !set || typeof set.name !== 'string' || !Array.isArray(set.actions)) throw new Error(t`This is not a photobaer actions file.`);
-    const fresh: ActionSet = {
-      id: uid(), name: set.name,
-      actions: set.actions.map(a => ({
-        id: uid(), name: String(a.name),
-        steps: (Array.isArray(a.steps) ? a.steps : []).map(s => ({
-          id: uid(), label: String(s.label), enabled: s.enabled !== false, calls: Array.isArray(s.calls) ? s.calls.filter(c => typeof c?.op === 'string' && Array.isArray(c.args)) : [],
-          ...(s.stop ? { stop: { message: String(s.stop.message), allowContinue: !!s.stop.allowContinue } } : {}),
-        })),
-      })),
-    };
+    const fresh = v?.[FILE_TAG] === 1 ? cleanSet(v.set) : null;
+    if (!fresh) throw new Error(t`This is not a photobaer actions file.`);
+    // A loaded key that another action already has stays with that action.
+    for (const a of fresh.actions) if (a.key && this.byKey(a.key)) delete a.key;
     this.sets = [...this.sets, fresh];
     this.sel = { set: fresh.id };
     this.#emit();

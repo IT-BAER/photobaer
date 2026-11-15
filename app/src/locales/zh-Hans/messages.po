@@ -16,10 +16,6 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "“{docName}”使用了无法载入的字体。请为整个文档选择替换字体。文本排版可能会改变。"
 
 #: app/src/i18n/errors.ts
-msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
-msgstr "超出 Photoshop {limit} 通道上限的 {count} 个 Alpha 通道和专色通道未保存"
-
-#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr "\"{file}\": {why}"
 
@@ -100,6 +96,10 @@ msgstr "{colorStops} 个颜色色标 · {opacityStops} 个不透明度色标"
 msgid "{count, plural, one {# pattern imported} other {# patterns imported}}"
 msgstr "{count, plural, other {已导入 # 个图案}}"
 
+#: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr "超出 Photoshop {limit} 通道上限的 {count} 个 Alpha 通道和专色通道未保存"
+
 #: app/src/i18n/history.ts
 msgid "{depth} Bits/Channel"
 msgstr "{depth} 位/通道"
@@ -123,6 +123,22 @@ msgstr "{fam} 在 {subsetName} 中没有字形。"
 #: app/src/MissingFonts.tsx
 msgid "{family} does not contain every character used by {source}. Choose another font."
 msgstr "{family} 未包含 {source} 使用的全部字符。请选择其他字体。"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "{feature} uses a face model that runs on this computer; your images are not uploaded."
+msgstr "{feature} 使用在本机运行的人脸模型，图像不会上传。"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "{feature} uses a segmentation model that runs on this computer; your images are not uploaded."
+msgstr "{feature} 使用在本机运行的分割模型，图像不会上传。"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "{got} of {size} MB"
+msgstr "{got} / {size} MB"
+
+#: app/src/ActionDialogs.tsx
+msgid "{keyText} is used by the action “{other}”. OK moves it to this action."
+msgstr "{keyText} 已被动作“{other}”使用。单击“确定”会将其移到此动作。"
 
 #. placeholder {0}: handleName(cls, i === outer)
 #: app/src/LayerStyleDialog.tsx
@@ -194,7 +210,7 @@ msgstr "{label}：单击图像进行设置"
 msgid "{maskName} Mask"
 msgstr "{maskName}蒙版"
 
-#: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 msgid "{message}\n"
 "\n"
 "Continue playing the action?"
@@ -253,6 +269,14 @@ msgstr "{name}选项"
 #: app/src/LayersPanel.tsx
 msgid "{name} vector mask"
 msgstr "{name}矢量蒙版"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "{name}, left eye"
+msgstr "{name}，左眼"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "{name}, right eye"
+msgstr "{name}，右眼"
 
 #: app/src/PresetPanels.tsx
 msgid "{name}: {summary}"
@@ -514,9 +538,17 @@ msgstr "动作 {next}"
 msgid "Action name"
 msgstr "动作名称"
 
+#: app/src/ActionDialogs.tsx
+msgid "Action Options"
+msgstr "动作选项"
+
 #: app/src/app/cameraData.ts
 msgid "Action program"
 msgstr "动作程序"
+
+#: app/src/ActionDialogs.tsx
+msgid "Action step"
+msgstr "动作步骤"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
@@ -549,6 +581,10 @@ msgstr "添加{effectName}"
 #: app/src/shell/tools.ts
 msgid "Add Anchor Point"
 msgstr "添加锚点"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Add Brush"
+msgstr "添加画笔"
 
 #: app/src/shell/GradientEditor.tsx
 msgid "Add color stop"
@@ -591,6 +627,10 @@ msgstr "添加大小"
 #: app/src/app/Dialogs.tsx
 msgid "Add to channel"
 msgstr "添加到通道"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Add to selection"
+msgstr "添加到选区"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/LiquifyDialog.tsx
@@ -643,6 +683,10 @@ msgstr "调整可见"
 #: app/src/app/menus.ts
 msgid "Adjustments"
 msgstr "调整"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Advanced"
+msgstr "高级"
 
 #: app/src/ColorDialog.tsx
 msgid "Advanced Controls"
@@ -712,6 +756,11 @@ msgstr "对齐并合并当前文档的像素图层。"
 
 #: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
+msgid "All"
+msgstr "全部"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgctxt "face-aware liquify reset"
 msgid "All"
 msgstr "全部"
 
@@ -793,6 +842,7 @@ msgstr "环境"
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ModeDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Amount"
 msgstr "数量"
 
@@ -816,6 +866,11 @@ msgstr "ICO 图像最大为 256 x 256 像素。"
 #: app/src/app/menus.ts
 msgid "Analysis"
 msgstr "分析"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Analyzing…"
+msgstr "正在分析…"
 
 #: app/src/app/Dialogs.tsx
 msgid "Anchor"
@@ -1176,6 +1231,7 @@ msgstr "作者职称"
 #: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/LevelsCurvesBody.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Auto"
@@ -1512,8 +1568,13 @@ msgstr "黑色"
 
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
+#: app/src/FocusAreaDialog.tsx
 msgid "Black & White"
 msgstr "黑白"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Black & White (K)"
+msgstr "黑白 (K)"
 
 #: app/src/ModeDialog.tsx
 msgid "Black and White"
@@ -1887,6 +1948,7 @@ msgid "Browse…"
 msgstr "浏览…"
 
 #: app/src/app/helpers.ts
+#: app/src/FocusAreaDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/shell/tools.ts
 msgid "Brush"
@@ -1908,6 +1970,10 @@ msgstr "画笔细节"
 #: app/src/app/Dialogs.tsx
 msgid "Brush Leash Color"
 msgstr "画笔牵绳颜色"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Brush mode"
+msgstr "画笔模式"
 
 #: app/src/app/Dialogs.tsx
 msgid "Brush Name"
@@ -1978,6 +2044,14 @@ msgstr "画笔笔尖形状"
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush tips"
 msgstr "画笔笔尖"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Brush Tool"
+msgstr "画笔工具"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Brush Tool (B)"
+msgstr "画笔工具 (B)"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Brush Tool Options"
@@ -2050,6 +2124,8 @@ msgstr "Camera Raw 滤镜"
 msgid "Camera Raw Filter…"
 msgstr "Camera Raw 滤镜…"
 
+#: app/src/ActionDialogs.tsx
+#: app/src/ai/ModelDialog.tsx
 #: app/src/AnalysisDialogs.tsx
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -2061,12 +2137,14 @@ msgstr "Camera Raw 滤镜…"
 #: app/src/filters/FilterDialog.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/filters/VanishingPointDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/MissingFonts.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/PdfDialog.tsx
 #: app/src/ScriptDialogs.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/ColorPicker.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/GradientEditor.tsx
@@ -2273,6 +2351,10 @@ msgstr "炭笔区"
 msgid "Charcoal Thickness"
 msgstr "炭笔粗细"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Chin Height"
+msgstr "下巴高度"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Chisel Hard"
 msgstr "雕刻清晰"
@@ -2289,6 +2371,10 @@ msgstr "阻塞"
 msgid "Choose a .psd, .psb, .exr, .hdr or .ico file name, not {name}."
 msgstr "请选择 .psd、.psb、.exr、.hdr 或 .ico 文件名，而不是 {name}。"
 
+#: app/src/app/actionsStore.ts
+msgid "Choose a function key from F2 to F12."
+msgstr "请选择 F2 到 F12 之间的功能键。"
+
 #: app/src/app/paintTool.ts
 msgid "Choose a pattern first."
 msgstr "请先选择图案。"
@@ -2296,6 +2382,11 @@ msgstr "请先选择图案。"
 #: app/src/FileDialogs.tsx
 msgid "Choose a template"
 msgstr "选择模板"
+
+#: app/src/ActionDialogs.tsx
+#: app/src/app/actionsStore.ts
+msgid "Choose an action for Then or Else."
+msgstr "请为“则”或“否则”选择动作。"
 
 #: app/src/i18n/errors.ts
 msgid "Choose at least one file."
@@ -2306,6 +2397,10 @@ msgstr "请至少选择一个文件。"
 #: app/src/ScriptDialogs.tsx
 msgid "Choose…"
 msgstr "选择…"
+
+#: app/src/BatchDialog.tsx
+msgid "chosen when the droplet runs"
+msgstr "运行快捷批处理时选择"
 
 #: app/src/filters/labels.ts
 msgid "Chrome"
@@ -2394,6 +2489,10 @@ msgstr "清除最近的文件列表"
 #: app/src/app/menus.ts
 msgid "Clear Selected Artboard Guides"
 msgstr "清除所选画板参考线"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Clear Selection"
+msgstr "清除选区"
 
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
@@ -2801,6 +2900,10 @@ msgstr "书写器"
 msgid "Composite"
 msgstr "复合"
 
+#: app/src/ActionDialogs.tsx
+msgid "Conditional Action"
+msgstr "条件动作"
+
 #: app/src/layerStyle.ts
 msgid "Cone"
 msgstr "锥形"
@@ -2926,6 +3029,7 @@ msgstr "收缩…"
 
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/tools.ts
 msgid "Contrast"
@@ -3103,6 +3207,10 @@ msgid "Cosine"
 msgstr "余弦"
 
 #: app/src/i18n/errors.ts
+msgid "Could not complete your request because the target layer is hidden."
+msgstr "无法完成请求，因为目标图层已隐藏。"
+
+#: app/src/i18n/errors.ts
 msgid "Could not copy: the layer is not a pixel layer."
 msgstr "无法拷贝：该图层不是像素图层。"
 
@@ -3235,6 +3343,14 @@ msgstr "创建剪贴蒙版"
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Create connected plane"
 msgstr "创建相连的平面"
+
+#: app/src/BatchDialog.tsx
+msgid "Create Droplet"
+msgstr "创建快捷批处理"
+
+#: app/src/app/menus.ts
+msgid "Create Droplet…"
+msgstr "创建快捷批处理…"
 
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
@@ -3612,6 +3728,10 @@ msgstr "日光"
 msgid "De-Interlace"
 msgstr "逐行"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Decontaminate Colors"
+msgstr "净化颜色"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Deep"
 msgstr "深"
@@ -3910,6 +4030,14 @@ msgstr "目标空间"
 msgid "Detail"
 msgstr "细节"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Detect Faces"
+msgstr "检测人脸"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Detecting faces…"
+msgstr "正在检测人脸…"
+
 #: app/src/ColorDialog.tsx
 msgid "Device to Simulate"
 msgstr "要模拟的设备"
@@ -4086,6 +4214,38 @@ msgstr "文档"
 msgid "Document Bounds"
 msgstr "文档边界"
 
+#: app/src/ActionDialogs.tsx
+msgid "Document Has Layers"
+msgstr "文档有图层"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Has Selection"
+msgstr "文档有选区"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is CMYK Mode"
+msgstr "文档为 CMYK 模式"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Grayscale Mode"
+msgstr "文档为灰度模式"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Lab Mode"
+msgstr "文档为 Lab 模式"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Landscape"
+msgstr "文档为横向"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is RGB Mode"
+msgstr "文档为 RGB 模式"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Square"
+msgstr "文档为正方形"
+
 #: app/src/FileDialogs.tsx
 msgid "Document Title"
 msgstr "文档标题"
@@ -4131,6 +4291,14 @@ msgstr "双线"
 #: app/src/LayerStyleDialog.tsx
 msgid "Down"
 msgstr "向下"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "Download"
+msgstr "下载"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "Download the model once ({size} MB from {host}, licence {licence})? It is kept in this browser and also works offline."
+msgstr "是否下载一次模型（{size} MB，来自 {host}，许可证 {licence}）？模型会保存在此浏览器中，离线时也能使用。"
 
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
@@ -4264,6 +4432,10 @@ msgstr "边缘"
 msgid "Edge Brightness"
 msgstr "边缘亮度"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Edge Detection"
+msgstr "边缘检测"
+
 #: app/src/filters/GalleryStack.tsx
 msgid "Edge Extension"
 msgstr "边缘扩展"
@@ -4382,6 +4554,10 @@ msgstr "椭圆"
 #: app/src/shell/tools.ts
 msgid "Elliptical Marquee"
 msgstr "椭圆选框"
+
+#: app/src/ActionDialogs.tsx
+msgid "Else Play Action"
+msgstr "否则播放动作"
 
 #: app/src/FileDialogs.tsx
 msgid "Email(s)"
@@ -4590,6 +4766,10 @@ msgstr "展开 {title}"
 msgid "Expand action"
 msgstr "展开动作"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Expand detection area"
+msgstr "扩展检测区域"
+
 #: app/src/app/Dialogs.tsx
 msgid "Expand Selection"
 msgstr "扩展选区"
@@ -4725,17 +4905,57 @@ msgstr "特大"
 msgid "Extrude"
 msgstr "凸出"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Distance"
+msgstr "眼睛距离"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Height"
+msgstr "眼睛高度"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Size"
+msgstr "眼睛大小"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Tilt"
+msgstr "眼睛斜度"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Width"
+msgstr "眼睛宽度"
+
 #: app/src/shell/tools.ts
 msgid "Eyedropper"
 msgstr "吸管"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eyes"
+msgstr "眼睛"
 
 #: app/src/app/cameraData.ts
 msgid "F-Stop"
 msgstr "光圈值"
 
 #: app/src/filters/LiquifyDialog.tsx
-msgid "Face Tool (Face-Aware Liquify comes with M7)"
-msgstr "脸部工具（人脸识别液化随 M7 提供）"
+msgid "Face #{n}"
+msgstr "人脸 #{n}"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face Shape"
+msgstr "脸部形状"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face Tool"
+msgstr "脸部工具"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face Width"
+msgstr "脸部宽度"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face-Aware Liquify"
+msgstr "人脸识别液化"
 
 #: app/src/filters/labels.ts
 msgid "Facet"
@@ -4783,6 +5003,7 @@ msgstr "仿斜体"
 
 #: app/src/filters/labels.ts
 #: app/src/PropertiesPanel.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/tools.ts
 msgid "Feather"
 msgstr "羽化"
@@ -5217,6 +5438,15 @@ msgstr "35 毫米胶片等效焦距"
 msgid "Focus"
 msgstr "焦点"
 
+#: app/src/FocusAreaDialog.tsx
+#: app/src/i18n/history.ts
+msgid "Focus Area"
+msgstr "焦点区域"
+
+#: app/src/app/menus.ts
+msgid "Focus Area…"
+msgstr "焦点区域…"
+
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
 #: app/src/ScriptDialogs.tsx
@@ -5290,6 +5520,10 @@ msgstr "前景色"
 #: app/src/filters/labels.ts
 msgid "Foreground Level"
 msgstr "前景色阶"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Forehead"
+msgstr "前额"
 
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
@@ -5402,6 +5636,10 @@ msgstr "全球面"
 msgid "Fullscreen"
 msgstr "全屏"
 
+#: app/src/ActionDialogs.tsx
+msgid "Function Key"
+msgstr "功能键"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Fuzziness"
@@ -5476,6 +5714,10 @@ msgstr "全局光"
 #: app/src/app/menus.ts
 msgid "Global Light…"
 msgstr "全局光…"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Global Refinements"
+msgstr "全局调整"
 
 #: app/src/filters/labels.ts
 msgid "Gloss"
@@ -6167,6 +6409,14 @@ msgstr "连字"
 msgid "Hyphenation Zone"
 msgstr "连字区"
 
+#: app/src/ActionDialogs.tsx
+msgid "If {cond} Then Play Action “{then}” Else Play Action “{otherwise}”"
+msgstr "如果{cond}，则播放动作“{then}”，否则播放动作“{otherwise}”"
+
+#: app/src/ActionDialogs.tsx
+msgid "If Current"
+msgstr "如果当前"
+
 #: app/src/shell/tools.ts
 msgid "Ignore Adjustment Layers"
 msgstr "忽略调整图层"
@@ -6203,6 +6453,10 @@ msgstr "在浏览器中编辑图像"
 #: app/src/ExportDialogs.tsx
 msgid "Image height"
 msgstr "图像高度"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Image Noise Level"
+msgstr "图像杂色级别"
 
 #: app/src/App.tsx
 #: app/src/ScriptDialogs.tsx
@@ -6300,6 +6554,10 @@ msgstr "在文件夹中，每种类型会存入名为 JPEG、PSD、TIFF 或 PNG 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "In Front"
 msgstr "前面"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "In-Focus Range"
+msgstr "对焦范围"
 
 #: app/src/DocumentArrangement.tsx
 msgid "Inactive document preview"
@@ -6444,9 +6702,21 @@ msgstr "输入色阶"
 msgid "Input white"
 msgstr "输入白场"
 
+#: app/src/ActionsPanel.tsx
+msgid "Insert Conditional…"
+msgstr "插入条件…"
+
 #: app/src/i18n/history.ts
 msgid "Insert Glyph"
 msgstr "插入字形"
+
+#: app/src/ActionDialogs.tsx
+msgid "Insert Menu Item"
+msgstr "插入菜单项目"
+
+#: app/src/ActionsPanel.tsx
+msgid "Insert Menu Item…"
+msgstr "插入菜单项目…"
 
 #: app/src/ActionsPanel.tsx
 msgid "Insert stop"
@@ -6539,6 +6809,7 @@ msgstr "反相图像"
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 msgid "Invert"
 msgstr "反相"
@@ -6622,6 +6893,10 @@ msgstr "常春藤"
 #: app/src/filters/labels.ts
 msgid "Jag"
 msgstr "锯齿"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Jawline"
+msgstr "下颌"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Jitter"
@@ -6737,6 +7012,7 @@ msgstr "语言选项"
 msgid "Large"
 msgstr "大"
 
+#: app/src/i18n/choices.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Lasso"
@@ -6817,9 +7093,57 @@ msgstr "图层边缘"
 msgid "Layer filter"
 msgstr "图层过滤"
 
+#: app/src/ActionDialogs.tsx
+msgid "Layer Has Effects"
+msgstr "图层有效果"
+
 #: app/src/i18n/errors.ts
 msgid "Layer has no exportable pixels."
 msgstr "图层没有可导出的像素。"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Has Pixel Mask"
+msgstr "图层有像素蒙版"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Has Vector Mask"
+msgstr "图层有矢量蒙版"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Adjustment Layer"
+msgstr "图层为调整图层"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Background"
+msgstr "图层为背景"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Fill Layer"
+msgstr "图层为填充图层"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Group"
+msgstr "图层为组"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Pixel Layer"
+msgstr "图层为像素图层"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Shape Layer"
+msgstr "图层为形状图层"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Smart Object"
+msgstr "图层为智能对象"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Type Layer"
+msgstr "图层为文字图层"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Visible"
+msgstr "图层可见"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Layer Knocks Out Drop Shadow"
@@ -6827,6 +7151,8 @@ msgstr "图层挖空投影"
 
 #: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Layer Mask"
 msgstr "图层蒙版"
 
@@ -7154,6 +7480,10 @@ msgstr "链接圆角半径"
 msgid "Link dimensions"
 msgstr "链接尺寸"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Link the eyes"
+msgstr "链接眼睛"
+
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
 msgid "Link Vector Mask"
@@ -7296,6 +7626,10 @@ msgstr "正在载入图层…"
 msgid "Loading the face…"
 msgstr "正在载入字体…"
 
+#: app/src/ai/ModelDialog.tsx
+msgid "Loading the model…"
+msgstr "正在载入模型…"
+
 #: app/src/LevelsCurvesBody.tsx
 msgid "Loading…"
 msgstr "正在载入…"
@@ -7429,6 +7763,10 @@ msgstr "下"
 #: app/src/shell/TransformBar.tsx
 msgid "Lower Arc"
 msgstr "下弧"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Lower Lip"
+msgstr "下嘴唇"
 
 #: app/src/shell/TransformBar.tsx
 msgid "Lower Shell"
@@ -7727,6 +8065,10 @@ msgstr "中等线条"
 msgid "Medium Strokes"
 msgstr "中描边"
 
+#: app/src/ActionDialogs.tsx
+msgid "Menu Item:"
+msgstr "菜单项目："
+
 #: app/src/app/Dialogs.tsx
 msgid "Merge"
 msgstr "合并"
@@ -7986,6 +8328,18 @@ msgstr "动感"
 msgid "Motion Blur"
 msgstr "动感模糊"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mouth"
+msgstr "嘴唇"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mouth Height"
+msgstr "嘴唇高度"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mouth Width"
+msgstr "嘴唇宽度"
+
 #: app/src/i18n/choices.ts
 #: app/src/shell/tools.ts
 msgid "Move"
@@ -8082,6 +8436,7 @@ msgstr "多个火焰各异"
 msgid "Multiply"
 msgstr "正片叠底"
 
+#: app/src/ActionDialogs.tsx
 #: app/src/ActionsPanel.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/measureTools.tsx
@@ -8179,9 +8534,16 @@ msgstr "新建通道"
 msgid "New Channel"
 msgstr "新建通道"
 
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "New Document"
 msgstr "新建文档"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "New Document with Layer Mask"
+msgstr "带有图层蒙版的新建文档"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "New Effect Layer"
@@ -8238,7 +8600,9 @@ msgid "New layer"
 msgstr "新建图层"
 
 #: app/src/app/menus.ts
+#: app/src/FocusAreaDialog.tsx
 #: app/src/i18n/history.ts
+#: app/src/SelectAndMaskDialog.tsx
 msgid "New Layer"
 msgstr "新建图层"
 
@@ -8249,6 +8613,11 @@ msgstr "新建图层复合"
 #: app/src/i18n/history.ts
 msgid "New Layer Comp"
 msgstr "新建图层复合"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "New Layer with Layer Mask"
+msgstr "带有图层蒙版的新建图层"
 
 #: app/src/i18n/history.ts
 msgid "New Note"
@@ -8389,9 +8758,17 @@ msgstr "没有打开的文档。"
 msgid "No effect selected"
 msgstr "未选择效果"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "No faces found."
+msgstr "未找到人脸。"
+
 #: app/src/GlyphsPanel.tsx
 msgid "No fonts are available."
 msgstr "没有可用的字体。"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "No in-focus area found"
+msgstr "未找到对焦区域"
 
 #: app/src/MissingFonts.tsx
 msgid "No installed fonts are available for replacement."
@@ -8432,6 +8809,10 @@ msgstr "没有匹配的命令"
 #: app/src/NotesPanels.tsx
 msgid "No measurements recorded."
 msgstr "未记录任何测量。"
+
+#: app/src/App.tsx
+msgid "No object found"
+msgstr "未找到对象"
 
 #: app/src/PathsPanel.tsx
 msgid "No paths"
@@ -8536,10 +8917,24 @@ msgstr "杂色渐变已作为黑到白渐变导入"
 msgid "None"
 msgstr "无"
 
+#: app/src/ActionDialogs.tsx
+msgctxt "action"
+msgid "None"
+msgstr "无"
+
+#: app/src/ActionDialogs.tsx
+msgctxt "function key"
+msgid "None"
+msgstr "无"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgctxt "liquify mask"
 msgid "None"
 msgstr "无"
+
+#: app/src/ActionDialogs.tsx
+msgid "None Selected"
+msgstr "未选择"
 
 #: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
@@ -8569,6 +8964,18 @@ msgstr "北美印前 2"
 #: app/src/app/colorSettings.ts
 msgid "North America Web/Internet"
 msgstr "北美 Web/Internet"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Nose"
+msgstr "鼻子"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Nose Height"
+msgstr "鼻子高度"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Nose Width"
+msgstr "鼻子宽度"
 
 #: app/src/app/cameraData.ts
 msgid "Not defined"
@@ -8617,6 +9024,12 @@ msgstr "拼贴数"
 msgid "Oak"
 msgstr "橡木"
 
+#: app/src/App.tsx
+#: app/src/i18n/history.ts
+#: app/src/shell/tools.ts
+msgid "Object Selection"
+msgstr "对象选择"
+
 #: app/src/filters/labels.ts
 msgid "Ocean Ripple"
 msgstr "海洋波纹"
@@ -8645,6 +9058,7 @@ msgstr "位移"
 msgid "Oil Paint"
 msgstr "油画"
 
+#: app/src/ActionDialogs.tsx
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/BatchDialog.tsx
@@ -8655,12 +9069,14 @@ msgstr "油画"
 #: app/src/filters/FilterDialog.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/filters/VanishingPointDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/MissingFonts.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/PdfDialog.tsx
 #: app/src/ScriptDialogs.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/ColorPicker.tsx
 #: app/src/shell/GradientEditor.tsx
 #: app/src/SvgDialog.tsx
@@ -8677,9 +9093,29 @@ msgstr "旧式"
 msgid "On"
 msgstr "开"
 
+#: app/src/FocusAreaDialog.tsx
+msgid "On Black"
+msgstr "黑底"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "On Black (A)"
+msgstr "黑底 (A)"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "On Layers (Y)"
+msgstr "图层 (Y)"
+
 #: app/src/app/Dialogs.tsx
 msgid "On the first connect, Chrome and Edge ask to allow access to apps on this device. Allow it, or the agent cannot reach the tab."
 msgstr "首次连接时，Chrome 和 Edge 会请求允许访问此设备上的应用。请允许，否则代理无法访问该标签页。"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "On White"
+msgstr "白底"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "On White (T)"
+msgstr "白底 (T)"
 
 #: app/src/i18n/choices.ts
 msgid "Once"
@@ -8696,6 +9132,10 @@ msgstr "沿路径一个火焰"
 #: app/src/ExportDialogs.tsx
 msgid "One page per artboard, at the document resolution."
 msgstr "每个画板一页，使用文档分辨率。"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Onion Skin (O)"
+msgstr "洋葱皮 (O)"
 
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
@@ -8718,6 +9158,7 @@ msgstr "仅支持从上到下、从左到右 (-Y h +X w) 的 HDR 文件。"
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayersPanel.tsx
 #: app/src/LayerStyleDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/GradientEditor.tsx
 #: app/src/shell/tools.ts
@@ -8737,6 +9178,7 @@ msgid "Opacity stops"
 msgstr "不透明度色标"
 
 #: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 msgid "Open a document to play an action."
 msgstr "请打开文档以播放动作。"
 
@@ -8861,6 +9303,7 @@ msgid "Outline"
 msgstr "轮廓"
 
 #: app/src/filters/labels.ts
+#: app/src/FocusAreaDialog.tsx
 #: app/src/LevelsCurvesBody.tsx
 #: app/src/ModeDialog.tsx
 msgid "Output"
@@ -8873,6 +9316,15 @@ msgstr "输出黑场"
 #: app/src/LevelsCurvesBody.tsx
 msgid "Output Levels"
 msgstr "输出色阶"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Output Settings"
+msgstr "输出设置"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Output To"
+msgstr "输出到"
 
 #: app/src/ModeDialog.tsx
 msgid "Output unit"
@@ -8888,10 +9340,15 @@ msgstr "输出白场"
 msgid "Outside"
 msgstr "外部"
 
+#: app/src/FocusAreaDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/shell/tools.ts
 msgid "Overlay"
 msgstr "叠加"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Overlay (V)"
+msgstr "叠加 (V)"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Overlay Edge"
@@ -9021,6 +9478,10 @@ msgstr "段落样式面板"
 #: app/src/TypePanels.tsx
 msgid "Paragraph Text"
 msgstr "段落文本"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Parameters"
+msgstr "参数"
 
 #: app/src/app/cameraData.ts
 msgid "Partial"
@@ -9479,7 +9940,7 @@ msgstr "播放"
 msgid "Play the selected action"
 msgstr "播放选定的动作"
 
-#: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 msgid "Playing action…"
 msgstr "正在播放动作…"
 
@@ -9642,6 +10103,7 @@ msgstr "暂不支持光笔压力。"
 #: app/src/ColorDialog.tsx
 #: app/src/filters/FilterDialog.tsx
 #: app/src/filters/VanishingPointDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Preview"
@@ -9829,6 +10291,10 @@ msgstr "四色调"
 msgid "Quality"
 msgstr "品质"
 
+#: app/src/PropertiesPanel.tsx
+msgid "Quick Actions"
+msgstr "快速操作"
+
 #: app/src/app/menus.ts
 msgid "Quick Export as {format}"
 msgstr "快速导出为 {format}"
@@ -9863,6 +10329,7 @@ msgstr "径向模糊"
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/labels.ts
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Radius"
 msgstr "半径"
 
@@ -10099,6 +10566,18 @@ msgstr "参考点 {u},{v}"
 msgid "Reference point"
 msgstr "参考点"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Refine Edge Brush Tool"
+msgstr "调整边缘画笔工具"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Refine Edge Brush Tool (R)"
+msgstr "调整边缘画笔工具 (R)"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Refining the selection…"
+msgstr "正在调整选区…"
+
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
 msgid "Reflected"
@@ -10150,6 +10629,10 @@ msgstr "重新链接到文件…"
 msgid "Relinking needs a browser with file system access."
 msgstr "重新链接需要支持文件系统访问的浏览器。"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Remember Settings"
+msgstr "记住设置"
+
 #: app/src/ExportDialogs.tsx
 #: app/src/filters/labels.ts
 msgid "Remove"
@@ -10163,10 +10646,20 @@ msgstr "全部移去"
 msgid "Remove All Pins"
 msgstr "移去所有图钉"
 
+#: app/src/App.tsx
+#: app/src/i18n/history.ts
+#: app/src/PropertiesPanel.tsx
+msgid "Remove Background"
+msgstr "移除背景"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove Black Matte"
 msgstr "移去黑色杂边"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Remove Brush"
+msgstr "移除画笔"
 
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
@@ -10192,6 +10685,10 @@ msgstr "移去变形拆分"
 #: app/src/i18n/history.ts
 msgid "Remove White Matte"
 msgstr "移去白色杂边"
+
+#: app/src/App.tsx
+msgid "Removing background…"
+msgstr "正在移除背景…"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"
@@ -10320,6 +10817,7 @@ msgstr "重新选择"
 
 #: app/src/ExportDialogs.tsx
 #: app/src/filters/FilterDialog.tsx
+#: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/ToolBar.tsx
 msgid "Reset"
@@ -10392,6 +10890,10 @@ msgstr "解决欠缺字体"
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Restore All"
 msgstr "全部恢复"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Restore original edge"
+msgstr "恢复原始边缘"
 
 #: app/src/shell/GradientEditor.tsx
 msgid "Restrict colors"
@@ -10661,6 +11163,10 @@ msgstr "运行"
 msgid "Run Action"
 msgstr "运行动作"
 
+#: app/src/BatchDialog.tsx
+msgid "Run Droplet"
+msgstr "运行快捷批处理"
+
 #: app/src/shell/ColorPicker.tsx
 msgctxt "color picker saturation field"
 msgid "S"
@@ -10680,6 +11186,7 @@ msgstr "取样"
 msgid "Sample all layers"
 msgstr "对所有图层取样"
 
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/tools.ts
 msgid "Sample All Layers"
 msgstr "对所有图层取样"
@@ -10741,6 +11248,7 @@ msgstr "饱和度和亮度"
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
+#: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/WorkspaceDialog.tsx
@@ -11047,6 +11555,11 @@ msgstr "全选"
 msgid "Select an action first."
 msgstr "请先选择动作。"
 
+#: app/src/App.tsx
+#: app/src/app/droplets.ts
+msgid "Select an action for the droplet."
+msgstr "请为快捷批处理选择一个动作。"
+
 #: app/src/ActionsPanel.tsx
 msgid "Select an action to play."
 msgstr "选择要播放的动作。"
@@ -11059,9 +11572,27 @@ msgstr "选择要记录到的动作。"
 msgid "Select an unlocked layer with pixels to warp."
 msgstr "选择一个包含像素的未锁定图层进行变形。"
 
+#: app/src/i18n/history.ts
+#: app/src/SelectAndMaskDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Select and Mask"
+msgstr "选择并遮住"
+
+#: app/src/App.tsx
+#: app/src/app/menus.ts
+#: app/src/FocusAreaDialog.tsx
+msgid "Select and Mask…"
+msgstr "选择并遮住…"
+
 #: app/src/i18n/errors.ts
 msgid "Select at least two pixel layers to align."
 msgstr "选择至少两个像素图层进行对齐。"
+
+#: app/src/App.tsx
+#: app/src/i18n/history.ts
+#: app/src/PropertiesPanel.tsx
+msgid "Select Background"
+msgstr "选择背景"
 
 #: app/src/AnalysisDialogs.tsx
 msgid "Select Data Points"
@@ -11070,6 +11601,10 @@ msgstr "选择数据点"
 #: app/src/app/menus.ts
 msgid "Select Data Points…"
 msgstr "选择数据点…"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Select Face"
+msgstr "选择脸部"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Select File..."
@@ -11088,7 +11623,9 @@ msgstr "选择同一层级的图层以进行转换。"
 msgid "Select location to save processed images"
 msgstr "选择存储已处理图像的位置"
 
+#: app/src/App.tsx
 #: app/src/i18n/history.ts
+#: app/src/PropertiesPanel.tsx
 msgid "Select Subject"
 msgstr "选择主体"
 
@@ -11109,12 +11646,26 @@ msgid "Select two or more shape layers to combine them."
 msgstr "选择两个或更多形状图层以进行合并。"
 
 #: app/src/App.tsx
+msgid "Selecting background…"
+msgstr "正在选择背景…"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Selecting focus area…"
+msgstr "正在选择焦点区域…"
+
+#: app/src/App.tsx
+msgid "Selecting object…"
+msgstr "正在选择对象…"
+
+#: app/src/App.tsx
 msgid "Selecting subject…"
 msgstr "正在选择主体…"
 
 #: app/src/filters/LiquifyDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/InspectionPanels.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Selection"
 msgstr "选区"
 
@@ -11366,6 +11917,10 @@ msgctxt "keyboard modifier"
 msgid "Shift"
 msgstr "Shift"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Shift Edge"
+msgstr "移动边缘"
+
 #: app/src/filters/labels.ts
 msgid "Shine"
 msgstr "闪亮"
@@ -11414,6 +11969,10 @@ msgstr "平滑时显示画笔带"
 msgid "Show Crosshair in Brush Tip"
 msgstr "在画笔笔尖显示十字线"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Show Edge (J)"
+msgstr "显示边缘 (J)"
+
 #: app/src/LayersPanel.tsx
 msgid "Show effects of {name}"
 msgstr "显示“{name}”的效果"
@@ -11457,6 +12016,10 @@ msgstr "显示网格"
 #: app/src/app/Dialogs.tsx
 msgid "Show Only Crosshair While Painting"
 msgstr "绘画时仅显示十字线"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Show Original (P)"
+msgstr "显示原稿 (P)"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Show Overlay"
@@ -11533,6 +12096,8 @@ msgstr "单行书写器"
 #: app/src/ExportDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/OptionsBar.tsx
 #: app/src/shell/tools.ts
@@ -11672,9 +12237,17 @@ msgstr "智能对象"
 msgid "Smart Objects"
 msgstr "智能对象"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Smart Radius"
+msgstr "智能半径"
+
 #: app/src/filters/labels.ts
 msgid "Smart Sharpen"
 msgstr "智能锐化"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Smile"
+msgstr "微笑"
 
 #: app/src/app/helpers.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -11690,6 +12263,11 @@ msgstr "平滑"
 
 #: app/src/i18n/history.ts
 msgctxt "history step"
+msgid "Smooth"
+msgstr "平滑"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgctxt "select and mask"
 msgid "Smooth"
 msgstr "平滑"
 
@@ -11742,6 +12320,10 @@ msgstr "柔光"
 #: app/src/LayerStyleDialog.tsx
 msgid "Soften (px)"
 msgstr "软化（px）"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Soften Edge"
+msgstr "柔化边缘"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Softer"
@@ -12064,6 +12646,7 @@ msgid "Stop recording"
 msgstr "停止记录"
 
 #: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 #: app/src/app/actionsStore.ts
 msgid "Stop recording first."
 msgstr "请先停止记录。"
@@ -12329,6 +12912,10 @@ msgstr "减去"
 msgid "Subtract from channel"
 msgstr "从通道中减去"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Subtract from selection"
+msgstr "从选区减去"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Subtract from Selection"
@@ -12535,9 +13122,17 @@ msgstr "由于引擎拒绝了其数值，智能滤镜 {name} 已保留但不带�
 msgid "the {name} smart filter was not imported"
 msgstr "智能滤镜 {name} 未导入"
 
+#: app/src/i18n/errors.ts
+msgid "The action \"{name}\" plays itself through a conditional step."
+msgstr "动作“{name}”通过条件步骤播放自身。"
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr "该动作没有已启用的步骤。"
+
+#: app/src/ActionDialogs.tsx
+msgid "The action pauses at this step. Change the values for this run, or cancel to stop the action."
+msgstr "动作会在此步骤暂停。请更改本次运行的值，或取消以停止动作。"
 
 #: app/src/i18n/errors.ts
 msgid "The alignment must lie between 0 and 1."
@@ -12590,6 +13185,14 @@ msgstr "该文档未打开。"
 #: app/src/i18n/errors.ts
 msgid "The document to revert is no longer active."
 msgstr "要恢复的文档已不再处于活动状态。"
+
+#: app/src/ai/models.ts
+msgid "The downloaded model is damaged. Try again."
+msgstr "下载的模型已损坏。请重试。"
+
+#: app/src/BatchDialog.tsx
+msgid "The droplet is saved as a .pbdroplet file. Open it in photobaer (File › Open, or drop it on the window together with images) to run the action on images."
+msgstr "快捷批处理会保存为 .pbdroplet 文件。在 photobaer 中打开它（文件 › 打开，或将其与图像一起拖放到窗口中），即可对图像运行该动作。"
 
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
@@ -12680,6 +13283,10 @@ msgid "The image extends past the margins."
 msgstr "图像超出了边距。"
 
 #: app/src/i18n/errors.ts
+msgid "The image is too large for Select and Mask."
+msgstr "图像过大，无法使用选择并遮住。"
+
+#: app/src/i18n/errors.ts
 msgid "The image is too large to save at this bit depth."
 msgstr "图像太大，无法以此位深度保存。"
 
@@ -12704,8 +13311,20 @@ msgid "The measured line is already straight."
 msgstr "测量的直线已经是直的。"
 
 #: app/src/i18n/errors.ts
+msgid "The menu item \"{item}\" does not exist."
+msgstr "菜单项目“{item}”不存在。"
+
+#: app/src/i18n/errors.ts
+msgid "The menu item \"{item}\" is not available now."
+msgstr "菜单项目“{item}”当前不可用。"
+
+#: app/src/i18n/errors.ts
 msgid "The mode or bit depth was not applied: {reason}"
 msgstr "未应用模式或位深度：{reason}"
+
+#: app/src/ai/models.ts
+msgid "The model download failed (HTTP {status})."
+msgstr "模型下载失败 (HTTP {status})。"
 
 #: app/src/i18n/errors.ts
 msgid "The name \"{name}\" is already bound to another layer or property."
@@ -12828,6 +13447,10 @@ msgstr "变形后的图像超出了渲染限制。"
 msgid "The XMP is not well-formed. Correct it before you leave Raw Data."
 msgstr "XMP 格式不正确。请在离开“原始数据”之前更正。"
 
+#: app/src/ActionDialogs.tsx
+msgid "Then Play Action"
+msgstr "则播放动作"
+
 #: app/src/App.tsx
 msgid "There are no data sets to apply."
 msgstr "没有可应用的数据组。"
@@ -12843,6 +13466,10 @@ msgstr "没有可变换的像素。"
 #: app/src/i18n/errors.ts
 msgid "There are no pixels to warp."
 msgstr "没有可变形的像素。"
+
+#: app/src/i18n/errors.ts
+msgid "There is no action named \"{name}\" in this set."
+msgstr "此组中没有名为“{name}”的动作。"
 
 #: app/src/i18n/errors.ts
 msgid "There is no path to convert."
@@ -12895,6 +13522,10 @@ msgstr "此滤镜没有选项。"
 #: app/src/app/actionsStore.ts
 msgid "This is not a photobaer actions file."
 msgstr "这不是 photobaer 动作文件。"
+
+#: app/src/app/droplets.ts
+msgid "This is not a photobaer droplet."
+msgstr "这不是 photobaer 快捷批处理。"
 
 #: app/src/i18n/errors.ts
 msgid "This is not a Radiance HDR file."
@@ -13038,6 +13669,14 @@ msgstr "标题替代字"
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
 msgstr "要立即编辑文本，请将欠缺的字体替换为默认字体。您也可以管理整个文档中的欠缺字体。"
 
+#: app/src/ActionDialogs.tsx
+msgid "To record a menu item, select a menu item using the mouse."
+msgstr "要记录菜单项目，请用鼠标选择一个菜单项目。"
+
+#: app/src/ActionsPanel.tsx
+msgid "Toggle dialog on/off"
+msgstr "切换对话开/关"
+
 #: app/src/app/menus.ts
 msgid "Toggle Last State"
 msgstr "切换最终状态"
@@ -13114,6 +13753,7 @@ msgid "Tool presets could not be saved: {reason}"
 msgstr "无法存储工具预设：{reason}"
 
 #: app/src/app/menus.ts
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/ToolBar.tsx
 msgid "Tools"
 msgstr "工具"
@@ -13426,6 +14066,10 @@ msgstr "取消链接圆角半径"
 msgid "Unlink dimensions"
 msgstr "取消链接尺寸"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Unlink the eyes"
+msgstr "取消链接眼睛"
+
 #: app/src/PdfDialog.tsx
 msgid "Unlock"
 msgstr "解锁"
@@ -13501,6 +14145,10 @@ msgstr "上方"
 msgid "Upper Arc"
 msgstr "上弧"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Upper Lip"
+msgstr "上嘴唇"
+
 #: app/src/shell/TransformBar.tsx
 msgid "Upper Shell"
 msgstr "花冠"
@@ -13561,6 +14209,10 @@ msgstr "与 AI 代理一起使用"
 #: app/src/app/menus.ts
 msgid "Use with AI Agents…"
 msgstr "与 AI 代理一起使用…"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "Use Without Model"
+msgstr "不使用模型"
 
 #: app/src/VariablesDialogs.tsx
 msgid "UTF-8 text, comma, semicolon or tab separated; the first row names the variables."
@@ -13730,8 +14382,14 @@ msgid "Video"
 msgstr "视频"
 
 #: app/src/App.tsx
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "View"
 msgstr "视图"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "View Mode"
+msgstr "视图模式"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "View Options"

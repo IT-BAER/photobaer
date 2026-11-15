@@ -17,7 +17,7 @@ import { layerName } from './shell/typesession.ts';
 import { flatNodes, locate, nodeById } from './layers.ts';
 import { toParagraphText, toPointText } from './shell/typecommands.ts';
 import type { TextJson } from './psd/text.ts';
-import type { Spot, AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
+import type { Spot, AlignMode, Adjustment, ColorMode, ModeSpec, IccProfile, FaceInfo, LiquifyOp, VanishingPlane, VanishingState, AutosaveState, Box, ContentAwareOpts, RefineBase, RefineSettings, DestructiveAdjustment, DocInfo, FillContent, FillParams, GlobalLight, GradientParams, ArtboardBackground, BoolOp, Guide, LayerNode, OpenResult, PathRole, SavedPathInfo, SelectShape, SmartFilterInfo, SmartFilterKind, SmartLink, StrokeParams, StrokeSelectionParams, TransformKind, TransformOp, VectorMaskInfo, VectorPath, WorkerEvent } from './worker/types.ts';
 import { boxScale, thumbSize } from './app/navigator.ts';
 import { inkGray } from './app/channels.ts';
 import { CMYK_SPACES, DEFAULT_COLOR_SETTINGS, RGB_SPACES, openAction, type ColorSettings, type OpenAction } from './app/colorSettings.ts';
@@ -546,6 +546,18 @@ function bakeLayer(e: Engine, n: LayerNode, keepStyle: boolean) {
 function drawnRoots(tree: LayerNode[]) {
   let baseShown = false;
   return tree.filter((n, i) => { if (i === 0 || !n.clipping) baseShown = n.visible; return n.visible && baseShown; }).map(n => n.id);
+}
+
+// The engine's Select and Mask settings: [radius, smart radius, smooth, feather, contrast, shift edge].
+function refineParams(s: RefineSettings) {
+  return Float32Array.of(s.radius, s.smart_radius ? 1 : 0, s.smooth, s.feather, s.contrast, s.shift_edge);
+}
+
+// Focus Area's and Select and Mask's brush edits; edits recorded on a document of another working size (action
+// playback, Batch) do not apply.
+function sizedEdits(e: ReturnType<typeof need>, edits: Uint8Array | null) {
+  const [w, h] = e.focus_size();
+  return edits?.length === w * h ? edits : new Uint8Array(0);
 }
 
 function stepIfChanged(label: string, fn: () => boolean) {
@@ -1384,6 +1396,134 @@ const api = {
     const e = need();
     selGen++;
     return stepIfChanged('Select Subject', () => e.select_subject(id));
+  },
+
+  // A segmentation model's input: the layer's pixels (or the composite) in `rect` ([x, y, w, h]) as side x side
+  // opaque RGBA8 over mid grey.
+  aiSample(id: number, sampleAll: boolean, rect: [number, number, number, number], side: number) {
+    const data = need().region_rgba(sampleAll, id, rect[0], rect[1], rect[2], rect[3], side, side);
+    return { data: data.buffer as ArrayBuffer, w: side, h: side };
+  },
+
+  // The model's mask (side x side, 0..255) over `rect` as the selection, refined against the sampled pixels; no
+  // step and the selection unchanged when the mask is empty.
+  selectFromMask(id: number, sampleAll: boolean, mask: Uint8Array, side: number, rect: [number, number, number, number], mode: string, label: string) {
+    const e = need();
+    selGen++;
+    return stepIfChanged(label, () => e.select_mask(sampleAll, id, mask, side, side, rect[0], rect[1], rect[2], rect[3], mode));
+  },
+
+  // Properties > Quick Actions > Remove Background, one step: the subject (from the model's `mask`, side x side over
+  // the canvas, or without it the model-free Select Subject) becomes the layer's mask; a Background layer is renamed
+  // "Layer 0" first. No step and nothing changed when no subject is found.
+  removeBackground(id: number, mask: Uint8Array | null, side: number) {
+    const e = need();
+    const layers = JSON.parse(e.layers_json()) as LayerNode[];
+    const bg = layers[0]?.id === id && layers[0].kind === 'pixel' && layers[0].name === 'Background';
+    selGen++;
+    return stepIfChanged('Remove Background', () => {
+      const found = mask ? e.select_mask(false, id, mask, side, side, 0, 0, e.width(), e.height(), 'new') : e.select_subject(id);
+      if (!found) return false;
+      if (bg) e.set_props(id, JSON.stringify({ name: 'Layer 0' }));
+      e.add_mask_from_selection(id, false);
+      return true;
+    });
+  },
+
+  // Select > Focus Area on layer `id`: the automatic [In-Focus Range, Image Noise Level], the in-focus mask at the
+  // working size for the dialog, and the selection (no step and the selection unchanged when nothing is in focus).
+  // `edits` is null or working-size bytes from the Add (255) and Remove (0) brushes.
+  focusAuto(id: number) {
+    return Array.from(need().focus_auto(id)) as [number, number];
+  },
+
+  focusImage(id: number) {
+    const e = need();
+    const [w, h] = e.focus_size();
+    return { w, h, data: e.region_rgba(false, id, 0, 0, e.width(), e.height(), w, h).buffer as ArrayBuffer };
+  },
+
+  focusPreview(id: number, range: number, noise: number, edits: Uint8Array | null) {
+    const e = need();
+    const [w, h] = e.focus_size();
+    return { w, h, data: e.focus_preview(id, range, noise, edits ?? new Uint8Array(0)).buffer as ArrayBuffer };
+  },
+
+  focusArea(id: number, range: number, noise: number, edits: Uint8Array | null, soften: boolean) {
+    const e = need();
+    selGen++;
+    return stepIfChanged('Focus Area', () => e.focus_area(id, range, noise, sizedEdits(e, edits), soften));
+  },
+
+  // Focus Area's and Select and Mask's New Document outputs: a new document of this one's size, depth and profile
+  // whose layer holds the selected pixels of layer `id`, or (`withMask`) all its pixels with the selection as layer
+  // mask (8 bits per channel). `amount` (0..100, 0 off) is Decontaminate Colors.
+  focusToDocument(id: number, withMask: boolean, amount = 0) {
+    const e = need();
+    const sel = JSON.parse(e.channels_json()).selection as { default: number } | null;
+    if (!sel) throw new Error('there is no selection');
+    const masked = withMask || amount > 0;
+    let c: { x: number; y: number; w: number; h: number; rgba: Uint8Array } | null = null;
+    if (masked) {
+      const lb = e.layer_bounds(id) as Int32Array | null;
+      const b = lb && intersect([0, 0, e.width(), e.height()], Array.from(lb) as Box);
+      const rgba = b && e.transform_preview(id, Float64Array.of(1, 0, 0, 0, 1, 0, 0, 0, 1), 1, false, ...b);
+      if (b && rgba) c = { x: b[0], y: b[1], w: b[2], h: b[3], rgba };
+    } else c = copyPixels(e, id);
+    const masks: [number, number, Uint8Array][] = [];
+    if (masked) tileLoop(e.width(), e.height(), (tx, ty) => { const t = e.selection_tile(0, tx, ty) as Uint8Array | null; if (t) masks.push([tx, ty, t.slice()]); });
+    const n = new Engine(e.width(), e.height(), e.depth());
+    const icc = e.pixels_profile_icc();
+    if (icc.length) n.assign_profile('', icc);
+    if (c) n.put_rgba8(BACKGROUND, c.x, c.y, c.w, c.h, c.rgba);
+    if (masked) {
+      n.add_mask(BACKGROUND, sel.default > 0);
+      for (const [tx, ty, t] of masks) n.set_mask_tile8(BACKGROUND, tx, ty, t);
+      if (amount > 0) n.color_decontaminate(BACKGROUND, amount / 100);
+      if (!withMask) n.apply_mask(BACKGROUND);
+    }
+    return adopt(n, docs[active].name);
+  },
+
+  // Select > Select and Mask on layer `id` (or the composite with `sampleAll`): the workspace's image (opaque, over
+  // mid grey) and starting selection at the working size, its preview (refined coverage and the Show Edge band) and
+  // the result as one step. `base` holds Invert and Clear Selection, `edits` is null or working-size brush codes.
+  refineImage(id: number, sampleAll: boolean) {
+    const e = need();
+    const [w, h] = e.focus_size();
+    const data = e.region_rgba(sampleAll, id, 0, 0, e.width(), e.height(), w, h);
+    return { w, h, data: data.buffer as ArrayBuffer, sel: e.refine_original().buffer as ArrayBuffer };
+  },
+
+  refinePreview(id: number, sampleAll: boolean, s: RefineSettings, base: RefineBase, edits: Uint8Array | null) {
+    const e = need();
+    const [w, h] = e.focus_size();
+    const v = e.refine_preview(sampleAll, id, refineParams(s), base.invert, base.clear, edits ?? new Uint8Array(0));
+    return { w, h, alpha: v.slice(0, w * h).buffer as ArrayBuffer, band: v.slice(w * h).buffer as ArrayBuffer };
+  },
+
+  // Output To: 'selection', 'layerMask', 'newLayer' or 'newLayerMask' (the copy hides the source layer); the New
+  // Document outputs are 'selection' followed by focusToDocument. Decontaminate Colors (`amount` 0..100) only
+  // applies to the new layer outputs.
+  selectAndMask(id: number, sampleAll: boolean, s: RefineSettings, base: RefineBase, edits: Uint8Array | null, output: string, decontaminate: boolean, amount: number) {
+    const e = need();
+    if (!['selection', 'layerMask', 'newLayer', 'newLayerMask'].includes(output)) throw new Error(`unknown output ${output}`);
+    const p = refineParams(s);
+    const mask = (target: number) => { if (e.has_selection()) e.add_mask_from_selection(target, false); else e.add_mask(target, false); };
+    let created = 0;
+    history.run('Select and Mask', () => {
+      e.select_and_mask(sampleAll, id, p, base.invert, base.clear, sizedEdits(e, edits));
+      if (output === 'layerMask') mask(id);
+      if (!output.startsWith('newLayer')) return;
+      created = e.duplicate_node(id);
+      if (findNode(e, created)?.mask) e.apply_mask(created);
+      mask(created);
+      if (decontaminate && amount > 0) e.color_decontaminate(created, amount / 100);
+      if (output === 'newLayer') e.apply_mask(created);
+      e.set_props(id, JSON.stringify({ visible: false }));
+    });
+    selGen++;
+    return { ...changed(), created };
   },
 
   colorRange(id: number, sampleAll: boolean, preset: string, samples: number[], fuzziness: number, range: number, center: number[], localized: boolean, invert: boolean) {
@@ -3329,6 +3469,7 @@ const api = {
       else if (o.op === 'reconstruct') l.reconstruct(o.amount);
       else if (o.op === 'restore') l.restore_all();
       else if (o.op === 'spacing') l.set_spacing(o.spacing);
+      else if (o.op === 'face') l.set_face(o.disp ?? new Float32Array(0));
       else l.set_pin_edges(o.on);
     }
     return liquifyView(overlays);

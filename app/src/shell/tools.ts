@@ -30,6 +30,8 @@ const SELECT_COMMON: OptionSchema[] = [
   { id: 'feather', kind: 'number', label: msg`Feather`, default: 0, min: 0, max: 1000, unit: 'px' },
   { id: 'antiAlias', kind: 'boolean', label: msg`Anti-alias`, default: true },
 ];
+// The options bar's Select and Mask… button (marquee, lasso and wand-slot tools).
+const SELECT_MASK: OptionSchema = { id: 'selectAndMask', kind: 'custom', label: msg`Select and Mask`, default: '', sep: true };
 
 const BRUSH_COMMON: OptionSchema[] = [
   { id: 'size', kind: 'number', label: msg`Size`, default: 30, min: 1, max: 5000, unit: 'px' },
@@ -129,6 +131,7 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'ratioH', kind: 'number', label: msg`Ratio H`, default: 1, min: 0.01, max: 1000 },
       { id: 'fixedW', kind: 'number', label: msg`Fixed W`, default: 100, min: 1, max: 30000, unit: 'px' },
       { id: 'fixedH', kind: 'number', label: msg`Fixed H`, default: 100, min: 1, max: 30000, unit: 'px' },
+      SELECT_MASK,
     ],
   },
   marqueeEllipse: {
@@ -140,6 +143,7 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'ratioH', kind: 'number', label: msg`Ratio H`, default: 1, min: 0.01, max: 1000 },
       { id: 'fixedW', kind: 'number', label: msg`Fixed W`, default: 100, min: 1, max: 30000, unit: 'px' },
       { id: 'fixedH', kind: 'number', label: msg`Fixed H`, default: 100, min: 1, max: 30000, unit: 'px' },
+      SELECT_MASK,
     ],
   },
   marqueeRow: {
@@ -152,11 +156,11 @@ export const TOOLS: Record<string, Tool> = {
   },
   lasso: {
     id: 'lasso', label: msg`Lasso`, slot: 'lasso', key: 'l', cursor: 'crosshair', icon: 'Lasso',
-    options: [...SELECT_COMMON],
+    options: [...SELECT_COMMON, SELECT_MASK],
   },
   polygonalLasso: {
     id: 'polygonalLasso', label: msg`Polygonal Lasso`, slot: 'lasso', key: 'l', cursor: 'crosshair', icon: 'PenTool',
-    options: [...SELECT_COMMON],
+    options: [...SELECT_COMMON, SELECT_MASK],
   },
   magneticLasso: {
     id: 'magneticLasso', label: msg`Magnetic Lasso`, slot: 'lasso', key: 'l', cursor: 'crosshair', icon: 'Magnet',
@@ -165,6 +169,17 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'width', kind: 'number', label: msg`Width`, default: 10, min: 1, max: 256, unit: 'px' },
       { id: 'contrast', kind: 'percent', label: msg`Contrast`, default: 10, min: 1, max: 100 },
       { id: 'frequency', kind: 'number', label: msg`Frequency`, default: 57, min: 0, max: 100 },
+      SELECT_MASK,
+    ],
+  },
+  // Draws a rectangle or lasso around an object; the segmentation model selects the object inside it.
+  objectSelection: {
+    id: 'objectSelection', label: msg`Object Selection`, slot: 'wand', key: 'w', cursor: 'crosshair', icon: 'SquareDashedMousePointer',
+    options: [
+      { id: 'mode', kind: 'select', label: msg`Mode`, default: 'new', choices: ['new', 'add', 'subtract', 'intersect'] },
+      { id: 'shape', kind: 'segmented', label: msg`Mode`, default: 'rectangle', choices: ['rectangle', 'lasso'] },
+      { id: 'sampleAllLayers', kind: 'boolean', label: msg`Sample all layers`, default: false },
+      SELECT_MASK,
     ],
   },
   quickSelection: {
@@ -174,6 +189,7 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'mode', kind: 'select', label: msg`Mode`, default: 'add', choices: ['new', 'add', 'subtract'] },
       { id: 'sampleAllLayers', kind: 'boolean', label: msg`Sample all layers`, default: false },
       { id: 'autoEnhance', kind: 'boolean', label: msg`Auto-enhance`, default: true },
+      SELECT_MASK,
     ],
   },
   magicWand: {
@@ -183,6 +199,7 @@ export const TOOLS: Record<string, Tool> = {
       { id: 'antiAlias', kind: 'boolean', label: msg`Anti-alias`, default: true },
       { id: 'contiguous', kind: 'boolean', label: msg`Contiguous`, default: true },
       { id: 'sampleAllLayers', kind: 'boolean', label: msg`Sample all layers`, default: false },
+      SELECT_MASK,
     ],
   },
   crop: {
@@ -483,7 +500,7 @@ export const SLOTS: Slot[] = [
   { id: 'move', key: 'v', tools: ['move', 'artboard'] },
   { id: 'marquee', key: 'm', tools: ['marqueeRect', 'marqueeEllipse', 'marqueeRow', 'marqueeColumn'] },
   { id: 'lasso', key: 'l', tools: ['lasso', 'polygonalLasso', 'magneticLasso'] },
-  { id: 'wand', key: 'w', tools: ['quickSelection', 'magicWand'] },
+  { id: 'wand', key: 'w', tools: ['objectSelection', 'quickSelection', 'magicWand'] },
   { id: 'crop', key: 'c', tools: ['crop', 'perspectiveCrop', 'slice', 'sliceSelect'] },
   { id: 'frame', key: 'k', tools: ['frame'] },
   { id: 'eyedropper', key: 'i', tools: ['eyedropper', 'colorSampler', 'ruler', 'note', 'count'] },

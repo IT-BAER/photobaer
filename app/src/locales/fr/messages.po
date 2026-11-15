@@ -16,10 +16,6 @@ msgid "“{docName}” uses fonts that could not be loaded. Choose replacements 
 msgstr "« {docName} » utilise des polices qui n’ont pas pu être chargées. Choisis des polices de remplacement pour tout le document. La mise en forme du texte peut changer."
 
 #: app/src/i18n/errors.ts
-msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
-msgstr "{count} couches alpha et de ton direct au-delà de la limite de {limit} couches de Photoshop n’ont pas été enregistrées"
-
-#: app/src/i18n/errors.ts
 msgid "\"{file}\": {why}"
 msgstr "\"{file}\": {why}"
 
@@ -100,6 +96,10 @@ msgstr "{colorStops} points de couleur · {opacityStops} points d’opacité"
 msgid "{count, plural, one {# pattern imported} other {# patterns imported}}"
 msgstr "{count, plural, one {# motif importé} other {# motifs importés}}"
 
+#: app/src/i18n/errors.ts
+msgid "{count} alpha and spot channels beyond Photoshop's {limit}-channel limit were not saved"
+msgstr "{count} couches alpha et de ton direct au-delà de la limite de {limit} couches de Photoshop n’ont pas été enregistrées"
+
 #: app/src/i18n/history.ts
 msgid "{depth} Bits/Channel"
 msgstr "{depth} bits/couche"
@@ -123,6 +123,22 @@ msgstr "{fam} ne contient aucun glyphe dans {subsetName}."
 #: app/src/MissingFonts.tsx
 msgid "{family} does not contain every character used by {source}. Choose another font."
 msgstr "{family} ne contient pas tous les caractères utilisés par {source}. Choisis une autre police."
+
+#: app/src/ai/ModelDialog.tsx
+msgid "{feature} uses a face model that runs on this computer; your images are not uploaded."
+msgstr "{feature} utilise un modèle de visage qui s’exécute sur cet ordinateur ; tes images ne sont pas envoyées."
+
+#: app/src/ai/ModelDialog.tsx
+msgid "{feature} uses a segmentation model that runs on this computer; your images are not uploaded."
+msgstr "{feature} utilise un modèle de segmentation qui s’exécute sur cet ordinateur ; tes images ne sont pas envoyées."
+
+#: app/src/ai/ModelDialog.tsx
+msgid "{got} of {size} MB"
+msgstr "{got} sur {size} Mo"
+
+#: app/src/ActionDialogs.tsx
+msgid "{keyText} is used by the action “{other}”. OK moves it to this action."
+msgstr "{keyText} est utilisée par l’action « {other} ». OK la déplace vers cette action."
 
 #. placeholder {0}: handleName(cls, i === outer)
 #: app/src/LayerStyleDialog.tsx
@@ -194,7 +210,7 @@ msgstr "{label} : clique sur l’image pour le définir"
 msgid "{maskName} Mask"
 msgstr "Masque {maskName}"
 
-#: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 msgid "{message}\n"
 "\n"
 "Continue playing the action?"
@@ -256,6 +272,14 @@ msgstr "Options {name}"
 #: app/src/LayersPanel.tsx
 msgid "{name} vector mask"
 msgstr "Masque vectoriel {name}"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "{name}, left eye"
+msgstr "{name}, œil gauche"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "{name}, right eye"
+msgstr "{name}, œil droit"
 
 #: app/src/PresetPanels.tsx
 msgid "{name}: {summary}"
@@ -517,9 +541,17 @@ msgstr "Action {next}"
 msgid "Action name"
 msgstr "Nom de l’action"
 
+#: app/src/ActionDialogs.tsx
+msgid "Action Options"
+msgstr "Options d’action"
+
 #: app/src/app/cameraData.ts
 msgid "Action program"
 msgstr "Programme Action"
+
+#: app/src/ActionDialogs.tsx
+msgid "Action step"
+msgstr "Étape d’action"
 
 #: app/src/ActionsPanel.tsx
 #: app/src/App.tsx
@@ -552,6 +584,10 @@ msgstr "Ajouter {effectName}"
 #: app/src/shell/tools.ts
 msgid "Add Anchor Point"
 msgstr "Ajout de point d’ancrage"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Add Brush"
+msgstr "Pinceau d’ajout"
 
 #: app/src/shell/GradientEditor.tsx
 msgid "Add color stop"
@@ -594,6 +630,10 @@ msgstr "Ajouter une taille"
 #: app/src/app/Dialogs.tsx
 msgid "Add to channel"
 msgstr "Ajouter à la couche"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Add to selection"
+msgstr "Ajouter à la sélection"
 
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/LiquifyDialog.tsx
@@ -646,6 +686,10 @@ msgstr "Réglage visible"
 #: app/src/app/menus.ts
 msgid "Adjustments"
 msgstr "Réglages"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Advanced"
+msgstr "Avancé"
 
 #: app/src/ColorDialog.tsx
 msgid "Advanced Controls"
@@ -715,6 +759,11 @@ msgstr "Aligne et fusionne les calques de pixels du document actif."
 
 #: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
+msgid "All"
+msgstr "Tout"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgctxt "face-aware liquify reset"
 msgid "All"
 msgstr "Tout"
 
@@ -796,6 +845,7 @@ msgstr "Ambiance"
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/ModeDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Amount"
 msgstr "Quantité"
 
@@ -819,6 +869,11 @@ msgstr "Une image ICO mesure au maximum 256 x 256 pixels."
 #: app/src/app/menus.ts
 msgid "Analysis"
 msgstr "Analyse"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Analyzing…"
+msgstr "Analyse…"
 
 #: app/src/app/Dialogs.tsx
 msgid "Anchor"
@@ -1179,6 +1234,7 @@ msgstr "Fonction de l’auteur"
 #: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/GalleryStack.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/LevelsCurvesBody.tsx
 #: app/src/shell/DeformSession.tsx
 msgid "Auto"
@@ -1515,8 +1571,13 @@ msgstr "Noir"
 
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
+#: app/src/FocusAreaDialog.tsx
 msgid "Black & White"
 msgstr "Noir et blanc"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Black & White (K)"
+msgstr "Noir et blanc (K)"
 
 #: app/src/ModeDialog.tsx
 msgid "Black and White"
@@ -1890,6 +1951,7 @@ msgid "Browse…"
 msgstr "Parcourir…"
 
 #: app/src/app/helpers.ts
+#: app/src/FocusAreaDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/shell/tools.ts
 msgid "Brush"
@@ -1911,6 +1973,10 @@ msgstr "Détail du pinceau"
 #: app/src/app/Dialogs.tsx
 msgid "Brush Leash Color"
 msgstr "Couleur de la laisse du pinceau"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Brush mode"
+msgstr "Mode du pinceau"
 
 #: app/src/app/Dialogs.tsx
 msgid "Brush Name"
@@ -1981,6 +2047,14 @@ msgstr "Forme de la pointe du pinceau"
 #: app/src/shell/BrushPanels.tsx
 msgid "Brush tips"
 msgstr "Pointes de pinceau"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Brush Tool"
+msgstr "Outil Pinceau"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Brush Tool (B)"
+msgstr "Outil Pinceau (B)"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Brush Tool Options"
@@ -2053,6 +2127,8 @@ msgstr "Filtre Camera Raw"
 msgid "Camera Raw Filter…"
 msgstr "Filtre Camera Raw…"
 
+#: app/src/ActionDialogs.tsx
+#: app/src/ai/ModelDialog.tsx
 #: app/src/AnalysisDialogs.tsx
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
@@ -2064,12 +2140,14 @@ msgstr "Filtre Camera Raw…"
 #: app/src/filters/FilterDialog.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/filters/VanishingPointDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/MissingFonts.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/PdfDialog.tsx
 #: app/src/ScriptDialogs.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/ColorPicker.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/GradientEditor.tsx
@@ -2276,6 +2354,10 @@ msgstr "Zone de fusain"
 msgid "Charcoal Thickness"
 msgstr "Épaisseur du fusain"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Chin Height"
+msgstr "Hauteur du menton"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Chisel Hard"
 msgstr "Ciseau dur"
@@ -2292,6 +2374,10 @@ msgstr "Maigri"
 msgid "Choose a .psd, .psb, .exr, .hdr or .ico file name, not {name}."
 msgstr "Choisis un nom de fichier .psd, .psb, .exr, .hdr ou .ico, et non {name}."
 
+#: app/src/app/actionsStore.ts
+msgid "Choose a function key from F2 to F12."
+msgstr "Choisis une touche de fonction de F2 à F12."
+
 #: app/src/app/paintTool.ts
 msgid "Choose a pattern first."
 msgstr "Choisis d’abord un motif."
@@ -2299,6 +2385,11 @@ msgstr "Choisis d’abord un motif."
 #: app/src/FileDialogs.tsx
 msgid "Choose a template"
 msgstr "Choisir un modèle"
+
+#: app/src/ActionDialogs.tsx
+#: app/src/app/actionsStore.ts
+msgid "Choose an action for Then or Else."
+msgstr "Choisis une action pour Alors ou Sinon."
 
 #: app/src/i18n/errors.ts
 msgid "Choose at least one file."
@@ -2309,6 +2400,10 @@ msgstr "Choisis au moins un fichier."
 #: app/src/ScriptDialogs.tsx
 msgid "Choose…"
 msgstr "Choisir…"
+
+#: app/src/BatchDialog.tsx
+msgid "chosen when the droplet runs"
+msgstr "choisi à l’exécution du droplet"
 
 #: app/src/filters/labels.ts
 msgid "Chrome"
@@ -2397,6 +2492,10 @@ msgstr "Effacer la liste des fichiers récents"
 #: app/src/app/menus.ts
 msgid "Clear Selected Artboard Guides"
 msgstr "Effacer les repères du plan de travail sélectionné"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Clear Selection"
+msgstr "Effacer la sélection"
 
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
@@ -2804,6 +2903,10 @@ msgstr "Composeur"
 msgid "Composite"
 msgstr "Composite"
 
+#: app/src/ActionDialogs.tsx
+msgid "Conditional Action"
+msgstr "Action conditionnelle"
+
 #: app/src/layerStyle.ts
 msgid "Cone"
 msgstr "Cône"
@@ -2929,6 +3032,7 @@ msgstr "Contracter…"
 
 #: app/src/adjustments.ts
 #: app/src/filters/labels.ts
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/tools.ts
 msgid "Contrast"
@@ -3106,6 +3210,10 @@ msgid "Cosine"
 msgstr "Cosinus"
 
 #: app/src/i18n/errors.ts
+msgid "Could not complete your request because the target layer is hidden."
+msgstr "Impossible de terminer la requête, car le calque cible est masqué."
+
+#: app/src/i18n/errors.ts
 msgid "Could not copy: the layer is not a pixel layer."
 msgstr "Copie impossible : le calque n’est pas un calque de pixels."
 
@@ -3238,6 +3346,14 @@ msgstr "Créer un masque d’écrêtage"
 #: app/src/filters/VanishingPointDialog.tsx
 msgid "Create connected plane"
 msgstr "Créer des calques"
+
+#: app/src/BatchDialog.tsx
+msgid "Create Droplet"
+msgstr "Créer un droplet"
+
+#: app/src/app/menus.ts
+msgid "Create Droplet…"
+msgstr "Créer un droplet…"
 
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
@@ -3615,6 +3731,10 @@ msgstr "Lumière du jour"
 msgid "De-Interlace"
 msgstr "Désentrelacement"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Decontaminate Colors"
+msgstr "Décontaminer les couleurs"
+
 #: app/src/LayerStyleDialog.tsx
 msgid "Deep"
 msgstr "Profond"
@@ -3913,6 +4033,14 @@ msgstr "Espace de destination"
 msgid "Detail"
 msgstr "Détail"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Detect Faces"
+msgstr "Détecter les visages"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Detecting faces…"
+msgstr "Détection des visages…"
+
 #: app/src/ColorDialog.tsx
 msgid "Device to Simulate"
 msgstr "Périphérique à simuler"
@@ -4089,6 +4217,38 @@ msgstr "Document"
 msgid "Document Bounds"
 msgstr "Limites du document"
 
+#: app/src/ActionDialogs.tsx
+msgid "Document Has Layers"
+msgstr "Le document contient des calques"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Has Selection"
+msgstr "Le document contient une sélection"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is CMYK Mode"
+msgstr "Le document est en mode CMJN"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Grayscale Mode"
+msgstr "Le document est en mode Niveaux de gris"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Lab Mode"
+msgstr "Le document est en mode Lab"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Landscape"
+msgstr "Le document est en format paysage"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is RGB Mode"
+msgstr "Le document est en mode RVB"
+
+#: app/src/ActionDialogs.tsx
+msgid "Document Is Square"
+msgstr "Le document est carré"
+
 #: app/src/FileDialogs.tsx
 msgid "Document Title"
 msgstr "Titre du document"
@@ -4134,6 +4294,14 @@ msgstr "Double ligne"
 #: app/src/LayerStyleDialog.tsx
 msgid "Down"
 msgstr "Bas"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "Download"
+msgstr "Télécharger"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "Download the model once ({size} MB from {host}, licence {licence})? It is kept in this browser and also works offline."
+msgstr "Télécharger le modèle une fois ({size} Mo depuis {host}, licence {licence}) ? Il est conservé dans ce navigateur et fonctionne aussi hors ligne."
 
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
@@ -4267,6 +4435,10 @@ msgstr "Bord"
 msgid "Edge Brightness"
 msgstr "Luminosité des bords"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Edge Detection"
+msgstr "Détection des contours"
+
 #: app/src/filters/GalleryStack.tsx
 msgid "Edge Extension"
 msgstr "Extension des bords"
@@ -4385,6 +4557,10 @@ msgstr "Ellipse"
 #: app/src/shell/tools.ts
 msgid "Elliptical Marquee"
 msgstr "Ellipse de sélection"
+
+#: app/src/ActionDialogs.tsx
+msgid "Else Play Action"
+msgstr "Sinon, lire l’action"
 
 #: app/src/FileDialogs.tsx
 msgid "Email(s)"
@@ -4593,6 +4769,10 @@ msgstr "Développer {title}"
 msgid "Expand action"
 msgstr "Développer l’action"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Expand detection area"
+msgstr "Étendre la zone de détection"
+
 #: app/src/app/Dialogs.tsx
 msgid "Expand Selection"
 msgstr "Dilater la sélection"
@@ -4728,17 +4908,57 @@ msgstr "Très grand"
 msgid "Extrude"
 msgstr "Extrusion"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Distance"
+msgstr "Distance entre les yeux"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Height"
+msgstr "Hauteur des yeux"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Size"
+msgstr "Taille des yeux"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Tilt"
+msgstr "Inclinaison des yeux"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eye Width"
+msgstr "Largeur des yeux"
+
 #: app/src/shell/tools.ts
 msgid "Eyedropper"
 msgstr "Pipette"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Eyes"
+msgstr "Yeux"
 
 #: app/src/app/cameraData.ts
 msgid "F-Stop"
 msgstr "Ouverture"
 
 #: app/src/filters/LiquifyDialog.tsx
-msgid "Face Tool (Face-Aware Liquify comes with M7)"
-msgstr "Outil Visage (Fluidité sensible aux visages arrive avec M7)"
+msgid "Face #{n}"
+msgstr "Visage n° {n}"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face Shape"
+msgstr "Forme du visage"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face Tool"
+msgstr "Outil Visage"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face Width"
+msgstr "Largeur du visage"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Face-Aware Liquify"
+msgstr "Fluidité adaptée au visage"
 
 #: app/src/filters/labels.ts
 msgid "Facet"
@@ -4786,6 +5006,7 @@ msgstr "Faux italique"
 
 #: app/src/filters/labels.ts
 #: app/src/PropertiesPanel.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/tools.ts
 msgid "Feather"
 msgstr "Contour progressif"
@@ -5220,6 +5441,15 @@ msgstr "Distance focale équivalente 35 mm"
 msgid "Focus"
 msgstr "Mise au point"
 
+#: app/src/FocusAreaDialog.tsx
+#: app/src/i18n/history.ts
+msgid "Focus Area"
+msgstr "Plage de netteté"
+
+#: app/src/app/menus.ts
+msgid "Focus Area…"
+msgstr "Plage de netteté…"
+
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
 #: app/src/ScriptDialogs.tsx
@@ -5293,6 +5523,10 @@ msgstr "Couleur de premier plan"
 #: app/src/filters/labels.ts
 msgid "Foreground Level"
 msgstr "Niveau de premier plan"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Forehead"
+msgstr "Front"
 
 #: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
@@ -5405,6 +5639,10 @@ msgstr "Sphérique intégral"
 msgid "Fullscreen"
 msgstr "Plein écran"
 
+#: app/src/ActionDialogs.tsx
+msgid "Function Key"
+msgstr "Touche de fonction"
+
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 msgid "Fuzziness"
@@ -5479,6 +5717,10 @@ msgstr "Éclairage global"
 #: app/src/app/menus.ts
 msgid "Global Light…"
 msgstr "Éclairage global…"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Global Refinements"
+msgstr "Affinements globaux"
 
 #: app/src/filters/labels.ts
 msgid "Gloss"
@@ -6170,6 +6412,14 @@ msgstr "Césure"
 msgid "Hyphenation Zone"
 msgstr "Zone de césure"
 
+#: app/src/ActionDialogs.tsx
+msgid "If {cond} Then Play Action “{then}” Else Play Action “{otherwise}”"
+msgstr "Si {cond}, lire l’action « {then} », sinon lire l’action « {otherwise} »"
+
+#: app/src/ActionDialogs.tsx
+msgid "If Current"
+msgstr "Si actuel"
+
 #: app/src/shell/tools.ts
 msgid "Ignore Adjustment Layers"
 msgstr "Ignorer les calques de réglage"
@@ -6206,6 +6456,10 @@ msgstr "Retouche d’image dans ton navigateur"
 #: app/src/ExportDialogs.tsx
 msgid "Image height"
 msgstr "Hauteur de l’image"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Image Noise Level"
+msgstr "Niveau de bruit de l’image"
 
 #: app/src/App.tsx
 #: app/src/ScriptDialogs.tsx
@@ -6303,6 +6557,10 @@ msgstr "Dans un dossier, chaque type est placé dans un sous-dossier nommé JPEG
 #: app/src/filters/LiquifyDialog.tsx
 msgid "In Front"
 msgstr "Devant"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "In-Focus Range"
+msgstr "Plage nette"
 
 #: app/src/DocumentArrangement.tsx
 msgid "Inactive document preview"
@@ -6447,9 +6705,21 @@ msgstr "Niveaux d’entrée"
 msgid "Input white"
 msgstr "Blanc en entrée"
 
+#: app/src/ActionsPanel.tsx
+msgid "Insert Conditional…"
+msgstr "Insérer une condition…"
+
 #: app/src/i18n/history.ts
 msgid "Insert Glyph"
 msgstr "Insertion d’un glyphe"
+
+#: app/src/ActionDialogs.tsx
+msgid "Insert Menu Item"
+msgstr "Insérer un élément de menu"
+
+#: app/src/ActionsPanel.tsx
+msgid "Insert Menu Item…"
+msgstr "Insérer un élément de menu…"
 
 #: app/src/ActionsPanel.tsx
 msgid "Insert stop"
@@ -6542,6 +6812,7 @@ msgstr "Image inversée"
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/PropertiesPanel.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 msgid "Invert"
 msgstr "Négatif"
@@ -6625,6 +6896,10 @@ msgstr "Lierre"
 #: app/src/filters/labels.ts
 msgid "Jag"
 msgstr "Dentelure"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Jawline"
+msgstr "Mâchoire"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Jitter"
@@ -6740,6 +7015,7 @@ msgstr "Options de langue"
 msgid "Large"
 msgstr "Grand"
 
+#: app/src/i18n/choices.ts
 #: app/src/i18n/history.ts
 #: app/src/shell/tools.ts
 msgid "Lasso"
@@ -6820,9 +7096,57 @@ msgstr "Contour du calque"
 msgid "Layer filter"
 msgstr "Filtre de calques"
 
+#: app/src/ActionDialogs.tsx
+msgid "Layer Has Effects"
+msgstr "Le calque a des effets"
+
 #: app/src/i18n/errors.ts
 msgid "Layer has no exportable pixels."
 msgstr "Le calque ne contient aucun pixel exportable."
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Has Pixel Mask"
+msgstr "Le calque a un masque de pixels"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Has Vector Mask"
+msgstr "Le calque a un masque vectoriel"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Adjustment Layer"
+msgstr "Le calque est un calque de réglage"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Background"
+msgstr "Le calque est l’arrière-plan"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Fill Layer"
+msgstr "Le calque est un calque de remplissage"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Group"
+msgstr "Le calque est un groupe"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Pixel Layer"
+msgstr "Le calque est un calque de pixels"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Shape Layer"
+msgstr "Le calque est un calque de forme"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Smart Object"
+msgstr "Le calque est un objet dynamique"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Type Layer"
+msgstr "Le calque est un calque de texte"
+
+#: app/src/ActionDialogs.tsx
+msgid "Layer Is Visible"
+msgstr "Le calque est visible"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Layer Knocks Out Drop Shadow"
@@ -6830,6 +7154,8 @@ msgstr "Le calque découpe l’ombre portée"
 
 #: app/src/app/menus.ts
 #: app/src/filters/GalleryStack.tsx
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Layer Mask"
 msgstr "Masque de fusion"
 
@@ -7157,6 +7483,10 @@ msgstr "Lier les rayons des coins"
 msgid "Link dimensions"
 msgstr "Lier les dimensions"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Link the eyes"
+msgstr "Lier les yeux"
+
 #: app/src/app/vectorCommands.ts
 #: app/src/i18n/history.ts
 msgid "Link Vector Mask"
@@ -7299,6 +7629,10 @@ msgstr "Chargement des calques…"
 msgid "Loading the face…"
 msgstr "Chargement de la police…"
 
+#: app/src/ai/ModelDialog.tsx
+msgid "Loading the model…"
+msgstr "Chargement du modèle…"
+
 #: app/src/LevelsCurvesBody.tsx
 msgid "Loading…"
 msgstr "Chargement…"
@@ -7432,6 +7766,10 @@ msgstr "Inférieur"
 #: app/src/shell/TransformBar.tsx
 msgid "Lower Arc"
 msgstr "Arc inférieur"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Lower Lip"
+msgstr "Lèvre inférieure"
 
 #: app/src/shell/TransformBar.tsx
 msgid "Lower Shell"
@@ -7730,6 +8068,10 @@ msgstr "Lignes moyennes"
 msgid "Medium Strokes"
 msgstr "Traits moyens"
 
+#: app/src/ActionDialogs.tsx
+msgid "Menu Item:"
+msgstr "Élément de menu :"
+
 #: app/src/app/Dialogs.tsx
 msgid "Merge"
 msgstr "Fusionner"
@@ -7989,6 +8331,18 @@ msgstr "Mouvement"
 msgid "Motion Blur"
 msgstr "Flou directionnel"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mouth"
+msgstr "Bouche"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mouth Height"
+msgstr "Hauteur de la bouche"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Mouth Width"
+msgstr "Largeur de la bouche"
+
 #: app/src/i18n/choices.ts
 #: app/src/shell/tools.ts
 msgid "Move"
@@ -8085,6 +8439,7 @@ msgstr "Plusieurs flammes, variées"
 msgid "Multiply"
 msgstr "Produit"
 
+#: app/src/ActionDialogs.tsx
 #: app/src/ActionsPanel.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/measureTools.tsx
@@ -8182,9 +8537,16 @@ msgstr "Nouvelle couche"
 msgid "New Channel"
 msgstr "Nouvelle couche"
 
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "New Document"
 msgstr "Nouveau document"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "New Document with Layer Mask"
+msgstr "Nouveau document avec masque de fusion"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "New Effect Layer"
@@ -8241,7 +8603,9 @@ msgid "New layer"
 msgstr "Nouveau calque"
 
 #: app/src/app/menus.ts
+#: app/src/FocusAreaDialog.tsx
 #: app/src/i18n/history.ts
+#: app/src/SelectAndMaskDialog.tsx
 msgid "New Layer"
 msgstr "Nouveau calque"
 
@@ -8252,6 +8616,11 @@ msgstr "Nouvelle composition de calques"
 #: app/src/i18n/history.ts
 msgid "New Layer Comp"
 msgstr "Nouvelle composition de calques"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "New Layer with Layer Mask"
+msgstr "Nouveau calque avec masque de fusion"
 
 #: app/src/i18n/history.ts
 msgid "New Note"
@@ -8392,9 +8761,17 @@ msgstr "Aucun document ouvert."
 msgid "No effect selected"
 msgstr "Aucun effet sélectionné"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "No faces found."
+msgstr "Aucun visage trouvé."
+
 #: app/src/GlyphsPanel.tsx
 msgid "No fonts are available."
 msgstr "Aucune police disponible."
+
+#: app/src/FocusAreaDialog.tsx
+msgid "No in-focus area found"
+msgstr "Aucune zone nette trouvée"
 
 #: app/src/MissingFonts.tsx
 msgid "No installed fonts are available for replacement."
@@ -8435,6 +8812,10 @@ msgstr "Aucune commande correspondante"
 #: app/src/NotesPanels.tsx
 msgid "No measurements recorded."
 msgstr "Aucune mesure enregistrée."
+
+#: app/src/App.tsx
+msgid "No object found"
+msgstr "Aucun objet trouvé"
 
 #: app/src/PathsPanel.tsx
 msgid "No paths"
@@ -8539,10 +8920,24 @@ msgstr "les dégradés de bruit ont été importés sous forme de dégradé du n
 msgid "None"
 msgstr "Aucun"
 
+#: app/src/ActionDialogs.tsx
+msgctxt "action"
+msgid "None"
+msgstr "Aucune"
+
+#: app/src/ActionDialogs.tsx
+msgctxt "function key"
+msgid "None"
+msgstr "Aucune"
+
 #: app/src/filters/LiquifyDialog.tsx
 msgctxt "liquify mask"
 msgid "None"
 msgstr "Aucun"
+
+#: app/src/ActionDialogs.tsx
+msgid "None Selected"
+msgstr "Aucune sélection"
 
 #: app/src/app/cameraData.ts
 #: app/src/app/Dialogs.tsx
@@ -8572,6 +8967,18 @@ msgstr "Amérique du Nord, pré-presse 2"
 #: app/src/app/colorSettings.ts
 msgid "North America Web/Internet"
 msgstr "Amérique du Nord, Web/Internet"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Nose"
+msgstr "Nez"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Nose Height"
+msgstr "Hauteur du nez"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Nose Width"
+msgstr "Largeur du nez"
 
 #: app/src/app/cameraData.ts
 msgid "Not defined"
@@ -8620,6 +9027,12 @@ msgstr "Nombre de carreaux"
 msgid "Oak"
 msgstr "Chêne"
 
+#: app/src/App.tsx
+#: app/src/i18n/history.ts
+#: app/src/shell/tools.ts
+msgid "Object Selection"
+msgstr "Sélection d’objet"
+
 #: app/src/filters/labels.ts
 msgid "Ocean Ripple"
 msgstr "Ondulation océanique"
@@ -8648,6 +9061,7 @@ msgstr "Décalage"
 msgid "Oil Paint"
 msgstr "Peinture à l’huile"
 
+#: app/src/ActionDialogs.tsx
 #: app/src/AnalysisDialogs.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/BatchDialog.tsx
@@ -8658,12 +9072,14 @@ msgstr "Peinture à l’huile"
 #: app/src/filters/FilterDialog.tsx
 #: app/src/filters/LiquifyDialog.tsx
 #: app/src/filters/VanishingPointDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/MissingFonts.tsx
 #: app/src/ModeDialog.tsx
 #: app/src/PdfDialog.tsx
 #: app/src/ScriptDialogs.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/ColorPicker.tsx
 #: app/src/shell/GradientEditor.tsx
 #: app/src/SvgDialog.tsx
@@ -8680,9 +9096,29 @@ msgstr "Elzévirien"
 msgid "On"
 msgstr "Activé"
 
+#: app/src/FocusAreaDialog.tsx
+msgid "On Black"
+msgstr "Sur fond noir"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "On Black (A)"
+msgstr "Sur fond noir (A)"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "On Layers (Y)"
+msgstr "Sur les calques (Y)"
+
 #: app/src/app/Dialogs.tsx
 msgid "On the first connect, Chrome and Edge ask to allow access to apps on this device. Allow it, or the agent cannot reach the tab."
 msgstr "Lors de la première connexion, Chrome et Edge demandent l’autorisation d’accéder aux applications de cet appareil. Autorise-la, sinon l’agent ne peut pas atteindre l’onglet."
+
+#: app/src/FocusAreaDialog.tsx
+msgid "On White"
+msgstr "Sur fond blanc"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "On White (T)"
+msgstr "Sur fond blanc (T)"
 
 #: app/src/i18n/choices.ts
 msgid "Once"
@@ -8699,6 +9135,10 @@ msgstr "Une flamme le long du tracé"
 #: app/src/ExportDialogs.tsx
 msgid "One page per artboard, at the document resolution."
 msgstr "Une page par plan de travail, à la résolution du document."
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Onion Skin (O)"
+msgstr "Pelure d’oignon (O)"
 
 #: app/src/i18n/errors.ts
 msgid "Only pixel layers and smart objects can be warped."
@@ -8721,6 +9161,7 @@ msgstr "Seuls les fichiers HDR de haut en bas et de gauche à droite (-Y h +X w)
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayersPanel.tsx
 #: app/src/LayerStyleDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/GradientEditor.tsx
 #: app/src/shell/tools.ts
@@ -8740,6 +9181,7 @@ msgid "Opacity stops"
 msgstr "Arrêts d’opacité"
 
 #: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 msgid "Open a document to play an action."
 msgstr "Ouvre un document pour lire une action."
 
@@ -8864,6 +9306,7 @@ msgid "Outline"
 msgstr "Contour"
 
 #: app/src/filters/labels.ts
+#: app/src/FocusAreaDialog.tsx
 #: app/src/LevelsCurvesBody.tsx
 #: app/src/ModeDialog.tsx
 msgid "Output"
@@ -8876,6 +9319,15 @@ msgstr "Noir de sortie"
 #: app/src/LevelsCurvesBody.tsx
 msgid "Output Levels"
 msgstr "Niveaux de sortie"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Output Settings"
+msgstr "Paramètres de sortie"
+
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Output To"
+msgstr "Sortie vers"
 
 #: app/src/ModeDialog.tsx
 msgid "Output unit"
@@ -8891,10 +9343,15 @@ msgstr "Blanc de sortie"
 msgid "Outside"
 msgstr "À l’extérieur"
 
+#: app/src/FocusAreaDialog.tsx
 #: app/src/i18n/choices.ts
 #: app/src/shell/tools.ts
 msgid "Overlay"
 msgstr "Incrustation"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Overlay (V)"
+msgstr "Incrustation (V)"
 
 #: app/src/filters/GalleryStack.tsx
 msgid "Overlay Edge"
@@ -9024,6 +9481,10 @@ msgstr "Panneau Styles de paragraphe"
 #: app/src/TypePanels.tsx
 msgid "Paragraph Text"
 msgstr "Texte de paragraphe"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Parameters"
+msgstr "Paramètres"
 
 #: app/src/app/cameraData.ts
 msgid "Partial"
@@ -9482,7 +9943,7 @@ msgstr "Lire"
 msgid "Play the selected action"
 msgstr "Lire l’action sélectionnée"
 
-#: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 msgid "Playing action…"
 msgstr "Lecture de l’action…"
 
@@ -9645,6 +10106,7 @@ msgstr "La pression d’un stylet n’est pas encore disponible."
 #: app/src/ColorDialog.tsx
 #: app/src/filters/FilterDialog.tsx
 #: app/src/filters/VanishingPointDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/LayerStyleDialog.tsx
 msgid "Preview"
@@ -9832,6 +10294,10 @@ msgstr "Quadrichromie"
 msgid "Quality"
 msgstr "Qualité"
 
+#: app/src/PropertiesPanel.tsx
+msgid "Quick Actions"
+msgstr "Actions rapides"
+
 #: app/src/app/menus.ts
 msgid "Quick Export as {format}"
 msgstr "Exportation rapide au format {format}"
@@ -9866,6 +10332,7 @@ msgstr "Flou radial"
 #: app/src/adjustments.ts
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/labels.ts
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Radius"
 msgstr "Rayon"
 
@@ -10102,6 +10569,18 @@ msgstr "Référence {u},{v}"
 msgid "Reference point"
 msgstr "Point de référence"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Refine Edge Brush Tool"
+msgstr "Outil Améliorer le contour"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Refine Edge Brush Tool (R)"
+msgstr "Outil Améliorer le contour (R)"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Refining the selection…"
+msgstr "Amélioration de la sélection…"
+
 #: app/src/i18n/choices.ts
 #: app/src/LayerStyleDialog.tsx
 msgid "Reflected"
@@ -10153,6 +10632,10 @@ msgstr "Rétablir le lien avec le fichier…"
 msgid "Relinking needs a browser with file system access."
 msgstr "Le rétablissement du lien nécessite un navigateur avec accès au système de fichiers."
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Remember Settings"
+msgstr "Mémoriser les paramètres"
+
 #: app/src/ExportDialogs.tsx
 #: app/src/filters/labels.ts
 msgid "Remove"
@@ -10166,10 +10649,20 @@ msgstr "Tout supprimer"
 msgid "Remove All Pins"
 msgstr "Supprimer toutes les épingles"
 
+#: app/src/App.tsx
+#: app/src/i18n/history.ts
+#: app/src/PropertiesPanel.tsx
+msgid "Remove Background"
+msgstr "Supprimer l’arrière-plan"
+
 #: app/src/app/menus.ts
 #: app/src/i18n/history.ts
 msgid "Remove Black Matte"
 msgstr "Retirer le cache noir"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Remove Brush"
+msgstr "Pinceau de suppression"
 
 #: app/src/filters/labels.ts
 msgid "Remove Distortion"
@@ -10195,6 +10688,10 @@ msgstr "Supprimer la division de déformation"
 #: app/src/i18n/history.ts
 msgid "Remove White Matte"
 msgstr "Retirer le cache blanc"
+
+#: app/src/App.tsx
+msgid "Removing background…"
+msgstr "Suppression de l’arrière-plan…"
 
 #: app/src/ToolPresetsPanel.tsx
 msgid "Rename"
@@ -10323,6 +10820,7 @@ msgstr "Resélectionner"
 
 #: app/src/ExportDialogs.tsx
 #: app/src/filters/FilterDialog.tsx
+#: app/src/filters/LiquifyDialog.tsx
 #: app/src/shell/DeformSession.tsx
 #: app/src/shell/ToolBar.tsx
 msgid "Reset"
@@ -10395,6 +10893,10 @@ msgstr "Résoudre les polices manquantes"
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Restore All"
 msgstr "Tout restaurer"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Restore original edge"
+msgstr "Restaurer le contour d’origine"
 
 #: app/src/shell/GradientEditor.tsx
 msgid "Restrict colors"
@@ -10664,6 +11166,10 @@ msgstr "Exécuter"
 msgid "Run Action"
 msgstr "Exécuter l’action"
 
+#: app/src/BatchDialog.tsx
+msgid "Run Droplet"
+msgstr "Exécuter le droplet"
+
 #: app/src/shell/ColorPicker.tsx
 msgctxt "color picker saturation field"
 msgid "S"
@@ -10683,6 +11189,7 @@ msgstr "Échantillon"
 msgid "Sample all layers"
 msgstr "Échantillonner tous les calques"
 
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/tools.ts
 msgid "Sample All Layers"
 msgstr "Échantillonner tous les calques"
@@ -10744,6 +11251,7 @@ msgstr "Saturation et luminosité"
 #: app/src/App.tsx
 #: app/src/app/Dialogs.tsx
 #: app/src/app/menus.ts
+#: app/src/BatchDialog.tsx
 #: app/src/ExportDialogs.tsx
 #: app/src/LayerStyleDialog.tsx
 #: app/src/WorkspaceDialog.tsx
@@ -11050,6 +11558,11 @@ msgstr "Tout sélectionner"
 msgid "Select an action first."
 msgstr "Sélectionne d’abord une action."
 
+#: app/src/App.tsx
+#: app/src/app/droplets.ts
+msgid "Select an action for the droplet."
+msgstr "Sélectionne une action pour le droplet."
+
 #: app/src/ActionsPanel.tsx
 msgid "Select an action to play."
 msgstr "Sélectionne une action à lire."
@@ -11062,9 +11575,27 @@ msgstr "Sélectionne une action dans laquelle enregistrer."
 msgid "Select an unlocked layer with pixels to warp."
 msgstr "Sélectionne un calque déverrouillé contenant des pixels à déformer."
 
+#: app/src/i18n/history.ts
+#: app/src/SelectAndMaskDialog.tsx
+#: app/src/shell/tools.ts
+msgid "Select and Mask"
+msgstr "Sélectionner et masquer"
+
+#: app/src/App.tsx
+#: app/src/app/menus.ts
+#: app/src/FocusAreaDialog.tsx
+msgid "Select and Mask…"
+msgstr "Sélectionner et masquer…"
+
 #: app/src/i18n/errors.ts
 msgid "Select at least two pixel layers to align."
 msgstr "Sélectionne au moins deux calques de pixels à aligner."
+
+#: app/src/App.tsx
+#: app/src/i18n/history.ts
+#: app/src/PropertiesPanel.tsx
+msgid "Select Background"
+msgstr "Sélectionner l’arrière-plan"
 
 #: app/src/AnalysisDialogs.tsx
 msgid "Select Data Points"
@@ -11073,6 +11604,10 @@ msgstr "Sélectionner les points de données"
 #: app/src/app/menus.ts
 msgid "Select Data Points…"
 msgstr "Sélectionner les points de données…"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Select Face"
+msgstr "Sélectionner un visage"
 
 #: app/src/VariablesDialogs.tsx
 msgid "Select File..."
@@ -11091,7 +11626,9 @@ msgstr "Sélectionne des calques du même niveau pour les convertir."
 msgid "Select location to save processed images"
 msgstr "Sélectionne l’emplacement d’enregistrement des images traitées"
 
+#: app/src/App.tsx
 #: app/src/i18n/history.ts
+#: app/src/PropertiesPanel.tsx
 msgid "Select Subject"
 msgstr "Sélectionner un sujet"
 
@@ -11112,12 +11649,26 @@ msgid "Select two or more shape layers to combine them."
 msgstr "Sélectionne au moins deux calques de forme pour les combiner."
 
 #: app/src/App.tsx
+msgid "Selecting background…"
+msgstr "Sélection de l’arrière-plan…"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Selecting focus area…"
+msgstr "Sélection de la plage de netteté…"
+
+#: app/src/App.tsx
+msgid "Selecting object…"
+msgstr "Sélection de l’objet…"
+
+#: app/src/App.tsx
 msgid "Selecting subject…"
 msgstr "Sélection du sujet…"
 
 #: app/src/filters/LiquifyDialog.tsx
+#: app/src/FocusAreaDialog.tsx
 #: app/src/ImageCalcDialog.tsx
 #: app/src/InspectionPanels.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "Selection"
 msgstr "Sélection"
 
@@ -11369,6 +11920,10 @@ msgctxt "keyboard modifier"
 msgid "Shift"
 msgstr "Maj"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Shift Edge"
+msgstr "Décaler le contour"
+
 #: app/src/filters/labels.ts
 msgid "Shine"
 msgstr "Brillance"
@@ -11417,6 +11972,10 @@ msgstr "Afficher la laisse du pinceau pendant le lissage"
 msgid "Show Crosshair in Brush Tip"
 msgstr "Afficher le réticule dans la pointe du pinceau"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Show Edge (J)"
+msgstr "Afficher le contour (J)"
+
 #: app/src/LayersPanel.tsx
 msgid "Show effects of {name}"
 msgstr "Afficher les effets de {name}"
@@ -11460,6 +12019,10 @@ msgstr "Afficher le maillage"
 #: app/src/app/Dialogs.tsx
 msgid "Show Only Crosshair While Painting"
 msgstr "Afficher uniquement le réticule pendant la peinture"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Show Original (P)"
+msgstr "Afficher l’original (P)"
 
 #: app/src/CloneSourcePanel.tsx
 msgid "Show Overlay"
@@ -11536,6 +12099,8 @@ msgstr "Composition sur une seule ligne"
 #: app/src/ExportDialogs.tsx
 #: app/src/filters/labels.ts
 #: app/src/filters/LiquifyDialog.tsx
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/BrushPanels.tsx
 #: app/src/shell/OptionsBar.tsx
 #: app/src/shell/tools.ts
@@ -11675,9 +12240,17 @@ msgstr "Objets dynamiques"
 msgid "Smart Objects"
 msgstr "Objets dynamiques"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Smart Radius"
+msgstr "Rayon dynamique"
+
 #: app/src/filters/labels.ts
 msgid "Smart Sharpen"
 msgstr "Netteté optimisée"
+
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Smile"
+msgstr "Sourire"
 
 #: app/src/app/helpers.ts
 #: app/src/filters/LiquifyDialog.tsx
@@ -11693,6 +12266,11 @@ msgstr "Lisse"
 
 #: app/src/i18n/history.ts
 msgctxt "history step"
+msgid "Smooth"
+msgstr "Lisser"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgctxt "select and mask"
 msgid "Smooth"
 msgstr "Lisser"
 
@@ -11745,6 +12323,10 @@ msgstr "Lumière tamisée"
 #: app/src/LayerStyleDialog.tsx
 msgid "Soften (px)"
 msgstr "Adoucir (px)"
+
+#: app/src/FocusAreaDialog.tsx
+msgid "Soften Edge"
+msgstr "Adoucir le contour"
 
 #: app/src/LayerStyleDialog.tsx
 msgid "Softer"
@@ -12067,6 +12649,7 @@ msgid "Stop recording"
 msgstr "Arrêter l’enregistrement"
 
 #: app/src/ActionsPanel.tsx
+#: app/src/App.tsx
 #: app/src/app/actionsStore.ts
 msgid "Stop recording first."
 msgstr "Arrête d’abord l’enregistrement."
@@ -12332,6 +12915,10 @@ msgstr "Soustraction"
 msgid "Subtract from channel"
 msgstr "Soustraire de la couche"
 
+#: app/src/SelectAndMaskDialog.tsx
+msgid "Subtract from selection"
+msgstr "Soustraire de la sélection"
+
 #: app/src/app/Dialogs.tsx
 #: app/src/filters/LiquifyDialog.tsx
 msgid "Subtract from Selection"
@@ -12538,9 +13125,17 @@ msgstr "le filtre dynamique {name} a été conservé sans son effet, car le mote
 msgid "the {name} smart filter was not imported"
 msgstr "le filtre dynamique {name} n’a pas été importé"
 
+#: app/src/i18n/errors.ts
+msgid "The action \"{name}\" plays itself through a conditional step."
+msgstr "L’action « {name} » se lance elle-même par une étape conditionnelle."
+
 #: app/src/ActionsPanel.tsx
 msgid "The action has no enabled steps."
 msgstr "L’action n’a aucune étape activée."
+
+#: app/src/ActionDialogs.tsx
+msgid "The action pauses at this step. Change the values for this run, or cancel to stop the action."
+msgstr "L’action s’arrête à cette étape. Modifie les valeurs pour cette exécution, ou annule pour arrêter l’action."
 
 #: app/src/i18n/errors.ts
 msgid "The alignment must lie between 0 and 1."
@@ -12593,6 +13188,14 @@ msgstr "Le document n’est pas ouvert."
 #: app/src/i18n/errors.ts
 msgid "The document to revert is no longer active."
 msgstr "Le document à rétablir n’est plus actif."
+
+#: app/src/ai/models.ts
+msgid "The downloaded model is damaged. Try again."
+msgstr "Le modèle téléchargé est endommagé. Réessaie."
+
+#: app/src/BatchDialog.tsx
+msgid "The droplet is saved as a .pbdroplet file. Open it in photobaer (File › Open, or drop it on the window together with images) to run the action on images."
+msgstr "Le droplet est enregistré dans un fichier .pbdroplet. Ouvre-le dans photobaer (Fichier › Ouvrir, ou dépose-le sur la fenêtre avec des images) pour exécuter l’action sur des images."
 
 #: app/src/app/Dialogs.tsx
 msgid "The editing runs in this browser tab; photobaer-mcp runs on your computer and only connects the agent to the tab."
@@ -12683,6 +13286,10 @@ msgid "The image extends past the margins."
 msgstr "L’image dépasse les marges."
 
 #: app/src/i18n/errors.ts
+msgid "The image is too large for Select and Mask."
+msgstr "L’image est trop grande pour Sélectionner et masquer."
+
+#: app/src/i18n/errors.ts
 msgid "The image is too large to save at this bit depth."
 msgstr "L’image est trop grande pour être enregistrée avec cette profondeur de bits."
 
@@ -12707,8 +13314,20 @@ msgid "The measured line is already straight."
 msgstr "La ligne mesurée est déjà droite."
 
 #: app/src/i18n/errors.ts
+msgid "The menu item \"{item}\" does not exist."
+msgstr "L’élément de menu « {item} » n’existe pas."
+
+#: app/src/i18n/errors.ts
+msgid "The menu item \"{item}\" is not available now."
+msgstr "L’élément de menu « {item} » n’est pas disponible pour le moment."
+
+#: app/src/i18n/errors.ts
 msgid "The mode or bit depth was not applied: {reason}"
 msgstr "Le mode ou la profondeur de bits n’a pas été appliqué : {reason}"
+
+#: app/src/ai/models.ts
+msgid "The model download failed (HTTP {status})."
+msgstr "Le téléchargement du modèle a échoué (HTTP {status})."
 
 #: app/src/i18n/errors.ts
 msgid "The name \"{name}\" is already bound to another layer or property."
@@ -12831,6 +13450,10 @@ msgstr "L’image déformée dépasse la limite de rendu."
 msgid "The XMP is not well-formed. Correct it before you leave Raw Data."
 msgstr "Le XMP n’est pas bien formé. Corrige-le avant de quitter Données brutes."
 
+#: app/src/ActionDialogs.tsx
+msgid "Then Play Action"
+msgstr "Alors, lire l’action"
+
 #: app/src/App.tsx
 msgid "There are no data sets to apply."
 msgstr "Il n’y a aucun jeu de données à appliquer."
@@ -12846,6 +13469,10 @@ msgstr "Il n’y a aucun pixel à transformer."
 #: app/src/i18n/errors.ts
 msgid "There are no pixels to warp."
 msgstr "Il n’y a aucun pixel à déformer."
+
+#: app/src/i18n/errors.ts
+msgid "There is no action named \"{name}\" in this set."
+msgstr "Aucune action nommée « {name} » dans ce jeu."
 
 #: app/src/i18n/errors.ts
 msgid "There is no path to convert."
@@ -12898,6 +13525,10 @@ msgstr "Ce filtre n’a aucune option."
 #: app/src/app/actionsStore.ts
 msgid "This is not a photobaer actions file."
 msgstr "Ce n’est pas un fichier d’actions photobaer."
+
+#: app/src/app/droplets.ts
+msgid "This is not a photobaer droplet."
+msgstr "Ce n’est pas un droplet photobaer."
 
 #: app/src/i18n/errors.ts
 msgid "This is not a Radiance HDR file."
@@ -13041,6 +13672,14 @@ msgstr "Variantes pour titrage"
 msgid "To edit the text now, replace the missing font with the default. You can also manage missing fonts for your entire document."
 msgstr "Pour modifier le texte maintenant, remplace la police manquante par la police par défaut. Tu peux également gérer les polices manquantes pour l’ensemble de ton document."
 
+#: app/src/ActionDialogs.tsx
+msgid "To record a menu item, select a menu item using the mouse."
+msgstr "Pour enregistrer un élément de menu, sélectionne-le avec la souris."
+
+#: app/src/ActionsPanel.tsx
+msgid "Toggle dialog on/off"
+msgstr "Activer/désactiver la boîte de dialogue"
+
 #: app/src/app/menus.ts
 msgid "Toggle Last State"
 msgstr "Activer/désactiver le dernier état"
@@ -13117,6 +13756,7 @@ msgid "Tool presets could not be saved: {reason}"
 msgstr "Les paramètres prédéfinis d’outils n’ont pas pu être enregistrés : {reason}"
 
 #: app/src/app/menus.ts
+#: app/src/SelectAndMaskDialog.tsx
 #: app/src/shell/ToolBar.tsx
 msgid "Tools"
 msgstr "Outils"
@@ -13429,6 +14069,10 @@ msgstr "Dissocier les rayons des coins"
 msgid "Unlink dimensions"
 msgstr "Dissocier les dimensions"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Unlink the eyes"
+msgstr "Délier les yeux"
+
 #: app/src/PdfDialog.tsx
 msgid "Unlock"
 msgstr "Déverrouiller"
@@ -13504,6 +14148,10 @@ msgstr "Supérieur"
 msgid "Upper Arc"
 msgstr "Arc supérieur"
 
+#: app/src/filters/LiquifyDialog.tsx
+msgid "Upper Lip"
+msgstr "Lèvre supérieure"
+
 #: app/src/shell/TransformBar.tsx
 msgid "Upper Shell"
 msgstr "Coque supérieure"
@@ -13564,6 +14212,10 @@ msgstr "Utiliser avec des agents IA"
 #: app/src/app/menus.ts
 msgid "Use with AI Agents…"
 msgstr "Utiliser avec des agents IA…"
+
+#: app/src/ai/ModelDialog.tsx
+msgid "Use Without Model"
+msgstr "Utiliser sans modèle"
 
 #: app/src/VariablesDialogs.tsx
 msgid "UTF-8 text, comma, semicolon or tab separated; the first row names the variables."
@@ -13733,8 +14385,14 @@ msgid "Video"
 msgstr "Vidéo"
 
 #: app/src/App.tsx
+#: app/src/FocusAreaDialog.tsx
+#: app/src/SelectAndMaskDialog.tsx
 msgid "View"
 msgstr "Affichage"
+
+#: app/src/SelectAndMaskDialog.tsx
+msgid "View Mode"
+msgstr "Mode d’affichage"
 
 #: app/src/filters/LiquifyDialog.tsx
 msgid "View Options"
